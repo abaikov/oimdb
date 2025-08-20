@@ -1,0 +1,3 @@
+export enum EOIMEventQueueSchedulerEventType {
+    FLUSH,
+}
