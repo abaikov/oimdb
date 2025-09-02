@@ -1,0 +1,49 @@
+{
+  "name": "@oimdb/react",
+  "version": "1.0.1",
+  "description": "React integration for OIMDB - Hooks for selection and subscription with external storage",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abaikov/oimdb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abaikov/oimdb/issues"
+  },
+  "homepage": "https://github.com/abaikov/oimdb#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "dependencies": {
+    "@oimdb/core": "^1.0.0"
+  },
+  "peerDependencies": {
+    "@oimdb/core": "^1.0.0",
+    "react": "^18.0.0"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.0",
+    "typescript": "^5.2.2",
+    "rimraf": "^5.0.5",
+    "react": "^18.0.0",
+    "@types/react": "^18.0.0"
+  },
+  "author": "Andrei Baikov",
+  "license": "MIT"
+}

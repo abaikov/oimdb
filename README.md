@@ -1,337 +1,112 @@
 # OIMDB - In-Memory Database for Frontend State Management
 
-A high-performance, event-driven in-memory database designed specifically for frontend applications. OIMDB solves state management problems with a focus on performance, normalization, and developer experience.
+**⚠️ DEPRECATED: This main package is deprecated. Please use the individual packages [@oimdb/core](packages/core/) and [@oimdb/react](packages/react/) instead.**
 
-## 🚀 Quick Start
+A high-performance, event-driven in-memory database designed specifically for frontend applications. OIMDB provides reactive collections, intelligent indexing, and configurable event processing for building fast, predictable state management solutions.
 
-### Installation
+## 📦 Packages
+
+OIMDB is now organized as a monorepo with separate packages:
+
+### [@oimdb/core](packages/core/) - Core Library
+The foundational reactive collections, indexing, and event processing library.
 
 ```bash
-npm install oimdb
+npm install @oimdb/core
 ```
 
-### Basic Usage
+**Key Features:**
+- Reactive collections with automatic change notifications
+- Intelligent event coalescing for optimal performance  
+- Configurable schedulers (microtask, timeout, animationFrame, immediate)
+- Type-safe operations with full TypeScript support
+- O(1) lookups and efficient indexing
 
-```typescript
-import { createDb } from 'oimdb/dx';
+[📖 See @oimdb/core documentation](packages/core/README.md)
 
-// Create a database instance
-const db = createDb({ scheduler: 'microtask' });
+### [@oimdb/react](packages/react/) - React Integration
+React hooks for seamless integration with OIMDB reactive collections.
 
-// Create collections
-const users = db.createCollection<User>();
-const posts = db.createCollection<Post>();
-
-// Create indexes for fast lookups
-const userByEmail = db.createIndex<string, string>();
-const postsByUser = db.createIndex<string, string>();
-
-// Subscribe to updates
-users.subscribe('user123', () => {
-    console.log('User updated!');
-});
-
-// Insert data
-users.upsert({ id: 'user123', name: 'John', email: 'john@example.com' });
-posts.upsert({ id: 'post1', userId: 'user123', title: 'Hello World' });
-
-// Build indexes
-userByEmail.set('john@example.com', ['user123']);
-postsByUser.set('user123', ['post1']);
-
-// Query by index
-const userId = userByEmail.get('john@example.com'); // ['user123']
-const userPosts = postsByUser.get('user123'); // ['post1']
-
-// Clean up
-db.destroy();
+```bash
+npm install @oimdb/react @oimdb/core
 ```
 
-## 🎯 Why OIMDB?
+**Key Features:**
+- Direct integration with `OIMReactiveCollection` and `OIMReactiveIndex`
+- Automatic subscriptions using `useSyncExternalStore`
+- React Context support for centralized collection management
+- Key-specific subscriptions for efficient re-renders
 
-### 🚀 Non-Serializable State for Speed
-- **In-memory operations** are orders of magnitude faster than serialization-based solutions
-- **Easily handle massive entity lists** without performance degradation
-- **Direct object references** eliminate JSON parsing overhead
+[📖 See @oimdb/react documentation](packages/react/README.md)
 
-### 🏗️ Collection-First Design
-- **Forces normalization** - no nested objects, only references
-- **Optimized for collections** - every operation is designed around entity collections
-- **Predictable performance** - O(1) lookups by primary key
-
-### 🔒 Performance by Design
-- **Access only by PK or index** - impossible to accidentally create N+1 queries
-- **All relationships must be set explicitly** when data arrives
-- **Always O(1) retrieval** - no hidden performance traps
-
-### 📡 Smart Event System
-- **Subscribe to individual entities** for granular updates
-- **Intelligent coalescing** - multiple updates to the same entity = single notification
-- **Manual control** over when notifications are delivered
-- **Perfect for React** - update state only when you're ready
-
-### ⚡ Optimized by Default
-- **No shallow comparison by default** - set = change = notification
-- **UI catches all updates** - no missed changes
-- **Optional comparators** available when you need to reduce noise
-- **Configurable event scheduling** (microtask, immediate, timeout, animationFrame)
-
-### 🔧 Modular Core
-- **Replace any component** with your own implementation
-- **Separate layers** for storage, entity management, and notifications
-- **Extensible architecture** - build exactly what you need
-
-## 📚 API Reference
-
-### DX Layer (Recommended for most use cases)
-
-The DX layer provides a simplified, high-level API that handles common patterns automatically.
-
-#### `createDb(options?)`
-
-Creates a new database instance with shared event processing.
+## ✨ Quick Example
 
 ```typescript
-import { createDb } from 'oimdb/dx';
+import { OIMReactiveCollection, OIMEventQueue, OIMEventQueueSchedulerFactory } from '@oimdb/core';
 
-const db = createDb({
-    scheduler: 'microtask' // 'microtask' | 'immediate' | 'timeout' | 'animationFrame'
-});
-```
-
-#### Collections
-
-```typescript
-const users = db.createCollection<User>();
-
-// CRUD operations
-users.upsert({ id: 'user1', name: 'John' });
-users.upsertMany([user1, user2, user3]);
-users.remove({ id: 'user1' });
-users.removeMany([user1, user2]);
-
-// Subscriptions
-const unsubscribe = users.subscribe('user1', () => {
-    console.log('User 1 updated');
-});
-
-// Batch subscriptions
-users.subscribeMany(['user1', 'user2'], () => {
-    console.log('User 1 or 2 updated');
-});
-```
-
-#### Indexes
-
-```typescript
-const userByEmail = db.createIndex<string, string>({
-    comparison: 'element-wise' // 'element-wise' | 'set-based' | 'always-update'
-});
-
-// Index operations
-userByEmail.set('john@example.com', ['user1']);
-userByEmail.add('john@example.com', ['user2']);
-userByEmail.remove('john@example.com', ['user1']);
-userByEmail.clear('john@example.com');
-
-// Queries
-const userIds = userByEmail.get('john@example.com');
-const hasKey = userByEmail.has('john@example.com');
-const allKeys = userByEmail.keys();
-
-// Subscriptions
-userByEmail.subscribe('john@example.com', () => {
-    console.log('Index updated for john@example.com');
-});
-```
-
-#### Database Management
-
-```typescript
-// Manual event processing
-db.flushUpdatesNotifications();
-
-// Metrics
-const metrics = db.getMetrics();
-console.log(`Queue length: ${metrics.queueLength}`);
-console.log(`Scheduler: ${metrics.scheduler}`);
-
-// Cleanup
-db.destroy();
-```
-
-### Core Layer (Advanced users)
-
-The core layer provides direct access to all components for maximum flexibility.
-
-#### Collections
-
-```typescript
-import { OIMCollection } from 'oimdb';
-
-const collection = new OIMCollection<User>({
-    selectPk: new OIMPkSelectorFactory<User>().createIdSelector(),
-    store: new OIMCollectionStoreMapDriven<User>(),
-    updateEntity: new OIMEntityUpdaterFactory<User>().createMergeEntityUpdater()
-});
-
-collection.upsertOne(user);
-collection.upsertMany(users);
-collection.removeOne(user);
-collection.removeMany(users);
-```
-
-#### Event System
-
-```typescript
-import { OIMUpdateEventEmitter, OIMUpdateEventCoalescerCollection } from 'oimdb';
-
-const coalescer = new OIMUpdateEventCoalescerCollection(collection.emitter);
-const emitter = new OIMUpdateEventEmitter({ coalescer, queue });
-
-emitter.subscribeOnKey('user1', handler);
-emitter.subscribeOnKeys(['user1', 'user2'], handler);
-```
-
-#### Event Queue
-
-```typescript
-import { OIMEventQueue, OIMEventQueueSchedulerFactory } from 'oimdb';
-
-const scheduler = OIMEventQueueSchedulerFactory.createMicrotask();
-const queue = new OIMEventQueue({ scheduler });
-
-// Manual processing
-queue.flush();
-```
-
-#### Indexes
-
-```typescript
-import { OIMIndexManual, OIMIndexComparatorFactory } from 'oimdb';
-
-const index = new OIMIndexManual<string, number>({
-    comparePks: OIMIndexComparatorFactory.createElementWiseComparator<number>()
-});
-
-index.setPks('key1', [1, 2, 3]);
-index.addPks('key1', [4, 5]);
-index.removePks('key1', [1]);
-index.getPks('key1'); // [2, 3, 4, 5]
-```
-
-## 🔧 Advanced Features
-
-### Custom Comparators
-
-```typescript
-// Element-wise comparison (default)
-const elementWise = OIMIndexComparatorFactory.createElementWiseComparator<number>();
-
-// Set-based comparison
-const setBased = OIMIndexComparatorFactory.createSetBasedComparator<number>();
-
-// Custom comparator
-const customComparator: TOIMIndexComparator<number> = (oldPks, newPks) => {
-    // Return true if no change, false if changed
-    return JSON.stringify(oldPks) === JSON.stringify(newPks);
-};
-```
-
-### Event Scheduling
-
-```typescript
-// Microtask - fastest, same tick processing
-const microtaskDb = createDb({ scheduler: 'microtask' });
-
-// Immediate - instant processing, good for testing
-const immediateDb = createDb({ scheduler: 'immediate' });
-
-// Timeout - batched processing, performance optimized
-const timeoutDb = createDb({ scheduler: 'timeout' });
-
-// AnimationFrame - smooth UI updates, React-friendly
-const animationFrameDb = createDb({ scheduler: 'animationFrame' });
-```
-
-### Custom Storage
-
-```typescript
-import { OIMCollectionStore } from 'oimdb';
-
-class CustomStore<T> implements OIMCollectionStore<T> {
-    private data = new Map<string, T>();
-    
-    get(pk: string): T | undefined {
-        return this.data.get(pk);
-    }
-    
-    set(pk: string, entity: T): void {
-        this.data.set(pk, entity);
-    }
-    
-    delete(pk: string): boolean {
-        return this.data.delete(pk);
-    }
-    
-    clear(): void {
-        this.data.clear();
-    }
-    
-    size(): number {
-        return this.data.size;
-    }
-    
-    keys(): string[] {
-        return Array.from(this.data.keys());
-    }
-    
-    values(): T[] {
-        return Array.from(this.data.values());
-    }
-    
-    entries(): [string, T][] {
-        return Array.from(this.data.entries());
-    }
+interface User {
+  id: string;
+  name: string;
+  email: string;
 }
+
+// Create reactive collection
+const queue = new OIMEventQueue({
+  scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
+});
+
+const users = new OIMReactiveCollection<User, string>(queue, {
+  collectionOpts: { selectPk: (user) => user.id }
+});
+
+// Subscribe to changes
+users.updateEventEmitter.subscribeOnKey('user1', () => {
+  console.log('User1 updated!');
+});
+
+// Insert and update data
+users.upsertOne({ id: 'user1', name: 'John', email: 'john@example.com' });
+users.upsertOne({ id: 'user1', name: 'John Doe', email: 'john@example.com' });
+// Only one notification fires due to intelligent coalescing
 ```
 
-## 🧪 Testing
+## 🎯 Key Benefits
+
+- **🚀 Performance First**: Map-based storage with O(1) lookups
+- **📡 Reactive Architecture**: Automatic change notifications with intelligent coalescing  
+- **🔧 Type Safety**: Full TypeScript support with advanced generics
+- **⚡ Configurable**: Multiple scheduler options for different use cases
+- **🏗️ Modular**: Use only what you need, extend what you want
+
+## 🚀 Getting Started
+
+For detailed documentation and API reference, visit the individual package READMEs:
+
+- **[@oimdb/core](packages/core/README.md)** - Complete core library documentation
+- **[@oimdb/react](packages/react/README.md)** - React integration guide
+
+## 🧪 Development
 
 ```bash
-# Run all tests
+# Install dependencies
+npm install
+
+# Run tests
 npm test
 
-# Run specific test suites
-npm test -- --testNamePattern="Collection"
-npm test -- --testNamePattern="Index"
-npm test -- --testNamePattern="DX"
-
 # Run benchmarks
-npx tsx bench/index.ts
+npm run bench
 
-# Run examples
-npx tsx examples/basic-usage.ts
-npx tsx examples/index-usage.ts
-npx tsx examples/scheduler-comparison.ts
+# Build packages
+npm run build
 ```
-
-## 📖 Examples
-
-See the `examples/` directory for comprehensive usage examples:
-
-- `basic-usage.ts` - Basic operations and patterns
-- `index-usage.ts` - Index functionality and comparison strategies
-- `scheduler-comparison.ts` - Different event scheduling approaches
 
 ## 📚 Documentation
 
-For comprehensive documentation, see the [`docs/`](docs/) directory:
+Additional documentation is available in the [`docs/`](docs/) directory:
 
-- [API Reference](docs/API.md) - Complete API documentation
 - [Architecture](docs/ARCHITECTURE.md) - Design principles and component structure
 - [Performance Guide](docs/PERFORMANCE.md) - Optimization strategies and benchmarks
-- [Migration Guide](docs/MIGRATION.md) - Migrating from other state management solutions
 
 ## 🤝 Contributing
 
@@ -347,4 +122,4 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**OIMDB** - The in-memory database that makes frontend state management fast, predictable, and enjoyable. 🚀
+**OIMDB** - High-performance, reactive in-memory database for frontend applications. 🚀
