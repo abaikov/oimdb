@@ -18,7 +18,7 @@ export class OIMReactiveIndexManual<
         return new OIMIndexManual<TKey, TPk>();
     }
 
-    public setPks(key: TKey, pks: readonly TPk[]): void {
+    public setPks(key: TKey, pks: TPk[]): void {
         this.index.setPks(key, pks);
     }
 

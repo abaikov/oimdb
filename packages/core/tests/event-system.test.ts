@@ -6,7 +6,7 @@ import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDr
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
-import { EOIMUpdateEventCoalescerEventType } from '../src/types/EOIMUpdateEventCoalescerEventType';
+import { EOIMUpdateEventCoalescerEventType } from '../src/enum/EOIMUpdateEventCoalescerEventType';
 
 interface TOIMTestEntity {
     id: string;

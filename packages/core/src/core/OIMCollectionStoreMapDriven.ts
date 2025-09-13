@@ -31,7 +31,23 @@ export class OIMCollectionStoreMapDriven<
         return this.entities.get(pk);
     }
 
-    getManyByPks(pks: readonly TPk[]): Map<TPk, TEntity | undefined> {
-        return new Map(pks.map(pk => [pk, this.getOneByPk(pk)]));
+    getManyByPks(pks: readonly TPk[]): TEntity[] {
+        return pks.map(pk => this.getOneByPk(pk)).filter(Boolean) as TEntity[];
+    }
+
+    getAll(): TEntity[] {
+        return Array.from(this.entities.values());
+    }
+
+    countAll(): number {
+        return this.entities.size;
+    }
+
+    clear(): void {
+        this.entities.clear();
+    }
+
+    getAllPks(): TPk[] {
+        return Array.from(this.entities.keys());
     }
 }

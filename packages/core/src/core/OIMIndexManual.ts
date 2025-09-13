@@ -17,9 +17,9 @@ export class OIMIndexManual<
      * Set primary keys for a specific index key, replacing any existing values.
      * Uses optional comparator to skip updates if PKs haven't actually changed.
      */
-    public setPks(key: TIndexKey, pks: readonly TPk[]): void {
+    public setPks(key: TIndexKey, pks: TPk[]): void {
         // Use base class method that handles comparison
-        const hasChanges = this.setPksWithComparison(key, pks);
+        const hasChanges = this.setPksWithComparison(key, new Set(pks));
 
         if (hasChanges) {
             this.emitUpdate([key]);

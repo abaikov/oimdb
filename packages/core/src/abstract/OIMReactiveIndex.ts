@@ -26,11 +26,11 @@ export abstract class OIMReactiveIndex<
 
     protected abstract createDefaultIndex(): TIndex;
 
-    public getPksByKey(key: TKey): readonly TPk[] {
+    public getPksByKey(key: TKey): Set<TPk> {
         return this.index.getPksByKey(key);
     }
 
-    public getPksByKeys(keys: readonly TKey[]): Map<TKey, readonly TPk[]> {
+    public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
         return this.index.getPksByKeys(keys);
     }
 

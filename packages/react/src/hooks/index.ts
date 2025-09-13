@@ -4,8 +4,10 @@ import {
     OIMReactiveIndex,
     TOIMPk,
 } from '@oimdb/core';
-import { useMemo } from 'react';
+import { useMemo, useRef, useEffect } from 'react';
 import { useSyncExternalStore } from 'react';
+
+const EMPTY_ARRAY: readonly unknown[] = [];
 
 export const useSelectPksByIndexKeys = <
     TPk extends TOIMPk,
@@ -15,18 +17,41 @@ export const useSelectPksByIndexKeys = <
     reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>,
     keys: readonly TKey[]
 ) => {
-    const subscribe = useMemo(() => {
-        return (onStoreChange: () => void) =>
-            reactiveIndex.updateEventEmitter.subscribeOnKeys(
-                keys,
-                onStoreChange
-            );
-    }, [keys, reactiveIndex.updateEventEmitter]);
-    const getSnapshot = useMemo(
-        () => () => keys.map(key => reactiveIndex.getPksByKey(key)),
-        [keys, reactiveIndex]
+    const snapshotValueRef = useRef<readonly TPk[] | null>(
+        keys.map(key => Array.from(reactiveIndex.getPksByKey(key))).flat()
     );
-    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const osc = useRef<() => void>(() => {});
+    const subscribe = useRef((onStoreChange: () => void) => {
+        osc.current = onStoreChange;
+        return () => {
+            osc.current = () => {};
+        };
+    });
+    useEffect(() => {
+        const list = () => {
+            snapshotValueRef.current = keys
+                .map(key => Array.from(reactiveIndex.getPksByKey(key)))
+                .flat();
+            osc.current();
+        };
+        reactiveIndex.updateEventEmitter.subscribeOnKeys(keys, list);
+        return () => {
+            reactiveIndex.updateEventEmitter.unsubscribeFromKeys(keys, list);
+        };
+    }, [keys, reactiveIndex.updateEventEmitter, reactiveIndex]);
+
+    const getSnapshot = useMemo(() => {
+        return () => {
+            // Only recalculate if keys reference actually changed
+            return snapshotValueRef.current;
+        };
+    }, []);
+
+    const snapshot = useSyncExternalStore(
+        subscribe.current,
+        getSnapshot,
+        getSnapshot
+    );
     return snapshot;
 };
 
@@ -38,15 +63,38 @@ export const useSelectPksByIndexKey = <
     reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>,
     key: TKey
 ) => {
-    const subscribe = useMemo(() => {
-        return (onStoreChange: () => void) =>
-            reactiveIndex.updateEventEmitter.subscribeOnKey(key, onStoreChange);
-    }, [key, reactiveIndex.updateEventEmitter]);
-    const getSnapshot = useMemo(
-        () => () => reactiveIndex.getPksByKey(key),
-        [key, reactiveIndex]
+    const snapshotValueRef = useRef<readonly TPk[] | null>(
+        Array.from(reactiveIndex.getPksByKey(key))
     );
-    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const osc = useRef<() => void>(() => {});
+    const subscribe = useRef((onStoreChange: () => void) => {
+        osc.current = onStoreChange;
+        return () => {
+            osc.current = () => {};
+        };
+    });
+    useEffect(() => {
+        const list = () => {
+            snapshotValueRef.current = Array.from(
+                reactiveIndex.getPksByKey(key)
+            );
+            osc.current();
+        };
+        reactiveIndex.updateEventEmitter.subscribeOnKey(key, list);
+        return () => {
+            reactiveIndex.updateEventEmitter.unsubscribeFromKey(key, list);
+        };
+    }, [key, reactiveIndex.updateEventEmitter, reactiveIndex]);
+    const getSnapshot = useMemo(() => {
+        return () => {
+            return snapshotValueRef.current;
+        };
+    }, []);
+    const snapshot = useSyncExternalStore(
+        subscribe.current,
+        getSnapshot,
+        getSnapshot
+    );
     return snapshot;
 };
 
@@ -54,18 +102,32 @@ export const selectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
     reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
     pk: TPk
 ) => {
-    const subscribe = useMemo(() => {
-        return (onStoreChange: () => void) =>
-            reactiveCollection.updateEventEmitter.subscribeOnKey(
-                pk,
-                onStoreChange
-            );
-    }, [pk, reactiveCollection.updateEventEmitter]);
-    const getSnapshot = useMemo(
-        () => () => reactiveCollection.getOneByPk(pk),
-        [pk, reactiveCollection]
+    const snapshotValueRef = useRef<TEntity | undefined>(
+        reactiveCollection.getOneByPk(pk)
     );
-    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const osc = useRef<() => void>(() => {});
+    const subscribe = useRef((onStoreChange: () => void) => {
+        osc.current = onStoreChange;
+        return () => {
+            osc.current = () => {};
+        };
+    });
+    useEffect(() => {
+        const list = () => {
+            snapshotValueRef.current = reactiveCollection.getOneByPk(pk);
+            osc.current();
+        };
+        reactiveCollection.updateEventEmitter.subscribeOnKey(pk, list);
+        return () => {
+            reactiveCollection.updateEventEmitter.unsubscribeFromKey(pk, list);
+        };
+    }, [pk, reactiveCollection.updateEventEmitter, reactiveCollection]);
+    const getSnapshot = useMemo(() => () => snapshotValueRef.current, []);
+    const snapshot = useSyncExternalStore(
+        subscribe.current,
+        getSnapshot,
+        getSnapshot
+    );
     return snapshot;
 };
 
@@ -76,18 +138,42 @@ export const useSelectEntitiesByPks = <
     reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
     pks: readonly TPk[]
 ) => {
-    const subscribe = useMemo(() => {
-        return (onStoreChange: () => void) =>
-            reactiveCollection.updateEventEmitter.subscribeOnKeys(
-                pks,
-                onStoreChange
-            );
-    }, [pks, reactiveCollection.updateEventEmitter]);
-    const getSnapshot = useMemo(
-        () => () => pks.map(pk => reactiveCollection.getOneByPk(pk)),
-        [pks, reactiveCollection]
+    const snapshotValueRef = useRef<readonly TEntity[] | null>(
+        pks.map(pk => reactiveCollection.getOneByPk(pk)) as readonly TEntity[]
     );
-    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    const osc = useRef<() => void>(() => {});
+    const subscribe = useRef((onStoreChange: () => void) => {
+        osc.current = onStoreChange;
+        return () => {
+            osc.current = () => {};
+        };
+    });
+    useEffect(() => {
+        const list = () => {
+            snapshotValueRef.current = pks.map(pk =>
+                reactiveCollection.getOneByPk(pk)
+            ) as readonly TEntity[];
+            osc.current();
+        };
+        reactiveCollection.updateEventEmitter.subscribeOnKeys(pks, list);
+        return () => {
+            reactiveCollection.updateEventEmitter.unsubscribeFromKeys(
+                pks,
+                list
+            );
+        };
+    }, [pks, reactiveCollection.updateEventEmitter, reactiveCollection]);
+
+    const getSnapshot = useMemo(() => {
+        return () => {
+            return snapshotValueRef.current;
+        };
+    }, []);
+    const snapshot = useSyncExternalStore(
+        subscribe.current,
+        getSnapshot,
+        getSnapshot
+    );
     return snapshot;
 };
 
@@ -102,7 +188,10 @@ export const selectEntitiesByIndexKey = <
     key: TKey
 ) => {
     const pks = useSelectPksByIndexKey(reactiveIndex, key);
-    return useSelectEntitiesByPks(reactiveCollection, pks);
+    return useSelectEntitiesByPks(
+        reactiveCollection,
+        pks || (EMPTY_ARRAY as readonly TPk[])
+    );
 };
 
 const unique = <T>(array: T[]): T[] => {
@@ -119,10 +208,9 @@ export const selectEntitiesByIndexKeys = <
     reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>,
     keys: readonly TKey[]
 ) => {
-    const pks = useSelectPksByIndexKeys(reactiveIndex, keys);
-    const pksArray = useMemo(
-        () => unique(Array.from(pks.values()).flat()),
-        [pks]
-    );
-    return useSelectEntitiesByPks(reactiveCollection, pksArray);
+    const pks =
+        useSelectPksByIndexKeys(reactiveIndex, keys) ||
+        (EMPTY_ARRAY as readonly TPk[]);
+
+    return useSelectEntitiesByPks(reactiveCollection, unique(Array.from(pks)));
 };

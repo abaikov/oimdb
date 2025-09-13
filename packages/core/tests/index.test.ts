@@ -41,7 +41,7 @@ describe('OIMIndexManual', () => {
 
             const pks = index.getPks('category:electronics');
             expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4, 5]));
-            expect(pks.length).toBe(5);
+            expect(pks.size).toBe(5);
         });
 
         test('should not add duplicate primary keys', () => {
@@ -50,7 +50,7 @@ describe('OIMIndexManual', () => {
 
             const pks = index.getPks('category:electronics');
             expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4]));
-            expect(pks.length).toBe(4);
+            expect(pks.size).toBe(4);
         });
 
         test('should remove primary keys', () => {
@@ -59,7 +59,7 @@ describe('OIMIndexManual', () => {
 
             const pks = index.getPks('category:electronics');
             expect(pks).toEqual(expect.arrayContaining([1, 3, 5]));
-            expect(pks.length).toBe(3);
+            expect(pks.size).toBe(3);
         });
 
         test('should clean up empty keys after removal', () => {
@@ -456,7 +456,7 @@ describe('OIMIndexManual', () => {
                     'user5',
                 ])
             );
-            expect(pks.length).toBe(5);
+            expect(pks.size).toBe(5);
 
             stringIndex.destroy();
         });

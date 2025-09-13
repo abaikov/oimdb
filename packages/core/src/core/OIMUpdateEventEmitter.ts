@@ -35,7 +35,7 @@ export class OIMUpdateEventEmitter<TKey> {
             // Adaptive algorithm: choose optimal iteration strategy
             if (updatedKeys.size * 2 < this.keyHandlers.size) {
                 // Few updates: iterate through updated keys (more efficient)
-                for (const key of updatedKeys) {
+                for (const key of updatedKeys.values()) {
                     const handlers = this.keyHandlers.get(key);
                     if (handlers) {
                         for (const handler of handlers) {

@@ -36,7 +36,7 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         return this.store.getOneByPk(pk);
     }
 
-    getManyByPks(pks: readonly TPk[]): Map<TPk, TEntity | undefined> {
+    getManyByPks(pks: readonly TPk[]): TEntity[] {
         return this.store.getManyByPks(pks);
     }
 
@@ -62,6 +62,23 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+    }
+
+    clear(): void {
+        this.store.clear();
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
+    }
+
+    countAll(): number {
+        return this.store.countAll();
+    }
+
+    getAll(): TEntity[] {
+        return this.store.getAll();
+    }
+
+    getAllPks(): TPk[] {
+        return this.store.getAllPks();
     }
 
     protected upsertOneWithoutNotifications(entity: TEntity): TPk {

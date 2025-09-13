@@ -23,7 +23,7 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
     /**
      * Get primary keys for multiple index keys
      */
-    public getPksByKeys(keys: readonly TKey[]): Map<TKey, readonly TPk[]> {
+    public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
         return new Map(keys.map(key => [key, this.getPks(key)]));
     }
 
@@ -31,16 +31,16 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
      * @deprecated Use getPksByKey instead
      * Get primary keys for a specific index key
      */
-    public getPks(key: TKey): readonly TPk[] {
+    public getPks(key: TKey): Set<TPk> {
         return this.getPksByKey(key);
     }
 
     /**
      * Get primary keys for a specific index key
      */
-    public getPksByKey(key: TKey): readonly TPk[] {
+    public getPksByKey(key: TKey): Set<TPk> {
         const pksSet = this.pks.get(key);
-        return pksSet ? Array.from(pksSet) : [];
+        return pksSet ? pksSet : new Set();
     }
 
     /**
@@ -114,17 +114,23 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
      * Set primary keys for a specific index key with optional comparison.
      * If comparator is provided and returns true (no changes), skip the update.
      */
-    protected setPksWithComparison(key: TKey, newPks: readonly TPk[]): boolean {
-        const existingPks = this.getPks(key);
+    protected setPksWithComparison(key: TKey, newPks: Set<TPk>): boolean {
+        const existingPks = this.getPks(key).values();
 
         // If comparator is provided, check if arrays are equal
-        if (this.comparePks && this.comparePks(existingPks, newPks)) {
-            return false; // No changes, skip update
+        if (
+            this.comparePks &&
+            this.comparePks(
+                Array.from(existingPks),
+                Array.from(newPks.values())
+            )
+        ) {
+            return false;
         }
 
         // Update the PKs
-        this.pks.set(key, new Set(newPks));
-        return true; // Changes made
+        this.pks.set(key, newPks);
+        return true;
     }
 
     /**

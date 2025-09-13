@@ -46,7 +46,23 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk> {
         return this.collection.getOneByPk(pk);
     }
 
-    public getManyByPks(pks: readonly TPk[]): Map<TPk, TEntity | undefined> {
+    public getManyByPks(pks: readonly TPk[]): TEntity[] {
         return this.collection.getManyByPks(pks);
+    }
+
+    public clear(): void {
+        this.collection.clear();
+    }
+
+    public countAll(): number {
+        return this.collection.countAll();
+    }
+
+    public getAll(): TEntity[] {
+        return this.collection.getAll();
+    }
+
+    public getAllPks(): TPk[] {
+        return this.collection.getAllPks();
     }
 }
