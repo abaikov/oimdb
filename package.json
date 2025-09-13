@@ -39,6 +39,7 @@
     "build": "tsup src/index.ts --dts --format esm,cjs",
     "build:core": "cd packages/core && npm run build",
     "build:react": "cd packages/react && npm run build",
+    "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
     "bench": "tsx scripts/run-bench.ts",
     "prepublishOnly": "npm run build",
     "test": "jest",
@@ -50,6 +51,7 @@
     "install:packages": "cd packages/core && npm install && cd ../react && npm install",
     "publish:core": "cd packages/core && npm publish",
     "publish:react": "cd packages/react && npm publish",
+    "publish:snapshot-manager": "cd packages/snapshot-manager && npm publish",
     "publish:all": "npm run publish:core && npm run publish:react"
   },
   "files": [
