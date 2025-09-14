@@ -29,8 +29,8 @@ npm install @oimdb/react @oimdb/core
 import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
 import { 
   useSelectEntitiesByPks, 
-  selectEntitiesByIndexKey,
-  selectEntityByPk 
+  useSelectEntitiesByIndexKey,
+  useSelectEntityByPk 
 } from '@oimdb/react';
 
 // Create event queue and reactive collections
@@ -46,7 +46,7 @@ const usersCollection = new OIMRICollection(queue, {
 
 ```typescript
 function UserProfile({ userId }: { userId: string }) {
-  const user = selectEntityByPk(usersCollection, userId);
+  const user = useSelectEntityByPk(usersCollection, userId);
 
   if (!user) return <div>Loading...</div>;
 
@@ -81,7 +81,7 @@ function UserList({ userIds }: { userIds: string[] }) {
 
 ```typescript
 function TeamMembers({ teamId }: { teamId: string }) {
-  const teamUsers = selectEntitiesByIndexKey(
+  const teamUsers = useSelectEntitiesByIndexKey(
     usersCollection,
     usersCollection.indexes.byTeam,
     teamId
@@ -165,7 +165,7 @@ function UserDashboard() {
   
   // Use collections with hooks
   const allUsers = useSelectEntitiesByPks(users, []);
-  const teamMembers = selectEntitiesByIndexKey(
+  const teamMembers = useSelectEntitiesByIndexKey(
     users,
     users.indexes.byTeam,
     'team1'
@@ -205,7 +205,7 @@ function UserComponent() {
 
 ## API Reference
 
-### `selectEntityByPk(reactiveCollection, pk)`
+### `useSelectEntityByPk(reactiveCollection, pk)`
 
 Subscribes to a single entity from a reactive collection.
 
@@ -227,7 +227,7 @@ Subscribes to multiple entities from a reactive collection.
 **Returns:**
 - `(TEntity | undefined)[]` - Array of entities (undefined for missing entities)
 
-### `selectEntitiesByIndexKey(reactiveCollection, reactiveIndex, key)`
+### `useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, key)`
 
 Subscribes to entities indexed by a specific key.
 
@@ -239,7 +239,7 @@ Subscribes to entities indexed by a specific key.
 **Returns:**
 - `(TEntity | undefined)[]` - Array of entities for the given index key
 
-### `selectEntitiesByIndexKeys(reactiveCollection, reactiveIndex, keys)`
+### `useSelectEntitiesByIndexKeys(reactiveCollection, reactiveIndex, keys)`
 
 Subscribes to entities indexed by multiple keys.
 
@@ -326,8 +326,8 @@ The hooks work directly with OIMDB reactive objects:
 
 ```typescript
 // Use reactive collections and indexes directly
-const user = selectEntityByPk(reactiveCollection, 'user123');
-const posts = selectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
+const user = useSelectEntityByPk(reactiveCollection, 'user123');
+const posts = useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
 ```
 
 ### Event Subscription
@@ -354,7 +354,7 @@ Hooks automatically subscribe to OIMDB reactive events using `useSyncExternalSto
 ```typescript
 import React from 'react';
 import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
-import { selectEntityByPk, useSelectEntitiesByPks, selectEntitiesByIndexKey } from '@oimdb/react';
+import { useSelectEntityByPk, useSelectEntitiesByPks, useSelectEntitiesByIndexKey } from '@oimdb/react';
 
 interface User {
   id: string;
@@ -378,7 +378,7 @@ const usersCollection = createUserCollection();
 
 // Component
 function UserProfile({ userId }: { userId: string }) {
-  const user = selectEntityByPk(usersCollection, userId);
+  const user = useSelectEntityByPk(usersCollection, userId);
   
   if (!user) return <div>Loading...</div>;
   
@@ -386,7 +386,7 @@ function UserProfile({ userId }: { userId: string }) {
 }
 
 function TeamDashboard({ teamId }: { teamId: string }) {
-  const teamMembers = selectEntitiesByIndexKey(
+  const teamMembers = useSelectEntitiesByIndexKey(
     usersCollection,
     usersCollection.indexes.byTeam,
     teamId
@@ -445,9 +445,9 @@ const users = useEntities(userStorage, userIds);
 const posts = useIndex(postStorage, categoryIndex, 'tech');
 
 // v1.x - Reactive collections
-const user = selectEntityByPk(reactiveCollection, 'user123');
+const user = useSelectEntityByPk(reactiveCollection, 'user123');
 const users = useSelectEntitiesByPks(reactiveCollection, userIds);
-const posts = selectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
+const posts = useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
 ```
 
 ### Collection Creation
@@ -464,7 +464,7 @@ const usersCollection = new OIMRICollection(queue, {
   collectionOpts: { selectPk: (user: User) => user.id },
   indexes: {},
 });
-const user = selectEntityByPk(usersCollection, userId);
+const user = useSelectEntityByPk(usersCollection, userId);
 ```
 
 ### Context API
@@ -481,7 +481,7 @@ const collections = { users: usersCollection };
 
 ### Key Changes
 
-- **Hook naming**: More explicit names like `selectEntityByPk` vs `useEntity`
+- **Hook naming**: More explicit names like `useSelectEntityByPk` vs `useEntity`
 - **Parameters**: Direct reactive collection objects instead of storage abstractions
 - **Context**: New context API for centralized collection management
 - **Type safety**: Enhanced TypeScript support with better inference

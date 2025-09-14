@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/react",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "React integration for OIMDB - Hooks for selection and subscription with external storage",
   "type": "module",
   "main": "./dist/index.cjs",

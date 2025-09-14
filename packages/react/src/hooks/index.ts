@@ -17,6 +17,7 @@ export const useSelectPksByIndexKeys = <
     reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>,
     keys: readonly TKey[]
 ) => {
+    const isInitialized = useRef(false);
     const snapshotValueRef = useRef<readonly TPk[] | null>(
         keys.map(key => Array.from(reactiveIndex.getPksByKey(key))).flat()
     );
@@ -35,6 +36,14 @@ export const useSelectPksByIndexKeys = <
             osc.current();
         };
         reactiveIndex.updateEventEmitter.subscribeOnKeys(keys, list);
+        if (!isInitialized.current) {
+            isInitialized.current = true;
+        } else {
+            snapshotValueRef.current = keys
+                .map(key => Array.from(reactiveIndex.getPksByKey(key)))
+                .flat();
+            osc.current();
+        }
         return () => {
             reactiveIndex.updateEventEmitter.unsubscribeFromKeys(keys, list);
         };
@@ -63,6 +72,7 @@ export const useSelectPksByIndexKey = <
     reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>,
     key: TKey
 ) => {
+    const isInitialized = useRef(false);
     const snapshotValueRef = useRef<readonly TPk[] | null>(
         Array.from(reactiveIndex.getPksByKey(key))
     );
@@ -81,6 +91,14 @@ export const useSelectPksByIndexKey = <
             osc.current();
         };
         reactiveIndex.updateEventEmitter.subscribeOnKey(key, list);
+        if (!isInitialized.current) {
+            isInitialized.current = true;
+        } else {
+            snapshotValueRef.current = Array.from(
+                reactiveIndex.getPksByKey(key)
+            );
+            osc.current();
+        }
         return () => {
             reactiveIndex.updateEventEmitter.unsubscribeFromKey(key, list);
         };
@@ -98,10 +116,11 @@ export const useSelectPksByIndexKey = <
     return snapshot;
 };
 
-export const selectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
+export const useSelectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
     reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
     pk: TPk
 ) => {
+    const isInitialized = useRef(false);
     const snapshotValueRef = useRef<TEntity | undefined>(
         reactiveCollection.getOneByPk(pk)
     );
@@ -118,6 +137,12 @@ export const selectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
             osc.current();
         };
         reactiveCollection.updateEventEmitter.subscribeOnKey(pk, list);
+        if (!isInitialized.current) {
+            isInitialized.current = true;
+        } else {
+            snapshotValueRef.current = reactiveCollection.getOneByPk(pk);
+            osc.current();
+        }
         return () => {
             reactiveCollection.updateEventEmitter.unsubscribeFromKey(pk, list);
         };
@@ -138,6 +163,7 @@ export const useSelectEntitiesByPks = <
     reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
     pks: readonly TPk[]
 ) => {
+    const isInitialized = useRef(false);
     const snapshotValueRef = useRef<readonly TEntity[] | null>(
         pks.map(pk => reactiveCollection.getOneByPk(pk)) as readonly TEntity[]
     );
@@ -156,6 +182,14 @@ export const useSelectEntitiesByPks = <
             osc.current();
         };
         reactiveCollection.updateEventEmitter.subscribeOnKeys(pks, list);
+        if (!isInitialized.current) {
+            isInitialized.current = true;
+        } else {
+            snapshotValueRef.current = pks.map(pk =>
+                reactiveCollection.getOneByPk(pk)
+            ) as readonly TEntity[];
+            osc.current();
+        }
         return () => {
             reactiveCollection.updateEventEmitter.unsubscribeFromKeys(
                 pks,
@@ -177,7 +211,7 @@ export const useSelectEntitiesByPks = <
     return snapshot;
 };
 
-export const selectEntitiesByIndexKey = <
+export const useSelectEntitiesByIndexKey = <
     TEntity extends object,
     TPk extends TOIMPk,
     TKey extends TOIMPk,
@@ -198,7 +232,7 @@ const unique = <T>(array: T[]): T[] => {
     return Array.from(new Set(array));
 };
 
-export const selectEntitiesByIndexKeys = <
+export const useSelectEntitiesByIndexKeys = <
     TEntity extends object,
     TPk extends TOIMPk,
     TKey extends TOIMPk,
