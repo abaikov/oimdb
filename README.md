@@ -1,7 +1,5 @@
 # OIMDB - In-Memory Database for Frontend State Management
 
-**⚠️ DEPRECATED: This main package is deprecated. Please use the individual packages [@oimdb/core](packages/core/) and [@oimdb/react](packages/react/) instead.**
-
 A high-performance, event-driven in-memory database designed specifically for frontend applications. OIMDB provides reactive collections, intelligent indexing, and configurable event processing for building fast, predictable state management solutions.
 
 ## 📦 Packages

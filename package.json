@@ -1,7 +1,7 @@
 {
   "name": "oimdb",
   "version": "1.3.0",
-  "description": "DEPRECATED: This package has been split into @oimdb/core and @oimdb/dx. Please use the new packages instead.",
+  "description": "This package has been split into @oimdb/core and @oimdb/dx. Please use the new packages instead.",
   "keywords": [
     "typescript",
     "library",
@@ -39,6 +39,7 @@
     "build": "tsup src/index.ts --dts --format esm,cjs",
     "build:core": "cd packages/core && npm run build",
     "build:react": "cd packages/react && npm run build",
+    "build:async": "cd packages/async && npm run build",
     "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
     "bench": "tsx scripts/run-bench.ts",
     "prepublishOnly": "npm test && npm run build",
@@ -47,12 +48,13 @@
     "lint": "eslint src --ext .ts && eslint packages/core/src --ext .ts && eslint packages/react/src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix && eslint packages/core/src --ext .ts --fix && eslint packages/react/src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
-    "clean": "rimraf dist packages/core/dist packages/react/dist",
+    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist",
     "install:packages": "cd packages/core && npm install && cd ../react && npm install",
     "publish:core": "cd packages/core && npm publish",
     "publish:react": "cd packages/react && npm publish",
+    "publish:async": "cd packages/async && npm publish",
     "publish:snapshot-manager": "cd packages/snapshot-manager && npm publish",
-    "publish:all": "npm run publish:core && npm run publish:react"
+    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async"
   },
   "files": [
     "dist"
