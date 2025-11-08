@@ -43,21 +43,15 @@ describe('OIMSnapshotManager', () => {
 
         // Create collections
         userCollection = new OIMReactiveCollection<User, number>(queue, {
-            collectionOpts: {
-                selectPk: (user) => user.id
-            }
+            selectPk: (user) => user.id
         });
 
         postCollection = new OIMReactiveCollection<Post, number>(queue, {
-            collectionOpts: {
-                selectPk: (post) => post.id
-            }
+            selectPk: (post) => post.id
         });
 
         commentCollection = new OIMReactiveCollection<Comment, string>(queue, {
-            collectionOpts: {
-                selectPk: (comment) => comment.id
-            }
+            selectPk: (comment) => comment.id
         });
 
         // Create snapshot manager

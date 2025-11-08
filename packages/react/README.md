@@ -108,8 +108,7 @@ For applications with multiple collections, use the React Context pattern for ce
 ```typescript
 import { 
   OIMRICollectionsProvider, 
-  useOIMCollectionsContext,
-  StrictCollectionsDictionary 
+  useOIMCollectionsContext
 } from '@oimdb/react';
 
 interface User {
@@ -140,8 +139,147 @@ function createCollections() {
   return { users: usersCollection, teams: teamsCollection } as const;
 }
 
-type AppCollections = StrictCollectionsDictionary<ReturnType<typeof createCollections>>;
+type AppCollections = ReturnType<typeof createCollections>;
 ```
+
+## TypeScript Typing Strategies
+
+For maximum type safety, you should properly type your collections dictionary. There are two main approaches, similar to how Redux handles state typing:
+
+### Approach 1: Using `typeof` (Recommended for Simple Cases)
+
+The simplest approach is to use TypeScript's `typeof` operator to infer types from your collection instances:
+
+```typescript
+import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
+
+interface User {
+  id: string;
+  name: string;
+  teamId: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+}
+
+// Create collections
+const queue = new OIMEventQueue();
+const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+const usersCollection = new OIMRICollection(queue, {
+  collectionOpts: { selectPk: (user: User) => user.id },
+  indexes: { byTeam: userTeamIndex },
+});
+
+const teamsCollection = new OIMRICollection(queue, {
+  collectionOpts: { selectPk: (team: Team) => team.id },
+  indexes: {},
+});
+
+// Infer types using typeof
+const collections = {
+  users: usersCollection,
+  teams: teamsCollection,
+} as const;
+
+// Extract the type
+type AppCollections = typeof collections;
+```
+
+**Usage:**
+```typescript
+function MyComponent() {
+  const { users, teams } = useOIMCollectionsContext<AppCollections>();
+  // users and teams are fully typed with all their generics preserved
+}
+```
+
+### Approach 2: Creating Explicit Types (Recommended for Complex Projects)
+
+For larger applications or when you need more control, create explicit type definitions similar to Redux's approach:
+
+```typescript
+import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
+import type { TOIMPk, OIMIndex, OIMReactiveIndex } from '@oimdb/core';
+
+interface User {
+  id: string;
+  name: string;
+  teamId: string;
+}
+
+interface Team {
+  id: string;
+  name: string;
+}
+
+// Define your collection types explicitly
+type UserCollection = OIMRICollection<
+  User,
+  string,
+  'byTeam',
+  string,
+  OIMIndex<string, string>,
+  OIMReactiveIndex<string, string, OIMIndex<string, string>>
+>;
+
+type TeamCollection = OIMRICollection<
+  Team,
+  string,
+  never,
+  never,
+  OIMIndex<never, never>,
+  OIMReactiveIndex<never, never, OIMIndex<never, never>>
+>;
+
+// Define your collections dictionary type
+interface AppCollections {
+  users: UserCollection;
+  teams: TeamCollection;
+}
+
+// Factory function that returns properly typed collections
+function createCollections(): AppCollections {
+  const queue = new OIMEventQueue();
+  const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+  
+  return {
+    users: new OIMRICollection(queue, {
+      collectionOpts: { selectPk: (user: User) => user.id },
+      indexes: { byTeam: userTeamIndex },
+    }) as UserCollection,
+    
+    teams: new OIMRICollection(queue, {
+      collectionOpts: { selectPk: (team: Team) => team.id },
+      indexes: {},
+    }) as TeamCollection,
+  };
+}
+```
+
+**Usage:**
+```typescript
+function MyComponent() {
+  const { users, teams } = useOIMCollectionsContext<AppCollections>();
+  // Full type safety with explicit types
+}
+```
+
+### When to Use Each Approach
+
+- **Use `typeof`** when:
+  - You have simple collection setups
+  - You want TypeScript to infer everything automatically
+  - You prefer less boilerplate
+  - Your collections are created in one place
+
+- **Use explicit types** when:
+  - You need to share types across multiple files
+  - You want to document your data structure explicitly
+  - You're building a library or shared module
+  - You need to ensure type consistency across your application
+  - You prefer Redux-style explicit typing patterns
 
 ### Provider Setup
 
@@ -306,17 +444,9 @@ Creates a custom collections context with specific typing.
 
 ### Type Utilities
 
-#### `StrictCollectionsDictionary<T>`
-
-Ensures collections dictionary maintains exact types.
-
 #### `CollectionsDictionary`
 
-Base type for any collections dictionary.
-
-#### `ExtractEntityType<T>`, `ExtractPkType<T>`, etc.
-
-Type utilities for extracting specific types from collections.
+Base type for any collections dictionary. Use `typeof` to extract types from your collection instances, or define explicit types using `OIMRICollection` generics.
 
 ## Architecture
 

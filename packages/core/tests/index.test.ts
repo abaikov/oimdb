@@ -23,15 +23,19 @@ describe('OIMIndexManual', () => {
             index.setPks('category:electronics', [1, 2, 3]);
 
             const pks = index.getPks('category:electronics');
-            expect(pks).toEqual([1, 2, 3]);
+            expect(pks).toEqual(new Set([1, 2, 3]));
         });
 
         test('should handle multiple keys', () => {
             index.setPks('category:electronics', [1, 2, 3]);
             index.setPks('category:books', [10, 11, 12]);
 
-            expect(index.getPks('category:electronics')).toEqual([1, 2, 3]);
-            expect(index.getPks('category:books')).toEqual([10, 11, 12]);
+            expect(index.getPks('category:electronics')).toEqual(
+                new Set([1, 2, 3])
+            );
+            expect(index.getPks('category:books')).toEqual(
+                new Set([10, 11, 12])
+            );
             expect(index.size).toBe(2);
         });
 
@@ -40,7 +44,7 @@ describe('OIMIndexManual', () => {
             index.addPks('category:electronics', [4, 5]);
 
             const pks = index.getPks('category:electronics');
-            expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4, 5]));
+            expect(pks).toEqual(new Set([1, 2, 3, 4, 5]));
             expect(pks.size).toBe(5);
         });
 
@@ -49,7 +53,7 @@ describe('OIMIndexManual', () => {
             index.addPks('category:electronics', [2, 3, 4]); // 2,3 are duplicates
 
             const pks = index.getPks('category:electronics');
-            expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+            expect(pks).toEqual(new Set([1, 2, 3, 4]));
             expect(pks.size).toBe(4);
         });
 
@@ -58,7 +62,7 @@ describe('OIMIndexManual', () => {
             index.removePks('category:electronics', [2, 4]);
 
             const pks = index.getPks('category:electronics');
-            expect(pks).toEqual(expect.arrayContaining([1, 3, 5]));
+            expect(pks).toEqual(new Set([1, 3, 5]));
             expect(pks.size).toBe(3);
         });
 
@@ -93,7 +97,7 @@ describe('OIMIndexManual', () => {
 
         test('should return empty array for non-existent key', () => {
             const pks = index.getPks('non-existent');
-            expect(pks).toEqual([]);
+            expect(pks).toEqual(new Set());
         });
 
         test('should handle empty operations gracefully', () => {
@@ -225,7 +229,7 @@ describe('OIMIndexManual', () => {
                 index.setPks('test', [1, 2, 3]); // Identical
 
                 expect(eventSpy).not.toHaveBeenCalled();
-                expect(index.getPks('test')).toEqual([1, 2, 3]);
+                expect(index.getPks('test')).toEqual(new Set([1, 2, 3]));
             });
 
             test('should update when arrays differ by content', () => {
@@ -235,7 +239,7 @@ describe('OIMIndexManual', () => {
                 index.setPks('test', [1, 2, 4]); // Different content
 
                 expect(eventSpy).toHaveBeenCalledTimes(1);
-                expect(index.getPks('test')).toEqual([1, 2, 4]);
+                expect(index.getPks('test')).toEqual(new Set([1, 2, 4]));
             });
 
             test('should update when arrays differ by order', () => {
@@ -245,7 +249,7 @@ describe('OIMIndexManual', () => {
                 index.setPks('test', [3, 2, 1]); // Different order
 
                 expect(eventSpy).toHaveBeenCalledTimes(1);
-                expect(index.getPks('test')).toEqual([3, 2, 1]);
+                expect(index.getPks('test')).toEqual(new Set([3, 2, 1]));
             });
 
             test('should update when arrays differ by length', () => {
@@ -255,7 +259,7 @@ describe('OIMIndexManual', () => {
                 index.setPks('test', [1, 2, 3, 4]); // Different length
 
                 expect(eventSpy).toHaveBeenCalledTimes(1);
-                expect(index.getPks('test')).toEqual([1, 2, 3, 4]);
+                expect(index.getPks('test')).toEqual(new Set([1, 2, 3, 4]));
             });
         });
 
@@ -419,7 +423,7 @@ describe('OIMIndexManual', () => {
         test('should handle empty arrays', () => {
             index.setPks('test', []);
 
-            expect(index.getPks('test')).toEqual([]);
+            expect(index.getPks('test')).toEqual(new Set());
             expect(index.hasKey('test')).toBe(true);
             expect(index.getKeySize('test')).toBe(0);
         });
@@ -437,7 +441,7 @@ describe('OIMIndexManual', () => {
             index.setPks('large-dataset', largePks);
 
             expect(index.getKeySize('large-dataset')).toBe(10000);
-            expect(index.getPks('large-dataset')).toEqual(largePks);
+            expect(index.getPks('large-dataset')).toEqual(new Set(largePks));
         });
 
         test('should handle string PKs', () => {
@@ -448,13 +452,7 @@ describe('OIMIndexManual', () => {
 
             const pks = stringIndex.getPks('users:active');
             expect(pks).toEqual(
-                expect.arrayContaining([
-                    'user1',
-                    'user2',
-                    'user3',
-                    'user4',
-                    'user5',
-                ])
+                new Set(['user1', 'user2', 'user3', 'user4', 'user5'])
             );
             expect(pks.size).toBe(5);
 
@@ -542,6 +540,16 @@ describe('OIMIndexManual', () => {
 
             // Should receive notifications for both keys
             expect(handler).toHaveBeenCalledTimes(2);
+        });
+
+        test('helper index', () => {
+            const helperIndex = new OIMIndexManual<'all', number>();
+            helperIndex.setPks('all', [1, 2, 3]);
+
+            expect(helperIndex.getPksByKey('all')).toBeDefined();
+            expect(helperIndex.hasKey('all')).toBe(true);
+            expect(helperIndex.getKeySize('all')).toBe(3);
+            expect(helperIndex.getKeys()).toEqual(['all']);
         });
     });
 });

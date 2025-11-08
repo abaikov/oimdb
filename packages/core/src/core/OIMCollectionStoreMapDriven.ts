@@ -22,8 +22,9 @@ export class OIMCollectionStoreMapDriven<
     }
 
     removeManyByPks(pks: readonly TPk[]): void {
+        // Direct delete instead of method call for better performance
         for (const pk of pks) {
-            this.removeOneByPk(pk);
+            this.entities.delete(pk);
         }
     }
 
@@ -32,7 +33,18 @@ export class OIMCollectionStoreMapDriven<
     }
 
     getManyByPks(pks: readonly TPk[]): TEntity[] {
-        return pks.map(pk => this.getOneByPk(pk)).filter(Boolean) as TEntity[];
+        // Single pass instead of map + filter to avoid intermediate arrays
+        const result: TEntity[] = [];
+        result.length = pks.length; // Pre-size for better performance
+        let writeIndex = 0;
+        for (let i = 0; i < pks.length; i++) {
+            const entity = this.getOneByPk(pks[i]);
+            if (entity !== undefined) {
+                result[writeIndex++] = entity;
+            }
+        }
+        result.length = writeIndex; // Trim to actual size
+        return result;
     }
 
     getAll(): TEntity[] {

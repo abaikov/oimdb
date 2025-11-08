@@ -62,9 +62,8 @@ export class OIMIndexComparatorFactory {
             }
 
             // Check if all elements from existing set are in new set
-            const setValues = Array.from(existingSet);
-            for (let i = 0; i < setValues.length; i++) {
-                const pk = setValues[i];
+            // Iterate directly over Set instead of converting to array
+            for (const pk of existingSet) {
                 if (!newSet.has(pk)) {
                     return false;
                 }

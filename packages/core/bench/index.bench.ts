@@ -1,9 +1,9 @@
-import { OIMIndexManual } from '../../../src/core/OIMIndexManual';
-import { OIMIndexComparatorFactory } from '../../../src/core/OIMIndexComparatorFactory';
-import { OIMUpdateEventCoalescerIndex } from '../../../src/core/OIMUpdateEventCoalescerIndex';
-import { OIMUpdateEventEmitter } from '../../../src/core/OIMUpdateEventEmitter';
-import { OIMEventQueue } from '../../../src/core/OIMEventQueue';
-import { OIMEventQueueSchedulerImmediate } from '../../../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
+import { OIMIndexManual } from '../src/core/OIMIndexManual';
+import { OIMIndexComparatorFactory } from '../src/core/OIMIndexComparatorFactory';
+import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
+import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
+import { OIMEventQueue } from '../src/core/OIMEventQueue';
+import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 
 interface TOIMIndexBenchResult {
     name: string;

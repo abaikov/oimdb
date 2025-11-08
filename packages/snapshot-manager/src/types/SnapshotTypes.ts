@@ -3,16 +3,16 @@ import { OIMReactiveCollection, TOIMPk } from '@oimdb/core';
 /**
  * Extract entity type from OIMReactiveCollection
  */
-export type GetEntityType<T> = T extends OIMReactiveCollection<infer TEntity, any> 
-    ? TEntity 
-    : never;
+export type GetEntityType<T> =
+    T extends OIMReactiveCollection<infer TEntity, string | number>
+        ? TEntity
+        : never;
 
 /**
  * Extract primary key type from OIMReactiveCollection
  */
-export type GetPkType<T> = T extends OIMReactiveCollection<any, infer TPk> 
-    ? TPk 
-    : never;
+export type GetPkType<T> =
+    T extends OIMReactiveCollection<object, infer TPk> ? TPk : never;
 
 /**
  * Individual entity snapshot containing primary key and entity data
@@ -27,8 +27,18 @@ export type EntitySnapshot<TEntity extends object, TPk extends TOIMPk> = {
  * Snapshot data for a collection of collections
  * Maps collection names to arrays of entity snapshots
  */
-export type SnapshotData<TCollections extends Record<string, OIMReactiveCollection<any, any>>> = {
-    [K in keyof TCollections]: Array<EntitySnapshot<GetEntityType<TCollections[K]>, GetPkType<TCollections[K]>>>
+export type SnapshotData<
+    TCollections extends Record<
+        string,
+        OIMReactiveCollection<object, string | number>
+    >,
+> = {
+    [K in keyof TCollections]: Array<
+        EntitySnapshot<
+            GetEntityType<TCollections[K]>,
+            GetPkType<TCollections[K]>
+        >
+    >;
 };
 
 /**

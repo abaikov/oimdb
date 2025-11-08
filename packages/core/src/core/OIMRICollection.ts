@@ -12,19 +12,21 @@ export class OIMRICollection<
     TIndexKey extends TOIMPk,
     TIndex extends OIMIndex<TIndexKey, TPk>,
     TReactiveIndex extends OIMReactiveIndex<TIndexKey, TPk, TIndex>,
+    TReactiveIndexMap extends Record<TIndexName, TReactiveIndex> = Record<
+        TIndexName,
+        TReactiveIndex
+    >,
 > extends OIMReactiveCollection<TEntity, TPk> {
-    public readonly indexes: Record<TIndexName, TReactiveIndex>;
+    public readonly indexes?: TReactiveIndexMap;
 
     constructor(
         queue: OIMEventQueue,
         opts: {
             collectionOpts?: TOIMCollectionOptions<TEntity, TPk>;
-            indexes: Record<TIndexName, TReactiveIndex>;
+            indexes?: TReactiveIndexMap;
         }
     ) {
-        super(queue, {
-            collectionOpts: opts.collectionOpts,
-        });
-        this.indexes = opts.indexes || {};
+        super(queue, opts.collectionOpts);
+        this.indexes = opts.indexes;
     }
 }

@@ -21,7 +21,8 @@
     "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
   "devDependencies": {
     "@types/jest": "^29.5.5",

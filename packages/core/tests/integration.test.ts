@@ -622,9 +622,33 @@ describe('Integration Tests', () => {
                 department: 'Engineering',
             });
 
-            // Process all nested updates
-            for (let i = 0; i <= maxDepth; i++) {
+            // Process all nested updates - continue flushing until queue is empty
+            // or we've reached a reasonable limit to prevent infinite loops
+            // Also need to wait for coalescer to process new updates
+            let flushCount = 0;
+            const maxFlushes = maxDepth * 3; // Safety limit - need more flushes for nested updates
+            let previousDepth = -1;
+            let stableCount = 0;
+
+            while (flushCount < maxFlushes) {
+                const queueLengthBefore = queue.length;
                 queue.flush();
+                flushCount++;
+
+                // If depth hasn't changed and queue is empty, we're done
+                if (
+                    depth === previousDepth &&
+                    queue.length === 0 &&
+                    queueLengthBefore === 0
+                ) {
+                    stableCount++;
+                    if (stableCount >= 2) {
+                        break; // Queue is stable and empty
+                    }
+                } else {
+                    stableCount = 0;
+                }
+                previousDepth = depth;
             }
 
             expect(depth).toBe(maxDepth);

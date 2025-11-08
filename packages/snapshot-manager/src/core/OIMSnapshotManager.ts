@@ -62,9 +62,10 @@ export class OIMSnapshotManager<
      * Subscribe directly to collection update events (bypass coalescing)
      */
     private subscribeToCollections(): void {
-        for (const [collectionName, collection] of Object.entries(
-            this.collections
-        )) {
+        for (const collectionName in this.collections) {
+            const collection = this.collections[
+                collectionName
+            ] as OIMReactiveCollection<object, string | number>;
             const handler: TOIMEventHandler<
                 TOIMCollectionUpdatePayload<string | number>
             > = payload => {
@@ -75,17 +76,11 @@ export class OIMSnapshotManager<
             };
 
             // Subscribe to collection emitter directly
-            collection.collection.emitter.on(
-                EOIMCollectionEventType.UPDATE,
-                handler
-            );
+            collection.emitter.on(EOIMCollectionEventType.UPDATE, handler);
 
             // Store unsubscribe function
             const unsubscribe = () => {
-                collection.collection.emitter.off(
-                    EOIMCollectionEventType.UPDATE,
-                    handler
-                );
+                collection.emitter.off(EOIMCollectionEventType.UPDATE, handler);
             };
             this.unsubscribeFunctions.push(unsubscribe);
         }
@@ -114,9 +109,8 @@ export class OIMSnapshotManager<
     public takeSnapshot(): SnapshotData<TCollections> {
         const snapshot = {} as SnapshotData<TCollections>;
 
-        for (const [collectionName, collection] of Object.entries(
-            this.collections
-        )) {
+        for (const collectionName in this.collections) {
+            const collection = this.collections[collectionName];
             const typedCollectionName = collectionName as keyof TCollections;
             const updatedPkSet = this.updatedPks[typedCollectionName];
 

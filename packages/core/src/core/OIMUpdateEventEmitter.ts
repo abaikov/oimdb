@@ -3,12 +3,13 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { EOIMUpdateEventCoalescerEventType } from '../enum/EOIMUpdateEventCoalescerEventType';
 import { TOIMUpdateEventEmitterOptions } from '../types/TOIMUpdateEventEmitterOptions';
+import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Universal event emitter that handles subscriptions and notifications for any key type.
  * Optimized for performance with adaptive algorithms and memory management.
  */
-export class OIMUpdateEventEmitter<TKey> {
+export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
     protected keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     protected coalescer: OIMUpdateEventCoalescer<TKey>;
     protected queue: OIMEventQueue;

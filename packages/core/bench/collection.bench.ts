@@ -1,10 +1,10 @@
-import { OIMCollection } from '../../../src/core/OIMCollection';
-import { OIMCollectionStoreMapDriven } from '../../../src/core/OIMCollectionStoreMapDriven';
-import { OIMPkSelectorFactory } from '../../../src/core/OIMPkSelectorFactory';
-import { OIMEntityUpdaterFactory } from '../../../src/core/OIMEntityUpdaterFactory';
-import { OIMUpdateEventCoalescerCollection } from '../../../src/core/OIMUpdateEventCoalescerCollection';
-import { OIMUpdateEventEmitter } from '../../../src/core/OIMUpdateEventEmitter';
-import { OIMEventQueue } from '../../../src/core/OIMEventQueue';
+import { OIMCollection } from '../src/core/OIMCollection';
+import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
+import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
+import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
+import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoalescerCollection';
+import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
+import { OIMEventQueue } from '../src/core/OIMEventQueue';
 
 interface TOIMBenchEntity {
     id: string;

@@ -28,15 +28,11 @@ async function basicUsageExample() {
 
     // Create collections
     const userCollection = new OIMReactiveCollection<User, number>(queue, {
-        collectionOpts: {
-            selectPk: (user) => user.id
-        }
+        selectPk: (user) => user.id
     });
 
     const postCollection = new OIMReactiveCollection<Post, number>(queue, {
-        collectionOpts: {
-            selectPk: (post) => post.id
-        }
+        selectPk: (post) => post.id
     });
 
     // Create snapshot manager

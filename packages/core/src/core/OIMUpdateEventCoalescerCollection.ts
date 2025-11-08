@@ -30,26 +30,13 @@ export class OIMUpdateEventCoalescerCollection<
             this.handleUpdate
         );
         this.emitter.offAll();
-        this.updatedKeys.clear();
+        this.clearUpdatedKeys();
     }
 
     /**
      * When the collection is updated, we keep track of the updated pks.
      */
     private handleUpdate = (payload: TOIMCollectionUpdatePayload<TPk>) => {
-        // Direct iteration instead of array spreading for better performance
-        const hadChanges = this.updatedKeys.size > 0;
-
-        for (const pk of payload.pks) {
-            this.updatedKeys.add(pk);
-        }
-
-        // Emit HAS_CHANGES only once per update cycle
-        if (!hadChanges && this.updatedKeys.size > 0) {
-            this.emitter.emit(
-                EOIMUpdateEventCoalescerEventType.HAS_CHANGES,
-                undefined
-            );
-        }
+        this.addUpdatedKeys(payload.pks);
     };
 }

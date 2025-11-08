@@ -41,7 +41,7 @@
     "build:react": "cd packages/react && npm run build",
     "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
     "bench": "tsx scripts/run-bench.ts",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm test && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
     "lint": "eslint src --ext .ts && eslint packages/core/src --ext .ts && eslint packages/react/src --ext .ts",

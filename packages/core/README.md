@@ -65,9 +65,7 @@ const queue = new OIMEventQueue({
 
 // Create reactive collection
 const users = new OIMReactiveCollection<User, string>(queue, {
-    collectionOpts: {
-        selectPk: (user) => user.id
-    }
+    selectPk: (user) => user.id
 });
 
 // Subscribe to key-specific updates
@@ -249,10 +247,8 @@ const deepMergeUpdater: TOIMEntityUpdater<User> = (newEntity, oldEntity) => {
 // Use custom updater with reactive collection
 const queue = new OIMEventQueue();
 const users = new OIMReactiveCollection<User, string>(queue, {
-    collectionOpts: {
-        selectPk: (user) => user.id,
-        updateEntity: deepMergeUpdater
-    }
+    selectPk: (user) => user.id,
+    updateEntity: deepMergeUpdater
 });
 
 // Now updates will use deep merge logic
@@ -393,9 +389,7 @@ Reactive collection with automatic change notifications and event coalescing.
 
 **Constructor:**
 ```typescript
-new OIMReactiveCollection(queue: OIMEventQueue, opts?: {
-    collectionOpts?: TOIMCollectionOptions<TEntity, TPk>
-})
+new OIMReactiveCollection(queue: OIMEventQueue, opts?: TOIMCollectionOptions<TEntity, TPk>)
 ```
 
 **Properties:**
@@ -411,19 +405,19 @@ new OIMReactiveCollection(queue: OIMEventQueue, opts?: {
 - `getOneByPk(pk: TPk): TEntity | undefined` - Get entity by primary key
 - `getManyByPks(pks: readonly TPk[]): Map<TPk, TEntity | undefined>` - Get multiple entities
 
-#### `OIMRICollection<TEntity, TPk, TIndexName, TIndexKey, TIndex, TReactiveIndex>`
+#### `OIMRICollection<TEntity, TPk, TIndexName, TIndexKey, TIndex, TReactiveIndex, TReactiveIndexMap>`
 Reactive collection with integrated indexing capabilities.
 
 **Constructor:**
 ```typescript
 new OIMRICollection(queue: OIMEventQueue, opts: {
     collectionOpts?: TOIMCollectionOptions<TEntity, TPk>;
-    indexes: Record<TIndexName, TReactiveIndex>;
+    indexes: TReactiveIndexMap;
 })
 ```
 
 **Properties:**
-- `indexes: Record<TIndexName, TReactiveIndex>` - Named reactive indexes
+- `indexes: TReactiveIndexMap` - Named reactive indexes preserving index-to-name mapping
 - *(inherits all OIMReactiveCollection properties)*
 
 #### `OIMReactiveIndexManual<TKey, TPk>`
@@ -529,9 +523,7 @@ describe('OIMReactiveCollection', () => {
         });
         
         users = new OIMReactiveCollection(queue, {
-            collectionOpts: {
-                selectPk: (user) => user.id
-            }
+            selectPk: (user) => user.id
         });
     });
     

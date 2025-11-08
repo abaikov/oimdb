@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/react",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "React integration for OIMDB - Hooks for selection and subscription with external storage",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -24,17 +24,22 @@
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs",
+    "test": "jest",
+    "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
   "files": [
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^1.0.6",
+    "@oimdb/core": "^1.1.0",
     "react": "^18.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
     "tsup": "^8.5.0",
     "typescript": "^5.2.2",
     "rimraf": "^5.0.5",

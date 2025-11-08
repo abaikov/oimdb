@@ -51,3 +51,5 @@ export * from './types/TOIMSchedulerOptions';
 export * from './types/TOIMSchedulerType';
 export * from './types/TOIMUpdateEventEmitterOptions';
 export * from './types/TOIMUpdatePayload';
+
+export * from './const/OIMDBSettings';

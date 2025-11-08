@@ -10,7 +10,7 @@ export class OIMIndexManual<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
 > extends OIMIndex<TIndexKey, TPk> {
-    constructor(options: TOIMIndexOptions<TPk> = {}) {
+    constructor(options: TOIMIndexOptions<TIndexKey, TPk> = {}) {
         super(options);
     }
     /**
@@ -19,6 +19,7 @@ export class OIMIndexManual<
      */
     public setPks(key: TIndexKey, pks: TPk[]): void {
         // Use base class method that handles comparison
+        // Set creation is necessary for comparison logic
         const hasChanges = this.setPksWithComparison(key, new Set(pks));
 
         if (hasChanges) {
@@ -32,22 +33,23 @@ export class OIMIndexManual<
     public addPks(key: TIndexKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        let pksSet = this.pks.get(key);
+        let pksSet = this.store.getOneByKey(key);
         if (!pksSet) {
             pksSet = new Set();
-            this.pks.set(key, pksSet);
+            this.store.setOneByKey(key, pksSet);
         }
 
         let hasChanges = false;
         for (const pk of pks) {
-            const sizeBefore = pksSet.size;
-            pksSet.add(pk);
-            if (pksSet.size > sizeBefore) {
+            // Check if pk already exists before adding to avoid size check
+            if (!pksSet.has(pk)) {
+                pksSet.add(pk);
                 hasChanges = true;
             }
         }
 
         if (hasChanges) {
+            this.store.setOneByKey(key, pksSet);
             this.emitUpdate([key]);
         }
     }
@@ -58,7 +60,7 @@ export class OIMIndexManual<
     public removePks(key: TIndexKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        const pksSet = this.pks.get(key);
+        const pksSet = this.store.getOneByKey(key);
         if (!pksSet) return;
 
         let hasChanges = false;
@@ -70,8 +72,10 @@ export class OIMIndexManual<
 
         // Clean up empty buckets
         if (pksSet.size === 0) {
-            this.pks.delete(key);
+            this.store.removeOneByKey(key);
             hasChanges = true;
+        } else if (hasChanges) {
+            this.store.setOneByKey(key, pksSet);
         }
 
         if (hasChanges) {
@@ -85,15 +89,15 @@ export class OIMIndexManual<
     public clear(key?: TIndexKey): void {
         if (key === undefined) {
             // Clear all buckets
-            if (this.pks.size > 0) {
-                const allKeys = Array.from(this.pks.keys());
-                this.pks.clear();
+            const allKeys = this.store.getAllKeys();
+            if (allKeys.length > 0) {
+                this.store.clear();
                 this.emitUpdate(allKeys);
             }
         } else {
             // Clear specific bucket
-            if (this.pks.has(key)) {
-                this.pks.delete(key);
+            if (this.store.getOneByKey(key) !== undefined) {
+                this.store.removeOneByKey(key);
                 this.emitUpdate([key]);
             }
         }
