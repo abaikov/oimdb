@@ -1,7 +1,7 @@
 {
-  "name": "@oimdb/core",
-  "version": "1.2.0",
-  "description": "Core in-memory data library with type-safe indices, reactive subscriptions, and event processing",
+  "name": "@oimdb/redux-adapter",
+  "version": "1.0.0",
+  "description": "Redux adapter for OIMDB - Create Redux reducers from OIMDB collections and indexes",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -32,14 +32,20 @@
   "files": [
     "dist"
   ],
-  "author": "Andrei Baikov",
-  "license": "MIT",
+  "peerDependencies": {
+    "@oimdb/core": "^1.2.0",
+    "redux": "^4.0.0 || ^5.0.0"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.8",
     "jest": "^29.7.0",
+    "redux": "^5.0.0",
     "ts-jest": "^29.1.1",
     "tsup": "^8.5.0",
     "typescript": "^5.2.2",
     "rimraf": "^5.0.5"
-  }
+  },
+  "author": "Andrei Baikov",
+  "license": "MIT"
 }
+

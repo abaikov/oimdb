@@ -37,6 +37,27 @@ npm install @oimdb/react @oimdb/core
 
 [📖 See @oimdb/react documentation](packages/react/README.md)
 
+### [@oimdb/redux-adapter](packages/redux-adapter/) - Redux Integration
+Production-ready Redux adapter for gradual migration from Redux to OIMDB or hybrid usage.
+
+```bash
+npm install @oimdb/redux-adapter @oimdb/core redux
+```
+
+**Key Features:**
+- **🔄 Two-Way Synchronization**: Automatic sync between OIMDB and Redux in both directions
+- **📦 Production Ready**: Battle-tested, optimized for large datasets
+- **🔄 Gradual Migration**: Integrate OIMDB into existing Redux projects without breaking changes
+- **🎯 Flexible State Mapping**: Custom mappers for any Redux state structure
+- **⚡ Performance Optimized**: Efficient diffing algorithms and batched updates
+
+**Perfect for:**
+- Migrating from Redux to OIMDB incrementally
+- Using OIMDB for complex relational data alongside Redux
+- Replacing Redux entirely while maintaining compatibility
+
+[📖 See @oimdb/redux-adapter documentation](packages/redux-adapter/README.md)
+
 ## ✨ Quick Example
 
 ```typescript
@@ -82,6 +103,7 @@ For detailed documentation and API reference, visit the individual package READM
 
 - **[@oimdb/core](packages/core/README.md)** - Complete core library documentation
 - **[@oimdb/react](packages/react/README.md)** - React integration guide
+- **[@oimdb/redux-adapter](packages/redux-adapter/README.md)** - Redux migration and integration guide
 
 ## 🧪 Development
 

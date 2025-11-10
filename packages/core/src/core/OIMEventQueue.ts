@@ -1,11 +1,16 @@
 import { OIMEventQueueScheduler } from '../abstract/OIMEventQueueScheduler';
 import { TOIMEventQueueOptions } from '../types/TOIMEventQueueOptions';
 import { EOIMEventQueueSchedulerEventType } from '../enum/EOIMEventQueueSchedulerEventType';
+import { OIMEventEmitter } from './OIMEventEmitter';
+import { EOIMEventQueueEventType } from '../enum/EOIMEventQueueEventType';
 
 /**
  * Event queue that can optionally integrate with a scheduler for automatic flushing.
  */
 export class OIMEventQueue {
+    public readonly emitter = new OIMEventEmitter<
+        Record<EOIMEventQueueEventType, void>
+    >();
     protected queue: (() => void)[] = [];
     protected readonly scheduler?: OIMEventQueueScheduler;
     protected flushBound?: () => void;
@@ -43,6 +48,8 @@ export class OIMEventQueue {
     public flush(): void {
         if (this.queue.length === 0) return;
 
+        this.emitter.emit(EOIMEventQueueEventType.BEFORE_FLUSH, undefined);
+
         // Take snapshot of current queue and clear it immediately to handle reentrancy
         const currentQueue = this.queue.slice();
         this.queue.length = 0;
@@ -50,6 +57,8 @@ export class OIMEventQueue {
         for (let i = 0; i < currentQueue.length; i++) {
             currentQueue[i]();
         }
+
+        this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);
     }
 
     /**

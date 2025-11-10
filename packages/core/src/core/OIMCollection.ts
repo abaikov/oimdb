@@ -64,6 +64,16 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
     }
 
+    removeOneByPk(pk: TPk): void {
+        this.store.removeOneByPk(pk);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+    }
+
+    removeManyByPks(pks: readonly TPk[]): void {
+        this.store.removeManyByPks(pks);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+    }
+
     clear(): void {
         this.store.clear();
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });

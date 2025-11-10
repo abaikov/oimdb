@@ -1,11 +1,7 @@
-import {
-    OIMEventQueue,
-    OIMUpdateEventCoalescerIndex,
-    OIMUpdateEventEmitter,
-    TOIMPk,
-} from '@oimdb/core';
+import { OIMEventQueue, OIMUpdateEventEmitter, TOIMPk } from '@oimdb/core';
 import { OIMIndexManualAsync } from './OIMIndexManualAsync';
 import { TOIMIndexOptionsAsync } from '../types/TOIMIndexOptionsAsync';
+import { OIMUpdateEventCoalescerIndexAsyncAdapter } from './OIMUpdateEventCoalescerIndexAsyncAdapter';
 
 /**
  * Reactive async manual index with event support.
@@ -17,7 +13,7 @@ export class OIMReactiveIndexManualAsync<
 > {
     public readonly index: OIMIndexManualAsync<TKey, TPk>;
     public readonly updateEventEmitter: OIMUpdateEventEmitter<TKey>;
-    public readonly coalescer: OIMUpdateEventCoalescerIndex<TKey>;
+    public readonly coalescer: OIMUpdateEventCoalescerIndexAsyncAdapter<TKey>;
 
     constructor(
         queue: OIMEventQueue,
@@ -27,7 +23,7 @@ export class OIMReactiveIndexManualAsync<
         }
     ) {
         this.index = opts?.index ?? this.createDefaultIndex(opts?.indexOptions);
-        this.coalescer = new OIMUpdateEventCoalescerIndex<TKey>(
+        this.coalescer = new OIMUpdateEventCoalescerIndexAsyncAdapter<TKey>(
             this.index.emitter
         );
         this.updateEventEmitter = new OIMUpdateEventEmitter<TKey>({
@@ -46,7 +42,9 @@ export class OIMReactiveIndexManualAsync<
         return await this.index.getPksByKey(key);
     }
 
-    public async getPksByKeys(keys: readonly TKey[]): Promise<Map<TKey, Set<TPk>>> {
+    public async getPksByKeys(
+        keys: readonly TKey[]
+    ): Promise<Map<TKey, Set<TPk>>> {
         return await this.index.getPksByKeys(keys);
     }
 
@@ -94,4 +92,3 @@ export class OIMReactiveIndexManualAsync<
         await this.index.clear(key);
     }
 }
-

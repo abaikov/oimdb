@@ -12,6 +12,8 @@ import { OIMDBSettings } from '../const/OIMDBSettings';
 export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
     public readonly emitter = new OIMEventEmitter<{
         [EOIMUpdateEventCoalescerEventType.HAS_CHANGES]: void;
+        [EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH]: void;
+        [EOIMUpdateEventCoalescerEventType.AFTER_FLUSH]: void;
     }>();
 
     protected readonly updatedKeysIndex: OIMIndexManual<
@@ -61,8 +63,16 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
      * Clear all updated keys and reset the changed state
      */
     public clearUpdatedKeys(): void {
+        this.emitter.emit(
+            EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH,
+            undefined
+        );
         this.updatedKeysIndex.setPks(OIMDBSettings.UPDATED_KEYS_INDEX_KEY, []);
         this.hasEmittedChanges = false;
+        this.emitter.emit(
+            EOIMUpdateEventCoalescerEventType.AFTER_FLUSH,
+            undefined
+        );
     }
 
     /**

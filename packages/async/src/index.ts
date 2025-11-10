@@ -15,3 +15,7 @@ export * from './core/OIMIndexManualAsync';
 export * from './core/OIMReactiveIndexManualAsync';
 export * from './core/OIMIndexStoreMapDrivenAsync';
 
+// Async coalescers
+export * from './core/OIMUpdateEventCoalescerIndexAsync';
+export * from './core/OIMUpdateEventCoalescerIndexAsyncAdapter';
+

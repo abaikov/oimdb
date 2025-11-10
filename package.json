@@ -41,6 +41,7 @@
     "build:react": "cd packages/react && npm run build",
     "build:async": "cd packages/async && npm run build",
     "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
+    "build:redux-adapter": "cd packages/redux-adapter && npm run build",
     "bench": "tsx scripts/run-bench.ts",
     "prepublishOnly": "npm test && npm run build",
     "test": "jest",
@@ -48,13 +49,14 @@
     "lint": "eslint src --ext .ts && eslint packages/core/src --ext .ts && eslint packages/react/src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix && eslint packages/core/src --ext .ts --fix && eslint packages/react/src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
-    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist",
+    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
     "install:packages": "cd packages/core && npm install && cd ../react && npm install",
     "publish:core": "cd packages/core && npm publish",
     "publish:react": "cd packages/react && npm publish",
     "publish:async": "cd packages/async && npm publish",
     "publish:snapshot-manager": "cd packages/snapshot-manager && npm publish",
-    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async"
+    "publish:redux-adapter": "cd packages/redux-adapter && npm publish",
+    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async && npm run publish:snapshot-manager && npm run publish:redux-adapter"
   },
   "files": [
     "dist"

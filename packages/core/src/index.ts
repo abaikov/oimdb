@@ -31,6 +31,7 @@ export * from './core/event-queue-scheduler/OIMEventQueueSchedulerTimeout';
 export * from './enum/EOIMCollectionEventType';
 export * from './enum/EOIMEventQueueSchedulerEventType';
 export * from './enum/EOIMIndexEventType';
+export * from './enum/EOIMEventQueueEventType';
 
 export * from './enum/EOIMUpdateEventCoalescerEventType';
 export * from './types/IOIMEventQueueSchedulerEvents';
