@@ -371,28 +371,38 @@ const teamUsers = useSelectEntitiesByPks(users, userIds);
 Migrate from Redux to OIMDB gradually or use both systems side-by-side with automatic two-way synchronization:
 
 ```typescript
-import { OIMDBReducerFactory } from '@oimdb/redux-adapter';
-import { createStore, combineReducers } from 'redux';
+import { OIMDBAdapter } from '@oimdb/redux-adapter';
+import { createStore, combineReducers, applyMiddleware } from 'redux';
+
+// Create Redux adapter
+const adapter = new OIMDBAdapter(queue);
 
 // Create Redux reducer from OIMDB collection
-const factory = new OIMDBReducerFactory(queue);
-const usersReducer = factory.createCollectionReducer(users);
+const usersReducer = adapter.createCollectionReducer(users);
+
+// Create middleware for automatic flushing
+const middleware = adapter.createMiddleware();
 
 // Use in existing Redux store
 const store = createStore(
     combineReducers({
         users: usersReducer, // OIMDB-backed reducer
         ui: uiReducer,       // Existing Redux reducer
-    })
+    }),
+    applyMiddleware(middleware)
 );
 
+adapter.setStore(store);
+
 // OIMDB changes automatically sync to Redux
-// Redux actions can sync back to OIMDB with child reducers
+// Redux actions automatically sync back to OIMDB with child reducers
+// Middleware automatically flushes queue after each action - no manual flush needed!
 ```
 
 **Key Benefits:**
 - **🔄 Gradual Migration**: Migrate one collection at a time without breaking changes
 - **🔄 Two-Way Sync**: Automatic synchronization between OIMDB and Redux
+- **⚡ Automatic Flushing**: Middleware automatically processes events after Redux actions
 - **📦 Production Ready**: Battle-tested adapter optimized for large datasets
 - **🎯 Flexible**: Works with any Redux state structure via custom mappers
 

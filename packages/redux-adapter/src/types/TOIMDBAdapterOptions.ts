@@ -2,9 +2,9 @@ import { TOIMCollectionMapper } from './TOIMCollectionMapper';
 import { TOIMIndexMapper } from './TOIMIndexMapper';
 
 /**
- * Options for OIMDBReducerFactory
+ * Options for OIMDBAdapter
  */
-export type TOIMDBReducerFactoryOptions = {
+export type TOIMDBAdapterOptions = {
     /**
      * Default mapper for collections (used when no mapper is provided)
      */

@@ -6,9 +6,9 @@ import {
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
 } from '@oimdb/core';
-import { Store, createStore, combineReducers, Action } from 'redux';
+import { Store, createStore, combineReducers, Action, applyMiddleware } from 'redux';
 import {
-    OIMDBReducerFactory,
+    OIMDBAdapter,
     TOIMDefaultCollectionState,
     TOIMDefaultIndexState,
     EOIMDBReducerActionType,
@@ -30,19 +30,19 @@ interface Post {
     authorId: string;
 }
 
-describe('OIMDBReducerFactory', () => {
+describe('OIMDBAdapter', () => {
     let queue: OIMEventQueue;
-    let factory: OIMDBReducerFactory;
+    let adapter: OIMDBAdapter;
     let store: Store;
 
     beforeEach(() => {
         const scheduler = new OIMEventQueueSchedulerImmediate();
         queue = new OIMEventQueue({ scheduler });
-        factory = new OIMDBReducerFactory(queue);
+        adapter = new OIMDBAdapter(queue);
 
         // Create mock Redux store
         store = createStore((state = {}) => state);
-        factory.setStore(store);
+        adapter.setStore(store);
     });
 
     afterEach(() => {
@@ -51,11 +51,11 @@ describe('OIMDBReducerFactory', () => {
 
     describe('createCollectionReducer', () => {
         let collection: OIMReactiveCollection<User, string>;
-        let reducer: ReturnType<typeof factory.createCollectionReducer>;
+        let reducer: ReturnType<typeof adapter.createCollectionReducer>;
 
         beforeEach(() => {
             collection = new OIMReactiveCollection<User, string>(queue);
-            reducer = factory.createCollectionReducer(collection);
+            reducer = adapter.createCollectionReducer(collection);
         });
 
         test('should initialize state with all entities on first OIMDB_UPDATE', () => {
@@ -163,7 +163,7 @@ describe('OIMDBReducerFactory', () => {
                 return { users: allUsers };
             };
 
-            const customReducer = factory.createCollectionReducer(
+            const customReducer = adapter.createCollectionReducer(
                 collection,
                 customMapper
             );
@@ -194,11 +194,11 @@ describe('OIMDBReducerFactory', () => {
 
     describe('createIndexReducer', () => {
         let index: OIMReactiveIndexManual<string, string>;
-        let reducer: ReturnType<typeof factory.createIndexReducer>;
+        let reducer: ReturnType<typeof adapter.createIndexReducer>;
 
         beforeEach(() => {
             index = new OIMReactiveIndexManual<string, string>(queue);
-            reducer = factory.createIndexReducer(index);
+            reducer = adapter.createIndexReducer(index);
         });
 
         test('should initialize state with all index keys on first OIMDB_UPDATE', () => {
@@ -257,7 +257,7 @@ describe('OIMDBReducerFactory', () => {
                 return { mappings };
             };
 
-            const customReducer = factory.createIndexReducer(
+            const customReducer = adapter.createIndexReducer(
                 index,
                 customMapper
             );
@@ -281,7 +281,7 @@ describe('OIMDBReducerFactory', () => {
         test('should dispatch OIMDB_UPDATE action on queue flush', () => {
             const dispatchSpy = jest.spyOn(store, 'dispatch');
             const collection = new OIMReactiveCollection<User, string>(queue);
-            factory.createCollectionReducer(collection);
+            adapter.createCollectionReducer(collection);
 
             collection.upsertOne({
                 id: '1',
@@ -312,10 +312,10 @@ describe('OIMDBReducerFactory', () => {
             >(queue);
 
             const usersReducer =
-                factory.createCollectionReducer(usersCollection);
+                adapter.createCollectionReducer(usersCollection);
             const postsReducer =
-                factory.createCollectionReducer(postsCollection);
-            const usersByDepartmentReducer = factory.createIndexReducer(
+                adapter.createCollectionReducer(postsCollection);
+            const usersByDepartmentReducer = adapter.createIndexReducer(
                 usersByDepartmentIndex
             );
 
@@ -326,7 +326,7 @@ describe('OIMDBReducerFactory', () => {
             });
 
             const rootStore = createStore(rootReducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Add users
             usersCollection.upsertMany([
@@ -366,7 +366,7 @@ describe('OIMDBReducerFactory', () => {
 
             // Flush will dispatch action automatically, but we need to wait for it
             queue.flush();
-            // Action is dispatched automatically by factory, state should be updated
+            // Action is dispatched automatically by adapter, state should be updated
             // But we need to get state after dispatch completes
             const state = rootStore.getState() as {
                 users: TOIMDefaultCollectionState<User, string>;
@@ -455,18 +455,18 @@ describe('OIMDBReducerFactory', () => {
 
     describe('child reducer integration', () => {
         let collection: OIMReactiveCollection<User, string>;
-        let factory: OIMDBReducerFactory;
+        let adapter: OIMDBAdapter;
         let store: Store;
         let queue: OIMEventQueue;
 
         beforeEach(() => {
             const scheduler = new OIMEventQueueSchedulerImmediate();
             queue = new OIMEventQueue({ scheduler });
-            factory = new OIMDBReducerFactory(queue);
+            adapter = new OIMDBAdapter(queue);
             collection = new OIMReactiveCollection<User, string>(queue);
 
             store = createStore((state = {}) => state);
-            factory.setStore(store);
+            adapter.setStore(store);
         });
 
         afterEach(() => {
@@ -519,14 +519,14 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 undefined,
                 childOptions
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Initial state should be populated
             const initialState =
@@ -595,14 +595,14 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 undefined,
                 childOptions
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Wait for initial sync
             queue.flush();
@@ -673,14 +673,14 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 undefined,
                 childOptions
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Wait for initial sync
             queue.flush();
@@ -750,14 +750,14 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 undefined,
                 childOptions
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Wait for initial sync
             queue.flush();
@@ -823,14 +823,14 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 undefined,
                 childOptions
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Wait for initial sync
             queue.flush();
@@ -958,7 +958,7 @@ describe('OIMDBReducerFactory', () => {
                 getPk: entity => entity.id,
             };
 
-            const reducer = factory.createCollectionReducer(
+            const reducer = adapter.createCollectionReducer(
                 collection,
                 // Custom mapper to convert OIMDB state to ArrayBasedState
                 collection => {
@@ -971,7 +971,7 @@ describe('OIMDBReducerFactory', () => {
             );
 
             const rootStore = createStore(reducer);
-            factory.setStore(rootStore);
+            adapter.setStore(rootStore);
 
             // Wait for initial sync
             queue.flush();
@@ -1027,6 +1027,285 @@ describe('OIMDBReducerFactory', () => {
             // Other users should remain
             expect(collection.getOneByPk('1')).toBeDefined();
             expect(collection.getOneByPk('3')).toBeDefined();
+        });
+    });
+
+    describe('middleware and automatic flushing', () => {
+        let collection: OIMReactiveCollection<User, string>;
+        let adapter: OIMDBAdapter;
+        let store: Store;
+        let queue: OIMEventQueue;
+
+        beforeEach(() => {
+            const scheduler = new OIMEventQueueSchedulerImmediate();
+            queue = new OIMEventQueue({ scheduler });
+            adapter = new OIMDBAdapter(queue);
+            collection = new OIMReactiveCollection<User, string>(queue);
+
+            const reducer = adapter.createCollectionReducer(collection);
+            const middleware = adapter.createMiddleware();
+            store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+        });
+
+        test('should automatically flush queue after Redux action via middleware', () => {
+            // Initial data
+            collection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            queue.flush();
+
+            // Dispatch custom action that updates collection through child reducer
+            const childReducer = (
+                state: TOIMDefaultCollectionState<User, string> | undefined,
+                action: Action
+            ): TOIMDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER') {
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const childOptions: TOIMCollectionReducerChildOptions<
+                User,
+                string,
+                TOIMDefaultCollectionState<User, string>
+            > = {
+                reducer: childReducer,
+                getPk: entity => entity.id,
+            };
+
+            const reducerWithChild = adapter.createCollectionReducer(
+                collection,
+                undefined,
+                childOptions
+            );
+
+            const newAdapter = new OIMDBAdapter(queue);
+            const storeWithChild = createStore(
+                reducerWithChild,
+                applyMiddleware(newAdapter.createMiddleware())
+            );
+            newAdapter.setStore(storeWithChild);
+
+            // Dispatch action - middleware should automatically flush
+            storeWithChild.dispatch({
+                type: 'UPDATE_USER',
+                user: {
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                },
+            });
+
+            // No manual flush needed - middleware handled it
+            // Collection should be updated
+            const user = collection.getOneByPk('1');
+            expect(user?.name).toBe('Alice Updated');
+            expect(user?.age).toBe(31);
+        });
+
+        test('should handle multiple synchronous OIMDB updates and dispatches', () => {
+            const reducer = adapter.createCollectionReducer(collection);
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Multiple synchronous updates
+            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            queue.flush(); // Triggers dispatch
+
+            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            queue.flush(); // Triggers dispatch
+
+            collection.upsertOne({ id: '1', name: 'Alice Updated', age: 31, email: 'alice@test.com' });
+            queue.flush(); // Triggers dispatch
+
+            // All updates should be reflected in Redux state
+            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
+            expect(state.entities['1'].name).toBe('Alice Updated');
+            expect(state.entities['1'].age).toBe(31);
+            expect(state.entities['2'].name).toBe('Bob');
+            expect(state.ids).toHaveLength(2);
+        });
+
+        test('should handle rapid OIMDB updates without redundant Redux updates', () => {
+            const reducer = adapter.createCollectionReducer(collection);
+            const middleware = adapter.createMiddleware();
+            let reducerCallCount = 0;
+            const wrappedReducer = (state: any, action: Action) => {
+                reducerCallCount++;
+                return reducer(state, action);
+            };
+
+            const storeWithTracking = createStore(
+                wrappedReducer,
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(storeWithTracking);
+
+            // Rapid updates to same entity
+            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({ id: '1', name: 'Alice 2', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({ id: '1', name: 'Alice 3', age: 30, email: 'alice@test.com' });
+
+            // Single flush should coalesce all updates
+            queue.flush();
+
+            // Should only trigger reducer once (coalesced)
+            expect(reducerCallCount).toBeGreaterThan(0);
+            const state = storeWithTracking.getState() as TOIMDefaultCollectionState<User, string>;
+            expect(state.entities['1'].name).toBe('Alice 3'); // Final state
+        });
+
+        test('should optimize state updates - reuse objects when unchanged', () => {
+            const reducer = adapter.createCollectionReducer(collection);
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Initial state
+            collection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+            ]);
+            queue.flush();
+
+            const initialState = store.getState() as TOIMDefaultCollectionState<User, string>;
+            const initialEntities = initialState.entities;
+            const initialIds = initialState.ids;
+
+            // Update only one entity
+            collection.upsertOne({ id: '1', name: 'Alice Updated', age: 31, email: 'alice@test.com' });
+            queue.flush();
+
+            const updatedState = store.getState() as TOIMDefaultCollectionState<User, string>;
+
+            // IDs array should have same content (may be new reference due to mapper implementation)
+            expect(updatedState.ids).toEqual(initialIds);
+
+            // Entity '2' should be reused (unchanged) - same reference
+            expect(updatedState.entities['2']).toBe(initialEntities['2']);
+
+            // Entity '1' should be new (changed)
+            expect(updatedState.entities['1']).not.toBe(initialEntities['1']);
+            expect(updatedState.entities['1'].name).toBe('Alice Updated');
+        });
+
+        test('should handle complex scenario: OIMDB update -> dispatch -> OIMDB update -> dispatch', () => {
+            const reducer = adapter.createCollectionReducer(collection);
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Step 1: OIMDB update
+            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            queue.flush(); // Triggers dispatch
+
+            // Step 2: Redux dispatch (simulating user action)
+            store.dispatch({ type: 'SOME_ACTION' });
+            // Middleware automatically flushes if needed
+
+            // Step 3: Another OIMDB update
+            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            queue.flush(); // Triggers dispatch
+
+            // Step 4: Another Redux dispatch
+            store.dispatch({ type: 'ANOTHER_ACTION' });
+
+            // Final state should have both entities
+            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
+            expect(state.entities['1']).toBeDefined();
+            expect(state.entities['2']).toBeDefined();
+            expect(state.ids).toHaveLength(2);
+        });
+
+        test('should handle synchronous updates from both directions without conflicts', () => {
+            const childReducer = (
+                state: TOIMDefaultCollectionState<User, string> | undefined,
+                action: Action
+            ): TOIMDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER') {
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const childOptions: TOIMCollectionReducerChildOptions<
+                User,
+                string,
+                TOIMDefaultCollectionState<User, string>
+            > = {
+                reducer: childReducer,
+                getPk: entity => entity.id,
+            };
+
+            const reducer = adapter.createCollectionReducer(
+                collection,
+                undefined,
+                childOptions
+            );
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Initial data
+            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            queue.flush();
+
+            // Step 1: OIMDB update for '2'
+            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            queue.flush(); // Process OIMDB update first
+
+            // Step 2: Redux dispatch for '1' (middleware will auto-flush)
+            store.dispatch({
+                type: 'UPDATE_USER',
+                user: {
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                },
+            });
+            // Middleware automatically flushed queue if needed
+
+            // Both should be reflected correctly
+            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
+            expect(state.entities['1']).toBeDefined();
+            expect(state.entities['1'].name).toBe('Alice Updated');
+            expect(state.entities['2']).toBeDefined();
+            expect(state.entities['2'].name).toBe('Bob');
+
+            // OIMDB should have both
+            expect(collection.getOneByPk('1')?.name).toBe('Alice Updated');
+            expect(collection.getOneByPk('2')?.name).toBe('Bob');
         });
     });
 });

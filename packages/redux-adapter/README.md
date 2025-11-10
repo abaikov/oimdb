@@ -30,7 +30,8 @@ Use OIMDB for complex relational data and Redux for simple UI state, with automa
 
 ## 📦 What's Included
 
-- **OIMDBReducerFactory**: Main factory for creating Redux reducers from OIMDB collections
+- **OIMDBAdapter**: Main adapter class for creating Redux reducers and middleware from OIMDB collections
+- **Automatic Middleware**: Built-in middleware for automatic event queue flushing after Redux actions
 - **Default Mappers**: RTK Entity Adapter-style mappers for collections and indexes
 - **Utility Functions**: `findUpdatedInRecord` and `findUpdatedInArray` for efficient change detection
 - **Type-Safe**: Full TypeScript support with comprehensive type definitions
@@ -40,9 +41,9 @@ Use OIMDB for complex relational data and Redux for simple UI state, with automa
 ### Simple One-Way Sync (OIMDB → Redux)
 
 ```typescript
-import { OIMDBReducerFactory } from '@oimdb/redux-adapter';
+import { OIMDBAdapter } from '@oimdb/redux-adapter';
 import { OIMReactiveCollection, OIMEventQueue } from '@oimdb/core';
-import { createStore, combineReducers } from 'redux';
+import { createStore, combineReducers, applyMiddleware } from 'redux';
 
 interface User {
     id: string;
@@ -56,21 +57,25 @@ const users = new OIMReactiveCollection<User, string>(queue, {
     selectPk: (user) => user.id
 });
 
-// Create Redux reducer factory
-const factory = new OIMDBReducerFactory(queue);
+// Create Redux adapter
+const adapter = new OIMDBAdapter(queue);
 
 // Create Redux reducer from OIMDB collection
-const usersReducer = factory.createCollectionReducer(users);
+const usersReducer = adapter.createCollectionReducer(users);
 
-// Create Redux store
+// Create middleware for automatic flushing
+const middleware = adapter.createMiddleware();
+
+// Create Redux store with middleware
 const store = createStore(
     combineReducers({
         users: usersReducer,
-    })
+    }),
+    applyMiddleware(middleware)
 );
 
-// Set store in factory (can be done later)
-factory.setStore(store);
+// Set store in adapter (can be done later)
+adapter.setStore(store);
 
 // OIMDB changes automatically sync to Redux
 users.upsertOne({ id: '1', name: 'John', email: 'john@example.com' });
@@ -83,15 +88,16 @@ console.log(state.users.entities['1']); // { id: '1', name: 'John', email: 'john
 
 ### Two-Way Sync (OIMDB ↔ Redux)
 
-Enable bidirectional synchronization by providing a child reducer:
+Enable bidirectional synchronization by providing a child reducer. The middleware automatically flushes the queue after each action, so manual `queue.flush()` is not needed:
 
 ```typescript
 import { 
-    OIMDBReducerFactory,
+    OIMDBAdapter,
     TOIMDefaultCollectionState,
     TOIMCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
 import { Action } from 'redux';
+import { createStore, applyMiddleware } from 'redux';
 
 // Child reducer handles custom Redux actions
 const childReducer = (
@@ -123,14 +129,22 @@ const childOptions: TOIMCollectionReducerChildOptions<User, string, TOIMDefaultC
 };
 
 // Create reducer with child
-const usersReducer = factory.createCollectionReducer(users, undefined, childOptions);
+const usersReducer = adapter.createCollectionReducer(users, undefined, childOptions);
+
+// Create store with middleware
+const store = createStore(
+    usersReducer,
+    applyMiddleware(adapter.createMiddleware())
+);
+adapter.setStore(store);
 
 // Redux actions automatically sync back to OIMDB
+// Middleware automatically flushes queue after dispatch
 store.dispatch({
     type: 'UPDATE_USER_NAME',
     payload: { id: '1', name: 'John Updated' }
 });
-queue.flush();
+// No manual queue.flush() needed - middleware handles it!
 
 // OIMDB collection is automatically updated
 const user = users.getOneByPk('1');
@@ -153,7 +167,7 @@ const arrayMapper = (collection: OIMReactiveCollection<User, string>) => {
     };
 };
 
-const arrayReducer = factory.createCollectionReducer(users, arrayMapper);
+const arrayReducer = adapter.createCollectionReducer(users, arrayMapper);
 
 // Custom extractor for array-based state
 const childOptions: TOIMCollectionReducerChildOptions<User, string, ArrayBasedState> = {
@@ -192,6 +206,9 @@ const childOptions: TOIMCollectionReducerChildOptions<User, string, ArrayBasedSt
 Start by adding OIMDB for new features while keeping existing Redux code unchanged:
 
 ```typescript
+const adapter = new OIMDBAdapter(queue);
+const middleware = adapter.createMiddleware();
+
 const store = createStore(
     combineReducers({
         // Existing Redux reducers
@@ -199,10 +216,13 @@ const store = createStore(
         auth: authReducer,
         
         // New OIMDB-backed reducers
-        users: factory.createCollectionReducer(usersCollection),
-        posts: factory.createCollectionReducer(postsCollection),
-    })
+        users: adapter.createCollectionReducer(usersCollection),
+        posts: adapter.createCollectionReducer(postsCollection),
+    }),
+    applyMiddleware(middleware)
 );
+
+adapter.setStore(store);
 ```
 
 ### Phase 2: Migrate Existing Redux Reducers
@@ -216,7 +236,8 @@ const oldUsersReducer = (state, action) => {
 };
 
 // New OIMDB-backed reducer with compatibility layer
-const newUsersReducer = factory.createCollectionReducer(
+const adapter = new OIMDBAdapter(queue);
+const newUsersReducer = adapter.createCollectionReducer(
     usersCollection,
     undefined,
     {
@@ -224,6 +245,12 @@ const newUsersReducer = factory.createCollectionReducer(
         getPk: (user) => user.id
     }
 );
+
+const store = createStore(
+    newUsersReducer,
+    applyMiddleware(adapter.createMiddleware())
+);
+adapter.setStore(store);
 ```
 
 ### Phase 3: Full OIMDB Migration
@@ -281,15 +308,18 @@ import { OIMReactiveIndexManual } from '@oimdb/core';
 const userRolesIndex = new OIMReactiveIndexManual<string, string>(queue);
 
 // Create reducer for index
-const rolesReducer = factory.createIndexReducer(userRolesIndex);
+const adapter = new OIMDBAdapter(queue);
+const rolesReducer = adapter.createIndexReducer(userRolesIndex);
 
-// Use in Redux store
+// Use in Redux store with middleware
 const store = createStore(
     combineReducers({
         users: usersReducer,
         userRoles: rolesReducer,
-    })
+    }),
+    applyMiddleware(adapter.createMiddleware())
 );
+adapter.setStore(store);
 ```
 
 ## 📊 Performance
@@ -355,20 +385,30 @@ import type {
 
 ## 📚 API Reference
 
-### `OIMDBReducerFactory`
+### `OIMDBAdapter`
 
-Main factory class for creating Redux reducers.
+Main adapter class for integrating OIMDB with Redux. Creates Redux reducers from OIMDB collections and provides middleware for automatic event queue flushing.
 
 #### Methods
 
 - `createCollectionReducer<TEntity, TPk, TState>(collection, mapper?, child?)`: Create reducer for a collection
 - `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?)`: Create reducer for an index
+- `createMiddleware()`: Create Redux middleware that automatically flushes the event queue after each action
 - `setStore(store)`: Set Redux store (can be called later)
+- `flushSilently()`: Flush the event queue without triggering OIMDB_UPDATE dispatch (used internally by middleware)
 
 #### Constructor Options
 
 - `defaultCollectionMapper`: Default mapper for all collections
 - `defaultIndexMapper`: Default mapper for all indexes
+
+#### Automatic Flushing
+
+The middleware created by `createMiddleware()` automatically calls `flushSilently()` after every Redux action. This ensures that:
+
+- Events triggered by child reducers are processed synchronously
+- No manual `queue.flush()` is needed when updating OIMDB from Redux
+- OIMDB_UPDATE dispatch is not triggered unnecessarily (preventing loops)
 
 ## 🤝 Contributing
 

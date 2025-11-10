@@ -1,6 +1,6 @@
-// Core factory
-export { OIMDBReducerFactory } from './core/OIMDBReducerFactory';
-export type { OIMDBUpdateAction } from './core/OIMDBReducerFactory';
+// Core adapter
+export { OIMDBAdapter } from './core/OIMDBAdapter';
+export type { OIMDBUpdateAction } from './core/OIMDBAdapter';
 
 // Enums
 export { EOIMDBReducerActionType } from './enum/EOIMDBReducerActionType';
@@ -8,7 +8,7 @@ export { EOIMDBReducerActionType } from './enum/EOIMDBReducerActionType';
 // Types
 export type { TOIMCollectionMapper } from './types/TOIMCollectionMapper';
 export type { TOIMIndexMapper } from './types/TOIMIndexMapper';
-export type { TOIMDBReducerFactoryOptions } from './types/TOIMDBReducerFactoryOptions';
+export type { TOIMDBAdapterOptions } from './types/TOIMDBAdapterOptions';
 export type { TOIMDefaultCollectionState } from './types/TOIMDefaultCollectionState';
 export type { TOIMDefaultIndexState } from './types/TOIMDefaultIndexState';
 export type { TOIMCollectionReducerChildOptions } from './types/TOIMCollectionReducerChildOptions';

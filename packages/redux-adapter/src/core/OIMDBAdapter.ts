@@ -7,9 +7,9 @@ import {
     EOIMEventQueueEventType,
     TOIMPk,
 } from '@oimdb/core';
-import { Store, Reducer, Action } from 'redux';
+import { Store, Reducer, Action, Middleware } from 'redux';
 import { EOIMDBReducerActionType } from '../enum/EOIMDBReducerActionType';
-import { TOIMDBReducerFactoryOptions } from '../types/TOIMDBReducerFactoryOptions';
+import { TOIMDBAdapterOptions } from '../types/TOIMDBAdapterOptions';
 import { TOIMCollectionMapper } from '../types/TOIMCollectionMapper';
 import { TOIMIndexMapper } from '../types/TOIMIndexMapper';
 import { TOIMCollectionReducerChildOptions } from '../types/TOIMCollectionReducerChildOptions';
@@ -28,12 +28,14 @@ export type OIMDBUpdateAction = {
 };
 
 /**
- * Factory for creating Redux reducers from OIMDB collections and indexes
+ * Adapter for integrating OIMDB with Redux.
+ * Creates Redux reducers from OIMDB collections and indexes, and provides middleware
+ * for automatic event queue flushing.
  */
-export class OIMDBReducerFactory {
+export class OIMDBAdapter {
     private store?: Store;
     private readonly queue: OIMEventQueue;
-    private readonly options: TOIMDBReducerFactoryOptions;
+    private readonly options: TOIMDBAdapterOptions;
     private queueFlushHandler?: () => void;
 
     // Track reducers and their updated keys
@@ -54,7 +56,7 @@ export class OIMDBReducerFactory {
         }
     >();
 
-    constructor(queue: OIMEventQueue, options?: TOIMDBReducerFactoryOptions) {
+    constructor(queue: OIMEventQueue, options?: TOIMDBAdapterOptions) {
         this.queue = queue;
         this.options = options ?? {};
 
@@ -78,6 +80,69 @@ export class OIMDBReducerFactory {
      */
     public setStore(store: Store): void {
         this.store = store;
+    }
+
+    /**
+     * Flush the event queue without triggering OIMDB_UPDATE dispatch.
+     * Useful for processing events that were triggered by Redux actions
+     * (e.g., through child reducers) without causing unnecessary Redux updates.
+     */
+    public flushSilently(): void {
+        if (this.queueFlushHandler) {
+            // Temporarily remove handler to prevent dispatch
+            this.queue.emitter.off(
+                EOIMEventQueueEventType.AFTER_FLUSH,
+                this.queueFlushHandler
+            );
+        }
+
+        // Flush the queue
+        this.queue.flush();
+
+        // Restore handler
+        if (this.queueFlushHandler) {
+            this.queue.emitter.on(
+                EOIMEventQueueEventType.AFTER_FLUSH,
+                this.queueFlushHandler
+            );
+        }
+    }
+
+    /**
+     * Create Redux middleware that automatically flushes the event queue
+     * after every action. This ensures that when Redux updates OIMDB collections
+     * through child reducers, all events are processed synchronously.
+     *
+     * @returns Redux middleware
+     *
+     * @example
+     * ```typescript
+     * import { createStore, applyMiddleware } from 'redux';
+     * import { OIMDBAdapter } from '@oimdb/redux-adapter';
+     *
+     * const adapter = new OIMDBAdapter(queue);
+     * const middleware = adapter.createMiddleware();
+     *
+     * const store = createStore(
+     *     rootReducer,
+     *     applyMiddleware(middleware)
+     * );
+     *
+     * adapter.setStore(store);
+     * ```
+     */
+    public createMiddleware(): Middleware {
+        return (store) => (next) => (action) => {
+            // Execute the action first
+            const result = next(action);
+
+            // Silently flush the queue to process any events triggered by the action
+            // This ensures that when child reducers update OIMDB collections,
+            // all events are processed synchronously without triggering OIMDB_UPDATE
+            this.flushSilently();
+
+            return result;
+        };
     }
 
     /**

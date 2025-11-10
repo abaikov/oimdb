@@ -46,6 +46,7 @@ npm install @oimdb/redux-adapter @oimdb/core redux
 
 **Key Features:**
 - **🔄 Two-Way Synchronization**: Automatic sync between OIMDB and Redux in both directions
+- **⚡ Automatic Flushing**: Built-in middleware automatically processes events after Redux actions
 - **📦 Production Ready**: Battle-tested, optimized for large datasets
 - **🔄 Gradual Migration**: Integrate OIMDB into existing Redux projects without breaking changes
 - **🎯 Flexible State Mapping**: Custom mappers for any Redux state structure
