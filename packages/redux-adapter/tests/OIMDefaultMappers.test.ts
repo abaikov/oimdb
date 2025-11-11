@@ -154,16 +154,16 @@ describe('Default Mappers', () => {
             );
 
             expect(state.entities).toEqual({
-                department1: { key: 'department1', ids: ['user1', 'user2'] },
-                department2: { key: 'department2', ids: ['user3'] },
+                department1: { id: 'department1', ids: ['user1', 'user2'] },
+                department2: { id: 'department2', ids: ['user3'] },
             });
         });
 
         test('should update only changed keys when currentState is provided', () => {
             const currentState: TOIMDefaultIndexState<string, string> = {
                 entities: {
-                    department1: { key: 'department1', ids: ['user1', 'user2'] },
-                    department2: { key: 'department2', ids: ['user3'] },
+                    department1: { id: 'department1', ids: ['user1', 'user2'] },
+                    department2: { id: 'department2', ids: ['user3'] },
                 },
             };
 
@@ -177,7 +177,7 @@ describe('Default Mappers', () => {
             );
 
             expect(state.entities.department1).toEqual({
-                key: 'department1',
+                id: 'department1',
                 ids: ['user1', 'user2', 'user4'],
             });
             expect(state.entities.department2).toEqual(currentState.entities.department2);

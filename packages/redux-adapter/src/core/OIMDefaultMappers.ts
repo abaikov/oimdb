@@ -103,7 +103,7 @@ export function defaultCollectionMapper<
 
 /**
  * Default mapper for indexes
- * Creates state with entities containing key and ids arrays
+ * Creates state with entities containing id and ids arrays
  */
 export function defaultIndexMapper<
     TIndexKey extends TOIMPk,
@@ -117,16 +117,16 @@ export function defaultIndexMapper<
     if (!currentState) {
         const allKeys = index.getKeys();
         const keysLength = allKeys.length;
-        const entities: Record<TIndexKey, { key: TIndexKey; ids: TPk[] }> =
+        const entities: Record<TIndexKey, { id: TIndexKey; ids: TPk[] }> =
             Object.create(null) as Record<
                 TIndexKey,
-                { key: TIndexKey; ids: TPk[] }
+                { id: TIndexKey; ids: TPk[] }
             >;
 
         for (let i = 0; i < keysLength; i++) {
             const key = allKeys[i];
             const ids = Array.from(index.getPksByKey(key));
-            entities[key] = { key, ids };
+            entities[key] = { id: key, ids };
         }
 
         return { entities };
@@ -141,7 +141,7 @@ export function defaultIndexMapper<
     for (let i = 0; i < updatedKeysLength; i++) {
         const key = updatedKeysArray[i];
         const ids = Array.from(index.getPksByKey(key));
-        newEntities[key] = { key, ids };
+        newEntities[key] = { id: key, ids };
     }
 
     return { entities: newEntities };

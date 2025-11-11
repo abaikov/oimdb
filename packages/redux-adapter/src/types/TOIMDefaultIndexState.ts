@@ -7,5 +7,5 @@ export type TOIMDefaultIndexState<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
 > = {
-    entities: Record<TIndexKey, { key: TIndexKey; ids: TPk[] }>;
+    entities: Record<TIndexKey, { id: TIndexKey; ids: TPk[] }>;
 };

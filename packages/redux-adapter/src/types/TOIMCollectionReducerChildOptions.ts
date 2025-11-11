@@ -1,5 +1,24 @@
 import { Reducer, Action } from 'redux';
-import { TOIMPk, OIMReactiveCollection } from '@oimdb/core';
+import { TOIMPk, OIMReactiveCollection, OIMReactiveIndex, OIMIndex } from '@oimdb/core';
+
+/**
+ * Linked index configuration for automatic index updates
+ */
+export type TOIMLinkedIndex<
+    TEntity extends object,
+    TPk extends TOIMPk,
+    TIndexKey extends TOIMPk,
+> = {
+    /**
+     * Reactive index to update automatically
+     */
+    index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>;
+    /**
+     * Field name in entity that contains the index key
+     * When this field changes (by reference), the index will be updated
+     */
+    fieldName: keyof TEntity;
+};
 
 /**
  * Options for child reducer that can handle custom actions
@@ -38,5 +57,12 @@ export type TOIMCollectionReducerChildOptions<
      * If not provided, will try to use 'id' property
      */
     getPk?: (entity: TEntity) => TPk;
+
+    /**
+     * Linked indexes that will be automatically updated when entities change
+     * When an entity's field (specified by fieldName) changes by reference,
+     * the index will be updated: old key will be removed, new key will be added
+     */
+    linkedIndexes?: Array<TOIMLinkedIndex<TEntity, TPk, TOIMPk>>;
 };
 

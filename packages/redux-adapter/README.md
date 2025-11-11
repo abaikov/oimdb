@@ -124,8 +124,9 @@ const childReducer = (
 
 const childOptions: TOIMCollectionReducerChildOptions<User, string, TOIMDefaultCollectionState<User, string>> = {
     reducer: childReducer,
-    getPk: (user) => user.id
+    getPk: (user) => user.id,
     // extractEntities is optional - default implementation handles TOIMDefaultCollectionState
+    // linkedIndexes is optional - automatically updates indexes when entity fields change
 };
 
 // Create reducer with child
@@ -149,6 +150,81 @@ store.dispatch({
 // OIMDB collection is automatically updated
 const user = users.getOneByPk('1');
 console.log(user?.name); // 'John Updated'
+```
+
+### Linked Indexes
+
+Automatically update indexes when entity fields change. No need to create separate index reducers:
+
+```typescript
+import { 
+    OIMDBAdapter,
+    TOIMDefaultCollectionState,
+    TOIMCollectionReducerChildOptions 
+} from '@oimdb/redux-adapter';
+import { OIMReactiveIndexManual } from '@oimdb/core';
+
+interface Card {
+    id: string;
+    deckId: string;
+    title: string;
+}
+
+const cardsCollection = new OIMReactiveCollection<Card, string>(queue, {
+    selectPk: (card) => card.id
+});
+const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(queue);
+
+const childReducer = (
+    state: TOIMDefaultCollectionState<Card, string> | undefined,
+    action: Action
+): TOIMDefaultCollectionState<Card, string> => {
+    if (state === undefined) {
+        return { entities: {}, ids: [] };
+    }
+    
+    if (action.type === 'MOVE_CARD') {
+        const { cardId, newDeckId } = action.payload;
+        const card = state.entities[cardId];
+        if (card) {
+            return {
+                ...state,
+                entities: {
+                    ...state.entities,
+                    [cardId]: { ...card, deckId: newDeckId }
+                }
+            };
+        }
+    }
+    
+    return state;
+};
+
+const childOptions: TOIMCollectionReducerChildOptions<
+    Card,
+    string,
+    TOIMDefaultCollectionState<Card, string>
+> = {
+    reducer: childReducer,
+    getPk: (card) => card.id,
+    linkedIndexes: [
+        {
+            index: cardsByDeckIndex,
+            fieldName: 'deckId', // Field that contains the index key
+        },
+    ],
+};
+
+const cardsReducer = adapter.createCollectionReducer(
+    cardsCollection,
+    undefined,
+    childOptions
+);
+
+// When card.deckId changes, the index is automatically updated:
+// - Old deckId key: card removed
+// - New deckId key: card added
+// No need to create a separate index reducer!
 ```
 
 ### Custom State Structure
@@ -352,7 +428,7 @@ const childReducer = (
             ...state,
             entities: {
                 ...state.entities,
-                [key]: { key, ids }
+                [key]: { id: key, ids }
             }
         };
     }
@@ -448,6 +524,7 @@ import type {
     TOIMDefaultCollectionState,
     TOIMDefaultIndexState,
     TOIMCollectionReducerChildOptions,
+    TOIMLinkedIndex,
     TOIMIndexReducerChildOptions,
     TOIMUpdatedEntitiesResult,
     TOIMUpdatedArrayResult,

@@ -351,6 +351,200 @@ export class OIMDBAdapter {
                                         collection.removeMany(entitiesToRemove);
                                     }
                                 }
+
+                                // Update linked indexes
+                                if (
+                                    child.linkedIndexes &&
+                                    child.linkedIndexes.length > 0
+                                ) {
+                                    // Process updated entities (added + updated)
+                                    const allUpdatedPks = new Set<TPk>([
+                                        ...addedArray,
+                                        ...updatedArray,
+                                    ]);
+                                    const allUpdatedPksArray =
+                                        Array.from(allUpdatedPks);
+                                    const allUpdatedPksLength =
+                                        allUpdatedPksArray.length;
+
+                                    for (
+                                        let i = 0;
+                                        i < allUpdatedPksLength;
+                                        i++
+                                    ) {
+                                        const pk = allUpdatedPksArray[i];
+                                        const oldEntity = oldEntities[pk];
+                                        const newEntity =
+                                            defaultState.entities[pk];
+
+                                        if (!newEntity) continue;
+
+                                        // Check each linked index
+                                        for (
+                                            let j = 0;
+                                            j < child.linkedIndexes.length;
+                                            j++
+                                        ) {
+                                            const linkedIndex =
+                                                child.linkedIndexes[j];
+                                            const fieldName =
+                                                linkedIndex.fieldName;
+
+                                            // Get old and new index keys
+                                            const oldKey = oldEntity
+                                                ? (oldEntity[
+                                                      fieldName
+                                                  ] as TOIMPk)
+                                                : undefined;
+                                            const newKey = newEntity[
+                                                fieldName
+                                            ] as TOIMPk;
+
+                                            // Check if key changed by reference
+                                            if (oldKey !== newKey) {
+                                                const indexManual =
+                                                    linkedIndex.index as unknown as {
+                                                        addPks?: (
+                                                            key: TOIMPk,
+                                                            pks: readonly TPk[]
+                                                        ) => void;
+                                                        removePks?: (
+                                                            key: TOIMPk,
+                                                            pks: readonly TPk[]
+                                                        ) => void;
+                                                        setPks?: (
+                                                            key: TOIMPk,
+                                                            pks: TPk[]
+                                                        ) => void;
+                                                    };
+
+                                                // Remove from old key
+                                                if (oldKey !== undefined) {
+                                                    if (indexManual.removePks) {
+                                                        indexManual.removePks(
+                                                            oldKey,
+                                                            [pk]
+                                                        );
+                                                    } else if (
+                                                        indexManual.setPks
+                                                    ) {
+                                                        const existingPks =
+                                                            Array.from(
+                                                                linkedIndex.index.getPksByKey(
+                                                                    oldKey
+                                                                )
+                                                            );
+                                                        const filteredPks =
+                                                            existingPks.filter(
+                                                                p => p !== pk
+                                                            );
+                                                        indexManual.setPks(
+                                                            oldKey,
+                                                            filteredPks
+                                                        );
+                                                    }
+                                                }
+
+                                                // Add to new key
+                                                if (newKey !== undefined) {
+                                                    if (indexManual.addPks) {
+                                                        indexManual.addPks(
+                                                            newKey,
+                                                            [pk]
+                                                        );
+                                                    } else if (
+                                                        indexManual.setPks
+                                                    ) {
+                                                        const existingPks =
+                                                            Array.from(
+                                                                linkedIndex.index.getPksByKey(
+                                                                    newKey
+                                                                )
+                                                            );
+                                                        if (
+                                                            !existingPks.includes(
+                                                                pk
+                                                            )
+                                                        ) {
+                                                            existingPks.push(
+                                                                pk
+                                                            );
+                                                        }
+                                                        indexManual.setPks(
+                                                            newKey,
+                                                            existingPks
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // Process removed entities - remove from all linked indexes
+                                    if (removedLength > 0) {
+                                        for (
+                                            let i = 0;
+                                            i < removedLength;
+                                            i++
+                                        ) {
+                                            const pk = removedArray[i];
+                                            const oldEntity = oldEntities[pk];
+                                            if (!oldEntity) continue;
+
+                                            for (
+                                                let j = 0;
+                                                j < child.linkedIndexes.length;
+                                                j++
+                                            ) {
+                                                const linkedIndex =
+                                                    child.linkedIndexes[j];
+                                                const fieldName =
+                                                    linkedIndex.fieldName;
+                                                const oldKey = oldEntity[
+                                                    fieldName
+                                                ] as TOIMPk;
+
+                                                if (oldKey !== undefined) {
+                                                    const indexManual =
+                                                        linkedIndex.index as unknown as {
+                                                            removePks?: (
+                                                                key: TOIMPk,
+                                                                pks: readonly TPk[]
+                                                            ) => void;
+                                                            setPks?: (
+                                                                key: TOIMPk,
+                                                                pks: TPk[]
+                                                            ) => void;
+                                                        };
+
+                                                    if (indexManual.removePks) {
+                                                        indexManual.removePks(
+                                                            oldKey,
+                                                            [pk]
+                                                        );
+                                                    } else if (
+                                                        indexManual.setPks
+                                                    ) {
+                                                        const existingPks =
+                                                            Array.from(
+                                                                linkedIndex.index.getPksByKey(
+                                                                    oldKey
+                                                                )
+                                                            );
+                                                        const filteredPks =
+                                                            existingPks.filter(
+                                                                p => p !== pk
+                                                            );
+                                                        indexManual.setPks(
+                                                            oldKey,
+                                                            filteredPks
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             } finally {
                                 isSyncingFromChild = false;
                             }
@@ -491,15 +685,15 @@ export class OIMDBAdapter {
                             const currentKeys = index.getKeys();
                             const oldEntities: Record<
                                 TIndexKey,
-                                { key: TIndexKey; ids: TPk[] }
+                                { id: TIndexKey; ids: TPk[] }
                             > = Object.create(null) as Record<
                                 TIndexKey,
-                                { key: TIndexKey; ids: TPk[] }
+                                { id: TIndexKey; ids: TPk[] }
                             >;
                             for (let i = 0; i < currentKeys.length; i++) {
                                 const key = currentKeys[i];
                                 const pks = Array.from(index.getPksByKey(key));
-                                oldEntities[key] = { key, ids: pks };
+                                oldEntities[key] = { id: key, ids: pks };
                             }
 
                             // Find differences

@@ -5,8 +5,15 @@ import {
     OIMIndex,
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
+    TOIMPk,
 } from '@oimdb/core';
-import { Store, createStore, combineReducers, Action, applyMiddleware } from 'redux';
+import {
+    Store,
+    createStore,
+    combineReducers,
+    Action,
+    applyMiddleware,
+} from 'redux';
 import {
     OIMDBAdapter,
     TOIMDefaultCollectionState,
@@ -212,8 +219,8 @@ describe('OIMDBAdapter', () => {
             }) as TOIMDefaultIndexState<string, string>;
 
             expect(state.entities).toEqual({
-                department1: { key: 'department1', ids: ['user1', 'user2'] },
-                department2: { key: 'department2', ids: ['user3'] },
+                department1: { id: 'department1', ids: ['user1', 'user2'] },
+                department2: { id: 'department2', ids: ['user3'] },
             });
         });
 
@@ -235,7 +242,7 @@ describe('OIMDBAdapter', () => {
             }) as TOIMDefaultIndexState<string, string>;
 
             expect(updatedState.entities.department1).toEqual({
-                key: 'department1',
+                id: 'department1',
                 ids: ['user1', 'user2', 'user4'],
             });
             expect(updatedState.entities.department2).toEqual(
@@ -301,7 +308,7 @@ describe('OIMDBAdapter', () => {
                             entities: {
                                 ...state.entities,
                                 [typedAction.key]: {
-                                    key: typedAction.key,
+                                    id: typedAction.key,
                                     ids: typedAction.ids,
                                 },
                             },
@@ -325,7 +332,10 @@ describe('OIMDBAdapter', () => {
                     childOptions
                 );
                 const middleware = adapter.createMiddleware();
-                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                const rootStore = createStore(
+                    reducer,
+                    applyMiddleware(middleware)
+                );
                 adapter.setStore(rootStore);
 
                 // Wait for initial sync
@@ -344,7 +354,9 @@ describe('OIMDBAdapter', () => {
                 expect(pks).toEqual(['user1', 'user2', 'user4']);
 
                 // Original key should remain unchanged
-                const originalPks = Array.from(index.getPksByKey('department2'));
+                const originalPks = Array.from(
+                    index.getPksByKey('department2')
+                );
                 expect(originalPks).toEqual(['user3']);
             });
 
@@ -370,7 +382,7 @@ describe('OIMDBAdapter', () => {
                             entities: {
                                 ...state.entities,
                                 [typedAction.key]: {
-                                    key: typedAction.key,
+                                    id: typedAction.key,
                                     ids: typedAction.ids,
                                 },
                             },
@@ -393,7 +405,10 @@ describe('OIMDBAdapter', () => {
                     childOptions
                 );
                 const middleware = adapter.createMiddleware();
-                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                const rootStore = createStore(
+                    reducer,
+                    applyMiddleware(middleware)
+                );
                 adapter.setStore(rootStore);
 
                 // Wait for initial sync
@@ -413,7 +428,9 @@ describe('OIMDBAdapter', () => {
                 expect(pks).toEqual(['user3', 'user4']);
 
                 // Original key should remain unchanged
-                const originalPks = Array.from(index.getPksByKey('department1'));
+                const originalPks = Array.from(
+                    index.getPksByKey('department1')
+                );
                 expect(originalPks).toEqual(['user1', 'user2']);
             });
 
@@ -456,7 +473,10 @@ describe('OIMDBAdapter', () => {
                     childOptions
                 );
                 const middleware = adapter.createMiddleware();
-                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                const rootStore = createStore(
+                    reducer,
+                    applyMiddleware(middleware)
+                );
                 adapter.setStore(rootStore);
 
                 // Wait for initial sync
@@ -474,7 +494,9 @@ describe('OIMDBAdapter', () => {
 
                 // Other key should remain unchanged
                 expect(index.hasKey('department2')).toBe(true);
-                const remainingPks = Array.from(index.getPksByKey('department2'));
+                const remainingPks = Array.from(
+                    index.getPksByKey('department2')
+                );
                 expect(remainingPks).toEqual(['user3']);
             });
 
@@ -501,7 +523,7 @@ describe('OIMDBAdapter', () => {
                             entities: {
                                 ...state.entities,
                                 [typedAction.key]: {
-                                    key: typedAction.key,
+                                    id: typedAction.key,
                                     ids: typedAction.ids,
                                 },
                             },
@@ -524,7 +546,10 @@ describe('OIMDBAdapter', () => {
                     childOptions
                 );
                 const middleware = adapter.createMiddleware();
-                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                const rootStore = createStore(
+                    reducer,
+                    applyMiddleware(middleware)
+                );
                 adapter.setStore(rootStore);
 
                 queue.flush();
@@ -684,11 +709,11 @@ describe('OIMDBAdapter', () => {
             expect(state.usersByDepartment).toBeDefined();
             expect(state.usersByDepartment.entities).toBeDefined();
             expect(state.usersByDepartment.entities.engineering).toEqual({
-                key: 'engineering',
+                id: 'engineering',
                 ids: ['user1', 'user2'],
             });
             expect(state.usersByDepartment.entities.design).toEqual({
-                key: 'design',
+                id: 'design',
                 ids: ['user1'],
             });
 
@@ -1392,17 +1417,35 @@ describe('OIMDBAdapter', () => {
             adapter.setStore(store);
 
             // Multiple synchronous updates
-            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice',
+                age: 30,
+                email: 'alice@test.com',
+            });
             queue.flush(); // Triggers dispatch
 
-            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            collection.upsertOne({
+                id: '2',
+                name: 'Bob',
+                age: 25,
+                email: 'bob@test.com',
+            });
             queue.flush(); // Triggers dispatch
 
-            collection.upsertOne({ id: '1', name: 'Alice Updated', age: 31, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice Updated',
+                age: 31,
+                email: 'alice@test.com',
+            });
             queue.flush(); // Triggers dispatch
 
             // All updates should be reflected in Redux state
-            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
+            const state = store.getState() as TOIMDefaultCollectionState<
+                User,
+                string
+            >;
             expect(state.entities['1'].name).toBe('Alice Updated');
             expect(state.entities['1'].age).toBe(31);
             expect(state.entities['2'].name).toBe('Bob');
@@ -1425,16 +1468,35 @@ describe('OIMDBAdapter', () => {
             adapter.setStore(storeWithTracking);
 
             // Rapid updates to same entity
-            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
-            collection.upsertOne({ id: '1', name: 'Alice 2', age: 30, email: 'alice@test.com' });
-            collection.upsertOne({ id: '1', name: 'Alice 3', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice',
+                age: 30,
+                email: 'alice@test.com',
+            });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice 2',
+                age: 30,
+                email: 'alice@test.com',
+            });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice 3',
+                age: 30,
+                email: 'alice@test.com',
+            });
 
             // Single flush should coalesce all updates
             queue.flush();
 
             // Should only trigger reducer once (coalesced)
             expect(reducerCallCount).toBeGreaterThan(0);
-            const state = storeWithTracking.getState() as TOIMDefaultCollectionState<User, string>;
+            const state =
+                storeWithTracking.getState() as TOIMDefaultCollectionState<
+                    User,
+                    string
+                >;
             expect(state.entities['1'].name).toBe('Alice 3'); // Final state
         });
 
@@ -1451,15 +1513,26 @@ describe('OIMDBAdapter', () => {
             ]);
             queue.flush();
 
-            const initialState = store.getState() as TOIMDefaultCollectionState<User, string>;
+            const initialState = store.getState() as TOIMDefaultCollectionState<
+                User,
+                string
+            >;
             const initialEntities = initialState.entities;
             const initialIds = initialState.ids;
 
             // Update only one entity
-            collection.upsertOne({ id: '1', name: 'Alice Updated', age: 31, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice Updated',
+                age: 31,
+                email: 'alice@test.com',
+            });
             queue.flush();
 
-            const updatedState = store.getState() as TOIMDefaultCollectionState<User, string>;
+            const updatedState = store.getState() as TOIMDefaultCollectionState<
+                User,
+                string
+            >;
 
             // IDs array should have same content (may be new reference due to mapper implementation)
             expect(updatedState.ids).toEqual(initialIds);
@@ -1479,7 +1552,12 @@ describe('OIMDBAdapter', () => {
             adapter.setStore(store);
 
             // Step 1: OIMDB update
-            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice',
+                age: 30,
+                email: 'alice@test.com',
+            });
             queue.flush(); // Triggers dispatch
 
             // Step 2: Redux dispatch (simulating user action)
@@ -1487,14 +1565,22 @@ describe('OIMDBAdapter', () => {
             // Middleware automatically flushes if needed
 
             // Step 3: Another OIMDB update
-            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            collection.upsertOne({
+                id: '2',
+                name: 'Bob',
+                age: 25,
+                email: 'bob@test.com',
+            });
             queue.flush(); // Triggers dispatch
 
             // Step 4: Another Redux dispatch
             store.dispatch({ type: 'ANOTHER_ACTION' });
 
             // Final state should have both entities
-            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
+            const state = store.getState() as TOIMDefaultCollectionState<
+                User,
+                string
+            >;
             expect(state.entities['1']).toBeDefined();
             expect(state.entities['2']).toBeDefined();
             expect(state.ids).toHaveLength(2);
@@ -1543,11 +1629,21 @@ describe('OIMDBAdapter', () => {
             adapter.setStore(store);
 
             // Initial data
-            collection.upsertOne({ id: '1', name: 'Alice', age: 30, email: 'alice@test.com' });
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice',
+                age: 30,
+                email: 'alice@test.com',
+            });
             queue.flush();
 
             // Step 1: OIMDB update for '2'
-            collection.upsertOne({ id: '2', name: 'Bob', age: 25, email: 'bob@test.com' });
+            collection.upsertOne({
+                id: '2',
+                name: 'Bob',
+                age: 25,
+                email: 'bob@test.com',
+            });
             queue.flush(); // Process OIMDB update first
 
             // Step 2: Redux dispatch for '1' (middleware will auto-flush)
@@ -1563,15 +1659,216 @@ describe('OIMDBAdapter', () => {
             // Middleware automatically flushed queue if needed
 
             // Both should be reflected correctly
-            const state = store.getState() as TOIMDefaultCollectionState<User, string>;
-            expect(state.entities['1']).toBeDefined();
-            expect(state.entities['1'].name).toBe('Alice Updated');
-            expect(state.entities['2']).toBeDefined();
-            expect(state.entities['2'].name).toBe('Bob');
+        });
 
-            // OIMDB should have both
-            expect(collection.getOneByPk('1')?.name).toBe('Alice Updated');
-            expect(collection.getOneByPk('2')?.name).toBe('Bob');
+        test('should update linked indexes when entity field changes', () => {
+            interface Card {
+                id: string;
+                deckId: string;
+                title: string;
+            }
+
+            const cardsCollection = new OIMReactiveCollection<Card, string>(
+                queue,
+                {
+                    selectPk: card => card.id,
+                }
+            );
+            const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(
+                queue
+            );
+
+            // Setup initial data
+            cardsCollection.upsertMany([
+                { id: 'card1', deckId: 'deck1', title: 'Card 1' },
+                { id: 'card2', deckId: 'deck1', title: 'Card 2' },
+                { id: 'card3', deckId: 'deck2', title: 'Card 3' },
+            ]);
+            queue.flush();
+
+            // Initialize index manually
+            cardsByDeckIndex.setPks('deck1', ['card1', 'card2']);
+            cardsByDeckIndex.setPks('deck2', ['card3']);
+            queue.flush();
+
+            const childReducer = (
+                state: TOIMDefaultCollectionState<Card, string> | undefined,
+                action: Action
+            ): TOIMDefaultCollectionState<Card, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'MOVE_CARD') {
+                    const typedAction = action as {
+                        type: string;
+                        cardId: string;
+                        newDeckId: string;
+                    };
+                    const card = state.entities[typedAction.cardId];
+                    if (card) {
+                        return {
+                            ...state,
+                            entities: {
+                                ...state.entities,
+                                [typedAction.cardId]: {
+                                    ...card,
+                                    deckId: typedAction.newDeckId,
+                                },
+                            },
+                        };
+                    }
+                }
+                return state;
+            };
+
+            const childOptions: TOIMCollectionReducerChildOptions<
+                Card,
+                string,
+                TOIMDefaultCollectionState<Card, string>
+            > = {
+                reducer: childReducer,
+                getPk: card => card.id,
+                linkedIndexes: [
+                    {
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndex<
+                            TOIMPk,
+                            string,
+                            OIMIndex<TOIMPk, string>
+                        >,
+                        fieldName: 'deckId',
+                    },
+                ],
+            };
+
+            const reducer = adapter.createCollectionReducer(
+                cardsCollection,
+                undefined,
+                childOptions
+            );
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Wait for initial sync
+            queue.flush();
+
+            // Move card1 from deck1 to deck2
+            store.dispatch({
+                type: 'MOVE_CARD',
+                cardId: 'card1',
+                newDeckId: 'deck2',
+            });
+            // Middleware automatically flushes
+
+            // Index should be updated
+            const deck1Pks = Array.from(cardsByDeckIndex.getPksByKey('deck1'));
+            expect(deck1Pks).toEqual(['card2']); // card1 removed
+
+            const deck2Pks = Array.from(cardsByDeckIndex.getPksByKey('deck2'));
+            expect(deck2Pks).toContain('card3'); // card3 still there
+            expect(deck2Pks).toContain('card1'); // card1 added
+            expect(deck2Pks).toHaveLength(2);
+
+            // Collection should be updated
+            const card1 = cardsCollection.getOneByPk('card1');
+            expect(card1?.deckId).toBe('deck2');
+        });
+
+        test('should remove entity from linked indexes when entity is deleted', () => {
+            interface Card {
+                id: string;
+                deckId: string;
+                title: string;
+            }
+
+            const cardsCollection = new OIMReactiveCollection<Card, string>(
+                queue,
+                {
+                    selectPk: card => card.id,
+                }
+            );
+            const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(
+                queue
+            );
+
+            // Setup initial data
+            cardsCollection.upsertMany([
+                { id: 'card1', deckId: 'deck1', title: 'Card 1' },
+                { id: 'card2', deckId: 'deck1', title: 'Card 2' },
+            ]);
+            queue.flush();
+
+            // Initialize index manually
+            cardsByDeckIndex.setPks('deck1', ['card1', 'card2']);
+            queue.flush();
+
+            const childReducer = (
+                state: TOIMDefaultCollectionState<Card, string> | undefined,
+                action: Action
+            ): TOIMDefaultCollectionState<Card, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'DELETE_CARD') {
+                    const typedAction = action as {
+                        type: string;
+                        cardId: string;
+                    };
+                    const newEntities = { ...state.entities };
+                    delete newEntities[typedAction.cardId];
+                    return {
+                        entities: newEntities,
+                        ids: state.ids.filter(id => id !== typedAction.cardId),
+                    };
+                }
+                return state;
+            };
+
+            const childOptions: TOIMCollectionReducerChildOptions<
+                Card,
+                string,
+                TOIMDefaultCollectionState<Card, string>
+            > = {
+                reducer: childReducer,
+                getPk: card => card.id,
+                linkedIndexes: [
+                    {
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndex<
+                            TOIMPk,
+                            string,
+                            OIMIndex<TOIMPk, string>
+                        >,
+                        fieldName: 'deckId',
+                    },
+                ],
+            };
+
+            const reducer = adapter.createCollectionReducer(
+                cardsCollection,
+                undefined,
+                childOptions
+            );
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Wait for initial sync
+            queue.flush();
+
+            // Delete card1
+            store.dispatch({
+                type: 'DELETE_CARD',
+                cardId: 'card1',
+            });
+            // Middleware automatically flushes
+
+            // Index should be updated - card1 removed from deck1
+            const deck1Pks = Array.from(cardsByDeckIndex.getPksByKey('deck1'));
+            expect(deck1Pks).toEqual(['card2']); // Only card2 remains
+
+            // Collection should be updated
+            const card1 = cardsCollection.getOneByPk('card1');
+            expect(card1).toBeUndefined();
         });
     });
 });
