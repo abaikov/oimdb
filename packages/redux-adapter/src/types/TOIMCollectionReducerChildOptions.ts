@@ -14,8 +14,10 @@ export type TOIMLinkedIndex<
      */
     index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>;
     /**
-     * Field name in entity that contains the index key
+     * Field name in entity that contains an array of PKs
      * When this field changes (by reference), the index will be updated
+     * The entity's PK will be used as the index key, and the array values as index values
+     * Example: deck.cardIds -> index[deck.id] = cardIds
      */
     fieldName: keyof TEntity;
 };

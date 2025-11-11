@@ -154,7 +154,11 @@ console.log(user?.name); // 'John Updated'
 
 ### Linked Indexes
 
-Automatically update indexes when entity fields change. No need to create separate index reducers:
+Automatically update indexes when entity array fields change in **both directions**:
+- **Redux → OIMDB**: When Redux state changes via child reducer, linked indexes are updated
+- **OIMDB → Redux**: When OIMDB collection changes directly, linked indexes are updated automatically
+
+The entity's PK (obtained via `getPk`) becomes the index key, and the array field values become the index values. Index updates are triggered when the array field changes **by reference** (`===` comparison). No need to create separate index reducers:
 
 ```typescript
 import { 
@@ -164,34 +168,34 @@ import {
 } from '@oimdb/redux-adapter';
 import { OIMReactiveIndexManual } from '@oimdb/core';
 
-interface Card {
+interface Deck {
     id: string;
-    deckId: string;
-    title: string;
+    cardIds: string[]; // Array of card IDs
+    name: string;
 }
 
-const cardsCollection = new OIMReactiveCollection<Card, string>(queue, {
-    selectPk: (card) => card.id
+const decksCollection = new OIMReactiveCollection<Deck, string>(queue, {
+    selectPk: (deck) => deck.id
 });
 const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(queue);
 
 const childReducer = (
-    state: TOIMDefaultCollectionState<Card, string> | undefined,
+    state: TOIMDefaultCollectionState<Deck, string> | undefined,
     action: Action
-): TOIMDefaultCollectionState<Card, string> => {
+): TOIMDefaultCollectionState<Deck, string> => {
     if (state === undefined) {
         return { entities: {}, ids: [] };
     }
     
-    if (action.type === 'MOVE_CARD') {
-        const { cardId, newDeckId } = action.payload;
-        const card = state.entities[cardId];
-        if (card) {
+    if (action.type === 'UPDATE_DECK_CARDS') {
+        const { deckId, cardIds } = action.payload;
+        const deck = state.entities[deckId];
+        if (deck) {
             return {
                 ...state,
                 entities: {
                     ...state.entities,
-                    [cardId]: { ...card, deckId: newDeckId }
+                    [deckId]: { ...deck, cardIds } // Update cardIds array
                 }
             };
         }
@@ -201,30 +205,47 @@ const childReducer = (
 };
 
 const childOptions: TOIMCollectionReducerChildOptions<
-    Card,
+    Deck,
     string,
-    TOIMDefaultCollectionState<Card, string>
+    TOIMDefaultCollectionState<Deck, string>
 > = {
     reducer: childReducer,
-    getPk: (card) => card.id,
+    getPk: (deck) => deck.id,
     linkedIndexes: [
         {
             index: cardsByDeckIndex,
-            fieldName: 'deckId', // Field that contains the index key
+            fieldName: 'cardIds', // Array field containing PKs
         },
     ],
 };
 
-const cardsReducer = adapter.createCollectionReducer(
-    cardsCollection,
+const decksReducer = adapter.createCollectionReducer(
+    decksCollection,
     undefined,
     childOptions
 );
 
-// When card.deckId changes, the index is automatically updated:
-// - Old deckId key: card removed
-// - New deckId key: card added
+// When deck.cardIds changes (by reference), the index is automatically updated:
+// - index[deck.id] = deck.cardIds
+// - Old values removed, new values added automatically
+// - Works in both directions: Redux → OIMDB and OIMDB → Redux
 // No need to create a separate index reducer!
+
+// Example: Update via Redux
+store.dispatch({
+    type: 'UPDATE_DECK_CARDS',
+    payload: { deckId: 'deck1', cardIds: ['card1', 'card2', 'card3'] }
+});
+// Index automatically updated: cardsByDeckIndex['deck1'] = ['card1', 'card2', 'card3']
+
+// Example: Update via OIMDB
+decksCollection.upsertOne({
+    id: 'deck1',
+    cardIds: ['card4', 'card5'], // New array reference
+    name: 'Deck 1'
+});
+queue.flush(); // Triggers OIMDB_UPDATE action
+// Index automatically updated: cardsByDeckIndex['deck1'] = ['card4', 'card5']
 ```
 
 ### Custom State Structure
