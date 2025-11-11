@@ -12,6 +12,7 @@ export type { TOIMDBAdapterOptions } from './types/TOIMDBAdapterOptions';
 export type { TOIMDefaultCollectionState } from './types/TOIMDefaultCollectionState';
 export type { TOIMDefaultIndexState } from './types/TOIMDefaultIndexState';
 export type { TOIMCollectionReducerChildOptions } from './types/TOIMCollectionReducerChildOptions';
+export type { TOIMIndexReducerChildOptions } from './types/TOIMIndexReducerChildOptions';
 
 // Default mappers (for advanced usage)
 export {

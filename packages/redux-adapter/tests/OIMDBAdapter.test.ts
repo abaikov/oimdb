@@ -13,6 +13,7 @@ import {
     TOIMDefaultIndexState,
     EOIMDBReducerActionType,
     TOIMCollectionReducerChildOptions,
+    TOIMIndexReducerChildOptions,
     findUpdatedInArray,
 } from '../src';
 
@@ -273,6 +274,271 @@ describe('OIMDBAdapter', () => {
                 mappings: {
                     department1: ['user1', 'user2'],
                 },
+            });
+        });
+
+        describe('child reducer integration', () => {
+            test('should sync child reducer changes back to OIMDB index', () => {
+                // Setup initial data
+                index.setPks('department1', ['user1', 'user2']);
+                index.setPks('department2', ['user3']);
+                queue.flush();
+
+                const childReducer = (
+                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    action: Action
+                ): TOIMDefaultIndexState<string, string> => {
+                    if (state === undefined) {
+                        return { entities: {} };
+                    }
+                    if (action.type === 'UPDATE_INDEX') {
+                        const typedAction = action as {
+                            type: string;
+                            key: string;
+                            ids: string[];
+                        };
+                        return {
+                            entities: {
+                                ...state.entities,
+                                [typedAction.key]: {
+                                    key: typedAction.key,
+                                    ids: typedAction.ids,
+                                },
+                            },
+                        };
+                    }
+                    return state;
+                };
+
+                const childOptions: TOIMIndexReducerChildOptions<
+                    string,
+                    string,
+                    TOIMDefaultIndexState<string, string>
+                > = {
+                    reducer: childReducer,
+                    // Using default extractIndexState for TOIMDefaultIndexState
+                };
+
+                const reducer = adapter.createIndexReducer(
+                    index,
+                    undefined,
+                    childOptions
+                );
+                const middleware = adapter.createMiddleware();
+                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                adapter.setStore(rootStore);
+
+                // Wait for initial sync
+                queue.flush();
+
+                // Update index through child reducer
+                rootStore.dispatch({
+                    type: 'UPDATE_INDEX',
+                    key: 'department1',
+                    ids: ['user1', 'user2', 'user4'],
+                });
+                // Middleware automatically flushes
+
+                // Index should be updated
+                const pks = Array.from(index.getPksByKey('department1'));
+                expect(pks).toEqual(['user1', 'user2', 'user4']);
+
+                // Original key should remain unchanged
+                const originalPks = Array.from(index.getPksByKey('department2'));
+                expect(originalPks).toEqual(['user3']);
+            });
+
+            test('should sync added keys from child reducer to OIMDB index', () => {
+                // Setup initial data
+                index.setPks('department1', ['user1', 'user2']);
+                queue.flush();
+
+                const childReducer = (
+                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    action: Action
+                ): TOIMDefaultIndexState<string, string> => {
+                    if (state === undefined) {
+                        return { entities: {} };
+                    }
+                    if (action.type === 'ADD_INDEX_KEY') {
+                        const typedAction = action as {
+                            type: string;
+                            key: string;
+                            ids: string[];
+                        };
+                        return {
+                            entities: {
+                                ...state.entities,
+                                [typedAction.key]: {
+                                    key: typedAction.key,
+                                    ids: typedAction.ids,
+                                },
+                            },
+                        };
+                    }
+                    return state;
+                };
+
+                const childOptions: TOIMIndexReducerChildOptions<
+                    string,
+                    string,
+                    TOIMDefaultIndexState<string, string>
+                > = {
+                    reducer: childReducer,
+                };
+
+                const reducer = adapter.createIndexReducer(
+                    index,
+                    undefined,
+                    childOptions
+                );
+                const middleware = adapter.createMiddleware();
+                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                adapter.setStore(rootStore);
+
+                // Wait for initial sync
+                queue.flush();
+
+                // Add new key through child reducer
+                rootStore.dispatch({
+                    type: 'ADD_INDEX_KEY',
+                    key: 'department2',
+                    ids: ['user3', 'user4'],
+                });
+                // Middleware automatically flushes
+
+                // New key should be added to index
+                expect(index.hasKey('department2')).toBe(true);
+                const pks = Array.from(index.getPksByKey('department2'));
+                expect(pks).toEqual(['user3', 'user4']);
+
+                // Original key should remain unchanged
+                const originalPks = Array.from(index.getPksByKey('department1'));
+                expect(originalPks).toEqual(['user1', 'user2']);
+            });
+
+            test('should sync removed keys from child reducer to OIMDB index', () => {
+                // Setup initial data
+                index.setPks('department1', ['user1', 'user2']);
+                index.setPks('department2', ['user3']);
+                queue.flush();
+
+                const childReducer = (
+                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    action: Action
+                ): TOIMDefaultIndexState<string, string> => {
+                    if (state === undefined) {
+                        return { entities: {} };
+                    }
+                    if (action.type === 'REMOVE_INDEX_KEY') {
+                        const typedAction = action as {
+                            type: string;
+                            key: string;
+                        };
+                        const newEntities = { ...state.entities };
+                        delete newEntities[typedAction.key];
+                        return { entities: newEntities };
+                    }
+                    return state;
+                };
+
+                const childOptions: TOIMIndexReducerChildOptions<
+                    string,
+                    string,
+                    TOIMDefaultIndexState<string, string>
+                > = {
+                    reducer: childReducer,
+                };
+
+                const reducer = adapter.createIndexReducer(
+                    index,
+                    undefined,
+                    childOptions
+                );
+                const middleware = adapter.createMiddleware();
+                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                adapter.setStore(rootStore);
+
+                // Wait for initial sync
+                queue.flush();
+
+                // Remove key through child reducer
+                rootStore.dispatch({
+                    type: 'REMOVE_INDEX_KEY',
+                    key: 'department1',
+                });
+                // Middleware automatically flushes
+
+                // Key should be removed from index
+                expect(index.hasKey('department1')).toBe(false);
+
+                // Other key should remain unchanged
+                expect(index.hasKey('department2')).toBe(true);
+                const remainingPks = Array.from(index.getPksByKey('department2'));
+                expect(remainingPks).toEqual(['user3']);
+            });
+
+            test('should prevent infinite loops during sync', () => {
+                index.setPks('department1', ['user1']);
+                queue.flush();
+
+                let syncCount = 0;
+                const childReducer = (
+                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    action: Action
+                ): TOIMDefaultIndexState<string, string> => {
+                    if (state === undefined) {
+                        return { entities: {} };
+                    }
+                    if (action.type === 'UPDATE_INDEX') {
+                        syncCount++;
+                        const typedAction = action as {
+                            type: string;
+                            key: string;
+                            ids: string[];
+                        };
+                        return {
+                            entities: {
+                                ...state.entities,
+                                [typedAction.key]: {
+                                    key: typedAction.key,
+                                    ids: typedAction.ids,
+                                },
+                            },
+                        };
+                    }
+                    return state;
+                };
+
+                const childOptions: TOIMIndexReducerChildOptions<
+                    string,
+                    string,
+                    TOIMDefaultIndexState<string, string>
+                > = {
+                    reducer: childReducer,
+                };
+
+                const reducer = adapter.createIndexReducer(
+                    index,
+                    undefined,
+                    childOptions
+                );
+                const middleware = adapter.createMiddleware();
+                const rootStore = createStore(reducer, applyMiddleware(middleware));
+                adapter.setStore(rootStore);
+
+                queue.flush();
+
+                // Update through child reducer
+                rootStore.dispatch({
+                    type: 'UPDATE_INDEX',
+                    key: 'department1',
+                    ids: ['user1', 'user2'],
+                });
+                // Middleware automatically flushes
+
+                // Should only sync once (no infinite loop)
+                expect(syncCount).toBe(1);
             });
         });
     });

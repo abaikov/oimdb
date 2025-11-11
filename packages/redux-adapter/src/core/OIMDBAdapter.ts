@@ -13,12 +13,14 @@ import { TOIMDBAdapterOptions } from '../types/TOIMDBAdapterOptions';
 import { TOIMCollectionMapper } from '../types/TOIMCollectionMapper';
 import { TOIMIndexMapper } from '../types/TOIMIndexMapper';
 import { TOIMCollectionReducerChildOptions } from '../types/TOIMCollectionReducerChildOptions';
+import { TOIMIndexReducerChildOptions } from '../types/TOIMIndexReducerChildOptions';
 import {
     defaultCollectionMapper,
     defaultIndexMapper,
 } from './OIMDefaultMappers';
 import { findUpdatedInRecord } from '../utils/findUpdatedEntities';
 import { TOIMDefaultCollectionState } from '../types/TOIMDefaultCollectionState';
+import { TOIMDefaultIndexState } from '../types/TOIMDefaultIndexState';
 
 /**
  * OIMDB Update Action
@@ -132,7 +134,8 @@ export class OIMDBAdapter {
      * ```
      */
     public createMiddleware(): Middleware {
-        return (store) => (next) => (action) => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        return _store => next => action => {
             // Execute the action first
             const result = next(action);
 
@@ -376,7 +379,8 @@ export class OIMDBAdapter {
         TState,
     >(
         index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>,
-        mapper?: TOIMIndexMapper<TIndexKey, TPk, TState>
+        mapper?: TOIMIndexMapper<TIndexKey, TPk, TState>,
+        child?: TOIMIndexReducerChildOptions<TIndexKey, TPk, TState>
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
@@ -410,6 +414,9 @@ export class OIMDBAdapter {
             beforeFlushHandler
         );
 
+        // Track if we're syncing from child reducer to prevent loops
+        let isSyncingFromChild = false;
+
         // Create reducer function
         const reducer: Reducer<TState | undefined, Action> = (
             state: TState | undefined,
@@ -422,28 +429,197 @@ export class OIMDBAdapter {
                 return actualMapper(index, allKeys, undefined);
             }
 
-            // Only handle our action type
-            if (action.type !== EOIMDBReducerActionType.UPDATE) {
-                return state;
+            // Handle OIMDB_UPDATE action (from OIMDB to Redux)
+            if (action.type === EOIMDBReducerActionType.UPDATE) {
+                // If we're syncing from child, skip to prevent loops
+                if (isSyncingFromChild) {
+                    return state;
+                }
+
+                // If no updates, return state unchanged
+                if (reducerData.updatedKeys === null) {
+                    return state;
+                }
+
+                // Create new state using mapper
+                const updatedKeys = reducerData.updatedKeys;
+                const newState = actualMapper(
+                    index,
+                    updatedKeys,
+                    state as TState | undefined
+                );
+
+                // Clear updated keys
+                reducerData.updatedKeys = null;
+
+                return newState;
             }
 
-            // If no updates, return state unchanged
-            if (reducerData.updatedKeys === null) {
-                return state;
+            // Handle other actions with child reducer (if provided)
+            if (child) {
+                // Pass action to child reducer
+                const childState = child.reducer(state, action);
+
+                // If state changed, sync back to OIMDB
+                if (childState !== state && childState !== undefined) {
+                    // Use custom extractIndexState or default implementation
+                    if (child.extractIndexState) {
+                        // Custom extraction function - user handles everything
+                        isSyncingFromChild = true;
+                        try {
+                            child.extractIndexState(
+                                state as TState | undefined,
+                                childState as TState,
+                                index
+                            );
+                        } finally {
+                            isSyncingFromChild = false;
+                        }
+                    } else {
+                        // Default implementation for TOIMDefaultIndexState
+                        const defaultState =
+                            childState as unknown as TOIMDefaultIndexState<
+                                TIndexKey,
+                                TPk
+                            >;
+                        if (
+                            defaultState &&
+                            typeof defaultState === 'object' &&
+                            'entities' in defaultState
+                        ) {
+                            // Get current state from OIMDB for comparison
+                            const currentKeys = index.getKeys();
+                            const oldEntities: Record<
+                                TIndexKey,
+                                { key: TIndexKey; ids: TPk[] }
+                            > = Object.create(null) as Record<
+                                TIndexKey,
+                                { key: TIndexKey; ids: TPk[] }
+                            >;
+                            for (let i = 0; i < currentKeys.length; i++) {
+                                const key = currentKeys[i];
+                                const pks = Array.from(index.getPksByKey(key));
+                                oldEntities[key] = { key, ids: pks };
+                            }
+
+                            // Find differences
+                            const newEntities = defaultState.entities;
+                            const allKeys = new Set<TIndexKey>([
+                                ...(Object.keys(oldEntities) as TIndexKey[]),
+                                ...(Object.keys(newEntities) as TIndexKey[]),
+                            ]);
+
+                            // Sync changes to OIMDB
+                            isSyncingFromChild = true;
+                            try {
+                                // Check if index has addPks/removePks methods (OIMReactiveIndexManual)
+                                const indexManual = index as unknown as {
+                                    addPks?: (
+                                        key: TIndexKey,
+                                        pks: readonly TPk[]
+                                    ) => void;
+                                    removePks?: (
+                                        key: TIndexKey,
+                                        pks: readonly TPk[]
+                                    ) => void;
+                                    setPks?: (
+                                        key: TIndexKey,
+                                        pks: TPk[]
+                                    ) => void;
+                                };
+
+                                for (const key of allKeys) {
+                                    const oldEntry = oldEntities[key];
+                                    const newEntry = newEntities[key];
+
+                                    if (!oldEntry && newEntry) {
+                                        // Added: add all PKs for this key
+                                        if (newEntry.ids.length > 0) {
+                                            if (indexManual.addPks) {
+                                                indexManual.addPks(
+                                                    key,
+                                                    newEntry.ids
+                                                );
+                                            } else if (indexManual.setPks) {
+                                                indexManual.setPks(
+                                                    key,
+                                                    newEntry.ids
+                                                );
+                                            }
+                                        }
+                                    } else if (oldEntry && !newEntry) {
+                                        // Removed: remove all PKs for this key
+                                        const oldPks = oldEntry.ids;
+                                        if (oldPks.length > 0) {
+                                            if (indexManual.removePks) {
+                                                indexManual.removePks(
+                                                    key,
+                                                    oldPks
+                                                );
+                                            } else if (indexManual.setPks) {
+                                                // For non-manual indexes, set empty array
+                                                indexManual.setPks(key, []);
+                                            }
+                                        }
+                                    } else if (oldEntry && newEntry) {
+                                        // Updated: find diff and update
+                                        const oldPks = new Set(oldEntry.ids);
+                                        const newPks = new Set(newEntry.ids);
+
+                                        // Find PKs to add
+                                        const toAdd: TPk[] = [];
+                                        for (const pk of newPks) {
+                                            if (!oldPks.has(pk)) {
+                                                toAdd.push(pk);
+                                            }
+                                        }
+
+                                        // Find PKs to remove
+                                        const toRemove: TPk[] = [];
+                                        for (const pk of oldPks) {
+                                            if (!newPks.has(pk)) {
+                                                toRemove.push(pk);
+                                            }
+                                        }
+
+                                        // Apply changes
+                                        if (
+                                            indexManual.addPks &&
+                                            indexManual.removePks
+                                        ) {
+                                            // Use addPks/removePks if available (OIMReactiveIndexManual)
+                                            if (toRemove.length > 0) {
+                                                indexManual.removePks(
+                                                    key,
+                                                    toRemove
+                                                );
+                                            }
+                                            if (toAdd.length > 0) {
+                                                indexManual.addPks(key, toAdd);
+                                            }
+                                        } else if (indexManual.setPks) {
+                                            // Use setPks for full replacement
+                                            indexManual.setPks(
+                                                key,
+                                                newEntry.ids
+                                            );
+                                        }
+                                    }
+                                }
+                            } finally {
+                                isSyncingFromChild = false;
+                            }
+                        }
+                    }
+
+                    return childState;
+                }
+
+                return childState;
             }
 
-            // Create new state using mapper
-            const updatedKeys = reducerData.updatedKeys;
-            const newState = actualMapper(
-                index,
-                updatedKeys,
-                state as TState | undefined
-            );
-
-            // Clear updated keys
-            reducerData.updatedKeys = null;
-
-            return newState;
+            // No child reducer and not OIMDB_UPDATE - return state unchanged
+            return state;
         };
 
         return reducer;

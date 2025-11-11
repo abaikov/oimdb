@@ -301,6 +301,8 @@ const customMapper: TOIMCollectionMapper<User, string, CustomState> = (
 
 ### Index Reducers
 
+#### Simple One-Way Sync (OIMDB → Redux)
+
 ```typescript
 import { OIMReactiveIndexManual } from '@oimdb/core';
 
@@ -320,6 +322,74 @@ const store = createStore(
     applyMiddleware(adapter.createMiddleware())
 );
 adapter.setStore(store);
+```
+
+#### Two-Way Sync (OIMDB ↔ Redux) for Indexes
+
+Enable bidirectional synchronization for indexes by providing a child reducer:
+
+```typescript
+import { 
+    OIMDBAdapter,
+    TOIMDefaultIndexState,
+    TOIMIndexReducerChildOptions 
+} from '@oimdb/redux-adapter';
+import { Action } from 'redux';
+import { createStore, applyMiddleware } from 'redux';
+
+// Child reducer handles custom Redux actions
+const childReducer = (
+    state: TOIMDefaultIndexState<string, string> | undefined,
+    action: Action
+): TOIMDefaultIndexState<string, string> => {
+    if (state === undefined) {
+        return { entities: {} };
+    }
+    
+    if (action.type === 'UPDATE_INDEX_KEY') {
+        const { key, ids } = action.payload;
+        return {
+            ...state,
+            entities: {
+                ...state.entities,
+                [key]: { key, ids }
+            }
+        };
+    }
+    
+    return state;
+};
+
+const childOptions: TOIMIndexReducerChildOptions<
+    string,
+    string,
+    TOIMDefaultIndexState<string, string>
+> = {
+    reducer: childReducer,
+    // extractIndexState is optional - default implementation handles TOIMDefaultIndexState
+};
+
+// Create reducer with child
+const indexReducer = adapter.createIndexReducer(userRolesIndex, undefined, childOptions);
+
+// Create store with middleware
+const store = createStore(
+    indexReducer,
+    applyMiddleware(adapter.createMiddleware())
+);
+adapter.setStore(store);
+
+// Redux actions automatically sync back to OIMDB
+// Middleware automatically flushes queue after dispatch
+store.dispatch({
+    type: 'UPDATE_INDEX_KEY',
+    payload: { key: 'role1', ids: ['user1', 'user2', 'user3'] }
+});
+// No manual queue.flush() needed - middleware handles it!
+
+// OIMDB index is automatically updated
+const pks = Array.from(userRolesIndex.getPksByKey('role1'));
+console.log(pks); // ['user1', 'user2', 'user3']
 ```
 
 ## 📊 Performance
@@ -378,6 +448,7 @@ import type {
     TOIMDefaultCollectionState,
     TOIMDefaultIndexState,
     TOIMCollectionReducerChildOptions,
+    TOIMIndexReducerChildOptions,
     TOIMUpdatedEntitiesResult,
     TOIMUpdatedArrayResult,
 } from '@oimdb/redux-adapter';
@@ -392,7 +463,7 @@ Main adapter class for integrating OIMDB with Redux. Creates Redux reducers from
 #### Methods
 
 - `createCollectionReducer<TEntity, TPk, TState>(collection, mapper?, child?)`: Create reducer for a collection
-- `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?)`: Create reducer for an index
+- `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?, child?)`: Create reducer for an index
 - `createMiddleware()`: Create Redux middleware that automatically flushes the event queue after each action
 - `setStore(store)`: Set Redux store (can be called later)
 - `flushSilently()`: Flush the event queue without triggering OIMDB_UPDATE dispatch (used internally by middleware)
