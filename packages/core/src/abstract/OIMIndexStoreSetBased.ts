@@ -1,6 +1,9 @@
 import { TOIMPk } from '../types/TOIMPk';
 
-export abstract class OIMIndexStore<TKey extends TOIMPk, TPk extends TOIMPk> {
+export abstract class OIMIndexStoreSetBased<
+    TKey extends TOIMPk,
+    TPk extends TOIMPk,
+> {
     abstract setOneByKey(key: TKey, pks: Set<TPk>): void;
 
     abstract removeOneByKey(key: TKey): void;
@@ -19,3 +22,4 @@ export abstract class OIMIndexStore<TKey extends TOIMPk, TPk extends TOIMPk> {
 
     abstract clear(): void;
 }
+

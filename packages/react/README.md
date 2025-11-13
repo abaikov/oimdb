@@ -8,7 +8,8 @@ React integration for OIMDB - Hooks for selection and subscription with reactive
 
 ## Features
 
-- **Reactive Integration**: Hooks work with `OIMReactiveCollection` and `OIMReactiveIndex` from `@oimdb/core`
+- **Reactive Integration**: Hooks work with `OIMReactiveCollection` and reactive indexes from `@oimdb/core`
+- **Index Type Support**: Separate hooks for SetBased indexes (return `Set<TPk>`) and ArrayBased indexes (return `TPk[]`)
 - **Automatic Subscription**: Uses `useSyncExternalStore` for optimal React 18+ performance
 - **Event Coalescing**: Leverages OIMDB's built-in event coalescing for efficient updates
 - **Type Safety**: Full TypeScript support with advanced generic type inference
@@ -26,16 +27,28 @@ npm install @oimdb/react @oimdb/core
 ### Basic Setup
 
 ```typescript
-import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
+import { 
+  OIMEventQueue, 
+  OIMRICollection, 
+  OIMReactiveIndexManualSetBased,
+  OIMReactiveIndexManualArrayBased 
+} from '@oimdb/core';
 import { 
   useSelectEntitiesByPks, 
-  useSelectEntitiesByIndexKey,
+  useSelectEntitiesByIndexKeySetBased,
+  useSelectEntitiesByIndexKeyArrayBased,
   useSelectEntityByPk 
 } from '@oimdb/react';
 
 // Create event queue and reactive collections
 const queue = new OIMEventQueue();
-const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+
+// Choose index type based on your needs:
+// - SetBased: for frequent add/remove operations, order doesn't matter
+// - ArrayBased: for full replacements or when order/sorting matters
+const userTeamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+const deckCardsIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+
 const usersCollection = new OIMRICollection(queue, {
   collectionOpts: { selectPk: (user: User) => user.id },
   indexes: { byTeam: userTeamIndex },
@@ -79,19 +92,63 @@ function UserList({ userIds }: { userIds: string[] }) {
 
 ### Index-based Selection
 
+OIMDB provides separate hooks for SetBased and ArrayBased indexes:
+
+#### SetBased Indexes (returns Set)
+
 ```typescript
+import { useSelectEntitiesByIndexKeySetBased, useSelectPksByIndexKeySetBased } from '@oimdb/react';
+
 function TeamMembers({ teamId }: { teamId: string }) {
-  const teamUsers = useSelectEntitiesByIndexKey(
+  // For SetBased indexes, use SetBased hooks
+  const teamUsers = useSelectEntitiesByIndexKeySetBased(
     usersCollection,
-    usersCollection.indexes.byTeam,
+    usersCollection.indexes.byTeam, // OIMReactiveIndexManualSetBased
     teamId
   );
+
+  // Or get just the PKs as Set
+  const teamUserIds = useSelectPksByIndexKeySetBased(
+    usersCollection.indexes.byTeam,
+    teamId
+  ); // Returns Set<string>
 
   return (
     <div>
       {teamUsers.map((user, index) => (
         <div key={user?.id || index}>
           {user ? `${user.name} (${user.role})` : 'Loading...'}
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+#### ArrayBased Indexes (returns Array)
+
+```typescript
+import { useSelectEntitiesByIndexKeyArrayBased, useSelectPksByIndexKeyArrayBased } from '@oimdb/react';
+
+function DeckCards({ deckId }: { deckId: string }) {
+  // For ArrayBased indexes, use ArrayBased hooks
+  const cards = useSelectEntitiesByIndexKeyArrayBased(
+    cardsCollection,
+    cardsCollection.indexes.byDeck, // OIMReactiveIndexManualArrayBased
+    deckId
+  );
+
+  // Or get just the PKs as Array (preserves order)
+  const cardIds = useSelectPksByIndexKeyArrayBased(
+    cardsCollection.indexes.byDeck,
+    deckId
+  ); // Returns string[] (preserves order/sorting)
+
+  return (
+    <div>
+      {cards.map((card, index) => (
+        <div key={card?.id || index}>
+          {card ? `${index + 1}. ${card.name}` : 'Loading...'}
         </div>
       ))}
     </div>
@@ -125,7 +182,8 @@ interface Team {
 function createCollections() {
   const queue = new OIMEventQueue();
   
-  const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+  // Use SetBased for frequent add/remove operations
+  const userTeamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
   const usersCollection = new OIMRICollection(queue, {
     collectionOpts: { selectPk: (user: User) => user.id },
     indexes: { byTeam: userTeamIndex },
@@ -166,7 +224,7 @@ interface Team {
 
 // Create collections
 const queue = new OIMEventQueue();
-const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+const userTeamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
 const usersCollection = new OIMRICollection(queue, {
   collectionOpts: { selectPk: (user: User) => user.id },
   indexes: { byTeam: userTeamIndex },
@@ -200,8 +258,16 @@ function MyComponent() {
 For larger applications or when you need more control, create explicit type definitions similar to Redux's approach:
 
 ```typescript
-import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
-import type { TOIMPk, OIMIndex, OIMReactiveIndex } from '@oimdb/core';
+import { 
+  OIMEventQueue, 
+  OIMRICollection, 
+  OIMReactiveIndexManualSetBased 
+} from '@oimdb/core';
+import type { 
+  TOIMPk, 
+  OIMIndexSetBased, 
+  OIMReactiveIndexSetBased 
+} from '@oimdb/core';
 
 interface User {
   id: string;
@@ -220,8 +286,8 @@ type UserCollection = OIMRICollection<
   string,
   'byTeam',
   string,
-  OIMIndex<string, string>,
-  OIMReactiveIndex<string, string, OIMIndex<string, string>>
+  OIMIndexSetBased<string, string>,
+  OIMReactiveIndexSetBased<string, string, OIMIndexSetBased<string, string>>
 >;
 
 type TeamCollection = OIMRICollection<
@@ -229,8 +295,8 @@ type TeamCollection = OIMRICollection<
   string,
   never,
   never,
-  OIMIndex<never, never>,
-  OIMReactiveIndex<never, never, OIMIndex<never, never>>
+  OIMIndexSetBased<never, never>,
+  OIMReactiveIndexSetBased<never, never, OIMIndexSetBased<never, never>>
 >;
 
 // Define your collections dictionary type
@@ -242,7 +308,7 @@ interface AppCollections {
 // Factory function that returns properly typed collections
 function createCollections(): AppCollections {
   const queue = new OIMEventQueue();
-  const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+  const userTeamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
   
   return {
     users: new OIMRICollection(queue, {
@@ -303,9 +369,10 @@ function UserDashboard() {
   
   // Use collections with hooks
   const allUsers = useSelectEntitiesByPks(users, []);
-  const teamMembers = useSelectEntitiesByIndexKey(
+  // Use appropriate hook based on index type
+  const teamMembers = useSelectEntitiesByIndexKeySetBased(
     users,
-    users.indexes.byTeam,
+    users.indexes.byTeam, // SetBased index
     'team1'
   );
   
@@ -365,51 +432,105 @@ Subscribes to multiple entities from a reactive collection.
 **Returns:**
 - `(TEntity | undefined)[]` - Array of entities (undefined for missing entities)
 
-### `useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, key)`
+### Index-based Selection Hooks
 
-Subscribes to entities indexed by a specific key.
+OIMDB provides separate hooks for SetBased and ArrayBased indexes to ensure type safety and correct return types.
+
+#### SetBased Index Hooks
+
+##### `useSelectEntitiesByIndexKeySetBased(reactiveCollection, reactiveIndex, key)`
+
+Subscribes to entities indexed by a specific key from a SetBased index.
 
 **Parameters:**
 - `reactiveCollection: OIMReactiveCollection<TEntity, TPk>` - Reactive collection instance
-- `reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>` - Reactive index instance
+- `reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>` - SetBased reactive index instance
 - `key: TKey` - Index key to query
 
 **Returns:**
 - `(TEntity | undefined)[]` - Array of entities for the given index key
 
-### `useSelectEntitiesByIndexKeys(reactiveCollection, reactiveIndex, keys)`
+##### `useSelectEntitiesByIndexKeysSetBased(reactiveCollection, reactiveIndex, keys)`
 
-Subscribes to entities indexed by multiple keys.
+Subscribes to entities indexed by multiple keys from a SetBased index.
 
 **Parameters:**
 - `reactiveCollection: OIMReactiveCollection<TEntity, TPk>` - Reactive collection instance
-- `reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>` - Reactive index instance
+- `reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>` - SetBased reactive index instance
 - `keys: readonly TKey[]` - Array of index keys to query
 
 **Returns:**
 - `(TEntity | undefined)[]` - Array of entities for the given index keys
 
-### `useSelectPksByIndexKey(reactiveIndex, key)`
+##### `useSelectPksByIndexKeySetBased(reactiveIndex, key)`
 
-Subscribes to primary keys indexed by a specific key.
+Subscribes to primary keys indexed by a specific key from a SetBased index.
 
 **Parameters:**
-- `reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>` - Reactive index instance
+- `reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>` - SetBased reactive index instance
 - `key: TKey` - Index key to query
 
 **Returns:**
-- `TPk[]` - Array of primary keys for the given index key
+- `Set<TPk>` - Set of primary keys for the given index key
 
-### `useSelectPksByIndexKeys(reactiveIndex, keys)`
+##### `useSelectPksByIndexKeysSetBased(reactiveIndex, keys)`
 
-Subscribes to primary keys indexed by multiple keys.
+Subscribes to primary keys indexed by multiple keys from a SetBased index.
 
 **Parameters:**
-- `reactiveIndex: OIMReactiveIndex<TKey, TPk, TIndex>` - Reactive index instance
+- `reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>` - SetBased reactive index instance
 - `keys: readonly TKey[]` - Array of index keys to query
 
 **Returns:**
-- `Map<TKey, TPk[]>` - Map of index keys to their corresponding primary keys
+- `Map<TKey, Set<TPk>>` - Map of index keys to their corresponding primary key Sets
+
+#### ArrayBased Index Hooks
+
+##### `useSelectEntitiesByIndexKeyArrayBased(reactiveCollection, reactiveIndex, key)`
+
+Subscribes to entities indexed by a specific key from an ArrayBased index.
+
+**Parameters:**
+- `reactiveCollection: OIMReactiveCollection<TEntity, TPk>` - Reactive collection instance
+- `reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>` - ArrayBased reactive index instance
+- `key: TKey` - Index key to query
+
+**Returns:**
+- `(TEntity | undefined)[]` - Array of entities for the given index key (preserves order)
+
+##### `useSelectEntitiesByIndexKeysArrayBased(reactiveCollection, reactiveIndex, keys)`
+
+Subscribes to entities indexed by multiple keys from an ArrayBased index.
+
+**Parameters:**
+- `reactiveCollection: OIMReactiveCollection<TEntity, TPk>` - Reactive collection instance
+- `reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>` - ArrayBased reactive index instance
+- `keys: readonly TKey[]` - Array of index keys to query
+
+**Returns:**
+- `(TEntity | undefined)[]` - Array of entities for the given index keys (preserves order)
+
+##### `useSelectPksByIndexKeyArrayBased(reactiveIndex, key)`
+
+Subscribes to primary keys indexed by a specific key from an ArrayBased index.
+
+**Parameters:**
+- `reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>` - ArrayBased reactive index instance
+- `key: TKey` - Index key to query
+
+**Returns:**
+- `TPk[]` - Array of primary keys for the given index key (preserves order/sorting)
+
+##### `useSelectPksByIndexKeysArrayBased(reactiveIndex, keys)`
+
+Subscribes to primary keys indexed by multiple keys from an ArrayBased index.
+
+**Parameters:**
+- `reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>` - ArrayBased reactive index instance
+- `keys: readonly TKey[]` - Array of index keys to query
+
+**Returns:**
+- `Map<TKey, TPk[]>` - Map of index keys to their corresponding primary key arrays (preserves order)
 
 ## Context API Reference
 
@@ -457,7 +578,19 @@ The hooks work directly with OIMDB reactive objects:
 ```typescript
 // Use reactive collections and indexes directly
 const user = useSelectEntityByPk(reactiveCollection, 'user123');
-const posts = useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
+
+// Use appropriate hook based on index type
+const posts = useSelectEntitiesByIndexKeySetBased(
+  reactiveCollection, 
+  reactiveIndexSetBased, // SetBased index
+  'tech'
+);
+
+const orderedCards = useSelectEntitiesByIndexKeyArrayBased(
+  reactiveCollection,
+  reactiveIndexArrayBased, // ArrayBased index
+  'deck1'
+);
 ```
 
 ### Event Subscription
@@ -468,6 +601,15 @@ Hooks automatically subscribe to OIMDB reactive events using `useSyncExternalSto
 - **Index updates**: Subscribe to `reactiveIndex.updateEventEmitter`
 - **Optimized subscriptions**: Subscribe only to specific keys for efficient updates
 - **Automatic cleanup**: Unsubscribe when component unmounts
+
+### Index Type Selection
+
+When working with indexes, choose the appropriate hook based on your index type:
+
+- **SetBased indexes** (`OIMReactiveIndexManualSetBased`): Use `*SetBased` hooks (e.g., `useSelectPksByIndexKeySetBased`) - returns `Set<TPk>`
+- **ArrayBased indexes** (`OIMReactiveIndexManualArrayBased`): Use `*ArrayBased` hooks (e.g., `useSelectPksByIndexKeyArrayBased`) - returns `TPk[]` (preserves order)
+
+This ensures type safety and correct return types. TypeScript will enforce the correct hook usage based on your index type.
 
 ### Performance
 
@@ -483,8 +625,18 @@ Hooks automatically subscribe to OIMDB reactive events using `useSyncExternalSto
 
 ```typescript
 import React from 'react';
-import { OIMEventQueue, OIMRICollection, OIMReactiveIndexManual } from '@oimdb/core';
-import { useSelectEntityByPk, useSelectEntitiesByPks, useSelectEntitiesByIndexKey } from '@oimdb/react';
+import { 
+  OIMEventQueue, 
+  OIMRICollection, 
+  OIMReactiveIndexManualSetBased,
+  OIMReactiveIndexManualArrayBased 
+} from '@oimdb/core';
+import { 
+  useSelectEntityByPk, 
+  useSelectEntitiesByPks, 
+  useSelectEntitiesByIndexKeySetBased,
+  useSelectEntitiesByIndexKeyArrayBased 
+} from '@oimdb/react';
 
 interface User {
   id: string;
@@ -496,7 +648,8 @@ interface User {
 // Setup
 function createUserCollection() {
   const queue = new OIMEventQueue();
-  const teamIndex = new OIMReactiveIndexManual<string, string>(queue);
+  // Use SetBased for frequent add/remove operations
+  const teamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
   
   return new OIMRICollection(queue, {
     collectionOpts: { selectPk: (user: User) => user.id },
@@ -516,9 +669,10 @@ function UserProfile({ userId }: { userId: string }) {
 }
 
 function TeamDashboard({ teamId }: { teamId: string }) {
-  const teamMembers = useSelectEntitiesByIndexKey(
+  // Use SetBased hook for SetBased index
+  const teamMembers = useSelectEntitiesByIndexKeySetBased(
     usersCollection,
-    usersCollection.indexes.byTeam,
+    usersCollection.indexes.byTeam, // OIMReactiveIndexManualSetBased
     teamId
   );
   
@@ -526,7 +680,7 @@ function TeamDashboard({ teamId }: { teamId: string }) {
     <div>
       <h3>Team Members ({teamMembers.length})</h3>
       {teamMembers.map(user => (
-        <div key={user.id}>{user.name}</div>
+        <div key={user?.id}>{user?.name}</div>
       ))}
     </div>
   );
@@ -574,10 +728,20 @@ const user = useEntity(userStorage, 'user123');
 const users = useEntities(userStorage, userIds);
 const posts = useIndex(postStorage, categoryIndex, 'tech');
 
-// v1.x - Reactive collections
+// v1.x - Reactive collections with typed indexes
 const user = useSelectEntityByPk(reactiveCollection, 'user123');
 const users = useSelectEntitiesByPks(reactiveCollection, userIds);
-const posts = useSelectEntitiesByIndexKey(reactiveCollection, reactiveIndex, 'tech');
+// Use appropriate hook based on index type
+const posts = useSelectEntitiesByIndexKeySetBased(
+  reactiveCollection, 
+  reactiveIndexSetBased, 
+  'tech'
+);
+const orderedItems = useSelectEntitiesByIndexKeyArrayBased(
+  reactiveCollection,
+  reactiveIndexArrayBased,
+  'category1'
+);
 ```
 
 ### Collection Creation

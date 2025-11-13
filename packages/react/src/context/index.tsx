@@ -1,10 +1,33 @@
 import * as React from 'react';
 import { createContext, useContext, ReactNode } from 'react';
-import { OIMRICollection } from '@oimdb/core';
+import {
+    OIMRICollection,
+    TOIMPk,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+} from '@oimdb/core';
+
+type TOIMAnyIndexSetBased = OIMIndexSetBased<TOIMPk, TOIMPk>;
+type TOIMAnyIndexArrayBased = OIMIndexArrayBased<TOIMPk, TOIMPk>;
+type TOIMAnyReactiveIndexSetBased = OIMReactiveIndexSetBased<
+    TOIMPk,
+    TOIMPk,
+    TOIMAnyIndexSetBased
+>;
+type TOIMAnyReactiveIndexArrayBased = OIMReactiveIndexArrayBased<
+    TOIMPk,
+    TOIMPk,
+    TOIMAnyIndexArrayBased
+>;
+type TOIMAnyReactiveIndex =
+    | TOIMAnyReactiveIndexSetBased
+    | TOIMAnyReactiveIndexArrayBased;
 
 export type CollectionsDictionary = Record<
     string,
-    OIMRICollection<object, string, string, string, never, never>
+    OIMRICollection<object, TOIMPk, string, TOIMPk, TOIMAnyReactiveIndex>
 >;
 
 export type OIMContextValue<

@@ -1,6 +1,6 @@
 import {
     OIMReactiveCollection,
-    OIMReactiveIndexManual,
+    OIMReactiveIndexManualSetBased,
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
 } from '@oimdb/core';
@@ -137,10 +137,10 @@ describe('Default Mappers', () => {
     });
 
     describe('defaultIndexMapper', () => {
-        let index: OIMReactiveIndexManual<string, string>;
+        let index: OIMReactiveIndexManualSetBased<string, string>;
 
         beforeEach(() => {
-            index = new OIMReactiveIndexManual<string, string>(queue);
+            index = new OIMReactiveIndexManualSetBased<string, string>(queue);
         });
 
         test('should initialize state with all keys when currentState is undefined', () => {

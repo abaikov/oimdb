@@ -1,13 +1,14 @@
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMUpdateEventCoalescerEventType } from '../enum/EOIMUpdateEventCoalescerEventType';
-import { OIMIndexManual } from './OIMIndexManual';
-import { OIMIndexStoreMapDriven } from './OIMIndexStoreMapDriven';
+import { OIMIndexManualSetBased } from './OIMIndexManualSetBased';
+import { OIMIndexStoreMapDrivenSetBased } from './OIMIndexStoreMapDrivenSetBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMDBSettings } from '../const/OIMDBSettings';
 
 /**
  * Base abstract coalescer that groups updates by keys and emits consolidated events.
  * Designed to be extended for different entity types (collections, indexes, etc.).
+ * Uses SetBased indexes for efficient key tracking.
  */
 export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
     public readonly emitter = new OIMEventEmitter<{
@@ -16,25 +17,25 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
         [EOIMUpdateEventCoalescerEventType.AFTER_FLUSH]: void;
     }>();
 
-    protected readonly updatedKeysIndex: OIMIndexManual<
+    protected readonly updatedKeysIndex: OIMIndexManualSetBased<
         typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
         TKey
     >;
     private hasEmittedChanges = false;
 
     constructor(
-        index?: OIMIndexManual<
+        index?: OIMIndexManualSetBased<
             typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
             TKey
         >
     ) {
         this.updatedKeysIndex =
             index ??
-            new OIMIndexManual<
+            new OIMIndexManualSetBased<
                 typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
                 TKey
             >({
-                store: new OIMIndexStoreMapDriven<
+                store: new OIMIndexStoreMapDrivenSetBased<
                     typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
                     TKey
                 >(),

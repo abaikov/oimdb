@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/core",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Core in-memory data library with type-safe indices, reactive subscriptions, and event processing",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -31,6 +31,18 @@
   },
   "files": [
     "dist"
+  ],
+  "keywords": [
+    "oimdb",
+    "in-memory",
+    "database",
+    "reactive",
+    "typescript",
+    "type-safe",
+    "indices",
+    "subscriptions",
+    "event-processing",
+    "state-management"
   ],
   "author": "Andrei Baikov",
   "license": "MIT",

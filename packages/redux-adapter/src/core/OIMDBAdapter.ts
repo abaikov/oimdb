@@ -1,7 +1,9 @@
 import {
     OIMReactiveCollection,
-    OIMReactiveIndex,
-    OIMIndex,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
     OIMEventQueue,
     EOIMUpdateEventCoalescerEventType,
     EOIMEventQueueEventType,
@@ -51,7 +53,16 @@ export class OIMDBAdapter {
     >();
 
     private indexReducers = new Map<
-        OIMReactiveIndex<TOIMPk, TOIMPk, OIMIndex<TOIMPk, TOIMPk>>,
+        | OIMReactiveIndexSetBased<
+              TOIMPk,
+              TOIMPk,
+              OIMIndexSetBased<TOIMPk, TOIMPk>
+          >
+        | OIMReactiveIndexArrayBased<
+              TOIMPk,
+              TOIMPk,
+              OIMIndexArrayBased<TOIMPk, TOIMPk>
+          >,
         {
             updatedKeys: Set<TOIMPk> | null;
             mapper?: TOIMIndexMapper<TOIMPk, TOIMPk, unknown>;
@@ -151,8 +162,8 @@ export class OIMDBAdapter {
     /**
      * Create Redux reducer for a collection
      * @param collection - The reactive collection
-     * @param mapper - Optional mapper for converting OIMDB state to Redux state
      * @param child - Optional child reducer that handles custom actions and syncs changes back to OIMDB
+     * @param mapper - Optional mapper for converting OIMDB state to Redux state
      */
     public createCollectionReducer<
         TEntity extends object,
@@ -160,8 +171,8 @@ export class OIMDBAdapter {
         TState,
     >(
         collection: OIMReactiveCollection<TEntity, TPk>,
-        mapper?: TOIMCollectionMapper<TEntity, TPk, TState>,
-        child?: TOIMCollectionReducerChildOptions<TEntity, TPk, TState>
+        child?: TOIMCollectionReducerChildOptions<TEntity, TPk, TState>,
+        mapper?: TOIMCollectionMapper<TEntity, TPk, TState>
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
@@ -325,162 +336,103 @@ export class OIMDBAdapter {
                                     // Use entity PK as index key
                                     const indexKey = pk as unknown as TOIMPk;
 
-                                    // Calculate difference between old and new arrays
-                                    const oldArrayForIteration = oldArray ?? [];
-                                    const newArrayForIteration = newArray ?? [];
-                                    // Create Set only if array has elements (Set is faster for .has() on larger arrays)
-                                    const oldSet =
-                                        oldArrayForIteration.length > 0
-                                            ? new Set(oldArrayForIteration)
-                                            : null;
-                                    const newSet =
-                                        newArrayForIteration.length > 0
-                                            ? new Set(newArrayForIteration)
-                                            : null;
+                                    // If setPks is available, just set the new array directly (no diff needed)
+                                    if (indexManual.setPks) {
+                                        indexManual.setPks(
+                                            indexKey,
+                                            newArray ?? []
+                                        );
+                                    } else if (
+                                        indexManual.addPks &&
+                                        indexManual.removePks
+                                    ) {
+                                        // Only do diff if we have addPks/removePks (SetBased indexes)
+                                        const oldArrayForIteration =
+                                            oldArray ?? [];
+                                        const newArrayForIteration =
+                                            newArray ?? [];
 
-                                    // Find PKs to remove (in old but not in new)
-                                    const toRemove: TPk[] = [];
-                                    const oldArrayLength =
-                                        oldArrayForIteration.length;
-                                    if (oldArrayLength > 0) {
-                                        if (newSet) {
-                                            // Use Set for fast lookup
-                                            for (
-                                                let i = 0;
-                                                i < oldArrayLength;
-                                                i++
-                                            ) {
-                                                const valuePk =
-                                                    oldArrayForIteration[i];
-                                                if (!newSet.has(valuePk)) {
-                                                    toRemove.push(valuePk);
+                                        // Create Set only if array has elements
+                                        const oldSet =
+                                            oldArrayForIteration.length > 0
+                                                ? new Set(oldArrayForIteration)
+                                                : null;
+                                        const newSet =
+                                            newArrayForIteration.length > 0
+                                                ? new Set(newArrayForIteration)
+                                                : null;
+
+                                        // Find PKs to remove (in old but not in new)
+                                        const toRemove: TPk[] = [];
+                                        const oldArrayLength =
+                                            oldArrayForIteration.length;
+                                        if (oldArrayLength > 0) {
+                                            if (newSet) {
+                                                for (
+                                                    let i = 0;
+                                                    i < oldArrayLength;
+                                                    i++
+                                                ) {
+                                                    const valuePk =
+                                                        oldArrayForIteration[i];
+                                                    if (!newSet.has(valuePk)) {
+                                                        toRemove.push(valuePk);
+                                                    }
+                                                }
+                                            } else {
+                                                // New array is empty, all old items should be removed
+                                                for (
+                                                    let i = 0;
+                                                    i < oldArrayLength;
+                                                    i++
+                                                ) {
+                                                    toRemove.push(
+                                                        oldArrayForIteration[i]
+                                                    );
                                                 }
                                             }
-                                        } else {
-                                            // New array is empty, all old items should be removed
-                                            for (
-                                                let i = 0;
-                                                i < oldArrayLength;
-                                                i++
-                                            ) {
-                                                toRemove.push(
-                                                    oldArrayForIteration[i]
-                                                );
-                                            }
                                         }
-                                    }
 
-                                    // Find PKs to add (in new but not in old)
-                                    const toAdd: TPk[] = [];
-                                    const newArrayLength =
-                                        newArrayForIteration.length;
-                                    if (newArrayLength > 0) {
-                                        if (oldSet) {
-                                            // Use Set for fast lookup
-                                            for (
-                                                let i = 0;
-                                                i < newArrayLength;
-                                                i++
-                                            ) {
-                                                const valuePk =
-                                                    newArrayForIteration[i];
-                                                if (!oldSet.has(valuePk)) {
-                                                    toAdd.push(valuePk);
+                                        // Find PKs to add (in new but not in old)
+                                        const toAdd: TPk[] = [];
+                                        const newArrayLength =
+                                            newArrayForIteration.length;
+                                        if (newArrayLength > 0) {
+                                            if (oldSet) {
+                                                for (
+                                                    let i = 0;
+                                                    i < newArrayLength;
+                                                    i++
+                                                ) {
+                                                    const valuePk =
+                                                        newArrayForIteration[i];
+                                                    if (!oldSet.has(valuePk)) {
+                                                        toAdd.push(valuePk);
+                                                    }
+                                                }
+                                            } else {
+                                                // Old array is empty, all new items should be added
+                                                for (
+                                                    let i = 0;
+                                                    i < newArrayLength;
+                                                    i++
+                                                ) {
+                                                    toAdd.push(
+                                                        newArrayForIteration[i]
+                                                    );
                                                 }
                                             }
-                                        } else {
-                                            // Old array is empty, all new items should be added
-                                            for (
-                                                let i = 0;
-                                                i < newArrayLength;
-                                                i++
-                                            ) {
-                                                toAdd.push(
-                                                    newArrayForIteration[i]
-                                                );
-                                            }
                                         }
-                                    }
 
-                                    // Apply changes
-                                    if (toRemove.length > 0) {
-                                        if (indexManual.removePks) {
+                                        // Apply changes using addPks/removePks
+                                        if (toRemove.length > 0) {
                                             indexManual.removePks(
                                                 indexKey,
                                                 toRemove
                                             );
-                                        } else if (indexManual.setPks) {
-                                            const existingPks = Array.from(
-                                                linkedIndex.index.getPksByKey(
-                                                    indexKey
-                                                )
-                                            );
-                                            const filteredPks =
-                                                existingPks.filter(
-                                                    p => !toRemove.includes(p)
-                                                );
-                                            indexManual.setPks(
-                                                indexKey,
-                                                filteredPks
-                                            );
                                         }
-                                    }
-
-                                    if (toAdd.length > 0) {
-                                        if (indexManual.addPks) {
+                                        if (toAdd.length > 0) {
                                             indexManual.addPks(indexKey, toAdd);
-                                        } else if (indexManual.setPks) {
-                                            const existingPks = Array.from(
-                                                linkedIndex.index.getPksByKey(
-                                                    indexKey
-                                                )
-                                            );
-                                            const combinedPks = [
-                                                ...existingPks,
-                                                ...toAdd,
-                                            ];
-                                            indexManual.setPks(
-                                                indexKey,
-                                                combinedPks
-                                            );
-                                        }
-                                    }
-
-                                    // If array is completely new or removed, set directly
-                                    if (
-                                        oldArray === undefined &&
-                                        newArray !== undefined
-                                    ) {
-                                        // New entity - set all PKs
-                                        if (
-                                            indexManual.setPks &&
-                                            newArray.length > 0
-                                        ) {
-                                            indexManual.setPks(
-                                                indexKey,
-                                                newArray
-                                            );
-                                        }
-                                    } else if (
-                                        oldArray !== undefined &&
-                                        newArray === undefined
-                                    ) {
-                                        // Array removed - clear index
-                                        if (indexManual.setPks) {
-                                            indexManual.setPks(indexKey, []);
-                                        }
-                                    } else if (
-                                        oldArray !== undefined &&
-                                        newArray !== undefined &&
-                                        toRemove.length === 0 &&
-                                        toAdd.length === 0
-                                    ) {
-                                        // Arrays are different by reference but have same content - set to ensure consistency
-                                        if (indexManual.setPks) {
-                                            indexManual.setPks(
-                                                indexKey,
-                                                newArray
-                                            );
                                         }
                                     }
                                 }
@@ -520,7 +472,13 @@ export class OIMDBAdapter {
                                     // Remove entire index entry for this entity
                                     // Get all PKs for this key first
                                     const existingPks = Array.from(
-                                        linkedIndex.index.getPksByKey(indexKey)
+                                        (
+                                            linkedIndex.index as unknown as {
+                                                getPksByKey: (
+                                                    key: TOIMPk
+                                                ) => Set<TPk>;
+                                            }
+                                        ).getPksByKey(indexKey)
                                     );
 
                                     if (existingPks.length > 0) {
@@ -760,204 +718,135 @@ export class OIMDBAdapter {
                                                 const indexKey =
                                                     pk as unknown as TOIMPk;
 
-                                                // Calculate difference between old and new arrays
-                                                const oldArrayForIteration =
-                                                    oldArray ?? [];
-                                                const newArrayForIteration =
-                                                    newArray ?? [];
-                                                // Create Set only if array has elements (Set is faster for .has() on larger arrays)
-                                                const oldSet =
-                                                    oldArrayForIteration.length >
-                                                    0
-                                                        ? new Set(
-                                                              oldArrayForIteration
-                                                          )
-                                                        : null;
-                                                const newSet =
-                                                    newArrayForIteration.length >
-                                                    0
-                                                        ? new Set(
-                                                              newArrayForIteration
-                                                          )
-                                                        : null;
+                                                // If setPks is available, just set the new array directly (no diff needed)
+                                                if (indexManual.setPks) {
+                                                    indexManual.setPks(
+                                                        indexKey,
+                                                        newArray ?? []
+                                                    );
+                                                } else if (
+                                                    indexManual.addPks &&
+                                                    indexManual.removePks
+                                                ) {
+                                                    // Only do diff if we have addPks/removePks (SetBased indexes)
+                                                    const oldArrayForIteration =
+                                                        oldArray ?? [];
+                                                    const newArrayForIteration =
+                                                        newArray ?? [];
 
-                                                // Find PKs to remove (in old but not in new)
-                                                const toRemove: TPk[] = [];
-                                                const oldArrayLength =
-                                                    oldArrayForIteration.length;
-                                                if (oldArrayLength > 0) {
-                                                    if (newSet) {
-                                                        // Use Set for fast lookup
-                                                        for (
-                                                            let i = 0;
-                                                            i < oldArrayLength;
-                                                            i++
-                                                        ) {
-                                                            const valuePk =
-                                                                oldArrayForIteration[
-                                                                    i
-                                                                ];
-                                                            if (
-                                                                !newSet.has(
-                                                                    valuePk
-                                                                )
+                                                    // Create Set only if array has elements
+                                                    const oldSet =
+                                                        oldArrayForIteration.length >
+                                                        0
+                                                            ? new Set(
+                                                                  oldArrayForIteration
+                                                              )
+                                                            : null;
+                                                    const newSet =
+                                                        newArrayForIteration.length >
+                                                        0
+                                                            ? new Set(
+                                                                  newArrayForIteration
+                                                              )
+                                                            : null;
+
+                                                    // Find PKs to remove (in old but not in new)
+                                                    const toRemove: TPk[] = [];
+                                                    const oldArrayLength =
+                                                        oldArrayForIteration.length;
+                                                    if (oldArrayLength > 0) {
+                                                        if (newSet) {
+                                                            for (
+                                                                let i = 0;
+                                                                i <
+                                                                oldArrayLength;
+                                                                i++
+                                                            ) {
+                                                                const valuePk =
+                                                                    oldArrayForIteration[
+                                                                        i
+                                                                    ];
+                                                                if (
+                                                                    !newSet.has(
+                                                                        valuePk
+                                                                    )
+                                                                ) {
+                                                                    toRemove.push(
+                                                                        valuePk
+                                                                    );
+                                                                }
+                                                            }
+                                                        } else {
+                                                            // New array is empty, all old items should be removed
+                                                            for (
+                                                                let i = 0;
+                                                                i <
+                                                                oldArrayLength;
+                                                                i++
                                                             ) {
                                                                 toRemove.push(
-                                                                    valuePk
+                                                                    oldArrayForIteration[
+                                                                        i
+                                                                    ]
                                                                 );
                                                             }
                                                         }
-                                                    } else {
-                                                        // New array is empty, all old items should be removed
-                                                        for (
-                                                            let i = 0;
-                                                            i < oldArrayLength;
-                                                            i++
-                                                        ) {
-                                                            toRemove.push(
-                                                                oldArrayForIteration[
-                                                                    i
-                                                                ]
-                                                            );
-                                                        }
                                                     }
-                                                }
 
-                                                // Find PKs to add (in new but not in old)
-                                                const toAdd: TPk[] = [];
-                                                const newArrayLength =
-                                                    newArrayForIteration.length;
-                                                if (newArrayLength > 0) {
-                                                    if (oldSet) {
-                                                        // Use Set for fast lookup
-                                                        for (
-                                                            let i = 0;
-                                                            i < newArrayLength;
-                                                            i++
-                                                        ) {
-                                                            const valuePk =
-                                                                newArrayForIteration[
-                                                                    i
-                                                                ];
-                                                            if (
-                                                                !oldSet.has(
-                                                                    valuePk
-                                                                )
+                                                    // Find PKs to add (in new but not in old)
+                                                    const toAdd: TPk[] = [];
+                                                    const newArrayLength =
+                                                        newArrayForIteration.length;
+                                                    if (newArrayLength > 0) {
+                                                        if (oldSet) {
+                                                            for (
+                                                                let i = 0;
+                                                                i <
+                                                                newArrayLength;
+                                                                i++
+                                                            ) {
+                                                                const valuePk =
+                                                                    newArrayForIteration[
+                                                                        i
+                                                                    ];
+                                                                if (
+                                                                    !oldSet.has(
+                                                                        valuePk
+                                                                    )
+                                                                ) {
+                                                                    toAdd.push(
+                                                                        valuePk
+                                                                    );
+                                                                }
+                                                            }
+                                                        } else {
+                                                            // Old array is empty, all new items should be added
+                                                            for (
+                                                                let i = 0;
+                                                                i <
+                                                                newArrayLength;
+                                                                i++
                                                             ) {
                                                                 toAdd.push(
-                                                                    valuePk
+                                                                    newArrayForIteration[
+                                                                        i
+                                                                    ]
                                                                 );
                                                             }
                                                         }
-                                                    } else {
-                                                        // Old array is empty, all new items should be added
-                                                        for (
-                                                            let i = 0;
-                                                            i < newArrayLength;
-                                                            i++
-                                                        ) {
-                                                            toAdd.push(
-                                                                newArrayForIteration[
-                                                                    i
-                                                                ]
-                                                            );
-                                                        }
                                                     }
-                                                }
 
-                                                // Apply changes
-                                                if (toRemove.length > 0) {
-                                                    if (indexManual.removePks) {
+                                                    // Apply changes using addPks/removePks
+                                                    if (toRemove.length > 0) {
                                                         indexManual.removePks(
                                                             indexKey,
                                                             toRemove
                                                         );
-                                                    } else if (
-                                                        indexManual.setPks
-                                                    ) {
-                                                        const existingPks =
-                                                            Array.from(
-                                                                linkedIndex.index.getPksByKey(
-                                                                    indexKey
-                                                                )
-                                                            );
-                                                        const filteredPks =
-                                                            existingPks.filter(
-                                                                p =>
-                                                                    !toRemove.includes(
-                                                                        p
-                                                                    )
-                                                            );
-                                                        indexManual.setPks(
-                                                            indexKey,
-                                                            filteredPks
-                                                        );
                                                     }
-                                                }
-
-                                                if (toAdd.length > 0) {
-                                                    if (indexManual.addPks) {
+                                                    if (toAdd.length > 0) {
                                                         indexManual.addPks(
                                                             indexKey,
                                                             toAdd
-                                                        );
-                                                    } else if (
-                                                        indexManual.setPks
-                                                    ) {
-                                                        const existingPks =
-                                                            Array.from(
-                                                                linkedIndex.index.getPksByKey(
-                                                                    indexKey
-                                                                )
-                                                            );
-                                                        const combinedPks = [
-                                                            ...existingPks,
-                                                            ...toAdd,
-                                                        ];
-                                                        indexManual.setPks(
-                                                            indexKey,
-                                                            combinedPks
-                                                        );
-                                                    }
-                                                }
-
-                                                // If array is completely new or removed, set directly
-                                                if (
-                                                    oldArray === undefined &&
-                                                    newArray !== undefined
-                                                ) {
-                                                    // New entity - set all PKs
-                                                    if (
-                                                        indexManual.setPks &&
-                                                        newArray.length > 0
-                                                    ) {
-                                                        indexManual.setPks(
-                                                            indexKey,
-                                                            newArray
-                                                        );
-                                                    }
-                                                } else if (
-                                                    oldArray !== undefined &&
-                                                    newArray === undefined
-                                                ) {
-                                                    // Array removed - clear index
-                                                    if (indexManual.setPks) {
-                                                        indexManual.setPks(
-                                                            indexKey,
-                                                            []
-                                                        );
-                                                    }
-                                                } else if (
-                                                    oldArray !== undefined &&
-                                                    newArray !== undefined &&
-                                                    toRemove.length === 0 &&
-                                                    toAdd.length === 0
-                                                ) {
-                                                    // Arrays are different by reference but have same content - set to ensure consistency
-                                                    if (indexManual.setPks) {
-                                                        indexManual.setPks(
-                                                            indexKey,
-                                                            newArray
                                                         );
                                                     }
                                                 }
@@ -1005,9 +894,13 @@ export class OIMDBAdapter {
                                                 // Remove entire index entry for this entity
                                                 // Get all PKs for this key first
                                                 const existingPks = Array.from(
-                                                    linkedIndex.index.getPksByKey(
-                                                        indexKey
-                                                    )
+                                                    (
+                                                        linkedIndex.index as unknown as {
+                                                            getPksByKey: (
+                                                                key: TOIMPk
+                                                            ) => Set<TPk>;
+                                                        }
+                                                    ).getPksByKey(indexKey)
                                                 );
 
                                                 if (existingPks.length > 0) {
@@ -1073,7 +966,17 @@ export class OIMDBAdapter {
         TPk extends TOIMPk,
         TState,
     >(
-        index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>,
+        index:
+            | OIMReactiveIndexSetBased<
+                  TIndexKey,
+                  TPk,
+                  OIMIndexSetBased<TIndexKey, TPk>
+              >
+            | OIMReactiveIndexArrayBased<
+                  TIndexKey,
+                  TPk,
+                  OIMIndexArrayBased<TIndexKey, TPk>
+              >,
         mapper?: TOIMIndexMapper<TIndexKey, TPk, TState>,
         child?: TOIMIndexReducerChildOptions<TIndexKey, TPk, TState>
     ): Reducer<TState | undefined, Action> {
@@ -1088,11 +991,17 @@ export class OIMDBAdapter {
             mapper: actualMapper,
         };
         this.indexReducers.set(
-            index as unknown as OIMReactiveIndex<
-                TOIMPk,
-                TOIMPk,
-                OIMIndex<TOIMPk, TOIMPk>
-            >,
+            index as unknown as
+                | OIMReactiveIndexSetBased<
+                      TOIMPk,
+                      TOIMPk,
+                      OIMIndexSetBased<TOIMPk, TOIMPk>
+                  >
+                | OIMReactiveIndexArrayBased<
+                      TOIMPk,
+                      TOIMPk,
+                      OIMIndexArrayBased<TOIMPk, TOIMPk>
+                  >,
             reducerData as {
                 updatedKeys: Set<TOIMPk> | null;
                 mapper?: TOIMIndexMapper<TOIMPk, TOIMPk, unknown>;
@@ -1193,8 +1102,10 @@ export class OIMDBAdapter {
                             >;
                             for (let i = 0; i < currentKeys.length; i++) {
                                 const key = currentKeys[i];
-                                const pks = Array.from(index.getPksByKey(key));
-                                oldEntities[key] = { id: key, ids: pks };
+                                const pks = index.getPksByKey(key);
+                                const ids =
+                                    pks instanceof Set ? Array.from(pks) : pks;
+                                oldEntities[key] = { id: key, ids };
                             }
 
                             // Find differences
@@ -1223,7 +1134,9 @@ export class OIMDBAdapter {
                                     ) => void;
                                 };
 
-                                for (const key of allKeys) {
+                                const allKeysArray = Array.from(allKeys);
+                                for (let i = 0; i < allKeysArray.length; i++) {
+                                    const key = allKeysArray[i];
                                     const oldEntry = oldEntities[key];
                                     const newEntry = newEntities[key];
 
@@ -1263,7 +1176,13 @@ export class OIMDBAdapter {
 
                                         // Find PKs to add
                                         const toAdd: TPk[] = [];
-                                        for (const pk of newPks) {
+                                        const newPksArray = Array.from(newPks);
+                                        for (
+                                            let i = 0;
+                                            i < newPksArray.length;
+                                            i++
+                                        ) {
+                                            const pk = newPksArray[i];
                                             if (!oldPks.has(pk)) {
                                                 toAdd.push(pk);
                                             }
@@ -1271,7 +1190,13 @@ export class OIMDBAdapter {
 
                                         // Find PKs to remove
                                         const toRemove: TPk[] = [];
-                                        for (const pk of oldPks) {
+                                        const oldPksArray = Array.from(oldPks);
+                                        for (
+                                            let i = 0;
+                                            i < oldPksArray.length;
+                                            i++
+                                        ) {
+                                            const pk = oldPksArray[i];
                                             if (!newPks.has(pk)) {
                                                 toRemove.push(pk);
                                             }

@@ -1,4 +1,5 @@
-import { OIMIndexManual } from '../src/core/OIMIndexManual';
+import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
+import { OIMIndexManualArrayBased } from '../src/core/OIMIndexManualArrayBased';
 import { OIMIndexComparatorFactory } from '../src/core/OIMIndexComparatorFactory';
 import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
 import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
@@ -7,12 +8,54 @@ import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-schedul
 import { EOIMIndexEventType } from '../src/enum/EOIMIndexEventType';
 import { TOIMIndexUpdatePayload } from '../src/types/TOIMIndexUpdatePayload';
 
-describe('OIMIndexManual', () => {
+// Helper function to test both index types
+function testIndexTypes(
+    name: string,
+    testFn: (
+        createIndex: () => OIMIndexManualSetBased<string, number> | OIMIndexManualArrayBased<string, number>,
+        isSetBased: boolean
+    ) => void
+) {
+    describe(`${name} - SetBased`, () => {
+        testFn(
+            () => new OIMIndexManualSetBased<string, number>(),
+            true
+        );
+    });
+
+    describe(`${name} - ArrayBased`, () => {
+        testFn(
+            () => new OIMIndexManualArrayBased<string, number>(),
+            false
+        );
+    });
+}
+
+// Helper to compare results based on index type
+function expectPksEqual(
+    result: Set<number> | number[],
+    expected: number[],
+    isSetBased: boolean
+) {
+    if (isSetBased) {
+        expect(result).toEqual(new Set(expected));
+        expect((result as Set<number>).size).toBe(expected.length);
+    } else {
+        // For ArrayBased, we need to check that arrays contain the same elements
+        // but order might differ, so we sort both
+        const sortedResult = [...(result as number[])].sort((a, b) => a - b);
+        const sortedExpected = [...expected].sort((a, b) => a - b);
+        expect(sortedResult).toEqual(sortedExpected);
+        expect((result as number[]).length).toBe(expected.length);
+    }
+}
+
+describe('OIMIndexManualSetBased', () => {
     describe('Basic Operations', () => {
-        let index: OIMIndexManual<string, number>;
+        let index: OIMIndexManualSetBased<string, number>;
 
         beforeEach(() => {
-            index = new OIMIndexManual<string, number>();
+            index = new OIMIndexManualSetBased<string, number>();
         });
 
         afterEach(() => {
@@ -95,7 +138,7 @@ describe('OIMIndexManual', () => {
             expect(index.isEmpty).toBe(true);
         });
 
-        test('should return empty array for non-existent key', () => {
+        test('should return empty set for non-existent key', () => {
             const pks = index.getPks('non-existent');
             expect(pks).toEqual(new Set());
         });
@@ -109,11 +152,11 @@ describe('OIMIndexManual', () => {
     });
 
     describe('Event System', () => {
-        let index: OIMIndexManual<string, number>;
+        let index: OIMIndexManualSetBased<string, number>;
         let eventSpy: jest.Mock;
 
         beforeEach(() => {
-            index = new OIMIndexManual<string, number>();
+            index = new OIMIndexManualSetBased<string, number>();
             eventSpy = jest.fn();
             index.emitter.on(EOIMIndexEventType.UPDATE, eventSpy);
         });
@@ -205,11 +248,11 @@ describe('OIMIndexManual', () => {
 
     describe('Comparators', () => {
         describe('Element-wise Comparator', () => {
-            let index: OIMIndexManual<string, number>;
+            let index: OIMIndexManualSetBased<string, number>;
             let eventSpy: jest.Mock;
 
             beforeEach(() => {
-                index = new OIMIndexManual<string, number>({
+                index = new OIMIndexManualSetBased<string, number>({
                     comparePks:
                         OIMIndexComparatorFactory.createElementWiseComparator<number>(),
                 });
@@ -264,11 +307,11 @@ describe('OIMIndexManual', () => {
         });
 
         describe('Set-based Comparator', () => {
-            let index: OIMIndexManual<string, number>;
+            let index: OIMIndexManualSetBased<string, number>;
             let eventSpy: jest.Mock;
 
             beforeEach(() => {
-                index = new OIMIndexManual<string, number>({
+                index = new OIMIndexManualSetBased<string, number>({
                     comparePks:
                         OIMIndexComparatorFactory.createSetBasedComparator<number>(),
                 });
@@ -311,11 +354,11 @@ describe('OIMIndexManual', () => {
         });
 
         describe('No Comparator', () => {
-            let index: OIMIndexManual<string, number>;
+            let index: OIMIndexManualSetBased<string, number>;
             let eventSpy: jest.Mock;
 
             beforeEach(() => {
-                index = new OIMIndexManual<string, number>(); // No comparator
+                index = new OIMIndexManualSetBased<string, number>(); // No comparator
                 eventSpy = jest.fn();
                 index.emitter.on(EOIMIndexEventType.UPDATE, eventSpy);
             });
@@ -336,10 +379,10 @@ describe('OIMIndexManual', () => {
     });
 
     describe('Metrics and Utilities', () => {
-        let index: OIMIndexManual<string, number>;
+        let index: OIMIndexManualSetBased<string, number>;
 
         beforeEach(() => {
-            index = new OIMIndexManual<string, number>();
+            index = new OIMIndexManualSetBased<string, number>();
         });
 
         afterEach(() => {
@@ -410,10 +453,10 @@ describe('OIMIndexManual', () => {
     });
 
     describe('Edge Cases', () => {
-        let index: OIMIndexManual<string, number>;
+        let index: OIMIndexManualSetBased<string, number>;
 
         beforeEach(() => {
-            index = new OIMIndexManual<string, number>();
+            index = new OIMIndexManualSetBased<string, number>();
         });
 
         afterEach(() => {
@@ -445,7 +488,7 @@ describe('OIMIndexManual', () => {
         });
 
         test('should handle string PKs', () => {
-            const stringIndex = new OIMIndexManual<string, string>();
+            const stringIndex = new OIMIndexManualSetBased<string, string>();
 
             stringIndex.setPks('users:active', ['user1', 'user2', 'user3']);
             stringIndex.addPks('users:active', ['user4', 'user5']);
@@ -461,14 +504,14 @@ describe('OIMIndexManual', () => {
     });
 
     describe('Event System Integration', () => {
-        let index: OIMIndexManual<string, number>;
+        let index: OIMIndexManualSetBased<string, number>;
         let coalescer: OIMUpdateEventCoalescerIndex<string>;
         let emitter: OIMUpdateEventEmitter<string>;
         let queue: OIMEventQueue;
         let scheduler: OIMEventQueueSchedulerImmediate;
 
         beforeEach(() => {
-            index = new OIMIndexManual<string, number>();
+            index = new OIMIndexManualSetBased<string, number>();
             coalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
             scheduler = new OIMEventQueueSchedulerImmediate();
             queue = new OIMEventQueue({ scheduler });
@@ -543,13 +586,245 @@ describe('OIMIndexManual', () => {
         });
 
         test('helper index', () => {
-            const helperIndex = new OIMIndexManual<'all', number>();
+            const helperIndex = new OIMIndexManualSetBased<'all', number>();
             helperIndex.setPks('all', [1, 2, 3]);
 
             expect(helperIndex.getPksByKey('all')).toBeDefined();
             expect(helperIndex.hasKey('all')).toBe(true);
             expect(helperIndex.getKeySize('all')).toBe(3);
             expect(helperIndex.getKeys()).toEqual(['all']);
+        });
+    });
+});
+
+describe('OIMIndexManualArrayBased', () => {
+    describe('Basic Operations', () => {
+        let index: OIMIndexManualArrayBased<string, number>;
+
+        beforeEach(() => {
+            index = new OIMIndexManualArrayBased<string, number>();
+        });
+
+        afterEach(() => {
+            index.destroy();
+        });
+
+        test('should set and get primary keys', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+
+            const pks = index.getPksByKey('category:electronics');
+            expect(pks).toEqual(expect.arrayContaining([1, 2, 3]));
+            expect(pks.length).toBe(3);
+        });
+
+        test('should handle multiple keys', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.setPks('category:books', [10, 11, 12]);
+
+            const pks1 = index.getPksByKey('category:electronics');
+            const pks2 = index.getPksByKey('category:books');
+            expect(pks1).toEqual(expect.arrayContaining([1, 2, 3]));
+            expect(pks2).toEqual(expect.arrayContaining([10, 11, 12]));
+            expect(index.size).toBe(2);
+        });
+
+        test('should add primary keys to existing key', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.addPks('category:electronics', [4, 5]);
+
+            const pks = index.getPksByKey('category:electronics');
+            expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4, 5]));
+            expect(pks.length).toBe(5);
+        });
+
+        test('should not add duplicate primary keys', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.addPks('category:electronics', [2, 3, 4]); // 2,3 are duplicates
+
+            const pks = index.getPksByKey('category:electronics');
+            expect(pks).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+            expect(pks.length).toBe(4);
+        });
+
+        test('should remove primary keys', () => {
+            index.setPks('category:electronics', [1, 2, 3, 4, 5]);
+            index.removePks('category:electronics', [2, 4]);
+
+            const pks = index.getPksByKey('category:electronics');
+            expect(pks).toEqual(expect.arrayContaining([1, 3, 5]));
+            expect(pks.length).toBe(3);
+        });
+
+        test('should clean up empty keys after removal', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.removePks('category:electronics', [1, 2, 3]);
+
+            expect(index.hasKey('category:electronics')).toBe(false);
+            expect(index.size).toBe(0);
+        });
+
+        test('should clear specific key', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.setPks('category:books', [10, 11, 12]);
+
+            index.clear('category:electronics');
+
+            expect(index.hasKey('category:electronics')).toBe(false);
+            expect(index.hasKey('category:books')).toBe(true);
+            expect(index.size).toBe(1);
+        });
+
+        test('should clear all keys', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.setPks('category:books', [10, 11, 12]);
+
+            index.clear();
+
+            expect(index.size).toBe(0);
+            expect(index.isEmpty).toBe(true);
+        });
+
+        test('should return empty array for non-existent key', () => {
+            const pks = index.getPksByKey('non-existent');
+            expect(pks).toEqual([]);
+        });
+
+        test('should handle empty operations gracefully', () => {
+            index.addPks('category:electronics', []); // Empty add
+            index.removePks('category:electronics', []); // Empty remove
+
+            expect(index.size).toBe(0);
+        });
+    });
+
+    describe('Event System', () => {
+        let index: OIMIndexManualArrayBased<string, number>;
+        let eventSpy: jest.Mock;
+
+        beforeEach(() => {
+            index = new OIMIndexManualArrayBased<string, number>();
+            eventSpy = jest.fn();
+            index.emitter.on(EOIMIndexEventType.UPDATE, eventSpy);
+        });
+
+        afterEach(() => {
+            index.emitter.offAll();
+            index.destroy();
+        });
+
+        test('should emit update event when setting PKs', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+
+            expect(eventSpy).toHaveBeenCalledTimes(1);
+            expect(eventSpy).toHaveBeenCalledWith({
+                keys: ['category:electronics'],
+            } as TOIMIndexUpdatePayload<string>);
+        });
+
+        test('should emit update event when adding PKs', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            eventSpy.mockClear();
+
+            index.addPks('category:electronics', [4, 5]);
+
+            expect(eventSpy).toHaveBeenCalledTimes(1);
+            expect(eventSpy).toHaveBeenCalledWith({
+                keys: ['category:electronics'],
+            });
+        });
+
+        test('should not emit event when adding duplicate PKs', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            eventSpy.mockClear();
+
+            index.addPks('category:electronics', [2, 3]); // All duplicates
+
+            expect(eventSpy).not.toHaveBeenCalled();
+        });
+
+        test('should emit update event when removing PKs', () => {
+            index.setPks('category:electronics', [1, 2, 3, 4, 5]);
+            eventSpy.mockClear();
+
+            index.removePks('category:electronics', [2, 4]);
+
+            expect(eventSpy).toHaveBeenCalledTimes(1);
+            expect(eventSpy).toHaveBeenCalledWith({
+                keys: ['category:electronics'],
+            });
+        });
+
+        test('should not emit event when removing non-existent PKs', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            eventSpy.mockClear();
+
+            index.removePks('category:electronics', [10, 11]); // Non-existent
+
+            expect(eventSpy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Metrics and Utilities', () => {
+        let index: OIMIndexManualArrayBased<string, number>;
+
+        beforeEach(() => {
+            index = new OIMIndexManualArrayBased<string, number>();
+        });
+
+        afterEach(() => {
+            index.destroy();
+        });
+
+        test('should provide accurate metrics', () => {
+            index.setPks('category:electronics', [1, 2, 3, 4, 5]);
+            index.setPks('category:books', [10, 11]);
+            index.setPks('category:clothing', [20, 21, 22, 23]);
+
+            const metrics = index.getMetrics();
+
+            expect(metrics.totalKeys).toBe(3);
+            expect(metrics.totalPks).toBe(11); // 5 + 2 + 4
+            expect(metrics.averagePksPerKey).toBeCloseTo(3.67, 2); // 11/3 = 3.67
+            expect(metrics.maxBucketSize).toBe(5);
+            expect(metrics.minBucketSize).toBe(2);
+        });
+
+        test('should get all keys', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+            index.setPks('category:books', [10, 11, 12]);
+
+            const keys = index.getKeys();
+            expect(keys).toEqual(
+                expect.arrayContaining([
+                    'category:electronics',
+                    'category:books',
+                ])
+            );
+            expect(keys.length).toBe(2);
+        });
+
+        test('should get key size correctly', () => {
+            index.setPks('category:electronics', [1, 2, 3, 4, 5]);
+
+            expect(index.getKeySize('category:electronics')).toBe(5);
+            expect(index.getKeySize('non-existent')).toBe(0);
+        });
+
+        test('should check key existence', () => {
+            index.setPks('category:electronics', [1, 2, 3]);
+
+            expect(index.hasKey('category:electronics')).toBe(true);
+            expect(index.hasKey('non-existent')).toBe(false);
+        });
+
+        test('should report empty state correctly', () => {
+            expect(index.isEmpty).toBe(true);
+
+            index.setPks('test', [1]);
+            expect(index.isEmpty).toBe(false);
+
+            index.clear();
+            expect(index.isEmpty).toBe(true);
         });
     });
 });

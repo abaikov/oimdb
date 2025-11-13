@@ -1,13 +1,13 @@
-import { OIMIndex } from './OIMIndex';
+import { OIMIndexArrayBased } from './OIMIndexArrayBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
 import { OIMUpdateEventCoalescerIndex } from '../core/OIMUpdateEventCoalescerIndex';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 
-export abstract class OIMReactiveIndex<
+export abstract class OIMReactiveIndexArrayBased<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
-    TIndex extends OIMIndex<TKey, TPk>,
+    TIndex extends OIMIndexArrayBased<TKey, TPk>,
 > {
     public readonly index: TIndex;
     public readonly updateEventEmitter: OIMUpdateEventEmitter<TKey>;
@@ -26,11 +26,11 @@ export abstract class OIMReactiveIndex<
 
     protected abstract createDefaultIndex(): TIndex;
 
-    public getPksByKey(key: TKey): Set<TPk> {
+    public getPksByKey(key: TKey): TPk[] {
         return this.index.getPksByKey(key);
     }
 
-    public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
+    public getPksByKeys(keys: readonly TKey[]): Map<TKey, TPk[]> {
         return this.index.getPksByKeys(keys);
     }
 
@@ -62,3 +62,4 @@ export abstract class OIMReactiveIndex<
         this.index.destroy();
     }
 }
+

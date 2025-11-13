@@ -130,7 +130,7 @@ const childOptions: TOIMCollectionReducerChildOptions<User, string, TOIMDefaultC
 };
 
 // Create reducer with child
-const usersReducer = adapter.createCollectionReducer(users, undefined, childOptions);
+const usersReducer = adapter.createCollectionReducer(users, childOptions);
 
 // Create store with middleware
 const store = createStore(
@@ -166,7 +166,7 @@ import {
     TOIMDefaultCollectionState,
     TOIMCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
-import { OIMReactiveIndexManual } from '@oimdb/core';
+import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
 
 interface Deck {
     id: string;
@@ -177,7 +177,9 @@ interface Deck {
 const decksCollection = new OIMReactiveCollection<Deck, string>(queue, {
     selectPk: (deck) => deck.id
 });
-const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(queue);
+// Use ArrayBased index for full array replacements (recommended for redux-adapter)
+// The adapter optimizes ArrayBased indexes by skipping diff computation
+const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 const childReducer = (
     state: TOIMDefaultCollectionState<Deck, string> | undefined,
@@ -221,7 +223,6 @@ const childOptions: TOIMCollectionReducerChildOptions<
 
 const decksReducer = adapter.createCollectionReducer(
     decksCollection,
-    undefined,
     childOptions
 );
 
@@ -264,7 +265,7 @@ const arrayMapper = (collection: OIMReactiveCollection<User, string>) => {
     };
 };
 
-const arrayReducer = adapter.createCollectionReducer(users, arrayMapper);
+const arrayReducer = adapter.createCollectionReducer(users, undefined, arrayMapper);
 
 // Custom extractor for array-based state
 const childOptions: TOIMCollectionReducerChildOptions<User, string, ArrayBasedState> = {
@@ -336,7 +337,6 @@ const oldUsersReducer = (state, action) => {
 const adapter = new OIMDBAdapter(queue);
 const newUsersReducer = adapter.createCollectionReducer(
     usersCollection,
-    undefined,
     {
         reducer: oldUsersReducer, // Reuse existing reducer logic
         getPk: (user) => user.id
@@ -401,10 +401,10 @@ const customMapper: TOIMCollectionMapper<User, string, CustomState> = (
 #### Simple One-Way Sync (OIMDB → Redux)
 
 ```typescript
-import { OIMReactiveIndexManual } from '@oimdb/core';
+import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
 
-// Create index
-const userRolesIndex = new OIMReactiveIndexManual<string, string>(queue);
+// Create index (ArrayBased recommended for redux-adapter - optimized performance)
+const userRolesIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 // Create reducer for index
 const adapter = new OIMDBAdapter(queue);
@@ -485,7 +485,7 @@ store.dispatch({
 // No manual queue.flush() needed - middleware handles it!
 
 // OIMDB index is automatically updated
-const pks = Array.from(userRolesIndex.getPksByKey('role1'));
+const pks = userRolesIndex.index.getPksByKey('role1'); // Returns TPk[] for ArrayBased
 console.log(pks); // ['user1', 'user2', 'user3']
 ```
 
@@ -497,6 +497,29 @@ The adapter is optimized for large datasets:
 - **Batched Updates**: Changes are coalesced and applied in batches
 - **Selective Updates**: Only changed entities are processed
 - **Memory Efficient**: Reuses state objects when possible
+
+### Index Performance Optimization
+
+The adapter intelligently handles different index types for optimal performance:
+
+- **ArrayBased Indexes** (using `setPks`): When linked indexes use ArrayBased indexes, the adapter directly sets the new array without computing diffs. This eliminates unnecessary array comparisons and `getPksByKey` calls, providing significant performance improvements, especially with many linked indexes.
+
+- **SetBased Indexes** (using `addPks`/`removePks`): For SetBased indexes, the adapter computes diffs to apply incremental updates, which is more efficient than full replacements for Set-based data structures.
+
+**Recommendation**: For redux-adapter, prefer **ArrayBased indexes** for linked indexes, as they provide the best performance when replacing entire arrays (which is the common pattern when syncing from Redux state).
+
+**Example:**
+```typescript
+// ArrayBased index - direct assignment (fast, recommended for redux-adapter)
+const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+// When deck.cardIds changes, adapter simply does:
+// index.setPks(deckId, newCardIds) - no diff computation needed!
+
+// SetBased index - incremental updates (efficient for Sets)
+const tagsByUserIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+// When user.tags changes, adapter computes diff and uses:
+// index.addPks(userId, toAdd) and index.removePks(userId, toRemove)
+```
 
 ## 🔍 Utility Functions
 
@@ -560,8 +583,8 @@ Main adapter class for integrating OIMDB with Redux. Creates Redux reducers from
 
 #### Methods
 
-- `createCollectionReducer<TEntity, TPk, TState>(collection, mapper?, child?)`: Create reducer for a collection
-- `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?, child?)`: Create reducer for an index
+- `createCollectionReducer<TEntity, TPk, TState>(collection, child?, mapper?)`: Create reducer for a collection
+- `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?, child?)`: Create reducer for an index (supports both SetBased and ArrayBased indexes)
 - `createMiddleware()`: Create Redux middleware that automatically flushes the event queue after each action
 - `setStore(store)`: Set Redux store (can be called later)
 - `flushSilently()`: Flush the event queue without triggering OIMDB_UPDATE dispatch (used internally by middleware)

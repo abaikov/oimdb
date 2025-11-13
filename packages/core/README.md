@@ -15,7 +15,8 @@ This package exports all the core classes, interfaces, and types needed to build
 ### Core Classes
 - **OIMReactiveCollection**: Reactive entity storage with automatic change notifications
 - **OIMRICollection**: Reactive collection with integrated indexing capabilities
-- **OIMReactiveIndexManual**: Reactive index with manual key-to-entity mapping
+- **OIMReactiveIndexManualSetBased**: Reactive index with Set-based storage (efficient for incremental updates)
+- **OIMReactiveIndexManualArrayBased**: Reactive index with Array-based storage (efficient for full replacements)
 - **OIMEventQueue**: Configurable event processing queue with scheduler integration
 - **OIMCollection**: Base collection with CRUD operations and event emission
 
@@ -27,14 +28,19 @@ This package exports all the core classes, interfaces, and types needed to build
 
 ### Storage & Indexing
 - **OIMCollectionStoreMapDriven**: Map-based storage backend
-- **OIMIndexManual**: Manual index management with custom comparison logic
+- **OIMIndexManualSetBased**: Set-based manual index (returns `Set<TPk>`)
+- **OIMIndexManualArrayBased**: Array-based manual index (returns `TPk[]`)
+- **OIMIndexStoreMapDrivenSetBased**: Set-based index storage backend
+- **OIMIndexStoreMapDrivenArrayBased**: Array-based index storage backend
 - **OIMMap2Keys**: Two-key mapping utilities for complex indexing
 
 ### Abstract Classes & Interfaces
 - **OIMCollectionStore**: Storage backend interface
 - **OIMEventQueueScheduler**: Event processing scheduler interface
-- **OIMIndex**: Base index interface
-- **OIMReactiveIndex**: Reactive index interface
+- **OIMIndexSetBased**: Base Set-based index interface (returns `Set<TPk>`)
+- **OIMIndexArrayBased**: Base Array-based index interface (returns `TPk[]`)
+- **OIMReactiveIndexSetBased**: Reactive Set-based index interface
+- **OIMReactiveIndexArrayBased**: Reactive Array-based index interface
 
 ### Types & Enums
 - **TOIM\***: Generic types for collections, indices, events, and schedulers
@@ -92,35 +98,71 @@ const multipleUsers = users.getManyByPks(['user1', 'user2']);
 
 ### Creating a Reactive Index
 
-```typescript
-import { OIMReactiveIndexManual, OIMEventQueue } from '@oimdb/core';
+OIMDB provides two types of indexes optimized for different use cases:
 
-// Create reactive index for user roles
+#### SetBased Indexes (for incremental updates)
+
+```typescript
+import { OIMReactiveIndexManualSetBased, OIMEventQueue } from '@oimdb/core';
+
+// Create Set-based reactive index for user roles
 const queue = new OIMEventQueue({
     scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
 });
 
-const userRoleIndex = new OIMReactiveIndexManual<string, string>(queue);
+const userRoleIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
 
 // Subscribe to specific index key changes
 userRoleIndex.updateEventEmitter.subscribeOnKey('admin', (pks) => {
-    console.log('Admin users changed:', pks);
+    console.log('Admin users changed:', pks); // pks is Set<string>
 });
 
 // Build the index manually
 userRoleIndex.setPks('admin', ['user1']);
 userRoleIndex.setPks('user', ['user2', 'user3']);
 
-// Add more users to existing roles
+// Add more users to existing roles (efficient for Set-based)
 userRoleIndex.addPks('admin', ['user2']);
 
-// Query the index
-const adminUsers = userRoleIndex.index.getPksByKey('admin'); // ['user1', 'user2']
-const regularUsers = userRoleIndex.index.getPksByKey('user'); // ['user2', 'user3']
+// Query the index - returns Set
+const adminUsers = userRoleIndex.index.getPksByKey('admin'); // Set(['user1', 'user2'])
+const regularUsers = userRoleIndex.index.getPksByKey('user'); // Set(['user2', 'user3'])
 
-// Remove users from roles
+// Remove users from roles (efficient for Set-based)
 userRoleIndex.removePks('admin', ['user1']);
 ```
+
+#### ArrayBased Indexes (for full replacements)
+
+```typescript
+import { OIMReactiveIndexManualArrayBased, OIMEventQueue } from '@oimdb/core';
+
+// Create Array-based reactive index for deck cards
+const queue = new OIMEventQueue({
+    scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
+});
+
+const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+
+// Subscribe to specific index key changes
+cardsByDeckIndex.updateEventEmitter.subscribeOnKey('deck1', (pks) => {
+    console.log('Deck cards changed:', pks); // pks is string[]
+});
+
+// Build the index manually - set full array
+cardsByDeckIndex.setPks('deck1', ['card1', 'card2', 'card3']);
+
+// Query the index - returns Array
+const deckCards = cardsByDeckIndex.index.getPksByKey('deck1'); // ['card1', 'card2', 'card3']
+
+// For Array-based indexes, prefer setPks for updates (addPks/removePks are available but less efficient)
+cardsByDeckIndex.setPks('deck1', ['card1', 'card2', 'card4']); // Full replacement (recommended)
+// cardsByDeckIndex.addPks('deck1', ['card5']); // Works but less efficient than SetBased
+```
+
+**When to use which:**
+- **SetBased**: Use when you frequently add/remove individual items (`addPks`/`removePks` are efficient) and order doesn't matter
+- **ArrayBased**: Use when you typically replace the entire array (`setPks` is more efficient, no diff computation needed) or when you need to preserve element order/sorting
 
 ### Event Queue and Schedulers
 
@@ -187,9 +229,9 @@ const queue = new OIMEventQueue({
     scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
 });
 
-// Create indexes
-const teamIndex = new OIMReactiveIndexManual<string, string>(queue);
-const roleIndex = new OIMReactiveIndexManual<string, string>(queue);
+// Create indexes (choose SetBased or ArrayBased based on your needs)
+const teamIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+const roleIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 // Create collection with indexes
 const users = new OIMRICollection(queue, {
@@ -334,9 +376,13 @@ OIMCollection (base)
 ├── OIMReactiveCollection (adds event emitter + coalescing)
 └── OIMRICollection (reactive collection + indexes)
 
-OIMIndex (base)
-├── OIMIndexManual (manual index management)
-└── OIMReactiveIndexManual (reactive index with event emitter)
+OIMIndexSetBased (base for Set-based)
+├── OIMIndexManualSetBased (manual Set-based index)
+└── OIMReactiveIndexManualSetBased (reactive Set-based index with event emitter)
+
+OIMIndexArrayBased (base for Array-based)
+├── OIMIndexManualArrayBased (manual Array-based index)
+└── OIMReactiveIndexManualArrayBased (reactive Array-based index with event emitter)
 ```
 
 ## ⚡ Performance Characteristics
@@ -351,6 +397,21 @@ OIMIndex (base)
   - **Immediate**: <1ms, fastest execution  
   - **Timeout**: Custom delay for batching strategies
   - **AnimationFrame**: 16ms, synced with 60fps rendering
+
+### Index Performance
+
+**SetBased Indexes** (`OIMReactiveIndexManualSetBased`):
+- **Returns**: `Set<TPk>` for efficient membership checks
+- **Best for**: Frequent incremental updates using `addPks`/`removePks`
+- **Performance**: O(1) add/remove operations, O(n) for `setPks` (requires Set creation)
+- **Use case**: When you need to frequently add/remove individual items
+
+**ArrayBased Indexes** (`OIMReactiveIndexManualArrayBased`):
+- **Returns**: `TPk[]` for direct array access
+- **Best for**: Full array replacements using `setPks`
+- **Performance**: O(1) `setPks` operation (direct assignment, no diff computation)
+- **Use case**: When you typically replace the entire array (e.g., deck cards, ordered lists) or when you need to preserve element order/sorting
+- **Note**: While `addPks`/`removePks` are available, they are less efficient (O(n)) than for SetBased indexes. For ArrayBased indexes, prefer `setPks` for better performance.
 
 ## 🔗 Integration Patterns
 
@@ -462,25 +523,53 @@ new OIMRICollection(queue: OIMEventQueue, opts: {
 - `indexes: TReactiveIndexMap` - Named reactive indexes preserving index-to-name mapping
 - *(inherits all OIMReactiveCollection properties)*
 
-#### `OIMReactiveIndexManual<TKey, TPk>`
-Reactive index with manual key-to-entity mapping and change notifications.
+#### `OIMReactiveIndexManualSetBased<TKey, TPk>`
+Reactive Set-based index with manual key-to-entity mapping and change notifications. Returns `Set<TPk>` for efficient membership checks.
 
 **Constructor:**
 ```typescript
-new OIMReactiveIndexManual(queue: OIMEventQueue, opts?: {
-    index?: OIMIndexManual<TKey, TPk>
+new OIMReactiveIndexManualSetBased(queue: OIMEventQueue, opts?: {
+    index?: OIMIndexManualSetBased<TKey, TPk>
 })
 ```
 
 **Properties:**
-- `index: OIMIndexManual<TKey, TPk>` - Underlying index
+- `index: OIMIndexManualSetBased<TKey, TPk>` - Underlying Set-based index
 - `updateEventEmitter: OIMUpdateEventEmitter<TKey>` - Key-specific subscriptions
 
 **Methods:**
-- `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key
-- `addPks(key: TKey, pks: readonly TPk[]): void` - Add primary keys to index key
-- `removePks(key: TKey, pks: readonly TPk[]): void` - Remove primary keys from index key
+- `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key (replaces entire Set)
+- `addPks(key: TKey, pks: readonly TPk[]): void` - Add primary keys to index key (efficient)
+- `removePks(key: TKey, pks: readonly TPk[]): void` - Remove primary keys from index key (efficient)
 - `clear(key?: TKey): void` - Clear all keys or specific key
+
+**Query:**
+- `index.getPksByKey(key: TKey): Set<TPk>` - Returns Set of primary keys
+
+#### `OIMReactiveIndexManualArrayBased<TKey, TPk>`
+Reactive Array-based index with manual key-to-entity mapping and change notifications. Returns `TPk[]` for direct array access.
+
+**Constructor:**
+```typescript
+new OIMReactiveIndexManualArrayBased(queue: OIMEventQueue, opts?: {
+    index?: OIMIndexManualArrayBased<TKey, TPk>
+})
+```
+
+**Properties:**
+- `index: OIMIndexManualArrayBased<TKey, TPk>` - Underlying Array-based index
+- `updateEventEmitter: OIMUpdateEventEmitter<TKey>` - Key-specific subscriptions
+
+**Methods:**
+- `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key (direct assignment, no diff) - **Recommended for ArrayBased**
+- `addPks(key: TKey, pks: readonly TPk[]): void` - Add primary keys to index key (O(n) operation, less efficient than SetBased)
+- `removePks(key: TKey, pks: readonly TPk[]): void` - Remove primary keys from index key (O(n) operation, less efficient than SetBased)
+- `clear(key?: TKey): void` - Clear all keys or specific key
+
+**Query:**
+- `index.getPksByKey(key: TKey): TPk[]` - Returns Array of primary keys
+
+**Note**: While `addPks`/`removePks` are available, they require array operations (Set creation, filtering) making them O(n) compared to O(1) for SetBased indexes. For ArrayBased indexes, prefer `setPks` for better performance when replacing the entire array.
 
 #### `OIMEventQueue`
 Event processing queue with configurable scheduling.

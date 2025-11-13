@@ -13,5 +13,13 @@ module.exports = {
         '!src/**/*.d.ts',
         '!src/index.ts',
     ],
+    globals: {
+        'ts-jest': {
+            tsconfig: {
+                jsx: 'react-jsx',
+                types: ['jest', 'node', '@types/react'],
+            },
+        },
+    },
 };
 

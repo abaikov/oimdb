@@ -1,5 +1,12 @@
 import { Reducer, Action } from 'redux';
-import { TOIMPk, OIMReactiveCollection, OIMReactiveIndex, OIMIndex } from '@oimdb/core';
+import {
+    TOIMPk,
+    OIMReactiveCollection,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
+} from '@oimdb/core';
 
 /**
  * Linked index configuration for automatic index updates
@@ -12,7 +19,17 @@ export type TOIMLinkedIndex<
     /**
      * Reactive index to update automatically
      */
-    index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>;
+    index:
+        | OIMReactiveIndexSetBased<
+              TIndexKey,
+              TPk,
+              OIMIndexSetBased<TIndexKey, TPk>
+          >
+        | OIMReactiveIndexArrayBased<
+              TIndexKey,
+              TPk,
+              OIMIndexArrayBased<TIndexKey, TPk>
+          >;
     /**
      * Field name in entity that contains an array of PKs
      * When this field changes (by reference), the index will be updated
@@ -64,7 +81,43 @@ export type TOIMCollectionReducerChildOptions<
      * Linked indexes that will be automatically updated when entities change
      * When an entity's field (specified by fieldName) changes by reference,
      * the index will be updated: old key will be removed, new key will be added
+     *
+     * Note: The index type accepts any TIndexKey that extends TOIMPk.
+     * TypeScript will infer the specific key type (e.g., string) from the actual index instance,
+     * allowing indexes with specific key types to be used even when TPk is a union type.
      */
-    linkedIndexes?: Array<TOIMLinkedIndex<TEntity, TPk, TOIMPk>>;
+    linkedIndexes?: Array<{
+        index:
+            | OIMReactiveIndexSetBased<
+                  TOIMPk,
+                  TPk,
+                  OIMIndexSetBased<TOIMPk, TPk>
+              >
+            | OIMReactiveIndexArrayBased<
+                  TOIMPk,
+                  TPk,
+                  OIMIndexArrayBased<TOIMPk, TPk>
+              >
+            | OIMReactiveIndexSetBased<
+                  string,
+                  TPk,
+                  OIMIndexSetBased<string, TPk>
+              >
+            | OIMReactiveIndexArrayBased<
+                  string,
+                  TPk,
+                  OIMIndexArrayBased<string, TPk>
+              >
+            | OIMReactiveIndexSetBased<
+                  number,
+                  TPk,
+                  OIMIndexSetBased<number, TPk>
+              >
+            | OIMReactiveIndexArrayBased<
+                  number,
+                  TPk,
+                  OIMIndexArrayBased<number, TPk>
+              >;
+        fieldName: keyof TEntity;
+    }>;
 };
-

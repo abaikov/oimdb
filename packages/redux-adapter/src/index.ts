@@ -32,3 +32,4 @@ export type {
     TOIMUpdatedEntitiesResult,
     TOIMUpdatedArrayResult,
 } from './utils/findUpdatedEntities';
+export { arraysEqual, arraysEqualPk } from './utils/arraysEqual';

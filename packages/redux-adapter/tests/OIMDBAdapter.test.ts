@@ -1,8 +1,10 @@
 import {
     OIMReactiveCollection,
-    OIMReactiveIndexManual,
-    OIMReactiveIndex,
-    OIMIndex,
+    OIMReactiveIndexManualSetBased,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
     TOIMPk,
@@ -174,6 +176,7 @@ describe('OIMDBAdapter', () => {
 
             const customReducer = adapter.createCollectionReducer(
                 collection,
+                undefined,
                 customMapper
             );
 
@@ -202,11 +205,11 @@ describe('OIMDBAdapter', () => {
     });
 
     describe('createIndexReducer', () => {
-        let index: OIMReactiveIndexManual<string, string>;
+        let index: OIMReactiveIndexManualSetBased<string, string>;
         let reducer: ReturnType<typeof adapter.createIndexReducer>;
 
         beforeEach(() => {
-            index = new OIMReactiveIndexManual<string, string>(queue);
+            index = new OIMReactiveIndexManualSetBased<string, string>(queue);
             reducer = adapter.createIndexReducer(index);
         });
 
@@ -253,7 +256,17 @@ describe('OIMDBAdapter', () => {
 
         test('should work with custom mapper', () => {
             const customMapper: (
-                idx: OIMReactiveIndex<string, string, OIMIndex<string, string>>,
+                idx:
+                    | OIMReactiveIndexSetBased<
+                          string,
+                          string,
+                          OIMIndexSetBased<string, string>
+                      >
+                    | OIMReactiveIndexArrayBased<
+                          string,
+                          string,
+                          OIMIndexArrayBased<string, string>
+                      >,
                 _updatedKeys: Set<string>,
                 _currentState:
                     | { mappings: Record<string, string[]> }
@@ -261,7 +274,8 @@ describe('OIMDBAdapter', () => {
             ) => { mappings: Record<string, string[]> } = idx => {
                 const mappings: Record<string, string[]> = {};
                 for (const key of idx.getKeys()) {
-                    mappings[key] = Array.from(idx.getPksByKey(key));
+                    const pks = idx.getPksByKey(key);
+                    mappings[key] = pks instanceof Set ? Array.from(pks) : pks;
                 }
                 return { mappings };
             };
@@ -598,7 +612,7 @@ describe('OIMDBAdapter', () => {
             const postsCollection = new OIMReactiveCollection<Post, string>(
                 queue
             );
-            const usersByDepartmentIndex = new OIMReactiveIndexManual<
+            const usersByDepartmentIndex = new OIMReactiveIndexManualSetBased<
                 string,
                 string
             >(queue);
@@ -813,7 +827,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -889,7 +902,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -967,7 +979,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1044,7 +1055,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1117,7 +1127,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1252,14 +1261,14 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
+                childOptions,
                 // Custom mapper to convert OIMDB state to ArrayBasedState
                 collection => {
                     const allUsers = collection.getAll();
                     return {
                         users: allUsers,
                     };
-                },
-                childOptions
+                }
             );
 
             const rootStore = createStore(reducer);
@@ -1382,7 +1391,6 @@ describe('OIMDBAdapter', () => {
 
             const reducerWithChild = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1549,13 +1557,8 @@ describe('OIMDBAdapter', () => {
         test('should not update Redux state when no changes occurred', () => {
             const reducer = adapter.createCollectionReducer(collection);
             const middleware = adapter.createMiddleware();
-            let reducerCallCount = 0;
-            let oimdbUpdateActionCount = 0;
+
             const wrappedReducer = (state: any, action: Action) => {
-                reducerCallCount++;
-                if (action.type === EOIMDBReducerActionType.UPDATE) {
-                    oimdbUpdateActionCount++;
-                }
                 return reducer(state, action);
             };
 
@@ -1576,8 +1579,6 @@ describe('OIMDBAdapter', () => {
                 User,
                 string
             >;
-            const initialReducerCallCount = reducerCallCount;
-            const initialOimdbUpdateCount = oimdbUpdateActionCount;
 
             // Flush again without any changes - should not update state
             queue.flush();
@@ -1671,7 +1672,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1792,7 +1792,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -1878,7 +1877,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -2038,7 +2036,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -2147,7 +2144,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
 
@@ -2310,7 +2306,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 collection,
-                undefined,
                 childOptions
             );
             const middleware = adapter.createMiddleware();
@@ -2363,9 +2358,10 @@ describe('OIMDBAdapter', () => {
                     selectPk: deck => deck.id,
                 }
             );
-            const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(
-                queue
-            );
+            const cardsByDeckIndex = new OIMReactiveIndexManualSetBased<
+                string,
+                string
+            >(queue);
 
             // Setup initial data
             decksCollection.upsertMany([
@@ -2418,10 +2414,10 @@ describe('OIMDBAdapter', () => {
                 getPk: deck => deck.id,
                 linkedIndexes: [
                     {
-                        index: cardsByDeckIndex as unknown as OIMReactiveIndex<
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndexSetBased<
                             TOIMPk,
                             string,
-                            OIMIndex<TOIMPk, string>
+                            OIMIndexSetBased<TOIMPk, string>
                         >,
                         fieldName: 'cardIds', // Array field containing PKs
                     },
@@ -2430,7 +2426,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 decksCollection,
-                undefined,
                 childOptions
             );
             const middleware = adapter.createMiddleware();
@@ -2477,9 +2472,10 @@ describe('OIMDBAdapter', () => {
                     selectPk: deck => deck.id,
                 }
             );
-            const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(
-                queue
-            );
+            const cardsByDeckIndex = new OIMReactiveIndexManualSetBased<
+                string,
+                string
+            >(queue);
 
             // Setup initial data
             decksCollection.upsertMany([
@@ -2524,10 +2520,10 @@ describe('OIMDBAdapter', () => {
                 getPk: deck => deck.id,
                 linkedIndexes: [
                     {
-                        index: cardsByDeckIndex as unknown as OIMReactiveIndex<
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndexSetBased<
                             TOIMPk,
                             string,
-                            OIMIndex<TOIMPk, string>
+                            OIMIndexSetBased<TOIMPk, string>
                         >,
                         fieldName: 'cardIds',
                     },
@@ -2536,7 +2532,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 decksCollection,
-                undefined,
                 childOptions
             );
             const middleware = adapter.createMiddleware();
@@ -2580,9 +2575,10 @@ describe('OIMDBAdapter', () => {
                     selectPk: deck => deck.id,
                 }
             );
-            const cardsByDeckIndex = new OIMReactiveIndexManual<string, string>(
-                queue
-            );
+            const cardsByDeckIndex = new OIMReactiveIndexManualSetBased<
+                string,
+                string
+            >(queue);
 
             // Add initial deck
             decksCollection.upsertOne({
@@ -2598,18 +2594,17 @@ describe('OIMDBAdapter', () => {
                 TOIMDefaultCollectionState<Deck, string>
             > = {
                 reducer: (
-                    state: TOIMDefaultCollectionState<Deck, string> | undefined,
-                    action: Action
+                    state: TOIMDefaultCollectionState<Deck, string> | undefined
                 ) => {
                     return state;
                 },
                 getPk: deck => deck.id,
                 linkedIndexes: [
                     {
-                        index: cardsByDeckIndex as unknown as OIMReactiveIndex<
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndexSetBased<
                             TOIMPk,
                             string,
-                            OIMIndex<TOIMPk, string>
+                            OIMIndexSetBased<TOIMPk, string>
                         >,
                         fieldName: 'cardIds',
                     },
@@ -2618,7 +2613,6 @@ describe('OIMDBAdapter', () => {
 
             const reducer = adapter.createCollectionReducer(
                 decksCollection,
-                undefined,
                 childOptions
             );
             const middleware = adapter.createMiddleware();
@@ -2629,7 +2623,10 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             // Verify initial state
-            const initialState = store.getState();
+            const initialState = store.getState() as TOIMDefaultCollectionState<
+                Deck,
+                string
+            >;
             expect(initialState?.entities['deck1']?.cardIds).toEqual([
                 'card1',
                 'card2',
@@ -2648,7 +2645,10 @@ describe('OIMDBAdapter', () => {
             expect(deck1Pks).toEqual(['card3', 'card4', 'card5']);
 
             // Redux state should also be updated
-            const updatedState = store.getState();
+            const updatedState = store.getState() as TOIMDefaultCollectionState<
+                Deck,
+                string
+            >;
             expect(updatedState?.entities['deck1']?.cardIds).toEqual([
                 'card3',
                 'card4',

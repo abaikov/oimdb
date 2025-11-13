@@ -1,5 +1,11 @@
 import { Reducer, Action } from 'redux';
-import { TOIMPk, OIMReactiveIndex, OIMIndex } from '@oimdb/core';
+import {
+    TOIMPk,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
+} from '@oimdb/core';
 
 /**
  * Options for child reducer that can handle custom actions
@@ -19,7 +25,7 @@ export type TOIMIndexReducerChildOptions<
 
     /**
      * Function to extract index state from Redux state and sync it to OIMDB index
-     * Should directly update the index using addPks/removePks
+     * Should directly update the index using addPks/removePks (for SetBased) or setPks (for ArrayBased)
      * If not provided, default implementation will be used for TOIMDefaultIndexState
      * @param prevState - Previous Redux state (undefined on first call)
      * @param nextState - New Redux state after child reducer processed action
@@ -28,6 +34,16 @@ export type TOIMIndexReducerChildOptions<
     extractIndexState?: (
         prevState: TState | undefined,
         nextState: TState,
-        index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>
+        index:
+            | OIMReactiveIndexSetBased<
+                  TIndexKey,
+                  TPk,
+                  OIMIndexSetBased<TIndexKey, TPk>
+              >
+            | OIMReactiveIndexArrayBased<
+                  TIndexKey,
+                  TPk,
+                  OIMIndexArrayBased<TIndexKey, TPk>
+              >
     ) => void;
 };

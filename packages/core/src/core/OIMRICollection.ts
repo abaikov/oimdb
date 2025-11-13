@@ -2,16 +2,27 @@ import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMEventQueue } from './OIMEventQueue';
-import { OIMReactiveIndex } from '../abstract/OIMReactiveIndex';
-import { OIMIndex } from '../abstract/OIMIndex';
+import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';
+import { OIMReactiveIndexArrayBased } from '../abstract/OIMReactiveIndexArrayBased';
+import { OIMIndexSetBased } from '../abstract/OIMIndexSetBased';
+import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
 
 export class OIMRICollection<
     TEntity extends object,
     TPk extends TOIMPk,
     TIndexName extends string,
     TIndexKey extends TOIMPk,
-    TIndex extends OIMIndex<TIndexKey, TPk>,
-    TReactiveIndex extends OIMReactiveIndex<TIndexKey, TPk, TIndex>,
+    TReactiveIndex extends
+        | OIMReactiveIndexSetBased<
+              TIndexKey,
+              TPk,
+              OIMIndexSetBased<TIndexKey, TPk>
+          >
+        | OIMReactiveIndexArrayBased<
+              TIndexKey,
+              TPk,
+              OIMIndexArrayBased<TIndexKey, TPk>
+          >,
     TReactiveIndexMap extends Record<TIndexName, TReactiveIndex> = Record<
         TIndexName,
         TReactiveIndex

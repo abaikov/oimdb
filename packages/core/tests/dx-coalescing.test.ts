@@ -6,7 +6,7 @@ import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoa
 import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
-import { OIMIndexManual } from '../src/core/OIMIndexManual';
+import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
 import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
 
 interface User {
@@ -208,7 +208,7 @@ describe('Cross-Collection Coalescing', () => {
 
     test('should handle mixed collection and index updates', () => {
         // Add an index to the mix
-        const index = new OIMIndexManual<string, string>();
+        const index = new OIMIndexManualSetBased<string, string>();
         const indexCoalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
         const indexEmitter = new OIMUpdateEventEmitter({
             coalescer: indexCoalescer,

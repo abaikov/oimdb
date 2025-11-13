@@ -1,4 +1,5 @@
-import { OIMIndexManual } from '../src/core/OIMIndexManual';
+import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
+import { OIMIndexManualArrayBased } from '../src/core/OIMIndexManualArrayBased';
 import { OIMIndexComparatorFactory } from '../src/core/OIMIndexComparatorFactory';
 import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
 import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
@@ -21,24 +22,46 @@ interface TOIMIndexBenchScenario {
     subscriberCount: number;
 }
 
+type TOIMIndexType = 'SetBased' | 'ArrayBased';
+
 class OIMIndexPerformanceBenchmark {
-    private index!: OIMIndexManual<string, number>;
+    private indexSetBased!: OIMIndexManualSetBased<string, number>;
+    private indexArrayBased!: OIMIndexManualArrayBased<string, number>;
     private coalescer!: OIMUpdateEventCoalescerIndex<string>;
     private queue!: OIMEventQueue;
     private emitter!: OIMUpdateEventEmitter<string>;
     private scheduler!: OIMEventQueueSchedulerImmediate;
 
-    private setupComponents(useComparator: boolean = false): void {
-        this.index = new OIMIndexManual<string, number>(
-            useComparator
-                ? {
-                      comparePks:
-                          OIMIndexComparatorFactory.createElementWiseComparator<number>(),
-                  }
-                : {}
-        );
+    public setupComponents(
+        indexType: TOIMIndexType,
+        useComparator: boolean = false
+    ): void {
+        if (indexType === 'SetBased') {
+            this.indexSetBased = new OIMIndexManualSetBased<string, number>(
+                useComparator
+                    ? {
+                          comparePks:
+                              OIMIndexComparatorFactory.createElementWiseComparator<number>(),
+                      }
+                    : {}
+            );
+        } else {
+            this.indexArrayBased = new OIMIndexManualArrayBased<string, number>(
+                useComparator
+                    ? {
+                          comparePks:
+                              OIMIndexComparatorFactory.createElementWiseComparator<number>(),
+                      }
+                    : {}
+            );
+        }
 
-        this.coalescer = new OIMUpdateEventCoalescerIndex(this.index.emitter);
+        const index =
+            indexType === 'SetBased'
+                ? this.indexSetBased
+                : this.indexArrayBased;
+
+        this.coalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
         this.scheduler = new OIMEventQueueSchedulerImmediate();
         this.queue = new OIMEventQueue({ scheduler: this.scheduler });
         this.emitter = new OIMUpdateEventEmitter({
@@ -47,7 +70,13 @@ class OIMIndexPerformanceBenchmark {
         });
     }
 
-    private generateTestData(keyCount: number, pksPerKey: number) {
+    public getIndex(indexType: TOIMIndexType) {
+        return indexType === 'SetBased'
+            ? this.indexSetBased
+            : this.indexArrayBased;
+    }
+
+    public generateTestData(keyCount: number, pksPerKey: number) {
         const data: Array<{ key: string; pks: number[] }> = [];
 
         for (let i = 0; i < keyCount; i++) {
@@ -62,7 +91,7 @@ class OIMIndexPerformanceBenchmark {
         return data;
     }
 
-    private setupSubscribers(count: number, keyCount: number): void {
+    public setupSubscribers(count: number, keyCount: number): void {
         const handler = () => {
             /* noop */
         };
@@ -89,9 +118,10 @@ class OIMIndexPerformanceBenchmark {
 
     public async benchmarkSetOperations(
         scenario: TOIMIndexBenchScenario,
+        indexType: TOIMIndexType,
         useComparator: boolean = false
     ): Promise<TOIMIndexBenchResult> {
-        this.setupComponents(useComparator);
+        this.setupComponents(indexType, useComparator);
         const testData = this.generateTestData(
             scenario.keyCount,
             scenario.pksPerKey
@@ -99,12 +129,13 @@ class OIMIndexPerformanceBenchmark {
         this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
 
         const memoryBefore = this.getMemoryUsage();
+        const index = this.getIndex(indexType);
 
         const { time } = this.measureTime(() => {
             for (let i = 0; i < scenario.operationCount; i++) {
                 const dataIndex = i % testData.length;
                 const { key, pks } = testData[dataIndex];
-                this.index.setPks(key, pks);
+                index.setPks(key, pks);
             }
 
             this.queue.flush();
@@ -113,7 +144,7 @@ class OIMIndexPerformanceBenchmark {
         const memoryAfter = this.getMemoryUsage();
 
         return {
-            name: `${scenario.name}${useComparator ? ' (with comparator)' : ''}`,
+            name: `${scenario.name} - ${indexType}${useComparator ? ' (with comparator)' : ''}`,
             totalTime: time,
             avgTimePerOp: time / scenario.operationCount,
             opsPerSecond: scenario.operationCount / (time / 1000),
@@ -122,14 +153,21 @@ class OIMIndexPerformanceBenchmark {
     }
 
     public async benchmarkAddOperations(
-        scenario: TOIMIndexBenchScenario
+        scenario: TOIMIndexBenchScenario,
+        indexType: TOIMIndexType
     ): Promise<TOIMIndexBenchResult> {
-        this.setupComponents();
+        // Only for SetBased - ArrayBased doesn't use addPks
+        if (indexType === 'ArrayBased') {
+            throw new Error('Add operations not supported for ArrayBased');
+        }
+
+        this.setupComponents(indexType);
         this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
+        const index = this.indexSetBased;
 
         // Pre-populate with initial data
         for (let i = 0; i < scenario.keyCount; i++) {
-            this.index.setPks(`key${i}`, [i * 1000]);
+            index.setPks(`key${i}`, [i * 1000]);
         }
 
         const memoryBefore = this.getMemoryUsage();
@@ -138,7 +176,7 @@ class OIMIndexPerformanceBenchmark {
             for (let i = 0; i < scenario.operationCount; i++) {
                 const keyIndex = i % scenario.keyCount;
                 const newPk = 1000000 + i; // Unique PK
-                this.index.addPks(`key${keyIndex}`, [newPk]);
+                index.addPks(`key${keyIndex}`, [newPk]);
             }
 
             this.queue.flush();
@@ -147,7 +185,7 @@ class OIMIndexPerformanceBenchmark {
         const memoryAfter = this.getMemoryUsage();
 
         return {
-            name: `${scenario.name} - Add Operations`,
+            name: `${scenario.name} - ${indexType} - Add Operations`,
             totalTime: time,
             avgTimePerOp: time / scenario.operationCount,
             opsPerSecond: scenario.operationCount / (time / 1000),
@@ -156,10 +194,17 @@ class OIMIndexPerformanceBenchmark {
     }
 
     public async benchmarkRemoveOperations(
-        scenario: TOIMIndexBenchScenario
+        scenario: TOIMIndexBenchScenario,
+        indexType: TOIMIndexType
     ): Promise<TOIMIndexBenchResult> {
-        this.setupComponents();
+        // Only for SetBased - ArrayBased doesn't use removePks
+        if (indexType === 'ArrayBased') {
+            throw new Error('Remove operations not supported for ArrayBased');
+        }
+
+        this.setupComponents(indexType);
         this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
+        const index = this.indexSetBased;
 
         // Pre-populate with data to remove
         const testData = this.generateTestData(
@@ -167,7 +212,7 @@ class OIMIndexPerformanceBenchmark {
             scenario.pksPerKey
         );
         testData.forEach(({ key, pks }) => {
-            this.index.setPks(key, pks);
+            index.setPks(key, pks);
         });
 
         const memoryBefore = this.getMemoryUsage();
@@ -175,8 +220,9 @@ class OIMIndexPerformanceBenchmark {
         const { time } = this.measureTime(() => {
             for (let i = 0; i < scenario.operationCount; i++) {
                 const keyIndex = i % scenario.keyCount;
-                const pkToRemove = (i % scenario.pksPerKey) + keyIndex * 1000;
-                this.index.removePks(`key${keyIndex}`, [pkToRemove]);
+                const pkToRemove =
+                    (i % scenario.pksPerKey) + keyIndex * 1000;
+                index.removePks(`key${keyIndex}`, [pkToRemove]);
             }
 
             this.queue.flush();
@@ -185,7 +231,7 @@ class OIMIndexPerformanceBenchmark {
         const memoryAfter = this.getMemoryUsage();
 
         return {
-            name: `${scenario.name} - Remove Operations`,
+            name: `${scenario.name} - ${indexType} - Remove Operations`,
             totalTime: time,
             avgTimePerOp: time / scenario.operationCount,
             opsPerSecond: scenario.operationCount / (time / 1000),
@@ -197,7 +243,8 @@ class OIMIndexPerformanceBenchmark {
         this.emitter?.destroy();
         this.coalescer?.destroy();
         this.queue?.destroy();
-        this.index?.destroy();
+        this.indexSetBased?.destroy();
+        this.indexArrayBased?.destroy();
     }
 }
 
@@ -243,57 +290,175 @@ export const INDEX_BENCHMARK_SCENARIOS: Record<string, TOIMIndexBenchScenario> =
 
 export async function runIndexBenchmarkSuite(): Promise<void> {
     console.log('🚀 Starting OIM Index Performance Benchmarks\n');
+    console.log('Comparing SetBased vs ArrayBased indexes\n');
 
-    for (const [, scenario] of Object.entries(INDEX_BENCHMARK_SCENARIOS)) {
+    const results: Array<{
+        scenario: string;
+        type: TOIMIndexType;
+        operation: string;
+        result: TOIMIndexBenchResult;
+    }> = [];
+
+    for (const [scenarioKey, scenario] of Object.entries(
+        INDEX_BENCHMARK_SCENARIOS
+    )) {
         console.log(`📊 Running ${scenario.name} benchmarks...`);
 
         try {
-            // Set operations benchmark
-            const setBenchmark = new OIMIndexPerformanceBenchmark();
-            const setResult =
-                await setBenchmark.benchmarkSetOperations(scenario);
-            console.log(
-                `  ✅ Set Ops: ${setResult.opsPerSecond.toFixed(0)} ops/sec (${setResult.totalTime.toFixed(2)}ms total)`
+            // Set operations benchmark - SetBased
+            const setBenchmarkSet = new OIMIndexPerformanceBenchmark();
+            const setResultSet = await setBenchmarkSet.benchmarkSetOperations(
+                scenario,
+                'SetBased'
             );
-            setBenchmark.cleanup();
+            console.log(
+                `  ✅ SetBased Set Ops: ${setResultSet.opsPerSecond.toFixed(0)} ops/sec (${setResultSet.totalTime.toFixed(2)}ms total)`
+            );
+            results.push({
+                scenario: scenarioKey,
+                type: 'SetBased',
+                operation: 'set',
+                result: setResultSet,
+            });
+            setBenchmarkSet.cleanup();
 
-            // Set operations with comparator
-            const setComparatorBenchmark = new OIMIndexPerformanceBenchmark();
-            const setComparatorResult =
-                await setComparatorBenchmark.benchmarkSetOperations(
+            // Set operations benchmark - ArrayBased
+            const setBenchmarkArray = new OIMIndexPerformanceBenchmark();
+            const setResultArray =
+                await setBenchmarkArray.benchmarkSetOperations(
                     scenario,
+                    'ArrayBased'
+                );
+            console.log(
+                `  ✅ ArrayBased Set Ops: ${setResultArray.opsPerSecond.toFixed(0)} ops/sec (${setResultArray.totalTime.toFixed(2)}ms total)`
+            );
+            results.push({
+                scenario: scenarioKey,
+                type: 'ArrayBased',
+                operation: 'set',
+                result: setResultArray,
+            });
+            setBenchmarkArray.cleanup();
+
+            // Comparison
+            const speedup =
+                setResultArray.opsPerSecond / setResultSet.opsPerSecond;
+            console.log(
+                `  📈 Speedup: ${speedup > 1 ? 'ArrayBased' : 'SetBased'} is ${Math.abs(speedup - 1).toFixed(2)}x ${speedup > 1 ? 'faster' : 'slower'}\n`
+            );
+
+            // Set operations with comparator - SetBased
+            const setComparatorBenchmarkSet =
+                new OIMIndexPerformanceBenchmark();
+            const setComparatorResultSet =
+                await setComparatorBenchmarkSet.benchmarkSetOperations(
+                    scenario,
+                    'SetBased',
                     true
                 );
             console.log(
-                `  ✅ Set Ops (comparator): ${setComparatorResult.opsPerSecond.toFixed(0)} ops/sec (${setComparatorResult.totalTime.toFixed(2)}ms total)`
+                `  ✅ SetBased Set Ops (comparator): ${setComparatorResultSet.opsPerSecond.toFixed(0)} ops/sec (${setComparatorResultSet.totalTime.toFixed(2)}ms total)`
             );
-            setComparatorBenchmark.cleanup();
+            results.push({
+                scenario: scenarioKey,
+                type: 'SetBased',
+                operation: 'set-comparator',
+                result: setComparatorResultSet,
+            });
+            setComparatorBenchmarkSet.cleanup();
 
-            // Add operations benchmark
-            const addBenchmark = new OIMIndexPerformanceBenchmark();
-            const addResult =
-                await addBenchmark.benchmarkAddOperations(scenario);
+            // Set operations with comparator - ArrayBased
+            const setComparatorBenchmarkArray =
+                new OIMIndexPerformanceBenchmark();
+            const setComparatorResultArray =
+                await setComparatorBenchmarkArray.benchmarkSetOperations(
+                    scenario,
+                    'ArrayBased',
+                    true
+                );
             console.log(
-                `  ✅ Add Ops: ${addResult.opsPerSecond.toFixed(0)} ops/sec (${addResult.totalTime.toFixed(2)}ms total)`
+                `  ✅ ArrayBased Set Ops (comparator): ${setComparatorResultArray.opsPerSecond.toFixed(0)} ops/sec (${setComparatorResultArray.totalTime.toFixed(2)}ms total)`
             );
+            results.push({
+                scenario: scenarioKey,
+                type: 'ArrayBased',
+                operation: 'set-comparator',
+                result: setComparatorResultArray,
+            });
+            setComparatorBenchmarkArray.cleanup();
+
+            // Add operations benchmark - SetBased only
+            const addBenchmark = new OIMIndexPerformanceBenchmark();
+            const addResult = await addBenchmark.benchmarkAddOperations(
+                scenario,
+                'SetBased'
+            );
+            console.log(
+                `  ✅ SetBased Add Ops: ${addResult.opsPerSecond.toFixed(0)} ops/sec (${addResult.totalTime.toFixed(2)}ms total)`
+            );
+            results.push({
+                scenario: scenarioKey,
+                type: 'SetBased',
+                operation: 'add',
+                result: addResult,
+            });
             addBenchmark.cleanup();
 
-            // Remove operations benchmark
+            // Remove operations benchmark - SetBased only
             const removeBenchmark = new OIMIndexPerformanceBenchmark();
-            const removeResult =
-                await removeBenchmark.benchmarkRemoveOperations(scenario);
-            console.log(
-                `  ✅ Remove Ops: ${removeResult.opsPerSecond.toFixed(0)} ops/sec (${removeResult.totalTime.toFixed(2)}ms total)`
+            const removeResult = await removeBenchmark.benchmarkRemoveOperations(
+                scenario,
+                'SetBased'
             );
+            console.log(
+                `  ✅ SetBased Remove Ops: ${removeResult.opsPerSecond.toFixed(0)} ops/sec (${removeResult.totalTime.toFixed(2)}ms total)`
+            );
+            results.push({
+                scenario: scenarioKey,
+                type: 'SetBased',
+                operation: 'remove',
+                result: removeResult,
+            });
             removeBenchmark.cleanup();
 
             console.log(
-                `  💾 Memory Usage: ${(setResult.memoryUsage || 0).toFixed(2)}MB\n`
+                `  💾 Memory Usage (SetBased): ${(setResultSet.memoryUsage || 0).toFixed(2)}MB`
+            );
+            console.log(
+                `  💾 Memory Usage (ArrayBased): ${(setResultArray.memoryUsage || 0).toFixed(2)}MB\n`
             );
         } catch (error) {
             console.error(`  ❌ Error in ${scenario.name}:`, error);
         }
     }
+
+    // Print summary comparison
+    console.log('\n📊 Summary Comparison:\n');
+    console.log('Set Operations (no comparator):');
+    for (const [scenarioKey, scenario] of Object.entries(
+        INDEX_BENCHMARK_SCENARIOS
+    )) {
+        const setBased = results.find(
+            (r) =>
+                r.scenario === scenarioKey &&
+                r.type === 'SetBased' &&
+                r.operation === 'set'
+        );
+        const arrayBased = results.find(
+            (r) =>
+                r.scenario === scenarioKey &&
+                r.type === 'ArrayBased' &&
+                r.operation === 'set'
+        );
+        if (setBased && arrayBased) {
+            const ratio = arrayBased.result.opsPerSecond / setBased.result.opsPerSecond;
+            console.log(
+                `  ${scenario.name}: ArrayBased is ${ratio.toFixed(2)}x ${ratio > 1 ? 'faster' : 'slower'} than SetBased`
+            );
+        }
+    }
+
+    return;
 }
 
 export async function runComparatorBenchmark(): Promise<void> {
@@ -375,116 +540,135 @@ function measureComparatorTime(
 export async function runIndexStressBenchmark(): Promise<void> {
     console.log('💪 Index Stress Test\n');
 
-    const benchmark = new OIMIndexPerformanceBenchmark();
-    const stressScenario: TOIMIndexBenchScenario = {
-        name: 'Stress Test',
-        keyCount: 10_000,
-        pksPerKey: 100,
-        operationCount: 1_000_000,
-        subscriberCount: 5_000,
-    };
+    // Test both types
+    for (const indexType of ['SetBased', 'ArrayBased'] as TOIMIndexType[]) {
+        console.log(`\n📊 ${indexType} Stress Test:`);
+        const benchmark = new OIMIndexPerformanceBenchmark();
+        const stressScenario: TOIMIndexBenchScenario = {
+            name: 'Stress Test',
+            keyCount: 10_000,
+            pksPerKey: 100,
+            operationCount: 1_000_000,
+            subscriberCount: 5_000,
+        };
 
-    try {
-        console.log(
-            `  Setting up ${stressScenario.keyCount} keys with ${stressScenario.pksPerKey} PKs each...`
-        );
-
-        benchmark['setupComponents']();
-        const testData = benchmark['generateTestData'](
-            stressScenario.keyCount,
-            stressScenario.pksPerKey
-        );
-
-        // Initial population
-        const setupStart = performance.now();
-        testData.forEach(({ key, pks }) => {
-            benchmark['index'].setPks(key, pks);
-        });
-        const setupTime = performance.now() - setupStart;
-
-        console.log(`  ✅ Setup completed in ${setupTime.toFixed(2)}ms`);
-
-        // Setup subscribers
-        benchmark['setupSubscribers'](
-            stressScenario.subscriberCount,
-            stressScenario.keyCount
-        );
-
-        console.log(
-            `  Starting stress test with ${stressScenario.operationCount} operations...`
-        );
-
-        const stressStart = performance.now();
-        let processedOps = 0;
-
-        // Mixed operations
-        for (let i = 0; i < stressScenario.operationCount; i++) {
-            const keyIndex = Math.floor(
-                Math.random() * stressScenario.keyCount
+        try {
+            console.log(
+                `  Setting up ${stressScenario.keyCount} keys with ${stressScenario.pksPerKey} PKs each...`
             );
-            const key = `key${keyIndex}`;
 
-            const operation = Math.random();
+            benchmark.setupComponents(indexType);
+            const testData = benchmark.generateTestData(
+                stressScenario.keyCount,
+                stressScenario.pksPerKey
+            );
+            const index = benchmark.getIndex(indexType);
 
-            if (operation < 0.5) {
-                // Set operation (50%)
-                const newPks = Array.from(
-                    { length: Math.floor(Math.random() * 50) + 1 },
-                    (_, j) =>
-                        keyIndex * 1000 + j + Math.floor(Math.random() * 100)
+            // Initial population
+            const setupStart = performance.now();
+            testData.forEach(({ key, pks }) => {
+                index.setPks(key, pks);
+            });
+            const setupTime = performance.now() - setupStart;
+
+            console.log(`  ✅ Setup completed in ${setupTime.toFixed(2)}ms`);
+
+            // Setup subscribers
+            benchmark.setupSubscribers(
+                stressScenario.subscriberCount,
+                stressScenario.keyCount
+            );
+
+            console.log(
+                `  Starting stress test with ${stressScenario.operationCount} operations...`
+            );
+
+            const stressStart = performance.now();
+            let processedOps = 0;
+
+            // Only set operations for ArrayBased, mixed for SetBased
+            for (let i = 0; i < stressScenario.operationCount; i++) {
+                const keyIndex = Math.floor(
+                    Math.random() * stressScenario.keyCount
                 );
-                benchmark['index'].setPks(key, newPks);
-            } else if (operation < 0.8) {
-                // Add operation (30%)
-                const newPk =
-                    keyIndex * 1000 + Math.floor(Math.random() * 10000);
-                benchmark['index'].addPks(key, [newPk]);
-            } else {
-                // Remove operation (20%)
-                const existingPks = benchmark['index'].getPks(key);
-                if (existingPks.length > 0) {
-                    const pkToRemove =
-                        existingPks[
-                            Math.floor(Math.random() * existingPks.length)
-                        ];
-                    benchmark['index'].removePks(key, [pkToRemove]);
+                const key = `key${keyIndex}`;
+
+                if (indexType === 'SetBased') {
+                    const operation = Math.random();
+
+                    if (operation < 0.5) {
+                        // Set operation (50%)
+                        const newPks = Array.from(
+                            { length: Math.floor(Math.random() * 50) + 1 },
+                            (_, j) =>
+                                keyIndex * 1000 +
+                                j +
+                                Math.floor(Math.random() * 100)
+                        );
+                        index.setPks(key, newPks);
+                    } else if (operation < 0.8) {
+                        // Add operation (30%)
+                        const newPk =
+                            keyIndex * 1000 +
+                            Math.floor(Math.random() * 10000);
+                        index.addPks(key, [newPk]);
+                    } else {
+                        // Remove operation (20%)
+                        const existingPks = index.getPksByKey(key);
+                        if (existingPks.size > 0) {
+                            const pkToRemove = Array.from(existingPks)[
+                                Math.floor(Math.random() * existingPks.size)
+                            ];
+                            index.removePks(key, [pkToRemove]);
+                        }
+                    }
+                } else {
+                    // ArrayBased - only set operations
+                    const newPks = Array.from(
+                        { length: Math.floor(Math.random() * 50) + 1 },
+                        (_, j) =>
+                            keyIndex * 1000 +
+                            j +
+                            Math.floor(Math.random() * 100)
+                    );
+                    index.setPks(key, newPks);
+                }
+
+                processedOps++;
+
+                if (processedOps % 100_000 === 0) {
+                    console.log(`    Processed ${processedOps} operations...`);
+                    benchmark.queue?.flush();
                 }
             }
 
-            processedOps++;
+            // Final flush
+            benchmark.queue?.flush();
+            const stressTime = performance.now() - stressStart;
 
-            if (processedOps % 100_000 === 0) {
-                console.log(`    Processed ${processedOps} operations...`);
-                benchmark['queue'].flush();
-            }
+            console.log(`  ✅ Stress test completed!`);
+            console.log(`    Total time: ${stressTime.toFixed(2)}ms`);
+            console.log(
+                `    Operations per second: ${(stressScenario.operationCount / (stressTime / 1000)).toFixed(0)}`
+            );
+            console.log(
+                `    Avg time per operation: ${(stressTime / stressScenario.operationCount).toFixed(4)}ms`
+            );
+
+            const metrics = index.getMetrics();
+            console.log(
+                `    Final index metrics: ${metrics.totalKeys} keys, ${metrics.totalPks} PKs`
+            );
+
+            const emitterMetrics = benchmark.emitter?.getMetrics();
+            console.log(
+                `    Final emitter metrics: ${emitterMetrics.totalKeys} subscribed keys, ${emitterMetrics.totalHandlers} handlers`
+            );
+        } catch (error) {
+            console.error(`  ❌ Stress test failed:`, error);
+        } finally {
+            benchmark.cleanup();
         }
-
-        // Final flush
-        benchmark['queue'].flush();
-        const stressTime = performance.now() - stressStart;
-
-        console.log(`  ✅ Stress test completed!`);
-        console.log(`    Total time: ${stressTime.toFixed(2)}ms`);
-        console.log(
-            `    Operations per second: ${(stressScenario.operationCount / (stressTime / 1000)).toFixed(0)}`
-        );
-        console.log(
-            `    Avg time per operation: ${(stressTime / stressScenario.operationCount).toFixed(4)}ms`
-        );
-
-        const metrics = benchmark['index'].getMetrics();
-        console.log(
-            `    Final index metrics: ${metrics.totalKeys} keys, ${metrics.totalPks} PKs`
-        );
-
-        const emitterMetrics = benchmark['emitter'].getMetrics();
-        console.log(
-            `    Final emitter metrics: ${emitterMetrics.totalKeys} subscribed keys, ${emitterMetrics.totalHandlers} handlers`
-        );
-    } catch (error) {
-        console.error(`  ❌ Stress test failed:`, error);
-    } finally {
-        benchmark.cleanup();
     }
 }
 
@@ -515,3 +699,8 @@ export {
     TOIMIndexBenchResult,
     TOIMIndexBenchScenario,
 };
+
+// Run benchmarks if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+    runAllIndexBenchmarks();
+}

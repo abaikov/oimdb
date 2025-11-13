@@ -1,4 +1,10 @@
-import { OIMReactiveIndex, OIMIndex, TOIMPk } from '@oimdb/core';
+import {
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
+    TOIMPk,
+} from '@oimdb/core';
 
 /**
  * Mapper function for converting index state to Redux state
@@ -12,7 +18,17 @@ export type TOIMIndexMapper<
     TPk extends TOIMPk,
     TState,
 > = (
-    index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>,
+    index:
+        | OIMReactiveIndexSetBased<
+              TIndexKey,
+              TPk,
+              OIMIndexSetBased<TIndexKey, TPk>
+          >
+        | OIMReactiveIndexArrayBased<
+              TIndexKey,
+              TPk,
+              OIMIndexArrayBased<TIndexKey, TPk>
+          >,
     updatedKeys: Set<TIndexKey>,
     currentState: TState | undefined
 ) => TState;

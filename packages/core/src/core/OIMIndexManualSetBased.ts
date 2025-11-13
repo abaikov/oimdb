@@ -1,16 +1,20 @@
 import { TOIMPk } from '../types/TOIMPk';
-import { OIMIndex } from '../abstract/OIMIndex';
-import { TOIMIndexOptions } from '../types/TOIMIndexOptions';
+import { OIMIndexSetBased } from '../abstract/OIMIndexSetBased';
+import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
+import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 
 /**
- * Manual index that allows direct manipulation of key-to-primary-keys mappings.
- * Extends the abstract OIMIndex with manual control methods and optional comparison.
+ * Manual Set-based index that allows direct manipulation of key-to-primary-keys mappings.
+ * Extends the abstract OIMIndexSetBased with manual control methods and optional comparison.
  */
-export class OIMIndexManual<
+export class OIMIndexManualSetBased<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
-> extends OIMIndex<TIndexKey, TPk> {
-    constructor(options: TOIMIndexOptions<TIndexKey, TPk> = {}) {
+> extends OIMIndexSetBased<TIndexKey, TPk> {
+    constructor(options: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreSetBased<TIndexKey, TPk>;
+    } = {}) {
         super(options);
     }
     /**

@@ -43,6 +43,16 @@
     "typescript": "^5.2.2",
     "rimraf": "^5.0.5"
   },
+  "keywords": [
+    "oimdb",
+    "async",
+    "asynchronous",
+    "collections",
+    "indexes",
+    "typescript",
+    "reactive",
+    "database"
+  ],
   "author": "Andrei Baikov",
   "license": "MIT"
 }

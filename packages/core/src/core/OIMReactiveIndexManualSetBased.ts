@@ -1,21 +1,25 @@
-import { OIMReactiveIndex } from '../abstract/OIMReactiveIndex';
-import { OIMIndexManual } from './OIMIndexManual';
+import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';
+import { OIMIndexManualSetBased } from './OIMIndexManualSetBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 
-export class OIMReactiveIndexManual<
+export class OIMReactiveIndexManualSetBased<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
-> extends OIMReactiveIndex<TKey, TPk, OIMIndexManual<TKey, TPk>> {
+> extends OIMReactiveIndexSetBased<
+    TKey,
+    TPk,
+    OIMIndexManualSetBased<TKey, TPk>
+> {
     constructor(
         queue: OIMEventQueue,
-        opts?: { index: OIMIndexManual<TKey, TPk> }
+        opts?: { index: OIMIndexManualSetBased<TKey, TPk> }
     ) {
         super(queue, opts);
     }
 
-    protected createDefaultIndex(): OIMIndexManual<TKey, TPk> {
-        return new OIMIndexManual<TKey, TPk>();
+    protected createDefaultIndex(): OIMIndexManualSetBased<TKey, TPk> {
+        return new OIMIndexManualSetBased<TKey, TPk>();
     }
 
     public setPks(key: TKey, pks: TPk[]): void {
@@ -34,3 +38,4 @@ export class OIMReactiveIndexManual<
         this.index.clear(key);
     }
 }
+

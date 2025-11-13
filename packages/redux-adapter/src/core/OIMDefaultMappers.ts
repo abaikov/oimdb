@@ -1,7 +1,9 @@
 import {
     OIMReactiveCollection,
-    OIMReactiveIndex,
-    OIMIndex,
+    OIMReactiveIndexSetBased,
+    OIMReactiveIndexArrayBased,
+    OIMIndexSetBased,
+    OIMIndexArrayBased,
     TOIMPk,
 } from '@oimdb/core';
 import { TOIMDefaultCollectionState } from '../types/TOIMDefaultCollectionState';
@@ -109,7 +111,17 @@ export function defaultIndexMapper<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
 >(
-    index: OIMReactiveIndex<TIndexKey, TPk, OIMIndex<TIndexKey, TPk>>,
+    index:
+        | OIMReactiveIndexSetBased<
+              TIndexKey,
+              TPk,
+              OIMIndexSetBased<TIndexKey, TPk>
+          >
+        | OIMReactiveIndexArrayBased<
+              TIndexKey,
+              TPk,
+              OIMIndexArrayBased<TIndexKey, TPk>
+          >,
     updatedKeys: Set<TIndexKey>,
     currentState?: TOIMDefaultIndexState<TIndexKey, TPk>
 ): TOIMDefaultIndexState<TIndexKey, TPk> {
@@ -125,7 +137,8 @@ export function defaultIndexMapper<
 
         for (let i = 0; i < keysLength; i++) {
             const key = allKeys[i];
-            const ids = Array.from(index.getPksByKey(key));
+            const pks = index.getPksByKey(key);
+            const ids = pks instanceof Set ? Array.from(pks) : pks;
             entities[key] = { id: key, ids };
         }
 
@@ -140,7 +153,8 @@ export function defaultIndexMapper<
 
     for (let i = 0; i < updatedKeysLength; i++) {
         const key = updatedKeysArray[i];
-        const ids = Array.from(index.getPksByKey(key));
+        const pks = index.getPksByKey(key);
+        const ids = pks instanceof Set ? Array.from(pks) : pks;
         newEntities[key] = { id: key, ids };
     }
 

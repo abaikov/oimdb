@@ -1,13 +1,13 @@
 import { TOIMPk } from '../types/TOIMPk';
-import { OIMIndexStore } from '../abstract/OIMIndexStore';
+import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 
-export class OIMIndexStoreMapDriven<
+export class OIMIndexStoreMapDrivenArrayBased<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
-> extends OIMIndexStore<TKey, TPk> {
-    protected readonly pks = new Map<TKey, Set<TPk>>();
+> extends OIMIndexStoreArrayBased<TKey, TPk> {
+    protected readonly pks = new Map<TKey, TPk[]>();
 
-    setOneByKey(key: TKey, pks: Set<TPk>): void {
+    setOneByKey(key: TKey, pks: TPk[]): void {
         this.pks.set(key, pks);
     }
 
@@ -22,13 +22,13 @@ export class OIMIndexStoreMapDriven<
         }
     }
 
-    getOneByKey(key: TKey): Set<TPk> | undefined {
+    getOneByKey(key: TKey): TPk[] | undefined {
         return this.pks.get(key);
     }
 
-    getManyByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
+    getManyByKeys(keys: readonly TKey[]): Map<TKey, TPk[]> {
         // Pre-size Map to reduce reallocations
-        const result = new Map<TKey, Set<TPk>>();
+        const result = new Map<TKey, TPk[]>();
         for (const key of keys) {
             const pks = this.getOneByKey(key);
             if (pks !== undefined) {
@@ -42,7 +42,7 @@ export class OIMIndexStoreMapDriven<
         return Array.from(this.pks.keys());
     }
 
-    getAll(): Map<TKey, Set<TPk>> {
+    getAll(): Map<TKey, TPk[]> {
         return new Map(this.pks);
     }
 

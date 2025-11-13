@@ -2,48 +2,48 @@ import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enum/EOIMIndexEventType';
 import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
 import { TOIMPk } from '../types/TOIMPk';
-import { TOIMIndexOptions } from '../types/TOIMIndexOptions';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
-import { OIMIndexStore } from './OIMIndexStore';
-import { OIMIndexStoreMapDriven } from '../core/OIMIndexStoreMapDriven';
+import { OIMIndexStoreArrayBased } from './OIMIndexStoreArrayBased';
+import { OIMIndexStoreMapDrivenArrayBased } from '../core/OIMIndexStoreMapDrivenArrayBased';
 
 /**
- * Abstract base class for all index types.
- * Provides common functionality and event system for key-to-PKs mappings.
+ * Abstract base class for Array-based index types.
+ * Provides common functionality and event system for key-to-PKs mappings using Array storage.
  */
-export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
+export abstract class OIMIndexArrayBased<
+    TKey extends TOIMPk,
+    TPk extends TOIMPk,
+> {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
-    protected readonly store: OIMIndexStore<TKey, TPk>;
+    protected readonly store: OIMIndexStoreArrayBased<TKey, TPk>;
     public readonly emitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: TOIMIndexUpdatePayload<TKey>;
     }>();
 
-    constructor(options: TOIMIndexOptions<TKey, TPk> = {}) {
+    constructor(
+        options: {
+            comparePks?: TOIMIndexComparator<TPk>;
+            store?: OIMIndexStoreArrayBased<TKey, TPk>;
+        } = {}
+    ) {
         this.comparePks = options.comparePks;
-        this.store = options.store ?? new OIMIndexStoreMapDriven<TKey, TPk>();
+        this.store =
+            options.store ?? new OIMIndexStoreMapDrivenArrayBased<TKey, TPk>();
     }
 
     /**
      * Get primary keys for multiple index keys
      */
-    public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
+    public getPksByKeys(keys: readonly TKey[]): Map<TKey, TPk[]> {
         return this.store.getManyByKeys(keys);
     }
 
     /**
-     * @deprecated Use getPksByKey instead
      * Get primary keys for a specific index key
      */
-    public getPks(key: TKey): Set<TPk> {
-        return this.getPksByKey(key);
-    }
-
-    /**
-     * Get primary keys for a specific index key
-     */
-    public getPksByKey(key: TKey): Set<TPk> {
-        const pksSet = this.store.getOneByKey(key);
-        return pksSet ? pksSet : new Set();
+    public getPksByKey(key: TKey): TPk[] {
+        const pksArray = this.store.getOneByKey(key);
+        return pksArray ? pksArray : [];
     }
 
     /**
@@ -64,8 +64,8 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
      * Get the number of primary keys for a specific index key
      */
     public getKeySize(key: TKey): number {
-        const pksSet = this.store.getOneByKey(key);
-        return pksSet ? pksSet.size : 0;
+        const pksArray = this.store.getOneByKey(key);
+        return pksArray ? pksArray.length : 0;
     }
 
     /**
@@ -91,10 +91,10 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
         let minBucketSize = Infinity;
         const allPks = this.store.getAll();
 
-        for (const pksSet of allPks.values()) {
-            totalPks += pksSet.size;
-            maxBucketSize = Math.max(maxBucketSize, pksSet.size);
-            minBucketSize = Math.min(minBucketSize, pksSet.size);
+        for (const pksArray of allPks.values()) {
+            totalPks += pksArray.length;
+            maxBucketSize = Math.max(maxBucketSize, pksArray.length);
+            minBucketSize = Math.min(minBucketSize, pksArray.length);
         }
 
         return {
@@ -118,21 +118,16 @@ export abstract class OIMIndex<TKey extends TOIMPk, TPk extends TOIMPk> {
      * Set primary keys for a specific index key with optional comparison.
      * If comparator is provided and returns true (no changes), skip the update.
      */
-    protected setPksWithComparison(key: TKey, newPks: Set<TPk>): boolean {
+    protected setPksWithComparison(key: TKey, newPks: TPk[]): boolean {
         // If comparator is provided, check if arrays are equal
         if (this.comparePks) {
-            const existingPksSet = this.store.getOneByKey(key);
+            const existingPksArray = this.store.getOneByKey(key);
             // Quick size check before expensive comparison
-            if (existingPksSet && existingPksSet.size === newPks.size) {
-                // Convert Sets to arrays for comparator
-                const existingPksArray =
-                    existingPksSet.size > 0 ? [...existingPksSet] : [];
-                const newPksArray = newPks.size > 0 ? [...newPks] : [];
-
-                if (this.comparePks(existingPksArray, newPksArray)) {
+            if (existingPksArray && existingPksArray.length === newPks.length) {
+                if (this.comparePks(existingPksArray, newPks)) {
                     return false;
                 }
-            } else if (!existingPksSet && newPks.size === 0) {
+            } else if (!existingPksArray && newPks.length === 0) {
                 // Both are empty
                 return false;
             }
