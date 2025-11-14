@@ -8,48 +8,6 @@ import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-schedul
 import { EOIMIndexEventType } from '../src/enum/EOIMIndexEventType';
 import { TOIMIndexUpdatePayload } from '../src/types/TOIMIndexUpdatePayload';
 
-// Helper function to test both index types
-function testIndexTypes(
-    name: string,
-    testFn: (
-        createIndex: () => OIMIndexManualSetBased<string, number> | OIMIndexManualArrayBased<string, number>,
-        isSetBased: boolean
-    ) => void
-) {
-    describe(`${name} - SetBased`, () => {
-        testFn(
-            () => new OIMIndexManualSetBased<string, number>(),
-            true
-        );
-    });
-
-    describe(`${name} - ArrayBased`, () => {
-        testFn(
-            () => new OIMIndexManualArrayBased<string, number>(),
-            false
-        );
-    });
-}
-
-// Helper to compare results based on index type
-function expectPksEqual(
-    result: Set<number> | number[],
-    expected: number[],
-    isSetBased: boolean
-) {
-    if (isSetBased) {
-        expect(result).toEqual(new Set(expected));
-        expect((result as Set<number>).size).toBe(expected.length);
-    } else {
-        // For ArrayBased, we need to check that arrays contain the same elements
-        // but order might differ, so we sort both
-        const sortedResult = [...(result as number[])].sort((a, b) => a - b);
-        const sortedExpected = [...expected].sort((a, b) => a - b);
-        expect(sortedResult).toEqual(sortedExpected);
-        expect((result as number[]).length).toBe(expected.length);
-    }
-}
-
 describe('OIMIndexManualSetBased', () => {
     describe('Basic Operations', () => {
         let index: OIMIndexManualSetBased<string, number>;

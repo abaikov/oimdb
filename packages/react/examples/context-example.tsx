@@ -2,16 +2,15 @@ import * as React from 'react';
 import {
     OIMRICollectionsProvider,
     useOIMCollectionsContext,
-    StrictCollectionsDictionary,
 } from '../src/context/index';
 import {
     OIMRICollection,
     OIMEventQueue,
-    OIMReactiveIndexManual,
+    OIMReactiveIndexManualArrayBased,
 } from '@oimdb/core';
 import {
     useSelectEntitiesByPks,
-    selectEntitiesByIndexKey,
+    useSelectEntitiesByIndexKeyArrayBased,
 } from '../src/hooks/index';
 
 interface User {
@@ -31,7 +30,9 @@ interface Team {
 function createCollections() {
     const queue = new OIMEventQueue();
 
-    const userTeamIndex = new OIMReactiveIndexManual<string, string>(queue);
+    const userTeamIndex = new OIMReactiveIndexManualArrayBased<string, string>(
+        queue
+    );
     const usersCollection = new OIMRICollection(queue, {
         collectionOpts: { selectPk: (user: User) => user.id },
         indexes: { byTeam: userTeamIndex },
@@ -89,31 +90,39 @@ function createCollections() {
         usersCollection.indexes.byTeam.setPks('team3', ['user4']);
     }, 100);
 
-    return { users: usersCollection, teams: teamsCollection } as const;
+    const collections = {
+        users: usersCollection,
+        teams: teamsCollection,
+    };
+    return collections;
 }
 
-type AppCollections = StrictCollectionsDictionary<
-    ReturnType<typeof createCollections>
->;
+// Extract type using typeof to preserve collection generic types
+type AppCollections = ReturnType<typeof createCollections>;
 
 function TeamMembersList({ teamId }: { teamId: string }) {
     const { users } = useOIMCollectionsContext<AppCollections>();
 
     // Get users for specific team using your existing hooks
-    const teamUsers = selectEntitiesByIndexKey(
+    const teamUsers = useSelectEntitiesByIndexKeyArrayBased(
         users,
         users.indexes.byTeam,
         teamId
     );
 
+    // Filter out undefined values and ensure type safety
+    const validUsers = (teamUsers || []).filter(
+        (user): user is User => user !== undefined
+    );
+
     return (
         <div style={{ marginLeft: 20, marginTop: 10 }}>
             <h4>Team Members:</h4>
-            {teamUsers.length === 0 ? (
+            {validUsers.length === 0 ? (
                 <p>No members</p>
             ) : (
                 <ul>
-                    {teamUsers.map(user => (
+                    {validUsers.map(user => (
                         <li key={user.id} style={{ marginBottom: 5 }}>
                             <strong>{user.name}</strong> ({user.role})
                             <br />

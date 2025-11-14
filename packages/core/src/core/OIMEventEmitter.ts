@@ -9,20 +9,20 @@ type TOIMEventBucket<T, K extends keyof T> = {
 };
 
 export class OIMEventEmitter<T extends Record<string, unknown>> {
-    private buckets: Partial<{ [K in keyof T]: TOIMEventBucket<T, K> }> = {};
+    private buckets: Record<string, TOIMEventBucket<T, keyof T>> = {};
 
     private getOrCreateBucket<K extends keyof T>(
         event: K
-    ): TOIMEventBucket<T, K> {
-        let bucket = this.buckets[event];
+    ): TOIMEventBucket<T, keyof T> {
+        let bucket = this.buckets[event as string];
         if (!bucket) {
             bucket = {
                 handlers: [],
-                indexByHandler: new Map<TOIMEventHandler<T[K]>, number>(),
+                indexByHandler: new Map<TOIMEventHandler<T[keyof T]>, number>(),
                 tombstoneCount: 0,
                 isEmitting: 0,
             };
-            this.buckets[event] = bucket;
+            this.buckets[event as string] = bucket;
         }
         return bucket;
     }
@@ -61,14 +61,20 @@ export class OIMEventEmitter<T extends Record<string, unknown>> {
 
     on<K extends keyof T>(event: K, handler: TOIMEventHandler<T[K]>): void {
         const bucket = this.getOrCreateBucket(event);
-        if (bucket.indexByHandler.has(handler)) return;
+        if (bucket.indexByHandler.has(handler as TOIMEventHandler<T[keyof T]>))
+            return;
         const index = bucket.handlers.length;
-        bucket.handlers.push(handler);
-        bucket.indexByHandler.set(handler, index);
+        bucket.handlers.push(handler as TOIMEventHandler<T[keyof T]>);
+        bucket.indexByHandler.set(
+            handler as TOIMEventHandler<T[keyof T]>,
+            index
+        );
     }
 
     emit<K extends keyof T>(event: K, payload: T[K]): void {
-        const bucket = this.buckets[event];
+        const bucket = this.buckets[event as string] as
+            | TOIMEventBucket<T, K>
+            | undefined;
         if (!bucket) return;
         const handlers = bucket.handlers;
         const length = handlers.length;
@@ -88,13 +94,15 @@ export class OIMEventEmitter<T extends Record<string, unknown>> {
                 this.compactBucket(bucket);
             } else if (length === bucket.tombstoneCount) {
                 // All handlers removed - delete bucket
-                delete this.buckets[event];
+                delete this.buckets[event as string];
             }
         }
     }
 
     off<K extends keyof T>(event: K, handler: TOIMEventHandler<T[K]>): void {
-        const bucket = this.buckets[event];
+        const bucket = this.buckets[event as string] as
+            | TOIMEventBucket<T, K>
+            | undefined;
         if (!bucket) return;
         const index = bucket.indexByHandler.get(handler);
         if (index === undefined) return;
@@ -111,16 +119,16 @@ export class OIMEventEmitter<T extends Record<string, unknown>> {
                 this.compactBucket(bucket);
             } else if (length === bucket.tombstoneCount) {
                 // All handlers removed - delete bucket
-                delete this.buckets[event];
+                delete this.buckets[event as string];
             }
         }
     }
 
     offAll<K extends keyof T>(event?: K): void {
         if (event !== undefined) {
-            delete this.buckets[event];
+            delete this.buckets[event as string];
         } else {
-            this.buckets = {};
+            this.buckets = {} as Record<string, TOIMEventBucket<T, keyof T>>;
         }
     }
 }
