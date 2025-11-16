@@ -8,7 +8,7 @@ import { TOIMPk } from '@oimdb/core';
  * @param currentState - Current Redux state (undefined on first call)
  * @returns New Redux state
  */
-export type TOIMCollectionMapper<
+export type TOIMDBReduxCollectionMapper<
     TEntity extends object,
     TPk extends TOIMPk,
     TState,

@@ -1,6 +1,7 @@
 import {
     OIMReactiveCollection,
     OIMReactiveIndexManualSetBased,
+    OIMReactiveIndexManualArrayBased,
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
     OIMIndexSetBased,
@@ -18,12 +19,18 @@ import {
     Reducer,
 } from 'redux';
 import {
-    OIMDBAdapter,
-    TOIMDefaultCollectionState,
-    TOIMDefaultIndexState,
-    EOIMDBReducerActionType,
-    TOIMCollectionReducerChildOptions,
-    TOIMIndexReducerChildOptions,
+    createEntityAdapter,
+    createSlice,
+    createAction,
+    PayloadAction,
+} from '@reduxjs/toolkit';
+import {
+    OIMDBReduxAdapter,
+    TOIMDBReduxDefaultCollectionState,
+    TOIMDBReduxDefaultIndexState,
+    EOIMDBReduxReducerActionType,
+    TOIMDBReduxCollectionReducerChildOptions,
+    TOIMDBReduxIndexReducerChildOptions,
     findUpdatedInArray,
 } from '../src';
 
@@ -41,15 +48,15 @@ interface Post {
     authorId: string;
 }
 
-describe('OIMDBAdapter', () => {
+describe('OIMDBReduxAdapter', () => {
     let queue: OIMEventQueue;
-    let adapter: OIMDBAdapter;
+    let adapter: OIMDBReduxAdapter;
     let store: Store;
 
     beforeEach(() => {
         const scheduler = new OIMEventQueueSchedulerImmediate();
         queue = new OIMEventQueue({ scheduler });
-        adapter = new OIMDBAdapter(queue);
+        adapter = new OIMDBReduxAdapter(queue);
 
         // Create mock Redux store
         store = createStore((state = {}) => state);
@@ -77,7 +84,7 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const state = reducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
+                type: EOIMDBReduxReducerActionType.UPDATE,
             });
 
             expect(state).toEqual({
@@ -107,8 +114,8 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const initialState = reducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultCollectionState<User, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultCollectionState<User, string>;
 
             // Update only one entity
             collection.upsertOne({
@@ -120,8 +127,8 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const updatedState = reducer(initialState, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultCollectionState<User, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultCollectionState<User, string>;
 
             expect(updatedState.entities['1']).toEqual({
                 id: '1',
@@ -143,8 +150,8 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const initialState = reducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultCollectionState<User, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultCollectionState<User, string>;
 
             // Remove one entity
             collection.removeOne({
@@ -156,8 +163,8 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const updatedState = reducer(initialState, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultCollectionState<User, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultCollectionState<User, string>;
 
             expect(updatedState.entities['1']).toBeUndefined();
             expect(updatedState.entities['2']).toBeDefined();
@@ -187,7 +194,7 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const state = customReducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
+                type: EOIMDBReduxReducerActionType.UPDATE,
             });
 
             expect(state).toEqual({
@@ -219,8 +226,8 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const state = reducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultIndexState<string, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultIndexState<string, string>;
 
             expect(state.entities).toEqual({
                 department1: { id: 'department1', ids: ['user1', 'user2'] },
@@ -234,16 +241,16 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const initialState = reducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultIndexState<string, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultIndexState<string, string>;
 
             // Update only one key
             index.setPks('department1', ['user1', 'user2', 'user4']);
             queue.flush();
 
             const updatedState = reducer(initialState, {
-                type: EOIMDBReducerActionType.UPDATE,
-            }) as TOIMDefaultIndexState<string, string>;
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            }) as TOIMDBReduxDefaultIndexState<string, string>;
 
             expect(updatedState.entities.department1).toEqual({
                 id: 'department1',
@@ -282,6 +289,7 @@ describe('OIMDBAdapter', () => {
 
             const customReducer = adapter.createIndexReducer(
                 index,
+                undefined,
                 customMapper
             );
 
@@ -289,7 +297,7 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const state = customReducer(undefined, {
-                type: EOIMDBReducerActionType.UPDATE,
+                type: EOIMDBReduxReducerActionType.UPDATE,
             });
 
             expect(state).toEqual({
@@ -307,9 +315,11 @@ describe('OIMDBAdapter', () => {
                 queue.flush();
 
                 const childReducer = (
-                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    state:
+                        | TOIMDBReduxDefaultIndexState<string, string>
+                        | undefined,
                     action: Action
-                ): TOIMDefaultIndexState<string, string> => {
+                ): TOIMDBReduxDefaultIndexState<string, string> => {
                     if (state === undefined) {
                         return { entities: {} };
                     }
@@ -332,20 +342,16 @@ describe('OIMDBAdapter', () => {
                     return state;
                 };
 
-                const childOptions: TOIMIndexReducerChildOptions<
+                const childOptions: TOIMDBReduxIndexReducerChildOptions<
                     string,
                     string,
-                    TOIMDefaultIndexState<string, string>
+                    TOIMDBReduxDefaultIndexState<string, string>
                 > = {
                     reducer: childReducer,
-                    // Using default extractIndexState for TOIMDefaultIndexState
+                    // Using default extractIndexState for TOIMDBReduxDefaultIndexState
                 };
 
-                const reducer = adapter.createIndexReducer(
-                    index,
-                    undefined,
-                    childOptions
-                );
+                const reducer = adapter.createIndexReducer(index, childOptions);
                 const middleware = adapter.createMiddleware();
                 const rootStore = createStore(
                     reducer,
@@ -381,9 +387,11 @@ describe('OIMDBAdapter', () => {
                 queue.flush();
 
                 const childReducer = (
-                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    state:
+                        | TOIMDBReduxDefaultIndexState<string, string>
+                        | undefined,
                     action: Action
-                ): TOIMDefaultIndexState<string, string> => {
+                ): TOIMDBReduxDefaultIndexState<string, string> => {
                     if (state === undefined) {
                         return { entities: {} };
                     }
@@ -406,19 +414,15 @@ describe('OIMDBAdapter', () => {
                     return state;
                 };
 
-                const childOptions: TOIMIndexReducerChildOptions<
+                const childOptions: TOIMDBReduxIndexReducerChildOptions<
                     string,
                     string,
-                    TOIMDefaultIndexState<string, string>
+                    TOIMDBReduxDefaultIndexState<string, string>
                 > = {
                     reducer: childReducer,
                 };
 
-                const reducer = adapter.createIndexReducer(
-                    index,
-                    undefined,
-                    childOptions
-                );
+                const reducer = adapter.createIndexReducer(index, childOptions);
                 const middleware = adapter.createMiddleware();
                 const rootStore = createStore(
                     reducer,
@@ -456,9 +460,11 @@ describe('OIMDBAdapter', () => {
                 queue.flush();
 
                 const childReducer = (
-                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    state:
+                        | TOIMDBReduxDefaultIndexState<string, string>
+                        | undefined,
                     action: Action
-                ): TOIMDefaultIndexState<string, string> => {
+                ): TOIMDBReduxDefaultIndexState<string, string> => {
                     if (state === undefined) {
                         return { entities: {} };
                     }
@@ -474,19 +480,15 @@ describe('OIMDBAdapter', () => {
                     return state;
                 };
 
-                const childOptions: TOIMIndexReducerChildOptions<
+                const childOptions: TOIMDBReduxIndexReducerChildOptions<
                     string,
                     string,
-                    TOIMDefaultIndexState<string, string>
+                    TOIMDBReduxDefaultIndexState<string, string>
                 > = {
                     reducer: childReducer,
                 };
 
-                const reducer = adapter.createIndexReducer(
-                    index,
-                    undefined,
-                    childOptions
-                );
+                const reducer = adapter.createIndexReducer(index, childOptions);
                 const middleware = adapter.createMiddleware();
                 const rootStore = createStore(
                     reducer,
@@ -521,9 +523,11 @@ describe('OIMDBAdapter', () => {
 
                 let syncCount = 0;
                 const childReducer = (
-                    state: TOIMDefaultIndexState<string, string> | undefined,
+                    state:
+                        | TOIMDBReduxDefaultIndexState<string, string>
+                        | undefined,
                     action: Action
-                ): TOIMDefaultIndexState<string, string> => {
+                ): TOIMDBReduxDefaultIndexState<string, string> => {
                     if (state === undefined) {
                         return { entities: {} };
                     }
@@ -547,19 +551,15 @@ describe('OIMDBAdapter', () => {
                     return state;
                 };
 
-                const childOptions: TOIMIndexReducerChildOptions<
+                const childOptions: TOIMDBReduxIndexReducerChildOptions<
                     string,
                     string,
-                    TOIMDefaultIndexState<string, string>
+                    TOIMDBReduxDefaultIndexState<string, string>
                 > = {
                     reducer: childReducer,
                 };
 
-                const reducer = adapter.createIndexReducer(
-                    index,
-                    undefined,
-                    childOptions
-                );
+                const reducer = adapter.createIndexReducer(index, childOptions);
                 const middleware = adapter.createMiddleware();
                 const rootStore = createStore(
                     reducer,
@@ -599,7 +599,7 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             expect(dispatchSpy).toHaveBeenCalledWith({
-                type: EOIMDBReducerActionType.UPDATE,
+                type: EOIMDBReduxReducerActionType.UPDATE,
             });
         });
     });
@@ -675,9 +675,9 @@ describe('OIMDBAdapter', () => {
             // Action is dispatched automatically by adapter, state should be updated
             // But we need to get state after dispatch completes
             const state = rootStore.getState() as {
-                users: TOIMDefaultCollectionState<User, string>;
-                posts: TOIMDefaultCollectionState<Post, string>;
-                usersByDepartment: TOIMDefaultIndexState<string, string>;
+                users: TOIMDBReduxDefaultCollectionState<User, string>;
+                posts: TOIMDBReduxDefaultCollectionState<Post, string>;
+                usersByDepartment: TOIMDBReduxDefaultIndexState<string, string>;
             };
 
             // Verify users collection
@@ -742,9 +742,9 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const updatedState = rootStore.getState() as {
-                users: TOIMDefaultCollectionState<User, string>;
-                posts: TOIMDefaultCollectionState<Post, string>;
-                usersByDepartment: TOIMDefaultIndexState<string, string>;
+                users: TOIMDBReduxDefaultCollectionState<User, string>;
+                posts: TOIMDBReduxDefaultCollectionState<Post, string>;
+                usersByDepartment: TOIMDBReduxDefaultIndexState<string, string>;
             };
             expect(updatedState.users.entities['user1'].name).toBe(
                 'Alice Updated'
@@ -761,14 +761,14 @@ describe('OIMDBAdapter', () => {
 
     describe('child reducer integration', () => {
         let collection: OIMReactiveCollection<User, string>;
-        let adapter: OIMDBAdapter;
+        let adapter: OIMDBReduxAdapter;
         let store: Store;
         let queue: OIMEventQueue;
 
         beforeEach(() => {
             const scheduler = new OIMEventQueueSchedulerImmediate();
             queue = new OIMEventQueue({ scheduler });
-            adapter = new OIMDBAdapter(queue);
+            adapter = new OIMDBReduxAdapter(queue);
             collection = new OIMReactiveCollection<User, string>(queue);
 
             store = createStore((state = {}) => state);
@@ -789,9 +789,11 @@ describe('OIMDBAdapter', () => {
 
             // Create reducer with child
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -815,13 +817,13 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
-                // Using default extractEntities for TOIMDefaultCollectionState
+                // Using default extractEntities for TOIMDBReduxDefaultCollectionState
                 getPk: entity => entity.id,
             };
 
@@ -835,7 +837,7 @@ describe('OIMDBAdapter', () => {
 
             // Initial state should be populated
             const initialState =
-                rootStore.getState() as TOIMDefaultCollectionState<
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -850,7 +852,7 @@ describe('OIMDBAdapter', () => {
 
             // State should be updated
             const updatedState =
-                rootStore.getState() as TOIMDefaultCollectionState<
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -868,9 +870,11 @@ describe('OIMDBAdapter', () => {
 
             // Create reducer with child
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -890,13 +894,13 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
-                // Using default extractEntities for TOIMDefaultCollectionState
+                // Using default extractEntities for TOIMDBReduxDefaultCollectionState
                 getPk: entity => entity.id,
             };
 
@@ -945,9 +949,11 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -967,13 +973,13 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
-                // Using default extractEntities for TOIMDefaultCollectionState
+                // Using default extractEntities for TOIMDBReduxDefaultCollectionState
                 getPk: entity => entity.id,
             };
 
@@ -1022,9 +1028,11 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1043,13 +1051,13 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
-                // Using default extractEntities for TOIMDefaultCollectionState
+                // Using default extractEntities for TOIMDBReduxDefaultCollectionState
                 getPk: entity => entity.id,
             };
 
@@ -1092,9 +1100,11 @@ describe('OIMDBAdapter', () => {
 
             let updateCount = 0;
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1115,13 +1125,13 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
-                // Using default extractEntities for TOIMDefaultCollectionState
+                // Using default extractEntities for TOIMDBReduxDefaultCollectionState
                 getPk: entity => entity.id,
             };
 
@@ -1154,10 +1164,11 @@ describe('OIMDBAdapter', () => {
             expect(updateCount).toBe(1);
 
             // State should be updated
-            const state = rootStore.getState() as TOIMDefaultCollectionState<
-                User,
-                string
-            >;
+            const state =
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
             expect(state.entities['1'].name).toBe('Alice Updated');
         });
 
@@ -1218,7 +1229,7 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
                 ArrayBasedState
@@ -1329,18 +1340,1102 @@ describe('OIMDBAdapter', () => {
             expect(collection.getOneByPk('1')).toBeDefined();
             expect(collection.getOneByPk('3')).toBeDefined();
         });
+
+        test('should not create infinite loop when queue.flush is called after middleware flushSilently', () => {
+            // Setup initial data
+            collection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            queue.flush();
+
+            let childReducerCallCount = 0;
+            let oimdbUpdateHandledCount = 0;
+
+            const childReducer = (
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
+                action: Action
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER') {
+                    childReducerCallCount++;
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
+                User,
+                string,
+                TOIMDBReduxDefaultCollectionState<User, string>
+            > = {
+                reducer: childReducer,
+                getPk: entity => entity.id,
+            };
+
+            const reducer = adapter.createCollectionReducer(
+                collection,
+                childOptions
+            );
+
+            // Wrap reducer to track OIMDB_UPDATE handling
+            const wrappedReducer: Reducer<
+                TOIMDBReduxDefaultCollectionState<User, string> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdateHandledCount++;
+                }
+                return reducer(state, action);
+            };
+
+            const middleware = adapter.createMiddleware();
+            const rootStore = createStore(
+                wrappedReducer,
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(rootStore);
+
+            queue.flush();
+            const initialOimdbUpdateCount = oimdbUpdateHandledCount;
+
+            // Update through child reducer (middleware will call flushSilently)
+            rootStore.dispatch({
+                type: 'UPDATE_USER',
+                user: {
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                },
+            });
+            // Middleware automatically flushes silently (no OIMDB_UPDATE dispatch)
+
+            // Now manually call queue.flush() - this should NOT cause infinite loop
+            // because isSyncingFromChild should be false and updatedKeys should be null
+            collection.upsertOne({
+                id: '1',
+                name: 'Alice Updated Again',
+                age: 32,
+                email: 'alice@test.com',
+            });
+            queue.flush(); // This should dispatch OIMDB_UPDATE once
+
+            // Child reducer should be called only once (from the dispatch)
+            expect(childReducerCallCount).toBe(1);
+
+            // OIMDB_UPDATE should be handled once (from the manual queue.flush)
+            expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount + 1);
+
+            // Verify final state
+            const state =
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
+            expect(state.entities['1'].name).toBe('Alice Updated Again');
+        });
+
+        test('should not create infinite loop when child reducer updates OIMDB with same data', () => {
+            // Setup initial data
+            collection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            queue.flush();
+
+            let childReducerCallCount = 0;
+            let oimdbUpdateHandledCount = 0;
+
+            const childReducer = (
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
+                action: Action
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER') {
+                    childReducerCallCount++;
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    // Return same data (no actual change)
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
+                User,
+                string,
+                TOIMDBReduxDefaultCollectionState<User, string>
+            > = {
+                reducer: childReducer,
+                getPk: entity => entity.id,
+            };
+
+            const reducer = adapter.createCollectionReducer(
+                collection,
+                childOptions
+            );
+
+            // Wrap reducer to track OIMDB_UPDATE handling
+            const wrappedReducer: Reducer<
+                TOIMDBReduxDefaultCollectionState<User, string> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdateHandledCount++;
+                }
+                return reducer(state, action);
+            };
+
+            const middleware = adapter.createMiddleware();
+            const rootStore = createStore(
+                wrappedReducer,
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(rootStore);
+
+            queue.flush();
+            const initialOimdbUpdateCount = oimdbUpdateHandledCount;
+            const initialState =
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
+
+            // Update through child reducer with same data
+            rootStore.dispatch({
+                type: 'UPDATE_USER',
+                user: {
+                    id: '1',
+                    name: 'Alice', // Same name
+                    age: 30, // Same age
+                    email: 'alice@test.com', // Same email
+                },
+            });
+            // Middleware automatically flushes silently
+
+            // Child reducer should be called once
+            expect(childReducerCallCount).toBe(1);
+
+            // OIMDB_UPDATE should NOT be dispatched (no actual changes)
+            expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount);
+
+            // State should have same data (no infinite loop)
+            // Note: Redux reducer creates new object even if data is same, so we check data equality
+            const state =
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
+            expect(state.entities['1']).toEqual(initialState.entities['1']);
+            expect(state.ids).toEqual(initialState.ids);
+
+            // Verify collection was not updated (no actual change)
+            expect(collection.getOneByPk('1')?.name).toBe('Alice');
+            expect(collection.getOneByPk('1')?.age).toBe(30);
+        });
+
+        test('should not create infinite loop with multiple child reducers updating OIMDB', () => {
+            // Setup two collections with child reducers
+            const collection1 = new OIMReactiveCollection<User, string>(queue);
+            const collection2 = new OIMReactiveCollection<User, string>(queue);
+
+            let reducer1CallCount = 0;
+            let reducer2CallCount = 0;
+            let oimdbUpdate1Count = 0;
+            let oimdbUpdate2Count = 0;
+
+            const childReducer1 = (
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
+                action: Action
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER_1') {
+                    reducer1CallCount++;
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const childReducer2 = (
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
+                action: Action
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
+                if (state === undefined) {
+                    return { entities: {}, ids: [] };
+                }
+                if (action.type === 'UPDATE_USER_2') {
+                    reducer2CallCount++;
+                    const typedAction = action as {
+                        type: string;
+                        user: User;
+                    };
+                    return {
+                        ...state,
+                        entities: {
+                            ...state.entities,
+                            [typedAction.user.id]: typedAction.user,
+                        },
+                    };
+                }
+                return state;
+            };
+
+            const reducer1 = adapter.createCollectionReducer(collection1, {
+                reducer: childReducer1,
+                getPk: entity => entity.id,
+            });
+
+            const reducer2 = adapter.createCollectionReducer(collection2, {
+                reducer: childReducer2,
+                getPk: entity => entity.id,
+            });
+
+            // Wrap reducers to track OIMDB_UPDATE handling
+            const wrappedReducer1: Reducer<
+                TOIMDBReduxDefaultCollectionState<User, string> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdate1Count++;
+                }
+                return reducer1(state, action);
+            };
+
+            const wrappedReducer2: Reducer<
+                TOIMDBReduxDefaultCollectionState<User, string> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdate2Count++;
+                }
+                return reducer2(state, action);
+            };
+
+            const middleware = adapter.createMiddleware();
+            const rootStore = createStore(
+                combineReducers({
+                    collection1: wrappedReducer1,
+                    collection2: wrappedReducer2,
+                }),
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(rootStore);
+
+            // Setup initial data
+            collection1.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            collection2.upsertMany([
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+            ]);
+            queue.flush();
+
+            const initialUpdate1Count = oimdbUpdate1Count;
+            const initialUpdate2Count = oimdbUpdate2Count;
+
+            // Update both collections through child reducers simultaneously
+            rootStore.dispatch({
+                type: 'UPDATE_USER_1',
+                user: {
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                },
+            });
+
+            rootStore.dispatch({
+                type: 'UPDATE_USER_2',
+                user: {
+                    id: '2',
+                    name: 'Bob Updated',
+                    age: 26,
+                    email: 'bob@test.com',
+                },
+            });
+
+            // Middleware automatically flushes silently for both actions
+
+            // Each reducer should be called once
+            expect(reducer1CallCount).toBe(1);
+            expect(reducer2CallCount).toBe(1);
+
+            // OIMDB_UPDATE should NOT be dispatched (middleware uses flushSilently)
+            expect(oimdbUpdate1Count).toBe(initialUpdate1Count);
+            expect(oimdbUpdate2Count).toBe(initialUpdate2Count);
+
+            // Verify collections are updated
+            expect(collection1.getOneByPk('1')?.name).toBe('Alice Updated');
+            expect(collection2.getOneByPk('2')?.name).toBe('Bob Updated');
+        });
+    });
+
+    describe('Redux Toolkit integration (EntityAdapter and createSlice)', () => {
+        let queue: OIMEventQueue;
+        let adapter: OIMDBReduxAdapter;
+        let usersCollection: OIMReactiveCollection<User, string>;
+        let postsCollection: OIMReactiveCollection<Post, string>;
+
+        beforeEach(() => {
+            const scheduler = new OIMEventQueueSchedulerImmediate();
+            queue = new OIMEventQueue({ scheduler });
+            adapter = new OIMDBReduxAdapter(queue);
+            usersCollection = new OIMReactiveCollection<User, string>(queue);
+            postsCollection = new OIMReactiveCollection<Post, string>(queue);
+        });
+
+        afterEach(() => {
+            queue.destroy();
+        });
+
+        test('should work with EntityAdapter and prevent infinite loops', () => {
+            // Setup initial data
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            let sliceReducerCallCount = 0;
+            let oimdbUpdateHandledCount = 0;
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        sliceReducerCallCount++;
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                    setUserAge: (
+                        state,
+                        action: PayloadAction<{ id: string; age: number }>
+                    ) => {
+                        sliceReducerCallCount++;
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: { age: action.payload.age },
+                        });
+                    },
+                },
+            });
+
+            const reducer = adapter.createCollectionReducer(usersCollection, {
+                reducer: usersSlice.reducer,
+                getPk: user => user.id,
+            });
+
+            // Wrap reducer to track OIMDB_UPDATE handling
+            const wrappedReducer: Reducer<
+                ReturnType<typeof usersAdapter.getInitialState> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdateHandledCount++;
+                }
+                return reducer(state, action) as
+                    | ReturnType<typeof usersAdapter.getInitialState>
+                    | undefined;
+            };
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(
+                wrappedReducer,
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(store);
+
+            queue.flush();
+            const initialOimdbUpdateCount = oimdbUpdateHandledCount;
+
+            // Update through slice action (middleware will call flushSilently)
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                })
+            );
+
+            // Slice reducer should be called once
+            expect(sliceReducerCallCount).toBe(1);
+
+            // OIMDB_UPDATE should NOT be dispatched (middleware uses flushSilently)
+            expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount);
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Updated');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(31);
+
+            // Verify Redux state is updated
+            const state = store.getState() as
+                | ReturnType<typeof usersAdapter.getInitialState>
+                | undefined;
+            if (state && 'entities' in state) {
+                expect(
+                    usersAdapter.getSelectors().selectById(state, '1')?.name
+                ).toBe('Alice Updated');
+            }
+
+            // Now update OIMDB directly to verify OIMDB_UPDATE is dispatched
+            usersCollection.upsertOne({
+                id: '1',
+                name: 'Alice Updated Again',
+                age: 32,
+                email: 'alice@test.com',
+            });
+            queue.flush();
+
+            // OIMDB_UPDATE should be handled
+            expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount + 1);
+        });
+
+        test('should work with multiple slices and EntityAdapters', () => {
+            // Setup initial data
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            postsCollection.upsertMany([
+                {
+                    id: '1',
+                    title: 'Post 1',
+                    content: 'Content 1',
+                    authorId: '1',
+                },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            const postsAdapter = createEntityAdapter<Post>();
+
+            let usersSliceCallCount = 0;
+            let postsSliceCallCount = 0;
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        usersSliceCallCount++;
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const postsSlice = createSlice({
+                name: 'posts',
+                initialState: postsAdapter.getInitialState(),
+                reducers: {
+                    updatePost: (state, action: PayloadAction<Post>) => {
+                        postsSliceCallCount++;
+                        postsAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const usersReducer = adapter.createCollectionReducer(
+                usersCollection,
+                {
+                    reducer: usersSlice.reducer,
+                    getPk: user => user.id,
+                }
+            );
+
+            const postsReducer = adapter.createCollectionReducer(
+                postsCollection,
+                {
+                    reducer: postsSlice.reducer,
+                    getPk: post => post.id,
+                }
+            );
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(
+                combineReducers({
+                    users: usersReducer,
+                    posts: postsReducer,
+                }),
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(store);
+
+            queue.flush();
+
+            // Update both through slice actions
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                    email: 'alice@test.com',
+                })
+            );
+
+            store.dispatch(
+                postsSlice.actions.updatePost({
+                    id: '1',
+                    title: 'Post 1 Updated',
+                    content: 'Content 1 Updated',
+                    authorId: '1',
+                })
+            );
+
+            // Each slice reducer should be called once
+            expect(usersSliceCallCount).toBe(1);
+            expect(postsSliceCallCount).toBe(1);
+
+            // Verify collections are updated
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Updated');
+            expect(postsCollection.getOneByPk('1')?.title).toBe(
+                'Post 1 Updated'
+            );
+
+            // Verify Redux state is updated
+            const state = store.getState() as {
+                users?: ReturnType<typeof usersAdapter.getInitialState>;
+                posts?: ReturnType<typeof postsAdapter.getInitialState>;
+            };
+            if (state.users && 'entities' in state.users) {
+                expect(
+                    usersAdapter.getSelectors().selectById(state.users, '1')
+                        ?.name
+                ).toBe('Alice Updated');
+            }
+            if (state.posts && 'entities' in state.posts) {
+                expect(
+                    postsAdapter.getSelectors().selectById(state.posts, '1')
+                        ?.title
+                ).toBe('Post 1 Updated');
+            }
+        });
+
+        test('should not create infinite loop when EntityAdapter updates with same data', () => {
+            // Setup initial data
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            let sliceReducerCallCount = 0;
+            let oimdbUpdateHandledCount = 0;
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        sliceReducerCallCount++;
+                        // EntityAdapter.updateOne always creates new state object
+                        // even if data is the same
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const reducer = adapter.createCollectionReducer(usersCollection, {
+                reducer: usersSlice.reducer,
+                getPk: user => user.id,
+            });
+
+            // Wrap reducer to track OIMDB_UPDATE handling
+            const wrappedReducer: Reducer<
+                ReturnType<typeof usersAdapter.getInitialState> | undefined,
+                Action
+            > = (state, action) => {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    oimdbUpdateHandledCount++;
+                }
+                return reducer(state, action) as
+                    | ReturnType<typeof usersAdapter.getInitialState>
+                    | undefined;
+            };
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(
+                wrappedReducer,
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(store);
+
+            queue.flush();
+            const initialOimdbUpdateCount = oimdbUpdateHandledCount;
+
+            // Update with same data
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '1',
+                    name: 'Alice', // Same name
+                    age: 30, // Same age
+                    email: 'alice@test.com', // Same email
+                })
+            );
+
+            // Slice reducer should be called once
+            expect(sliceReducerCallCount).toBe(1);
+
+            // OIMDB_UPDATE should NOT be dispatched (no actual changes in OIMDB)
+            expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount);
+
+            // Verify collection was not updated (no actual change)
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(30);
+        });
+
+        test('should work with EntityAdapter and linked indexes', () => {
+            interface Deck {
+                id: string;
+                cardIds: string[];
+                name: string;
+            }
+
+            interface Card {
+                id: string;
+                name: string;
+                deckId: string;
+            }
+
+            const decksCollection = new OIMReactiveCollection<Deck, string>(
+                queue,
+                {
+                    selectPk: deck => deck.id,
+                }
+            );
+            const cardsCollection = new OIMReactiveCollection<Card, string>(
+                queue,
+                {
+                    selectPk: card => card.id,
+                }
+            );
+
+            const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<
+                string,
+                string
+            >(queue);
+
+            // Setup initial data
+            decksCollection.upsertMany([
+                {
+                    id: 'deck1',
+                    cardIds: ['card1', 'card2'],
+                    name: 'Deck 1',
+                },
+            ]);
+            cardsCollection.upsertMany([
+                { id: 'card1', name: 'Card 1', deckId: 'deck1' },
+                { id: 'card2', name: 'Card 2', deckId: 'deck1' },
+            ]);
+            cardsByDeckIndex.setPks('deck1', ['card1', 'card2']);
+            queue.flush();
+
+            const decksAdapter = createEntityAdapter<Deck>();
+
+            let sliceReducerCallCount = 0;
+
+            const decksSlice = createSlice({
+                name: 'decks',
+                initialState: decksAdapter.getInitialState(),
+                reducers: {
+                    updateDeckCards: (
+                        state,
+                        action: PayloadAction<{
+                            deckId: string;
+                            cardIds: string[];
+                        }>
+                    ) => {
+                        sliceReducerCallCount++;
+                        decksAdapter.updateOne(state, {
+                            id: action.payload.deckId,
+                            changes: { cardIds: action.payload.cardIds },
+                        });
+                    },
+                },
+            });
+
+            const reducer = adapter.createCollectionReducer(decksCollection, {
+                reducer: decksSlice.reducer,
+                getPk: deck => deck.id,
+                linkedIndexes: [
+                    {
+                        index: cardsByDeckIndex as unknown as OIMReactiveIndexArrayBased<
+                            TOIMPk,
+                            string,
+                            OIMIndexArrayBased<TOIMPk, string>
+                        >,
+                        fieldName: 'cardIds' as keyof Deck,
+                    },
+                ],
+            });
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            queue.flush();
+
+            // Update deck cards through slice action
+            store.dispatch(
+                decksSlice.actions.updateDeckCards({
+                    deckId: 'deck1',
+                    cardIds: ['card2', 'card3'], // card1 removed, card3 added
+                })
+            );
+
+            // Slice reducer should be called once
+            expect(sliceReducerCallCount).toBe(1);
+
+            // Verify collection is updated
+            expect(decksCollection.getOneByPk('deck1')?.cardIds).toEqual([
+                'card2',
+                'card3',
+            ]);
+
+            // Verify linked index is updated
+            expect(cardsByDeckIndex.getPksByKey('deck1')).toEqual([
+                'card2',
+                'card3',
+            ]);
+
+            // Verify Redux state is updated
+            const state = store.getState() as
+                | ReturnType<typeof decksAdapter.getInitialState>
+                | undefined;
+            if (state && 'entities' in state) {
+                expect(
+                    decksAdapter.getSelectors().selectById(state, 'deck1')
+                        ?.cardIds
+                ).toEqual(['card2', 'card3']);
+            }
+        });
+
+        test('should work with full RTK slice pattern - actions, selectors, and typed hooks', () => {
+            // Setup initial data
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            // Create a full RTK slice with multiple actions
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    addUser: (state, action: PayloadAction<User>) => {
+                        usersAdapter.addOne(state, action.payload);
+                    },
+                    updateUser: (
+                        state,
+                        action: PayloadAction<Partial<User> & { id: string }>
+                    ) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                    removeUser: (state, action: PayloadAction<string>) => {
+                        usersAdapter.removeOne(state, action.payload);
+                    },
+                    setUserAge: (
+                        state,
+                        action: PayloadAction<{ id: string; age: number }>
+                    ) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: { age: action.payload.age },
+                        });
+                    },
+                },
+            });
+
+            // Extract actions and reducer
+            const { actions: userActions, reducer: usersSliceReducer } =
+                usersSlice;
+
+            // Create selectors using EntityAdapter
+            const usersSelectors = usersAdapter.getSelectors();
+
+            const reducer = adapter.createCollectionReducer(usersCollection, {
+                reducer: usersSliceReducer,
+                getPk: user => user.id,
+            });
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            queue.flush();
+
+            // Test 1: Add user through slice action
+            store.dispatch(
+                userActions.addUser({
+                    id: '3',
+                    name: 'Charlie',
+                    age: 35,
+                    email: 'charlie@test.com',
+                })
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('3')?.name).toBe('Charlie');
+
+            // Verify Redux state using selectors
+            const state1 = store.getState() as
+                | ReturnType<typeof usersAdapter.getInitialState>
+                | undefined;
+            if (state1 && 'entities' in state1) {
+                expect(usersSelectors.selectById(state1, '3')?.name).toBe(
+                    'Charlie'
+                );
+                expect(usersSelectors.selectAll(state1)).toHaveLength(3);
+            }
+
+            // Test 2: Update user through slice action
+            store.dispatch(
+                userActions.updateUser({
+                    id: '1',
+                    name: 'Alice Updated',
+                    age: 31,
+                })
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Updated');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(31);
+
+            // Verify Redux state using selectors
+            const state2 = store.getState() as
+                | ReturnType<typeof usersAdapter.getInitialState>
+                | undefined;
+            if (state2 && 'entities' in state2) {
+                expect(usersSelectors.selectById(state2, '1')?.name).toBe(
+                    'Alice Updated'
+                );
+                expect(usersSelectors.selectById(state2, '1')?.age).toBe(31);
+            }
+
+            // Test 3: Update only age through specific action
+            store.dispatch(
+                userActions.setUserAge({
+                    id: '2',
+                    age: 26,
+                })
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('2')?.age).toBe(26);
+            expect(usersCollection.getOneByPk('2')?.name).toBe('Bob'); // Name unchanged
+
+            // Test 4: Remove user through slice action
+            store.dispatch(userActions.removeUser('3'));
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('3')).toBeUndefined();
+
+            // Verify Redux state using selectors
+            const state3 = store.getState() as
+                | ReturnType<typeof usersAdapter.getInitialState>
+                | undefined;
+            if (state3 && 'entities' in state3) {
+                expect(usersSelectors.selectById(state3, '3')).toBeUndefined();
+                expect(usersSelectors.selectAll(state3)).toHaveLength(2);
+                expect(usersSelectors.selectIds(state3)).toEqual(['1', '2']);
+            }
+
+            // Test 5: Update OIMDB directly - should sync to Redux
+            usersCollection.upsertOne({
+                id: '1',
+                name: 'Alice Updated Again',
+                age: 32,
+                email: 'alice@test.com',
+            });
+            queue.flush();
+
+            // Verify Redux state is updated via OIMDB_UPDATE
+            const state4 = store.getState() as
+                | ReturnType<typeof usersAdapter.getInitialState>
+                | undefined;
+            if (state4 && 'entities' in state4) {
+                expect(usersSelectors.selectById(state4, '1')?.name).toBe(
+                    'Alice Updated Again'
+                );
+                expect(usersSelectors.selectById(state4, '1')?.age).toBe(32);
+            }
+        });
+
+        test('should work with RTK slice extraReducers pattern', () => {
+            // Setup initial data
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            // Create action creators outside slice using createAction (for extraReducers pattern)
+            const setUserName = createAction<{ id: string; name: string }>(
+                'users/setUserName'
+            );
+            const bulkUpdate =
+                createAction<Array<{ id: string; changes: Partial<User> }>>(
+                    'users/bulkUpdate'
+                );
+
+            // Create slice with extraReducers
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+                extraReducers: builder => {
+                    builder
+                        .addCase(setUserName, (state, action) => {
+                            const { id, name } = action.payload;
+                            usersAdapter.updateOne(state, {
+                                id,
+                                changes: { name },
+                            });
+                        })
+                        .addCase(bulkUpdate, (state, action) => {
+                            const updates = action.payload;
+                            usersAdapter.updateMany(
+                                state,
+                                updates.map(u => ({
+                                    id: u.id,
+                                    changes: u.changes,
+                                }))
+                            );
+                        });
+                },
+            });
+
+            // Export actions for use in tests
+            const externalActions = {
+                setUserName,
+                bulkUpdate,
+            };
+
+            const reducer = adapter.createCollectionReducer(usersCollection, {
+                reducer: usersSlice.reducer,
+                getPk: user => user.id,
+            });
+
+            const middleware = adapter.createMiddleware();
+            const store = createStore(reducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            queue.flush();
+
+            // Test extraReducer action
+            store.dispatch(
+                externalActions.setUserName({ id: '1', name: 'Alice Renamed' })
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Renamed');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(30); // Age unchanged
+
+            // Test bulk update through extraReducer
+            store.dispatch(
+                externalActions.bulkUpdate([{ id: '1', changes: { age: 31 } }])
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('1')?.age).toBe(31);
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Renamed'); // Name unchanged
+
+            // Test regular slice action
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '1',
+                    name: 'Alice Final',
+                    age: 32,
+                    email: 'alice@test.com',
+                })
+            );
+
+            // Verify collection is updated
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Final');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(32);
+        });
     });
 
     describe('middleware and automatic flushing', () => {
         let collection: OIMReactiveCollection<User, string>;
-        let adapter: OIMDBAdapter;
+        let adapter: OIMDBReduxAdapter;
         let store: Store;
         let queue: OIMEventQueue;
 
         beforeEach(() => {
             const scheduler = new OIMEventQueueSchedulerImmediate();
             queue = new OIMEventQueue({ scheduler });
-            adapter = new OIMDBAdapter(queue);
+            adapter = new OIMDBReduxAdapter(queue);
             collection = new OIMReactiveCollection<User, string>(queue);
 
             const reducer = adapter.createCollectionReducer(collection);
@@ -1358,9 +2453,11 @@ describe('OIMDBAdapter', () => {
 
             // Dispatch custom action that updates collection through child reducer
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1380,10 +2477,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -1394,7 +2491,7 @@ describe('OIMDBAdapter', () => {
                 childOptions
             );
 
-            const newAdapter = new OIMDBAdapter(queue);
+            const newAdapter = new OIMDBReduxAdapter(queue);
             const storeWithChild = createStore(
                 reducerWithChild,
                 applyMiddleware(newAdapter.createMiddleware())
@@ -1451,7 +2548,7 @@ describe('OIMDBAdapter', () => {
             queue.flush(); // Triggers dispatch
 
             // All updates should be reflected in Redux state
-            const state = store.getState() as TOIMDefaultCollectionState<
+            const state = store.getState() as TOIMDBReduxDefaultCollectionState<
                 User,
                 string
             >;
@@ -1502,7 +2599,7 @@ describe('OIMDBAdapter', () => {
             // Should only trigger reducer once (coalesced)
             expect(reducerCallCount).toBeGreaterThan(0);
             const state =
-                storeWithTracking.getState() as TOIMDefaultCollectionState<
+                storeWithTracking.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -1522,10 +2619,11 @@ describe('OIMDBAdapter', () => {
             ]);
             queue.flush();
 
-            const initialState = store.getState() as TOIMDefaultCollectionState<
-                User,
-                string
-            >;
+            const initialState =
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
             const initialEntities = initialState.entities;
             const initialIds = initialState.ids;
 
@@ -1538,10 +2636,11 @@ describe('OIMDBAdapter', () => {
             });
             queue.flush();
 
-            const updatedState = store.getState() as TOIMDefaultCollectionState<
-                User,
-                string
-            >;
+            const updatedState =
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
 
             // IDs array should have same content (may be new reference due to mapper implementation)
             expect(updatedState.ids).toEqual(initialIds);
@@ -1575,16 +2674,20 @@ describe('OIMDBAdapter', () => {
             ]);
             queue.flush(); // First flush - should update state
 
-            const initialState = store.getState() as TOIMDefaultCollectionState<
-                User,
-                string
-            >;
+            const initialState =
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
 
             // Flush again without any changes - should not update state
             queue.flush();
 
             const stateAfterEmptyFlush =
-                store.getState() as TOIMDefaultCollectionState<User, string>;
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
 
             // State should be the same object reference (no new state created)
             // This is the key optimization - no unnecessary state updates
@@ -1598,7 +2701,10 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const stateAfterMultipleFlushes =
-                store.getState() as TOIMDefaultCollectionState<User, string>;
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
 
             // Still should be the same state object - no unnecessary updates
             // This proves that the reducer optimization works correctly
@@ -1639,9 +2745,11 @@ describe('OIMDBAdapter', () => {
             };
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1661,10 +2769,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -1683,7 +2791,7 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const initialState =
-                rootStore.getState() as TOIMDefaultCollectionState<
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -1727,7 +2835,7 @@ describe('OIMDBAdapter', () => {
 
             // Verify Redux state - unchanged entities should have same reference
             const updatedState =
-                rootStore.getState() as TOIMDefaultCollectionState<
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -1758,9 +2866,11 @@ describe('OIMDBAdapter', () => {
             };
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1781,10 +2891,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -1843,9 +2953,11 @@ describe('OIMDBAdapter', () => {
             let oimdbUpdateHandledCount = 0;
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -1866,10 +2978,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -1882,10 +2994,10 @@ describe('OIMDBAdapter', () => {
 
             // Wrap reducer to track OIMDB_UPDATE handling
             const wrappedReducer: Reducer<
-                TOIMDefaultCollectionState<User, string> | undefined,
+                TOIMDBReduxDefaultCollectionState<User, string> | undefined,
                 Action
             > = (state, action) => {
-                if (action.type === EOIMDBReducerActionType.UPDATE) {
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
                     oimdbUpdateHandledCount++;
                 }
                 return reducer(state, action);
@@ -1900,7 +3012,7 @@ describe('OIMDBAdapter', () => {
 
             queue.flush();
             const initialState =
-                rootStore.getState() as TOIMDefaultCollectionState<
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
                     User,
                     string
                 >;
@@ -1927,10 +3039,11 @@ describe('OIMDBAdapter', () => {
             expect(oimdbUpdateHandledCount).toBe(initialOimdbUpdateCount);
 
             // Verify state is correct
-            const state = rootStore.getState() as TOIMDefaultCollectionState<
-                User,
-                string
-            >;
+            const state =
+                rootStore.getState() as TOIMDBReduxDefaultCollectionState<
+                    User,
+                    string
+                >;
             expect(state.entities['1'].name).toBe('Alice Updated');
             expect(state).not.toBe(initialState); // State changed
 
@@ -2003,9 +3116,11 @@ describe('OIMDBAdapter', () => {
             );
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -2025,10 +3140,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -2110,9 +3225,11 @@ describe('OIMDBAdapter', () => {
             }
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -2133,10 +3250,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -2262,7 +3379,7 @@ describe('OIMDBAdapter', () => {
             store.dispatch({ type: 'ANOTHER_ACTION' });
 
             // Final state should have both entities
-            const state = store.getState() as TOIMDefaultCollectionState<
+            const state = store.getState() as TOIMDBReduxDefaultCollectionState<
                 User,
                 string
             >;
@@ -2273,9 +3390,11 @@ describe('OIMDBAdapter', () => {
 
         test('should handle synchronous updates from both directions without conflicts', () => {
             const childReducer = (
-                state: TOIMDefaultCollectionState<User, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<User, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<User, string> => {
+            ): TOIMDBReduxDefaultCollectionState<User, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -2295,10 +3414,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 User,
                 string,
-                TOIMDefaultCollectionState<User, string>
+                TOIMDBReduxDefaultCollectionState<User, string>
             > = {
                 reducer: childReducer,
                 getPk: entity => entity.id,
@@ -2376,9 +3495,11 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<Deck, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<Deck, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<Deck, string> => {
+            ): TOIMDBReduxDefaultCollectionState<Deck, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -2405,10 +3526,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 Deck,
                 string,
-                TOIMDefaultCollectionState<Deck, string>
+                TOIMDBReduxDefaultCollectionState<Deck, string>
             > = {
                 reducer: childReducer,
                 getPk: deck => deck.id,
@@ -2490,9 +3611,11 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             const childReducer = (
-                state: TOIMDefaultCollectionState<Deck, string> | undefined,
+                state:
+                    | TOIMDBReduxDefaultCollectionState<Deck, string>
+                    | undefined,
                 action: Action
-            ): TOIMDefaultCollectionState<Deck, string> => {
+            ): TOIMDBReduxDefaultCollectionState<Deck, string> => {
                 if (state === undefined) {
                     return { entities: {}, ids: [] };
                 }
@@ -2511,10 +3634,10 @@ describe('OIMDBAdapter', () => {
                 return state;
             };
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 Deck,
                 string,
-                TOIMDefaultCollectionState<Deck, string>
+                TOIMDBReduxDefaultCollectionState<Deck, string>
             > = {
                 reducer: childReducer,
                 getPk: deck => deck.id,
@@ -2568,7 +3691,7 @@ describe('OIMDBAdapter', () => {
             }
 
             const queue = new OIMEventQueue();
-            const adapter = new OIMDBAdapter(queue);
+            const adapter = new OIMDBReduxAdapter(queue);
             const decksCollection = new OIMReactiveCollection<Deck, string>(
                 queue,
                 {
@@ -2588,13 +3711,15 @@ describe('OIMDBAdapter', () => {
             });
             queue.flush();
 
-            const childOptions: TOIMCollectionReducerChildOptions<
+            const childOptions: TOIMDBReduxCollectionReducerChildOptions<
                 Deck,
                 string,
-                TOIMDefaultCollectionState<Deck, string>
+                TOIMDBReduxDefaultCollectionState<Deck, string>
             > = {
                 reducer: (
-                    state: TOIMDefaultCollectionState<Deck, string> | undefined
+                    state:
+                        | TOIMDBReduxDefaultCollectionState<Deck, string>
+                        | undefined
                 ) => {
                     return state;
                 },
@@ -2623,10 +3748,11 @@ describe('OIMDBAdapter', () => {
             queue.flush();
 
             // Verify initial state
-            const initialState = store.getState() as TOIMDefaultCollectionState<
-                Deck,
-                string
-            >;
+            const initialState =
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    Deck,
+                    string
+                >;
             expect(initialState?.entities['deck1']?.cardIds).toEqual([
                 'card1',
                 'card2',
@@ -2645,10 +3771,11 @@ describe('OIMDBAdapter', () => {
             expect(deck1Pks).toEqual(['card3', 'card4', 'card5']);
 
             // Redux state should also be updated
-            const updatedState = store.getState() as TOIMDefaultCollectionState<
-                Deck,
-                string
-            >;
+            const updatedState =
+                store.getState() as TOIMDBReduxDefaultCollectionState<
+                    Deck,
+                    string
+                >;
             expect(updatedState?.entities['deck1']?.cardIds).toEqual([
                 'card3',
                 'card4',

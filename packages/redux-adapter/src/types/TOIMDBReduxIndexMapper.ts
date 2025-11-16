@@ -13,7 +13,7 @@ import {
  * @param currentState - Current Redux state (undefined on first call)
  * @returns New Redux state
  */
-export type TOIMIndexMapper<
+export type TOIMDBReduxIndexMapper<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
     TState,

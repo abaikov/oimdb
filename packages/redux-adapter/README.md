@@ -30,7 +30,7 @@ Use OIMDB for complex relational data and Redux for simple UI state, with automa
 
 ## 📦 What's Included
 
-- **OIMDBAdapter**: Main adapter class for creating Redux reducers and middleware from OIMDB collections
+- **OIMDBReduxAdapter**: Main adapter class for creating Redux reducers and middleware from OIMDB collections
 - **Automatic Middleware**: Built-in middleware for automatic event queue flushing after Redux actions
 - **Default Mappers**: RTK Entity Adapter-style mappers for collections and indexes
 - **Utility Functions**: `findUpdatedInRecord` and `findUpdatedInArray` for efficient change detection
@@ -41,7 +41,7 @@ Use OIMDB for complex relational data and Redux for simple UI state, with automa
 ### Simple One-Way Sync (OIMDB → Redux)
 
 ```typescript
-import { OIMDBAdapter } from '@oimdb/redux-adapter';
+import { OIMDBReduxAdapter } from '@oimdb/redux-adapter';
 import { OIMReactiveCollection, OIMEventQueue } from '@oimdb/core';
 import { createStore, combineReducers, applyMiddleware } from 'redux';
 
@@ -58,7 +58,7 @@ const users = new OIMReactiveCollection<User, string>(queue, {
 });
 
 // Create Redux adapter
-const adapter = new OIMDBAdapter(queue);
+const adapter = new OIMDBReduxAdapter(queue);
 
 // Create Redux reducer from OIMDB collection
 const usersReducer = adapter.createCollectionReducer(users);
@@ -93,17 +93,17 @@ Enable bidirectional synchronization by providing a child reducer. The middlewar
 ```typescript
 import { 
     OIMDBAdapter,
-    TOIMDefaultCollectionState,
-    TOIMCollectionReducerChildOptions 
+    TOIMDBReduxDefaultCollectionState,
+    TOIMDBReduxCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
 import { Action } from 'redux';
 import { createStore, applyMiddleware } from 'redux';
 
 // Child reducer handles custom Redux actions
 const childReducer = (
-    state: TOIMDefaultCollectionState<User, string> | undefined,
+    state: TOIMDBReduxDefaultCollectionState<User, string> | undefined,
     action: Action
-): TOIMDefaultCollectionState<User, string> => {
+): TOIMDBReduxDefaultCollectionState<User, string> => {
     if (state === undefined) {
         return { entities: {}, ids: [] };
     }
@@ -122,10 +122,10 @@ const childReducer = (
     return state;
 };
 
-const childOptions: TOIMCollectionReducerChildOptions<User, string, TOIMDefaultCollectionState<User, string>> = {
+const childOptions: TOIMDBReduxCollectionReducerChildOptions<User, string, TOIMDBReduxDefaultCollectionState<User, string>> = {
     reducer: childReducer,
     getPk: (user) => user.id,
-    // extractEntities is optional - default implementation handles TOIMDefaultCollectionState
+    // extractEntities is optional - default implementation handles TOIMDBReduxDefaultCollectionState
     // linkedIndexes is optional - automatically updates indexes when entity fields change
 };
 
@@ -163,8 +163,8 @@ The entity's PK (obtained via `getPk`) becomes the index key, and the array fiel
 ```typescript
 import { 
     OIMDBAdapter,
-    TOIMDefaultCollectionState,
-    TOIMCollectionReducerChildOptions 
+    TOIMDBReduxDefaultCollectionState,
+    TOIMDBReduxCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
 import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
 
@@ -182,9 +182,9 @@ const decksCollection = new OIMReactiveCollection<Deck, string>(queue, {
 const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 const childReducer = (
-    state: TOIMDefaultCollectionState<Deck, string> | undefined,
+    state: TOIMDBReduxDefaultCollectionState<Deck, string> | undefined,
     action: Action
-): TOIMDefaultCollectionState<Deck, string> => {
+): TOIMDBReduxDefaultCollectionState<Deck, string> => {
     if (state === undefined) {
         return { entities: {}, ids: [] };
     }
@@ -206,10 +206,10 @@ const childReducer = (
     return state;
 };
 
-const childOptions: TOIMCollectionReducerChildOptions<
+const childOptions: TOIMDBReduxCollectionReducerChildOptions<
     Deck,
     string,
-    TOIMDefaultCollectionState<Deck, string>
+    TOIMDBReduxDefaultCollectionState<Deck, string>
 > = {
     reducer: childReducer,
     getPk: (deck) => deck.id,
@@ -268,7 +268,7 @@ const arrayMapper = (collection: OIMReactiveCollection<User, string>) => {
 const arrayReducer = adapter.createCollectionReducer(users, undefined, arrayMapper);
 
 // Custom extractor for array-based state
-const childOptions: TOIMCollectionReducerChildOptions<User, string, ArrayBasedState> = {
+const childOptions: TOIMDBReduxCollectionReducerChildOptions<User, string, ArrayBasedState> = {
     reducer: (state, action) => {
         // Your custom reducer logic
         return state;
@@ -304,7 +304,7 @@ const childOptions: TOIMCollectionReducerChildOptions<User, string, ArrayBasedSt
 Start by adding OIMDB for new features while keeping existing Redux code unchanged:
 
 ```typescript
-const adapter = new OIMDBAdapter(queue);
+const adapter = new OIMDBReduxAdapter(queue);
 const middleware = adapter.createMiddleware();
 
 const store = createStore(
@@ -334,7 +334,7 @@ const oldUsersReducer = (state, action) => {
 };
 
 // New OIMDB-backed reducer with compatibility layer
-const adapter = new OIMDBAdapter(queue);
+const adapter = new OIMDBReduxAdapter(queue);
 const newUsersReducer = adapter.createCollectionReducer(
     usersCollection,
     {
@@ -359,7 +359,7 @@ Once all collections are migrated, you can remove Redux entirely and use OIMDB d
 ### Custom Mappers
 
 ```typescript
-const customMapper: TOIMCollectionMapper<User, string, CustomState> = (
+const customMapper: TOIMDBReduxCollectionMapper<User, string, CustomState> = (
     collection,
     updatedKeys,
     currentState
@@ -407,7 +407,7 @@ import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
 const userRolesIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 // Create reducer for index
-const adapter = new OIMDBAdapter(queue);
+const adapter = new OIMDBReduxAdapter(queue);
 const rolesReducer = adapter.createIndexReducer(userRolesIndex);
 
 // Use in Redux store with middleware
@@ -428,17 +428,17 @@ Enable bidirectional synchronization for indexes by providing a child reducer:
 ```typescript
 import { 
     OIMDBAdapter,
-    TOIMDefaultIndexState,
-    TOIMIndexReducerChildOptions 
+    TOIMDBReduxDefaultIndexState,
+    TOIMDBReduxIndexReducerChildOptions 
 } from '@oimdb/redux-adapter';
 import { Action } from 'redux';
 import { createStore, applyMiddleware } from 'redux';
 
 // Child reducer handles custom Redux actions
 const childReducer = (
-    state: TOIMDefaultIndexState<string, string> | undefined,
+    state: TOIMDBReduxDefaultIndexState<string, string> | undefined,
     action: Action
-): TOIMDefaultIndexState<string, string> => {
+): TOIMDBReduxDefaultIndexState<string, string> => {
     if (state === undefined) {
         return { entities: {} };
     }
@@ -457,17 +457,17 @@ const childReducer = (
     return state;
 };
 
-const childOptions: TOIMIndexReducerChildOptions<
+const childOptions: TOIMDBReduxIndexReducerChildOptions<
     string,
     string,
-    TOIMDefaultIndexState<string, string>
+    TOIMDBReduxDefaultIndexState<string, string>
 > = {
     reducer: childReducer,
-    // extractIndexState is optional - default implementation handles TOIMDefaultIndexState
+    // extractIndexState is optional - default implementation handles TOIMDBReduxDefaultIndexState
 };
 
 // Create reducer with child
-const indexReducer = adapter.createIndexReducer(userRolesIndex, undefined, childOptions);
+const indexReducer = adapter.createIndexReducer(userRolesIndex, childOptions);
 
 // Create store with middleware
 const store = createStore(
@@ -563,28 +563,28 @@ Full type safety with comprehensive TypeScript definitions:
 
 ```typescript
 import type {
-    TOIMCollectionMapper,
-    TOIMIndexMapper,
-    TOIMDefaultCollectionState,
-    TOIMDefaultIndexState,
-    TOIMCollectionReducerChildOptions,
-    TOIMLinkedIndex,
-    TOIMIndexReducerChildOptions,
-    TOIMUpdatedEntitiesResult,
-    TOIMUpdatedArrayResult,
+    TOIMDBReduxCollectionMapper,
+    TOIMDBReduxIndexMapper,
+    TOIMDBReduxDefaultCollectionState,
+    TOIMDBReduxDefaultIndexState,
+    TOIMDBReduxCollectionReducerChildOptions,
+    TOIMDBReduxLinkedIndex,
+    TOIMDBReduxIndexReducerChildOptions,
+    TOIMDBReduxUpdatedEntitiesResult,
+    TOIMDBReduxUpdatedArrayResult,
 } from '@oimdb/redux-adapter';
 ```
 
 ## 📚 API Reference
 
-### `OIMDBAdapter`
+### `OIMDBReduxAdapter`
 
 Main adapter class for integrating OIMDB with Redux. Creates Redux reducers from OIMDB collections and provides middleware for automatic event queue flushing.
 
 #### Methods
 
 - `createCollectionReducer<TEntity, TPk, TState>(collection, child?, mapper?)`: Create reducer for a collection
-- `createIndexReducer<TIndexKey, TPk, TState>(index, mapper?, child?)`: Create reducer for an index (supports both SetBased and ArrayBased indexes)
+- `createIndexReducer<TIndexKey, TPk, TState>(index, child?, mapper?)`: Create reducer for an index (supports both SetBased and ArrayBased indexes)
 - `createMiddleware()`: Create Redux middleware that automatically flushes the event queue after each action
 - `setStore(store)`: Set Redux store (can be called later)
 - `flushSilently()`: Flush the event queue without triggering OIMDB_UPDATE dispatch (used internally by middleware)

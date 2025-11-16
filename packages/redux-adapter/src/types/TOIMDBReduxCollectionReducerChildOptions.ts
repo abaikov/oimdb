@@ -11,7 +11,7 @@ import {
 /**
  * Linked index configuration for automatic index updates
  */
-export type TOIMLinkedIndex<
+export type TOIMDBReduxLinkedIndex<
     TEntity extends object,
     TPk extends TOIMPk,
     TIndexKey extends TOIMPk,
@@ -43,7 +43,7 @@ export type TOIMLinkedIndex<
  * Options for child reducer that can handle custom actions
  * and sync changes back to OIMDB
  */
-export type TOIMCollectionReducerChildOptions<
+export type TOIMDBReduxCollectionReducerChildOptions<
     TEntity extends object,
     TPk extends TOIMPk,
     TState,
@@ -51,14 +51,15 @@ export type TOIMCollectionReducerChildOptions<
     /**
      * Child reducer that handles custom actions
      * Should return new state when action is handled, or return current state unchanged
-     * Must handle undefined state (for Redux combineReducers compatibility)
+     * Can be either Reducer<TState, Action> (RTK slice style) or Reducer<TState | undefined, Action>
+     * If reducer doesn't accept undefined, factory will handle undefined state automatically
      */
-    reducer: Reducer<TState | undefined, Action>;
+    reducer: Reducer<TState, Action> | Reducer<TState | undefined, Action>;
 
     /**
      * Function to extract entities from Redux state and sync them to OIMDB collection
      * Should directly update the collection using upsertMany/removeMany
-     * If not provided, default implementation will be used for TOIMDefaultCollectionState
+     * If not provided, default implementation will be used for TOIMDBReduxDefaultCollectionState
      * @param prevState - Previous Redux state (undefined on first call)
      * @param nextState - New Redux state after child reducer processed action
      * @param collection - The OIMDB collection to sync with

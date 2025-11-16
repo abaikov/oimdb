@@ -7,8 +7,8 @@ import {
 import {
     defaultCollectionMapper,
     defaultIndexMapper,
-    TOIMDefaultCollectionState,
-    TOIMDefaultIndexState,
+    TOIMDBReduxDefaultCollectionState,
+    TOIMDBReduxDefaultIndexState,
 } from '../src';
 
 interface User {
@@ -60,7 +60,7 @@ describe('Default Mappers', () => {
         });
 
         test('should update only changed entities when currentState is provided', () => {
-            const currentState: TOIMDefaultCollectionState<User, string> = {
+            const currentState: TOIMDBReduxDefaultCollectionState<User, string> = {
                 entities: {
                     '1': { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
                     '2': { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
@@ -108,7 +108,7 @@ describe('Default Mappers', () => {
         });
 
         test('should remove deleted entities', () => {
-            const currentState: TOIMDefaultCollectionState<User, string> = {
+            const currentState: TOIMDBReduxDefaultCollectionState<User, string> = {
                 entities: {
                     '1': { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
                     '2': { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
@@ -160,7 +160,7 @@ describe('Default Mappers', () => {
         });
 
         test('should update only changed keys when currentState is provided', () => {
-            const currentState: TOIMDefaultIndexState<string, string> = {
+            const currentState: TOIMDBReduxDefaultIndexState<string, string> = {
                 entities: {
                     department1: { id: 'department1', ids: ['user1', 'user2'] },
                     department2: { id: 'department2', ids: ['user3'] },

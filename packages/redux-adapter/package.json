@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/redux-adapter",
-  "version": "1.4.1",
+  "version": "1.5.1",
   "description": "Redux adapter for OIMDB - Create Redux reducers from OIMDB collections and indexes",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -38,6 +38,7 @@
   },
   "devDependencies": {
     "@oimdb/react": "^1.2.1",
+    "@reduxjs/toolkit": "^2.10.1",
     "@testing-library/react": "^14.3.1",
     "@types/jest": "^29.5.8",
     "@types/react": "^18.0.0",
@@ -46,10 +47,10 @@
     "react": "^18.0.0",
     "react-redux": "^9.0.0",
     "redux": "^5.0.0",
+    "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "tsup": "^8.5.0",
-    "typescript": "^5.2.2",
-    "rimraf": "^5.0.5"
+    "typescript": "^5.2.2"
   },
   "keywords": [
     "oimdb",
@@ -65,4 +66,3 @@
   "author": "Andrei Baikov",
   "license": "MIT"
 }
-

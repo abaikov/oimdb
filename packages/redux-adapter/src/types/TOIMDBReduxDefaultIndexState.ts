@@ -3,7 +3,7 @@ import { TOIMPk } from '@oimdb/core';
 /**
  * Default Redux state structure for indexes
  */
-export type TOIMDefaultIndexState<
+export type TOIMDBReduxDefaultIndexState<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
 > = {

@@ -6,8 +6,8 @@ import {
     OIMIndexArrayBased,
     TOIMPk,
 } from '@oimdb/core';
-import { TOIMDefaultCollectionState } from '../types/TOIMDefaultCollectionState';
-import { TOIMDefaultIndexState } from '../types/TOIMDefaultIndexState';
+import { TOIMDBReduxDefaultCollectionState } from '../types/TOIMDBReduxDefaultCollectionState';
+import { TOIMDBReduxDefaultIndexState } from '../types/TOIMDBReduxDefaultIndexState';
 
 /**
  * Default mapper for collections (RTK Entity Adapter style)
@@ -19,8 +19,8 @@ export function defaultCollectionMapper<
 >(
     collection: OIMReactiveCollection<TEntity, TPk>,
     updatedKeys: Set<TPk>,
-    currentState?: TOIMDefaultCollectionState<TEntity, TPk>
-): TOIMDefaultCollectionState<TEntity, TPk> {
+    currentState?: TOIMDBReduxDefaultCollectionState<TEntity, TPk>
+): TOIMDBReduxDefaultCollectionState<TEntity, TPk> {
     // If no current state, initialize from all entities
     if (!currentState) {
         const allPks = collection.getAllPks();
@@ -123,8 +123,8 @@ export function defaultIndexMapper<
               OIMIndexArrayBased<TIndexKey, TPk>
           >,
     updatedKeys: Set<TIndexKey>,
-    currentState?: TOIMDefaultIndexState<TIndexKey, TPk>
-): TOIMDefaultIndexState<TIndexKey, TPk> {
+    currentState?: TOIMDBReduxDefaultIndexState<TIndexKey, TPk>
+): TOIMDBReduxDefaultIndexState<TIndexKey, TPk> {
     // If no current state, initialize from all keys
     if (!currentState) {
         const allKeys = index.getKeys();

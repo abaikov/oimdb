@@ -1,27 +1,27 @@
 // Core adapter
-export { OIMDBAdapter } from './core/OIMDBAdapter';
-export type { OIMDBUpdateAction } from './core/OIMDBAdapter';
+export { OIMDBReduxAdapter } from './core/OIMDBReduxAdapter';
+export type { OIMDBReduxUpdateAction } from './core/OIMDBReduxAdapter';
 
 // Enums
-export { EOIMDBReducerActionType } from './enum/EOIMDBReducerActionType';
+export { EOIMDBReduxReducerActionType } from './enum/EOIMDBReduxReducerActionType';
 
 // Types
-export type { TOIMCollectionMapper } from './types/TOIMCollectionMapper';
-export type { TOIMIndexMapper } from './types/TOIMIndexMapper';
-export type { TOIMDBAdapterOptions } from './types/TOIMDBAdapterOptions';
-export type { TOIMDefaultCollectionState } from './types/TOIMDefaultCollectionState';
-export type { TOIMDefaultIndexState } from './types/TOIMDefaultIndexState';
+export type { TOIMDBReduxCollectionMapper } from './types/TOIMDBReduxCollectionMapper';
+export type { TOIMDBReduxIndexMapper } from './types/TOIMDBReduxIndexMapper';
+export type { TOIMDBReduxAdapterOptions } from './types/TOIMDBReduxAdapterOptions';
+export type { TOIMDBReduxDefaultCollectionState } from './types/TOIMDBReduxDefaultCollectionState';
+export type { TOIMDBReduxDefaultIndexState } from './types/TOIMDBReduxDefaultIndexState';
 export type {
-    TOIMCollectionReducerChildOptions,
-    TOIMLinkedIndex,
-} from './types/TOIMCollectionReducerChildOptions';
-export type { TOIMIndexReducerChildOptions } from './types/TOIMIndexReducerChildOptions';
+    TOIMDBReduxCollectionReducerChildOptions,
+    TOIMDBReduxLinkedIndex,
+} from './types/TOIMDBReduxCollectionReducerChildOptions';
+export type { TOIMDBReduxIndexReducerChildOptions } from './types/TOIMDBReduxIndexReducerChildOptions';
 
 // Default mappers (for advanced usage)
 export {
     defaultCollectionMapper,
     defaultIndexMapper,
-} from './core/OIMDefaultMappers';
+} from './core/OIMDBReduxDefaultMappers';
 
 // Utils
 export {
@@ -29,7 +29,7 @@ export {
     findUpdatedInArray,
 } from './utils/findUpdatedEntities';
 export type {
-    TOIMUpdatedEntitiesResult,
-    TOIMUpdatedArrayResult,
+    TOIMDBReduxUpdatedEntitiesResult,
+    TOIMDBReduxUpdatedArrayResult,
 } from './utils/findUpdatedEntities';
 export { arraysEqual, arraysEqualPk } from './utils/arraysEqual';

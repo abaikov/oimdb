@@ -3,7 +3,7 @@ import { TOIMPk } from '@oimdb/core';
 /**
  * Result of finding updated entities between two records
  */
-export type TOIMUpdatedEntitiesResult<TPk extends TOIMPk> = {
+export type TOIMDBReduxUpdatedEntitiesResult<TPk extends TOIMPk> = {
     /**
      * Set of primary keys that were added (present in newEntities but not in oldEntities)
      */
@@ -28,7 +28,7 @@ export type TOIMUpdatedEntitiesResult<TPk extends TOIMPk> = {
 /**
  * Result of finding updated items in arrays
  */
-export type TOIMUpdatedArrayResult<TPk extends TOIMPk> = {
+export type TOIMDBReduxUpdatedArrayResult<TPk extends TOIMPk> = {
     /**
      * Array of primary keys that were added (present in newArray but not in oldArray)
      */
@@ -72,7 +72,7 @@ export type TOIMUpdatedArrayResult<TPk extends TOIMPk> = {
 export function findUpdatedInRecord<TEntity extends object, TPk extends TOIMPk>(
     oldEntities: Record<TPk, TEntity>,
     newEntities: Record<TPk, TEntity>
-): TOIMUpdatedEntitiesResult<TPk> {
+): TOIMDBReduxUpdatedEntitiesResult<TPk> {
     const added = new Set<TPk>();
     const updated = new Set<TPk>();
     const removed = new Set<TPk>();
@@ -144,7 +144,7 @@ export function findUpdatedInRecord<TEntity extends object, TPk extends TOIMPk>(
 export function findUpdatedInArray<TPk extends TOIMPk>(
     oldArray: readonly TPk[],
     newArray: readonly TPk[]
-): TOIMUpdatedArrayResult<TPk> {
+): TOIMDBReduxUpdatedArrayResult<TPk> {
     const oldSet = new Set(oldArray);
     const newSet = new Set(newArray);
     const oldLength = oldArray.length;
