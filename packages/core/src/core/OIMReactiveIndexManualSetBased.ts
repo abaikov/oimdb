@@ -1,6 +1,6 @@
 import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';
 import { OIMIndexManualSetBased } from './OIMIndexManualSetBased';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 
 export class OIMReactiveIndexManualSetBased<
@@ -38,4 +38,3 @@ export class OIMReactiveIndexManualSetBased<
         this.index.clear(key);
     }
 }
-

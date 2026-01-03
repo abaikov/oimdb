@@ -1,5 +1,5 @@
-import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMCollectionOptions } from '../type/TOIMCollectionOptions';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';

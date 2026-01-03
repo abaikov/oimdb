@@ -2,7 +2,7 @@ import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMUpdateEventCoalescerEventType } from '../enum/EOIMUpdateEventCoalescerEventType';
 import { OIMIndexManualSetBased } from './OIMIndexManualSetBased';
 import { OIMIndexStoreMapDrivenSetBased } from './OIMIndexStoreMapDrivenSetBased';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMDBSettings } from '../const/OIMDBSettings';
 
 /**
@@ -21,11 +21,19 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
         typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
         TKey
     >;
+    protected readonly flushingUpdatedKeysIndex: OIMIndexManualSetBased<
+        typeof OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
+        TKey
+    >;
     private hasEmittedChanges = false;
 
     constructor(
         index?: OIMIndexManualSetBased<
             typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
+            TKey
+        >,
+        flushingIndex?: OIMIndexManualSetBased<
+            typeof OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
             TKey
         >
     ) {
@@ -37,6 +45,17 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
             >({
                 store: new OIMIndexStoreMapDrivenSetBased<
                     typeof OIMDBSettings.UPDATED_KEYS_INDEX_KEY,
+                    TKey
+                >(),
+            });
+        this.flushingUpdatedKeysIndex =
+            flushingIndex ??
+            new OIMIndexManualSetBased<
+                typeof OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
+                TKey
+            >({
+                store: new OIMIndexStoreMapDrivenSetBased<
+                    typeof OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
                     TKey
                 >(),
             });
@@ -60,6 +79,20 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
         );
     }
 
+    public getFlushingUpdatedKeys(): Set<TKey> {
+        return this.flushingUpdatedKeysIndex.getPksByKey(
+            OIMDBSettings.FLUSHING_KEYS_INDEX_KEY
+        );
+    }
+
+    public markUpdatedKeysAsFlushing(): void {
+        this.flushingUpdatedKeysIndex.setPks(
+            OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
+            Array.from(this.getUpdatedKeys())
+        );
+        this.clearUpdatedKeys();
+    }
+
     /**
      * Clear all updated keys and reset the changed state
      */
@@ -73,6 +106,13 @@ export abstract class OIMUpdateEventCoalescer<TKey extends TOIMPk> {
         this.emitter.emit(
             EOIMUpdateEventCoalescerEventType.AFTER_FLUSH,
             undefined
+        );
+    }
+
+    public clearFlushingUpdatedKeys(): void {
+        this.flushingUpdatedKeysIndex.setPks(
+            OIMDBSettings.FLUSHING_KEYS_INDEX_KEY,
+            []
         );
     }
 

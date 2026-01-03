@@ -1,4 +1,4 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 
 export abstract class OIMIndexStoreArrayBased<
     TKey extends TOIMPk,
@@ -22,4 +22,3 @@ export abstract class OIMIndexStoreArrayBased<
 
     abstract clear(): void;
 }
-

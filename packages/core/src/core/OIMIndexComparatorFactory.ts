@@ -1,5 +1,5 @@
-import { TOIMPk } from '../types/TOIMPk';
-import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMPk } from '../type/TOIMPk';
+import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
 
 /**
  * Factory for creating index comparators.
@@ -63,7 +63,7 @@ export class OIMIndexComparatorFactory {
 
             // Check if all elements from existing set are in new set
             // Iterate directly over Set instead of converting to array
-            for (const pk of existingSet) {
+            for (const pk of Array.from(existingSet)) {
                 if (!newSet.has(pk)) {
                     return false;
                 }

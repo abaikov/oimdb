@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/snapshot-manager",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Snapshot manager for OIMDB collections",
   "type": "module",
   "main": "dist/index.cjs",
@@ -32,7 +32,7 @@
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
-    "@oimdb/core": "^1.0.6"
+    "@oimdb/core": "1.4.0"
   },
   "keywords": [
     "oimdb",

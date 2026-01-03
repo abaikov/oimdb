@@ -1,6 +1,6 @@
 import { OIMEventQueueScheduler } from '../../abstract/OIMEventQueueScheduler';
-import { TOIMSchedulerType } from '../../types/TOIMSchedulerType';
-import { TOIMSchedulerOptions } from '../../types/TOIMSchedulerOptions';
+import { TOIMSchedulerType } from '../../type/TOIMSchedulerType';
+import { TOIMSchedulerOptions } from '../../type/TOIMSchedulerOptions';
 import { OIMEventQueueSchedulerMicrotask } from './OIMEventQueueSchedulerMicrotask';
 import { OIMEventQueueSchedulerAnimationFrame } from './OIMEventQueueSchedulerAnimationFrame';
 import { OIMEventQueueSchedulerTimeout } from './OIMEventQueueSchedulerTimeout';

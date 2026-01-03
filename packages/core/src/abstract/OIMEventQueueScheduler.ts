@@ -1,7 +1,7 @@
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMEventQueueSchedulerEventType } from '../enum/EOIMEventQueueSchedulerEventType';
-import { TOIMEventHandler } from '../types/TOIMEventHandler';
-import { IOIMEventQueueSchedulerEvents } from '../types/IOIMEventQueueSchedulerEvents';
+import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { IOIMEventQueueSchedulerEvents } from '../type/IOIMEventQueueSchedulerEvents';
 
 /**
  * Abstract base class for event queue schedulers.

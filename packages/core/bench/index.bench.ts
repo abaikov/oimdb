@@ -25,11 +25,12 @@ interface TOIMIndexBenchScenario {
 type TOIMIndexType = 'SetBased' | 'ArrayBased';
 
 class OIMIndexPerformanceBenchmark {
+    public queue!: OIMEventQueue;
+    public emitter!: OIMUpdateEventEmitter<string>;
+
     private indexSetBased!: OIMIndexManualSetBased<string, number>;
     private indexArrayBased!: OIMIndexManualArrayBased<string, number>;
     private coalescer!: OIMUpdateEventCoalescerIndex<string>;
-    private queue!: OIMEventQueue;
-    private emitter!: OIMUpdateEventEmitter<string>;
     private scheduler!: OIMEventQueueSchedulerImmediate;
 
     public setupComponents(
@@ -220,8 +221,7 @@ class OIMIndexPerformanceBenchmark {
         const { time } = this.measureTime(() => {
             for (let i = 0; i < scenario.operationCount; i++) {
                 const keyIndex = i % scenario.keyCount;
-                const pkToRemove =
-                    (i % scenario.pksPerKey) + keyIndex * 1000;
+                const pkToRemove = (i % scenario.pksPerKey) + keyIndex * 1000;
                 index.removePks(`key${keyIndex}`, [pkToRemove]);
             }
 
@@ -406,10 +406,11 @@ export async function runIndexBenchmarkSuite(): Promise<void> {
 
             // Remove operations benchmark - SetBased only
             const removeBenchmark = new OIMIndexPerformanceBenchmark();
-            const removeResult = await removeBenchmark.benchmarkRemoveOperations(
-                scenario,
-                'SetBased'
-            );
+            const removeResult =
+                await removeBenchmark.benchmarkRemoveOperations(
+                    scenario,
+                    'SetBased'
+                );
             console.log(
                 `  ✅ SetBased Remove Ops: ${removeResult.opsPerSecond.toFixed(0)} ops/sec (${removeResult.totalTime.toFixed(2)}ms total)`
             );
@@ -439,19 +440,20 @@ export async function runIndexBenchmarkSuite(): Promise<void> {
         INDEX_BENCHMARK_SCENARIOS
     )) {
         const setBased = results.find(
-            (r) =>
+            r =>
                 r.scenario === scenarioKey &&
                 r.type === 'SetBased' &&
                 r.operation === 'set'
         );
         const arrayBased = results.find(
-            (r) =>
+            r =>
                 r.scenario === scenarioKey &&
                 r.type === 'ArrayBased' &&
                 r.operation === 'set'
         );
         if (setBased && arrayBased) {
-            const ratio = arrayBased.result.opsPerSecond / setBased.result.opsPerSecond;
+            const ratio =
+                arrayBased.result.opsPerSecond / setBased.result.opsPerSecond;
             console.log(
                 `  ${scenario.name}: ArrayBased is ${ratio.toFixed(2)}x ${ratio > 1 ? 'faster' : 'slower'} than SetBased`
             );
@@ -609,16 +611,19 @@ export async function runIndexStressBenchmark(): Promise<void> {
                     } else if (operation < 0.8) {
                         // Add operation (30%)
                         const newPk =
-                            keyIndex * 1000 +
-                            Math.floor(Math.random() * 10000);
+                            keyIndex * 1000 + Math.floor(Math.random() * 10000);
                         index.addPks(key, [newPk]);
                     } else {
                         // Remove operation (20%)
                         const existingPks = index.getPksByKey(key);
-                        if (existingPks.size > 0) {
-                            const pkToRemove = Array.from(existingPks)[
-                                Math.floor(Math.random() * existingPks.size)
-                            ];
+                        if (Array.from(existingPks).length > 0) {
+                            const pkToRemove =
+                                Array.from(existingPks)[
+                                    Math.floor(
+                                        Math.random() *
+                                            Array.from(existingPks).length
+                                    )
+                                ];
                             index.removePks(key, [pkToRemove]);
                         }
                     }
@@ -701,6 +706,10 @@ export {
 };
 
 // Run benchmarks if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-    runAllIndexBenchmarks();
+const __oimdb_isDirectRun_indexBench =
+    typeof process !== 'undefined' &&
+    typeof process.argv?.[1] === 'string' &&
+    /index\.bench\.(ts|js|mjs|cjs)$/.test(process.argv[1]);
+if (__oimdb_isDirectRun_indexBench) {
+    void runAllIndexBenchmarks();
 }

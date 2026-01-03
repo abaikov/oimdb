@@ -1,8 +1,8 @@
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enum/EOIMIndexEventType';
-import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
-import { TOIMPk } from '../types/TOIMPk';
-import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMIndexUpdatePayload } from '../type/TOIMIndexUpdatePayload';
+import { TOIMPk } from '../type/TOIMPk';
+import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
 import { OIMIndexStoreSetBased } from './OIMIndexStoreSetBased';
 import { OIMIndexStoreMapDrivenSetBased } from '../core/OIMIndexStoreMapDrivenSetBased';
 
@@ -10,19 +10,25 @@ import { OIMIndexStoreMapDrivenSetBased } from '../core/OIMIndexStoreMapDrivenSe
  * Abstract base class for Set-based index types.
  * Provides common functionality and event system for key-to-PKs mappings using Set storage.
  */
-export abstract class OIMIndexSetBased<TKey extends TOIMPk, TPk extends TOIMPk> {
+export abstract class OIMIndexSetBased<
+    TKey extends TOIMPk,
+    TPk extends TOIMPk,
+> {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
     protected readonly store: OIMIndexStoreSetBased<TKey, TPk>;
     public readonly emitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: TOIMIndexUpdatePayload<TKey>;
     }>();
 
-    constructor(options: {
-        comparePks?: TOIMIndexComparator<TPk>;
-        store?: OIMIndexStoreSetBased<TKey, TPk>;
-    } = {}) {
+    constructor(
+        options: {
+            comparePks?: TOIMIndexComparator<TPk>;
+            store?: OIMIndexStoreSetBased<TKey, TPk>;
+        } = {}
+    ) {
         this.comparePks = options.comparePks;
-        this.store = options.store ?? new OIMIndexStoreMapDrivenSetBased<TKey, TPk>();
+        this.store =
+            options.store ?? new OIMIndexStoreMapDrivenSetBased<TKey, TPk>();
     }
 
     /**
@@ -152,4 +158,3 @@ export abstract class OIMIndexSetBased<TKey extends TOIMPk, TPk extends TOIMPk> 
         this.emitter.emit(EOIMIndexEventType.UPDATE, { keys });
     }
 }
-

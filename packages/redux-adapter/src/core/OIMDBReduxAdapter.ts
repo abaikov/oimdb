@@ -211,8 +211,10 @@ export class OIMDBReduxAdapter {
 
         // Subscribe to BEFORE_FLUSH from coalescer
         const beforeFlushHandler = () => {
-            const updatedKeys = collection.coalescer.getUpdatedKeys();
-            reducerData.updatedKeys = updatedKeys;
+            // Snapshot keys at flush time (do not keep reference to a Set that can be mutated later)
+            reducerData.updatedKeys = new Set(
+                collection.coalescer.getUpdatedKeys()
+            );
         };
         collection.coalescer.emitter.on(
             EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH,
@@ -286,8 +288,8 @@ export class OIMDBReduxAdapter {
 
         // Subscribe to BEFORE_FLUSH from coalescer
         const beforeFlushHandler = () => {
-            const updatedKeys = index.coalescer.getUpdatedKeys();
-            reducerData.updatedKeys = updatedKeys;
+            // Snapshot keys at flush time (do not keep reference to a Set that can be mutated later)
+            reducerData.updatedKeys = new Set(index.coalescer.getUpdatedKeys());
         };
         index.coalescer.emitter.on(
             EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH,

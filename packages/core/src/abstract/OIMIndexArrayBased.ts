@@ -1,8 +1,8 @@
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enum/EOIMIndexEventType';
-import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
-import { TOIMPk } from '../types/TOIMPk';
-import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMIndexUpdatePayload } from '../type/TOIMIndexUpdatePayload';
+import { TOIMPk } from '../type/TOIMPk';
+import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
 import { OIMIndexStoreArrayBased } from './OIMIndexStoreArrayBased';
 import { OIMIndexStoreMapDrivenArrayBased } from '../core/OIMIndexStoreMapDrivenArrayBased';
 

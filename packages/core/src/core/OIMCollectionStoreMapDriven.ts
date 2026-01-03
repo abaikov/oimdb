@@ -1,4 +1,4 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 
 export class OIMCollectionStoreMapDriven<
@@ -61,5 +61,9 @@ export class OIMCollectionStoreMapDriven<
 
     getAllPks(): TPk[] {
         return Array.from(this.entities.keys());
+    }
+
+    destroy(): void {
+        this.clear();
     }
 }

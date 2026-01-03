@@ -1,4 +1,4 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 
 export abstract class OIMCollectionStore<
     TEntity extends object,
@@ -21,4 +21,6 @@ export abstract class OIMCollectionStore<
     abstract countAll(): number;
 
     abstract clear(): void;
+
+    abstract destroy(): void;
 }

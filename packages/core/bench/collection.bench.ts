@@ -552,9 +552,6 @@ export async function runStressBenchmark(): Promise<void> {
     }
 }
 
-// Import index benchmarks
-import { runAllIndexBenchmarks } from './index.bench';
-
 // Main benchmark runner
 export async function runAllBenchmarks(): Promise<void> {
     console.log('🎯 OIM Database Performance Benchmarks\n');
@@ -569,10 +566,6 @@ export async function runAllBenchmarks(): Promise<void> {
         console.log('='.repeat(50) + '\n');
 
         await runStressBenchmark();
-        console.log('='.repeat(50) + '\n');
-
-        console.log('📊 INDEX BENCHMARKS\n');
-        await runAllIndexBenchmarks();
         console.log('='.repeat(50) + '\n');
 
         console.log('🎉 All benchmarks completed successfully!');

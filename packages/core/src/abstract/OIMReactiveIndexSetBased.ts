@@ -1,5 +1,5 @@
 import { OIMIndexSetBased } from './OIMIndexSetBased';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
 import { OIMUpdateEventCoalescerIndex } from '../core/OIMUpdateEventCoalescerIndex';
 import { OIMEventQueue } from '../core/OIMEventQueue';
@@ -59,6 +59,8 @@ export abstract class OIMReactiveIndexSetBased<
     }
 
     public destroy(): void {
+        this.updateEventEmitter.destroy();
+        this.coalescer.destroy();
         this.index.destroy();
     }
 }

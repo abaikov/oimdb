@@ -14,9 +14,10 @@ npm install @oimdb/core
 ```
 
 **Key Features:**
-- Reactive collections with automatic change notifications
-- Intelligent event coalescing for optimal performance  
+- Reactive collections/objects/indexes with key-scoped subscriptions
+- Intelligent event coalescing and reentrancy-safe delivery for optimal performance  
 - Configurable schedulers (microtask, timeout, animationFrame, immediate)
+- Effects & Computed with a two-phase model (PRE vs HANDLERS) for predictable derived state
 - Type-safe operations with full TypeScript support
 - O(1) lookups and efficient indexing
 

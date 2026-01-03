@@ -1,8 +1,8 @@
 import { OIMUpdateEventCoalescer } from './OIMUpdateEventCoalescer';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMIndexEventType } from '../enum/EOIMIndexEventType';
-import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMIndexUpdatePayload } from '../type/TOIMIndexUpdatePayload';
+import { TOIMPk } from '../type/TOIMPk';
 
 /**
  * Index-specific coalescer that tracks index key updates and emits consolidated change events.

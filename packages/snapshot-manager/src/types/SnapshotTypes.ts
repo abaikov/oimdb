@@ -1,18 +1,45 @@
-import { OIMReactiveCollection, TOIMPk } from '@oimdb/core';
+import {
+    EOIMCollectionEventType,
+    TOIMCollectionUpdatePayload,
+    TOIMEventHandler,
+    TOIMPk,
+} from '@oimdb/core';
 
 /**
- * Extract entity type from OIMReactiveCollection
+ * Minimal structural contract needed by the snapshot manager.
+ * Intentionally does NOT depend on `OIMReactiveCollection<...>` directly to avoid
+ * generic invariance issues leaking into snapshot-manager public types.
+ */
+export type TOIMSnapshotCollection<
+    TEntity extends object,
+    TPk extends TOIMPk,
+> = {
+    emitter: {
+        on(
+            event: EOIMCollectionEventType.UPDATE,
+            handler: TOIMEventHandler<TOIMCollectionUpdatePayload<TPk>>
+        ): void;
+        off(
+            event: EOIMCollectionEventType.UPDATE,
+            handler: TOIMEventHandler<TOIMCollectionUpdatePayload<TPk>>
+        ): void;
+    };
+    getOneByPk(pk: TPk): TEntity | undefined;
+};
+
+/**
+ * Extract entity type from snapshot collection
  */
 export type GetEntityType<T> =
-    T extends OIMReactiveCollection<infer TEntity, string | number>
-        ? TEntity
-        : never;
+    T extends TOIMSnapshotCollection<infer TEntity, TOIMPk> ? TEntity : never;
 
 /**
- * Extract primary key type from OIMReactiveCollection
+ * Extract primary key type from snapshot collection
  */
 export type GetPkType<T> =
-    T extends OIMReactiveCollection<object, infer TPk> ? TPk : never;
+    T extends TOIMSnapshotCollection<object, infer TPk extends TOIMPk>
+        ? TPk
+        : never;
 
 /**
  * Individual entity snapshot containing primary key and entity data
@@ -28,10 +55,7 @@ export type EntitySnapshot<TEntity extends object, TPk extends TOIMPk> = {
  * Maps collection names to arrays of entity snapshots
  */
 export type SnapshotData<
-    TCollections extends Record<
-        string,
-        OIMReactiveCollection<object, string | number>
-    >,
+    TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMPk>>,
 > = {
     [K in keyof TCollections]: Array<
         EntitySnapshot<

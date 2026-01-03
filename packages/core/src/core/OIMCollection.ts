@@ -1,14 +1,14 @@
-import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
-import { TOIMPk } from '../types/TOIMPk';
-import { TOIMPkSelector } from '../types/TOIMPkSelector';
+import { TOIMCollectionOptions } from '../type/TOIMCollectionOptions';
+import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPkSelector } from '../type/TOIMPkSelector';
 import { OIMPkSelectorFactory } from './OIMPkSelectorFactory';
 import { OIMCollectionStoreMapDriven } from './OIMCollectionStoreMapDriven';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
-import { TOIMEntityUpdater } from '../types/TOIMEntityUpdater';
+import { TOIMEntityUpdater } from '../type/TOIMEntityUpdater';
 import { OIMEntityUpdaterFactory } from './OIMEntityUpdaterFactory';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
-import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
+import { TOIMCollectionUpdatePayload } from '../type/TOIMCollectionUpdatePayload';
 
 /** It's like a store - but with event emitter */
 export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
@@ -122,5 +122,10 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         } else {
             this.store.setOneByPk(pk, entity as TEntity);
         }
+    }
+
+    public destroy(): void {
+        this.store.destroy();
+        this.emitter.offAll();
     }
 }

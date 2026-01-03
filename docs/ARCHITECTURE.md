@@ -71,24 +71,32 @@ class OIMCollection<TEntity, TPk> {
 Indexes provide fast lookups by secondary keys.
 
 ```typescript
+// NOTE: The code below is illustrative.
+// In @oimdb/core there are two concrete families:
+// - Set-based indexes (return Set<TPk>)
+// - Array-based indexes (return TPk[])
 class OIMIndexManual<TIndexKey, TPk> extends OIMIndex<TIndexKey, TPk> {
-    private data = new Map<TIndexKey, TPk[]>();
+    private data = new Map<TIndexKey, Set<TPk> | TPk[]>();
     private comparePks?: TOIMIndexComparator<TPk>;
     public emitter: OIMIndexUpdateEventEmitter<TIndexKey>;
 }
 ```
 
 **Responsibilities:**
-- Map index keys to arrays of primary keys
+- Map index keys to a collection of primary keys (Set-based or Array-based)
 - Emit events when index data changes
 - Support different comparison strategies
 - Provide efficient querying
 
 **Comparison Strategies:**
-- **Element-wise**: Compare arrays element by element
-- **Set-based**: Treat arrays as sets (order doesn't matter)
+- **Element-wise**: Compare arrays element by element (order-sensitive)
+- **Set-based**: Treat arrays as sets (order-insensitive)
 - **Always-update**: Always consider changes as updates
 - **Custom**: User-defined comparison logic
+
+**Concrete implementations in `@oimdb/core`:**
+- **Manual indexes**: `OIMIndexManualSetBased<TKey, TPk>`, `OIMIndexManualArrayBased<TKey, TPk>`
+- **Reactive indexes (with update emitter)**: `OIMReactiveIndexManualSetBased<TKey, TPk>`, `OIMReactiveIndexManualArrayBased<TKey, TPk>`
 
 ### Event System
 
@@ -120,7 +128,7 @@ The event queue manages when and how events are processed.
 ```typescript
 class OIMEventQueue {
     private scheduler: OIMEventQueueScheduler;
-    private events: TOIMUpdatePayload<TPk>[] = [];
+    private queue: Array<() => void> = [];
 }
 ```
 
@@ -197,9 +205,9 @@ interface OIMCollectionStore<TEntity, TPk> {
 ### Coalescing Strategies
 
 ```typescript
-interface OIMUpdateEventCoalescer<TPk> {
-    addUpdatedKeys(keys: readonly TPk[]): void;
-    getUpdatedKeys(): readonly TPk[];
+interface OIMUpdateEventCoalescer<TKey> {
+    addUpdatedKeys(keys: readonly TKey[]): void;
+    getUpdatedKeys(): Set<TKey>;
     clearUpdatedKeys(): void;
 }
 ```
@@ -213,6 +221,21 @@ interface OIMUpdateEventCoalescer<TPk> {
 - Tracks index key updates
 - Supports index-specific coalescing
 - Optimized for index-centric workflows
+
+## Semantics / Guarantees
+
+These are the behavioral guarantees the core event system is designed around:
+
+1. **Batching & coalescing**
+   - Multiple updates to the same key are coalesced into a single notification per flush batch.
+   - Coalescing is key-based: delivery is driven by updated key sets, not by “every write”.
+
+2. **Reentrancy**
+   - If handlers trigger new updates while a batch is being delivered, those updates are collected into a *next* batch (to avoid tricky “update while iterating” semantics).
+   - `OIMEventQueue.flush()` is reentrancy-safe: functions enqueued during a flush are executed on a subsequent flush.
+
+3. **Subscription targeting**
+   - Subscriptions are key-scoped (no “subscribe to everything” in core); delivery cost is proportional to the relevant subscriber sets.
 
 ## Performance Characteristics
 

@@ -6,7 +6,7 @@ import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 import { EOIMIndexEventType } from '../src/enum/EOIMIndexEventType';
-import { TOIMIndexUpdatePayload } from '../src/types/TOIMIndexUpdatePayload';
+import { TOIMIndexUpdatePayload } from '../src/type/TOIMIndexUpdatePayload';
 
 describe('OIMIndexManualSetBased', () => {
     describe('Basic Operations', () => {

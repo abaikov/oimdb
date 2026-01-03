@@ -2424,6 +2424,444 @@ describe('OIMDBReduxAdapter', () => {
             expect(usersCollection.getOneByPk('1')?.name).toBe('Alice Final');
             expect(usersCollection.getOneByPk('1')?.age).toBe(32);
         });
+
+        test('should get correct initial state when using RTK slice.reducer', () => {
+            // Setup initial data in OIMDB
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const reducer = adapter.createCollectionReducer(usersCollection, {
+                reducer: usersSlice.reducer,
+                getPk: user => user.id,
+            });
+
+            // Test 1: Initial state should be created from OIMDB via mapper
+            // When state is undefined, factory should use mapper to get initial state
+            const initialState = reducer(undefined, {
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            });
+
+            // Initial state should have correct structure (EntityAdapter style)
+            expect(initialState).toBeDefined();
+            if (
+                initialState &&
+                typeof initialState === 'object' &&
+                'entities' in initialState &&
+                'ids' in initialState
+            ) {
+                expect(initialState.ids).toEqual(['1', '2']);
+                expect(initialState.entities['1']?.name).toBe('Alice');
+                expect(initialState.entities['1']?.age).toBe(30);
+                expect(initialState.entities['2']?.name).toBe('Bob');
+                expect(initialState.entities['2']?.age).toBe(25);
+            }
+
+            // Test 2: When state is undefined and action is not OIMDB_UPDATE,
+            // factory should return undefined (not call RTK slice.reducer)
+            const undefinedState = reducer(undefined, {
+                type: 'SOME_OTHER_ACTION',
+            });
+
+            // Should return undefined (factory handles undefined, doesn't call RTK reducer)
+            expect(undefinedState).toBeUndefined();
+
+            // Test 3: After initial state is set, RTK slice.reducer should work normally
+            if (initialState) {
+                const updatedState = reducer(
+                    initialState,
+                    usersSlice.actions.updateUser({
+                        id: '1',
+                        name: 'Alice Updated',
+                        age: 31,
+                        email: 'alice@test.com',
+                    })
+                );
+
+                // State should be updated by RTK slice
+                if (
+                    updatedState &&
+                    typeof updatedState === 'object' &&
+                    'entities' in updatedState
+                ) {
+                    expect(updatedState.entities['1']?.name).toBe(
+                        'Alice Updated'
+                    );
+                    expect(updatedState.entities['1']?.age).toBe(31);
+                    expect(updatedState.entities['2']?.name).toBe('Bob'); // Unchanged
+                }
+
+                // OIMDB should be synced
+                expect(usersCollection.getOneByPk('1')?.name).toBe(
+                    'Alice Updated'
+                );
+                expect(usersCollection.getOneByPk('1')?.age).toBe(31);
+            }
+        });
+
+        test('should populate Redux initial state with data from OIMDB', () => {
+            // Setup initial data in OIMDB BEFORE creating Redux store
+            usersCollection.upsertMany([
+                { id: '1', name: 'Alice', age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+                {
+                    id: '3',
+                    name: 'Charlie',
+                    age: 35,
+                    email: 'charlie@test.com',
+                },
+            ]);
+            postsCollection.upsertMany([
+                { id: 'post1', title: 'First Post', authorId: '1' },
+                { id: 'post2', title: 'Second Post', authorId: '2' },
+            ]);
+            queue.flush();
+
+            const usersAdapter = createEntityAdapter<User>();
+            const postsAdapter = createEntityAdapter<Post>();
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const postsSlice = createSlice({
+                name: 'posts',
+                initialState: postsAdapter.getInitialState(),
+                reducers: {
+                    updatePost: (state, action: PayloadAction<Post>) => {
+                        postsAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            // Create reducers
+            const usersReducerBase = adapter.createCollectionReducer(
+                usersCollection,
+                {
+                    reducer: usersSlice.reducer,
+                    getPk: user => user.id,
+                }
+            );
+
+            const postsReducerBase = adapter.createCollectionReducer(
+                postsCollection,
+                {
+                    reducer: postsSlice.reducer,
+                    getPk: post => post.id,
+                }
+            );
+
+            // Get initial state from OIMDB (by calling with OIMDB_UPDATE action)
+            // This simulates what happens when store is created and OIMDB already has data
+            const initialUsersState = usersReducerBase(undefined, {
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            });
+            const initialPostsState = postsReducerBase(undefined, {
+                type: EOIMDBReduxReducerActionType.UPDATE,
+            });
+
+            // Wrap reducers to always return initial state when undefined (for combineReducers)
+            const usersReducer: Reducer<
+                ReturnType<typeof usersAdapter.getInitialState>,
+                Action
+            > = (state, action) => {
+                if (state === undefined) {
+                    return initialUsersState as ReturnType<
+                        typeof usersAdapter.getInitialState
+                    >;
+                }
+                return usersReducerBase(state, action) as ReturnType<
+                    typeof usersAdapter.getInitialState
+                >;
+            };
+
+            const postsReducer: Reducer<
+                ReturnType<typeof postsAdapter.getInitialState>,
+                Action
+            > = (state, action) => {
+                if (state === undefined) {
+                    return initialPostsState as ReturnType<
+                        typeof postsAdapter.getInitialState
+                    >;
+                }
+                return postsReducerBase(state, action) as ReturnType<
+                    typeof postsAdapter.getInitialState
+                >;
+            };
+
+            const rootReducer = combineReducers({
+                users: usersReducer,
+                posts: postsReducer,
+            });
+
+            // Create store - initial state should be populated from OIMDB
+            const middleware = adapter.createMiddleware();
+            const store = createStore(rootReducer, applyMiddleware(middleware));
+            adapter.setStore(store);
+
+            // Get initial state from store
+            const initialState = store.getState() as {
+                users: ReturnType<typeof usersAdapter.getInitialState>;
+                posts: ReturnType<typeof postsAdapter.getInitialState>;
+            };
+
+            // Verify users initial state is populated from OIMDB
+            expect(initialState.users).toBeDefined();
+            expect(initialState.users.ids).toEqual(['1', '2', '3']);
+            expect(initialState.users.entities['1']?.name).toBe('Alice');
+            expect(initialState.users.entities['1']?.age).toBe(30);
+            expect(initialState.users.entities['2']?.name).toBe('Bob');
+            expect(initialState.users.entities['2']?.age).toBe(25);
+            expect(initialState.users.entities['3']?.name).toBe('Charlie');
+            expect(initialState.users.entities['3']?.age).toBe(35);
+
+            // Verify posts initial state is populated from OIMDB
+            expect(initialState.posts).toBeDefined();
+            expect(initialState.posts.ids).toEqual(['post1', 'post2']);
+            expect(initialState.posts.entities['post1']?.title).toBe(
+                'First Post'
+            );
+            expect(initialState.posts.entities['post1']?.authorId).toBe('1');
+            expect(initialState.posts.entities['post2']?.title).toBe(
+                'Second Post'
+            );
+            expect(initialState.posts.entities['post2']?.authorId).toBe('2');
+
+            // Verify that OIMDB collections still have the data
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice');
+            expect(usersCollection.getOneByPk('2')?.name).toBe('Bob');
+            expect(usersCollection.getOneByPk('3')?.name).toBe('Charlie');
+            expect(postsCollection.getOneByPk('post1')?.title).toBe(
+                'First Post'
+            );
+            expect(postsCollection.getOneByPk('post2')?.title).toBe(
+                'Second Post'
+            );
+        });
+
+        test('should populate OIMDB with data from Redux initial state', () => {
+            // Start with empty OIMDB collections
+            const usersAdapter = createEntityAdapter<User>();
+            const postsAdapter = createEntityAdapter<Post>();
+
+            const usersSlice = createSlice({
+                name: 'users',
+                initialState: usersAdapter.getInitialState(),
+                reducers: {
+                    updateUser: (state, action: PayloadAction<User>) => {
+                        usersAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            const postsSlice = createSlice({
+                name: 'posts',
+                initialState: postsAdapter.getInitialState(),
+                reducers: {
+                    updatePost: (state, action: PayloadAction<Post>) => {
+                        postsAdapter.updateOne(state, {
+                            id: action.payload.id,
+                            changes: action.payload,
+                        });
+                    },
+                },
+            });
+
+            // Create initial state for Redux (simulating data from server/localStorage/etc)
+            const preloadedUsersState = usersAdapter.setAll(
+                usersAdapter.getInitialState(),
+                [
+                    {
+                        id: '1',
+                        name: 'Alice',
+                        age: 30,
+                        email: 'alice@test.com',
+                    },
+                    { id: '2', name: 'Bob', age: 25, email: 'bob@test.com' },
+                    {
+                        id: '3',
+                        name: 'Charlie',
+                        age: 35,
+                        email: 'charlie@test.com',
+                    },
+                ] as User[]
+            );
+
+            const preloadedPostsState = postsAdapter.setAll(
+                postsAdapter.getInitialState(),
+                [
+                    {
+                        id: 'post1',
+                        title: 'First Post',
+                        content: 'Content 1',
+                        authorId: '1',
+                    },
+                    {
+                        id: 'post2',
+                        title: 'Second Post',
+                        content: 'Content 2',
+                        authorId: '2',
+                    },
+                ] as Post[]
+            );
+
+            // Verify OIMDB is empty before creating store
+            expect(usersCollection.getAllPks()).toEqual([]);
+            expect(postsCollection.getAllPks()).toEqual([]);
+
+            // Create reducers
+            const usersReducerBase = adapter.createCollectionReducer(
+                usersCollection,
+                {
+                    reducer: usersSlice.reducer,
+                    getPk: user => user.id,
+                }
+            );
+
+            const postsReducerBase = adapter.createCollectionReducer(
+                postsCollection,
+                {
+                    reducer: postsSlice.reducer,
+                    getPk: post => post.id,
+                }
+            );
+
+            // Wrap reducers to handle preloadedState
+            const usersReducer: Reducer<
+                ReturnType<typeof usersAdapter.getInitialState>,
+                Action
+            > = (state, action) => {
+                if (state === undefined) {
+                    return preloadedUsersState;
+                }
+                return usersReducerBase(state, action) as ReturnType<
+                    typeof usersAdapter.getInitialState
+                >;
+            };
+
+            const postsReducer: Reducer<
+                ReturnType<typeof postsAdapter.getInitialState>,
+                Action
+            > = (state, action) => {
+                if (state === undefined) {
+                    return preloadedPostsState;
+                }
+                return postsReducerBase(state, action) as ReturnType<
+                    typeof postsAdapter.getInitialState
+                >;
+            };
+
+            const rootReducer = combineReducers({
+                users: usersReducer,
+                posts: postsReducer,
+            });
+
+            // Create store with preloadedState
+            const middleware = adapter.createMiddleware();
+            const store = createStore(
+                rootReducer,
+                {
+                    users: preloadedUsersState,
+                    posts: preloadedPostsState,
+                },
+                applyMiddleware(middleware)
+            );
+            adapter.setStore(store);
+
+            // Trigger sync from Redux to OIMDB by dispatching an action through child reducer
+            // This will cause the child reducer to update state, which will sync to OIMDB
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '1',
+                    name: 'Alice',
+                    age: 30,
+                    email: 'alice@test.com',
+                })
+            );
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '2',
+                    name: 'Bob',
+                    age: 25,
+                    email: 'bob@test.com',
+                })
+            );
+            store.dispatch(
+                usersSlice.actions.updateUser({
+                    id: '3',
+                    name: 'Charlie',
+                    age: 35,
+                    email: 'charlie@test.com',
+                })
+            );
+            store.dispatch(
+                postsSlice.actions.updatePost({
+                    id: 'post1',
+                    title: 'First Post',
+                    content: 'Content 1',
+                    authorId: '1',
+                })
+            );
+            store.dispatch(
+                postsSlice.actions.updatePost({
+                    id: 'post2',
+                    title: 'Second Post',
+                    content: 'Content 2',
+                    authorId: '2',
+                })
+            );
+
+            // Verify OIMDB collections are populated with data from Redux initial state
+            expect(usersCollection.getAllPks()).toEqual(['1', '2', '3']);
+            expect(usersCollection.getOneByPk('1')?.name).toBe('Alice');
+            expect(usersCollection.getOneByPk('1')?.age).toBe(30);
+            expect(usersCollection.getOneByPk('2')?.name).toBe('Bob');
+            expect(usersCollection.getOneByPk('2')?.age).toBe(25);
+            expect(usersCollection.getOneByPk('3')?.name).toBe('Charlie');
+            expect(usersCollection.getOneByPk('3')?.age).toBe(35);
+
+            expect(postsCollection.getAllPks()).toEqual(['post1', 'post2']);
+            expect(postsCollection.getOneByPk('post1')?.title).toBe(
+                'First Post'
+            );
+            expect(postsCollection.getOneByPk('post1')?.authorId).toBe('1');
+            expect(postsCollection.getOneByPk('post2')?.title).toBe(
+                'Second Post'
+            );
+            expect(postsCollection.getOneByPk('post2')?.authorId).toBe('2');
+        });
     });
 
     describe('middleware and automatic flushing', () => {

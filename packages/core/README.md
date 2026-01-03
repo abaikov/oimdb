@@ -360,6 +360,154 @@ users.upsertOne({ id: 'user1', role: 'admin' });
 // This prevents unnecessary re-renders and improves performance
 ```
 
+### Effects, Computed, and the Event Lifecycle (PRE vs HANDLERS)
+
+OIMDB uses a **two-phase** update model inside a queue flush:
+
+- **PRE phase**: derived logic (e.g. `OIMComputed`) and **pure** effects run here
+- **HANDLERS phase**: regular subscribers run here (UI updates, integrations, etc.)
+
+**Important rules / guarantees:**
+
+- **PRE should be pure**: effects in the PRE phase should **not write** back into collections/objects/indexes. This keeps the update model predictable and avoids re-entrant update loops.
+- **Computed values are consistent after a single flush**: after `queue.flush()`, reading `computed.get()` returns an up-to-date value.
+- **Notifications may be delivered in the next flush**: subscribers attached via `updateEventEmitter` are delivered through the queue and follow the queue snapshot rules. That means:
+  - computed may recompute in flush #1 (PRE)
+  - subscribers may run in flush #2 (HANDLERS, next queue drain) if the subscription itself is scheduled from within flush #1
+
+If you're using an auto-scheduled queue (microtask/raf/timeout), you typically don't call `flush()` manually; the above becomes “next tick/microtask” semantics instead of “second flush call”.
+
+#### What is an Effect?
+
+`OIMEffect` is the base reactive primitive: it subscribes to dependencies and calls `run()` when those dependencies change. It coalesces multiple invalidations during the same flush into a single run.
+
+```typescript
+import {
+  OIMEffect,
+  EOIMEffectPhase,
+  OIMEventQueue,
+  OIMReactiveObject,
+  OIMEffectDependencyKeyedObject,
+} from '@oimdb/core';
+
+type TKey = 'a';
+
+const queue = new OIMEventQueue();
+const obj = new OIMReactiveObject<TKey, number>(queue);
+
+const effect = new OIMEffect(queue, {
+  phase: EOIMEffectPhase.HANDLERS,
+  deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
+  run: () => {
+    console.log('obj.a changed');
+  },
+});
+
+obj.setProperty('a', 1);
+queue.flush();
+
+effect.destroy();
+obj.destroy();
+queue.destroy();
+```
+
+#### What is a Computed?
+
+`OIMComputed<T>` is built on top of `OIMEffect` (PRE phase): it recomputes a derived value and emits `update` when the value changes.
+
+```typescript
+import {
+  OIMComputed,
+  OIMEventQueue,
+  OIMReactiveObject,
+  OIMEffectDependencyKeyedObject,
+} from '@oimdb/core';
+
+type TKey = 'a';
+const queue = new OIMEventQueue();
+const obj = new OIMReactiveObject<TKey, number>(queue);
+
+const doubled = new OIMComputed<number>(queue, {
+  compute: () => (obj.get('a') ?? 0) * 2,
+  deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
+});
+
+obj.setProperty('a', 10);
+queue.flush(); // recompute happens during PRE
+
+console.log(doubled.get()); // 20
+
+// If you also subscribe to computed updates, delivery can be in the next flush:
+let calls = 0;
+doubled.updateEventEmitter.subscribeOnKey('value', () => {
+  calls++;
+});
+obj.setProperty('a', 11);
+queue.flush(); // recompute (PRE)
+queue.flush(); // subscriber delivery (HANDLERS via queue snapshot)
+console.log(calls); // 1
+
+doubled.destroy();
+obj.destroy();
+queue.destroy();
+```
+
+#### Computed-to-Computed dependencies
+
+For computed-to-computed dependencies you can use `OIMEffectDependencyComputed`.
+
+- In **PRE** it subscribes directly to the computed's internal `emitter` to invalidate downstream derivations immediately during the pre-drain.
+- In **HANDLERS** it subscribes via `computed.updateEventEmitter` (delivered through the queue).
+
+```typescript
+import {
+  OIMComputed,
+  OIMEffect,
+  EOIMEffectPhase,
+  OIMEffectDependencyComputed,
+  OIMEventQueue,
+  OIMReactiveObject,
+  OIMEffectDependencyKeyedObject,
+} from '@oimdb/core';
+
+type TKey = 'a';
+const queue = new OIMEventQueue();
+const obj = new OIMReactiveObject<TKey, number>(queue);
+
+const A = new OIMComputed<number>(queue, {
+  compute: () => (obj.get('a') ?? 0) + 1,
+  deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
+});
+
+const B = new OIMComputed<number>(queue, {
+  compute: () => A.get() * 2,
+  deps: [new OIMEffectDependencyComputed({ emitter: A.emitter, updateEventEmitter: A.updateEventEmitter })],
+});
+
+const effect = new OIMEffect(queue, {
+  phase: EOIMEffectPhase.HANDLERS,
+  deps: [new OIMEffectDependencyComputed({ emitter: B.emitter, updateEventEmitter: B.updateEventEmitter })],
+  run: () => console.log('B changed'),
+});
+
+obj.setProperty('a', 1);
+queue.flush(); // computed recompute (PRE)
+queue.flush(); // handlers delivered via the queue snapshot
+
+effect.destroy();
+B.destroy();
+A.destroy();
+obj.destroy();
+queue.destroy();
+```
+
+#### Gotchas (read this once)
+
+- **Avoid cycles**: if A depends on B and B depends on A (directly or indirectly), you can get endless invalidation/recompute. Keep your dependency graph acyclic.
+- **Keep `compute()` pure**: treat `compute()` as a pure function over current state. Doing writes inside `compute()` will create hard-to-debug re-entrancy.
+- **Put side-effects in HANDLERS**: if you need to write to stores or trigger IO, do it from `OIMEffect` with `phase: EOIMEffectPhase.HANDLERS`.
+- **Always `destroy()`**: effects/computed subscribe to dependencies; if you create them dynamically, call `destroy()` to unsubscribe and free memory.
+
 ### Scheduler Types
 
 Choose the right scheduler for your use case:

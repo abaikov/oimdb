@@ -1,6 +1,8 @@
 // Main benchmark runner that coordinates all benchmarks
 import { runAllBenchmarks } from './collection.bench';
 import { runAllIndexBenchmarks } from './index.bench';
+import { runSubscriptionDispatchBenchmarks } from './subscription-dispatch.bench';
+import { runEffectComputedBenchmarks } from './effect-computed.bench';
 
 /**
  * Run all OIMDB benchmarks */
@@ -17,6 +19,14 @@ export async function runAllOIMDBBenchmarks(): Promise<void> {
         await runAllIndexBenchmarks();
 
         console.log('='.repeat(60) + '\n');
+        console.log('📊 SUBSCRIPTION/DISPATCH BENCHMARKS\n');
+        await runSubscriptionDispatchBenchmarks();
+
+        console.log('='.repeat(60) + '\n');
+        console.log('📊 EFFECTS/COMPUTED BENCHMARKS\n');
+        await runEffectComputedBenchmarks();
+
+        console.log('='.repeat(60) + '\n');
         console.log('🎉 All OIMDB benchmarks completed successfully!');
     } catch (error) {
         console.error('❌ Benchmark suite failed:', error);
@@ -27,6 +37,8 @@ export async function runAllOIMDBBenchmarks(): Promise<void> {
 // Export individual benchmark runners
 export { runAllBenchmarks as runCollectionBenchmarks } from './collection.bench';
 export { runAllIndexBenchmarks } from './index.bench';
+export { runSubscriptionDispatchBenchmarks } from './subscription-dispatch.bench';
+export { runEffectComputedBenchmarks } from './effect-computed.bench';
 
 // Run benchmarks if this file is executed directly
 runAllOIMDBBenchmarks();

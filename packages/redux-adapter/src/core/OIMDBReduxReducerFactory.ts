@@ -21,6 +21,11 @@ import { OIMDBReduxLinkedIndexesUpdater } from './OIMDBReduxLinkedIndexesUpdater
  * Factory for creating Redux reducers from OIMDB collections and indexes.
  */
 export class OIMDBReduxReducerFactory {
+    private isReduxInitAction(action: Action): boolean {
+        const type = (action as unknown as { type?: unknown }).type;
+        return typeof type === 'string' && type.startsWith('@@redux/');
+    }
+
     /**
      * Create Redux reducer for a collection
      */
@@ -46,11 +51,28 @@ export class OIMDBReduxReducerFactory {
             state: TState | undefined,
             action: Action
         ) => {
-            // Initialize state if undefined (required by Redux combineReducers)
+            // Redux requires reducers to return a non-undefined initial state for @@redux/* actions.
+            // Also, our child reducer should not be able to wipe initial state during store init.
             if (state === undefined) {
-                // Get all PKs for initialization
                 const allPks = new Set(collection.getAllPks());
-                return actualMapper(collection, allPks, undefined);
+                const initialState = actualMapper(
+                    collection,
+                    allPks,
+                    undefined
+                );
+
+                if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                    reducerData.updatedKeys = null;
+                    return initialState;
+                }
+
+                if (this.isReduxInitAction(action)) {
+                    return initialState;
+                }
+
+                // For non-Redux-init actions, keep behavior compatible with RTK reducers:
+                // do not auto-initialize state when called with undefined.
+                return undefined;
             }
 
             // Handle OIMDB_UPDATE action (from OIMDB to Redux)
@@ -279,7 +301,10 @@ export class OIMDBReduxReducerFactory {
 
                                 // Update linked indexes using helper class
                                 const linkedIndexesUpdater =
-                                    new OIMDBReduxLinkedIndexesUpdater<TEntity, TPk>();
+                                    new OIMDBReduxLinkedIndexesUpdater<
+                                        TEntity,
+                                        TPk
+                                    >();
                                 linkedIndexesUpdater.updateLinkedIndexesForEntities(
                                     child.linkedIndexes,
                                     allUpdatedPksArray,
@@ -301,7 +326,13 @@ export class OIMDBReduxReducerFactory {
                 return childState;
             }
 
-            // No child reducer and not OIMDB_UPDATE - return state unchanged
+            // No child reducer and not OIMDB_UPDATE
+            // If state is undefined, initialize it (for backward compatibility)
+            if (state === undefined) {
+                const allPks = new Set(collection.getAllPks());
+                return actualMapper(collection, allPks, undefined);
+            }
+            // Return state unchanged
             return state;
         };
 

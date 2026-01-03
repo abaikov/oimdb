@@ -1,9 +1,8 @@
 import { OIMUpdateEventCoalescer } from './OIMUpdateEventCoalescer';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
-import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
-import { TOIMPk } from '../types/TOIMPk';
-import { EOIMUpdateEventCoalescerEventType } from '../enum/EOIMUpdateEventCoalescerEventType';
+import { TOIMCollectionUpdatePayload } from '../type/TOIMCollectionUpdatePayload';
+import { TOIMPk } from '../type/TOIMPk';
 
 /**
  * Collection-specific coalescer that tracks primary key updates and emits consolidated change events.

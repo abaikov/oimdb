@@ -1,5 +1,5 @@
-import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMCollectionOptions } from '../type/TOIMCollectionOptions';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMCollection } from './OIMCollection';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventCoalescerCollection } from './OIMUpdateEventCoalescerCollection';
@@ -24,5 +24,11 @@ export class OIMReactiveCollection<
             coalescer: this.coalescer,
             queue,
         });
+    }
+
+    public override destroy(): void {
+        this.updateEventEmitter.destroy();
+        this.coalescer.destroy();
+        super.destroy();
     }
 }

@@ -2,6 +2,16 @@
 
 This document provides detailed performance information and optimization strategies for OIMDB.
 
+## Assumptions / Naming in Examples
+
+Most snippets in this document assume the following variables/types (all from `@oimdb/core`):
+
+- **`queue`**: `OIMEventQueue` (optionally created with `OIMEventQueueSchedulerFactory`)
+- **`users` / `orders`**: `OIMReactiveCollection<TEntity, TPk>` (so `users.updateEventEmitter` exists)
+- **`userByEmail`**: `OIMIndexManualSetBased<string, string>` (or `OIMIndexManualArrayBased<string, string>`)
+- **`roleIndex`**: any manual index with `setPks(...)` (e.g. `OIMIndexManualSetBased`)
+- **`largeUserArray`**: `Array<{ id: string; ... }>` (or your entity type)
+
 ## Performance Overview
 
 OIMDB is designed for high-performance scenarios with the following characteristics on an average laptop:
@@ -13,6 +23,28 @@ OIMDB is designed for high-performance scenarios with the following characterist
 - **Index Operations**: 37K - 8.3M ops/sec (depending on operation type)
 
 ## Performance Benchmarks
+
+The benchmark suites live in `packages/core/bench/` and are runnable via `tsx`.
+Results depend on hardware and Node version; treat the numbers below as directional.
+
+```bash
+# run the full suite (collections + indexes + subscriptions/dispatch + effects/computed)
+npx tsx packages/core/bench/index.ts
+
+# run individual suites
+npx tsx packages/core/bench/collection.bench.ts
+npx tsx packages/core/bench/index.bench.ts
+npx tsx packages/core/bench/subscription-dispatch.bench.ts
+npx tsx packages/core/bench/effect-computed.bench.ts
+```
+
+### How to interpret results
+
+- **Small updated-key batches** represent typical UI/reactivity usage (only a few keys change per tick).
+- **Huge updated-key batches** are batch/import workloads; prefer `timeout` scheduling or chunking writes.
+- **Computed/effects often involve two drains**:
+  - computed recompute happens in **PRE** (during flush #1)
+  - subscribers attached via `updateEventEmitter` may run in the **next** flush due to queue snapshot semantics
 
 ### Collection Operations
 
@@ -80,7 +112,7 @@ Memory overhead per component:
 | Component | Overhead | Notes |
 |-----------|----------|-------|
 | Entity | ~40 bytes | Map entry + entity data |
-| Index Key | ~24 bytes | Map entry + array reference |
+| Index Key | ~24 bytes | Map entry + Set/Array reference |
 | Subscription | ~16 bytes | Handler reference + metadata |
 | Event | ~32 bytes | Payload + metadata |
 
@@ -147,70 +179,93 @@ interface Product {
 
 **Choose Appropriate Comparison Strategy:**
 ```typescript
-// For ordered lists (e.g., search results)
-const searchIndex = db.createIndex<string, string>({
-    comparison: 'element-wise'
+import {
+    OIMIndexManualArrayBased,
+    OIMIndexComparatorFactory,
+} from '@oimdb/core';
+
+// For ordered lists (e.g., search results) - order-sensitive
+const searchIndex = new OIMIndexManualArrayBased<string, string>({
+    comparePks: OIMIndexComparatorFactory.createElementWiseComparator<string>(),
 });
 
-// For unordered sets (e.g., tags)
-const tagIndex = db.createIndex<string, string>({
-    comparison: 'set-based'
+// For unordered sets (e.g., tags) - order-insensitive
+const tagIndex = new OIMIndexManualArrayBased<string, string>({
+    comparePks: OIMIndexComparatorFactory.createSetBasedComparator<string>(),
 });
 
-// For always-updating data (e.g., timestamps)
-const timeIndex = db.createIndex<number, string>({
-    comparison: 'always-update'
+// For always-updating data (disables comparison)
+const timeIndex = new OIMIndexManualArrayBased<number, string>({
+    comparePks: OIMIndexComparatorFactory.createAlwaysUpdateComparator<string>(),
 });
 ```
 
 **Optimize Index Keys:**
 ```typescript
 // ❌ Avoid complex keys
-const complexIndex = db.createIndex<string, string>();
-complexIndex.set(JSON.stringify({ category: 'books', price: 100 }), ['product1']);
+import { OIMIndexManualSetBased } from '@oimdb/core';
+
+const complexIndex = new OIMIndexManualSetBased<string, string>();
+complexIndex.setPks(
+    JSON.stringify({ category: 'books', price: 100 }),
+    ['product1']
+);
 
 // ✅ Use simple, hashable keys
-const categoryIndex = db.createIndex<string, string>();
-const priceIndex = db.createIndex<number, string>();
-categoryIndex.set('books', ['product1']);
-priceIndex.set(100, ['product1']);
+const categoryIndex = new OIMIndexManualSetBased<string, string>();
+const priceIndex = new OIMIndexManualSetBased<number, string>();
+categoryIndex.setPks('books', ['product1']);
+priceIndex.setPks(100, ['product1']);
 ```
 
 ### 3. Event System Optimization
 
 **Choose Appropriate Scheduler:**
 ```typescript
+import {
+    OIMEventQueue,
+    OIMEventQueueSchedulerFactory,
+} from '@oimdb/core';
+
 // High-frequency updates (e.g., real-time data)
-const realtimeDb = createDb({ scheduler: 'microtask' });
+const realtimeQueue = new OIMEventQueue({
+    scheduler: OIMEventQueueSchedulerFactory.create('microtask'),
+});
 
 // UI updates (e.g., React components)
-const uiDb = createDb({ scheduler: 'animationFrame' });
+const uiQueue = new OIMEventQueue({
+    scheduler: OIMEventQueueSchedulerFactory.create('animationFrame'),
+});
 
 // Batch processing (e.g., data imports)
-const batchDb = createDb({ scheduler: 'timeout' });
+const batchQueue = new OIMEventQueue({
+    scheduler: OIMEventQueueSchedulerFactory.create('timeout', { delay: 16 }),
+});
 
 // Testing and debugging
-const testDb = createDb({ scheduler: 'immediate' });
+const testQueue = new OIMEventQueue({
+    scheduler: OIMEventQueueSchedulerFactory.create('immediate'),
+});
 ```
 
 **Optimize Subscriptions:**
 ```typescript
-// ❌ Avoid subscribing to everything
-users.subscribe('*', handler); // Not supported, but conceptually bad
+// NOTE: core subscriptions are key-scoped via updateEventEmitter
 
 // ✅ Subscribe only to needed entities
-users.subscribe('user1', handler);
-users.subscribeMany(['user1', 'user2'], handler);
+users.updateEventEmitter.subscribeOnKey('user1', handler);
+users.updateEventEmitter.subscribeOnKeys(['user1', 'user2'], handler);
 
 // ✅ Use batch subscriptions when possible
-users.subscribeMany(['user1', 'user2', 'user3'], handler);
+users.updateEventEmitter.subscribeOnKeys(['user1', 'user2', 'user3'], handler);
 ```
 
 **Implement Event Filtering:**
 ```typescript
 // Filter events before processing
-users.subscribe('user1', (user) => {
-    if (user.status === 'active') {
+users.updateEventEmitter.subscribeOnKey('user1', () => {
+    const user = users.getOneByPk('user1');
+    if (user?.status === 'active') {
         // Only process active users
         updateUI(user);
     }
@@ -222,12 +277,12 @@ users.subscribe('user1', (user) => {
 **Use Batch Operations for Multiple Updates:**
 ```typescript
 // ❌ Multiple individual operations
-users.forEach(user => {
-    users.upsert(user);
+largeUserArray.forEach(user => {
+    users.upsertOne(user);
 });
 
 // ✅ Single batch operation
-users.upsertMany(users);
+users.upsertMany(largeUserArray);
 ```
 
 **Batch Index Updates:**
@@ -239,7 +294,7 @@ const updates = [
 ];
 
 updates.forEach(({ key, pks }) => {
-    roleIndex.set(key, pks);
+    roleIndex.setPks(key, pks);
 });
 ```
 
@@ -247,33 +302,36 @@ updates.forEach(({ key, pks }) => {
 
 **Clean Up Unused Resources:**
 ```typescript
-// Destroy unused collections
-const tempCollection = db.createCollection<TempData>();
-// ... use collection
-tempCollection.destroy();
+import { OIMIndexManualSetBased } from '@oimdb/core';
 
 // Unsubscribe from unused subscriptions
-const unsubscribe = users.subscribe('user1', handler);
-// ... later
+const unsubscribe = users.updateEventEmitter.subscribeOnKey('user1', handler);
 unsubscribe();
 
-// Clear unused indexes
-const tempIndex = db.createIndex<string, string>();
+// Clear/destroy unused indexes
+const tempIndex = new OIMIndexManualSetBased<string, string>();
 // ... use index
 tempIndex.clear();
+tempIndex.destroy();
+
+// If you created these instances yourself, clean them up explicitly:
+users.updateEventEmitter.destroy();
+users.coalescer.destroy();
+users.emitter.offAll();
+queue.destroy();
 ```
 
 **Monitor Memory Usage:**
 ```typescript
 // Check collection size
-const userCount = users.advanced.collection.getMetrics().totalEntities;
+const userCount = users.countAll();
 
 // Check index size
-const indexMetrics = userByEmail.advanced.index.getMetrics();
+const indexMetrics = userByEmail.getMetrics();
 console.log(`Index keys: ${indexMetrics.totalKeys}, PKs: ${indexMetrics.totalPks}`);
 
 // Check event queue length
-const queueLength = db.getMetrics().queueLength;
+const queueLength = queue.length;
 ```
 
 ## Performance Monitoring
@@ -283,20 +341,19 @@ const queueLength = db.getMetrics().queueLength;
 OIMDB provides built-in metrics for monitoring:
 
 ```typescript
-// Database metrics
-const dbMetrics = db.getMetrics();
-console.log(`Queue length: ${dbMetrics.queueLength}`);
-console.log(`Scheduler: ${dbMetrics.scheduler}`);
-
-// Collection metrics
-const collectionMetrics = users.advanced.collection.getMetrics();
-console.log(`Total entities: ${collectionMetrics.totalEntities}`);
+// Queue metrics
+console.log(`Queue length: ${queue.length}`);
 
 // Index metrics
-const indexMetrics = userByEmail.advanced.index.getMetrics();
+const indexMetrics = userByEmail.getMetrics();
 console.log(`Total keys: ${indexMetrics.totalKeys}`);
 console.log(`Total PKs: ${indexMetrics.totalPks}`);
 console.log(`Average PKs per key: ${indexMetrics.averagePksPerKey}`);
+
+// Subscription metrics
+const emitterMetrics = users.updateEventEmitter.getMetrics();
+console.log(`Subscribed keys: ${emitterMetrics.totalKeys}`);
+console.log(`Handlers: ${emitterMetrics.totalHandlers}`);
 ```
 
 ### 2. Custom Performance Monitoring
@@ -340,7 +397,7 @@ monitor.measure('userInsert', () => {
 // Monitor index operations
 monitor.measure('indexBuild', () => {
     largeUserArray.forEach(user => {
-        userByEmail.set(user.email, [user.id]);
+        userByEmail.setPks(user.email, [user.id]);
     });
 });
 
@@ -361,14 +418,14 @@ class MemoryMonitor {
         const snapshot = new Map<string, number>();
         
         // Monitor collection sizes
-        snapshot.set('users', users.advanced.collection.getMetrics().totalEntities);
-        snapshot.set('orders', orders.advanced.collection.getMetrics().totalEntities);
+        snapshot.set('users', users.countAll());
+        snapshot.set('orders', orders.countAll());
         
         // Monitor index sizes
-        snapshot.set('userByEmail', userByEmail.advanced.index.getMetrics().totalKeys);
+        snapshot.set('userByEmail', userByEmail.getMetrics().totalKeys);
         
         // Monitor event queue
-        snapshot.set('eventQueue', db.getMetrics().queueLength);
+        snapshot.set('eventQueue', queue.length);
         
         this.snapshots.push(snapshot);
         
@@ -428,12 +485,12 @@ async function loadTest(operation: () => void, iterations: number): Promise<void
 
 // Test collection operations
 await loadTest(() => {
-    users.upsert({ id: `user${Date.now()}`, name: 'Test User' });
+    users.upsertOne({ id: `user${Date.now()}`, name: 'Test User' });
 }, 10000);
 
 // Test index operations
 await loadTest(() => {
-    userByEmail.set(`email${Date.now()}@test.com`, [`user${Date.now()}`]);
+    userByEmail.setPks(`email${Date.now()}@test.com`, [`user${Date.now()}`]);
 }, 10000);
 ```
 
@@ -487,13 +544,13 @@ async function stressTest(): Promise<void> {
             
             switch (operation) {
                 case 0:
-                    users.upsert({ id: `user${Date.now()}`, name: 'Stress Test' });
+                    users.upsertOne({ id: `user${Date.now()}`, name: 'Stress Test' });
                     break;
                 case 1:
-                    userByEmail.set(`email${Date.now()}`, [`user${Date.now()}`]);
+                    userByEmail.setPks(`email${Date.now()}`, [`user${Date.now()}`]);
                     break;
                 case 2:
-                    users.remove({ id: `user${Date.now()}` });
+                    users.removeOneByPk(`user${Date.now()}`);
                     break;
                 case 3:
                     userByEmail.clear(`email${Date.now()}`);

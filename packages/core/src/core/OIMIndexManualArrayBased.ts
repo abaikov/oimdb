@@ -1,7 +1,7 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
-import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
 
 /**
  * Manual Array-based index that allows direct manipulation of key-to-primary-keys mappings.
@@ -11,10 +11,12 @@ export class OIMIndexManualArrayBased<
     TIndexKey extends TOIMPk,
     TPk extends TOIMPk,
 > extends OIMIndexArrayBased<TIndexKey, TPk> {
-    constructor(options: {
-        comparePks?: TOIMIndexComparator<TPk>;
-        store?: OIMIndexStoreArrayBased<TIndexKey, TPk>;
-    } = {}) {
+    constructor(
+        options: {
+            comparePks?: TOIMIndexComparator<TPk>;
+            store?: OIMIndexStoreArrayBased<TIndexKey, TPk>;
+        } = {}
+    ) {
         super(options);
     }
 
@@ -68,7 +70,7 @@ export class OIMIndexManualArrayBased<
         if (!pksArray) return;
 
         const pksSet = new Set(pks);
-        const filtered = pksArray.filter((pk) => !pksSet.has(pk));
+        const filtered = pksArray.filter(pk => !pksSet.has(pk));
         const hasChanges = filtered.length !== pksArray.length;
 
         if (hasChanges) {
@@ -101,4 +103,3 @@ export class OIMIndexManualArrayBased<
         }
     }
 }
-

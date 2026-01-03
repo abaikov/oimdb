@@ -8,4 +8,6 @@ export class OIMDBSettings {
      * This constant is exported so users can create their own indexes and pass them to coalescers.
      */
     public static readonly UPDATED_KEYS_INDEX_KEY = '__updatedKeys__' as const;
+    public static readonly FLUSHING_KEYS_INDEX_KEY =
+        '__flushingKeys__' as const;
 }

@@ -513,5 +513,121 @@ describe('Event System', () => {
             // Should not throw even with no handlers
             expect(() => queue.flush()).not.toThrow();
         });
+
+        test('should not notify the same key more than once per flush batch', () => {
+            const handler = jest.fn();
+            emitter.subscribeOnKey('test1', handler);
+
+            // Multiple updates to the same key before flushing should coalesce into one notification
+            for (let i = 0; i < 10; i++) {
+                collection.upsertOne({
+                    id: 'test1',
+                    name: `Test 1 v${i}`,
+                    value: 10 + i,
+                });
+            }
+
+            queue.flush();
+            expect(handler).toHaveBeenCalledTimes(1);
+
+            // Next update should produce a new batch
+            collection.upsertOne({
+                id: 'test1',
+                name: 'Test 1 v_next',
+                value: 999,
+            });
+            queue.flush();
+            expect(handler).toHaveBeenCalledTimes(2);
+        });
+
+        test('should not call handlers subscribed during dispatch until the next batch', () => {
+            const lateHandler = jest.fn();
+            const earlyHandler = jest.fn(() => {
+                emitter.subscribeOnKey('test1', lateHandler);
+            });
+
+            emitter.subscribeOnKey('test1', earlyHandler);
+
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
+            queue.flush();
+
+            expect(earlyHandler).toHaveBeenCalledTimes(1);
+            expect(lateHandler).not.toHaveBeenCalled();
+
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 2 });
+            queue.flush();
+
+            expect(earlyHandler).toHaveBeenCalledTimes(2);
+            expect(lateHandler).toHaveBeenCalledTimes(1);
+        });
+
+        test('should allow unsubscribe during dispatch to prevent later calls in the same batch', () => {
+            const handlerB = jest.fn();
+            const handlerA = jest.fn(() => {
+                emitter.unsubscribeFromKey('test1', handlerB);
+            });
+
+            // Subscribe A first so it runs before B (Set preserves insertion order)
+            emitter.subscribeOnKey('test1', handlerA);
+            emitter.subscribeOnKey('test1', handlerB);
+
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
+            queue.flush();
+
+            expect(handlerA).toHaveBeenCalledTimes(1);
+            expect(handlerB).not.toHaveBeenCalled();
+        });
+
+        test('should be safe to destroy emitter during dispatch (no throw, stops delivery)', () => {
+            const handlerB = jest.fn();
+            const handlerA = jest.fn(() => {
+                emitter.destroy();
+            });
+
+            // Subscribe A first so it runs before B (and destroys the emitter)
+            emitter.subscribeOnKey('test1', handlerA);
+            emitter.subscribeOnKey('test1', handlerB);
+
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
+            expect(() => queue.flush()).not.toThrow();
+
+            expect(handlerA).toHaveBeenCalledTimes(1);
+            expect(handlerB).not.toHaveBeenCalled();
+
+            // Further updates should not deliver anything (emitter is destroyed)
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 2 });
+            queue.flush();
+            expect(handlerA).toHaveBeenCalledTimes(1);
+            expect(handlerB).toHaveBeenCalledTimes(0);
+        });
+
+        test('updates triggered inside a handler should be delivered in the next batch (reentrancy)', () => {
+            let didTrigger = false;
+            const handler = jest.fn(() => {
+                if (didTrigger) return;
+                didTrigger = true;
+                collection.upsertOne({
+                    id: 'test1',
+                    name: 'Test 1 updated inside handler',
+                    value: 2,
+                });
+            });
+            const observer = jest.fn();
+
+            emitter.subscribeOnKey('test1', handler);
+            emitter.subscribeOnKey('test1', observer);
+
+            // First update
+            collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
+            queue.flush();
+
+            expect(handler).toHaveBeenCalledTimes(1);
+            expect(observer).toHaveBeenCalledTimes(1);
+
+            // Second batch should deliver the update triggered from inside the handler
+            queue.flush();
+            expect(handler).toHaveBeenCalledTimes(2);
+            expect(observer).toHaveBeenCalledTimes(2);
+        });
     });
 });

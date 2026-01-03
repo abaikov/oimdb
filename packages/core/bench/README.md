@@ -14,6 +14,8 @@ npx tsx bench/index.ts
 # Run specific benchmark suites
 npx tsx bench/collection.bench.ts
 npx tsx bench/index.bench.ts
+npx tsx bench/subscription-dispatch.bench.ts
+npx tsx bench/effect-computed.bench.ts
 ```
 
 ## 📊 Benchmark Suites
@@ -32,6 +34,18 @@ npx tsx bench/index.bench.ts
 - **Remove Operations**: Removing PKs from keys
 - **Comparator Performance**: Different comparison strategies
 - **Stress Testing**: Mixed operations under load
+
+### `subscription-dispatch.bench.ts` - Subscription & Dispatch Performance
+- **Subscription performance**: `subscribeOnKey` vs `subscribeOnKeys`
+- **Unsubscribe performance**: bulk teardown cost
+- **Dispatch performance**: pure `OIMUpdateEventEmitter` delivery cost (without CRUD), across:
+  - small vs large updated-keys batches (exercises adaptive iteration strategy)
+  - different handlers-per-key cardinality
+
+### `effect-computed.bench.ts` - Effects & Computed Performance
+- **Computed PRE recompute**: invalidation → recompute cost per flush
+- **Computed subscriber delivery**: recompute + delivery (2 flushes/update)
+- **Scaling**: chain and diamond graphs (computed-to-computed dependencies)
 
 ### `index.ts` - Benchmark Coordinator
 - Orchestrates all benchmark suites

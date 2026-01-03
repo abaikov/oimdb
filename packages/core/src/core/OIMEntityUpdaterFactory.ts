@@ -1,4 +1,4 @@
-import { TOIMEntityUpdater } from '../types/TOIMEntityUpdater';
+import { TOIMEntityUpdater } from '../type/TOIMEntityUpdater';
 
 export class OIMEntityUpdaterFactory<TEntity extends object> {
     createMergeEntityUpdater(): TOIMEntityUpdater<TEntity> {

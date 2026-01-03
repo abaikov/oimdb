@@ -2,6 +2,7 @@ import {
     OIMIndexSetBased,
     OIMIndexArrayBased,
     OIMReactiveCollection,
+    OIMReactiveObject,
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
     TOIMPk,
@@ -211,6 +212,77 @@ export const useSelectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
             };
         };
     }, [pk, reactiveCollection.updateEventEmitter]);
+    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    return snapshot;
+};
+
+// Reactive Object Hooks
+export const useSelectValueByObjectKey = <TKey extends string, TValue>(
+    reactiveObject: OIMReactiveObject<TKey, TValue>,
+    key: TKey
+) => {
+    const getSnapshot = useMemo(
+        () => () => reactiveObject.get(key),
+        [key, reactiveObject]
+    );
+    const subscribe = useMemo(() => {
+        return (onStoreChange: () => void) => {
+            reactiveObject.updateEventEmitter.subscribeOnKey(
+                key,
+                onStoreChange
+            );
+            return () => {
+                reactiveObject.updateEventEmitter.unsubscribeFromKey(
+                    key,
+                    onStoreChange
+                );
+            };
+        };
+    }, [key, reactiveObject.updateEventEmitter]);
+    const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    return snapshot;
+};
+
+export const useSelectValuesByObjectKeys = <TKey extends string, TValue>(
+    reactiveObject: OIMReactiveObject<TKey, TValue>,
+    keys: readonly TKey[]
+) => {
+    const prevKeysRef = useRef<readonly TKey[]>();
+    const keysAreEqual = arraysEqual(prevKeysRef.current || EMPTY_ARRAY, keys);
+    if (!keysAreEqual) {
+        prevKeysRef.current = keys;
+    }
+    const snapshotRef = useRef<readonly (TValue | undefined)[]>();
+    const subscribe = useMemo(() => {
+        snapshotRef.current = keys.map(key => reactiveObject.get(key));
+        return (onStoreChange: () => void) => {
+            const prevKeys = prevKeysRef.current;
+            if (!prevKeys) {
+                return () => {};
+            }
+            const updateSnapshot = () => {
+                snapshotRef.current = prevKeys.map(key =>
+                    reactiveObject.get(key)
+                );
+                onStoreChange();
+            };
+            reactiveObject.updateEventEmitter.subscribeOnKeys(
+                prevKeys,
+                updateSnapshot
+            );
+            return () => {
+                reactiveObject.updateEventEmitter.unsubscribeFromKeys(
+                    prevKeys,
+                    updateSnapshot
+                );
+            };
+        };
+    }, [prevKeysRef.current, reactiveObject.updateEventEmitter]);
+    const getSnapshot = useMemo(() => {
+        return () => {
+            return snapshotRef.current;
+        };
+    }, []);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return snapshot;
 };

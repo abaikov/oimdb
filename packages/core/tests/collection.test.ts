@@ -3,7 +3,7 @@ import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDr
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
 import { EOIMCollectionEventType } from '../src/enum/EOIMCollectionEventType';
-import { TOIMCollectionUpdatePayload } from '../src/types/TOIMCollectionUpdatePayload';
+import { TOIMCollectionUpdatePayload } from '../src/type/TOIMCollectionUpdatePayload';
 
 interface TOIMUser {
     id: string;

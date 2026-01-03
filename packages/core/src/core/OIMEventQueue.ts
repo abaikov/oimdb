@@ -1,5 +1,5 @@
 import { OIMEventQueueScheduler } from '../abstract/OIMEventQueueScheduler';
-import { TOIMEventQueueOptions } from '../types/TOIMEventQueueOptions';
+import { TOIMEventQueueOptions } from '../type/TOIMEventQueueOptions';
 import { EOIMEventQueueSchedulerEventType } from '../enum/EOIMEventQueueSchedulerEventType';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMEventQueueEventType } from '../enum/EOIMEventQueueEventType';
@@ -14,6 +14,8 @@ export class OIMEventQueue {
     protected queue: (() => void)[] = [];
     protected readonly scheduler?: OIMEventQueueScheduler;
     protected flushBound?: () => void;
+    protected isFlushing = false;
+    protected pendingSchedule = false;
 
     constructor(options: TOIMEventQueueOptions = {}) {
         this.scheduler = options.scheduler;
@@ -35,7 +37,16 @@ export class OIMEventQueue {
     public enqueue(fn: () => void): void {
         this.queue.push(fn);
 
-        if (this.scheduler && this.queue.length === 1) {
+        if (!this.scheduler) return;
+
+        // If we enqueue during a flush, we must NOT flush re-entrantly,
+        // but we still want an auto-flush afterwards.
+        if (this.isFlushing) {
+            this.pendingSchedule = true;
+            return;
+        }
+
+        if (this.queue.length === 1) {
             // Only schedule when queue transitions from empty to non-empty
             this.scheduler.schedule();
         }
@@ -48,6 +59,10 @@ export class OIMEventQueue {
     public flush(): void {
         if (this.queue.length === 0) return;
 
+        // If a flush was scheduled, manual flush supersedes it.
+        this.scheduler?.cancel();
+
+        this.isFlushing = true;
         this.emitter.emit(EOIMEventQueueEventType.BEFORE_FLUSH, undefined);
 
         // Take snapshot of current queue and clear it immediately to handle reentrancy
@@ -59,6 +74,16 @@ export class OIMEventQueue {
         }
 
         this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);
+        this.isFlushing = false;
+
+        // If something was enqueued during this flush and scheduler exists,
+        // schedule exactly one follow-up flush (async) to process it.
+        if (this.scheduler && this.pendingSchedule && this.queue.length > 0) {
+            this.pendingSchedule = false;
+            this.scheduler.schedule();
+        } else {
+            this.pendingSchedule = false;
+        }
     }
 
     /**

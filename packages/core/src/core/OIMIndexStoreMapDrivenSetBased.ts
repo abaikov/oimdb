@@ -1,4 +1,4 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPk } from '../type/TOIMPk';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 
 export class OIMIndexStoreMapDrivenSetBased<
@@ -54,4 +54,3 @@ export class OIMIndexStoreMapDrivenSetBased<
         this.pks.clear();
     }
 }
-
