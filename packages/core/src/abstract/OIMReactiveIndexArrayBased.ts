@@ -1,30 +1,26 @@
 import { OIMIndexArrayBased } from './OIMIndexArrayBased';
 import { TOIMPk } from '../type/TOIMPk';
 import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
-import { OIMUpdateEventCoalescerIndex } from '../core/OIMUpdateEventCoalescerIndex';
 import { OIMEventQueue } from '../core/OIMEventQueue';
+import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
+import { TOIMEventHandler } from '../type/TOIMEventHandler';
 
 export abstract class OIMReactiveIndexArrayBased<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
     TIndex extends OIMIndexArrayBased<TKey, TPk>,
-> {
+> implements IOIMKeyedSubscription<TKey>
+{
     public readonly index: TIndex;
-    public readonly updateEventEmitter: OIMUpdateEventEmitter<TKey>;
-    public readonly coalescer: OIMUpdateEventCoalescerIndex<TKey>;
+    protected readonly updateEmitter: OIMUpdateEventEmitter<TKey>;
 
-    constructor(queue: OIMEventQueue, opts?: { index: TIndex }) {
-        this.index = opts?.index ?? this.createDefaultIndex();
-        this.coalescer = new OIMUpdateEventCoalescerIndex<TKey>(
-            this.index.emitter
-        );
-        this.updateEventEmitter = new OIMUpdateEventEmitter<TKey>({
-            coalescer: this.coalescer,
-            queue,
-        });
+    constructor(
+        queue: OIMEventQueue,
+        createIndex: (updateEmitter: OIMUpdateEventEmitter<TKey>) => TIndex
+    ) {
+        this.updateEmitter = new OIMUpdateEventEmitter<TKey>(queue);
+        this.index = createIndex(this.updateEmitter);
     }
-
-    protected abstract createDefaultIndex(): TIndex;
 
     public getPksByKey(key: TKey): TPk[] {
         return this.index.getPksByKey(key);
@@ -58,10 +54,48 @@ export abstract class OIMReactiveIndexArrayBased<
         return this.index.getMetrics();
     }
 
+    public subscribeOnKey(
+        key: TKey,
+        handler: TOIMEventHandler<void>
+    ): () => void {
+        return this.updateEmitter.subscribeOnKey(key, handler);
+    }
+
+    public subscribeOnKeys(
+        keys: readonly TKey[],
+        handler: TOIMEventHandler<void>
+    ): () => void {
+        return this.updateEmitter.subscribeOnKeys(keys, handler);
+    }
+
+    public unsubscribeFromKey(
+        key: TKey,
+        handler: TOIMEventHandler<void>
+    ): void {
+        this.updateEmitter.unsubscribeFromKey(key, handler);
+    }
+
+    public unsubscribeFromKeys(
+        keys: readonly TKey[],
+        handler: TOIMEventHandler<void>
+    ): void {
+        this.updateEmitter.unsubscribeFromKeys(keys, handler);
+    }
+
+    public hasSubscriptions(): boolean {
+        return this.updateEmitter.hasSubscriptions();
+    }
+
+    public getHandlerCount(key: TKey): number {
+        return this.updateEmitter.getHandlerCount(key);
+    }
+
+    public getSubscriptionMetrics() {
+        return this.updateEmitter.getMetrics();
+    }
+
     public destroy(): void {
-        this.updateEventEmitter.destroy();
-        this.coalescer.destroy();
+        this.updateEmitter.destroy();
         this.index.destroy();
     }
 }
-

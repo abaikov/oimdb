@@ -1,5 +1,4 @@
 import { OIMReactiveObject } from '../../../core/OIMReactiveObject';
-import { EOIMEffectPhase } from '../enum/EOIMEffectPhase';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 
@@ -15,15 +14,14 @@ export class OIMEffectDependencyKeyedObject<TKey extends string, TValue>
         keyOrKeys: TKey | readonly TKey[]
     ) {
         this.dep = new OIMEffectDependencyKeyed<TKey>(
-            object.updateEventEmitter,
+            object,
             keyOrKeys
         );
     }
 
     public subscribe(
-        phase: EOIMEffectPhase,
-        onInvalidate: () => void
+        onUpdate: () => void
     ): () => void {
-        return this.dep.subscribe(phase, onInvalidate);
+        return this.dep.subscribe(onUpdate);
     }
 }

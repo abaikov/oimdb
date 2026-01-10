@@ -1,13 +1,25 @@
-import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
-import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoalescerCollection';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 import { OIMEventQueueSchedulerTimeout } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerTimeout';
 import { OIMEventQueueSchedulerMicrotask } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerMicrotask';
+import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
+
+type TOIMKeyedEmitter<TKey extends string> = {
+    subscribeOnKey(key: TKey, handler: () => void): () => void;
+    subscribeOnKeys(keys: readonly TKey[], handler: () => void): () => void;
+    hasSubscriptions(): boolean;
+    getHandlerCount(key: TKey): number;
+    getMetrics(): {
+        totalKeys: number;
+        totalHandlers: number;
+        averageHandlersPerKey: number;
+        queueLength: number;
+    };
+    unsubscribeFromKey(key: TKey, handler: () => void): void;
+};
 
 interface TOIMUser {
     id: string;
@@ -25,14 +37,16 @@ interface TOIMProject {
 
 describe('Integration Tests', () => {
     describe('Complete Event Flow', () => {
-        let collection: OIMCollection<TOIMUser, string>;
-        let coalescer: OIMUpdateEventCoalescerCollection<string>;
+        let collection: OIMReactiveCollection<TOIMUser, string>;
         let queue: OIMEventQueue;
-        let emitter: OIMUpdateEventEmitter<string>;
+        let emitter: TOIMKeyedEmitter<string>;
         let scheduler: OIMEventQueueSchedulerImmediate;
 
         beforeEach(() => {
-            collection = new OIMCollection<TOIMUser, string>({
+            scheduler = new OIMEventQueueSchedulerImmediate();
+            queue = new OIMEventQueue({ scheduler });
+
+            collection = new OIMReactiveCollection<TOIMUser, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMUser,
                     string
@@ -41,20 +55,12 @@ describe('Integration Tests', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
-
-            coalescer = new OIMUpdateEventCoalescerCollection(
-                collection.emitter
-            );
-            scheduler = new OIMEventQueueSchedulerImmediate();
-            queue = new OIMEventQueue({ scheduler });
-            emitter = new OIMUpdateEventEmitter({ coalescer, queue });
+            emitter = collection;
         });
 
         afterEach(() => {
-            emitter.destroy();
-            coalescer.destroy();
+            collection.destroy();
             queue.destroy();
-            collection.emitter.offAll();
         });
 
         test('should handle complete workflow: insert -> subscribe -> update -> notify', async () => {
@@ -208,11 +214,10 @@ describe('Integration Tests', () => {
     });
 
     describe('Different Schedulers Integration', () => {
-        let collection: OIMCollection<TOIMUser, string>;
-        let coalescer: OIMUpdateEventCoalescerCollection<string>;
-
-        beforeEach(() => {
-            collection = new OIMCollection<TOIMUser, string>({
+        test('should work with immediate scheduler', done => {
+            const scheduler = new OIMEventQueueSchedulerImmediate();
+            const queue = new OIMEventQueue({ scheduler });
+            const collection = new OIMReactiveCollection<TOIMUser, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMUser,
                     string
@@ -221,24 +226,7 @@ describe('Integration Tests', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
-
-            coalescer = new OIMUpdateEventCoalescerCollection(
-                collection.emitter
-            );
-        });
-
-        afterEach(() => {
-            coalescer.destroy();
-            collection.emitter.offAll();
-        });
-
-        test('should work with immediate scheduler', done => {
-            const scheduler = new OIMEventQueueSchedulerImmediate();
-            const queue = new OIMEventQueue({ scheduler });
-            const emitter = new OIMUpdateEventEmitter({
-                coalescer,
-                queue,
-            });
+            const emitter = collection;
 
             const notifications: string[] = [];
 
@@ -248,7 +236,7 @@ describe('Integration Tests', () => {
                 // Verify notification was received immediately
                 expect(notifications.length).toBe(1);
 
-                emitter.destroy();
+                collection.destroy();
                 queue.destroy();
                 done();
             });
@@ -265,10 +253,16 @@ describe('Integration Tests', () => {
         test('should work with timeout scheduler', done => {
             const scheduler = new OIMEventQueueSchedulerTimeout(10);
             const queue = new OIMEventQueue({ scheduler });
-            const emitter = new OIMUpdateEventEmitter({
-                coalescer,
-                queue,
+            const collection = new OIMReactiveCollection<TOIMUser, string>(queue, {
+                selectPk: new OIMPkSelectorFactory<
+                    TOIMUser,
+                    string
+                >().createIdSelector(),
+                store: new OIMCollectionStoreMapDriven<TOIMUser, string>(),
+                updateEntity:
+                    new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
+            const emitter = collection;
 
             const notifications: string[] = [];
 
@@ -277,7 +271,7 @@ describe('Integration Tests', () => {
 
                 expect(notifications.length).toBe(1);
 
-                emitter.destroy();
+                collection.destroy();
                 queue.destroy();
                 scheduler.cancel();
                 done();
@@ -297,10 +291,16 @@ describe('Integration Tests', () => {
         test('should work with microtask scheduler', done => {
             const scheduler = new OIMEventQueueSchedulerMicrotask();
             const queue = new OIMEventQueue({ scheduler });
-            const emitter = new OIMUpdateEventEmitter({
-                coalescer,
-                queue,
+            const collection = new OIMReactiveCollection<TOIMUser, string>(queue, {
+                selectPk: new OIMPkSelectorFactory<
+                    TOIMUser,
+                    string
+                >().createIdSelector(),
+                store: new OIMCollectionStoreMapDriven<TOIMUser, string>(),
+                updateEntity:
+                    new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
+            const emitter = collection;
 
             const notifications: string[] = [];
 
@@ -309,7 +309,7 @@ describe('Integration Tests', () => {
 
                 expect(notifications.length).toBe(1);
 
-                emitter.destroy();
+                collection.destroy();
                 queue.destroy();
                 done();
             });
@@ -327,18 +327,19 @@ describe('Integration Tests', () => {
     });
 
     describe('Multi-Collection Scenario', () => {
-        let userCollection: OIMCollection<TOIMUser, string>;
-        let projectCollection: OIMCollection<TOIMProject, string>;
-        let userCoalescer: OIMUpdateEventCoalescerCollection<string>;
-        let projectCoalescer: OIMUpdateEventCoalescerCollection<string>;
+        let userCollection: OIMReactiveCollection<TOIMUser, string>;
+        let projectCollection: OIMReactiveCollection<TOIMProject, string>;
         let scheduler: OIMEventQueueSchedulerImmediate;
         let queue: OIMEventQueue;
-        let userEmitter: OIMUpdateEventEmitter<string>;
-        let projectEmitter: OIMUpdateEventEmitter<string>;
+        let userEmitter: TOIMKeyedEmitter<string>;
+        let projectEmitter: TOIMKeyedEmitter<string>;
 
         beforeEach(() => {
+            scheduler = new OIMEventQueueSchedulerImmediate();
+            queue = new OIMEventQueue({ scheduler });
+
             // Setup user collection
-            userCollection = new OIMCollection<TOIMUser, string>({
+            userCollection = new OIMReactiveCollection<TOIMUser, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMUser,
                     string
@@ -349,7 +350,7 @@ describe('Integration Tests', () => {
             });
 
             // Setup project collection
-            projectCollection = new OIMCollection<TOIMProject, string>({
+            projectCollection = new OIMReactiveCollection<TOIMProject, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMProject,
                     string
@@ -359,34 +360,14 @@ describe('Integration Tests', () => {
                     new OIMEntityUpdaterFactory<TOIMProject>().createMergeEntityUpdater(),
             });
 
-            userCoalescer = new OIMUpdateEventCoalescerCollection(
-                userCollection.emitter
-            );
-            projectCoalescer = new OIMUpdateEventCoalescerCollection(
-                projectCollection.emitter
-            );
-
-            scheduler = new OIMEventQueueSchedulerImmediate();
-            queue = new OIMEventQueue({ scheduler });
-
-            userEmitter = new OIMUpdateEventEmitter({
-                coalescer: userCoalescer,
-                queue,
-            });
-            projectEmitter = new OIMUpdateEventEmitter({
-                coalescer: projectCoalescer,
-                queue,
-            });
+            userEmitter = userCollection;
+            projectEmitter = projectCollection;
         });
 
         afterEach(() => {
-            userEmitter.destroy();
-            projectEmitter.destroy();
-            userCoalescer.destroy();
-            projectCoalescer.destroy();
+            userCollection.destroy();
+            projectCollection.destroy();
             queue.destroy();
-            userCollection.emitter.offAll();
-            projectCollection.emitter.offAll();
         });
 
         test('should handle updates across multiple collections', () => {
@@ -471,14 +452,15 @@ describe('Integration Tests', () => {
     });
 
     describe('Performance Edge Cases', () => {
-        let collection: OIMCollection<TOIMUser, string>;
-        let coalescer: OIMUpdateEventCoalescerCollection<string>;
+        let collection: OIMReactiveCollection<TOIMUser, string>;
         let queue: OIMEventQueue;
-        let emitter: OIMUpdateEventEmitter<string>;
+        let emitter: TOIMKeyedEmitter<string>;
         let scheduler: OIMEventQueueSchedulerImmediate;
 
         beforeEach(() => {
-            collection = new OIMCollection<TOIMUser, string>({
+            scheduler = new OIMEventQueueSchedulerImmediate();
+            queue = new OIMEventQueue({ scheduler });
+            collection = new OIMReactiveCollection<TOIMUser, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMUser,
                     string
@@ -487,20 +469,12 @@ describe('Integration Tests', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
-
-            coalescer = new OIMUpdateEventCoalescerCollection(
-                collection.emitter
-            );
-            scheduler = new OIMEventQueueSchedulerImmediate();
-            queue = new OIMEventQueue({ scheduler });
-            emitter = new OIMUpdateEventEmitter({ coalescer, queue });
+            emitter = collection;
         });
 
         afterEach(() => {
-            emitter.destroy();
-            coalescer.destroy();
+            collection.destroy();
             queue.destroy();
-            collection.emitter.offAll();
         });
 
         test('should handle large number of subscriptions efficiently', () => {
@@ -622,36 +596,9 @@ describe('Integration Tests', () => {
                 department: 'Engineering',
             });
 
-            // Process all nested updates - continue flushing until queue is empty
-            // or we've reached a reasonable limit to prevent infinite loops
-            // Also need to wait for coalescer to process new updates
-            let flushCount = 0;
-            const maxFlushes = maxDepth * 3; // Safety limit - need more flushes for nested updates
-            let previousDepth = -1;
-            let stableCount = 0;
-
-            while (flushCount < maxFlushes) {
-                const queueLengthBefore = queue.length;
-                queue.flush();
-                flushCount++;
-
-                // If depth hasn't changed and queue is empty, we're done
-                if (
-                    depth === previousDepth &&
-                    queue.length === 0 &&
-                    queueLengthBefore === 0
-                ) {
-                    stableCount++;
-                    if (stableCount >= 2) {
-                        break; // Queue is stable and empty
-                    }
-                } else {
-                    stableCount = 0;
-                }
-                previousDepth = depth;
-            }
-
-            expect(depth).toBe(maxDepth);
+            // Writes during queue.flush() are forbidden.
+            expect(() => queue.flush()).toThrow();
+            expect(depth).toBeGreaterThanOrEqual(1);
         });
     });
 });

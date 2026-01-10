@@ -26,34 +26,28 @@ export const useSelectPksByIndexKeysSetBased = <
     if (!keysAreEqual) {
         prevKeysRef.current = keys;
     }
+    const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
     const snapshotValueRef = useRef<TPk[]>();
     const subscribe = useMemo(() => {
-        snapshotValueRef.current = keys
+        snapshotValueRef.current = stableKeys
             .map(key => Array.from(reactiveIndex.getPksByKey(key)))
             .flat();
         return (onStoreChange: () => void) => {
-            const prevKeys = prevKeysRef.current;
-            if (!prevKeys) {
-                return () => {};
-            }
             const updateSnapshot = () => {
-                snapshotValueRef.current = keys
+                snapshotValueRef.current = stableKeys
                     .map(key => Array.from(reactiveIndex.getPksByKey(key)))
                     .flat();
                 onStoreChange();
             };
-            reactiveIndex.updateEventEmitter.subscribeOnKeys(
-                prevKeys,
+            const unsubscribe = reactiveIndex.subscribeOnKeys(
+                stableKeys,
                 updateSnapshot
             );
             return () => {
-                reactiveIndex.updateEventEmitter.unsubscribeFromKeys(
-                    prevKeys,
-                    updateSnapshot
-                );
+                unsubscribe();
             };
         };
-    }, [prevKeysRef.current, reactiveIndex.updateEventEmitter]);
+    }, [reactiveIndex, stableKeys]);
     const getSnapshot = useMemo(() => {
         return () => {
             return snapshotValueRef.current;
@@ -78,16 +72,9 @@ export const useSelectPksByIndexKeySetBased = <
     }, [key, reactiveIndex]);
     const subscribe = useMemo(() => {
         return (onStoreChange: () => void) => {
-            reactiveIndex.updateEventEmitter.subscribeOnKey(key, onStoreChange);
-
-            return () => {
-                reactiveIndex.updateEventEmitter.unsubscribeFromKey(
-                    key,
-                    onStoreChange
-                );
-            };
+            return reactiveIndex.subscribeOnKey(key, onStoreChange);
         };
-    }, [key, reactiveIndex.updateEventEmitter]);
+    }, [key, reactiveIndex]);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return snapshot;
 };
@@ -106,34 +93,28 @@ export const useSelectPksByIndexKeysArrayBased = <
     if (!keysAreEqual) {
         prevKeysRef.current = keys;
     }
+    const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
     const snapshotValueRef = useRef<TPk[]>();
     const subscribe = useMemo(() => {
-        snapshotValueRef.current = keys
+        snapshotValueRef.current = stableKeys
             .map(key => reactiveIndex.getPksByKey(key))
             .flat();
         return (onStoreChange: () => void) => {
-            const prevKeys = prevKeysRef.current;
-            if (!prevKeys) {
-                return () => {};
-            }
             const updateSnapshot = () => {
-                snapshotValueRef.current = keys
+                snapshotValueRef.current = stableKeys
                     .map(key => reactiveIndex.getPksByKey(key))
                     .flat();
                 onStoreChange();
             };
-            reactiveIndex.updateEventEmitter.subscribeOnKeys(
-                prevKeys,
+            const unsubscribe = reactiveIndex.subscribeOnKeys(
+                stableKeys,
                 updateSnapshot
             );
             return () => {
-                reactiveIndex.updateEventEmitter.unsubscribeFromKeys(
-                    prevKeys,
-                    updateSnapshot
-                );
+                unsubscribe();
             };
         };
-    }, [prevKeysRef.current, reactiveIndex.updateEventEmitter]);
+    }, [reactiveIndex, stableKeys]);
     const getSnapshot = useMemo(() => {
         return () => {
             return snapshotValueRef.current;
@@ -168,18 +149,15 @@ export const useSelectPksByIndexKeyArrayBased = <
                 snapshotValueRef.current = reactiveIndex.getPksByKey(prevKey);
                 onStoreChange();
             };
-            reactiveIndex.updateEventEmitter.subscribeOnKey(
+            const unsubscribe = reactiveIndex.subscribeOnKey(
                 prevKey,
                 updateSnapshot
             );
             return () => {
-                reactiveIndex.updateEventEmitter.unsubscribeFromKey(
-                    prevKey,
-                    updateSnapshot
-                );
+                unsubscribe();
             };
         };
-    }, [key, reactiveIndex.updateEventEmitter]);
+    }, [key, reactiveIndex]);
     const getSnapshot = useMemo(() => {
         return () => {
             return snapshotValueRef.current;
@@ -200,18 +178,9 @@ export const useSelectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
     );
     const subscribe = useMemo(() => {
         return (onStoreChange: () => void) => {
-            reactiveCollection.updateEventEmitter.subscribeOnKey(
-                pk,
-                onStoreChange
-            );
-            return () => {
-                reactiveCollection.updateEventEmitter.unsubscribeFromKey(
-                    pk,
-                    onStoreChange
-                );
-            };
+            return reactiveCollection.subscribeOnKey(pk, onStoreChange);
         };
-    }, [pk, reactiveCollection.updateEventEmitter]);
+    }, [pk, reactiveCollection]);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return snapshot;
 };
@@ -227,18 +196,9 @@ export const useSelectValueByObjectKey = <TKey extends string, TValue>(
     );
     const subscribe = useMemo(() => {
         return (onStoreChange: () => void) => {
-            reactiveObject.updateEventEmitter.subscribeOnKey(
-                key,
-                onStoreChange
-            );
-            return () => {
-                reactiveObject.updateEventEmitter.unsubscribeFromKey(
-                    key,
-                    onStoreChange
-                );
-            };
+            return reactiveObject.subscribeOnKey(key, onStoreChange);
         };
-    }, [key, reactiveObject.updateEventEmitter]);
+    }, [key, reactiveObject]);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return snapshot;
 };
@@ -252,32 +212,26 @@ export const useSelectValuesByObjectKeys = <TKey extends string, TValue>(
     if (!keysAreEqual) {
         prevKeysRef.current = keys;
     }
+    const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
     const snapshotRef = useRef<readonly (TValue | undefined)[]>();
     const subscribe = useMemo(() => {
-        snapshotRef.current = keys.map(key => reactiveObject.get(key));
+        snapshotRef.current = stableKeys.map(key => reactiveObject.get(key));
         return (onStoreChange: () => void) => {
-            const prevKeys = prevKeysRef.current;
-            if (!prevKeys) {
-                return () => {};
-            }
             const updateSnapshot = () => {
-                snapshotRef.current = prevKeys.map(key =>
+                snapshotRef.current = stableKeys.map(key =>
                     reactiveObject.get(key)
                 );
                 onStoreChange();
             };
-            reactiveObject.updateEventEmitter.subscribeOnKeys(
-                prevKeys,
+            const unsubscribe = reactiveObject.subscribeOnKeys(
+                stableKeys,
                 updateSnapshot
             );
             return () => {
-                reactiveObject.updateEventEmitter.unsubscribeFromKeys(
-                    prevKeys,
-                    updateSnapshot
-                );
+                unsubscribe();
             };
         };
-    }, [prevKeysRef.current, reactiveObject.updateEventEmitter]);
+    }, [reactiveObject, stableKeys]);
     const getSnapshot = useMemo(() => {
         return () => {
             return snapshotRef.current;
@@ -309,33 +263,28 @@ export const useSelectEntitiesByPks = <
     if (!pksAreEqual) {
         prevPksRef.current = pks;
     }
+    const stablePks = pksAreEqual ? (prevPksRef.current ?? pks) : pks;
     const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
     const subscribe = useMemo(() => {
-        snapshotRef.current = pks.map(pk => reactiveCollection.getOneByPk(pk));
+        snapshotRef.current = stablePks.map(pk =>
+            reactiveCollection.getOneByPk(pk)
+        );
         return (onStoreChange: () => void) => {
-            const prevPks = prevPksRef.current;
-            if (!prevPks) {
-                return () => {};
-            }
             const updateSnapshot = () => {
-                snapshotRef.current = prevPks.map(pk =>
+                snapshotRef.current = stablePks.map(pk =>
                     reactiveCollection.getOneByPk(pk)
                 );
                 onStoreChange();
             };
-            reactiveCollection.updateEventEmitter.subscribeOnKeys(
-                prevPks,
+            const unsubscribe = reactiveCollection.subscribeOnKeys(
+                stablePks,
                 updateSnapshot
             );
-
             return () => {
-                reactiveCollection.updateEventEmitter.unsubscribeFromKeys(
-                    prevPks,
-                    updateSnapshot
-                );
+                unsubscribe();
             };
         };
-    }, [prevPksRef.current, reactiveCollection.updateEventEmitter]);
+    }, [reactiveCollection, stablePks]);
     const getSnapshot = useMemo(() => {
         return () => {
             return snapshotRef.current;

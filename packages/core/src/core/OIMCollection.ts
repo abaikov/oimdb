@@ -15,7 +15,7 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
     public readonly emitter = new OIMEventEmitter<{
         [EOIMCollectionEventType.UPDATE]: TOIMCollectionUpdatePayload<TPk>;
     }>();
-    protected readonly selectPk: TOIMPkSelector<TEntity, TPk>;
+    public readonly selectPk: TOIMPkSelector<TEntity, TPk>;
     protected readonly store: OIMCollectionStore<TEntity, TPk>;
     protected readonly updateEntity: TOIMEntityUpdater<TEntity>;
 

@@ -37,6 +37,7 @@ export class OIMDBReduxReducerFactory {
         collection: OIMReactiveCollection<TEntity, TPk>,
         reducerData: {
             updatedKeys: Set<TPk> | null;
+            forceRecompute?: boolean;
             mapper: TOIMDBReduxCollectionMapper<TEntity, TPk, TState>;
         },
         child?: TOIMDBReduxCollectionReducerChildOptions<TEntity, TPk, TState>
@@ -63,6 +64,9 @@ export class OIMDBReduxReducerFactory {
 
                 if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
                     reducerData.updatedKeys = null;
+                    if (reducerData.forceRecompute !== undefined) {
+                        reducerData.forceRecompute = false;
+                    }
                     return initialState;
                 }
 
@@ -82,10 +86,21 @@ export class OIMDBReduxReducerFactory {
                     return state;
                 }
 
-                // If no updates, return state unchanged
-                if (reducerData.updatedKeys === null) {
-                    return state;
+                // If force recompute was requested (e.g. collection.clear()),
+                // rebuild state from scratch by calling the mapper with undefined current state.
+                if (reducerData.forceRecompute) {
+                    const newState = actualMapper(
+                        collection,
+                        new Set<TPk>(),
+                        undefined
+                    );
+                    reducerData.updatedKeys = null;
+                    reducerData.forceRecompute = false;
+                    return newState;
                 }
+
+                // If no updates, return state unchanged
+                if (reducerData.updatedKeys === null) return state;
 
                 // Create new state using mapper
                 const updatedKeys = reducerData.updatedKeys;
@@ -97,6 +112,9 @@ export class OIMDBReduxReducerFactory {
 
                 // Clear updated keys
                 reducerData.updatedKeys = null;
+                if (reducerData.forceRecompute !== undefined) {
+                    reducerData.forceRecompute = false;
+                }
 
                 // Update linked indexes if child reducer is provided
                 if (
@@ -259,7 +277,41 @@ export class OIMDBReduxReducerFactory {
                                 }
                             }
                             if (entitiesToUpsert.length > 0) {
-                                collection.upsertMany(entitiesToUpsert);
+                                // Prefer a single batched upsertMany(...) when entities already carry a PK
+                                // (so collection.selectPk(...) works). Otherwise, fall back to upsertOneByPk(...)
+                                // using the record PK.
+                                let canUseUpsertMany = true;
+                                for (let i = 0; i < entitiesToUpsert.length; i++) {
+                                    try {
+                                        const pk = collection.selectPk(
+                                            entitiesToUpsert[i] as unknown as TEntity
+                                        );
+                                        if (pk === undefined || pk === null) {
+                                            canUseUpsertMany = false;
+                                            break;
+                                        }
+                                    } catch {
+                                        canUseUpsertMany = false;
+                                        break;
+                                    }
+                                }
+
+                                if (canUseUpsertMany) {
+                                    collection.upsertMany(entitiesToUpsert);
+                                } else {
+                                    // Default Redux entity maps often store PKs as record keys, and entities may omit `id`.
+                                    // Use upsertOneByPk(pk, ...) where `pk` comes from the record key.
+                                    for (let i = 0; i < addedLength; i++) {
+                                        const pk = addedArray[i];
+                                        const entity = defaultState.entities[pk];
+                                        if (entity) collection.upsertOneByPk(pk, entity);
+                                    }
+                                    for (let i = 0; i < updatedLength; i++) {
+                                        const pk = updatedArray[i];
+                                        const entity = defaultState.entities[pk];
+                                        if (entity) collection.upsertOneByPk(pk, entity);
+                                    }
+                                }
                             }
 
                             // Remove deleted entities
@@ -360,6 +412,7 @@ export class OIMDBReduxReducerFactory {
               >,
         reducerData: {
             updatedKeys: Set<TIndexKey> | null;
+            forceRecompute?: boolean;
             mapper: TOIMDBReduxIndexMapper<TIndexKey, TPk, TState>;
         },
         child?: TOIMDBReduxIndexReducerChildOptions<TIndexKey, TPk, TState>
@@ -388,6 +441,17 @@ export class OIMDBReduxReducerFactory {
                     return state;
                 }
 
+                if (reducerData.forceRecompute) {
+                    const newState = actualMapper(
+                        index,
+                        new Set<TIndexKey>(),
+                        undefined
+                    );
+                    reducerData.updatedKeys = null;
+                    reducerData.forceRecompute = false;
+                    return newState;
+                }
+
                 // If no updates, return state unchanged
                 if (reducerData.updatedKeys === null) {
                     return state;
@@ -403,6 +467,9 @@ export class OIMDBReduxReducerFactory {
 
                 // Clear updated keys
                 reducerData.updatedKeys = null;
+                if (reducerData.forceRecompute !== undefined) {
+                    reducerData.forceRecompute = false;
+                }
 
                 return newState;
             }

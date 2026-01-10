@@ -42,9 +42,8 @@ npx tsx packages/core/bench/effect-computed.bench.ts
 
 - **Small updated-key batches** represent typical UI/reactivity usage (only a few keys change per tick).
 - **Huge updated-key batches** are batch/import workloads; prefer `timeout` scheduling or chunking writes.
-- **Computed/effects often involve two drains**:
-  - computed recompute happens in **PRE** (during flush #1)
-  - subscribers attached via `updateEventEmitter` may run in the **next** flush due to queue snapshot semantics
+- **Computed/effects are scheduled through `OIMComputativeRuntime` and run within the same draining `queue.flush()`**.
+  - Derived recompute and subscriber delivery happen during the same flush, as the queue drains until no pending work remains.
 
 ### Collection Operations
 
@@ -316,7 +315,6 @@ tempIndex.destroy();
 
 // If you created these instances yourself, clean them up explicitly:
 users.updateEventEmitter.destroy();
-users.coalescer.destroy();
 users.emitter.offAll();
 queue.destroy();
 ```

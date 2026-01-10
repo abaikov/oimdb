@@ -5,8 +5,11 @@ import {
     OIMIndexSetBased,
     OIMIndexArrayBased,
     OIMEventQueue,
-    EOIMUpdateEventCoalescerEventType,
     EOIMEventQueueEventType,
+    EOIMCollectionEventType,
+    EOIMIndexEventType,
+    TOIMCollectionUpdatePayload,
+    TOIMIndexUpdatePayload,
     TOIMPk,
 } from '@oimdb/core';
 import { Store, Reducer, Action, Middleware } from 'redux';
@@ -39,7 +42,10 @@ export class OIMDBReduxAdapter {
     private readonly queue: OIMEventQueue;
     private readonly options: TOIMDBReduxAdapterOptions;
     private queueFlushHandler?: () => void;
+    private queueBeforeFlushHandler?: () => void;
     private isFlushingSilently = false;
+    private readonly instrumentedCollections = new WeakSet<object>();
+    private readonly instrumentedIndexes = new WeakSet<object>();
 
     // Track reducers and their updated keys
     // Using object and TOIMPk as base types to allow storing different concrete types
@@ -47,6 +53,9 @@ export class OIMDBReduxAdapter {
         OIMReactiveCollection<object, TOIMPk>,
         {
             updatedKeys: Set<TOIMPk> | null;
+            forceRecompute: boolean;
+            pendingKeys: Set<TOIMPk>;
+            pendingForceRecompute: boolean;
             mapper?: TOIMDBReduxCollectionMapper<object, TOIMPk, unknown>;
         }
     >();
@@ -64,6 +73,9 @@ export class OIMDBReduxAdapter {
           >,
         {
             updatedKeys: Set<TOIMPk> | null;
+            pendingKeys: Set<TOIMPk>;
+            forceRecompute: boolean;
+            pendingForceRecompute: boolean;
             mapper?: TOIMDBReduxIndexMapper<TOIMPk, TOIMPk, unknown>;
         }
     >();
@@ -75,8 +87,54 @@ export class OIMDBReduxAdapter {
         this.options = options ?? {};
         this.reducerFactory = new OIMDBReduxReducerFactory();
 
+        this.queueBeforeFlushHandler = () => {
+            // If we're flushing silently, drop any accumulated pending updates so they don't
+            // leak into the next visible flush (Redux has already handled state changes).
+            if (this.isFlushingSilently) {
+                this.collectionReducers.forEach(data => {
+                    data.pendingKeys.clear();
+                    data.pendingForceRecompute = false;
+                    data.updatedKeys = null;
+                    data.forceRecompute = false;
+                });
+                this.indexReducers.forEach(data => {
+                    data.pendingKeys.clear();
+                    data.updatedKeys = null;
+                });
+                return;
+            }
+
+            // Snapshot pending keys at the flush boundary.
+            this.collectionReducers.forEach(data => {
+                if (data.pendingForceRecompute) {
+                    data.updatedKeys = new Set();
+                    data.forceRecompute = true;
+                    data.pendingForceRecompute = false;
+                    data.pendingKeys.clear();
+                    return;
+                }
+                if (data.pendingKeys.size === 0) return;
+                data.updatedKeys = new Set(data.pendingKeys);
+                data.pendingKeys.clear();
+                data.forceRecompute = false;
+            });
+
+            this.indexReducers.forEach(data => {
+                if (data.pendingForceRecompute) {
+                    data.updatedKeys = new Set();
+                    data.forceRecompute = true;
+                    data.pendingForceRecompute = false;
+                    data.pendingKeys.clear();
+                    return;
+                }
+                if (data.pendingKeys.size === 0) return;
+                data.updatedKeys = new Set(data.pendingKeys);
+                data.pendingKeys.clear();
+                data.forceRecompute = false;
+            });
+        };
+
         // Subscribe to queue flush to dispatch action
-        // Use AFTER_FLUSH so that coalescers have already collected updatedKeys
         this.queueFlushHandler = () => {
             // Don't dispatch if we're in silent flush mode
             if (this.isFlushingSilently) {
@@ -88,6 +146,10 @@ export class OIMDBReduxAdapter {
                 });
             }
         };
+        this.queue.emitter.on(
+            EOIMEventQueueEventType.BEFORE_FLUSH,
+            this.queueBeforeFlushHandler
+        );
         this.queue.emitter.on(
             EOIMEventQueueEventType.AFTER_FLUSH,
             this.queueFlushHandler
@@ -199,27 +261,23 @@ export class OIMDBReduxAdapter {
         // Track updated keys
         const reducerData = {
             updatedKeys: null as Set<TPk> | null,
+            forceRecompute: false,
+            pendingKeys: new Set<TPk>(),
+            pendingForceRecompute: false,
             mapper: actualMapper,
         };
         this.collectionReducers.set(
             collection as unknown as OIMReactiveCollection<object, TOIMPk>,
             reducerData as {
                 updatedKeys: Set<TOIMPk> | null;
+                forceRecompute: boolean;
+                pendingKeys: Set<TOIMPk>;
+                pendingForceRecompute: boolean;
                 mapper?: TOIMDBReduxCollectionMapper<object, TOIMPk, unknown>;
             }
         );
 
-        // Subscribe to BEFORE_FLUSH from coalescer
-        const beforeFlushHandler = () => {
-            // Snapshot keys at flush time (do not keep reference to a Set that can be mutated later)
-            reducerData.updatedKeys = new Set(
-                collection.coalescer.getUpdatedKeys()
-            );
-        };
-        collection.coalescer.emitter.on(
-            EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH,
-            beforeFlushHandler
-        );
+        this.instrumentCollection(collection);
 
         // Create reducer using factory
         return this.reducerFactory.createCollectionReducer(
@@ -266,6 +324,9 @@ export class OIMDBReduxAdapter {
         // Track updated keys
         const reducerData = {
             updatedKeys: null as Set<TIndexKey> | null,
+            pendingKeys: new Set<TIndexKey>(),
+            forceRecompute: false,
+            pendingForceRecompute: false,
             mapper: actualMapper,
         };
         this.indexReducers.set(
@@ -282,19 +343,14 @@ export class OIMDBReduxAdapter {
                   >,
             reducerData as {
                 updatedKeys: Set<TOIMPk> | null;
+                pendingKeys: Set<TOIMPk>;
+                forceRecompute: boolean;
+                pendingForceRecompute: boolean;
                 mapper?: TOIMDBReduxIndexMapper<TOIMPk, TOIMPk, unknown>;
             }
         );
 
-        // Subscribe to BEFORE_FLUSH from coalescer
-        const beforeFlushHandler = () => {
-            // Snapshot keys at flush time (do not keep reference to a Set that can be mutated later)
-            reducerData.updatedKeys = new Set(index.coalescer.getUpdatedKeys());
-        };
-        index.coalescer.emitter.on(
-            EOIMUpdateEventCoalescerEventType.BEFORE_FLUSH,
-            beforeFlushHandler
-        );
+        this.instrumentIndex(index);
 
         // Create reducer using factory
         return this.reducerFactory.createIndexReducer(
@@ -302,5 +358,194 @@ export class OIMDBReduxAdapter {
             reducerData,
             child
         );
+    }
+
+    private instrumentCollection<TEntity extends object, TPk extends TOIMPk>(
+        collection: OIMReactiveCollection<TEntity, TPk>
+    ): void {
+        if (this.instrumentedCollections.has(collection as object)) return;
+        this.instrumentedCollections.add(collection as object);
+
+        const colAny = collection as unknown as Record<string, unknown>;
+        const getData = () =>
+            this.collectionReducers.get(
+                collection as unknown as OIMReactiveCollection<object, TOIMPk>
+            );
+
+        const wrapPks = (pks: readonly TPk[]) => {
+            const data = getData();
+            if (!data) return;
+            if (data.pendingForceRecompute) return;
+            for (let i = 0; i < pks.length; i++) data.pendingKeys.add(pks[i]);
+        };
+
+        const markClear = () => {
+            const data = getData();
+            if (!data) return;
+            data.pendingForceRecompute = true;
+            data.pendingKeys.clear();
+        };
+
+        const wrapMethod = (
+            name: string,
+            after: (...args: unknown[]) => void
+        ) => {
+            const original = colAny[name];
+            if (typeof original !== 'function') return;
+            colAny[name] = (...args: unknown[]) => {
+                // Preserve method receiver (`this`) for class methods.
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                const res = (original as (...a: unknown[]) => unknown).apply(
+                    collection as unknown as object,
+                    args
+                );
+                after(...args);
+                return res;
+            };
+        };
+
+        wrapMethod('upsertOneByPk', (pk: unknown) => {
+            if (pk !== undefined) wrapPks([pk as TPk]);
+        });
+        wrapMethod('upsertOne', (entity: unknown) => {
+            try {
+                const selectPk = (
+                    collection as unknown as {
+                        selectPk: (value: unknown) => TPk;
+                    }
+                ).selectPk;
+                const pk = selectPk(entity);
+                if (pk !== undefined) wrapPks([pk]);
+            } catch {
+                // ignore - original call may throw and tests will catch it
+            }
+        });
+        wrapMethod('upsertMany', (entities: unknown) => {
+            if (!Array.isArray(entities)) return;
+            const pks: TPk[] = [];
+            for (let i = 0; i < entities.length; i++) {
+                try {
+                    const selectPk = (
+                        collection as unknown as {
+                            selectPk: (value: unknown) => TPk;
+                        }
+                    ).selectPk;
+                    const pk = selectPk(entities[i]);
+                    if (pk !== undefined) pks.push(pk);
+                } catch {
+                    // ignore
+                }
+            }
+            if (pks.length > 0) wrapPks(pks);
+        });
+        wrapMethod('removeOneByPk', (pk: unknown) => {
+            if (pk !== undefined) wrapPks([pk as TPk]);
+        });
+        wrapMethod('removeOne', (entity: unknown) => {
+            try {
+                const selectPk = (
+                    collection as unknown as {
+                        selectPk: (value: unknown) => TPk;
+                    }
+                ).selectPk;
+                const pk = selectPk(entity);
+                if (pk !== undefined) wrapPks([pk]);
+            } catch {
+                // ignore
+            }
+        });
+        wrapMethod('removeMany', (entities: unknown) => {
+            if (!Array.isArray(entities)) return;
+            const pks: TPk[] = [];
+            for (let i = 0; i < entities.length; i++) {
+                try {
+                    const selectPk = (
+                        collection as unknown as {
+                            selectPk: (value: unknown) => TPk;
+                        }
+                    ).selectPk;
+                    const pk = selectPk(entities[i]);
+                    if (pk !== undefined) pks.push(pk);
+                } catch {
+                    // ignore
+                }
+            }
+            if (pks.length > 0) wrapPks(pks);
+        });
+        wrapMethod('removeManyByPks', (pks: unknown) => {
+            if (!Array.isArray(pks)) return;
+            wrapPks(pks as TPk[]);
+        });
+        wrapMethod('clear', () => {
+            markClear();
+        });
+    }
+
+    private instrumentIndex<TKey extends TOIMPk, TPk extends TOIMPk>(
+        index:
+            | OIMReactiveIndexSetBased<TKey, TPk, OIMIndexSetBased<TKey, TPk>>
+            | OIMReactiveIndexArrayBased<TKey, TPk, OIMIndexArrayBased<TKey, TPk>>
+    ): void {
+        if (this.instrumentedIndexes.has(index as object)) return;
+        this.instrumentedIndexes.add(index as object);
+
+        const idxAny = index as unknown as Record<string, unknown>;
+        const getData = () =>
+            this.indexReducers.get(
+                index as unknown as
+                    | OIMReactiveIndexSetBased<
+                          TOIMPk,
+                          TOIMPk,
+                          OIMIndexSetBased<TOIMPk, TOIMPk>
+                      >
+                    | OIMReactiveIndexArrayBased<
+                          TOIMPk,
+                          TOIMPk,
+                          OIMIndexArrayBased<TOIMPk, TOIMPk>
+                      >
+            );
+
+        const markKeys = (keys: readonly TKey[]) => {
+            const data = getData();
+            if (!data) return;
+            if (data.pendingForceRecompute) return;
+            for (let i = 0; i < keys.length; i++) data.pendingKeys.add(keys[i]);
+        };
+
+        const markClearAll = () => {
+            const data = getData();
+            if (!data) return;
+            data.pendingForceRecompute = true;
+            data.pendingKeys.clear();
+        };
+
+        const wrapMethod = (
+            name: string,
+            after: (...args: unknown[]) => void
+        ) => {
+            const original = idxAny[name];
+            if (typeof original !== 'function') return;
+            idxAny[name] = (...args: unknown[]) => {
+                // Preserve method receiver (`this`) for class methods.
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+                const res = (original as (...a: unknown[]) => unknown).apply(
+                    index as unknown as object,
+                    args
+                );
+                after(...args);
+                return res;
+            };
+        };
+
+        wrapMethod('setPks', (key: unknown) => markKeys([key as TKey]));
+        wrapMethod('addPks', (key: unknown) => markKeys([key as TKey]));
+        wrapMethod('removePks', (key: unknown) => markKeys([key as TKey]));
+        wrapMethod('clear', (key: unknown) => {
+            if (key === undefined) {
+                markClearAll();
+            } else {
+                markKeys([key as TKey]);
+            }
+        });
     }
 }

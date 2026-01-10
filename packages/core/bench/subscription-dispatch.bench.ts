@@ -1,6 +1,5 @@
 import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
-import { OIMUpdateEventCoalescer } from '../src/core/OIMUpdateEventCoalescer';
 import { TOIMPk } from '../src/type/TOIMPk';
 
 interface TOIMSubscriptionDispatchBenchResult {
@@ -28,25 +27,9 @@ interface TOIMSubscriptionDispatchScenario {
     hotKey?: string;
 }
 
-class OIMSubscriptionDispatchBenchCoalescer<
-    TKey extends TOIMPk,
-> extends OIMUpdateEventCoalescer<TKey> {
-    public addKeys(keys: readonly TKey[]): void {
-        this.addUpdatedKeys(keys);
-    }
-    public destroy(): void {
-        // noop (no external subscriptions)
-    }
-}
-
 class OIMSubscriptionDispatchBenchmark {
     private readonly queue = new OIMEventQueue();
-    private readonly coalescer =
-        new OIMSubscriptionDispatchBenchCoalescer<string>();
-    private readonly emitter = new OIMUpdateEventEmitter<string>({
-        coalescer: this.coalescer,
-        queue: this.queue,
-    });
+    private readonly emitter = new OIMUpdateEventEmitter<string>(this.queue);
 
     private readonly keys: string[] = [];
     private readonly handlers: Array<() => void> = [];
@@ -169,14 +152,14 @@ class OIMSubscriptionDispatchBenchmark {
 
         // Warmup (JIT)
         for (let i = 0; i < 10; i++) {
-            this.coalescer.addKeys(updatedKeys);
+            this.emitter.markUpdatedKeys(updatedKeys);
             this.queue.flush();
         }
 
         const totalOps = scenario.batches;
         const time = this.measureTime(() => {
             for (let i = 0; i < scenario.batches; i++) {
-                this.coalescer.addKeys(updatedKeys);
+                this.emitter.markUpdatedKeys(updatedKeys);
                 this.queue.flush();
             }
         });
@@ -191,7 +174,6 @@ class OIMSubscriptionDispatchBenchmark {
 
     public cleanup(): void {
         this.emitter.destroy();
-        this.coalescer.destroy();
         this.queue.destroy();
     }
 }

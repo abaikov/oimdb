@@ -43,8 +43,8 @@ npx tsx bench/effect-computed.bench.ts
   - different handlers-per-key cardinality
 
 ### `effect-computed.bench.ts` - Effects & Computed Performance
-- **Computed PRE recompute**: invalidation → recompute cost per flush
-- **Computed subscriber delivery**: recompute + delivery (2 flushes/update)
+- **Computed recompute**: invalidation → recompute cost per flush
+- **Computed subscriber delivery**: recompute + delivery within the same draining flush
 - **Scaling**: chain and diamond graphs (computed-to-computed dependencies)
 
 ### `index.ts` - Benchmark Coordinator

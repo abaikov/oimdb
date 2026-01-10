@@ -17,15 +17,7 @@ describe('OIMReactiveIndexManualAsync', () => {
         });
 
         afterEach(async () => {
-            await index.destroy();
-        });
-
-        test('should have updateEventEmitter', () => {
-            expect(index.updateEventEmitter).toBeDefined();
-        });
-
-        test('should have coalescer', () => {
-            expect(index.coalescer).toBeDefined();
+            index.destroy();
         });
 
         test('should have index', () => {
@@ -72,7 +64,7 @@ describe('OIMReactiveIndexManualAsync', () => {
         test('should subscribe to key-specific updates', async () => {
             const callback = jest.fn();
 
-            index.updateEventEmitter.subscribeOnKey('category:electronics', callback);
+            index.subscribeOnKey('category:electronics', callback);
 
             await index.setPks('category:electronics', [1, 2, 3]);
 

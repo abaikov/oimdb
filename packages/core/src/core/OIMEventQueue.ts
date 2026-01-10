@@ -11,11 +11,10 @@ export class OIMEventQueue {
     public readonly emitter = new OIMEventEmitter<
         Record<EOIMEventQueueEventType, void>
     >();
-    protected queue: (() => void)[] = [];
+    protected tasks = new Set<() => void>();
     protected readonly scheduler?: OIMEventQueueScheduler;
     protected flushBound?: () => void;
     protected isFlushing = false;
-    protected pendingSchedule = false;
 
     constructor(options: TOIMEventQueueOptions = {}) {
         this.scheduler = options.scheduler;
@@ -31,81 +30,89 @@ export class OIMEventQueue {
     }
 
     /**
-     * Add a function to the queue. If scheduler is configured and autoSchedule is enabled,
-     * automatically schedules a flush operation.
+     * Enqueue a one-shot task to be executed on the next flush.
+     * Returns a dequeue function that can be called to cancel the task before it runs.
      */
-    public enqueue(fn: () => void): void {
-        this.queue.push(fn);
+    public enqueue(fn: () => void): () => void {
+        let isActive = true;
+        const task = () => {
+            if (!isActive) return;
+            fn();
+        };
+        this.tasks.add(task);
+        this.ensureScheduled();
 
-        if (!this.scheduler) return;
+        return () => {
+            if (!isActive) return;
+            isActive = false;
+            this.tasks.delete(task);
+        };
+    }
 
-        // If we enqueue during a flush, we must NOT flush re-entrantly,
-        // but we still want an auto-flush afterwards.
-        if (this.isFlushing) {
-            this.pendingSchedule = true;
-            return;
-        }
-
-        if (this.queue.length === 1) {
-            // Only schedule when queue transitions from empty to non-empty
-            this.scheduler.schedule();
-        }
+    public get isInFlush(): boolean {
+        return this.isFlushing;
     }
 
     /**
-     * Execute all queued functions and clear the queue.
-     * This method is safe to call multiple times and handles reentrancy.
+     * Dequeue (cancel) a previously enqueued task by its dequeue function.
+     */
+    public dequeue(dequeueFn: () => void): void {
+        dequeueFn();
+    }
+
+    /**
+     * Execute all pending tasks.
+     *
+     * This flush drains until the queue is empty. If tasks enqueue more tasks, they will be
+     * executed within the same flush.
      */
     public flush(): void {
-        if (this.queue.length === 0) return;
-
         // If a flush was scheduled, manual flush supersedes it.
         this.scheduler?.cancel();
 
         this.isFlushing = true;
         this.emitter.emit(EOIMEventQueueEventType.BEFORE_FLUSH, undefined);
 
-        // Take snapshot of current queue and clear it immediately to handle reentrancy
-        const currentQueue = this.queue.slice();
-        this.queue.length = 0;
+        const snapshot = Array.from(this.tasks);
+        this.tasks.clear();
 
-        for (let i = 0; i < currentQueue.length; i++) {
-            currentQueue[i]();
+        for (let i = 0; i < snapshot.length; i++) {
+            snapshot[i]();
         }
 
-        this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);
         this.isFlushing = false;
-
-        // If something was enqueued during this flush and scheduler exists,
-        // schedule exactly one follow-up flush (async) to process it.
-        if (this.scheduler && this.pendingSchedule && this.queue.length > 0) {
-            this.pendingSchedule = false;
-            this.scheduler.schedule();
-        } else {
-            this.pendingSchedule = false;
-        }
+        this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);
     }
 
     /**
      * Get the current number of queued functions.
      */
     public get length(): number {
-        return this.queue.length;
+        return this.tasks.size;
     }
 
     /**
      * Check if the queue is empty.
      */
     public get isEmpty(): boolean {
-        return this.queue.length === 0;
+        return this.tasks.size === 0;
     }
 
     /**
      * Clear the queue without executing functions and cancel any scheduled flush.
      */
     public clear(): void {
-        this.queue.length = 0;
+        this.tasks.clear();
         this.scheduler?.cancel();
+    }
+
+    protected ensureScheduled(): void {
+        if (!this.scheduler) return;
+        if (this.isFlushing) return;
+        if (this.tasks.size === 1) {
+            // Only schedule when transitioning from empty to non-empty.
+            this.scheduler.schedule();
+        }
     }
 
     /**

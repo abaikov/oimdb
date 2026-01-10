@@ -17,7 +17,7 @@ npm install @oimdb/core
 - Reactive collections/objects/indexes with key-scoped subscriptions
 - Intelligent event coalescing and reentrancy-safe delivery for optimal performance  
 - Configurable schedulers (microtask, timeout, animationFrame, immediate)
-- Effects & Computed with a two-phase model (PRE vs HANDLERS) for predictable derived state
+- Effects & Computed scheduled via `OIMComputativeRuntime` (single draining `queue.flush()` boundary)
 - Type-safe operations with full TypeScript support
 - O(1) lookups and efficient indexing
 
@@ -77,7 +77,7 @@ const queue = new OIMEventQueue({
 });
 
 const users = new OIMReactiveCollection<User, string>(queue, {
-  collectionOpts: { selectPk: (user) => user.id }
+  selectPk: (user) => user.id
 });
 
 // Subscribe to changes

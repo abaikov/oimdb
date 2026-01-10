@@ -30,14 +30,9 @@ export * from './core/OIMIndexManualSetBased';
 export * from './core/OIMIndexManualArrayBased';
 export * from './core/OIMMap2Keys';
 export * from './core/OIMPkSelectorFactory';
-export * from './core/OIMUpdateEventCoalescer';
-export * from './core/OIMUpdateEventCoalescerCollection';
-export * from './core/OIMUpdateEventCoalescerIndex';
-export * from './core/OIMUpdateEventCoalescerObject';
-export * from './core/OIMUpdateEventEmitter';
+// NOTE: update emitters are internal implementation details of reactive nodes.
 
 // Wrappers (DX utilities built on top of core primitives)
-export * from './modules/wrapper/OIMUpdateEventCoalescerManual';
 export * from './modules/wrapper/collection/OIMCollectionChangedFieldsWrapper';
 export * from './modules/wrapper/index/OIMIndexManualOrderedArrayBased';
 export * from './modules/wrapper/index/OIMOrderedListIndexCommandStreamWrapper';
@@ -54,8 +49,6 @@ export * from './enum/EOIMEventQueueSchedulerEventType';
 export * from './enum/EOIMIndexEventType';
 export * from './enum/EOIMEventQueueEventType';
 export * from './enum/EOIMObjectEventType';
-
-export * from './enum/EOIMUpdateEventCoalescerEventType';
 export * from './type/IOIMEventQueueSchedulerEvents';
 export * from './type/TOIMCollectionOptions';
 export * from './type/TOIMCollectionUpdatePayload';
@@ -73,10 +66,11 @@ export * from './type/TOIMPkSelector';
 export * from './type/TOIMObjectOptions';
 export * from './type/TOIMSchedulerOptions';
 export * from './type/TOIMSchedulerType';
-export * from './type/TOIMUpdateEventEmitterOptions';
 export * from './type/TOIMUpdatePayload';
 
 export * from './const/OIMDBSettings';
 
 export * from './modules/computed';
 export * from './modules/effect';
+export * from './modules/selector';
+export * from './modules/computative';

@@ -60,3 +60,4 @@ export class OIMObjectStoreMapDriven<
         this.properties.clear();
     }
 }
+

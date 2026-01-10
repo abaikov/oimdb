@@ -36,13 +36,13 @@
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs",
+    "build": "tsup --config tsup.config.ts",
     "build:core": "cd packages/core && npm run build",
     "build:react": "cd packages/react && npm run build",
     "build:async": "cd packages/async && npm run build",
     "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
     "build:redux-adapter": "cd packages/redux-adapter && npm run build",
-    "bench": "tsx scripts/run-bench.ts",
+    "bench": "tsx packages/core/scripts/run-bench.ts",
     "prepublishOnly": "npm test && npm run build",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -62,7 +62,7 @@
     "dist"
   ],
   "dependencies": {
-    "@oimdb/core": "^1.0.0"
+    "@oimdb/core": "^1.4.0"
   },
   "author": "Andrei Baikov",
   "license": "MIT",

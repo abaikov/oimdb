@@ -1,12 +1,10 @@
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
-import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoalescerCollection';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
-import { EOIMUpdateEventCoalescerEventType } from '../src/enum/EOIMUpdateEventCoalescerEventType';
+import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
 
 interface TOIMTestEntity {
     id: string;
@@ -15,116 +13,6 @@ interface TOIMTestEntity {
 }
 
 describe('Event System', () => {
-    describe('OIMCollectionUpdateEventCoalescer', () => {
-        let collection: OIMCollection<TOIMTestEntity, string>;
-        let coalescer: OIMUpdateEventCoalescerCollection<string>;
-
-        beforeEach(() => {
-            collection = new OIMCollection<TOIMTestEntity, string>({
-                selectPk: new OIMPkSelectorFactory<
-                    TOIMTestEntity,
-                    string
-                >().createIdSelector(),
-                store: new OIMCollectionStoreMapDriven<
-                    TOIMTestEntity,
-                    string
-                >(),
-                updateEntity:
-                    new OIMEntityUpdaterFactory<TOIMTestEntity>().createMergeEntityUpdater(),
-            });
-
-            coalescer = new OIMUpdateEventCoalescerCollection(
-                collection.emitter
-            );
-        });
-
-        afterEach(() => {
-            coalescer.destroy();
-            collection.emitter.offAll();
-        });
-
-        test('should track updated PKs when collection is updated', () => {
-            const entity1: TOIMTestEntity = {
-                id: 'test1',
-                name: 'Test 1',
-                value: 10,
-            };
-            const entity2: TOIMTestEntity = {
-                id: 'test2',
-                name: 'Test 2',
-                value: 20,
-            };
-
-            collection.upsertOne(entity1);
-            collection.upsertOne(entity2);
-
-            const updatedPks = coalescer.getUpdatedKeys();
-            expect(updatedPks.has('test1')).toBe(true);
-            expect(updatedPks.has('test2')).toBe(true);
-            expect(updatedPks.size).toBe(2);
-        });
-
-        test('should emit HAS_CHANGES event only once for multiple updates', () => {
-            const changesSpy = jest.fn();
-            coalescer.emitter.on(
-                EOIMUpdateEventCoalescerEventType.HAS_CHANGES,
-                changesSpy
-            );
-
-            const entity1: TOIMTestEntity = {
-                id: 'test1',
-                name: 'Test 1',
-                value: 10,
-            };
-            const entity2: TOIMTestEntity = {
-                id: 'test2',
-                name: 'Test 2',
-                value: 20,
-            };
-
-            collection.upsertOne(entity1);
-            collection.upsertOne(entity2);
-
-            // Should emit only once even for multiple updates
-            expect(changesSpy).toHaveBeenCalledTimes(1);
-        });
-
-        test('should clear updated PKs', () => {
-            const entity: TOIMTestEntity = {
-                id: 'test1',
-                name: 'Test 1',
-                value: 10,
-            };
-            collection.upsertOne(entity);
-
-            expect(coalescer.getUpdatedKeys().size).toBe(1);
-
-            coalescer.clearUpdatedKeys();
-
-            expect(coalescer.getUpdatedKeys().size).toBe(0);
-        });
-
-        test('should handle multiple updates to same entity', () => {
-            const entity1: TOIMTestEntity = {
-                id: 'test1',
-                name: 'Test 1',
-                value: 10,
-            };
-            const entity2: TOIMTestEntity = {
-                id: 'test1',
-                name: 'Test 1 Updated',
-                value: 20,
-            };
-
-            collection.upsertOne(entity1);
-            collection.upsertOne(entity2);
-
-            const updatedPks = coalescer.getUpdatedKeys();
-            expect(updatedPks.has('test1')).toBe(true);
-            expect(updatedPks.size).toBe(1); // Same PK, so only one entry
-        });
-    });
-
     describe('OIMEventQueue', () => {
         let queue: OIMEventQueue;
         let scheduler: OIMEventQueueSchedulerImmediate;
@@ -191,11 +79,13 @@ describe('Event System', () => {
 
             queue.flush();
 
-            expect(results).toEqual([1, 2]); // Reentrant function not executed in same flush
-            expect(queue.length).toBe(1); // Reentrant function still in queue
+            // Single-pass flush: re-entrant enqueue is executed on the next flush.
+            expect(results).toEqual([1, 2]);
+            expect(queue.length).toBe(1);
 
             queue.flush();
-            expect(results).toEqual([1, 2, 3]); // Now reentrant function is executed
+            expect(results).toEqual([1, 2, 3]);
+            expect(queue.length).toBe(0);
         });
 
         test('should clear queue without executing', () => {
@@ -225,13 +115,13 @@ describe('Event System', () => {
     });
 
     describe('OIMCollectionUpdateEventEmitter', () => {
-        let collection: OIMCollection<TOIMTestEntity, string>;
-        let coalescer: OIMUpdateEventCoalescerCollection<string>;
+        let collection: OIMReactiveCollection<TOIMTestEntity, string>;
         let queue: OIMEventQueue;
-        let emitter: OIMUpdateEventEmitter<string>;
+        let emitter: OIMReactiveCollection<TOIMTestEntity, string>;
 
         beforeEach(() => {
-            collection = new OIMCollection<TOIMTestEntity, string>({
+            queue = new OIMEventQueue();
+            collection = new OIMReactiveCollection<TOIMTestEntity, string>(queue, {
                 selectPk: new OIMPkSelectorFactory<
                     TOIMTestEntity,
                     string
@@ -243,22 +133,12 @@ describe('Event System', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMTestEntity>().createMergeEntityUpdater(),
             });
-
-            coalescer = new OIMUpdateEventCoalescerCollection(
-                collection.emitter
-            );
-            queue = new OIMEventQueue();
-            emitter = new OIMUpdateEventEmitter({
-                coalescer,
-                queue,
-            });
+            emitter = collection;
         });
 
         afterEach(() => {
-            emitter.destroy();
-            coalescer.destroy();
+            collection.destroy();
             queue.destroy();
-            collection.emitter.offAll();
         });
 
         test('should subscribe to PK updates and receive notifications', () => {
@@ -323,8 +203,8 @@ describe('Event System', () => {
         test('should unsubscribe properly', () => {
             const handler = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler);
-            emitter.unsubscribeFromKey('test1', handler);
+            const unsub = emitter.subscribeOnKey('test1', handler);
+            unsub();
 
             const entity: TOIMTestEntity = {
                 id: 'test1',
@@ -403,11 +283,11 @@ describe('Event System', () => {
             expect(emitter.hasSubscriptions()).toBe(false);
 
             const handler = jest.fn();
-            emitter.subscribeOnKey('test1', handler);
+            const unsub = emitter.subscribeOnKey('test1', handler);
 
             expect(emitter.hasSubscriptions()).toBe(true);
 
-            emitter.unsubscribeFromKey('test1', handler);
+            unsub();
 
             expect(emitter.hasSubscriptions()).toBe(false);
         });
@@ -581,7 +461,7 @@ describe('Event System', () => {
         test('should be safe to destroy emitter during dispatch (no throw, stops delivery)', () => {
             const handlerB = jest.fn();
             const handlerA = jest.fn(() => {
-                emitter.destroy();
+                emitter.destroySubscriptions();
             });
 
             // Subscribe A first so it runs before B (and destroys the emitter)
@@ -594,7 +474,7 @@ describe('Event System', () => {
             expect(handlerA).toHaveBeenCalledTimes(1);
             expect(handlerB).not.toHaveBeenCalled();
 
-            // Further updates should not deliver anything (emitter is destroyed)
+            // Further updates should not deliver anything (subscriptions are destroyed)
             collection.upsertOne({ id: 'test1', name: 'Test 1', value: 2 });
             queue.flush();
             expect(handlerA).toHaveBeenCalledTimes(1);
@@ -606,11 +486,14 @@ describe('Event System', () => {
             const handler = jest.fn(() => {
                 if (didTrigger) return;
                 didTrigger = true;
-                collection.upsertOne({
-                    id: 'test1',
-                    name: 'Test 1 updated inside handler',
-                    value: 2,
-                });
+                // Writes during queue.flush() are forbidden; this should throw.
+                expect(() =>
+                    collection.upsertOne({
+                        id: 'test1',
+                        name: 'Test 1 updated inside handler',
+                        value: 2,
+                    })
+                ).toThrow();
             });
             const observer = jest.fn();
 
@@ -623,11 +506,6 @@ describe('Event System', () => {
 
             expect(handler).toHaveBeenCalledTimes(1);
             expect(observer).toHaveBeenCalledTimes(1);
-
-            // Second batch should deliver the update triggered from inside the handler
-            queue.flush();
-            expect(handler).toHaveBeenCalledTimes(2);
-            expect(observer).toHaveBeenCalledTimes(2);
         });
     });
 });

@@ -1,7 +1,12 @@
-import { OIMEventQueue, OIMUpdateEventEmitter, TOIMPk } from '@oimdb/core';
+import {
+    EOIMIndexEventType,
+    OIMEventQueue,
+    TOIMIndexUpdatePayload,
+    TOIMPk,
+} from '@oimdb/core';
 import { OIMIndexManualAsync } from './OIMIndexManualAsync';
 import { TOIMIndexOptionsAsync } from '../types/TOIMIndexOptionsAsync';
-import { OIMUpdateEventCoalescerIndexAsyncAdapter } from './OIMUpdateEventCoalescerIndexAsyncAdapter';
+import { OIMUpdateEventEmitterAsync } from './OIMUpdateEventEmitterAsync';
 
 /**
  * Reactive async manual index with event support.
@@ -12,8 +17,8 @@ export class OIMReactiveIndexManualAsync<
     TPk extends TOIMPk,
 > {
     public readonly index: OIMIndexManualAsync<TKey, TPk>;
-    public readonly updateEventEmitter: OIMUpdateEventEmitter<TKey>;
-    public readonly coalescer: OIMUpdateEventCoalescerIndexAsyncAdapter<TKey>;
+    private readonly updateEmitter: OIMUpdateEventEmitterAsync<TKey>;
+    private readonly unsubscribeFromIndexUpdates: () => void;
 
     constructor(
         queue: OIMEventQueue,
@@ -23,19 +28,38 @@ export class OIMReactiveIndexManualAsync<
         }
     ) {
         this.index = opts?.index ?? this.createDefaultIndex(opts?.indexOptions);
-        this.coalescer = new OIMUpdateEventCoalescerIndexAsyncAdapter<TKey>(
-            this.index.emitter
+        this.updateEmitter = new OIMUpdateEventEmitterAsync<TKey>(queue);
+        this.unsubscribeFromIndexUpdates = this.index.emitter.on(
+            EOIMIndexEventType.UPDATE,
+            this.onIndexUpdate
         );
-        this.updateEventEmitter = new OIMUpdateEventEmitter<TKey>({
-            coalescer: this.coalescer,
-            queue,
-        });
     }
 
     protected createDefaultIndex(
         options?: TOIMIndexOptionsAsync<TKey, TPk>
     ): OIMIndexManualAsync<TKey, TPk> {
         return new OIMIndexManualAsync<TKey, TPk>(options);
+    }
+
+    private readonly onIndexUpdate = (payload: TOIMIndexUpdatePayload<TKey>) => {
+        if (payload.keys.length === 0) return;
+        this.updateEmitter.markUpdatedKeys(payload.keys);
+    };
+
+    public subscribeOnKey(key: TKey, handler: () => void): () => void {
+        return this.updateEmitter.subscribeOnKey(key, handler);
+    }
+
+    public subscribeOnKeys(keys: readonly TKey[], handler: () => void): () => void {
+        return this.updateEmitter.subscribeOnKeys(keys, handler);
+    }
+
+    public unsubscribeFromKey(key: TKey, handler: () => void): void {
+        this.updateEmitter.unsubscribeFromKey(key, handler);
+    }
+
+    public unsubscribeFromKeys(keys: readonly TKey[], handler: () => void): void {
+        this.updateEmitter.unsubscribeFromKeys(keys, handler);
     }
 
     public async getPksByKey(key: TKey): Promise<Set<TPk>> {
@@ -73,6 +97,8 @@ export class OIMReactiveIndexManualAsync<
     }
 
     public async destroy(): Promise<void> {
+        this.unsubscribeFromIndexUpdates();
+        this.updateEmitter.destroy();
         await this.index.destroy();
     }
 

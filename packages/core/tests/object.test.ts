@@ -1,9 +1,6 @@
 import { OIMObject } from '../src/core/OIMObject';
 import { EOIMObjectEventType } from '../src/enum/EOIMObjectEventType';
-import { OIMUpdateEventCoalescerObject } from '../src/core/OIMUpdateEventCoalescerObject';
-import { EOIMUpdateEventCoalescerEventType } from '../src/enum/EOIMUpdateEventCoalescerEventType';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMReactiveObject } from '../src/core/OIMReactiveObject';
 import { OIMObjectStoreRecordDriven } from '../src/core/OIMObjectStoreRecordDriven';
 
@@ -42,44 +39,6 @@ describe('OIMObject', () => {
     });
 });
 
-describe('OIMUpdateEventCoalescerObject', () => {
-    test('should track updated keys when object is updated', () => {
-        const obj = new OIMObject<string, number>();
-        const coalescer = new OIMUpdateEventCoalescerObject(obj.emitter);
-
-        obj.setProperty('a', 1);
-        obj.setProperty('b', 2);
-
-        const updatedKeys = coalescer.getUpdatedKeys();
-        expect(updatedKeys.has('a')).toBe(true);
-        expect(updatedKeys.has('b')).toBe(true);
-        expect(updatedKeys.size).toBe(2);
-
-        coalescer.destroy();
-        obj.destroy();
-    });
-
-    test('should emit HAS_CHANGES only once for multiple updates', () => {
-        const obj = new OIMObject<string, number>();
-        const coalescer = new OIMUpdateEventCoalescerObject(obj.emitter);
-        const changesSpy = jest.fn();
-
-        coalescer.emitter.on(
-            EOIMUpdateEventCoalescerEventType.HAS_CHANGES,
-            changesSpy
-        );
-
-        obj.setProperty('a', 1);
-        obj.setProperty('b', 2);
-        obj.setProperty('a', 3);
-
-        expect(changesSpy).toHaveBeenCalledTimes(1);
-
-        coalescer.destroy();
-        obj.destroy();
-    });
-});
-
 describe('OIMReactiveObject', () => {
     test('should notify subscribers on key updates (via queue.flush())', () => {
         const queue = new OIMEventQueue();
@@ -88,8 +47,8 @@ describe('OIMReactiveObject', () => {
         const handlerA = jest.fn();
         const handlerB = jest.fn();
 
-        obj.updateEventEmitter.subscribeOnKey('a', handlerA);
-        obj.updateEventEmitter.subscribeOnKey('b', handlerB);
+        obj.subscribeOnKey('a', handlerA);
+        obj.subscribeOnKey('b', handlerB);
 
         obj.setProperty('a', 1);
         queue.flush();
@@ -97,8 +56,6 @@ describe('OIMReactiveObject', () => {
         expect(handlerA).toHaveBeenCalledTimes(1);
         expect(handlerB).not.toHaveBeenCalled();
 
-        obj.updateEventEmitter.destroy();
-        obj.coalescer.destroy();
         obj.destroy();
         queue.destroy();
     });
@@ -108,7 +65,7 @@ describe('OIMReactiveObject', () => {
         const obj = new OIMReactiveObject<string, number>(queue);
 
         const handler = jest.fn();
-        obj.updateEventEmitter.subscribeOnKey('a', handler);
+        obj.subscribeOnKey('a', handler);
 
         obj.setProperty('a', 1);
         obj.setProperty('a', 2);
@@ -117,8 +74,6 @@ describe('OIMReactiveObject', () => {
         queue.flush();
         expect(handler).toHaveBeenCalledTimes(1);
 
-        obj.updateEventEmitter.destroy();
-        obj.coalescer.destroy();
         obj.destroy();
         queue.destroy();
     });
@@ -128,15 +83,13 @@ describe('OIMReactiveObject', () => {
         const obj = new OIMReactiveObject<string, number>(queue);
 
         const handler = jest.fn();
-        obj.updateEventEmitter.subscribeOnKeys(['a', 'b', 'c'], handler);
+        obj.subscribeOnKeys(['a', 'b', 'c'], handler);
 
         obj.merge({ a: 1, c: 3 });
         queue.flush();
 
         expect(handler).toHaveBeenCalledTimes(2);
 
-        obj.updateEventEmitter.destroy();
-        obj.coalescer.destroy();
         obj.destroy();
         queue.destroy();
     });
@@ -166,5 +119,3 @@ describe('OIMObjectStoreRecordDriven', () => {
         store.destroy();
     });
 });
-
-

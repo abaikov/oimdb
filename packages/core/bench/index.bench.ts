@@ -1,10 +1,10 @@
-import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
-import { OIMIndexManualArrayBased } from '../src/core/OIMIndexManualArrayBased';
 import { OIMIndexComparatorFactory } from '../src/core/OIMIndexComparatorFactory';
-import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
+import { OIMIndexManualArrayBased } from '../src/core/OIMIndexManualArrayBased';
+import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
+import { OIMReactiveIndexManualSetBased } from '../src/core/OIMReactiveIndexManualSetBased';
+import { OIMReactiveIndexManualArrayBased } from '../src/core/OIMReactiveIndexManualArrayBased';
 
 interface TOIMIndexBenchResult {
     name: string;
@@ -26,49 +26,48 @@ type TOIMIndexType = 'SetBased' | 'ArrayBased';
 
 class OIMIndexPerformanceBenchmark {
     public queue!: OIMEventQueue;
-    public emitter!: OIMUpdateEventEmitter<string>;
 
-    private indexSetBased!: OIMIndexManualSetBased<string, number>;
-    private indexArrayBased!: OIMIndexManualArrayBased<string, number>;
-    private coalescer!: OIMUpdateEventCoalescerIndex<string>;
+    private indexSetBased!: OIMReactiveIndexManualSetBased<string, number>;
+    private indexArrayBased!: OIMReactiveIndexManualArrayBased<string, number>;
     private scheduler!: OIMEventQueueSchedulerImmediate;
 
     public setupComponents(
         indexType: TOIMIndexType,
         useComparator: boolean = false
     ): void {
-        if (indexType === 'SetBased') {
-            this.indexSetBased = new OIMIndexManualSetBased<string, number>(
-                useComparator
-                    ? {
-                          comparePks:
-                              OIMIndexComparatorFactory.createElementWiseComparator<number>(),
-                      }
-                    : {}
-            );
-        } else {
-            this.indexArrayBased = new OIMIndexManualArrayBased<string, number>(
-                useComparator
-                    ? {
-                          comparePks:
-                              OIMIndexComparatorFactory.createElementWiseComparator<number>(),
-                      }
-                    : {}
-            );
-        }
-
-        const index =
-            indexType === 'SetBased'
-                ? this.indexSetBased
-                : this.indexArrayBased;
-
-        this.coalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
         this.scheduler = new OIMEventQueueSchedulerImmediate();
         this.queue = new OIMEventQueue({ scheduler: this.scheduler });
-        this.emitter = new OIMUpdateEventEmitter({
-            coalescer: this.coalescer,
-            queue: this.queue,
-        });
+        if (indexType === 'SetBased') {
+            this.indexSetBased = new OIMReactiveIndexManualSetBased<
+                string,
+                number
+            >(this.queue, {
+                index: new OIMIndexManualSetBased<string, number>(
+                    useComparator
+                        ? {
+                              comparePks:
+                                  OIMIndexComparatorFactory.createElementWiseComparator<number>(),
+                          }
+                        : {}
+                ),
+            });
+        } else {
+            this.indexArrayBased = new OIMReactiveIndexManualArrayBased<
+                string,
+                number
+            >(this.queue, {
+                index: new OIMIndexManualArrayBased<string, number>(
+                    useComparator
+                        ? {
+                              comparePks:
+                                  OIMIndexComparatorFactory.createElementWiseComparator<number>(),
+                          }
+                        : {}
+                ),
+            });
+        }
+
+        // Reactive indexes own keyed subscription methods wired to the queue.
     }
 
     public getIndex(indexType: TOIMIndexType) {
@@ -92,14 +91,18 @@ class OIMIndexPerformanceBenchmark {
         return data;
     }
 
-    public setupSubscribers(count: number, keyCount: number): void {
+    public setupSubscribers(
+        count: number,
+        keyCount: number,
+        indexType: TOIMIndexType
+    ): void {
         const handler = () => {
             /* noop */
         };
 
         for (let i = 0; i < count; i++) {
             const keyIndex = i % keyCount;
-            this.emitter.subscribeOnKey(`key${keyIndex}`, handler);
+            this.getIndex(indexType).subscribeOnKey(`key${keyIndex}`, handler);
         }
     }
 
@@ -127,7 +130,11 @@ class OIMIndexPerformanceBenchmark {
             scenario.keyCount,
             scenario.pksPerKey
         );
-        this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
+        this.setupSubscribers(
+            scenario.subscriberCount,
+            scenario.keyCount,
+            indexType
+        );
 
         const memoryBefore = this.getMemoryUsage();
         const index = this.getIndex(indexType);
@@ -163,7 +170,11 @@ class OIMIndexPerformanceBenchmark {
         }
 
         this.setupComponents(indexType);
-        this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
+        this.setupSubscribers(
+            scenario.subscriberCount,
+            scenario.keyCount,
+            indexType
+        );
         const index = this.indexSetBased;
 
         // Pre-populate with initial data
@@ -204,7 +215,11 @@ class OIMIndexPerformanceBenchmark {
         }
 
         this.setupComponents(indexType);
-        this.setupSubscribers(scenario.subscriberCount, scenario.keyCount);
+        this.setupSubscribers(
+            scenario.subscriberCount,
+            scenario.keyCount,
+            indexType
+        );
         const index = this.indexSetBased;
 
         // Pre-populate with data to remove
@@ -240,8 +255,6 @@ class OIMIndexPerformanceBenchmark {
     }
 
     public cleanup(): void {
-        this.emitter?.destroy();
-        this.coalescer?.destroy();
         this.queue?.destroy();
         this.indexSetBased?.destroy();
         this.indexArrayBased?.destroy();
@@ -578,7 +591,8 @@ export async function runIndexStressBenchmark(): Promise<void> {
             // Setup subscribers
             benchmark.setupSubscribers(
                 stressScenario.subscriberCount,
-                stressScenario.keyCount
+                stressScenario.keyCount,
+                indexType
             );
 
             console.log(
@@ -665,7 +679,7 @@ export async function runIndexStressBenchmark(): Promise<void> {
                 `    Final index metrics: ${metrics.totalKeys} keys, ${metrics.totalPks} PKs`
             );
 
-            const emitterMetrics = benchmark.emitter?.getMetrics();
+            const emitterMetrics = index.getSubscriptionMetrics();
             console.log(
                 `    Final emitter metrics: ${emitterMetrics.totalKeys} subscribed keys, ${emitterMetrics.totalHandlers} handlers`
             );

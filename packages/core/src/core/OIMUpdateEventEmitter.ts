@@ -1,68 +1,142 @@
-import { OIMUpdateEventCoalescer } from './OIMUpdateEventCoalescer';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../type/TOIMEventHandler';
-import { EOIMUpdateEventCoalescerEventType } from '../enum/EOIMUpdateEventCoalescerEventType';
-import { TOIMUpdateEventEmitterOptions } from '../type/TOIMUpdateEventEmitterOptions';
 import { TOIMPk } from '../type/TOIMPk';
+import { EOIMEventQueueEventType } from '../enum/EOIMEventQueueEventType';
+
+type TOIMUpdateEventEmitterDeliveryMode = 'queue' | 'after_flush' | 'immediate';
 
 /**
  * Universal event emitter that handles subscriptions and notifications for any key type.
  * Optimized for performance with adaptive algorithms and memory management.
  */
 export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
-    protected keyHandlersBeforeFlush = new Map<
-        TKey,
-        Set<TOIMEventHandler<void>>
-    >();
     protected keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
-    protected coalescer: OIMUpdateEventCoalescer<TKey>;
     protected queue: OIMEventQueue;
-    private isDestroyed = false;
-    private isDispatching = false;
-    private isInPrePhase = false;
-    private hasPendingDuringPrePhase = false;
+    private readonly deliveryMode: TOIMUpdateEventEmitterDeliveryMode;
     private isFlushEnqueued = false;
+    private dequeueFlush?: () => void;
+    private updatedKeys = new Set<TKey>();
+    private isAfterFlushDeliveryScheduled = false;
+    private unsubscribeAfterFlushDelivery?: () => void;
 
-    constructor(opts: TOIMUpdateEventEmitterOptions<TKey>) {
-        this.coalescer = opts.coalescer;
-        this.coalescer.emitter.on(
-            EOIMUpdateEventCoalescerEventType.HAS_CHANGES,
-            this.handleHasChanges
-        );
-        this.queue = opts.queue;
+    constructor(
+        queue: OIMEventQueue,
+        deliveryMode: TOIMUpdateEventEmitterDeliveryMode = 'queue'
+    ) {
+        this.queue = queue;
+        this.deliveryMode = deliveryMode;
+
+        if (this.deliveryMode === 'after_flush') {
+            this.unsubscribeAfterFlushDelivery = this.queue.emitter.on(
+                EOIMEventQueueEventType.AFTER_FLUSH,
+                this.onAfterFlush
+            );
+        }
     }
 
-    protected handleHasChanges = () => {
-        // If updates happen while we're already draining pre-phase, we fold them into the same run
-        // (computed-only drain) instead of scheduling redundant queue tasks.
-        if (this.isDispatching && this.isInPrePhase) {
-            this.hasPendingDuringPrePhase = true;
+    /**
+     * Mark keys as updated and schedule delivery.
+     *
+     * If there are no subscriptions, this is a no-op and does not allocate or retain keys.
+     */
+    public markUpdatedKeys(keys: readonly TKey[]): void {
+        if (keys.length === 0) return;
+        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
+            throw new Error(
+                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
+                    'Finish all writes before calling queue.flush().'
+            );
+        }
+        if (this.keyHandlers.size === 0) return;
+
+        let didAddAny = false;
+        for (let i = 0; i < keys.length; i++) {
+            const key = keys[i];
+            const handlers = this.keyHandlers.get(key);
+            // If no one is subscribed for this key, don't retain it.
+            if (!handlers || handlers.size === 0) continue;
+            this.updatedKeys.add(key);
+            didAddAny = true;
+        }
+
+        if (!didAddAny) return;
+        if (this.deliveryMode === 'immediate') {
+            this.deliverImmediate();
+            return;
+        }
+        if (this.deliveryMode === 'after_flush') {
+            this.isAfterFlushDeliveryScheduled = true;
             return;
         }
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.queue.enqueue(this.onFlush);
-    };
+        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+    }
 
-    // Stable handler reference to avoid allocating a new closure on every HAS_CHANGES.
-    protected readonly onFlush = () => {
-        // Allow new HAS_CHANGES during this run (e.g. from normal handlers) to enqueue a follow-up batch.
-        this.isFlushEnqueued = false;
+    public markUpdatedKey(key: TKey): void {
+        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
+            throw new Error(
+                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
+                    'Finish all writes before calling queue.flush().'
+            );
+        }
+        if (this.keyHandlers.size === 0) return;
 
-        if (this.isDestroyed) {
-            // Best-effort cleanup: keep coalescer state from growing unbounded.
-            this.coalescer.clearUpdatedKeys();
-            this.coalescer.clearFlushingUpdatedKeys();
+        const handlers = this.keyHandlers.get(key);
+        if (!handlers || handlers.size === 0) return;
+
+        this.updatedKeys.add(key);
+
+        if (this.deliveryMode === 'immediate') {
+            this.deliverImmediate();
+            return;
+        }
+        if (this.deliveryMode === 'after_flush') {
+            this.isAfterFlushDeliveryScheduled = true;
             return;
         }
 
+        if (this.isFlushEnqueued) return;
+        this.isFlushEnqueued = true;
+        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+    }
+
+    public markAllUpdated(): void {
+        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
+            throw new Error(
+                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
+                    'Finish all writes before calling queue.flush().'
+            );
+        }
+        if (this.keyHandlers.size === 0) return;
+
+        this.keyHandlers.forEach((_handlers, key) => {
+            this.updatedKeys.add(key);
+        });
+
+        if (this.deliveryMode === 'immediate') {
+            this.deliverImmediate();
+            return;
+        }
+        if (this.deliveryMode === 'after_flush') {
+            this.isAfterFlushDeliveryScheduled = true;
+            return;
+        }
+
+        if (this.isFlushEnqueued) return;
+        this.isFlushEnqueued = true;
+        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+    }
+
+    // Stable handler reference to avoid allocating a new closure on every HAS_CHANGES.
+    protected readonly onFlush = () => {
+        this.isFlushEnqueued = false;
+        this.dequeueFlush = undefined;
+
         // Early exit if no handlers are registered
-        if (
-            this.keyHandlers.size === 0 &&
-            this.keyHandlersBeforeFlush.size === 0
-        ) {
-            this.coalescer.clearUpdatedKeys();
+        if (this.keyHandlers.size === 0) {
+            this.updatedKeys.clear();
             return;
         }
 
@@ -74,118 +148,61 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
             return snapshot;
         };
 
-        try {
-            this.isDispatching = true;
-            this.isInPrePhase = true;
-            this.hasPendingDuringPrePhase = false;
+        this.runSinglePass(makeHandlerSnapshot);
+    };
 
-            const allKeysForNormalPhase =
-                this.runPrePhaseDrain(makeHandlerSnapshot);
-            this.isInPrePhase = false;
-            this.runHandlersPhase(allKeysForNormalPhase, makeHandlerSnapshot);
-        } finally {
-            this.isInPrePhase = false;
-            this.isDispatching = false;
-        }
+    private deliverImmediate(): void {
+        const makeHandlerSnapshot = (
+            handlers: Set<TOIMEventHandler<void>>
+        ): TOIMEventHandler<void>[] => {
+            const snapshot: TOIMEventHandler<void>[] = [];
+            handlers.forEach(h => snapshot.push(h));
+            return snapshot;
+        };
+
+        this.runSinglePass(makeHandlerSnapshot);
+    }
+
+    private readonly onAfterFlush = () => {
+        if (!this.isAfterFlushDeliveryScheduled) return;
+        this.isAfterFlushDeliveryScheduled = false;
+        this.deliverImmediate();
     };
 
     /**
-     * Helps to run computed values etc.
+     * Deliver updated keys and notify handlers once.
+     * Re-entrant updates during delivery are forbidden and will throw in markUpdatedKeys().
      */
-    protected runPrePhaseDrain(
-        makeHandlerSnapshot: (
-            handlers: Set<TOIMEventHandler<void>>
-        ) => TOIMEventHandler<void>[]
-    ): Set<TKey> {
-        const allKeysForNormalPhase = new Set<TKey>();
-        let hasMorePreWork = true;
-
-        while (hasMorePreWork) {
-            this.coalescer.markUpdatedKeysAsFlushing();
-            const flushingKeys = this.coalescer.getFlushingUpdatedKeys();
-            flushingKeys.forEach(key => allKeysForNormalPhase.add(key));
-
-            try {
-                if (this.keyHandlersBeforeFlush.size > 0) {
-                    if (
-                        flushingKeys.size * 2 <
-                        this.keyHandlersBeforeFlush.size
-                    ) {
-                        flushingKeys.forEach(key => {
-                            if (this.isDestroyed) return;
-                            const handlers =
-                                this.keyHandlersBeforeFlush.get(key);
-                            if (!handlers || handlers.size === 0) return;
-
-                            const handlerSnapshot =
-                                makeHandlerSnapshot(handlers);
-                            for (let i = 0; i < handlerSnapshot.length; i++) {
-                                if (this.isDestroyed) return;
-                                const handler = handlerSnapshot[i];
-                                if (handlers.has(handler)) handler();
-                            }
-                        });
-                    } else {
-                        this.keyHandlersBeforeFlush.forEach((handlers, key) => {
-                            if (this.isDestroyed) return;
-                            if (!flushingKeys.has(key)) return;
-                            if (!handlers || handlers.size === 0) return;
-
-                            const handlerSnapshot =
-                                makeHandlerSnapshot(handlers);
-                            for (let i = 0; i < handlerSnapshot.length; i++) {
-                                if (this.isDestroyed) return;
-                                const handler = handlerSnapshot[i];
-                                if (handlers.has(handler)) handler();
-                            }
-                        });
-                    }
-                }
-            } finally {
-                this.coalescer.clearFlushingUpdatedKeys();
-            }
-
-            const nextHasMorePreWork =
-                this.hasPendingDuringPrePhase ||
-                this.coalescer.getUpdatedKeys().size > 0;
-            this.hasPendingDuringPrePhase = false;
-            hasMorePreWork = nextHasMorePreWork;
-        }
-
-        return allKeysForNormalPhase;
-    }
-
-    protected runHandlersPhase(
-        allKeysForNormalPhase: ReadonlySet<TKey>,
+    protected runSinglePass(
         makeHandlerSnapshot: (
             handlers: Set<TOIMEventHandler<void>>
         ) => TOIMEventHandler<void>[]
     ): void {
-        if (this.keyHandlers.size === 0 || allKeysForNormalPhase.size === 0)
-            return;
+        if (this.updatedKeys.size === 0) return;
 
-        if (allKeysForNormalPhase.size * 2 < this.keyHandlers.size) {
-            allKeysForNormalPhase.forEach(key => {
-                if (this.isDestroyed) return;
+        const flushingKeys = this.updatedKeys;
+        this.updatedKeys = new Set<TKey>();
+
+        if (this.keyHandlers.size === 0 || flushingKeys.size === 0) return;
+
+        if (flushingKeys.size * 2 < this.keyHandlers.size) {
+            flushingKeys.forEach(key => {
                 const handlers = this.keyHandlers.get(key);
                 if (!handlers || handlers.size === 0) return;
 
                 const handlerSnapshot = makeHandlerSnapshot(handlers);
                 for (let i = 0; i < handlerSnapshot.length; i++) {
-                    if (this.isDestroyed) return;
                     const handler = handlerSnapshot[i];
                     if (handlers.has(handler)) handler();
                 }
             });
         } else {
             this.keyHandlers.forEach((handlers, key) => {
-                if (this.isDestroyed) return;
-                if (!allKeysForNormalPhase.has(key)) return;
+                if (!flushingKeys.has(key)) return;
                 if (!handlers || handlers.size === 0) return;
 
                 const handlerSnapshot = makeHandlerSnapshot(handlers);
                 for (let i = 0; i < handlerSnapshot.length; i++) {
-                    if (this.isDestroyed) return;
                     const handler = handlerSnapshot[i];
                     if (handlers.has(handler)) handler();
                 }
@@ -194,16 +211,19 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
     }
 
     public destroy() {
-        if (this.isDestroyed) return;
-        this.isDestroyed = true;
-        this.coalescer.emitter.off(
-            EOIMUpdateEventCoalescerEventType.HAS_CHANGES,
-            this.handleHasChanges
-        );
+        if (this.dequeueFlush) {
+            this.dequeueFlush();
+            this.dequeueFlush = undefined;
+        }
+        if (this.unsubscribeAfterFlushDelivery) {
+            this.unsubscribeAfterFlushDelivery();
+            this.unsubscribeAfterFlushDelivery = undefined;
+        }
 
         // Clear all handlers to free memory
-        this.keyHandlersBeforeFlush.clear();
+        this.keyHandlers.forEach(handlers => handlers.clear());
         this.keyHandlers.clear();
+        this.updatedKeys.clear();
     }
 
     /**
@@ -230,48 +250,14 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
      * Check if there are any active subscriptions
      */
     public hasSubscriptions(): boolean {
-        return (
-            this.keyHandlers.size > 0 || this.keyHandlersBeforeFlush.size > 0
-        );
+        return this.keyHandlers.size > 0;
     }
 
     /**
      * Get the number of handlers for a specific key
      */
     public getHandlerCount(key: TKey): number {
-        return (
-            (this.keyHandlers.get(key)?.size ?? 0) +
-            (this.keyHandlersBeforeFlush.get(key)?.size ?? 0)
-        );
-    }
-
-    public subscribeOnKeyBeforeFlush(
-        key: TKey,
-        handler: TOIMEventHandler<void>
-    ) {
-        let handlers = this.keyHandlersBeforeFlush.get(key);
-        if (!handlers) {
-            handlers = new Set();
-            this.keyHandlersBeforeFlush.set(key, handlers);
-        }
-        handlers.add(handler);
-        return () => {
-            this.unsubscribeFromKeyBeforeFlush(key, handler);
-        };
-    }
-
-    public unsubscribeFromKeyBeforeFlush(
-        key: TKey,
-        handler: TOIMEventHandler<void>
-    ) {
-        const handlers = this.keyHandlersBeforeFlush.get(key);
-        if (!handlers) return;
-
-        handlers.delete(handler);
-
-        if (handlers.size === 0) {
-            this.keyHandlersBeforeFlush.delete(key);
-        }
+        return this.keyHandlers.get(key)?.size ?? 0;
     }
 
     public subscribeOnKey(key: TKey, handler: TOIMEventHandler<void>) {
@@ -295,6 +281,18 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
         // Clean up empty handler sets to prevent memory leaks
         if (handlers.size === 0) {
             this.keyHandlers.delete(key);
+            // If no one is subscribed anymore, don't keep this key pending.
+            this.updatedKeys.delete(key);
+        }
+
+        // If there are no subscriptions at all, drop any pending work and cancel scheduled flush.
+        if (this.keyHandlers.size === 0) {
+            this.updatedKeys.clear();
+            if (this.dequeueFlush) {
+                this.dequeueFlush();
+                this.dequeueFlush = undefined;
+            }
+            this.isFlushEnqueued = false;
         }
     }
 
@@ -325,41 +323,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
                 this.unsubscribeFromKey(key, handler);
             }
         };
-    }
-
-    public subscribeOnKeysBeforeFlush(
-        keys: readonly TKey[],
-        handler: TOIMEventHandler<void>
-    ) {
-        const subscribedKeys: TKey[] = [];
-
-        for (const key of keys) {
-            let handlers = this.keyHandlersBeforeFlush.get(key);
-            if (!handlers) {
-                handlers = new Set();
-                this.keyHandlersBeforeFlush.set(key, handlers);
-            }
-
-            if (!handlers.has(handler)) {
-                handlers.add(handler);
-                subscribedKeys.push(key);
-            }
-        }
-
-        return () => {
-            for (const key of subscribedKeys) {
-                this.unsubscribeFromKeyBeforeFlush(key, handler);
-            }
-        };
-    }
-
-    public unsubscribeFromKeysBeforeFlush(
-        keys: readonly TKey[],
-        handler: TOIMEventHandler<void>
-    ) {
-        for (const key of keys) {
-            this.unsubscribeFromKeyBeforeFlush(key, handler);
-        }
     }
 
     public unsubscribeFromKeys(

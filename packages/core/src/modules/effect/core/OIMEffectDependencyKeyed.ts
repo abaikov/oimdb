@@ -1,7 +1,6 @@
-import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
 import { TOIMPk } from '../../../type/TOIMPk';
-import { EOIMEffectPhase } from '../enum/EOIMEffectPhase';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
+import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
 function isReadonlyArray<T>(value: unknown): value is readonly T[] {
     return Array.isArray(value);
@@ -14,7 +13,7 @@ export class OIMEffectDependencyKeyed<TKey extends TOIMPk>
     private readonly keys: readonly TKey[] | undefined;
 
     constructor(
-        private readonly updateEventEmitter: OIMUpdateEventEmitter<TKey>,
+        private readonly subscription: IOIMKeyedSubscription<TKey>,
         keyOrKeys: TKey | readonly TKey[]
     ) {
         if (isReadonlyArray<TKey>(keyOrKeys)) {
@@ -25,30 +24,14 @@ export class OIMEffectDependencyKeyed<TKey extends TOIMPk>
     }
 
     public subscribe(
-        phase: EOIMEffectPhase,
-        onInvalidate: () => void
+        onUpdate: () => void
     ): () => void {
-        const isPre = phase === EOIMEffectPhase.PRE;
-
         if (this.keys !== undefined) {
-            return isPre
-                ? this.updateEventEmitter.subscribeOnKeysBeforeFlush(
-                      this.keys,
-                      onInvalidate
-                  )
-                : this.updateEventEmitter.subscribeOnKeys(
-                      this.keys,
-                      onInvalidate
-                  );
+            return this.subscription.subscribeOnKeys(this.keys, onUpdate);
         }
 
         if (this.key === undefined) return () => {};
 
-        return isPre
-            ? this.updateEventEmitter.subscribeOnKeyBeforeFlush(
-                  this.key,
-                  onInvalidate
-              )
-            : this.updateEventEmitter.subscribeOnKey(this.key, onInvalidate);
+        return this.subscription.subscribeOnKey(this.key, onUpdate);
     }
 }

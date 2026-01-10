@@ -1,6 +1,5 @@
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { TOIMPk } from '../../../type/TOIMPk';
-import { EOIMEffectPhase } from '../enum/EOIMEffectPhase';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 
@@ -21,15 +20,14 @@ export class OIMEffectDependencyKeyedCollection<
         pkOrPks: TPk | readonly TPk[]
     ) {
         this.dep = new OIMEffectDependencyKeyed<TPk>(
-            collection.updateEventEmitter,
+            collection,
             pkOrPks
         );
     }
 
     public subscribe(
-        phase: EOIMEffectPhase,
-        onInvalidate: () => void
+        onUpdate: () => void
     ): () => void {
-        return this.dep.subscribe(phase, onInvalidate);
+        return this.dep.subscribe(onUpdate);
     }
 }

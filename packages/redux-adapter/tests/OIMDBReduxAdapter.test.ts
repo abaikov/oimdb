@@ -3522,7 +3522,7 @@ describe('OIMDBReduxAdapter', () => {
             const allUpdateEvents: string[] = [];
 
             // Subscribe to update events for each key
-            const unsubscribe1 = collection.updateEventEmitter.subscribeOnKey(
+            const unsubscribe1 = collection.subscribeOnKey(
                 '1',
                 () => {
                     updateEventsByKey.set(
@@ -3532,7 +3532,7 @@ describe('OIMDBReduxAdapter', () => {
                     allUpdateEvents.push('1');
                 }
             );
-            const unsubscribe2 = collection.updateEventEmitter.subscribeOnKey(
+            const unsubscribe2 = collection.subscribeOnKey(
                 '2',
                 () => {
                     updateEventsByKey.set(
@@ -3542,7 +3542,7 @@ describe('OIMDBReduxAdapter', () => {
                     allUpdateEvents.push('2');
                 }
             );
-            const unsubscribe3 = collection.updateEventEmitter.subscribeOnKey(
+            const unsubscribe3 = collection.subscribeOnKey(
                 '3',
                 () => {
                     updateEventsByKey.set(
@@ -3652,7 +3652,7 @@ describe('OIMDBReduxAdapter', () => {
             const unsubscribes: Array<() => void> = [];
             for (const key of ['1', '2', '3']) {
                 const unsubscribe =
-                    collection.updateEventEmitter.subscribeOnKey(key, () => {
+                    collection.subscribeOnKey(key, () => {
                         updateEventsByKey.set(
                             key,
                             (updateEventsByKey.get(key) || 0) + 1
@@ -3760,7 +3760,7 @@ describe('OIMDBReduxAdapter', () => {
 
             // Track update events
             let updateEventCount = 0;
-            const unsubscribe = collection.updateEventEmitter.subscribeOnKey(
+            const unsubscribe = collection.subscribeOnKey(
                 '1',
                 () => {
                     updateEventCount++;

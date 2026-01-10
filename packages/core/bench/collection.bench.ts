@@ -1,10 +1,8 @@
-import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
-import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoalescerCollection';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
+import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
 
 interface TOIMBenchEntity {
     id: string;
@@ -31,35 +29,30 @@ interface TOIMBenchScenario {
 }
 
 class OIMPerformanceBenchmark {
-    private collection!: OIMCollection<TOIMBenchEntity, string>;
-    private coalescer!: OIMUpdateEventCoalescerCollection<string>;
     private queue!: OIMEventQueue;
-    private emitter!: OIMUpdateEventEmitter<string>;
+    private collection!: OIMReactiveCollection<TOIMBenchEntity, string>;
 
     constructor() {
         this.setupComponents();
     }
 
     private setupComponents(): void {
-        this.collection = new OIMCollection<TOIMBenchEntity, string>({
-            selectPk: new OIMPkSelectorFactory<
-                TOIMBenchEntity,
-                string
-            >().createIdSelector(),
-            store: new OIMCollectionStoreMapDriven<TOIMBenchEntity, string>(),
-            updateEntity:
-                new OIMEntityUpdaterFactory<TOIMBenchEntity>().createMergeEntityUpdater(),
-        });
-
-        this.coalescer = new OIMUpdateEventCoalescerCollection(
-            this.collection.emitter
-        );
-
         this.queue = new OIMEventQueue();
-        this.emitter = new OIMUpdateEventEmitter({
-            coalescer: this.coalescer,
-            queue: this.queue,
-        });
+        this.collection = new OIMReactiveCollection<TOIMBenchEntity, string>(
+            this.queue,
+            {
+                selectPk: new OIMPkSelectorFactory<
+                    TOIMBenchEntity,
+                    string
+                >().createIdSelector(),
+                store: new OIMCollectionStoreMapDriven<
+                    TOIMBenchEntity,
+                    string
+                >(),
+                updateEntity:
+                    new OIMEntityUpdaterFactory<TOIMBenchEntity>().createMergeEntityUpdater(),
+            }
+        );
     }
 
     private generateEntities(count: number): TOIMBenchEntity[] {
@@ -85,7 +78,7 @@ class OIMPerformanceBenchmark {
         };
 
         for (let i = 0; i < count; i++) {
-            this.emitter.subscribeOnKey(`entity${i}`, handler);
+            this.collection.subscribeOnKey(`entity${i}`, handler);
         }
     }
 
@@ -195,7 +188,7 @@ class OIMPerformanceBenchmark {
 
             for (let i = 0; i < scenario.subscriberCount; i++) {
                 const entityId = `entity${i % scenario.entityCount}`;
-                this.emitter.subscribeOnKey(entityId, handler);
+                    this.collection.subscribeOnKey(entityId, handler);
             }
         });
 
@@ -252,10 +245,8 @@ class OIMPerformanceBenchmark {
     }
 
     public cleanup(): void {
-        this.emitter.destroy();
-        this.coalescer.destroy();
+        this.collection.destroy();
         this.queue.destroy();
-        this.collection.emitter.offAll();
     }
 }
 
@@ -383,7 +374,10 @@ export async function runMemoryLeakTest(): Promise<void> {
             /* noop */
         };
         for (let j = 0; j < subscribersPerIteration; j++) {
-            benchmark['emitter'].subscribeOnKey(`entity${i}_${j}`, handler);
+            benchmark['collection'].subscribeOnKey(
+                `entity${i}_${j}`,
+                handler
+            );
         }
 
         // Insert and update data
@@ -468,7 +462,10 @@ export async function runStressBenchmark(): Promise<void> {
         };
         for (let i = 0; i < stressScenario.subscriberCount; i++) {
             const entityId = `stress_entity${i % stressScenario.entityCount}`;
-            benchmark['emitter'].subscribeOnKey(entityId, handler);
+            benchmark['collection'].subscribeOnKey(
+                entityId,
+                handler
+            );
         }
 
         benchmark['queue'].flush();
@@ -541,7 +538,7 @@ export async function runStressBenchmark(): Promise<void> {
             `    Avg time per update: ${(stressTime / stressScenario.updateCount).toFixed(4)}ms`
         );
 
-        const metrics = benchmark['emitter'].getMetrics();
+        const metrics = benchmark['collection'].getMetrics();
         console.log(
             `    Final metrics: ${metrics.totalKeys} keys, ${metrics.totalHandlers} handlers`
         );

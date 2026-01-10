@@ -10,21 +10,33 @@ export async function runAllOIMDBBenchmarks(): Promise<void> {
     console.log('🎯 OIMDB Complete Benchmark Suite\n');
     console.log('='.repeat(60) + '\n');
 
+    const maybeGc = () => {
+        const g = globalThis as unknown as { gc?: () => void };
+        if (typeof g.gc !== 'function') return;
+        // Best-effort GC between suites for more stable numbers.
+        g.gc();
+        g.gc();
+    };
+
     try {
         console.log('📊 COLLECTION BENCHMARKS\n');
         await runAllBenchmarks();
-
-        console.log('='.repeat(60) + '\n');
-        console.log('📊 INDEX BENCHMARKS\n');
-        await runAllIndexBenchmarks();
+        maybeGc();
 
         console.log('='.repeat(60) + '\n');
         console.log('📊 SUBSCRIPTION/DISPATCH BENCHMARKS\n');
         await runSubscriptionDispatchBenchmarks();
+        maybeGc();
 
         console.log('='.repeat(60) + '\n');
         console.log('📊 EFFECTS/COMPUTED BENCHMARKS\n');
         await runEffectComputedBenchmarks();
+        maybeGc();
+
+        console.log('='.repeat(60) + '\n');
+        console.log('📊 INDEX BENCHMARKS\n');
+        await runAllIndexBenchmarks();
+        maybeGc();
 
         console.log('='.repeat(60) + '\n');
         console.log('🎉 All OIMDB benchmarks completed successfully!');
@@ -41,4 +53,10 @@ export { runSubscriptionDispatchBenchmarks } from './subscription-dispatch.bench
 export { runEffectComputedBenchmarks } from './effect-computed.bench';
 
 // Run benchmarks if this file is executed directly
-runAllOIMDBBenchmarks();
+const __oimdb_isDirectRun_benchIndex =
+    typeof process !== 'undefined' &&
+    typeof process.argv?.[1] === 'string' &&
+    /bench\/index\.(ts|js|mjs|cjs)$/.test(process.argv[1]);
+if (__oimdb_isDirectRun_benchIndex) {
+    void runAllOIMDBBenchmarks();
+}

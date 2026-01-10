@@ -4,8 +4,5 @@ export * from './core/OIMEffectDependencyKeyedObject';
 export * from './core/OIMEffectDependencyKeyedCollection';
 export * from './core/OIMEffectDependencyKeyedIndex';
 export * from './core/OIMEffectDependencyComputed';
-export * from './enum/EOIMEffectPhase';
 export * from './interfaces/IOIMEffectDependency';
 export * from './types/TOIMEffectOptions';
-
-

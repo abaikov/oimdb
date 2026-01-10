@@ -18,6 +18,9 @@ export type TOIMOrderedListCommand<TPk extends TOIMPk> =
           toIndex: number;
       }
     | {
-          type: 'reset';
+          /**
+           * Replace the whole list for this key (preferred name).
+           */
+          type: 'set';
           keys: readonly TPk[];
       };

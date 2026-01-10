@@ -1,7 +1,7 @@
 import {
     OIMComputed,
     OIMEffect,
-    EOIMEffectPhase,
+    OIMComputativeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedObject,
     OIMEventQueue,
@@ -43,13 +43,13 @@ function setupObject(queue: OIMEventQueue) {
 }
 
 function setupComputedChain(
-    queue: OIMEventQueue,
+    runtime: OIMComputativeRuntime,
     obj: OIMReactiveObject<TObjectKey, number>,
     depth: number
 ) {
     const computeds: Array<OIMComputed<number>> = [];
 
-    const A = new OIMComputed<number>(queue, {
+    const A = new OIMComputed<number>(runtime, {
         compute: () => (obj.get('a') ?? 0) * 2,
         deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
     });
@@ -58,7 +58,7 @@ function setupComputedChain(
     let prev = A;
     for (let i = 1; i < depth; i++) {
         const prevComputed = prev;
-        const next = new OIMComputed<number>(queue, {
+        const next = new OIMComputed<number>(runtime, {
             compute: () => prevComputed.get() + i,
             deps: [
                 new OIMEffectDependencyComputed({
@@ -75,16 +75,16 @@ function setupComputedChain(
 }
 
 function setupComputedDiamond(
-    queue: OIMEventQueue,
+    runtime: OIMComputativeRuntime,
     obj: OIMReactiveObject<TObjectKey, number>
 ) {
     // A depends on obj.a
-    const A = new OIMComputed<number>(queue, {
+    const A = new OIMComputed<number>(runtime, {
         compute: () => (obj.get('a') ?? 0) * 2,
         deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
     });
     // B depends on A and obj.b
-    const B = new OIMComputed<number>(queue, {
+    const B = new OIMComputed<number>(runtime, {
         compute: () => A.get() + (obj.get('b') ?? 0),
         deps: [
             new OIMEffectDependencyComputed({
@@ -95,7 +95,7 @@ function setupComputedDiamond(
         ],
     });
     // C depends on B
-    const C = new OIMComputed<number>(queue, {
+    const C = new OIMComputed<number>(runtime, {
         compute: () => B.get() * 3,
         deps: [
             new OIMEffectDependencyComputed({
@@ -105,7 +105,7 @@ function setupComputedDiamond(
         ],
     });
     // D depends on A and C (diamond join)
-    const D = new OIMComputed<number>(queue, {
+    const D = new OIMComputed<number>(runtime, {
         compute: () => A.get() + C.get(),
         deps: [
             new OIMEffectDependencyComputed({
@@ -126,11 +126,12 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     console.log('📊 EFFECTS/COMPUTED BENCHMARKS\n');
     console.log('='.repeat(50) + '\n');
 
-    // 1) PRE-phase recompute throughput (single computed)
+    // 1) Computed recompute throughput (single computed)
     {
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = setupObject(queue);
-        const computed = new OIMComputed<number>(queue, {
+        const computed = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
@@ -143,15 +144,11 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         const time = measureTime(() => {
             for (let i = 0; i < iterations; i++) {
                 obj.setProperty('a', i);
-                queue.flush(); // recompute in PRE
+                queue.flush(); // recompute
             }
         });
 
-        const r = formatResult(
-            'Computed PRE recompute (single)',
-            iterations,
-            time
-        );
+        const r = formatResult('Computed recompute (single)', iterations, time);
         console.log(
             `  ✅ ${r.name}: ${r.opsPerSecond.toFixed(0)} flushes/sec (${r.totalTime.toFixed(2)}ms total)`
         );
@@ -162,11 +159,12 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         console.log();
     }
 
-    // 2) HANDLERS-phase delivery cost for computed subscribers (2 flushes per update)
+    // 2) Computed subscriber delivery cost (2 flushes per update)
     {
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = setupObject(queue);
-        const computed = new OIMComputed<number>(queue, {
+        const computed = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
@@ -180,7 +178,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         const time = measureTime(() => {
             for (let i = 0; i < iterations; i++) {
                 obj.setProperty('a', i);
-                queue.flush(); // recompute in PRE
+                queue.flush(); // recompute + schedule delivery
                 queue.flush(); // deliver computed subscriber
             }
         });
@@ -203,13 +201,13 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     // 3) Chain scaling (depth 10 / 50)
     for (const depth of [10, 50]) {
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = setupObject(queue);
-        const { computeds, leaf } = setupComputedChain(queue, obj, depth);
+        const { computeds, leaf } = setupComputedChain(runtime, obj, depth);
 
-        // attach a HANDLERS effect to leaf (simulate integration/UI)
+        // Attach an effect to leaf (simulate integration/UI)
         let effectCalls = 0;
-        const effect = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.HANDLERS,
+        const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
                     emitter: leaf.emitter,
@@ -225,8 +223,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         const time = measureTime(() => {
             for (let i = 0; i < iterations; i++) {
                 obj.setProperty('a', i);
-                queue.flush(); // pre-drain recompute chain
-                queue.flush(); // deliver leaf -> effect
+                queue.flush(); // full drain (computed + effect delivery)
             }
         });
 
@@ -246,15 +243,15 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         console.log();
     }
 
-    // 4) Diamond graph (A -> B -> C, A+C -> D), plus HANDLERS effect on D
+    // 4) Diamond graph (A -> B -> C, A+C -> D), plus effect on D
     {
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = setupObject(queue);
-        const { A, B, C, D } = setupComputedDiamond(queue, obj);
+        const { A, B, C, D } = setupComputedDiamond(runtime, obj);
 
         let effectCalls = 0;
-        const effect = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.HANDLERS,
+        const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
                     emitter: D.emitter,
@@ -271,8 +268,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
             for (let i = 0; i < iterations; i++) {
                 obj.setProperty('a', i);
                 obj.setProperty('b', i + 1);
-                queue.flush(); // recompute graph in PRE
-                queue.flush(); // deliver D -> effect
+                queue.flush(); // full drain (computed + effect delivery)
             }
         });
 

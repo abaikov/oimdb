@@ -32,18 +32,10 @@ describe('OIMReactiveCollectionAsync', () => {
             collection.emitter.offAll();
         });
 
-        test('should have updateEventEmitter', () => {
-            expect(collection.updateEventEmitter).toBeDefined();
-        });
-
-        test('should have coalescer', () => {
-            expect(collection.coalescer).toBeDefined();
-        });
-
         test('should subscribe to key-specific updates', async () => {
             const callback = jest.fn();
 
-            collection.updateEventEmitter.subscribeOnKey('user1', callback);
+            collection.subscribeOnKey('user1', callback);
 
             await collection.upsertOne({
                 id: 'user1',
@@ -61,7 +53,7 @@ describe('OIMReactiveCollectionAsync', () => {
         test('should subscribe to multiple keys', async () => {
             const callback = jest.fn();
 
-            collection.updateEventEmitter.subscribeOnKeys(['user1', 'user2'], callback);
+            collection.subscribeOnKeys(['user1', 'user2'], callback);
 
             await collection.upsertOne({
                 id: 'user1',

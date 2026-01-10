@@ -1,6 +1,6 @@
 import {
-    EOIMEffectPhase,
     OIMEffect,
+    OIMComputativeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedObject,
     OIMEventQueue,
@@ -9,36 +9,35 @@ import {
 } from '../src';
 
 describe('OIMEffect', () => {
-    test('runs in PRE before HANDLERS for the same source update', () => {
+    test('runs handlers in subscription order for the same key', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         const order: string[] = [];
 
-        const pre = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.PRE,
+        const a = new OIMEffect(runtime, {
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
             run: () => {
-                order.push('pre');
+                order.push('a');
             },
         });
 
-        const handlers = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.HANDLERS,
+        const b = new OIMEffect(runtime, {
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
             run: () => {
-                order.push('handlers');
+                order.push('b');
             },
         });
 
         obj.setProperty('a', 1);
         queue.flush();
 
-        expect(order).toEqual(['pre', 'handlers']);
+        expect(order).toEqual(['a', 'b']);
 
-        handlers.destroy();
-        pre.destroy();
+        b.destroy();
+        a.destroy();
         obj.destroy();
         queue.destroy();
     });
@@ -46,11 +45,11 @@ describe('OIMEffect', () => {
     test('coalesces multiple invalidations within a single flush (runs once)', () => {
         type TKey = 'a' | 'b';
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         let runs = 0;
-        const effect = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.PRE,
+        const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyKeyedObject(obj, 'a'),
                 new OIMEffectDependencyKeyedObject(obj, 'b'),
@@ -70,21 +69,20 @@ describe('OIMEffect', () => {
         queue.destroy();
     });
 
-    test('computed dependency: PRE effect runs in same flush, HANDLERS effect runs next flush', () => {
+    test('computed dependency: effect runs when computed updates (same drain)', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
-        const A = new OIMComputed<number>(queue, {
+        const A = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
 
-        let preRuns = 0;
-        let handlerRuns = 0;
+        let runs = 0;
 
-        const preEffect = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.PRE,
+        const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
                     emitter: A.emitter,
@@ -92,37 +90,16 @@ describe('OIMEffect', () => {
                 }),
             ],
             run: () => {
-                preRuns++;
-            },
-        });
-
-        const handlerEffect = new OIMEffect(queue, {
-            phase: EOIMEffectPhase.HANDLERS,
-            deps: [
-                new OIMEffectDependencyComputed({
-                    emitter: A.emitter,
-                    updateEventEmitter: A.updateEventEmitter,
-                }),
-            ],
-            run: () => {
-                handlerRuns++;
+                runs++;
             },
         });
 
         obj.setProperty('a', 2);
 
-        // Flush 1: object -> computed recompute (pre), computed emits update => pre effect sees it immediately.
         queue.flush();
-        expect(preRuns).toBe(1);
-        expect(handlerRuns).toBe(0);
+        expect(runs).toBe(1);
 
-        // Flush 2: computed.updateEventEmitter dispatches to normal subscribers => handlers effect runs.
-        queue.flush();
-        expect(preRuns).toBe(1);
-        expect(handlerRuns).toBe(1);
-
-        handlerEffect.destroy();
-        preEffect.destroy();
+        effect.destroy();
         A.destroy();
         obj.destroy();
         queue.destroy();

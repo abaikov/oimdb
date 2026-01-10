@@ -4,6 +4,7 @@ import {
     OIMReactiveIndexManualSetBased,
     OIMReactiveObject,
     OIMComputed,
+    OIMComputativeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedCollection,
     OIMEffectDependencyKeyedIndex,
@@ -14,9 +15,10 @@ describe('OIMComputed', () => {
     test('recomputes on dependency updates via the same queue and notifies subscribers', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
-        const computed = new OIMComputed<number>(queue, {
+        const computed = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
@@ -28,9 +30,7 @@ describe('OIMComputed', () => {
 
         obj.setProperty('a', 2);
 
-        // Flush 1: upstream subscriptions invalidate/recompute computed in pre-phase
-        queue.flush();
-        // Flush 2: computed subscribers are delivered via the main queue snapshot
+        // Single drain flush: recompute + subscriber delivery happen within the same flush.
         queue.flush();
 
         expect(computed.get()).toBe(4);
@@ -43,6 +43,7 @@ describe('OIMComputed', () => {
 
     test('can depend on object key + collection pk + index key and compute from all of them', () => {
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
 
         type TObjectKey = 'a';
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
@@ -55,7 +56,7 @@ describe('OIMComputed', () => {
             queue
         );
 
-        const computed = new OIMComputed<number>(queue, {
+        const computed = new OIMComputed<number>(runtime, {
             compute: () => {
                 const a = obj.get('a') ?? 0;
                 const x = collection.getOneByPk(1)?.x ?? 0;
@@ -78,9 +79,7 @@ describe('OIMComputed', () => {
         collection.upsertOneByPk(1, { id: 1, x: 10 });
         index.setPks('g', [1, 2]);
 
-        // Flush 1: upstream subscriptions invalidate/recompute computed in pre-phase
-        queue.flush();
-        // Flush 2: computed subscribers are delivered via the main queue snapshot
+        // Single drain flush: recompute + subscriber delivery happen within the same flush.
         queue.flush();
 
         expect(computed.get()).toBe(13); // 1 + 10 + 2
@@ -96,6 +95,7 @@ describe('OIMComputed', () => {
     test('supports many computed with computed-to-computed dependencies (chain + diamond)', () => {
         type TObjectKey = 'a' | 'b';
         const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
 
         const calls = {
@@ -106,7 +106,7 @@ describe('OIMComputed', () => {
             e: 0,
         };
 
-        const A = new OIMComputed<number>(queue, {
+        const A = new OIMComputed<number>(runtime, {
             compute: () => {
                 calls.a++;
                 return (obj.get('a') ?? 0) * 2;
@@ -114,7 +114,7 @@ describe('OIMComputed', () => {
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
 
-        const B = new OIMComputed<number>(queue, {
+        const B = new OIMComputed<number>(runtime, {
             compute: () => {
                 calls.b++;
                 return A.get() + (obj.get('b') ?? 0);
@@ -128,7 +128,7 @@ describe('OIMComputed', () => {
             ],
         });
 
-        const C = new OIMComputed<number>(queue, {
+        const C = new OIMComputed<number>(runtime, {
             compute: () => {
                 calls.c++;
                 return B.get() * 3;
@@ -141,7 +141,7 @@ describe('OIMComputed', () => {
             ],
         });
 
-        const D = new OIMComputed<number>(queue, {
+        const D = new OIMComputed<number>(runtime, {
             compute: () => {
                 calls.d++;
                 return A.get() + C.get();
@@ -158,7 +158,7 @@ describe('OIMComputed', () => {
             ],
         });
 
-        const E = new OIMComputed<number>(queue, {
+        const E = new OIMComputed<number>(runtime, {
             compute: () => {
                 calls.e++;
                 return D.get() + B.get();

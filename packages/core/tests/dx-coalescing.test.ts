@@ -1,13 +1,10 @@
-import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
-import { OIMUpdateEventCoalescerCollection } from '../src/core/OIMUpdateEventCoalescerCollection';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
-import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
-import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
+import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
+import { OIMReactiveIndexManualSetBased } from '../src/core/OIMReactiveIndexManualSetBased';
 
 interface User {
     id: string;
@@ -21,18 +18,24 @@ interface Order {
 }
 
 describe('Cross-Collection Coalescing', () => {
-    let userCollection: OIMCollection<User, string>;
-    let orderCollection: OIMCollection<Order, string>;
-    let userCoalescer: OIMUpdateEventCoalescerCollection<string>;
-    let orderCoalescer: OIMUpdateEventCoalescerCollection<string>;
+    let userCollection: OIMReactiveCollection<User, string>;
+    let orderCollection: OIMReactiveCollection<Order, string>;
     let sharedQueue: OIMEventQueue;
     let scheduler: OIMEventQueueSchedulerImmediate;
-    let userEmitter: OIMUpdateEventEmitter<string>;
-    let orderEmitter: OIMUpdateEventEmitter<string>;
+    let userEmitter: {
+        subscribeOnKey: (k: string, h: () => void) => () => void;
+    };
+    let orderEmitter: {
+        subscribeOnKey: (k: string, h: () => void) => () => void;
+    };
 
     beforeEach(() => {
-        // Create collections
-        userCollection = new OIMCollection<User, string>({
+        // CRITICAL: Create SHARED queue and scheduler
+        scheduler = new OIMEventQueueSchedulerImmediate();
+        sharedQueue = new OIMEventQueue({ scheduler });
+
+        // Create collections bound to the SAME queue
+        userCollection = new OIMReactiveCollection<User, string>(sharedQueue, {
             selectPk: new OIMPkSelectorFactory<
                 User,
                 string
@@ -42,48 +45,27 @@ describe('Cross-Collection Coalescing', () => {
                 new OIMEntityUpdaterFactory<User>().createMergeEntityUpdater(),
         });
 
-        orderCollection = new OIMCollection<Order, string>({
-            selectPk: new OIMPkSelectorFactory<
-                Order,
-                string
-            >().createIdSelector(),
-            store: new OIMCollectionStoreMapDriven<Order, string>(),
-            updateEntity:
-                new OIMEntityUpdaterFactory<Order>().createMergeEntityUpdater(),
-        });
-
-        // Create coalescers
-        userCoalescer = new OIMUpdateEventCoalescerCollection(
-            userCollection.emitter
-        );
-        orderCoalescer = new OIMUpdateEventCoalescerCollection(
-            orderCollection.emitter
+        orderCollection = new OIMReactiveCollection<Order, string>(
+            sharedQueue,
+            {
+                selectPk: new OIMPkSelectorFactory<
+                    Order,
+                    string
+                >().createIdSelector(),
+                store: new OIMCollectionStoreMapDriven<Order, string>(),
+                updateEntity:
+                    new OIMEntityUpdaterFactory<Order>().createMergeEntityUpdater(),
+            }
         );
 
-        // CRITICAL: Create SHARED queue and scheduler
-        scheduler = new OIMEventQueueSchedulerImmediate();
-        sharedQueue = new OIMEventQueue({ scheduler });
-
-        // Both emitters use the SAME queue
-        userEmitter = new OIMUpdateEventEmitter({
-            coalescer: userCoalescer,
-            queue: sharedQueue, // Same queue!
-        });
-
-        orderEmitter = new OIMUpdateEventEmitter({
-            coalescer: orderCoalescer,
-            queue: sharedQueue, // Same queue!
-        });
+        userEmitter = userCollection;
+        orderEmitter = orderCollection;
     });
 
     afterEach(() => {
-        userEmitter.destroy();
-        orderEmitter.destroy();
-        userCoalescer.destroy();
-        orderCoalescer.destroy();
+        userCollection.destroy();
+        orderCollection.destroy();
         sharedQueue.destroy();
-        userCollection.emitter.offAll();
-        orderCollection.emitter.offAll();
     });
 
     test('should coalesce updates across different collections', () => {
@@ -189,6 +171,10 @@ describe('Cross-Collection Coalescing', () => {
         // Initially queue should be empty
         expect(sharedQueue.length).toBe(0);
 
+        // Ensure there are subscriptions so updates actually schedule work.
+        userEmitter.subscribeOnKey('user123', () => {});
+        orderEmitter.subscribeOnKey('order456', () => {});
+
         // Update user collection
         userCollection.upsertOne({ id: 'user123', name: 'John' });
         expect(sharedQueue.length).toBe(1); // Queue has one item
@@ -207,13 +193,11 @@ describe('Cross-Collection Coalescing', () => {
     });
 
     test('should handle mixed collection and index updates', () => {
-        // Add an index to the mix
-        const index = new OIMIndexManualSetBased<string, string>();
-        const indexCoalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
-        const indexEmitter = new OIMUpdateEventEmitter({
-            coalescer: indexCoalescer,
-            queue: sharedQueue, // Same queue!
-        });
+        // Add an index to the mix (bound to the same queue)
+        const index = new OIMReactiveIndexManualSetBased<string, string>(
+            sharedQueue
+        );
+        const indexEmitter = index;
 
         let totalNotifications = 0;
         const globalHandler = () => {
@@ -236,8 +220,6 @@ describe('Cross-Collection Coalescing', () => {
         expect(totalNotifications).toBe(2);
 
         // Cleanup
-        indexEmitter.destroy();
-        indexCoalescer.destroy();
         index.destroy();
     });
 });

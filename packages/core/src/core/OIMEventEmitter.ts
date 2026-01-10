@@ -11,6 +11,12 @@ type TOIMEventBucket<T, K extends keyof T> = {
 export class OIMEventEmitter<T extends Record<string, unknown>> {
     private buckets: Partial<{ [E in keyof T]: TOIMEventBucket<T, E> }> = {};
 
+    public hasHandlers<K extends keyof T>(event: K): boolean {
+        const bucket = this.buckets[event];
+        if (!bucket) return false;
+        return bucket.indexByHandler.size > 0;
+    }
+
     private getOrCreateBucket<K extends keyof T>(
         event: K
     ): TOIMEventBucket<T, K> {

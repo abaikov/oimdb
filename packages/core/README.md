@@ -21,10 +21,18 @@ This package exports all the core classes, interfaces, and types needed to build
 - **OIMCollection**: Base collection with CRUD operations and event emission
 
 ### Event System
-- **OIMUpdateEventEmitter**: Key-specific event subscriptions with coalescing
-- **OIMUpdateEventCoalescer**: Intelligent event batching and deduplication
+- **OIMUpdateEventEmitter**: Key-based subscriptions with batching/deduplication (no buffering if there are no subscribers)
 - **OIMEventEmitter**: Generic type-safe event emitter
 - **Schedulers**: Multiple event processing strategies (microtask, timeout, animationFrame, immediate)
+
+### Reactive Primitives
+- **OIMEffect**: Reactive effects that run when dependencies change
+- **OIMComputed**: Derived values that recompute when dependencies change
+- **OIMSelector**: Value watchers that deliver updates only when values actually change
+  - `OIMCollectionByPkSelector`: Watch single entity from collection
+  - `OIMCollectionByPksSelector`: Watch multiple entities from collection
+  - `OIMObjectValueByKeySelector`: Watch single key from reactive object
+  - `OIMEntitiesByIndexKey*Selector`: Watch entities by index key
 
 ### Storage & Indexing
 - **OIMCollectionStoreMapDriven**: Map-based storage backend
@@ -113,8 +121,8 @@ const queue = new OIMEventQueue({
 const userRoleIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
 
 // Subscribe to specific index key changes
-userRoleIndex.updateEventEmitter.subscribeOnKey('admin', (pks) => {
-    console.log('Admin users changed:', pks); // pks is Set<string>
+userRoleIndex.updateEventEmitter.subscribeOnKey('admin', () => {
+    console.log('Admin users changed:', userRoleIndex.getPksByKey('admin')); // Set<string>
 });
 
 // Build the index manually
@@ -145,8 +153,8 @@ const queue = new OIMEventQueue({
 const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
 
 // Subscribe to specific index key changes
-cardsByDeckIndex.updateEventEmitter.subscribeOnKey('deck1', (pks) => {
-    console.log('Deck cards changed:', pks); // pks is string[]
+cardsByDeckIndex.updateEventEmitter.subscribeOnKey('deck1', () => {
+    console.log('Deck cards changed:', cardsByDeckIndex.getPksByKey('deck1')); // string[]
 });
 
 // Build the index manually - set full array
@@ -326,10 +334,7 @@ users.upsertOne({ id: 'user1', email: 'john@example.com' });
 
 // Only one notification will fire (in next microtask)
 
-// Access the underlying coalescer directly
-users.coalescer.emitter.on('upsert', (coalescedUpdates) => {
-    console.log('Raw coalesced updates:', coalescedUpdates);
-});
+// (No separate "coalescer" object exists: batching/deduplication is handled inside OIMUpdateEventEmitter.)
 ```
 
 ## 🔄 Reactive Architecture
@@ -340,7 +345,7 @@ OIMDB core uses a reactive architecture where changes automatically trigger noti
 
 ```typescript
 // Collection updates trigger events through the event queue
-collection.upsertOne(entity) → coalescer → event queue → subscribers
+collection.upsertOne(entity) → updateEventEmitter → event queue → subscribers
 
 // Key-specific subscriptions only notify when relevant data changes
 updateEventEmitter.subscribeOnKey('user1', callback) // Only fires for user1 changes
@@ -360,31 +365,22 @@ users.upsertOne({ id: 'user1', role: 'admin' });
 // This prevents unnecessary re-renders and improves performance
 ```
 
-### Effects, Computed, and the Event Lifecycle (PRE vs HANDLERS)
+### Effects, Computed, and the Event Lifecycle
 
-OIMDB uses a **two-phase** update model inside a queue flush:
+OIMDB uses a single-pass flush boundary: `queue.flush()` executes the current batch of pending work.
 
-- **PRE phase**: derived logic (e.g. `OIMComputed`) and **pure** effects run here
-- **HANDLERS phase**: regular subscribers run here (UI updates, integrations, etc.)
-
-**Important rules / guarantees:**
-
-- **PRE should be pure**: effects in the PRE phase should **not write** back into collections/objects/indexes. This keeps the update model predictable and avoids re-entrant update loops.
-- **Computed values are consistent after a single flush**: after `queue.flush()`, reading `computed.get()` returns an up-to-date value.
-- **Notifications may be delivered in the next flush**: subscribers attached via `updateEventEmitter` are delivered through the queue and follow the queue snapshot rules. That means:
-  - computed may recompute in flush #1 (PRE)
-  - subscribers may run in flush #2 (HANDLERS, next queue drain) if the subscription itself is scheduled from within flush #1
-
-If you're using an auto-scheduled queue (microtask/raf/timeout), you typically don't call `flush()` manually; the above becomes “next tick/microtask” semantics instead of “second flush call”.
+Effects and computed values are scheduled through `OIMComputativeRuntime`, which is backed by the same queue. This keeps the public API simple and avoids a multi-phase flush model.
 
 #### What is an Effect?
 
 `OIMEffect` is the base reactive primitive: it subscribes to dependencies and calls `run()` when those dependencies change. It coalesces multiple invalidations during the same flush into a single run.
 
+**Basic example with reactive object:**
+
 ```typescript
 import {
   OIMEffect,
-  EOIMEffectPhase,
+  OIMComputativeRuntime,
   OIMEventQueue,
   OIMReactiveObject,
   OIMEffectDependencyKeyedObject,
@@ -393,10 +389,10 @@ import {
 type TKey = 'a';
 
 const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
-const effect = new OIMEffect(queue, {
-  phase: EOIMEffectPhase.HANDLERS,
+const effect = new OIMEffect(runtime, {
   deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
   run: () => {
     console.log('obj.a changed');
@@ -411,40 +407,154 @@ obj.destroy();
 queue.destroy();
 ```
 
+**Effect with collection dependency:**
+
+```typescript
+import {
+  OIMEffect,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveCollection,
+  OIMEffectDependencyKeyedCollection,
+} from '@oimdb/core';
+
+interface User {
+  id: string;
+  name: string;
+}
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const users = new OIMReactiveCollection<User, string>(queue, {
+  selectPk: (u) => u.id,
+});
+
+const effect = new OIMEffect(runtime, {
+  deps: [new OIMEffectDependencyKeyedCollection(users, 'user1')],
+  run: () => {
+    const user = users.getOneByPk('user1');
+    console.log('User1 changed:', user);
+  },
+});
+
+users.upsertOne({ id: 'user1', name: 'John' });
+queue.flush();
+
+effect.destroy();
+users.destroy();
+queue.destroy();
+```
+
+**Effect with index dependency:**
+
+```typescript
+import {
+  OIMEffect,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveIndexManualSetBased,
+  OIMEffectDependencyKeyedIndex,
+} from '@oimdb/core';
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const roleIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+
+const effect = new OIMEffect(runtime, {
+  deps: [new OIMEffectDependencyKeyedIndex(roleIndex, 'admin')],
+  run: () => {
+    const adminPks = roleIndex.getPksByKey('admin');
+    console.log('Admin users changed:', Array.from(adminPks));
+  },
+});
+
+roleIndex.setPks('admin', ['user1', 'user2']);
+queue.flush();
+
+effect.destroy();
+roleIndex.destroy();
+queue.destroy();
+```
+
+**Effect with multiple dependencies:**
+
+```typescript
+import {
+  OIMEffect,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveObject,
+  OIMReactiveCollection,
+  OIMEffectDependencyKeyedObject,
+  OIMEffectDependencyKeyedCollection,
+} from '@oimdb/core';
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const settings = new OIMReactiveObject<'theme' | 'lang', string>(queue);
+const users = new OIMReactiveCollection<User, string>(queue, {
+  selectPk: (u) => u.id,
+});
+
+const effect = new OIMEffect(runtime, {
+  deps: [
+    new OIMEffectDependencyKeyedObject(settings, ['theme', 'lang']),
+    new OIMEffectDependencyKeyedCollection(users, 'currentUser'),
+  ],
+  run: () => {
+    const theme = settings.get('theme');
+    const user = users.getOneByPk('currentUser');
+    console.log('Settings or user changed:', { theme, user });
+  },
+});
+
+settings.setProperty('theme', 'dark');
+users.upsertOne({ id: 'currentUser', name: 'John' });
+queue.flush(); // Effect runs once, even though multiple deps changed
+
+effect.destroy();
+settings.destroy();
+users.destroy();
+queue.destroy();
+```
+
 #### What is a Computed?
 
-`OIMComputed<T>` is built on top of `OIMEffect` (PRE phase): it recomputes a derived value and emits `update` when the value changes.
+`OIMComputed<T>` is built on top of `OIMEffect`: it recomputes a derived value and emits `update` when the value changes.
+
+**Basic example:**
 
 ```typescript
 import {
   OIMComputed,
   OIMEventQueue,
+  OIMComputativeRuntime,
   OIMReactiveObject,
   OIMEffectDependencyKeyedObject,
 } from '@oimdb/core';
 
 type TKey = 'a';
 const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
-const doubled = new OIMComputed<number>(queue, {
+const doubled = new OIMComputed<number>(runtime, {
   compute: () => (obj.get('a') ?? 0) * 2,
   deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
 });
 
 obj.setProperty('a', 10);
-queue.flush(); // recompute happens during PRE
+queue.flush(); // run scheduled work
 
 console.log(doubled.get()); // 20
 
-// If you also subscribe to computed updates, delivery can be in the next flush:
+// If you also subscribe to computed updates, delivery happens in the same drain flush:
 let calls = 0;
 doubled.updateEventEmitter.subscribeOnKey('value', () => {
   calls++;
 });
 obj.setProperty('a', 11);
-queue.flush(); // recompute (PRE)
-queue.flush(); // subscriber delivery (HANDLERS via queue snapshot)
+queue.flush(); // run scheduled work
 console.log(calls); // 1
 
 doubled.destroy();
@@ -452,18 +562,81 @@ obj.destroy();
 queue.destroy();
 ```
 
+**Computed with collection and index dependencies:**
+
+```typescript
+import {
+  OIMComputed,
+  OIMEventQueue,
+  OIMComputativeRuntime,
+  OIMReactiveCollection,
+  OIMReactiveIndexManualSetBased,
+  OIMEffectDependencyKeyedCollection,
+  OIMEffectDependencyKeyedIndex,
+} from '@oimdb/core';
+
+interface User {
+  id: string;
+  name: string;
+  role: string;
+}
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const users = new OIMReactiveCollection<User, string>(queue, {
+  selectPk: (u) => u.id,
+});
+const roleIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+
+// Computed that counts admin users
+const adminCount = new OIMComputed<number>(runtime, {
+  compute: () => {
+    const adminPks = roleIndex.getPksByKey('admin');
+    return adminPks.size;
+  },
+  deps: [new OIMEffectDependencyKeyedIndex(roleIndex, 'admin')],
+});
+
+// Computed that gets admin user names
+const adminNames = new OIMComputed<string[]>(runtime, {
+  compute: () => {
+    const adminPks = Array.from(roleIndex.getPksByKey('admin'));
+    return adminPks
+      .map((pk) => users.getOneByPk(pk)?.name)
+      .filter((name): name is string => name !== undefined);
+  },
+  deps: [
+    new OIMEffectDependencyKeyedIndex(roleIndex, 'admin'),
+    new OIMEffectDependencyKeyedCollection(users, Array.from(roleIndex.getPksByKey('admin'))),
+  ],
+});
+
+users.upsertMany([
+  { id: 'u1', name: 'Alice', role: 'admin' },
+  { id: 'u2', name: 'Bob', role: 'user' },
+]);
+roleIndex.setPks('admin', ['u1']);
+queue.flush();
+
+console.log(adminCount.get()); // 1
+console.log(adminNames.get()); // ['Alice']
+
+adminNames.destroy();
+adminCount.destroy();
+roleIndex.destroy();
+users.destroy();
+queue.destroy();
+```
+
 #### Computed-to-Computed dependencies
 
 For computed-to-computed dependencies you can use `OIMEffectDependencyComputed`.
-
-- In **PRE** it subscribes directly to the computed's internal `emitter` to invalidate downstream derivations immediately during the pre-drain.
-- In **HANDLERS** it subscribes via `computed.updateEventEmitter` (delivered through the queue).
 
 ```typescript
 import {
   OIMComputed,
   OIMEffect,
-  EOIMEffectPhase,
+  OIMComputativeRuntime,
   OIMEffectDependencyComputed,
   OIMEventQueue,
   OIMReactiveObject,
@@ -472,27 +645,26 @@ import {
 
 type TKey = 'a';
 const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
-const A = new OIMComputed<number>(queue, {
+const A = new OIMComputed<number>(runtime, {
   compute: () => (obj.get('a') ?? 0) + 1,
   deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
 });
 
-const B = new OIMComputed<number>(queue, {
+const B = new OIMComputed<number>(runtime, {
   compute: () => A.get() * 2,
   deps: [new OIMEffectDependencyComputed({ emitter: A.emitter, updateEventEmitter: A.updateEventEmitter })],
 });
 
-const effect = new OIMEffect(queue, {
-  phase: EOIMEffectPhase.HANDLERS,
+const effect = new OIMEffect(runtime, {
   deps: [new OIMEffectDependencyComputed({ emitter: B.emitter, updateEventEmitter: B.updateEventEmitter })],
   run: () => console.log('B changed'),
 });
 
 obj.setProperty('a', 1);
-queue.flush(); // computed recompute (PRE)
-queue.flush(); // handlers delivered via the queue snapshot
+queue.flush(); // run scheduled work
 
 effect.destroy();
 B.destroy();
@@ -501,12 +673,153 @@ obj.destroy();
 queue.destroy();
 ```
 
+#### What are Selectors?
+
+Selectors provide a convenient way to watch and react to changes in collections, objects, and indexes. They automatically handle subscription management and deliver updates only when values actually change.
+
+**Collection selector:**
+
+```typescript
+import {
+  OIMCollectionByPkSelector,
+  OIMCollectionByPksSelector,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveCollection,
+} from '@oimdb/core';
+
+interface User {
+  id: string;
+  name: string;
+}
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const users = new OIMReactiveCollection<User, string>(queue, {
+  selectPk: (u) => u.id,
+});
+
+// Watch a single user
+const userSelector = new OIMCollectionByPkSelector(runtime, users, 'user1');
+const unwatch = userSelector.watch((user) => {
+  console.log('User1 changed:', user);
+});
+
+users.upsertOne({ id: 'user1', name: 'John' });
+queue.flush(); // Callback fires with { id: 'user1', name: 'John' }
+
+// Watch multiple users
+const usersSelector = new OIMCollectionByPksSelector(runtime, users, ['user1', 'user2']);
+usersSelector.watch((users) => {
+  console.log('Users changed:', users);
+});
+
+users.upsertMany([
+  { id: 'user1', name: 'John Doe' },
+  { id: 'user2', name: 'Jane Smith' },
+]);
+queue.flush(); // Callback fires with array of users
+
+unwatch(); // Stop watching
+usersSelector.watch(() => {}); // Get unsubscribe function
+users.destroy();
+queue.destroy();
+```
+
+**Selector with index (entities by index key):**
+
+```typescript
+import {
+  OIMEntitiesByIndexKeySetBasedSelector,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveCollection,
+  OIMReactiveIndexManualSetBased,
+} from '@oimdb/core';
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const users = new OIMReactiveCollection<User, string>(queue, {
+  selectPk: (u) => u.id,
+});
+const roleIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+
+// Watch all admin users
+const adminUsersSelector = new OIMEntitiesByIndexKeySetBasedSelector(
+  runtime,
+  users,
+  roleIndex,
+  'admin'
+);
+
+adminUsersSelector.watch((adminUsers) => {
+  console.log('Admin users:', adminUsers.map((u) => u?.name));
+});
+
+users.upsertMany([
+  { id: 'u1', name: 'Alice', role: 'admin' },
+  { id: 'u2', name: 'Bob', role: 'admin' },
+]);
+roleIndex.setPks('admin', ['u1', 'u2']);
+queue.flush(); // Callback fires with [Alice, Bob]
+
+// When index changes, selector automatically resubscribes to new entities
+roleIndex.setPks('admin', ['u1']);
+queue.flush(); // Callback fires with [Alice]
+
+adminUsersSelector.watch(() => {}); // Get unsubscribe function
+roleIndex.destroy();
+users.destroy();
+queue.destroy();
+```
+
+**Object selector:**
+
+```typescript
+import {
+  OIMObjectValueByKeySelector,
+  OIMObjectValuesByKeysSelector,
+  OIMComputativeRuntime,
+  OIMEventQueue,
+  OIMReactiveObject,
+} from '@oimdb/core';
+
+const queue = new OIMEventQueue();
+const runtime = new OIMComputativeRuntime(queue);
+const settings = new OIMReactiveObject<'theme' | 'lang', string>(queue);
+
+// Watch single key
+const themeSelector = new OIMObjectValueByKeySelector(runtime, settings, 'theme');
+themeSelector.watch((theme) => {
+  console.log('Theme changed:', theme);
+});
+
+// Watch multiple keys
+const settingsSelector = new OIMObjectValuesByKeysSelector(runtime, settings, ['theme', 'lang']);
+settingsSelector.watch((values) => {
+  console.log('Settings changed:', values); // [theme, lang]
+});
+
+settings.setProperty('theme', 'dark');
+queue.flush();
+
+settings.destroy();
+queue.destroy();
+```
+
+**Key differences: Effects vs Selectors:**
+
+- **Effects** (`OIMEffect`): Run side effects when dependencies change. Use for logging, API calls, UI updates.
+- **Selectors** (`OIMSelector`): Watch and deliver values only when they actually change. Use for reactive data access with automatic change detection.
+- **Computed** (`OIMComputed`): Derive values from dependencies. Use for calculated/transformed data.
+
 #### Gotchas (read this once)
 
 - **Avoid cycles**: if A depends on B and B depends on A (directly or indirectly), you can get endless invalidation/recompute. Keep your dependency graph acyclic.
 - **Keep `compute()` pure**: treat `compute()` as a pure function over current state. Doing writes inside `compute()` will create hard-to-debug re-entrancy.
-- **Put side-effects in HANDLERS**: if you need to write to stores or trigger IO, do it from `OIMEffect` with `phase: EOIMEffectPhase.HANDLERS`.
-- **Always `destroy()`**: effects/computed subscribe to dependencies; if you create them dynamically, call `destroy()` to unsubscribe and free memory.
+- **Keep effects safe**: if you need to write to stores or trigger IO, do it from `OIMEffect`, but avoid creating endless update loops.
+- **Always `destroy()`**: effects/computed/selectors subscribe to dependencies; if you create them dynamically, call `destroy()` or use the unsubscribe function to unsubscribe and free memory.
+- **Selectors deliver only on change**: Selectors use equality checks (`areEqual`) to avoid delivering the same value multiple times. Override `areEqual` in custom selectors if needed.
 
 ### Scheduler Types
 
@@ -521,7 +834,7 @@ Choose the right scheduler for your use case:
 
 ```
 OIMCollection (base)
-├── OIMReactiveCollection (adds event emitter + coalescing)
+├── OIMReactiveCollection (adds updateEventEmitter wired to the queue)
 └── OIMRICollection (reactive collection + indexes)
 
 OIMIndexSetBased (base for Set-based)
@@ -646,7 +959,7 @@ new OIMReactiveCollection(queue: OIMEventQueue, opts?: TOIMCollectionOptions<TEn
 **Properties:**
 - `collection: OIMCollection<TEntity, TPk>` - Underlying collection
 - `updateEventEmitter: OIMUpdateEventEmitter<TPk>` - Key-specific subscriptions
-- `coalescer: OIMUpdateEventCoalescerCollection<TPk>` - Event coalescing
+- Event batching/deduplication is handled internally by `OIMUpdateEventEmitter`
 
 **Methods:**
 - `upsertOne(entity: TEntity): void` - Insert or update single entity
@@ -677,7 +990,10 @@ Reactive Set-based index with manual key-to-entity mapping and change notificati
 **Constructor:**
 ```typescript
 new OIMReactiveIndexManualSetBased(queue: OIMEventQueue, opts?: {
-    index?: OIMIndexManualSetBased<TKey, TPk>
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreSetBased<TKey, TPk>;
+    }
 })
 ```
 
@@ -700,7 +1016,10 @@ Reactive Array-based index with manual key-to-entity mapping and change notifica
 **Constructor:**
 ```typescript
 new OIMReactiveIndexManualArrayBased(queue: OIMEventQueue, opts?: {
-    index?: OIMIndexManualArrayBased<TKey, TPk>
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreArrayBased<TKey, TPk>;
+    }
 })
 ```
 

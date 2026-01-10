@@ -1,12 +1,11 @@
 import { OIMIndexManualSetBased } from '../src/core/OIMIndexManualSetBased';
 import { OIMIndexManualArrayBased } from '../src/core/OIMIndexManualArrayBased';
 import { OIMIndexComparatorFactory } from '../src/core/OIMIndexComparatorFactory';
-import { OIMUpdateEventCoalescerIndex } from '../src/core/OIMUpdateEventCoalescerIndex';
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 import { EOIMIndexEventType } from '../src/enum/EOIMIndexEventType';
 import { TOIMIndexUpdatePayload } from '../src/type/TOIMIndexUpdatePayload';
+import { OIMReactiveIndexManualSetBased } from '../src/core/OIMReactiveIndexManualSetBased';
 
 describe('OIMIndexManualSetBased', () => {
     describe('Basic Operations', () => {
@@ -462,25 +461,21 @@ describe('OIMIndexManualSetBased', () => {
     });
 
     describe('Event System Integration', () => {
-        let index: OIMIndexManualSetBased<string, number>;
-        let coalescer: OIMUpdateEventCoalescerIndex<string>;
-        let emitter: OIMUpdateEventEmitter<string>;
+        let index: OIMReactiveIndexManualSetBased<string, number>;
+        let emitter: OIMReactiveIndexManualSetBased<string, number>;
         let queue: OIMEventQueue;
         let scheduler: OIMEventQueueSchedulerImmediate;
 
         beforeEach(() => {
-            index = new OIMIndexManualSetBased<string, number>();
-            coalescer = new OIMUpdateEventCoalescerIndex(index.emitter);
             scheduler = new OIMEventQueueSchedulerImmediate();
             queue = new OIMEventQueue({ scheduler });
-            emitter = new OIMUpdateEventEmitter({ coalescer, queue });
+            index = new OIMReactiveIndexManualSetBased<string, number>(queue);
+            emitter = index;
         });
 
         afterEach(() => {
-            emitter.destroy();
-            coalescer.destroy();
-            queue.destroy();
             index.destroy();
+            queue.destroy();
         });
 
         test('should notify subscribers on index changes', () => {

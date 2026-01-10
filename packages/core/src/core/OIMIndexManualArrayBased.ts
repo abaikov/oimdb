@@ -28,7 +28,7 @@ export class OIMIndexManualArrayBased<
         const hasChanges = this.setPksWithComparison(key, pks);
 
         if (hasChanges) {
-            this.emitUpdate([key]);
+            this.emitUpdateOne(key);
         }
     }
 
@@ -56,7 +56,7 @@ export class OIMIndexManualArrayBased<
 
         if (hasChanges) {
             this.store.setOneByKey(key, Array.from(pksSet));
-            this.emitUpdate([key]);
+            this.emitUpdateOne(key);
         }
     }
 
@@ -79,7 +79,7 @@ export class OIMIndexManualArrayBased<
             } else {
                 this.store.setOneByKey(key, filtered);
             }
-            this.emitUpdate([key]);
+            this.emitUpdateOne(key);
         }
     }
 
@@ -98,7 +98,7 @@ export class OIMIndexManualArrayBased<
             // Clear specific bucket
             if (this.store.getOneByKey(key) !== undefined) {
                 this.store.removeOneByKey(key);
-                this.emitUpdate([key]);
+                this.emitUpdateOne(key);
             }
         }
     }

@@ -8,17 +8,17 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     }
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsup src/index.ts --dts --format esm,cjs",
-    "dev": "tsup src/index.ts --dts --format esm,cjs --watch",
+    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
+    "dev": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json --watch",
     "test": "jest",
     "test:watch": "jest --watch",
     "type-check": "tsc --noEmit",
@@ -32,7 +32,7 @@
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
-    "@oimdb/core": "1.4.0"
+    "@oimdb/core": "^1.4.0"
   },
   "keywords": [
     "oimdb",
@@ -45,7 +45,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/oimdb/oimdb.git",
+    "url": "https://github.com/abaikov/oimdb.git",
     "directory": "packages/snapshot-manager"
   }
 }

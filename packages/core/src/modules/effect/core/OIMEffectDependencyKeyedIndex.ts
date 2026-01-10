@@ -1,8 +1,7 @@
-import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
 import { TOIMPk } from '../../../type/TOIMPk';
-import { EOIMEffectPhase } from '../enum/EOIMEffectPhase';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
+import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
 export class OIMEffectDependencyKeyedIndex<TKey extends TOIMPk>
     implements IOIMEffectDependency
@@ -10,27 +9,26 @@ export class OIMEffectDependencyKeyedIndex<TKey extends TOIMPk>
     private readonly dep: OIMEffectDependencyKeyed<TKey>;
 
     constructor(
-        index: { updateEventEmitter: OIMUpdateEventEmitter<TKey> },
+        index: IOIMKeyedSubscription<TKey>,
         key: TKey
     );
     constructor(
-        index: { updateEventEmitter: OIMUpdateEventEmitter<TKey> },
+        index: IOIMKeyedSubscription<TKey>,
         keys: readonly TKey[]
     );
     constructor(
-        index: { updateEventEmitter: OIMUpdateEventEmitter<TKey> },
+        index: IOIMKeyedSubscription<TKey>,
         keyOrKeys: TKey | readonly TKey[]
     ) {
         this.dep = new OIMEffectDependencyKeyed<TKey>(
-            index.updateEventEmitter,
+            index,
             keyOrKeys
         );
     }
 
     public subscribe(
-        phase: EOIMEffectPhase,
-        onInvalidate: () => void
+        onUpdate: () => void
     ): () => void {
-        return this.dep.subscribe(phase, onInvalidate);
+        return this.dep.subscribe(onUpdate);
     }
 }

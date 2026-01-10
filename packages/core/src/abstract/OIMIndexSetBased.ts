@@ -157,4 +157,11 @@ export abstract class OIMIndexSetBased<
     protected emitUpdate(keys: TKey[]): void {
         this.emitter.emit(EOIMIndexEventType.UPDATE, { keys });
     }
+
+    /**
+     * Emit update event for a single key (fast-path override point).
+     */
+    protected emitUpdateOne(key: TKey): void {
+        this.emitUpdate([key]);
+    }
 }

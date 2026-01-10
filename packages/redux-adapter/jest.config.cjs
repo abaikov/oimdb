@@ -14,6 +14,10 @@ module.exports = {
             testMatch: ['**/*.test.ts'],
             roots: ['<rootDir>/tests'],
             moduleFileExtensions: ['ts', 'js', 'json'],
+            moduleNameMapper: {
+                '^@oimdb/core$': '<rootDir>/../core/src',
+                '^@oimdb/react$': '<rootDir>/../react/src',
+            },
         },
         {
             displayName: 'jsdom',

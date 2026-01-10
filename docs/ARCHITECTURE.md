@@ -100,26 +100,21 @@ class OIMIndexManual<TIndexKey, TPk> extends OIMIndex<TIndexKey, TPk> {
 
 ### Event System
 
-The event system provides reactive updates with intelligent coalescing.
+The event system provides reactive updates with batching/deduplication inside the emitters.
 
 ```typescript
 class OIMUpdateEventEmitter<TPk> {
-    private coalescer: OIMUpdateEventCoalescer<TPk>;
     private queue: OIMEventQueue;
     private subscriptions = new Map<TPk, Set<TOIMEventHandler>>();
+    private updatedKeys = new Set<TPk>();
 }
 ```
 
 **Responsibilities:**
 - Manage event subscriptions
-- Coalesce multiple updates to the same entity
-- Schedule event processing
+- Batch and deduplicate updated keys during a flush
+- Schedule delivery through the queue
 - Deliver notifications efficiently
-
-**Coalescing:**
-- Multiple updates to the same entity = single notification
-- Configurable coalescing strategies
-- Support for batch operations
 
 ### Event Queue
 
@@ -161,7 +156,7 @@ Index data changes → Index emitter queues event → Queue processes event → 
 ### 3. Event Coalescing
 
 ```
-Multiple updates to same entity → Coalescer tracks changes → Single event emitted → Subscribers receive one notification
+Multiple updates to same entity → Emitter batches/deduplicates keys → Subscribers receive one notification
 ```
 
 ## Storage Layer
@@ -196,31 +191,10 @@ interface OIMCollectionStore<TEntity, TPk> {
 ### Event Lifecycle
 
 1. **Creation**: Entity or index changes trigger event creation
-2. **Coalescing**: Multiple events for the same entity are combined
-3. **Queuing**: Events are added to the processing queue
-4. **Scheduling**: Scheduler determines when to process events
-5. **Processing**: Events are delivered to subscribers
-6. **Cleanup**: Processed events are removed from queue
-
-### Coalescing Strategies
-
-```typescript
-interface OIMUpdateEventCoalescer<TKey> {
-    addUpdatedKeys(keys: readonly TKey[]): void;
-    getUpdatedKeys(): Set<TKey>;
-    clearUpdatedKeys(): void;
-}
-```
-
-**Collection Coalescer:**
-- Tracks entity updates across collections
-- Supports cross-collection coalescing
-- Optimized for entity-centric workflows
-
-**Index Coalescer:**
-- Tracks index key updates
-- Supports index-specific coalescing
-- Optimized for index-centric workflows
+2. **Batching**: Updated keys are deduplicated inside the emitter
+3. **Queuing**: Delivery work is enqueued into the event queue
+4. **Scheduling**: Scheduler determines when to run `flush()`
+5. **Processing**: The queue flush drains until no pending work remains
 
 ## Semantics / Guarantees
 
@@ -231,8 +205,8 @@ These are the behavioral guarantees the core event system is designed around:
    - Coalescing is key-based: delivery is driven by updated key sets, not by “every write”.
 
 2. **Reentrancy**
-   - If handlers trigger new updates while a batch is being delivered, those updates are collected into a *next* batch (to avoid tricky “update while iterating” semantics).
-   - `OIMEventQueue.flush()` is reentrancy-safe: functions enqueued during a flush are executed on a subsequent flush.
+   - If handlers trigger new updates while delivery is running, those updates are collected into the next internal batch.
+   - `OIMEventQueue.flush()` is a full drain: functions enqueued during a flush are executed within the same `flush()` call.
 
 3. **Subscription targeting**
    - Subscriptions are key-scoped (no “subscribe to everything” in core); delivery cost is proportional to the relevant subscriber sets.
