@@ -56,6 +56,7 @@ export * from './type/TOIMComparator';
 export * from './type/TOIMEntityUpdater';
 export * from './type/TOIMEventHandler';
 export * from './type/TOIMEventQueueOptions';
+export * from './type/TOIMEntitySlot';
 export * from './type/TOIMIndexComparator';
 export * from './type/TOIMIndexKey';
 export * from './type/TOIMIndexOptions';

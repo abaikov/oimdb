@@ -33,7 +33,7 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^1.4.0"
+    "@oimdb/core": "^1.5.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

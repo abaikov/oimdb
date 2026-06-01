@@ -110,8 +110,8 @@ Memory overhead per component:
 
 | Component | Overhead | Notes |
 |-----------|----------|-------|
-| Entity | ~40 bytes | Map entry + entity data |
-| Index Key | ~24 bytes | Map entry + Set/Array reference |
+| Entity Slot | entity size + slot object | Collections store canonical `{ pk, item }` slots |
+| Index Key | ~24 bytes | Map entry + Set/Array of slot references |
 | Subscription | ~16 bytes | Handler reference + metadata |
 | Event | ~32 bytes | Payload + metadata |
 
@@ -175,6 +175,8 @@ interface Product {
 ```
 
 ### 2. Index Optimization
+
+Indexes are slot-backed internally. Writes resolve primary keys to canonical collection slots once, and entity-by-index reads use `slot.item` directly instead of doing a collection `Map.get` per PK. `getPksByKey` still exists, but it is now a projection over stored slots; use entity selectors/hooks for the fastest read path.
 
 **Choose Appropriate Comparison Strategy:**
 ```typescript

@@ -1,5 +1,6 @@
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMAnyEntitySlot } from '../../../type/TOIMEntitySlot';
 
 /**
  * Manual ordered Array-based index.
@@ -33,7 +34,7 @@ export class OIMIndexManualOrderedArrayBased<
     public push(key: TKey, itemKey: TItemKey): number {
         const list = this.getOrCreateList(key);
         const index = list.length;
-        list.push(itemKey);
+        list.push(this.getOrCreateSlot(itemKey));
         this.emitUpdate([key]);
         return index;
     }
@@ -41,7 +42,7 @@ export class OIMIndexManualOrderedArrayBased<
     public insertAt(key: TKey, index: number, itemKey: TItemKey): void {
         const list = this.getOrCreateList(key);
         const safeIndex = Math.max(0, Math.min(index, list.length));
-        list.splice(safeIndex, 0, itemKey);
+        list.splice(safeIndex, 0, this.getOrCreateSlot(itemKey));
         this.emitUpdate([key]);
     }
 
@@ -55,7 +56,7 @@ export class OIMIndexManualOrderedArrayBased<
             this.store.removeOneByKey(key);
         }
         this.emitUpdate([key]);
-        return removed;
+        return removed?.pk;
     }
 
     public move(
@@ -67,13 +68,13 @@ export class OIMIndexManualOrderedArrayBased<
         if (!list) return undefined;
         if (fromIndex < 0 || fromIndex >= list.length) return undefined;
         if (toIndex < 0 || toIndex >= list.length) return undefined;
-        if (fromIndex === toIndex) return list[fromIndex];
+        if (fromIndex === toIndex) return list[fromIndex]?.pk;
 
         const [itemKey] = list.splice(fromIndex, 1);
         if (itemKey === undefined) return undefined;
         list.splice(toIndex, 0, itemKey);
         this.emitUpdate([key]);
-        return itemKey;
+        return itemKey.pk;
     }
 
     public reset(key: TKey, itemKeys: readonly TItemKey[]): void {
@@ -84,11 +85,11 @@ export class OIMIndexManualOrderedArrayBased<
             }
             return;
         }
-        this.store.setOneByKey(key, Array.from(itemKeys));
+        this.store.setOneByKey(key, this.resolveSlots(itemKeys));
         this.emitUpdate([key]);
     }
 
-    private getOrCreateList(key: TKey): TItemKey[] {
+    private getOrCreateList(key: TKey): TOIMAnyEntitySlot<TItemKey>[] {
         let list = this.store.getOneByKey(key);
         if (!list) {
             list = [];

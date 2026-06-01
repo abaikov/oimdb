@@ -36,17 +36,17 @@ This package exports all the core classes, interfaces, and types needed to build
 
 ### Storage & Indexing
 - **OIMCollectionStoreMapDriven**: Map-based storage backend
-- **OIMIndexManualSetBased**: Set-based manual index (returns `Set<TPk>`)
-- **OIMIndexManualArrayBased**: Array-based manual index (returns `TPk[]`)
-- **OIMIndexStoreMapDrivenSetBased**: Set-based index storage backend
-- **OIMIndexStoreMapDrivenArrayBased**: Array-based index storage backend
+- **OIMIndexManualSetBased**: Set-based manual index (stores slots, projects to `Set<TPk>`)
+- **OIMIndexManualArrayBased**: Array-based manual index (stores slots, projects to `TPk[]`)
+- **OIMIndexStoreMapDrivenSetBased**: Set-based slot index storage backend
+- **OIMIndexStoreMapDrivenArrayBased**: Array-based slot index storage backend
 - **OIMMap2Keys**: Two-key mapping utilities for complex indexing
 
 ### Abstract Classes & Interfaces
 - **OIMCollectionStore**: Storage backend interface
 - **OIMEventQueueScheduler**: Event processing scheduler interface
-- **OIMIndexSetBased**: Base Set-based index interface (returns `Set<TPk>`)
-- **OIMIndexArrayBased**: Base Array-based index interface (returns `TPk[]`)
+- **OIMIndexSetBased**: Base Set-based index interface (slot-backed, projects to `Set<TPk>`)
+- **OIMIndexArrayBased**: Base Array-based index interface (slot-backed, projects to `TPk[]`)
 - **OIMReactiveIndexSetBased**: Reactive Set-based index interface
 - **OIMReactiveIndexArrayBased**: Reactive Array-based index interface
 
@@ -107,6 +107,8 @@ const multipleUsers = users.getManyByPks(['user1', 'user2']);
 ### Creating a Reactive Index
 
 OIMDB provides two types of indexes optimized for different use cases:
+
+Indexes are slot-backed internally. Collections own canonical `{ pk, item }` slots, while indexes store references to those slots. `getPksByKey` remains available as a PK projection (`Set<TPk>` for SetBased, `TPk[]` for ArrayBased), and entity-by-index selectors/hooks read `slot.item` directly for faster reads.
 
 #### SetBased Indexes (for incremental updates)
 
@@ -862,13 +864,17 @@ OIMIndexArrayBased (base for Array-based)
 ### Index Performance
 
 **SetBased Indexes** (`OIMReactiveIndexManualSetBased`):
-- **Returns**: `Set<TPk>` for efficient membership checks
+- **Storage**: Set of canonical entity slots
+- **PK projection**: `getPksByKey` returns `Set<TPk>` for efficient membership checks
+- **Entity reads**: selectors/hooks read `slot.item` directly, avoiding per-item collection lookups
 - **Best for**: Frequent incremental updates using `addPks`/`removePks`
 - **Performance**: O(1) add/remove operations, O(n) for `setPks` (requires Set creation)
 - **Use case**: When you need to frequently add/remove individual items
 
 **ArrayBased Indexes** (`OIMReactiveIndexManualArrayBased`):
-- **Returns**: `TPk[]` for direct array access
+- **Storage**: Array of canonical entity slots
+- **PK projection**: `getPksByKey` returns `TPk[]` for direct array access
+- **Entity reads**: selectors/hooks read `slot.item` directly, preserving array order
 - **Best for**: Full array replacements using `setPks`
 - **Performance**: O(1) `setPks` operation (direct assignment, no diff computation)
 - **Use case**: When you typically replace the entire array (e.g., deck cards, ordered lists) or when you need to preserve element order/sorting
@@ -967,7 +973,9 @@ new OIMReactiveCollection(queue: OIMEventQueue, opts?: TOIMCollectionOptions<TEn
 - `removeOne(entity: TEntity): void` - Remove single entity
 - `removeMany(entities: TEntity[]): void` - Remove multiple entities
 - `getOneByPk(pk: TPk): TEntity | undefined` - Get entity by primary key
-- `getManyByPks(pks: readonly TPk[]): Map<TPk, TEntity | undefined>` - Get multiple entities
+- `getManyByPks(pks: readonly TPk[]): TEntity[]` - Get existing entities for primary keys
+- `getSlotByPk(pk: TPk): OIMEntitySlot<TEntity, TPk> | undefined` - Get the canonical slot for a primary key
+- `getSlotsByPks(pks: readonly TPk[]): OIMEntitySlot<TEntity, TPk>[]` - Get existing canonical slots for primary keys
 
 #### `OIMRICollection<TEntity, TPk, TIndexName, TIndexKey, TIndex, TReactiveIndex, TReactiveIndexMap>`
 Reactive collection with integrated indexing capabilities.
@@ -985,7 +993,7 @@ new OIMRICollection(queue: OIMEventQueue, opts: {
 - *(inherits all OIMReactiveCollection properties)*
 
 #### `OIMReactiveIndexManualSetBased<TKey, TPk>`
-Reactive Set-based index with manual key-to-entity mapping and change notifications. Returns `Set<TPk>` for efficient membership checks.
+Reactive Set-based index with manual key-to-entity mapping and change notifications. Stores canonical slots internally and projects to `Set<TPk>` for PK reads.
 
 **Constructor:**
 ```typescript
@@ -993,6 +1001,7 @@ new OIMReactiveIndexManualSetBased(queue: OIMEventQueue, opts?: {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
         store?: OIMIndexStoreSetBased<TKey, TPk>;
+        resolveSlot?: TOIMEntitySlotResolver<TPk>;
     }
 })
 ```
@@ -1005,13 +1014,15 @@ new OIMReactiveIndexManualSetBased(queue: OIMEventQueue, opts?: {
 - `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key (replaces entire Set)
 - `addPks(key: TKey, pks: readonly TPk[]): void` - Add primary keys to index key (efficient)
 - `removePks(key: TKey, pks: readonly TPk[]): void` - Remove primary keys from index key (efficient)
+- `setSlots(key: TKey, slots: Iterable<TOIMAnyEntitySlot<TPk>>): void` - Set canonical slots directly
 - `clear(key?: TKey): void` - Clear all keys or specific key
 
 **Query:**
-- `index.getPksByKey(key: TKey): Set<TPk>` - Returns Set of primary keys
+- `index.getPksByKey(key: TKey): Set<TPk>` - Returns Set projection of primary keys
+- `index.getSlotsByKey(key: TKey): ReadonlySet<TOIMAnyEntitySlot<TPk>>` - Returns stored slots for fast entity reads
 
 #### `OIMReactiveIndexManualArrayBased<TKey, TPk>`
-Reactive Array-based index with manual key-to-entity mapping and change notifications. Returns `TPk[]` for direct array access.
+Reactive Array-based index with manual key-to-entity mapping and change notifications. Stores canonical slots internally and projects to `TPk[]` for PK reads.
 
 **Constructor:**
 ```typescript
@@ -1019,6 +1030,7 @@ new OIMReactiveIndexManualArrayBased(queue: OIMEventQueue, opts?: {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
         store?: OIMIndexStoreArrayBased<TKey, TPk>;
+        resolveSlot?: TOIMEntitySlotResolver<TPk>;
     }
 })
 ```
@@ -1031,10 +1043,12 @@ new OIMReactiveIndexManualArrayBased(queue: OIMEventQueue, opts?: {
 - `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key (direct assignment, no diff) - **Recommended for ArrayBased**
 - `addPks(key: TKey, pks: readonly TPk[]): void` - Add primary keys to index key (O(n) operation, less efficient than SetBased)
 - `removePks(key: TKey, pks: readonly TPk[]): void` - Remove primary keys from index key (O(n) operation, less efficient than SetBased)
+- `setSlots(key: TKey, slots: TOIMAnyEntitySlot<TPk>[]): void` - Set canonical slots directly
 - `clear(key?: TKey): void` - Clear all keys or specific key
 
 **Query:**
-- `index.getPksByKey(key: TKey): TPk[]` - Returns Array of primary keys
+- `index.getPksByKey(key: TKey): TPk[]` - Returns Array projection of primary keys
+- `index.getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - Returns stored slots for fast entity reads
 
 **Note**: While `addPks`/`removePks` are available, they require array operations (Set creation, filtering) making them O(n) compared to O(1) for SetBased indexes. For ArrayBased indexes, prefer `setPks` for better performance when replacing the entire array.
 

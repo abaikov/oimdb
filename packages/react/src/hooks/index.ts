@@ -65,16 +65,22 @@ export const useSelectPksByIndexKeySetBased = <
     reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>,
     key: TKey
 ) => {
+    const snapshotValueRef = useRef<Set<TPk>>();
+    const subscribe = useMemo(() => {
+        snapshotValueRef.current = reactiveIndex.getPksByKey(key);
+        return (onStoreChange: () => void) => {
+            const updateSnapshot = () => {
+                snapshotValueRef.current = reactiveIndex.getPksByKey(key);
+                onStoreChange();
+            };
+            return reactiveIndex.subscribeOnKey(key, updateSnapshot);
+        };
+    }, [key, reactiveIndex]);
     const getSnapshot = useMemo(() => {
         return () => {
-            return reactiveIndex.getPksByKey(key);
+            return snapshotValueRef.current;
         };
-    }, [key, reactiveIndex]);
-    const subscribe = useMemo(() => {
-        return (onStoreChange: () => void) => {
-            return reactiveIndex.subscribeOnKey(key, onStoreChange);
-        };
-    }, [key, reactiveIndex]);
+    }, []);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
     return snapshot;
 };
@@ -304,12 +310,51 @@ export const useSelectEntitiesByIndexKeySetBased = <
     reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>,
     key: TKey
 ) => {
-    const pks = useSelectPksByIndexKeySetBased(reactiveIndex, key);
-    const pksArray = useMemo(
-        () => (pks ? Array.from(pks) : (EMPTY_ARRAY as readonly TPk[])),
-        [pks]
-    );
-    return useSelectEntitiesByPks(reactiveCollection, pksArray);
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        reactiveIndex.index.setSlotResolver(pk =>
+            reactiveCollection.getSlotByPk(pk)
+        );
+        const readSnapshot = () =>
+            Array.from(reactiveIndex.getSlotsByKey(key), slot =>
+                slot.item as TEntity | undefined
+            );
+        const readPks = () =>
+            Array.from(reactiveIndex.getSlotsByKey(key), slot => slot.pk);
+
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(key, () => {
+                resubscribeCollection();
+                snapshotRef.current = readSnapshot();
+                onStoreChange();
+            });
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [key, reactiveCollection, reactiveIndex]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
 
 export const useSelectEntitiesByIndexKeysSetBased = <
@@ -322,12 +367,61 @@ export const useSelectEntitiesByIndexKeysSetBased = <
     reactiveIndex: OIMReactiveIndexSetBased<TKey, TPk, TIndex>,
     keys: readonly TKey[]
 ) => {
-    const pks = useSelectPksByIndexKeysSetBased(reactiveIndex, keys);
-    const pksArray = useMemo(
-        () => (pks ? Array.from(pks) : (EMPTY_ARRAY as readonly TPk[])),
-        [pks]
-    );
-    return useSelectEntitiesByPks(reactiveCollection, pksArray);
+    const prevKeysRef = useRef<readonly TKey[]>();
+    const keysAreEqual = arraysEqual(prevKeysRef.current || EMPTY_ARRAY, keys);
+    if (!keysAreEqual) {
+        prevKeysRef.current = keys;
+    }
+    const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        reactiveIndex.index.setSlotResolver(pk =>
+            reactiveCollection.getSlotByPk(pk)
+        );
+        const readSlots = () =>
+            stableKeys.flatMap(key =>
+                Array.from(reactiveIndex.getSlotsByKey(key))
+            );
+        const readSnapshot = () =>
+            readSlots().map(slot => slot.item as TEntity | undefined);
+        const readPks = () => readSlots().map(slot => slot.pk);
+
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKeys(
+                stableKeys,
+                () => {
+                    resubscribeCollection();
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                }
+            );
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [reactiveCollection, reactiveIndex, stableKeys]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
 
 // ArrayBased Index + Collection Hooks
@@ -341,11 +435,51 @@ export const useSelectEntitiesByIndexKeyArrayBased = <
     reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>,
     key: TKey
 ) => {
-    const pks = useSelectPksByIndexKeyArrayBased(reactiveIndex, key);
-    return useSelectEntitiesByPks(
-        reactiveCollection,
-        pks || (EMPTY_ARRAY as readonly TPk[])
-    );
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        reactiveIndex.index.setSlotResolver(pk =>
+            reactiveCollection.getSlotByPk(pk)
+        );
+        const readSnapshot = () =>
+            reactiveIndex
+                .getSlotsByKey(key)
+                .map(slot => slot.item as TEntity | undefined);
+        const readPks = () =>
+            reactiveIndex.getSlotsByKey(key).map(slot => slot.pk);
+
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(key, () => {
+                resubscribeCollection();
+                snapshotRef.current = readSnapshot();
+                onStoreChange();
+            });
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [key, reactiveCollection, reactiveIndex]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
 
 export const useSelectEntitiesByIndexKeysArrayBased = <
@@ -358,9 +492,57 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
     reactiveIndex: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>,
     keys: readonly TKey[]
 ) => {
-    const pks =
-        useSelectPksByIndexKeysArrayBased(reactiveIndex, keys) ||
-        (EMPTY_ARRAY as readonly TPk[]);
+    const prevKeysRef = useRef<readonly TKey[]>();
+    const keysAreEqual = arraysEqual(prevKeysRef.current || EMPTY_ARRAY, keys);
+    if (!keysAreEqual) {
+        prevKeysRef.current = keys;
+    }
+    const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        reactiveIndex.index.setSlotResolver(pk =>
+            reactiveCollection.getSlotByPk(pk)
+        );
+        const readSlots = () =>
+            stableKeys.flatMap(key => reactiveIndex.getSlotsByKey(key));
+        const readSnapshot = () =>
+            readSlots().map(slot => slot.item as TEntity | undefined);
+        const readPks = () => readSlots().map(slot => slot.pk);
 
-    return useSelectEntitiesByPks(reactiveCollection, pks);
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKeys(
+                stableKeys,
+                () => {
+                    resubscribeCollection();
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                }
+            );
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [reactiveCollection, reactiveIndex, stableKeys]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };

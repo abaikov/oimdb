@@ -1,22 +1,25 @@
 import { TOIMPk } from '../type/TOIMPk';
+import { TOIMAnyEntitySlot } from '../type/TOIMEntitySlot';
 
 export abstract class OIMIndexStoreArrayBased<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
 > {
-    abstract setOneByKey(key: TKey, pks: TPk[]): void;
+    abstract setOneByKey(key: TKey, slots: TOIMAnyEntitySlot<TPk>[]): void;
 
     abstract removeOneByKey(key: TKey): void;
 
     abstract removeManyByKeys(keys: readonly TKey[]): void;
 
-    abstract getOneByKey(key: TKey): TPk[] | undefined;
+    abstract getOneByKey(key: TKey): TOIMAnyEntitySlot<TPk>[] | undefined;
 
-    abstract getManyByKeys(keys: readonly TKey[]): Map<TKey, TPk[]>;
+    abstract getManyByKeys(
+        keys: readonly TKey[]
+    ): Map<TKey, TOIMAnyEntitySlot<TPk>[]>;
 
     abstract getAllKeys(): TKey[];
 
-    abstract getAll(): Map<TKey, TPk[]>;
+    abstract getAll(): Map<TKey, TOIMAnyEntitySlot<TPk>[]>;
 
     abstract countAll(): number;
 

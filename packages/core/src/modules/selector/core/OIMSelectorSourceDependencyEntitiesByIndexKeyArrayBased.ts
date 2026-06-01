@@ -26,7 +26,9 @@ export class OIMSelectorSourceDependencyEntitiesByIndexKeyArrayBased<
 
     public subscribe(onUpdate: () => void): () => void {
         const resubscribeCollection = () => {
-            const nextPks = this.reactiveIndex.getPksByKey(this.key);
+            const nextPks = this.reactiveIndex
+                .getSlotsByKey(this.key)
+                .map(slot => slot.pk);
             if (this.sameArray(this.currentPks, nextPks)) return;
 
             this.unsubscribeFromCollectionKeys?.();

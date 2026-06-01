@@ -1,35 +1,65 @@
 import { TOIMPk } from '../type/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
+import { TOIMEntitySlot } from '../type/TOIMEntitySlot';
 
 export class OIMCollectionStoreMapDriven<
     TEntity extends object,
     TPk extends TOIMPk,
 > extends OIMCollectionStore<TEntity, TPk> {
-    protected readonly entities = new Map<TPk, TEntity>();
+    protected readonly slots = new Map<TPk, TOIMEntitySlot<TEntity, TPk>>();
 
     setOneByPk(pk: TPk, entity: TEntity): void {
-        this.entities.set(pk, entity);
+        const slot = this.slots.get(pk);
+        if (slot) {
+            slot.item = entity;
+        } else {
+            this.slots.set(pk, { pk, item: entity });
+        }
     }
 
     setManyByPks(pks: readonly TPk[], entities: TEntity[]): void {
         for (let i = 0; i < pks.length; i++) {
-            this.entities.set(pks[i], entities[i]);
+            this.setOneByPk(pks[i], entities[i]);
         }
     }
 
+    getSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {
+        return this.slots.get(pk);
+    }
+
+    getSlotsByPks(pks: readonly TPk[]): TOIMEntitySlot<TEntity, TPk>[] {
+        const result: TOIMEntitySlot<TEntity, TPk>[] = [];
+        result.length = pks.length;
+        let writeIndex = 0;
+        for (let i = 0; i < pks.length; i++) {
+            const slot = this.slots.get(pks[i]);
+            if (slot !== undefined) {
+                result[writeIndex++] = slot;
+            }
+        }
+        result.length = writeIndex;
+        return result;
+    }
+
+    getAllSlots(): TOIMEntitySlot<TEntity, TPk>[] {
+        return Array.from(this.slots.values());
+    }
+
     removeOneByPk(pk: TPk): void {
-        this.entities.delete(pk);
+        const slot = this.slots.get(pk);
+        if (slot) slot.item = undefined;
+        this.slots.delete(pk);
     }
 
     removeManyByPks(pks: readonly TPk[]): void {
         // Direct delete instead of method call for better performance
         for (const pk of pks) {
-            this.entities.delete(pk);
+            this.removeOneByPk(pk);
         }
     }
 
     getOneByPk(pk: TPk): TEntity | undefined {
-        return this.entities.get(pk);
+        return this.slots.get(pk)?.item;
     }
 
     getManyByPks(pks: readonly TPk[]): TEntity[] {
@@ -48,19 +78,26 @@ export class OIMCollectionStoreMapDriven<
     }
 
     getAll(): TEntity[] {
-        return Array.from(this.entities.values());
+        const result: TEntity[] = [];
+        for (const slot of this.slots.values()) {
+            if (slot.item !== undefined) result.push(slot.item);
+        }
+        return result;
     }
 
     countAll(): number {
-        return this.entities.size;
+        return this.slots.size;
     }
 
     clear(): void {
-        this.entities.clear();
+        for (const slot of this.slots.values()) {
+            slot.item = undefined;
+        }
+        this.slots.clear();
     }
 
     getAllPks(): TPk[] {
-        return Array.from(this.entities.keys());
+        return Array.from(this.slots.keys());
     }
 
     destroy(): void {

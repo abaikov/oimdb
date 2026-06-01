@@ -1,4 +1,5 @@
 module.exports = {
+    watchman: false,
     roots: ['<rootDir>/tests'],
     collectCoverageFrom: [
         'src/**/*.ts',

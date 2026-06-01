@@ -2,6 +2,7 @@ import { TOIMIndexComparator } from './TOIMIndexComparator';
 import { TOIMPk } from './TOIMPk';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
+import { TOIMEntitySlotResolver } from './TOIMEntitySlot';
 
 /**
  * Configuration options for Set-based index instances */
@@ -11,6 +12,7 @@ export type TOIMIndexOptionsSetBased<
 > = {
     comparePks?: TOIMIndexComparator<TPk>;
     store?: OIMIndexStoreSetBased<TIndexKey, TPk>;
+    resolveSlot?: TOIMEntitySlotResolver<TPk>;
 };
 
 /**
@@ -21,6 +23,7 @@ export type TOIMIndexOptionsArrayBased<
 > = {
     comparePks?: TOIMIndexComparator<TPk>;
     store?: OIMIndexStoreArrayBased<TIndexKey, TPk>;
+    resolveSlot?: TOIMEntitySlotResolver<TPk>;
 };
 
 /**

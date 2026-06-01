@@ -30,11 +30,19 @@ export class OIMEntitiesByIndexKeyArrayBasedSelector<
                 TIndex
             >(collection, reactiveIndex, key),
         ]);
+        this.reactiveIndex.index.setSlotResolver(pk =>
+            this.collection.getSlotByPk(pk)
+        );
     }
 
     public getValue(): readonly (TEntity | undefined)[] {
-        const pks = this.reactiveIndex.getPksByKey(this.key);
-        return pks.map(pk => this.collection.getOneByPk(pk));
+        const slots = this.reactiveIndex.getSlotsByKey(this.key);
+        const entities: Array<TEntity | undefined> = [];
+        entities.length = slots.length;
+        for (let i = 0; i < slots.length; i++) {
+            entities[i] = slots[i].item as TEntity | undefined;
+        }
+        return entities;
     }
 
     protected areEqual(

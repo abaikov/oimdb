@@ -5,6 +5,10 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
+import {
+    TOIMAnyEntitySlot,
+    TOIMEntitySlotResolver,
+} from '../type/TOIMEntitySlot';
 
 class OIMIndexManualSetBasedReactive<
     TKey extends TOIMPk,
@@ -15,6 +19,7 @@ class OIMIndexManualSetBasedReactive<
         opts?: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TKey, TPk>;
+            resolveSlot?: TOIMEntitySlotResolver<TPk>;
         }
     ) {
         super(opts);
@@ -43,6 +48,7 @@ export class OIMReactiveIndexManualSetBased<
             indexOptions?: {
                 comparePks?: TOIMIndexComparator<TPk>;
                 store?: OIMIndexStoreSetBased<TKey, TPk>;
+                resolveSlot?: TOIMEntitySlotResolver<TPk>;
             };
         }
     ) {
@@ -56,6 +62,13 @@ export class OIMReactiveIndexManualSetBased<
 
     public setPks(key: TKey, pks: TPk[]): void {
         this.index.setPks(key, pks);
+    }
+
+    public setSlots(
+        key: TKey,
+        slots: Iterable<TOIMAnyEntitySlot<TPk>>
+    ): void {
+        this.index.setSlots(key, slots);
     }
 
     public addPks(key: TKey, pks: readonly TPk[]): void {

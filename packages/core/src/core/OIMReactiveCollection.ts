@@ -5,6 +5,7 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../type/TOIMEventHandler';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
+import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
 
 export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     extends OIMCollection<TEntity, TPk>
@@ -87,12 +88,14 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
 
     public override upsertOneByPk(pk: TPk, entity: Partial<TEntity>): void {
         this.upsertOneWithoutNotificationsByPk(pk, entity);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
 
     public override upsertOne(entity: TEntity | Partial<TEntity>): void {
         const pk = this.upsertOneWithoutNotifications(entity);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -101,6 +104,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
         const pks = entities.map(entity =>
             this.upsertOneWithoutNotifications(entity)
         );
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
@@ -108,6 +112,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     public override removeOne(entity: TEntity): void {
         const pk = this.selectPk(entity);
         this.store.removeOneByPk(pk);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -115,24 +120,28 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     public override removeMany(entities: TEntity[]): void {
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override removeOneByPk(pk: TPk): void {
         this.store.removeOneByPk(pk);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
 
     public override removeManyByPks(pks: readonly TPk[]): void {
         this.store.removeManyByPks(pks);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override clear(): void {
         this.store.clear();
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
         // Unknown keys: notify all subscribed keys.
         this.updateEmitter.markAllUpdated();
         this.trackAnyUpdateClear();

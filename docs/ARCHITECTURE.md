@@ -73,17 +73,18 @@ Indexes provide fast lookups by secondary keys.
 ```typescript
 // NOTE: The code below is illustrative.
 // In @oimdb/core there are two concrete families:
-// - Set-based indexes (return Set<TPk>)
-// - Array-based indexes (return TPk[])
+// - Set-based indexes (project to Set<TPk>)
+// - Array-based indexes (project to TPk[])
 class OIMIndexManual<TIndexKey, TPk> extends OIMIndex<TIndexKey, TPk> {
-    private data = new Map<TIndexKey, Set<TPk> | TPk[]>();
+    private data = new Map<TIndexKey, Set<EntitySlot<TPk>> | EntitySlot<TPk>[]>();
     private comparePks?: TOIMIndexComparator<TPk>;
     public emitter: OIMIndexUpdateEventEmitter<TIndexKey>;
 }
 ```
 
 **Responsibilities:**
-- Map index keys to a collection of primary keys (Set-based or Array-based)
+- Map index keys to canonical collection slots (Set-based or Array-based)
+- Provide PK projections via `getPksByKey` / `getPksByKeys`
 - Emit events when index data changes
 - Support different comparison strategies
 - Provide efficient querying
@@ -166,6 +167,7 @@ Multiple updates to same entity → Emitter batches/deduplicates keys → Subscr
 ```typescript
 interface OIMCollectionStore<TEntity, TPk> {
     get(pk: TPk): TEntity | undefined;
+    getSlot(pk: TPk): OIMEntitySlot<TEntity, TPk> | undefined;
     set(pk: TPk, entity: TEntity): void;
     delete(pk: TPk): boolean;
     clear(): void;
@@ -177,7 +179,10 @@ interface OIMCollectionStore<TEntity, TPk> {
 ```
 
 **Default Implementation:** `OIMCollectionStoreMapDriven<TEntity, TPk>`
-- Uses `Map<TPk, TEntity>` for storage
+- Uses `Map<TPk, OIMEntitySlot<TEntity, TPk>>` for storage
+- A slot is `{ pk, item }`; indexes store references to these slots
+- Entity replacement updates `slot.item`, so index buckets stay valid
+- Removal tombstones the old slot (`item = undefined`) before deleting it from the collection map
 - O(1) access for all operations
 - Memory efficient for most use cases
 
@@ -220,15 +225,16 @@ These are the behavioral guarantees the core event system is designed around:
 | Entity Insert/Update | O(1) | Direct Map access |
 | Entity Delete | O(1) | Direct Map access |
 | Entity Lookup | O(1) | Direct Map access |
-| Index Set/Add/Remove | O(1) | Direct Map access |
-| Index Lookup | O(1) | Direct Map access |
+| Index Set/Add/Remove | O(1) | Direct Map access plus pk-to-slot resolution on writes |
+| Index PK Lookup | O(n) | Projects stored slots to primary keys |
+| Index Entity Lookup | O(n) | Reads `slot.item` directly without collection Map lookups |
 | Event Emission | O(n) | n = number of subscribers |
 | Event Coalescing | O(1) | Set-based tracking |
 
 ### Memory Usage
 
-- **Collections**: ~40 bytes per entity + entity size
-- **Indexes**: ~24 bytes per index key + 8 bytes per PK reference
+- **Collections**: entity size + one canonical `{ pk, item }` slot per entity
+- **Indexes**: ~24 bytes per index key + 8 bytes per slot reference
 - **Event System**: ~16 bytes per subscription + event buffer
 - **Overhead**: Minimal compared to entity data
 

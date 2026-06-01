@@ -10,6 +10,7 @@ React integration for OIMDB - Hooks for selection and subscription with reactive
 
 - **Reactive Integration**: Hooks work with `OIMReactiveCollection` and reactive indexes from `@oimdb/core`
 - **Index Type Support**: Separate hooks for SetBased indexes (return `Set<TPk>`) and ArrayBased indexes (return `TPk[]`)
+- **Slot-backed Entity Reads**: Entity-by-index hooks read index slots directly instead of looking up each PK in the collection
 - **Automatic Subscription**: Uses `useSyncExternalStore` for optimal React 18+ performance
 - **Event Coalescing**: Leverages OIMDB's built-in event coalescing for efficient updates
 - **Type Safety**: Full TypeScript support with advanced generic type inference
@@ -601,6 +602,7 @@ Hooks automatically subscribe to OIMDB reactive events using `useSyncExternalSto
 - **Index updates**: Subscribe to `reactiveIndex.updateEventEmitter`
 - **Optimized subscriptions**: Subscribe only to specific keys for efficient updates
 - **Automatic cleanup**: Unsubscribe when component unmounts
+- **Slot-aware snapshots**: Entity-by-index hooks subscribe to both index membership and collection entity updates, then read `slot.item` directly.
 
 ### Index Type Selection
 
@@ -611,11 +613,14 @@ When working with indexes, choose the appropriate hook based on your index type:
 
 This ensures type safety and correct return types. TypeScript will enforce the correct hook usage based on your index type.
 
+PK hooks return projected primary keys. Entity hooks (`useSelectEntitiesByIndexKey*`) use the slot-backed path from `@oimdb/core`, so they avoid an extra collection lookup per item.
+
 ### Performance
 
 - **React 18+ Integration**: Uses `useSyncExternalStore` for optimal performance
 - **Event Coalescing**: OIMDB's built-in event coalescing reduces unnecessary re-renders
 - **Key-specific subscriptions**: Only listen to changes for relevant data
+- **Fast index entity reads**: Slot-backed index buckets let entity hooks read entities directly from the index bucket
 - **Memory Management**: Automatic cleanup prevents memory leaks
 - **Efficient batching**: Updates are batched through React's concurrent features
 

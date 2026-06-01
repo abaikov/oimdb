@@ -5,6 +5,10 @@ import { TOIMPk } from '../type/TOIMPk';
 import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
 import { OIMIndexStoreSetBased } from './OIMIndexStoreSetBased';
 import { OIMIndexStoreMapDrivenSetBased } from '../core/OIMIndexStoreMapDrivenSetBased';
+import {
+    TOIMAnyEntitySlot,
+    TOIMEntitySlotResolver,
+} from '../type/TOIMEntitySlot';
 
 /**
  * Abstract base class for Set-based index types.
@@ -16,6 +20,8 @@ export abstract class OIMIndexSetBased<
 > {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
     protected readonly store: OIMIndexStoreSetBased<TKey, TPk>;
+    protected resolveSlot?: TOIMEntitySlotResolver<TPk>;
+    private readonly fallbackSlots = new Map<TPk, TOIMAnyEntitySlot<TPk>>();
     public readonly emitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: TOIMIndexUpdatePayload<TKey>;
     }>();
@@ -24,18 +30,36 @@ export abstract class OIMIndexSetBased<
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TKey, TPk>;
+            resolveSlot?: TOIMEntitySlotResolver<TPk>;
         } = {}
     ) {
         this.comparePks = options.comparePks;
         this.store =
             options.store ?? new OIMIndexStoreMapDrivenSetBased<TKey, TPk>();
+        this.resolveSlot = options.resolveSlot;
     }
 
     /**
      * Get primary keys for multiple index keys
      */
     public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
-        return this.store.getManyByKeys(keys);
+        const result = new Map<TKey, Set<TPk>>();
+        const slotsByKey = this.store.getManyByKeys(keys);
+        for (const [key, slots] of slotsByKey) {
+            result.set(key, this.slotsToPks(slots));
+        }
+        return result;
+    }
+
+    public setSlotResolver(resolveSlot: TOIMEntitySlotResolver<TPk>): void {
+        this.resolveSlot = resolveSlot;
+        const allSlots = this.store.getAll();
+        for (const [key, slots] of allSlots) {
+            this.store.setOneByKey(
+                key,
+                this.resolveSlots(this.slotsToPks(slots))
+            );
+        }
     }
 
     /**
@@ -50,8 +74,19 @@ export abstract class OIMIndexSetBased<
      * Get primary keys for a specific index key
      */
     public getPksByKey(key: TKey): Set<TPk> {
-        const pksSet = this.store.getOneByKey(key);
-        return pksSet ? pksSet : new Set();
+        const slotsSet = this.store.getOneByKey(key);
+        return slotsSet ? this.slotsToPks(slotsSet) : new Set();
+    }
+
+    public getSlotsByKey(key: TKey): ReadonlySet<TOIMAnyEntitySlot<TPk>> {
+        const slotsSet = this.store.getOneByKey(key);
+        return slotsSet ? slotsSet : new Set();
+    }
+
+    public getSlotsByKeys(
+        keys: readonly TKey[]
+    ): Map<TKey, ReadonlySet<TOIMAnyEntitySlot<TPk>>> {
+        return this.store.getManyByKeys(keys);
     }
 
     /**
@@ -72,8 +107,8 @@ export abstract class OIMIndexSetBased<
      * Get the number of primary keys for a specific index key
      */
     public getKeySize(key: TKey): number {
-        const pksSet = this.store.getOneByKey(key);
-        return pksSet ? pksSet.size : 0;
+        const slotsSet = this.store.getOneByKey(key);
+        return slotsSet ? slotsSet.size : 0;
     }
 
     /**
@@ -99,10 +134,10 @@ export abstract class OIMIndexSetBased<
         let minBucketSize = Infinity;
         const allPks = this.store.getAll();
 
-        for (const pksSet of allPks.values()) {
-            totalPks += pksSet.size;
-            maxBucketSize = Math.max(maxBucketSize, pksSet.size);
-            minBucketSize = Math.min(minBucketSize, pksSet.size);
+        for (const slotsSet of allPks.values()) {
+            totalPks += slotsSet.size;
+            maxBucketSize = Math.max(maxBucketSize, slotsSet.size);
+            minBucketSize = Math.min(minBucketSize, slotsSet.size);
         }
 
         return {
@@ -127,28 +162,62 @@ export abstract class OIMIndexSetBased<
      * If comparator is provided and returns true (no changes), skip the update.
      */
     protected setPksWithComparison(key: TKey, newPks: Set<TPk>): boolean {
+        return this.setSlotsWithComparison(key, this.resolveSlots(newPks));
+    }
+
+    protected setSlotsWithComparison(
+        key: TKey,
+        newSlots: Set<TOIMAnyEntitySlot<TPk>>
+    ): boolean {
         // If comparator is provided, check if arrays are equal
         if (this.comparePks) {
-            const existingPksSet = this.store.getOneByKey(key);
+            const existingSlotsSet = this.store.getOneByKey(key);
             // Quick size check before expensive comparison
-            if (existingPksSet && existingPksSet.size === newPks.size) {
+            if (existingSlotsSet && existingSlotsSet.size === newSlots.size) {
                 // Convert Sets to arrays for comparator
-                const existingPksArray =
-                    existingPksSet.size > 0 ? [...existingPksSet] : [];
-                const newPksArray = newPks.size > 0 ? [...newPks] : [];
+                const existingPksArray = Array.from(
+                    this.slotsToPks(existingSlotsSet)
+                );
+                const newPksArray = Array.from(this.slotsToPks(newSlots));
 
                 if (this.comparePks(existingPksArray, newPksArray)) {
                     return false;
                 }
-            } else if (!existingPksSet && newPks.size === 0) {
+            } else if (!existingSlotsSet && newSlots.size === 0) {
                 // Both are empty
                 return false;
             }
         }
 
         // Update the PKs
-        this.store.setOneByKey(key, newPks);
+        this.store.setOneByKey(key, newSlots);
         return true;
+    }
+
+    protected resolveSlots(
+        pks: Iterable<TPk>
+    ): Set<TOIMAnyEntitySlot<TPk>> {
+        const slots = new Set<TOIMAnyEntitySlot<TPk>>();
+        for (const pk of pks) slots.add(this.getOrCreateSlot(pk));
+        return slots;
+    }
+
+    protected getOrCreateSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {
+        const resolved = this.resolveSlot?.(pk);
+        if (resolved) return resolved;
+
+        let fallback = this.fallbackSlots.get(pk);
+        if (!fallback) {
+            fallback = { pk, item: undefined };
+            this.fallbackSlots.set(pk, fallback);
+        }
+        return fallback;
+    }
+
+    protected slotsToPks(slots: Iterable<TOIMAnyEntitySlot<TPk>>): Set<TPk> {
+        const pks = new Set<TPk>();
+        for (const slot of slots) pks.add(slot.pk);
+        return pks;
     }
 
     /**

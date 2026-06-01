@@ -4,6 +4,7 @@ import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { TOIMAnyEntitySlot } from '../type/TOIMEntitySlot';
 
 export abstract class OIMReactiveIndexSetBased<
     TKey extends TOIMPk,
@@ -27,6 +28,16 @@ export abstract class OIMReactiveIndexSetBased<
 
     public getPksByKeys(keys: readonly TKey[]): Map<TKey, Set<TPk>> {
         return this.index.getPksByKeys(keys);
+    }
+
+    public getSlotsByKey(key: TKey): ReadonlySet<TOIMAnyEntitySlot<TPk>> {
+        return this.index.getSlotsByKey(key);
+    }
+
+    public getSlotsByKeys(
+        keys: readonly TKey[]
+    ): Map<TKey, ReadonlySet<TOIMAnyEntitySlot<TPk>>> {
+        return this.index.getSlotsByKeys(keys);
     }
 
     public hasKey(key: TKey): boolean {

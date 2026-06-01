@@ -34,5 +34,11 @@ export class OIMRICollection<
     ) {
         super(queue, opts.collectionOpts);
         this.indexes = (opts.indexes || {}) as TIndexMap;
+        const indexes = Object.values(this.indexes) as Array<
+            TOIMReactiveIndex<TOIMPk, TPk>
+        >;
+        for (const index of indexes) {
+            index.index.setSlotResolver((pk: TPk) => this.getSlotByPk(pk));
+        }
     }
 }

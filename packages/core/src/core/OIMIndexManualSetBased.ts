@@ -2,6 +2,10 @@ import { TOIMPk } from '../type/TOIMPk';
 import { OIMIndexSetBased } from '../abstract/OIMIndexSetBased';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
+import {
+    TOIMAnyEntitySlot,
+    TOIMEntitySlotResolver,
+} from '../type/TOIMEntitySlot';
 
 /**
  * Manual Set-based index that allows direct manipulation of key-to-primary-keys mappings.
@@ -15,6 +19,7 @@ export class OIMIndexManualSetBased<
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TIndexKey, TPk>;
+            resolveSlot?: TOIMEntitySlotResolver<TPk>;
         } = {}
     ) {
         super(options);
@@ -33,29 +38,42 @@ export class OIMIndexManualSetBased<
         }
     }
 
+    public setSlots(
+        key: TIndexKey,
+        slots: Iterable<TOIMAnyEntitySlot<TPk>>
+    ): void {
+        const hasChanges = this.setSlotsWithComparison(key, new Set(slots));
+
+        if (hasChanges) {
+            this.emitUpdateOne(key);
+        }
+    }
+
     /**
      * Add primary keys to a specific index key
      */
     public addPks(key: TIndexKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        let pksSet = this.store.getOneByKey(key);
-        if (!pksSet) {
-            pksSet = new Set();
-            this.store.setOneByKey(key, pksSet);
+        let slotsSet = this.store.getOneByKey(key);
+        if (!slotsSet) {
+            slotsSet = new Set();
+            this.store.setOneByKey(key, slotsSet);
         }
 
+        const pksSet = this.slotsToPks(slotsSet);
         let hasChanges = false;
         for (const pk of pks) {
             // Check if pk already exists before adding to avoid size check
             if (!pksSet.has(pk)) {
                 pksSet.add(pk);
+                slotsSet.add(this.getOrCreateSlot(pk));
                 hasChanges = true;
             }
         }
 
         if (hasChanges) {
-            this.store.setOneByKey(key, pksSet);
+            this.store.setOneByKey(key, slotsSet);
             this.emitUpdateOne(key);
         }
     }
@@ -66,22 +84,23 @@ export class OIMIndexManualSetBased<
     public removePks(key: TIndexKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        const pksSet = this.store.getOneByKey(key);
-        if (!pksSet) return;
+        const slotsSet = this.store.getOneByKey(key);
+        if (!slotsSet) return;
 
         let hasChanges = false;
-        for (const pk of pks) {
-            if (pksSet.delete(pk)) {
+        const pksToRemove = new Set(pks);
+        for (const slot of Array.from(slotsSet)) {
+            if (pksToRemove.has(slot.pk) && slotsSet.delete(slot)) {
                 hasChanges = true;
             }
         }
 
         // Clean up empty buckets
-        if (pksSet.size === 0) {
+        if (slotsSet.size === 0) {
             this.store.removeOneByKey(key);
             hasChanges = true;
         } else if (hasChanges) {
-            this.store.setOneByKey(key, pksSet);
+            this.store.setOneByKey(key, slotsSet);
         }
 
         if (hasChanges) {

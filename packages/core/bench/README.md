@@ -14,6 +14,7 @@ npx tsx bench/index.ts
 # Run specific benchmark suites
 npx tsx bench/collection.bench.ts
 npx tsx bench/index.bench.ts
+npx tsx bench/slot-index-read.bench.ts
 npx tsx bench/subscription-dispatch.bench.ts
 npx tsx bench/effect-computed.bench.ts
 ```
@@ -34,6 +35,12 @@ npx tsx bench/effect-computed.bench.ts
 - **Remove Operations**: Removing PKs from keys
 - **Comparator Performance**: Different comparison strategies
 - **Stress Testing**: Mixed operations under load
+
+### `slot-index-read.bench.ts` - Slot-backed Index Reads
+- **Current vs Slot Reads**: Compares `pk[] + collection.get(pk)` with `slot[] -> slot.item`
+- **Entry Variant**: Compares `{ pk, item }` entries against lightweight slots
+- **Update Cost**: Measures replacing collection entities through stable slots
+- **Memory Cost**: Estimates extra heap from canonical slots and slot-backed buckets
 
 ### `subscription-dispatch.bench.ts` - Subscription & Dispatch Performance
 - **Subscription performance**: `subscribeOnKey` vs `subscribeOnKeys`
@@ -90,6 +97,7 @@ Each benchmark measures:
 - **Add Operations**: 4.7M - 8.3M ops/sec
 - **Remove Operations**: 3.2M - 8.3M ops/sec
 - **Comparator Impact**: 2-10x performance improvement with comparators
+- **Slot-backed Entity Reads**: Avoid per-item collection lookups by reading `slot.item` directly
 
 ### Memory Characteristics
 - **Stable Usage**: No memory leaks detected

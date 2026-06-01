@@ -32,7 +32,7 @@
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
-    "@oimdb/core": "^1.4.0"
+    "@oimdb/core": "^1.5.0"
   },
   "keywords": [
     "oimdb",

@@ -1,9 +1,13 @@
+/// <reference types="jest" />
+
 import {
     OIMCollectionByPkSelector,
     OIMComputativeRuntime,
+    OIMEntitiesByIndexKeyArrayBasedSelector,
     OIMEntitiesByIndexKeySetBasedSelector,
     OIMEventQueue,
     OIMReactiveCollection,
+    OIMReactiveIndexManualArrayBased,
     OIMReactiveIndexManualSetBased,
 } from '../src';
 
@@ -76,6 +80,47 @@ describe('selectors', () => {
         users.upsertOneByPk('u2', { name: 'B2' });
         queue.flush();
         expect(seen[seen.length - 1][0]?.name).toBe('B2');
+    });
+
+    test('OIMEntitiesByIndexKeyArrayBasedSelector reads through canonical slots', () => {
+        const queue = new OIMEventQueue();
+        const runtime = new OIMComputativeRuntime(queue);
+        const users = new OIMReactiveCollection<TUser, string>(queue, {
+            selectPk: u => u.id,
+        });
+        const byGroup = new OIMReactiveIndexManualArrayBased<string, string>(
+            queue
+        );
+
+        users.upsertMany([
+            { id: 'u1', name: 'A', groupId: 'g1' },
+            { id: 'u2', name: 'B', groupId: 'g1' },
+        ]);
+        byGroup.setPks('g1', ['u1', 'u2']);
+        queue.flush();
+
+        const selector = new OIMEntitiesByIndexKeyArrayBasedSelector(
+            runtime,
+            users,
+            byGroup,
+            'g1'
+        );
+
+        const seen: Array<readonly (TUser | undefined)[]> = [];
+        selector.watch(v => seen.push(v));
+        expect(seen[0].map(e => e?.name)).toEqual(['A', 'B']);
+
+        users.upsertOneByPk('u2', { name: 'B2' });
+        queue.flush();
+        expect(seen[seen.length - 1].map(e => e?.name)).toEqual(['A', 'B2']);
+
+        users.removeOneByPk('u1');
+        queue.flush();
+        expect(seen[seen.length - 1].map(e => e?.name)).toEqual([
+            undefined,
+            'B2',
+        ]);
+        expect(byGroup.getPksByKey('g1')).toEqual(['u1', 'u2']);
     });
 });
 

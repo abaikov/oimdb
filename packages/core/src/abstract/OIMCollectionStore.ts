@@ -1,10 +1,21 @@
 import { TOIMPk } from '../type/TOIMPk';
+import { TOIMEntitySlot } from '../type/TOIMEntitySlot';
 
 export abstract class OIMCollectionStore<
     TEntity extends object,
     TPk extends TOIMPk,
 > {
     abstract setOneByPk(pk: TPk, entity: TEntity): void;
+
+    abstract getSlotByPk(
+        pk: TPk
+    ): TOIMEntitySlot<TEntity, TPk> | undefined;
+
+    abstract getSlotsByPks(
+        pks: readonly TPk[]
+    ): TOIMEntitySlot<TEntity, TPk>[];
+
+    abstract getAllSlots(): TOIMEntitySlot<TEntity, TPk>[];
 
     abstract removeOneByPk(pk: TPk): void;
 

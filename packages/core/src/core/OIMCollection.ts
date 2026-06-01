@@ -9,6 +9,7 @@ import { OIMEntityUpdaterFactory } from './OIMEntityUpdaterFactory';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../type/TOIMCollectionUpdatePayload';
+import { TOIMEntitySlot } from '../type/TOIMEntitySlot';
 
 /** It's like a store - but with event emitter */
 export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
@@ -38,6 +39,18 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
 
     getManyByPks(pks: readonly TPk[]): TEntity[] {
         return this.store.getManyByPks(pks);
+    }
+
+    getSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {
+        return this.store.getSlotByPk(pk);
+    }
+
+    getSlotsByPks(pks: readonly TPk[]): TOIMEntitySlot<TEntity, TPk>[] {
+        return this.store.getSlotsByPks(pks);
+    }
+
+    getAllSlots(): TOIMEntitySlot<TEntity, TPk>[] {
+        return this.store.getAllSlots();
     }
 
     upsertOneByPk(pk: TPk, entity: Partial<TEntity>): void {
