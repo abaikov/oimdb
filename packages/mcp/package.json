@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/mcp",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "MCP server and CDP inspector for OIMDB — connects AI assistants to live browser state",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -18,9 +18,9 @@
     }
   },
   "bin": {
-    "oimdb-mcp": "bin/server.js",
-    "oimdb-devtools": "bin/devtools.js",
-    "oimdb-cdp": "bin/cdp.js"
+    "oimdb-mcp": "bin/server.cjs",
+    "oimdb-devtools": "bin/devtools.cjs",
+    "oimdb-cdp": "bin/cdp.cjs"
   },
   "files": [
     "dist",

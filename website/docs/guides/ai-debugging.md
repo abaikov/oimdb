@@ -28,7 +28,7 @@ Add to `.claude/settings.json` in your project (or global `~/.claude/settings.js
   "mcpServers": {
     "oimdb": {
       "command": "node",
-      "args": ["./node_modules/@oimdb/mcp/bin/server.js"]
+      "args": ["./node_modules/@oimdb/mcp/bin/server.cjs"]
     }
   }
 }
@@ -41,7 +41,7 @@ Or with a custom WebSocket port:
   "mcpServers": {
     "oimdb": {
       "command": "node",
-      "args": ["./node_modules/@oimdb/mcp/bin/server.js"],
+      "args": ["./node_modules/@oimdb/mcp/bin/server.cjs"],
       "env": { "OIMDB_WS_PORT": "7432" }
     }
   }
