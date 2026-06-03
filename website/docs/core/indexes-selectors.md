@@ -2,11 +2,11 @@
 sidebar_position: 2
 ---
 
-# Relations and Selectors
+# Indexes and Selectors
 
-Relations are collection-bound structures created next to a collection. They keep the `queue + collection` binding in one place, but they do not become part of the collection.
+Indexes are collection-bound structures created next to a collection. They keep the `queue + collection` binding in one place, but they do not become part of the collection.
 
-Selectors are reactive read helpers backed by `OIMComputativeRuntime`. They subscribe to the collection and indexes they read from, then deliver coalesced values after `queue.flush()`.
+Selectors are reactive read helpers backed by `OIMComputeRuntime`. They subscribe to the collection and indexes they read from, then deliver coalesced values after `queue.flush()`.
 
 ## Derived Indexes
 
@@ -24,7 +24,7 @@ const cards = createOIMCollectionContext<Card, string>(queue, {
   selectPk: (card) => card.id,
 });
 
-const cardsByDeck = cards.relations.derivedArrayIndex(
+const cardsByDeck = cards.indexFactory.derivedArrayIndex(
   (card) => card.deckId,
   { orderBy: (card) => card.position }
 );
@@ -40,20 +40,20 @@ console.log(cardsByDeck.getPksByKey('deck1')); // ['c2', 'c1']
 Set-based derived indexes are best for membership where order does not matter:
 
 ```typescript
-const usersByTeam = users.relations.derivedSetIndex(
+const usersByTeam = users.indexFactory.derivedSetIndex(
   (user) => user.teamId
 );
 ```
 
 Array-based derived indexes support `orderBy` or `compareEntities`.
 
-## Manual Relations
+## Manual Indexes
 
-Use manual relations when membership comes from outside the entity itself: search results, permissions, server-provided ordering, or transient UI state.
+Use manual indexes when membership comes from outside the entity itself: search results, permissions, server-provided ordering, or transient UI state.
 
 ```typescript
-const searchResults = users.relations.arrayBasedIndex<string>();
-const visibleUsers = users.relations.orderedList<string>();
+const searchResults = users.indexFactory.arrayBasedIndex<string>();
+const visibleUsers = users.indexFactory.orderedList<string>();
 
 searchResults.setPks('query:alice', ['u1']);
 visibleUsers.set('main', ['u1', 'u2']);
@@ -104,7 +104,7 @@ unwatch();
 
 ## Factory Methods
 
-`OIMCollectionRelations` exposes:
+`OIMCollectionIndexFactory` exposes:
 
 - `derivedSetIndex(selectIndexKeys, opts?)`
 - `derivedArrayIndex(selectIndexKeys, opts?)`

@@ -108,8 +108,6 @@ __OIMDB_DEV__.dump()
 __OIMDB_DEV__.inspect()
 ```
 
-## API
-
 ## Computed values
 
 Register `OIMComputed` instances to see their status in `inspect()` and `dump()`:

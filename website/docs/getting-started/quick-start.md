@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Quick Start
 
-This guide walks through the core mental model: a shared event queue, a collection model, relations, and selectors.
+This guide walks through the core mental model: a shared event queue, a collection model, indexes, and selectors.
 
 ## 1. Create an Event Queue
 
@@ -93,12 +93,12 @@ users.collection.upsertOne({
 await queue.flush();
 ```
 
-## 4. Add a Relation and Selector
+## 4. Add an Index and Selector
 
 Derived indexes maintain membership from entity data. Selectors give you reactive reads:
 
 ```typescript
-const usersByTeam = users.relations.derivedSetIndex((user) => user.teamId);
+const usersByTeam = users.indexFactory.derivedSetIndex((user) => user.teamId);
 const teamUsers = users.select.entitiesBySetIndexKey(usersByTeam, 'team-a');
 
 teamUsers.watch((value) => {
@@ -136,8 +136,7 @@ await queue.flush();
 
 ## What's Next
 
-- [Architecture Overview](/docs/architecture/overview) — layers, slots, event semantics
-- [Core Model](/docs/core/model) — collection model and slot ownership
-- [Relations and Selectors](/docs/core/relations-selectors) — derived indexes and reactive reads
+- [Core Model](/docs/core/model) — collection model, slots, and event semantics
+- [Indexes and Selectors](/docs/core/indexes-selectors) — derived indexes and reactive reads
 - [Performance Guide](/docs/guides/performance) — benchmarks and tuning
-- [Packages](/docs/packages/overview) — integration packages (React, Redux, async)
+- [Packages](/docs/packages/) — integration packages (React, Redux, async)

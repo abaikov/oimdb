@@ -8,7 +8,7 @@ OIMDB's current app-level model is:
 
 - a shared `OIMEventQueue`
 - a collection model created with `createOIMCollectionContext`
-- relations that live next to the collection
+- indexes that live next to the collection
 - selectors for reactive reads
 
 Collections remain the source of truth for entities. Indexes and ordered lists keep canonical collection slots, but they are not stored inside the collection.
@@ -43,7 +43,7 @@ The model facade contains:
 type TOIMCollectionContext<TEntity, TPk> = {
   queue: OIMEventQueue;
   collection: OIMReactiveCollection<TEntity, TPk>;
-  relations: OIMCollectionRelations<TEntity, TPk>;
+  indexFactory: OIMCollectionIndexFactory<TEntity, TPk>;
   select: OIMCollectionSelectors<TEntity, TPk>;
 };
 ```
@@ -68,14 +68,10 @@ console.log(firstSlot === updatedSlot); // true
 
 This is what lets collection-bound indexes store stable slot references while still exposing PK projections such as `getPksByKey`.
 
-## Low-Level Primitives
+## Event Semantics
 
-The DX model is only a small facade. You can still use the lower-level classes directly when you need explicit ownership:
+**Batching & coalescing** — multiple writes to the same key coalesce into a single notification per `queue.flush()`. Delivery is driven by updated key sets, not by every write.
 
-- `OIMReactiveCollection`
-- `OIMReactiveCollectionIndexManualSetBased`
-- `OIMReactiveCollectionIndexManualArrayBased`
-- `OIMCollectionRelations`
-- `OIMCollectionSelectors`
+**Reentrancy** — updates triggered inside a subscriber are collected into the next internal batch. `queue.flush()` is a full drain: work enqueued during a flush runs within the same call.
 
-Prefer the facade for application schemas, and use direct constructors for advanced integration boundaries.
+**Key-scoped subscriptions** — there is no "subscribe to everything". Delivery cost is proportional to the subscriber sets for changed keys only.

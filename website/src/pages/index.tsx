@@ -25,8 +25,8 @@ function HomepageHeader() {
           </Link>
           <Link
             className="button button--outline button--secondary button--lg"
-            to="/docs/architecture/overview">
-            Architecture
+            to="/docs/core/model">
+            Core Model
           </Link>
         </div>
       </div>

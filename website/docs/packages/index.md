@@ -16,9 +16,9 @@ npm install @oimdb/core
 
 **Includes:**
 
-- `createOIMCollectionContext` — DX facade for `queue + collection + relations + selectors`
+- `createOIMCollectionContext` — DX facade for `queue + collection + indexFactory + selectors`
 - `OIMReactiveCollection` — reactive entity storage with canonical slots
-- `OIMCollectionRelations` — collection-bound relation factories
+- `OIMCollectionIndexFactory` — collection-bound index factories
 - `OIMCollectionSelectors` — reactive selector factories
 - `OIMDerivedCollectionIndexSetBased` / `ArrayBased` — automatically maintained derived indexes
 - `OIMReactiveCollectionIndexManualSetBased` / `ArrayBased` — advanced manual collection-bound indexes
@@ -26,7 +26,7 @@ npm install @oimdb/core
 - `OIMEventQueue` — configurable schedulers and flush semantics
 - `OIMEffect`, `OIMComputed`, `OIMSelector` — reactive primitives
 
-[Core Model](/docs/core/model) · [Relations and Selectors](/docs/core/relations-selectors) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/core) · [npm](https://www.npmjs.com/package/@oimdb/core)
+[Core Model](/docs/core/model) · [Indexes and Selectors](/docs/core/indexes-selectors) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/core) · [npm](https://www.npmjs.com/package/@oimdb/core)
 
 ## @oimdb/react
 

@@ -12,12 +12,12 @@ OIMDB is organized as a monorepo with separate npm packages:
 
 | Package | Description |
 |---------|-------------|
-| [`@oimdb/core`](/docs/packages/overview#oimdbcore) | Reactive collections, indexes, event queue, selectors |
-| [`@oimdb/react`](/docs/packages/overview#oimdbreact) | React hooks and context helpers |
-| [`@oimdb/redux-adapter`](/docs/packages/overview#oimdbredux-adapter) | Two-way Redux synchronization |
-| [`@oimdb/async`](/docs/packages/overview#oimdbasync) | Async collections and indexes |
-| [`@oimdb/persist`](/docs/packages/overview#oimdbpersist) | Storage-specific persistence resources for OIMDB primitives |
-| [`@oimdb/snapshot-manager`](/docs/packages/overview#oimdbsnapshot-manager) | Snapshot persistence utilities |
+| [`@oimdb/core`](/docs/packages/#oimdbcore) | Reactive collections, indexes, event queue, selectors |
+| [`@oimdb/react`](/docs/packages/#oimdbreact) | React hooks and context helpers |
+| [`@oimdb/redux-adapter`](/docs/packages/#oimdbredux-adapter) | Two-way Redux synchronization |
+| [`@oimdb/async`](/docs/packages/#oimdbasync) | Async collections and indexes |
+| [`@oimdb/persist`](/docs/packages/#oimdbpersist) | Storage-specific persistence resources for OIMDB primitives |
+| [`@oimdb/snapshot-manager`](/docs/packages/#oimdbsnapshot-manager) | Snapshot persistence utilities |
 
 ## Key Benefits
 
@@ -50,7 +50,7 @@ const queue = new OIMEventQueue({
 const users = createOIMCollectionContext<User, string>(queue, {
   selectPk: (user) => user.id,
 });
-const usersByTeam = users.relations.derivedSetIndex((user) => user.teamId);
+const usersByTeam = users.indexFactory.derivedSetIndex((user) => user.teamId);
 const teamUsers = users.select.entitiesBySetIndexKey(usersByTeam, 'team1');
 
 users.collection.updateEventEmitter.subscribeOnKey('user1', () => {
@@ -80,7 +80,6 @@ teamUsers.watch((value) => console.log(value));
 
 - [Installation](/docs/getting-started/installation) — install the packages you need
 - [Quick Start](/docs/getting-started/quick-start) — build your first reactive schema
-- [Core Model](/docs/core/model) — understand collections, slots, relations, and selectors
-- [Relations and Selectors](/docs/core/relations-selectors) — derived indexes, manual relations, and selector DX
-- [Architecture](/docs/architecture/overview) — design principles and component structure
+- [Core Model](/docs/core/model) — collections, slots, indexes, and selectors
+- [Indexes and Selectors](/docs/core/indexes-selectors) — derived indexes, manual indexes, and selector DX
 - [Performance Guide](/docs/guides/performance) — benchmarks and optimization strategies
