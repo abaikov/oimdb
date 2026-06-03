@@ -79,7 +79,7 @@ const config: Config = {
           items: [
             {label: 'Introduction', to: '/docs/intro'},
             {label: 'Quick Start', to: '/docs/getting-started/quick-start'},
-            {label: 'Architecture', to: '/docs/architecture/overview'},
+            {label: 'Core Model', to: '/docs/core/model'},
             {label: 'Performance', to: '/docs/guides/performance'},
           ],
         },
