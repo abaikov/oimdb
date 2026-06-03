@@ -1,8 +1,8 @@
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKeys } from './OIMSelectorSourceDependencyUpdateEventEmitterKeys';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMCollectionByPksSelector<
     TEntity extends object,
@@ -11,7 +11,7 @@ export class OIMCollectionByPksSelector<
     private readonly pks: readonly TPk[];
 
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         private readonly collection: OIMReactiveCollection<TEntity, TPk>,
         pks: readonly TPk[]
     ) {

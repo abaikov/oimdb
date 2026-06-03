@@ -1,4 +1,4 @@
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
@@ -13,7 +13,7 @@ export class OIMEffectDependencyKeyed<TKey extends TOIMPk>
     private readonly keys: readonly TKey[] | undefined;
 
     constructor(
-        private readonly subscription: IOIMKeyedSubscription<TKey>,
+        public readonly source: IOIMKeyedSubscription<TKey>,
         keyOrKeys: TKey | readonly TKey[]
     ) {
         if (isReadonlyArray<TKey>(keyOrKeys)) {
@@ -27,11 +27,11 @@ export class OIMEffectDependencyKeyed<TKey extends TOIMPk>
         onUpdate: () => void
     ): () => void {
         if (this.keys !== undefined) {
-            return this.subscription.subscribeOnKeys(this.keys, onUpdate);
+            return this.source.subscribeOnKeys(this.keys, onUpdate);
         }
 
         if (this.key === undefined) return () => {};
 
-        return this.subscription.subscribeOnKey(this.key, onUpdate);
+        return this.source.subscribeOnKey(this.key, onUpdate);
     }
 }

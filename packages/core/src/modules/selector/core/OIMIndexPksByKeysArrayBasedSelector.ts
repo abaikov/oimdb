@@ -1,9 +1,9 @@
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKeys } from './OIMSelectorSourceDependencyUpdateEventEmitterKeys';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMIndexPksByKeysArrayBasedSelector<
     TKey extends TOIMPk,
@@ -13,7 +13,7 @@ export class OIMIndexPksByKeysArrayBasedSelector<
     private readonly keys: readonly TKey[];
 
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         private readonly reactiveIndex: OIMReactiveIndexArrayBased<
             TKey,
             TPk,

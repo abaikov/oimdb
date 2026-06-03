@@ -1,5 +1,5 @@
 import { OIMEventEmitter } from '../../../core/OIMEventEmitter';
-import { EOIMComputedEventType } from '../enum/EOIMComputedEventType';
+import { EOIMComputedEventType } from '../enums/EOIMComputedEventType';
 import { TOIMComputedUpdatePayload } from '../types/TOIMComputedUpdatePayload';
 
 type TOIMComputedKey = 'value';

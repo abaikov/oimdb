@@ -7,7 +7,7 @@ import {
     OIMIndexArrayBased,
     TOIMPk,
 } from '@oimdb/core';
-import { EOIMDBReduxReducerActionType } from '../enum/EOIMDBReduxReducerActionType';
+import { EOIMDBReduxReducerActionType } from '../enums/EOIMDBReduxReducerActionType';
 import { TOIMDBReduxCollectionMapper } from '../types/TOIMDBReduxCollectionMapper';
 import { TOIMDBReduxIndexMapper } from '../types/TOIMDBReduxIndexMapper';
 import { TOIMDBReduxCollectionReducerChildOptions } from '../types/TOIMDBReduxCollectionReducerChildOptions';
@@ -534,7 +534,7 @@ export class OIMDBReduxReducerFactory {
 
                             // Sync changes to OIMDB
                             isSyncingFromChild = true;
-                            // Check if index has addPks/removePks methods (OIMReactiveIndexManual)
+                            // Check if index supports collection-bound PK writes.
                             const indexManual = index as unknown as {
                                 addPks?: (
                                     key: TIndexKey,
@@ -617,7 +617,7 @@ export class OIMDBReduxReducerFactory {
                                         indexManual.addPks &&
                                         indexManual.removePks
                                     ) {
-                                        // Use addPks/removePks if available (OIMReactiveIndexManual)
+                                        // Use addPks/removePks if available.
                                         if (toRemove.length > 0) {
                                             indexManual.removePks(
                                                 key,

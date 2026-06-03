@@ -1,8 +1,8 @@
 import { OIMEventQueueScheduler } from '../abstract/OIMEventQueueScheduler';
-import { TOIMEventQueueOptions } from '../type/TOIMEventQueueOptions';
-import { EOIMEventQueueSchedulerEventType } from '../enum/EOIMEventQueueSchedulerEventType';
+import { TOIMEventQueueOptions } from '../types/TOIMEventQueueOptions';
+import { EOIMEventQueueSchedulerEventType } from '../enums/EOIMEventQueueSchedulerEventType';
 import { OIMEventEmitter } from './OIMEventEmitter';
-import { EOIMEventQueueEventType } from '../enum/EOIMEventQueueEventType';
+import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
 
 /**
  * Event queue that can optionally integrate with a scheduler for automatic flushing.

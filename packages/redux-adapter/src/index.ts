@@ -3,7 +3,7 @@ export { OIMDBReduxAdapter } from './core/OIMDBReduxAdapter';
 export type { OIMDBReduxUpdateAction } from './core/OIMDBReduxAdapter';
 
 // Enums
-export { EOIMDBReduxReducerActionType } from './enum/EOIMDBReduxReducerActionType';
+export { EOIMDBReduxReducerActionType } from './enums/EOIMDBReduxReducerActionType';
 
 // Types
 export type { TOIMDBReduxCollectionMapper } from './types/TOIMDBReduxCollectionMapper';

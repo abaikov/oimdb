@@ -1,9 +1,9 @@
 import { OIMObjectStore } from '../abstract/OIMObjectStore';
 import { OIMObjectStoreRecordDriven } from './OIMObjectStoreRecordDriven';
 import { OIMEventEmitter } from './OIMEventEmitter';
-import { EOIMObjectEventType } from '../enum/EOIMObjectEventType';
-import { TOIMUpdatePayload } from '../type/TOIMUpdatePayload';
-import { TOIMObjectOptions } from '../type/TOIMObjectOptions';
+import { EOIMObjectEventType } from '../enums/EOIMObjectEventType';
+import { TOIMUpdatePayload } from '../types/TOIMUpdatePayload';
+import { TOIMObjectOptions } from '../types/TOIMObjectOptions';
 
 /** It's like a store - but with event emitter */
 export class OIMObject<TKey extends string, TValue> {

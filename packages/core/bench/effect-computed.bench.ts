@@ -1,7 +1,7 @@
 import {
     OIMComputed,
     OIMEffect,
-    OIMComputativeRuntime,
+    OIMComputeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedObject,
     OIMEventQueue,
@@ -43,7 +43,7 @@ function setupObject(queue: OIMEventQueue) {
 }
 
 function setupComputedChain(
-    runtime: OIMComputativeRuntime,
+    runtime: OIMComputeRuntime,
     obj: OIMReactiveObject<TObjectKey, number>,
     depth: number
 ) {
@@ -75,7 +75,7 @@ function setupComputedChain(
 }
 
 function setupComputedDiamond(
-    runtime: OIMComputativeRuntime,
+    runtime: OIMComputeRuntime,
     obj: OIMReactiveObject<TObjectKey, number>
 ) {
     // A depends on obj.a
@@ -129,7 +129,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     // 1) Computed recompute throughput (single computed)
     {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = setupObject(queue);
         const computed = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
@@ -162,7 +162,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     // 2) Computed subscriber delivery cost (2 flushes per update)
     {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = setupObject(queue);
         const computed = new OIMComputed<number>(runtime, {
             compute: () => (obj.get('a') ?? 0) * 2,
@@ -201,7 +201,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     // 3) Chain scaling (depth 10 / 50)
     for (const depth of [10, 50]) {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = setupObject(queue);
         const { computeds, leaf } = setupComputedChain(runtime, obj, depth);
 
@@ -246,7 +246,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
     // 4) Diamond graph (A -> B -> C, A+C -> D), plus effect on D
     {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = setupObject(queue);
         const { A, B, C, D } = setupComputedDiamond(runtime, obj);
 

@@ -6,8 +6,7 @@ import {
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
     OIMReactiveCollection,
-    OIMRICollection,
-    OIMReactiveIndexManualArrayBased,
+    OIMReactiveCollectionIndexManualArrayBased,
     OIMReactiveIndexArrayBased,
     OIMIndexArrayBased,
     TOIMPk,
@@ -16,7 +15,7 @@ import {
     useSelectEntityByPk,
     useSelectEntitiesByIndexKeyArrayBased,
     useSelectPksByIndexKeyArrayBased,
-    OIMRICollectionsProvider,
+    OIMCollectionsProvider,
     useOIMCollectionsContext,
 } from '@oimdb/react';
 import { OIMDBReduxAdapter, TOIMDBReduxDefaultCollectionState } from '../src';
@@ -678,7 +677,11 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
 
         let decksCollection: OIMReactiveCollection<Deck, string>;
         let cardsCollection: OIMReactiveCollection<Card, string>;
-        let cardsByDeckIndex: OIMReactiveIndexManualArrayBased<string, string>;
+        let cardsByDeckIndex: OIMReactiveCollectionIndexManualArrayBased<
+            string,
+            string,
+            Card
+        >;
 
         beforeEach(() => {
             decksCollection = new OIMReactiveCollection<Deck, string>(queue, {
@@ -687,10 +690,11 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
             cardsCollection = new OIMReactiveCollection<Card, string>(queue, {
                 selectPk: card => card.id,
             });
-            cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<
+            cardsByDeckIndex = new OIMReactiveCollectionIndexManualArrayBased<
                 string,
-                string
-            >(queue);
+                string,
+                Card
+            >(queue, { collection: cardsCollection });
         });
 
         describe('Case 1: Redux updates, render from OIMDB via linked index', () => {
@@ -1321,43 +1325,43 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
             const testQueue = new OIMEventQueue({ scheduler });
             const adapter = new OIMDBReduxAdapter(testQueue);
 
-            const commentsByCardIndex = new OIMReactiveIndexManualArrayBased<
-                string,
+            const cardsCollection = new OIMReactiveCollection<Card, string>(
+                testQueue,
+                {
+                    selectPk: (card: Card) => card.id,
+                }
+            );
+
+            const commentsCollection = new OIMReactiveCollection<
+                Comment,
                 string
-            >(testQueue);
+            >(testQueue, {
+                selectPk: (comment: Comment) => comment.id,
+            });
 
-            const cardsCollection = new OIMRICollection<Card, string>(
+            const usersCollection = new OIMReactiveCollection<User, string>(
                 testQueue,
                 {
-                    collectionOpts: { selectPk: (card: Card) => card.id },
-                    indexes: {
-                        byDeck: new OIMReactiveIndexManualArrayBased<
-                            string,
-                            string
-                        >(testQueue),
-                    },
+                    selectPk: (user: User) => user.id,
                 }
             );
 
-            const commentsCollection = new OIMRICollection<Comment, string>(
-                testQueue,
-                {
-                    collectionOpts: {
-                        selectPk: (comment: Comment) => comment.id,
-                    },
-                    indexes: {
-                        byCard: commentsByCardIndex,
-                    },
-                }
-            );
-
-            const usersCollection = new OIMRICollection<User, string>(
-                testQueue,
-                {
-                    collectionOpts: { selectPk: (user: User) => user.id },
-                    indexes: {},
-                }
-            );
+            const indexes = {
+                cards: {
+                    byDeck: new OIMReactiveCollectionIndexManualArrayBased<
+                        string,
+                        string,
+                        Card
+                    >(testQueue, { collection: cardsCollection }),
+                },
+                comments: {
+                    byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                        string,
+                        string,
+                        Comment
+                    >(testQueue, { collection: commentsCollection }),
+                },
+            };
 
             // Setup initial data
             const initialCards: Card[] = [
@@ -1404,12 +1408,9 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
             commentsCollection.upsertMany(initialComments);
             usersCollection.upsertMany(initialUsers);
 
-            commentsByCardIndex.addPks('card1', ['comment1']);
-            commentsByCardIndex.addPks('card2', ['comment2']);
-            (
-                cardsCollection.indexes
-                    .byDeck as OIMReactiveIndexManualArrayBased<string, string>
-            ).addPks('deck1', ['card1', 'card2']);
+            indexes.comments.byCard.addPks('card1', ['comment1']);
+            indexes.comments.byCard.addPks('card2', ['comment2']);
+            indexes.cards.byDeck.addPks('deck1', ['card1', 'card2']);
 
             // Create entity adapter like in real code
             const cardsAdapter = createEntityAdapter<Card>();
@@ -1457,7 +1458,7 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
                     getPk: (card: Card) => card.id,
                     linkedIndexes: [
                         {
-                            index: commentsByCardIndex,
+                            index: indexes.comments.byCard,
                             fieldName: 'commentIds' as keyof Card,
                         },
                     ],
@@ -1552,7 +1553,7 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
                     },
                     useCommentIdsByCardId(cardId: string): string[] {
                         return useSelectPksByIndexKeyArrayBased(
-                            commentsByCardIndex,
+                            indexes.comments.byCard,
                             cardId
                         ) as string[];
                     },
@@ -1773,7 +1774,7 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
 
             const { getByTestId } = render(
                 <Provider store={store}>
-                    <OIMRICollectionsProvider
+                    <OIMCollectionsProvider
                         collections={{
                             cards: cardsCollection,
                             comments: commentsCollection,
@@ -1784,7 +1785,7 @@ describe('OIMDBReduxAdapter - React Render Optimization Tests', () => {
                             <CardItem cardId="card1" />
                             <CardItem cardId="card2" />
                         </AdapterContext.Provider>
-                    </OIMRICollectionsProvider>
+                    </OIMCollectionsProvider>
                 </Provider>
             );
 

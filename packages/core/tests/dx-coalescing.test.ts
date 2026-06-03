@@ -4,7 +4,7 @@ import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMEventQueueSchedulerImmediate } from '../src/core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
-import { OIMReactiveIndexManualSetBased } from '../src/core/OIMReactiveIndexManualSetBased';
+import { OIMReactiveCollectionIndexManualSetBased } from '../src/core/OIMReactiveCollectionIndexManualSetBased';
 
 interface User {
     id: string;
@@ -194,9 +194,11 @@ describe('Cross-Collection Coalescing', () => {
 
     test('should handle mixed collection and index updates', () => {
         // Add an index to the mix (bound to the same queue)
-        const index = new OIMReactiveIndexManualSetBased<string, string>(
-            sharedQueue
-        );
+        const index = new OIMReactiveCollectionIndexManualSetBased<
+            string,
+            string,
+            User
+        >(sharedQueue, { collection: userCollection });
         const indexEmitter = index;
 
         let totalNotifications = 0;

@@ -1,9 +1,9 @@
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
-import { EOIMIndexEventType } from '../enum/EOIMIndexEventType';
-import { TOIMIndexUpdatePayload } from '../type/TOIMIndexUpdatePayload';
-import { TOIMPk } from '../type/TOIMPk';
+import { EOIMIndexEventType } from '../enums/EOIMIndexEventType';
+import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
+import { TOIMPk } from '../types/TOIMPk';
 
 type TOIMIndexEmitter<TKey extends TOIMPk> = OIMEventEmitter<{
     [EOIMIndexEventType.UPDATE]: TOIMIndexUpdatePayload<TKey>;

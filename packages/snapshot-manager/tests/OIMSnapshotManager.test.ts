@@ -66,6 +66,10 @@ describe('OIMSnapshotManager', () => {
 
     afterEach(() => {
         snapshotManager.destroy();
+        userCollection.destroy();
+        postCollection.destroy();
+        commentCollection.destroy();
+        queue.destroy();
     });
 
     describe('Constructor and initialization', () => {

@@ -1,0 +1,55 @@
+{
+  "name": "@oimdb/devtools",
+  "version": "1.0.0",
+  "description": "Debug registry for OIMDB: name collections and indexes, inspect runtime state, assist AI development",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "llms.txt"
+  ],
+  "scripts": {
+    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
+    "dev": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "type-check": "tsc --noEmit",
+    "prepack": "node -e \"require('fs').copyFileSync('../../llms.txt', 'llms.txt')\"",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.0.0",
+    "typescript": "^5.2.2"
+  },
+  "keywords": [
+    "oimdb",
+    "devtools",
+    "debug",
+    "registry",
+    "reactive",
+    "collection"
+  ],
+  "author": "Andrei Baikov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abaikov/oimdb.git",
+    "directory": "packages/devtools"
+  }
+}

@@ -1,7 +1,7 @@
 import { OIMEventQueue } from './OIMEventQueue';
-import { TOIMEventHandler } from '../type/TOIMEventHandler';
-import { TOIMPk } from '../type/TOIMPk';
-import { EOIMEventQueueEventType } from '../enum/EOIMEventQueueEventType';
+import { TOIMEventHandler } from '../types/TOIMEventHandler';
+import { TOIMPk } from '../types/TOIMPk';
+import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
 
 type TOIMUpdateEventEmitterDeliveryMode = 'queue' | 'after_flush' | 'immediate';
 

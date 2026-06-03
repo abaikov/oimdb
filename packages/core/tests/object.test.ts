@@ -1,5 +1,5 @@
 import { OIMObject } from '../src/core/OIMObject';
-import { EOIMObjectEventType } from '../src/enum/EOIMObjectEventType';
+import { EOIMObjectEventType } from '../src/enums/EOIMObjectEventType';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMReactiveObject } from '../src/core/OIMReactiveObject';
 import { OIMObjectStoreRecordDriven } from '../src/core/OIMObjectStoreRecordDriven';

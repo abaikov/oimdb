@@ -1,5 +1,5 @@
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 
@@ -23,6 +23,10 @@ export class OIMEffectDependencyKeyedCollection<
             collection,
             pkOrPks
         );
+    }
+
+    public get source(): OIMReactiveCollection<TEntity, TPk> {
+        return this.dep.source as OIMReactiveCollection<TEntity, TPk>;
     }
 
     public subscribe(

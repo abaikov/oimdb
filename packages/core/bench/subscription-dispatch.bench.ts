@@ -1,6 +1,6 @@
 import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
-import { TOIMPk } from '../src/type/TOIMPk';
+import { TOIMPk } from '../src/types/TOIMPk';
 
 interface TOIMSubscriptionDispatchBenchResult {
     name: string;

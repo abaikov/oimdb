@@ -1,5 +1,5 @@
-import { TOIMPkSelector } from '../type/TOIMPkSelector';
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPkSelector } from '../types/TOIMPkSelector';
+import { TOIMPk } from '../types/TOIMPk';
 
 export class OIMPkSelectorFactory<TEntity extends object, TPk extends TOIMPk> {
     createIdSelector(): TOIMPkSelector<TEntity & { id: TPk }, TPk> {

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OIMDB DevTools</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header id="toolbar">
+    <div class="toolbar-brand">
+      <span class="brand-name">OIMDB</span>
+      <span class="brand-sub">DevTools</span>
+    </div>
+    <div class="toolbar-status">
+      <span id="conn-dot" class="conn-dot"></span>
+      <span id="conn-label">Waiting for browser…</span>
+    </div>
+    <div class="toolbar-actions">
+      <span id="last-updated"></span>
+      <button id="btn-refresh" title="Refresh now">⟳</button>
+      <label class="auto-label">
+        <input type="checkbox" id="chk-auto" checked>
+        Auto
+      </label>
+    </div>
+  </header>
+
+  <div id="screen-waiting">
+    <div class="waiting-card">
+      <div class="waiting-title">Waiting for browser</div>
+      <p>Open your app and make sure <code>debug.ts</code> calls:</p>
+      <pre>registry.connect(); // ws://localhost:7432</pre>
+      <p class="waiting-hint">Then reload the page.</p>
+    </div>
+  </div>
+
+  <div id="screen-main" class="hidden">
+    <div id="col-left" class="col">
+      <div class="col-header">
+        Collections
+        <span class="badge" id="badge-collections">0</span>
+      </div>
+      <div id="list-collections" class="col-body"></div>
+    </div>
+    <div id="col-right" class="col">
+      <div class="col-header">
+        Computeds
+        <span class="badge" id="badge-computeds">0</span>
+      </div>
+      <div id="list-computeds" class="col-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

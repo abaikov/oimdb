@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>OIMDB DevTools</title>
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="toolbar">
+    <button id="btn-refresh" title="Refresh">⟳</button>
+    <label class="auto-refresh-label">
+      <input type="checkbox" id="chk-auto"> Auto
+    </label>
+    <span id="last-updated"></span>
+    <span id="badge-version"></span>
+  </div>
+
+  <div id="screen-waiting" class="screen">
+    <div class="waiting-box">
+      <div class="waiting-title">OIMDB DevTools</div>
+      <p>
+        <code>window.__OIMDB_DEV__</code> not found on this page.
+      </p>
+      <p>Add to your debug entry point:</p>
+      <pre>import { registry } from '@oimdb/devtools';
+
+// debug.ts
+import './store/users.debug';
+import './store/tasks.debug';
+
+if (typeof window !== 'undefined') {
+  (window as Record&lt;string, unknown&gt;).__OIMDB_DEV__ = registry;
+}</pre>
+      <button id="btn-retry">Retry</button>
+    </div>
+  </div>
+
+  <div id="screen-main" class="screen hidden">
+    <div id="pane-collections" class="pane">
+      <div class="pane-header">
+        Collections
+        <span class="badge" id="badge-collections">0</span>
+      </div>
+      <div id="list-collections"></div>
+    </div>
+
+    <div id="pane-computeds" class="pane">
+      <div class="pane-header">
+        Computeds
+        <span class="badge" id="badge-computeds">0</span>
+      </div>
+      <div id="list-computeds"></div>
+    </div>
+  </div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

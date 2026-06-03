@@ -19,6 +19,10 @@ export class OIMEffectDependencyKeyedObject<TKey extends string, TValue>
         );
     }
 
+    public get source(): OIMReactiveObject<TKey, TValue> {
+        return this.dep.source as OIMReactiveObject<TKey, TValue>;
+    }
+
     public subscribe(
         onUpdate: () => void
     ): () => void {

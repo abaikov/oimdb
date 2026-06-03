@@ -7,11 +7,11 @@
 import * as React from 'react';
 import {
     OIMEventQueue,
-    OIMReactiveIndexManualArrayBased,
-    OIMRICollection,
+    OIMReactiveCollection,
+    OIMReactiveCollectionIndexManualArrayBased,
 } from '@oimdb/core';
 import {
-    OIMRICollectionsProvider,
+    OIMCollectionsProvider,
     useOIMCollectionsContext,
 } from '../src/context';
 import {
@@ -94,68 +94,84 @@ interface RootState {
 function createOimdbStore(initialData: RootState) {
     const queue = new OIMEventQueue({});
 
-    const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const allCardsIndex = new OIMReactiveIndexManualArrayBased<string, string>(
-        queue
-    );
-    const commentsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const assignmentsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const tagsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const usersByAssignedCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-
     const collections = {
-        decks: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (deck: Deck) => deck.id },
-            indexes: {
-                all: new OIMReactiveIndexManualArrayBased<string, string>(
-                    queue
-                ),
-            },
+        decks: new OIMReactiveCollection<Deck, string>(queue, {
+            selectPk: (deck: Deck) => deck.id,
         }),
-        cards: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (card: Card) => card.id },
-            indexes: { byDeck: cardsByDeckIndex, all: allCardsIndex },
+        cards: new OIMReactiveCollection<Card, string>(queue, {
+            selectPk: (card: Card) => card.id,
         }),
-        comments: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (comment: Comment) => comment.id },
-            indexes: { byCard: commentsByCardIndex },
+        comments: new OIMReactiveCollection<Comment, string>(queue, {
+            selectPk: (comment: Comment) => comment.id,
         }),
-        users: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (user: User) => user.id },
-            indexes: { assignedCardId: usersByAssignedCardIndex },
+        users: new OIMReactiveCollection<User, string>(queue, {
+            selectPk: (user: User) => user.id,
         }),
-        tags: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (tag: Tag) => tag.id },
+        tags: new OIMReactiveCollection<Tag, string>(queue, {
+            selectPk: (tag: Tag) => tag.id,
         }),
-        cardAssignments: new OIMRICollection(queue, {
-            collectionOpts: {
+        cardAssignments: new OIMReactiveCollection<CardAssignment, string>(
+            queue,
+            {
                 selectPk: (assignment: CardAssignment) => assignment.id,
-            },
-            indexes: { byCard: assignmentsByCardIndex },
+            }
+        ),
+        cardTags: new OIMReactiveCollection<CardTag, string>(queue, {
+            selectPk: (cardTag: CardTag) => cardTag.id,
         }),
-        cardTags: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (cardTag: CardTag) => cardTag.id },
-            indexes: { byCard: tagsByCardIndex },
+        appState: new OIMReactiveCollection<AppState, string>(queue, {
+            selectPk: (state: AppState) => state.id,
         }),
-        appState: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (state: AppState) => state.id },
-            indexes: {},
-        }),
+    };
+
+    const indexes = {
+        decks: {
+            all: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Deck
+            >(queue, { collection: collections.decks }),
+        },
+        cards: {
+            byDeck: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Card
+            >(queue, { collection: collections.cards }),
+            all: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Card
+            >(queue, { collection: collections.cards }),
+        },
+        comments: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Comment
+            >(queue, { collection: collections.comments }),
+        },
+        users: {
+            assignedCardId: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                User
+            >(queue, { collection: collections.users }),
+        },
+        cardAssignments: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                CardAssignment
+            >(queue, { collection: collections.cardAssignments }),
+        },
+        cardTags: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                CardTag
+            >(queue, { collection: collections.cardTags }),
+        },
     };
 
     // Initialize with data
@@ -181,6 +197,7 @@ function createOimdbStore(initialData: RootState) {
 
     return {
         collections,
+        indexes,
         decksOrder: initialData.decksOrder,
         queue,
     };
@@ -188,9 +205,10 @@ function createOimdbStore(initialData: RootState) {
 
 // Type for collections from store
 type StoreCollections = ReturnType<typeof createOimdbStore>['collections'];
+type StoreIndexes = ReturnType<typeof createOimdbStore>['indexes'];
 
 // Example component using typed collections
-function DeckView({ deckId }: { deckId: ID }) {
+function DeckView({ deckId, indexes }: { deckId: ID; indexes: StoreIndexes }) {
     const { decks, cards } = useOIMCollectionsContext<StoreCollections>();
 
     // TypeScript correctly infers Deck | undefined
@@ -199,7 +217,7 @@ function DeckView({ deckId }: { deckId: ID }) {
     // TypeScript correctly infers readonly (Card | undefined)[] | undefined
     const deckCards = useSelectEntitiesByIndexKeyArrayBased(
         cards,
-        cards.indexes.byDeck,
+        indexes.cards.byDeck,
         deckId
     );
 
@@ -216,7 +234,10 @@ function DeckView({ deckId }: { deckId: ID }) {
                         <div key={card.id}>
                             <h3>{card.title}</h3>
                             <p>{card.content}</p>
-                            <CardComments cardId={card.id} />
+                            <CardComments
+                                cardId={card.id}
+                                indexes={indexes}
+                            />
                         </div>
                     ) : null
                 )}
@@ -225,13 +246,19 @@ function DeckView({ deckId }: { deckId: ID }) {
     );
 }
 
-function CardComments({ cardId }: { cardId: ID }) {
+function CardComments({
+    cardId,
+    indexes,
+}: {
+    cardId: ID;
+    indexes: StoreIndexes;
+}) {
     const { comments } = useOIMCollectionsContext<StoreCollections>();
 
     // TypeScript correctly infers readonly (Comment | undefined)[] | undefined
     const cardComments = useSelectEntitiesByIndexKeyArrayBased(
         comments,
-        comments.indexes.byCard,
+        indexes.comments.byCard,
         cardId
     );
 
@@ -280,15 +307,15 @@ function App() {
         decksOrder: ['deck1'],
     };
 
-    const { collections } = React.useMemo(
+    const { collections, indexes } = React.useMemo(
         () => createOimdbStore(initialData),
         []
     );
 
     return (
-        <OIMRICollectionsProvider collections={collections}>
-            <DeckView deckId="deck1" />
-        </OIMRICollectionsProvider>
+        <OIMCollectionsProvider collections={collections}>
+            <DeckView deckId="deck1" indexes={indexes} />
+        </OIMCollectionsProvider>
     );
 }
 

@@ -13,7 +13,7 @@ import {
     TOIMPk,
 } from '@oimdb/core';
 import { Store, Reducer, Action, Middleware } from 'redux';
-import { EOIMDBReduxReducerActionType } from '../enum/EOIMDBReduxReducerActionType';
+import { EOIMDBReduxReducerActionType } from '../enums/EOIMDBReduxReducerActionType';
 import { TOIMDBReduxAdapterOptions } from '../types/TOIMDBReduxAdapterOptions';
 import { TOIMDBReduxCollectionMapper } from '../types/TOIMDBReduxCollectionMapper';
 import { TOIMDBReduxIndexMapper } from '../types/TOIMDBReduxIndexMapper';

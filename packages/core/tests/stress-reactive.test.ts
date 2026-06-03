@@ -5,7 +5,7 @@ import {
     OIMEffectDependencyKeyedCollection,
     OIMEffectDependencyKeyedIndex,
     OIMEffectDependencyKeyedObject,
-    OIMComputativeRuntime,
+    OIMComputeRuntime,
     OIMEventQueue,
     OIMReactiveCollection,
     OIMReactiveIndexManualSetBased,
@@ -24,7 +24,7 @@ function createSeededRng(seed: number): () => number {
 describe('Stress / production-ish reactive behavior (no infinite loop tests)', () => {
     test('UI-like: 4 sources -> 3 computeds -> 1 UI subscriber stays consistent and coalesces', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
 
         type TObjectKey = 'add' | 'mul';
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
@@ -89,7 +89,10 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
         obj.setProperty('add', 1);
         obj.setProperty('mul', 2);
         collection.upsertOneByPk(1, { id: 1, x: 10 });
-        index.setPks('bucket', [1, 2, 3]);
+        index.setSlots(
+            'bucket',
+            new Set([1, 2, 3].map(pk => ({ pk, item: { id: pk } })))
+        );
 
         queue.flush();
 
@@ -101,7 +104,7 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
         // Another batch with multiple changes still coalesces to one call per flush.
         obj.setProperty('add', 5);
         collection.upsertOneByPk(1, { id: 1, x: 7 });
-        index.setPks('bucket', [9]);
+        index.setSlots('bucket', new Set([{ pk: 9, item: { id: 9 } }]));
 
         queue.flush();
 
@@ -121,7 +124,7 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
 
     test('no subscription leaks: repeated create/destroy of computed/effect leaves source emitters clean', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
 
         type TKey = 'a';
         const obj = new OIMReactiveObject<TKey, number>(queue);
@@ -164,7 +167,7 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
         const rng = createSeededRng(1337);
 
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
 
         type TObjectKey = 'add';
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
@@ -223,9 +226,14 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
                 // update index bucket
                 const size = Math.floor(rng() * 6);
                 modelBucketSize = size;
-                index.setPks(
+                index.setSlots(
                     'bucket',
-                    Array.from({ length: size }, (_, k) => k + 1)
+                    new Set(
+                        Array.from({ length: size }, (_, k) => {
+                            const pk = k + 1;
+                            return { pk, item: { id: pk } };
+                        })
+                    )
                 );
             } else if (r < 0.925) {
                 // toggle UI subscription

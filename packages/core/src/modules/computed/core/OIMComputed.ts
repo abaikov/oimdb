@@ -2,10 +2,10 @@ import { OIMEventEmitter } from '../../../core/OIMEventEmitter';
 import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
 import { OIMEffect } from '../../effect/core/OIMEffect';
 import { IOIMEffectDependency } from '../../effect/interfaces/IOIMEffectDependency';
-import { EOIMComputedEventType } from '../enum/EOIMComputedEventType';
+import { EOIMComputedEventType } from '../enums/EOIMComputedEventType';
 import { TOIMComputedOptions } from '../types/TOIMComputedOptions';
 import { TOIMComputedUpdatePayload } from '../types/TOIMComputedUpdatePayload';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 type TOIMComputedKey = 'value';
 
@@ -15,10 +15,10 @@ export class OIMComputed<TValue> {
     }>();
     public readonly updateEventEmitter: OIMUpdateEventEmitter<TOIMComputedKey>;
 
-    private readonly runtime: OIMComputativeRuntime;
+    private readonly runtime: OIMComputeRuntime;
     private readonly compute: () => TValue;
     private readonly compare: (a: TValue, b: TValue) => boolean;
-    private readonly deps: readonly IOIMEffectDependency[];
+    private readonly _deps: readonly IOIMEffectDependency[];
 
     private value!: TValue;
     private hasValue = false;
@@ -26,13 +26,13 @@ export class OIMComputed<TValue> {
     private readonly effect: OIMEffect;
 
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         opts: TOIMComputedOptions<TValue>
     ) {
         this.runtime = runtime;
         this.compute = opts.compute;
         this.compare = opts.compare ?? Object.is;
-        this.deps = opts.deps ?? [];
+        this._deps = opts.deps ?? [];
 
         this.updateEventEmitter = new OIMUpdateEventEmitter<TOIMComputedKey>(
             this.runtime.queue,
@@ -40,7 +40,7 @@ export class OIMComputed<TValue> {
         );
 
         this.effect = new OIMEffect(this.runtime, {
-            deps: this.deps,
+            deps: this._deps,
             onUpdate: () => {
                 this.isDirty = true;
             },
@@ -49,6 +49,10 @@ export class OIMComputed<TValue> {
             },
         });
     }
+
+    public get needsRecompute(): boolean { return this.isDirty; }
+    public get isReady(): boolean { return this.hasValue; }
+    public get deps(): readonly IOIMEffectDependency[] { return this._deps; }
 
     public get(): TValue {
         // Ensure value is up to date for direct reads.

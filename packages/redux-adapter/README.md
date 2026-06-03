@@ -77,8 +77,13 @@ const store = createStore(
 // Set store in adapter (can be done later)
 adapter.setStore(store);
 
-// OIMDB changes automatically sync to Redux
-users.upsertOne({ id: '1', name: 'John', email: 'john@example.com' });
+// OIMDB changes automatically sync to Redux.
+// Core collection writes return canonical slots if you need to feed indexes.
+const userSlot = users.upsertOne({
+    id: '1',
+    name: 'John',
+    email: 'john@example.com',
+});
 queue.flush(); // Triggers Redux update
 
 // Redux state is automatically updated
@@ -166,7 +171,10 @@ import {
     TOIMDBReduxDefaultCollectionState,
     TOIMDBReduxCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
-import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
+import {
+    OIMReactiveCollection,
+    OIMReactiveCollectionIndexManualArrayBased
+} from '@oimdb/core';
 
 interface Deck {
     id: string;
@@ -179,7 +187,11 @@ const decksCollection = new OIMReactiveCollection<Deck, string>(queue, {
 });
 // Use ArrayBased index for full array replacements (recommended for redux-adapter)
 // The adapter optimizes ArrayBased indexes by skipping diff computation
-const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+const cardsByDeckIndex = new OIMReactiveCollectionIndexManualArrayBased<
+    string,
+    string,
+    Deck
+>(queue, { collection: decksCollection });
 
 const childReducer = (
     state: TOIMDBReduxDefaultCollectionState<Deck, string> | undefined,
@@ -401,10 +413,14 @@ const customMapper: TOIMDBReduxCollectionMapper<User, string, CustomState> = (
 #### Simple One-Way Sync (OIMDB → Redux)
 
 ```typescript
-import { OIMReactiveIndexManualArrayBased } from '@oimdb/core';
+import { OIMReactiveCollectionIndexManualArrayBased } from '@oimdb/core';
 
 // Create index (ArrayBased recommended for redux-adapter - optimized performance)
-const userRolesIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+const userRolesIndex = new OIMReactiveCollectionIndexManualArrayBased<
+    string,
+    string,
+    User
+>(queue, { collection: usersCollection });
 
 // Create reducer for index
 const adapter = new OIMDBReduxAdapter(queue);
@@ -511,12 +527,20 @@ The adapter intelligently handles different index types for optimal performance:
 **Example:**
 ```typescript
 // ArrayBased index - direct assignment (fast, recommended for redux-adapter)
-const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<string, string>(queue);
+const cardsByDeckIndex = new OIMReactiveCollectionIndexManualArrayBased<
+    string,
+    string,
+    Deck
+>(queue, { collection: decksCollection });
 // When deck.cardIds changes, adapter simply does:
 // index.setPks(deckId, newCardIds) - no diff computation needed!
 
 // SetBased index - incremental updates (efficient for Sets)
-const tagsByUserIndex = new OIMReactiveIndexManualSetBased<string, string>(queue);
+const tagsByUserIndex = new OIMReactiveCollectionIndexManualSetBased<
+    string,
+    string,
+    User
+>(queue, { collection: usersCollection });
 // When user.tags changes, adapter computes diff and uses:
 // index.addPks(userId, toAdd) and index.removePks(userId, toRemove)
 ```

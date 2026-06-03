@@ -1,7 +1,7 @@
 import { OIMReactiveObject } from '../../../core/OIMReactiveObject';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKeys } from './OIMSelectorSourceDependencyUpdateEventEmitterKeys';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMObjectValuesByKeysSelector<
     TKey extends string,
@@ -10,7 +10,7 @@ export class OIMObjectValuesByKeysSelector<
     private readonly keys: readonly TKey[];
 
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         private readonly obj: OIMReactiveObject<TKey, TValue>,
         keys: readonly TKey[]
     ) {

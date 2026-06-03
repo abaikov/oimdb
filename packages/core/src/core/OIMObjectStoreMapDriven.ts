@@ -1,5 +1,5 @@
 import { OIMObjectStore } from '../abstract/OIMObjectStore';
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPk } from '../types/TOIMPk';
 
 export class OIMObjectStoreMapDriven<
     TKey extends TOIMPk,

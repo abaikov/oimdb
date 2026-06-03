@@ -1,0 +1,252 @@
+/**
+ * OIMDB — red & white brand theme
+ */
+
+@import '@fontsource/plus-jakarta-sans/400.css';
+@import '@fontsource/plus-jakarta-sans/500.css';
+@import '@fontsource/plus-jakarta-sans/600.css';
+@import '@fontsource/plus-jakarta-sans/700.css';
+@import '@fontsource/plus-jakarta-sans/800.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/600.css';
+
+:root {
+  --oim-red: #c41e3a;
+  --oim-red-dark: #9b1529;
+  --oim-red-darker: #7a101f;
+  --oim-red-darkest: #5c0c18;
+  --oim-red-light: #e03550;
+  --oim-red-lighter: #eb5a70;
+  --oim-red-lightest: #f7d0d6;
+  --oim-white: #ffffff;
+  --oim-off-white: #fffafa;
+  --oim-gray-100: #f5f0f1;
+
+  --ifm-font-family-base: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI',
+    Roboto, sans-serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', ui-monospace, 'Cascadia Code',
+    'Segoe UI Mono', monospace;
+  --ifm-heading-font-family: var(--ifm-font-family-base);
+  --ifm-heading-font-weight: 700;
+  --ifm-font-weight-semibold: 600;
+  --ifm-font-weight-bold: 700;
+  --ifm-line-height-base: 1.65;
+  --ifm-heading-line-height: 1.2;
+  --ifm-h1-font-size: 2.25rem;
+  --ifm-h2-font-size: 1.65rem;
+  --ifm-h3-font-size: 1.3rem;
+
+  --ifm-color-primary: var(--oim-red);
+  --ifm-color-primary-dark: var(--oim-red-dark);
+  --ifm-color-primary-darker: var(--oim-red-darker);
+  --ifm-color-primary-darkest: var(--oim-red-darkest);
+  --ifm-color-primary-light: var(--oim-red-light);
+  --ifm-color-primary-lighter: var(--oim-red-lighter);
+  --ifm-color-primary-lightest: var(--oim-red-lightest);
+
+  --ifm-background-color: var(--oim-white);
+  --ifm-background-surface-color: var(--oim-off-white);
+  --ifm-font-color-base: #1a1a1a;
+  --ifm-font-color-base-inverse: var(--oim-white);
+  --ifm-link-color: var(--oim-red);
+  --ifm-link-hover-color: var(--oim-red-dark);
+  --ifm-navbar-background-color: var(--oim-red);
+  --ifm-navbar-link-color: rgba(255, 255, 255, 0.92);
+  --ifm-navbar-link-hover-color: var(--oim-white);
+  --ifm-navbar-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+  --ifm-footer-background-color: var(--oim-red-darkest);
+  --ifm-footer-color: rgba(255, 255, 255, 0.85);
+  --ifm-footer-link-color: rgba(255, 255, 255, 0.9);
+  --ifm-footer-link-hover-color: var(--oim-white);
+  --ifm-footer-title-color: var(--oim-white);
+  --ifm-menu-color-background-active: var(--oim-red-lightest);
+  --ifm-menu-color-active: var(--oim-red-dark);
+  --ifm-breadcrumb-color-active: var(--oim-red);
+  --ifm-toc-link-color: #555;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(196, 30, 58, 0.08);
+}
+
+[data-theme='dark'] {
+  --oim-red: #ff4757;
+  --oim-red-dark: #e8354f;
+  --oim-red-darker: #c41e3a;
+  --oim-red-darkest: #9b1529;
+  --oim-red-light: #ff6b7a;
+  --oim-red-lighter: #ff8a95;
+  --oim-red-lightest: rgba(255, 71, 87, 0.12);
+
+  --ifm-color-primary: var(--oim-red);
+  --ifm-color-primary-dark: var(--oim-red-dark);
+  --ifm-color-primary-darker: var(--oim-red-darker);
+  --ifm-color-primary-darkest: var(--oim-red-darkest);
+  --ifm-color-primary-light: var(--oim-red-light);
+  --ifm-color-primary-lighter: var(--oim-red-lighter);
+  --ifm-color-primary-lightest: var(--oim-red-lightest);
+
+  --ifm-background-color: #14080a;
+  --ifm-background-surface-color: #1e0c10;
+  --ifm-navbar-background-color: #2d0a12;
+  --ifm-footer-background-color: #0f0507;
+  --docusaurus-highlighted-code-line-bg: rgba(255, 71, 87, 0.15);
+}
+
+/* Navbar */
+.navbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.navbar__title {
+  color: var(--oim-white);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.95rem;
+}
+
+.navbar__link--active {
+  color: var(--oim-white);
+  font-weight: 600;
+}
+
+.navbar__brand:hover {
+  color: var(--oim-white);
+}
+
+/* Hero */
+.hero--primary {
+  --ifm-hero-background-color: var(--oim-red);
+  --ifm-hero-text-color: var(--oim-white);
+  background: linear-gradient(
+    135deg,
+    var(--oim-red-darkest) 0%,
+    var(--oim-red) 45%,
+    var(--oim-red-light) 100%
+  );
+}
+
+.hero__title {
+  color: var(--oim-white);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.hero__subtitle {
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 500;
+  line-height: 1.6;
+  font-size: 1.15rem;
+}
+
+.hero .button--secondary {
+  --ifm-button-background-color: var(--oim-white);
+  --ifm-button-border-color: var(--oim-white);
+  --ifm-button-color: var(--oim-red-dark);
+}
+
+.hero .button--secondary:hover {
+  --ifm-button-background-color: var(--oim-off-white);
+  --ifm-button-border-color: var(--oim-off-white);
+  --ifm-button-color: var(--oim-red-darkest);
+}
+
+.hero .button--outline.button--secondary {
+  --ifm-button-background-color: transparent;
+  --ifm-button-border-color: rgba(255, 255, 255, 0.85);
+  --ifm-button-color: var(--oim-white);
+}
+
+.hero .button--outline.button--secondary:hover {
+  --ifm-button-background-color: rgba(255, 255, 255, 0.12);
+  --ifm-button-border-color: var(--oim-white);
+  --ifm-button-color: var(--oim-white);
+}
+
+/* Features section */
+.features {
+  background: var(--ifm-background-surface-color);
+  border-top: 3px solid var(--oim-red-lightest);
+}
+
+[data-theme='dark'] .features {
+  border-top-color: rgba(255, 71, 87, 0.25);
+}
+
+/* Sidebar active item accent */
+.menu__link--active:not(.menu__link--sublist) {
+  border-left: 3px solid var(--ifm-color-primary);
+}
+
+/* Tables — subtle red header tint */
+table thead tr {
+  background-color: var(--oim-red-lightest);
+}
+
+[data-theme='dark'] table thead tr {
+  background-color: rgba(255, 71, 87, 0.1);
+}
+
+/* Inline code */
+code {
+  border: 1px solid rgba(196, 30, 58, 0.15);
+}
+
+[data-theme='dark'] code {
+  border-color: rgba(255, 71, 87, 0.2);
+}
+
+/* Pagination / doc cards */
+.pagination-nav__link:hover {
+  border-color: var(--ifm-color-primary);
+}
+
+/* Color mode toggle on red navbar */
+.navbar .clean-btn {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.navbar .clean-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--oim-white);
+}
+
+/* Typography */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+article h1,
+article h2,
+article h3 {
+  letter-spacing: -0.025em;
+}
+
+.markdown > p,
+.markdown > ul,
+.markdown > ol {
+  font-size: 1.02rem;
+}
+
+.menu__link,
+.navbar__link,
+.table-of-contents__link {
+  font-weight: 500;
+}
+
+pre,
+.prism-code {
+  font-family: var(--ifm-font-family-monospace);
+  font-feature-settings: 'calt' 1;
+}
+
+.theme-doc-markdown pre {
+  font-size: 0.875rem;
+  line-height: 1.6;
+}

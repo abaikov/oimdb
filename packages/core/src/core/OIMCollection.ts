@@ -1,15 +1,15 @@
-import { TOIMCollectionOptions } from '../type/TOIMCollectionOptions';
-import { TOIMPk } from '../type/TOIMPk';
-import { TOIMPkSelector } from '../type/TOIMPkSelector';
+import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
+import { TOIMPk } from '../types/TOIMPk';
+import { TOIMPkSelector } from '../types/TOIMPkSelector';
 import { OIMPkSelectorFactory } from './OIMPkSelectorFactory';
 import { OIMCollectionStoreMapDriven } from './OIMCollectionStoreMapDriven';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
-import { TOIMEntityUpdater } from '../type/TOIMEntityUpdater';
+import { TOIMEntityUpdater } from '../types/TOIMEntityUpdater';
 import { OIMEntityUpdaterFactory } from './OIMEntityUpdaterFactory';
 import { OIMEventEmitter } from './OIMEventEmitter';
-import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
-import { TOIMCollectionUpdatePayload } from '../type/TOIMCollectionUpdatePayload';
-import { TOIMEntitySlot } from '../type/TOIMEntitySlot';
+import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
+import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
+import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
 /** It's like a store - but with event emitter */
 export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
@@ -53,21 +53,32 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         return this.store.getAllSlots();
     }
 
-    upsertOneByPk(pk: TPk, entity: Partial<TEntity>): void {
-        this.upsertOneWithoutNotificationsByPk(pk, entity);
+    upsertOneByPk(
+        pk: TPk,
+        entity: Partial<TEntity>
+    ): TOIMEntitySlot<TEntity, TPk> {
+        const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        return slot;
     }
 
-    upsertOne(entity: TEntity | Partial<TEntity>): void {
-        const pk = this.upsertOneWithoutNotifications(entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+    upsertOne(entity: TEntity | Partial<TEntity>): TOIMEntitySlot<TEntity, TPk> {
+        const slot = this.upsertOneWithoutNotifications(entity);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [slot.pk] });
+        return slot;
     }
 
-    upsertMany(entities: (TEntity | Partial<TEntity>)[]): void {
-        const pks = entities.map(entity =>
+    upsertMany(
+        entities: (TEntity | Partial<TEntity>)[]
+    ): TOIMEntitySlot<TEntity, TPk>[] {
+        if (entities.length === 0) return [];
+
+        const slots = entities.map(entity =>
             this.upsertOneWithoutNotifications(entity)
         );
+        const pks = slots.map(slot => slot.pk);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        return slots;
     }
 
     removeOne(entity: TEntity): void {
@@ -77,6 +88,8 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
     }
 
     removeMany(entities: TEntity[]): void {
+        if (entities.length === 0) return;
+
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
@@ -88,6 +101,8 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
     }
 
     removeManyByPks(pks: readonly TPk[]): void {
+        if (pks.length === 0) return;
+
         this.store.removeManyByPks(pks);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
     }
@@ -111,16 +126,15 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
 
     protected upsertOneWithoutNotifications(
         entity: TEntity | Partial<TEntity>
-    ): TPk {
+    ): TOIMEntitySlot<TEntity, TPk> {
         const pk = this.selectPk(entity as TEntity);
-        this.upsertOneWithoutNotificationsByPk(pk, entity);
-        return pk;
+        return this.upsertOneWithoutNotificationsByPk(pk, entity);
     }
 
     protected upsertOneWithoutNotificationsByPk(
         pk: TPk,
         entity: Partial<TEntity> | TEntity
-    ): void {
+    ): TOIMEntitySlot<TEntity, TPk> {
         if (!pk) {
             throw new Error(
                 `[OIMCollection]: PK is required to upsert an entity ${JSON.stringify(entity)}`
@@ -128,12 +142,12 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         }
         const existingEntity = this.store.getOneByPk(pk);
         if (existingEntity) {
-            this.store.setOneByPk(
+            return this.store.setOneByPk(
                 pk,
                 this.updateEntity(entity, existingEntity)
             );
         } else {
-            this.store.setOneByPk(pk, entity as TEntity);
+            return this.store.setOneByPk(pk, entity as TEntity);
         }
     }
 

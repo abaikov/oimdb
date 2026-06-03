@@ -1,5 +1,5 @@
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 import { IOIMSelectorComputedDependency } from '../interfaces/IOIMSelectorComputedDependency';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 
@@ -22,7 +22,7 @@ export abstract class OIMSelector<TValue> {
     }
 
     protected constructor(
-        protected readonly runtime: OIMComputativeRuntime,
+        protected readonly runtime: OIMComputeRuntime,
         protected readonly sourceDeps: readonly IOIMSelectorSourceDependency[],
         protected readonly computedDeps: readonly IOIMSelectorComputedDependency[] = []
     ) {}

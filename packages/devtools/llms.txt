@@ -1,0 +1,429 @@
+# OIMDB
+
+> **For AI assistants:** You are reading the OIMDB API reference. Read this file fully before writing any OIMDB code — the API has specific patterns that are easy to get wrong without context.
+> After reading, look for `debug.ts` or `*.debug.ts` files in the project — they describe the specific data model (collections, indexes, relations, computeds) of the app you are working on.
+> If `@oimdb/mcp` is in the project's MCP config, call `oimdb_inspect` for live runtime state from the browser.
+
+OIMDB is a TypeScript in-memory reactive database. It stores entities in typed collections, maintains indexes, and propagates changes through a reactive graph (computed values, effects, selectors) controlled by an explicit event queue. All change delivery is batched: subscriptions fire on `queue.flush()`, never mid-mutation.
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `@oimdb/core` | Collections, indexes, event queue, reactive primitives |
+| `@oimdb/persist` | Persist/hydrate collections to localStorage, IndexedDB, memory |
+| `@oimdb/react` | React hooks for collections and selectors |
+| `@oimdb/async` | Async-aware reactive collection and index variants |
+| `@oimdb/devtools` | Debug registry: name collections/indexes/computeds, inspect runtime state |
+| `@oimdb/snapshot-manager` | Snapshot/restore collection state |
+| `@oimdb/redux-adapter` | Bridge OIMDB collections into a Redux store |
+
+## Core Concepts
+
+### Event Queue
+
+All reactive updates are batched. Mutations accumulate, then `queue.flush()` delivers all changes at once.
+
+```ts
+import { OIMEventQueue, OIMEventQueueSchedulerImmediate } from '@oimdb/core';
+
+const queue = new OIMEventQueue({
+    scheduler: new OIMEventQueueSchedulerImmediate(), // flush on next microtask
+});
+// or: OIMEventQueueSchedulerAnimationFrame, OIMEventQueueSchedulerTimeout, OIMEventQueueSchedulerMicrotask
+```
+
+### Collections
+
+`OIMCollection` — base CRUD store. `OIMReactiveCollection` — same + emits events on flush.
+
+```ts
+import { OIMReactiveCollection } from '@oimdb/core';
+
+interface User { id: string; name: string; role: 'admin' | 'member'; }
+
+const users = new OIMReactiveCollection<User, string>(queue, {
+    selectPk: (u) => u.id,
+});
+
+users.upsertMany([
+    { id: 'u1', name: 'Alice', role: 'admin' },
+    { id: 'u2', name: 'Bob',   role: 'member' },
+]);
+users.upsertOne({ id: 'u1', name: 'Alice Smith', role: 'admin' }); // update
+users.removeOne({ id: 'u2', name: 'Bob', role: 'member' });
+
+users.getOneByPk('u1');   // → entity or undefined
+users.getAll();            // → TEntity[]
+users.getAllPks();          // → TPk[]
+```
+
+### Indexes
+
+Indexes map keys to sets or arrays of PKs. Two storage shapes:
+- **Set-based** — unordered, deduped (`OIMIndexManualSetBased`, `OIMReactiveIndexManualSetBased`)
+- **Array-based** — ordered, with duplicates (`OIMIndexManualArrayBased`, `OIMReactiveIndexManualArrayBased`)
+
+```ts
+import { OIMReactiveIndexManualSetBased } from '@oimdb/core';
+
+const byRole = new OIMReactiveIndexManualSetBased<'admin' | 'member', string>(queue);
+
+byRole.setSlots('admin', [users.getSlotByPk('u1')!]);
+byRole.getPksByKey('admin'); // → Set { 'u1' }
+
+byRole.subscribeOnKey('admin', () => {
+    console.log('admin set changed');
+});
+queue.flush(); // delivers subscription
+```
+
+### DX Layer — Collection Model
+
+`createOIMCollectionContext` wires queue + collection + index factory + selectors together.
+
+```ts
+import { createOIMCollectionContext } from '@oimdb/core';
+
+const { collection, indexFactory, select } =
+    createOIMCollectionContext<User, string>(queue, { selectPk: (u) => u.id });
+
+// Derived index: built automatically from entity data
+const byRole = indexFactory.derivedSetIndex((u) => [u.role]);
+
+// Reactive selectors
+const adminUsers = select.entitiesBySetIndexKey(byRole, 'admin');
+adminUsers.getValue();   // → (User | undefined)[]
+adminUsers.watch((users) => { /* called on queue.flush() when value changes */ });
+
+const u1 = select.byPk('u1');
+u1.getValue(); // → User | undefined
+```
+
+### Computed Values
+
+Derived values that recompute lazily when dependencies change. Recomputation is scheduled on `queue.flush()`.
+
+```ts
+import { OIMComputeRuntime, OIMComputed, OIMEffectDependencyKeyedCollection } from '@oimdb/core';
+
+const runtime = new OIMComputeRuntime(queue);
+
+const adminCount = new OIMComputed<number>(runtime, {
+    compute: () => byRole.getPksByKey('admin').size,
+    deps: [new OIMEffectDependencyKeyedCollection(users, /* pk */ 'u1')],
+});
+
+adminCount.get();        // → number (triggers recompute if dirty)
+adminCount.getIfReady(); // → number | undefined (no recompute)
+adminCount.isReady;      // → boolean
+adminCount.needsRecompute; // → boolean
+```
+
+### Effects
+
+Side effects that run when dependencies change, on `queue.flush()`.
+
+```ts
+import { OIMEffect, OIMEffectDependencyComputed } from '@oimdb/core';
+
+const logEffect = new OIMEffect(runtime, {
+    deps: [new OIMEffectDependencyComputed(adminCount)],
+    run: () => {
+        console.log('admin count:', adminCount.get());
+    },
+});
+```
+
+**Dependency types:**
+- `OIMEffectDependencyKeyedCollection(collection, pk)` — watch a specific PK
+- `OIMEffectDependencyKeyedObject(object, key)` — watch a key in a reactive object
+- `OIMEffectDependencyKeyedIndex(index, key)` — watch a key in an index
+- `OIMEffectDependencyComputed(computed)` — depend on another computed
+
+### Objects
+
+Key-value stores for singleton data (settings, flags, etc.).
+
+```ts
+import { OIMReactiveObject } from '@oimdb/core';
+
+const settings = new OIMReactiveObject<'theme' | 'lang', string>(queue);
+settings.setProperty('theme', 'dark');
+settings.get('theme'); // → 'dark' | undefined
+settings.getAll();     // → { theme: 'dark' }
+```
+
+## React (`@oimdb/react`)
+
+```bash
+npm install @oimdb/react
+```
+
+All hooks use `useSyncExternalStore` and re-render only when watched data changes.
+
+```ts
+import {
+    OIMCollectionsProvider,
+    useOIMCollectionsContext,
+    useSelectEntityByPk,
+    useSelectEntitiesByPks,
+    useSelectEntitiesByIndexKeySetBased,
+    useSelectEntitiesByIndexKeyArrayBased,
+    useSelectPksByIndexKeySetBased,
+    useSelectValueByObjectKey,
+} from '@oimdb/react';
+```
+
+### Setup
+
+```ts
+// store.ts — outside React
+const queue = new OIMEventQueue();
+const { collection: users, indexFactory } =
+    createOIMCollectionContext<User, string>(queue, { selectPk: (u) => u.id });
+const byTeam = indexFactory.derivedSetIndex((u) => [u.teamId]);
+export const collections = { users };
+
+// App.tsx
+<OIMCollectionsProvider collections={collections}>
+    <App />
+</OIMCollectionsProvider>
+
+// Component.tsx
+type AppCollections = typeof collections;
+const { users } = useOIMCollectionsContext<AppCollections>();
+```
+
+### Hook reference
+
+| Hook | What it watches |
+|---|---|
+| `useSelectEntityByPk(collection, pk)` | One entity by PK |
+| `useSelectEntitiesByPks(collection, pks)` | Multiple entities by PKs |
+| `useSelectEntitiesByIndexKeySetBased(collection, index, key)` | Entities via set index key |
+| `useSelectEntitiesByIndexKeysSetBased(collection, index, keys)` | Entities via multiple set index keys |
+| `useSelectEntitiesByIndexKeyArrayBased(collection, index, key)` | Entities via array index key (ordered) |
+| `useSelectEntitiesByIndexKeysArrayBased(collection, index, keys)` | Entities via multiple array index keys |
+| `useSelectPksByIndexKeySetBased(index, key)` | Just PKs from set index (no collection needed) |
+| `useSelectPksByIndexKeyArrayBased(index, key)` | Just PKs from array index |
+| `useSelectValueByObjectKey(object, key)` | One key from `OIMReactiveObject` |
+| `useSelectValuesByObjectKeys(object, keys)` | Multiple keys from `OIMReactiveObject` |
+
+## Persist (`@oimdb/persist`)
+
+```ts
+import { createLocalStoragePersistor } from '@oimdb/persist';
+
+const persistor = createLocalStoragePersistor({});
+
+// Persist entire collection as one key
+persistor.collection(users).entry({ storageKey: 'app:users' });
+
+// Persist at a nested path within one key
+persistor.collection(users).path({ storageKey: 'app', path: ['collections', 'users'] });
+persistor.object(settings).path({ storageKey: 'app', path: ['settings'] });
+
+// Persist each record separately (good for large collections)
+persistor.collection(users).records({ bucketName: 'users' }); // memory/indexedDb only
+
+await persistor.hydrate(); // load from storage into collections
+persistor.start();          // autosave on every queue.flush()
+```
+
+### Error handling
+
+```ts
+const persistor = createLocalStoragePersistor({
+    onError: (error, { resource, operation }) => {
+        console.error(`Persist ${operation} failed`, error);
+    },
+});
+```
+
+### Schema versioning / migration
+
+```ts
+import { createVersionedCodec } from '@oimdb/persist';
+
+const codec = createVersionedCodec({
+    version: 2,
+    migrations: {
+        1: (data) => ({ ...data, newField: 'default' }), // v0 → v1
+        2: (data) => renameField(data),                   // v1 → v2
+    },
+});
+
+persistor.collection(users).entry({ storageKey: 'users', codec });
+```
+
+## Devtools (`@oimdb/devtools`)
+
+Register collections and computeds by name. Keep registration in separate `*.debug.ts` files — excluded from production.
+
+```ts
+// src/store/users.debug.ts
+import { registry } from '@oimdb/devtools';
+import { usersCollection, byRole } from './users';
+
+registry.collection('users', usersCollection, {
+    indexes: { byRole },
+});
+```
+
+```ts
+// src/store/tasks.debug.ts
+import { registry } from '@oimdb/devtools';
+import { tasksCollection, byAssignee, openTaskCount } from './tasks';
+
+registry
+    .collection('tasks', tasksCollection, {
+        indexes: { byAssignee },
+        relations: { assigneeId: 'users' }, // FK: tasks.assigneeId → users
+    })
+    .computed('openTaskCount', openTaskCount);
+```
+
+```ts
+// src/debug.ts — single debug entry point
+import './store/users.debug';
+import './store/tasks.debug';
+
+import { registry } from '@oimdb/devtools';
+if (typeof window !== 'undefined') {
+    (window as Record<string, unknown>).__OIMDB_DEV__ = registry;
+}
+```
+
+```ts
+registry.dump(); // prints full state summary to console
+registry.inspect(); // returns structured JSON
+```
+
+When a computed dep's source is not registered, it shows as `(unregistered)` in `dump()` — a signal to go add it to the debug file.
+
+Install the browser extension from `packages/browser-extension/` (load unpacked in Chrome) for a live DevTools panel.
+
+## Naming Conventions
+
+| Kind | Prefix | Example |
+|---|---|---|
+| Class | `OIM` | `OIMCollection` |
+| Interface | `IOIM` | `IOIMCollectionStore` |
+| Type | `TOIM` | `TOIMCollectionOptions` |
+| Enum | `EOIM` | `EOIMCollectionEventType` |
+
+Variable names: drop the prefix, start lowercase. Context goes first: `prevCollectionIndexFactory`, not `collectionIndexFactoryPrev`.
+
+## File Conventions
+
+- One file → one named export
+- Filename matches export name exactly
+- Types → `src/types/`, Interfaces → `src/interfaces/`, Abstract classes → `src/abstract/`
+
+## Common Patterns
+
+### Wire up a complete feature
+
+```ts
+const queue = new OIMEventQueue({ scheduler: new OIMEventQueueSchedulerImmediate() });
+
+const { collection: tasks, indexFactory, select } =
+    createOIMCollectionContext<Task, string>(queue, { selectPk: (t) => t.id });
+
+const byStatus  = indexFactory.derivedSetIndex((t) => [t.status]);
+const byAssignee = indexFactory.derivedSetIndex((t) => [t.assigneeId]);
+
+const runtime = new OIMComputeRuntime(queue);
+
+const openCount = new OIMComputed<number>(runtime, {
+    compute: () => byStatus.getPksByKey('open').size,
+    deps: [new OIMEffectDependencyKeyedIndex(byStatus, 'open')],
+});
+```
+
+### Subscribe to a collection index
+
+```ts
+const unsubscribe = byStatus.subscribeOnKey('open', () => {
+    console.log('open tasks:', byStatus.getPksByKey('open'));
+});
+// ...later
+unsubscribe();
+```
+
+### Destroy lifecycle (always call destroy in reverse order)
+
+```ts
+logEffect.destroy();
+openCount.destroy();
+byStatus.destroy();
+tasks.destroy();
+queue.destroy();
+```
+
+## DevTools UI (`@oimdb/mcp devtools`)
+
+For human developers — runs a local web UI at `http://localhost:7433`:
+
+```bash
+npx @oimdb/mcp devtools
+```
+
+Auto-opens in the browser. Shows live collections, computeds, and dep status from the running app. Requires `registry.connect()` in `debug.ts`.
+
+## MCP Setup (`@oimdb/mcp`)
+
+`@oimdb/mcp` lets AI assistants query live OIMDB state from the running browser tab.
+
+### Check if MCP is already configured
+
+Look for `mcpServers.oimdb` in `.claude/settings.json` (project) or `~/.claude/settings.json` (global). If present, call `oimdb_inspect` directly — no setup needed.
+
+### Configure MCP (if not already done)
+
+Add to the project MCP config and ask the user to reload their editor:
+
+- Claude Code: `.claude/settings.json`
+- Cursor: `.cursor/mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "oimdb": {
+      "command": "npx",
+      "args": ["-y", "@oimdb/mcp"]
+    }
+  }
+}
+```
+
+### Connect the browser
+
+The project's `debug.ts` (or `src/debug.ts`) must call `registry.connect()`:
+
+```ts
+import { registry } from '@oimdb/devtools';
+registry.connect(); // ws://localhost:7432
+```
+
+If this line is missing, add it and ask the user to reload the page.
+
+### Available tools
+
+| Tool | Use it when |
+|---|---|
+| `oimdb_inspect` | Need full state — collections, computeds, deps |
+| `oimdb_dump` | Need a quick readable summary |
+| `oimdb_collection` | Debugging one specific collection |
+| `oimdb_computed` | Debugging why a computed is stale or wrong |
+
+### One-shot CDP (no MCP config needed)
+
+If Chrome is running with `--remote-debugging-port=9222`:
+
+```bash
+npx @oimdb/mcp cdp
+```
+
+Prints full `inspect()` JSON to stdout. Use when MCP is not configured.

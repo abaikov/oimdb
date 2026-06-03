@@ -1,14 +1,14 @@
-import { OIMCollectionChangedFieldsWrapper } from '../src/modules/wrapper/collection/OIMCollectionChangedFieldsWrapper';
+import { OIMCollectionChangedFields } from '../src/modules/wrapper/collection/OIMCollectionChangedFields';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
 
 type TEntity = { id: string; a?: number; b?: string };
 
-describe('OIMCollectionChangedFieldsWrapper', () => {
+describe('OIMCollectionChangedFields', () => {
     test('tracks changed fields per pk and emits pk/field updates', () => {
         const queue = new OIMEventQueue();
         const collection = new OIMReactiveCollection<TEntity, string>(queue);
-        const wrapper = new OIMCollectionChangedFieldsWrapper<TEntity, string>(
+        const wrapper = new OIMCollectionChangedFields<TEntity, string>(
             queue,
             collection,
             { selectPk: (e: TEntity | Partial<TEntity>) => (e as TEntity).id }
@@ -47,7 +47,7 @@ describe('OIMCollectionChangedFieldsWrapper', () => {
     test('detects external collection writes and infers changed fields by diffing snapshots', () => {
         const queue = new OIMEventQueue();
         const collection = new OIMReactiveCollection<TEntity, string>(queue);
-        const wrapper = new OIMCollectionChangedFieldsWrapper<TEntity, string>(
+        const wrapper = new OIMCollectionChangedFields<TEntity, string>(
             queue,
             collection,
             { selectPk: (e: TEntity | Partial<TEntity>) => (e as TEntity).id }
@@ -69,5 +69,24 @@ describe('OIMCollectionChangedFieldsWrapper', () => {
         queue.flush();
 
         expect(snapshots).toEqual([['a', 'b'], ['a']]);
+    });
+
+    test('returns canonical slots from wrapped upserts', () => {
+        const queue = new OIMEventQueue();
+        const collection = new OIMReactiveCollection<TEntity, string>(queue);
+        const wrapper = new OIMCollectionChangedFields<TEntity, string>(
+            queue,
+            collection,
+            { selectPk: (e: TEntity | Partial<TEntity>) => (e as TEntity).id }
+        );
+
+        const slot = wrapper.upsertOne({ id: 'u1', a: 1 });
+        const updatedSlot = wrapper.upsertOneByPk('u1', { b: 'x' });
+        const manySlots = wrapper.upsertMany([{ id: 'u2', a: 2 }]);
+
+        expect(updatedSlot).toBe(slot);
+        expect(slot).toBe(collection.getSlotByPk('u1'));
+        expect(slot.item).toEqual({ id: 'u1', a: 1, b: 'x' });
+        expect(manySlots).toEqual([collection.getSlotByPk('u2')]);
     });
 });

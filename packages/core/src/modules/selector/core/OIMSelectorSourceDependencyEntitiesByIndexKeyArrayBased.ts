@@ -1,7 +1,7 @@
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 
 export class OIMSelectorSourceDependencyEntitiesByIndexKeyArrayBased<
@@ -26,9 +26,7 @@ export class OIMSelectorSourceDependencyEntitiesByIndexKeyArrayBased<
 
     public subscribe(onUpdate: () => void): () => void {
         const resubscribeCollection = () => {
-            const nextPks = this.reactiveIndex
-                .getSlotsByKey(this.key)
-                .map(slot => slot.pk);
+            const nextPks = this.reactiveIndex.getPksByKey(this.key);
             if (this.sameArray(this.currentPks, nextPks)) return;
 
             this.unsubscribeFromCollectionKeys?.();

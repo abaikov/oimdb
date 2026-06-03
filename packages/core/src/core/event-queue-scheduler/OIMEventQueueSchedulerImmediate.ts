@@ -1,12 +1,17 @@
 import { OIMEventQueueScheduler } from '../../abstract/OIMEventQueueScheduler';
 
+type TOIMImmediateSchedulerHandle =
+    | ReturnType<typeof setImmediate>
+    | ReturnType<typeof setTimeout>
+    | 1;
+
 /**
  * Immediate-based scheduler that executes flushes using setImmediate or fallback mechanisms.
  * Provides faster execution than setTimeout(0) in Node.js environments.
  * Falls back to setTimeout(0) in browsers and MessageChannel in modern browsers for better performance.
  */
 export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
-    protected immediateId?: number;
+    protected immediateId?: TOIMImmediateSchedulerHandle;
     protected readonly useSetImmediate: boolean;
     protected readonly useMessageChannel: boolean;
     protected messageChannel?: MessageChannel;
@@ -42,7 +47,7 @@ export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
         };
 
         if (this.useSetImmediate) {
-            this.immediateId = setImmediate(callback) as unknown as number;
+            this.immediateId = setImmediate(callback);
         } else if (this.useMessageChannel && this.messageChannel) {
             // Use MessageChannel for better performance in browsers
             this.immediateId = 1; // Just a flag to indicate pending
@@ -50,7 +55,7 @@ export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
             this.messageChannel.port1.postMessage(null);
         } else {
             // Fallback to setTimeout(0)
-            this.immediateId = setTimeout(callback, 0) as unknown as number;
+            this.immediateId = setTimeout(callback, 0);
         }
     }
 
@@ -58,11 +63,13 @@ export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
         if (this.immediateId === undefined) return;
 
         if (this.useSetImmediate) {
-            clearImmediate(this.immediateId as any);
+            clearImmediate(
+                this.immediateId as Parameters<typeof clearImmediate>[0]
+            );
         } else if (this.useMessageChannel) {
             this.pendingCallback = undefined;
         } else {
-            clearTimeout(this.immediateId);
+            clearTimeout(this.immediateId as Parameters<typeof clearTimeout>[0]);
         }
         this.immediateId = undefined;
     }

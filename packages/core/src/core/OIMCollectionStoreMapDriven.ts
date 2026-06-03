@@ -1,6 +1,6 @@
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
-import { TOIMEntitySlot } from '../type/TOIMEntitySlot';
+import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
 export class OIMCollectionStoreMapDriven<
     TEntity extends object,
@@ -8,19 +8,28 @@ export class OIMCollectionStoreMapDriven<
 > extends OIMCollectionStore<TEntity, TPk> {
     protected readonly slots = new Map<TPk, TOIMEntitySlot<TEntity, TPk>>();
 
-    setOneByPk(pk: TPk, entity: TEntity): void {
+    setOneByPk(pk: TPk, entity: TEntity): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.slots.get(pk);
         if (slot) {
             slot.item = entity;
+            return slot;
         } else {
-            this.slots.set(pk, { pk, item: entity });
+            const nextSlot = { pk, item: entity };
+            this.slots.set(pk, nextSlot);
+            return nextSlot;
         }
     }
 
-    setManyByPks(pks: readonly TPk[], entities: TEntity[]): void {
+    setManyByPks(
+        pks: readonly TPk[],
+        entities: TEntity[]
+    ): TOIMEntitySlot<TEntity, TPk>[] {
+        const slots: TOIMEntitySlot<TEntity, TPk>[] = [];
+        slots.length = pks.length;
         for (let i = 0; i < pks.length; i++) {
-            this.setOneByPk(pks[i], entities[i]);
+            slots[i] = this.setOneByPk(pks[i], entities[i]);
         }
+        return slots;
     }
 
     getSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {

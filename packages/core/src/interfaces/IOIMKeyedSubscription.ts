@@ -1,5 +1,5 @@
-import { TOIMPk } from '../type/TOIMPk';
-import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { TOIMPk } from '../types/TOIMPk';
+import { TOIMEventHandler } from '../types/TOIMEventHandler';
 
 export interface IOIMKeyedSubscription<TKey extends TOIMPk> {
     subscribeOnKey(key: TKey, handler: TOIMEventHandler<void>): () => void;

@@ -1,19 +1,26 @@
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
+import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
 
-export type TOIMOrderedListCommand<TPk extends TOIMPk> =
+export type TOIMOrderedListCommand<
+    TPk extends TOIMPk,
+    TEntity extends object = object,
+> =
     | {
-          type: 'add';
-          key: TPk;
+          type: 'insert';
+          pk: TPk;
+          slot: TOIMEntitySlot<TEntity, TPk>;
           index: number;
       }
     | {
           type: 'remove';
-          key: TPk;
+          pk: TPk;
+          slot: TOIMEntitySlot<TEntity, TPk>;
           index: number;
       }
     | {
           type: 'move';
-          key: TPk;
+          pk: TPk;
+          slot: TOIMEntitySlot<TEntity, TPk>;
           fromIndex: number;
           toIndex: number;
       }
@@ -22,5 +29,6 @@ export type TOIMOrderedListCommand<TPk extends TOIMPk> =
            * Replace the whole list for this key (preferred name).
            */
           type: 'set';
-          keys: readonly TPk[];
+          pks: readonly TPk[];
+          slots: readonly TOIMEntitySlot<TEntity, TPk>[];
       };

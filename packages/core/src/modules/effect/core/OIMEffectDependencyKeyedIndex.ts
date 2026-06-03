@@ -1,4 +1,4 @@
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
@@ -24,6 +24,10 @@ export class OIMEffectDependencyKeyedIndex<TKey extends TOIMPk>
             index,
             keyOrKeys
         );
+    }
+
+    public get source(): IOIMKeyedSubscription<TKey> {
+        return this.dep.source;
     }
 
     public subscribe(

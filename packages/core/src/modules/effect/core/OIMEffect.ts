@@ -1,10 +1,10 @@
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { TOIMEffectOptions } from '../types/TOIMEffectOptions';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 import { OIMEffectDependencyComputed } from './OIMEffectDependencyComputed';
 
 export class OIMEffect {
-    private readonly runtime: OIMComputativeRuntime;
+    private readonly runtime: OIMComputeRuntime;
     private readonly onUpdate?: () => void;
     private readonly run: () => void;
     private readonly deps: readonly IOIMEffectDependency[];
@@ -26,7 +26,7 @@ export class OIMEffect {
         this.runOnce();
     };
 
-    constructor(runtime: OIMComputativeRuntime, opts: TOIMEffectOptions) {
+    constructor(runtime: OIMComputeRuntime, opts: TOIMEffectOptions) {
         this.runtime = runtime;
         this.onUpdate = opts.onUpdate;
         this.run = opts.run;

@@ -1,6 +1,6 @@
 import {
     OIMEffect,
-    OIMComputativeRuntime,
+    OIMComputeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedObject,
     OIMEventQueue,
@@ -12,7 +12,7 @@ describe('OIMEffect', () => {
     test('runs handlers in subscription order for the same key', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         const order: string[] = [];
@@ -45,7 +45,7 @@ describe('OIMEffect', () => {
     test('coalesces multiple invalidations within a single flush (runs once)', () => {
         type TKey = 'a' | 'b';
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         let runs = 0;
@@ -72,7 +72,7 @@ describe('OIMEffect', () => {
     test('computed dependency: effect runs when computed updates (same drain)', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         const A = new OIMComputed<number>(runtime, {

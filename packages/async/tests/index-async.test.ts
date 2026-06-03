@@ -1,12 +1,12 @@
-import { OIMIndexManualAsync } from '../src/core/OIMIndexManualAsync';
+import { OIMPkIndexManualAsync } from '../src/core/OIMPkIndexManualAsync';
 import { EOIMIndexEventType } from '@oimdb/core';
 
-describe('OIMIndexManualAsync', () => {
+describe('OIMPkIndexManualAsync', () => {
     describe('Basic Operations', () => {
-        let index: OIMIndexManualAsync<string, number>;
+        let index: OIMPkIndexManualAsync<string, number>;
 
         beforeEach(() => {
-            index = new OIMIndexManualAsync<string, number>();
+            index = new OIMPkIndexManualAsync<string, number>();
         });
 
         afterEach(async () => {

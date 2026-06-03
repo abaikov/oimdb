@@ -75,7 +75,7 @@ Indexes provide fast lookups by secondary keys.
 // In @oimdb/core there are two concrete families:
 // - Set-based indexes (project to Set<TPk>)
 // - Array-based indexes (project to TPk[])
-class OIMIndexManual<TIndexKey, TPk> extends OIMIndex<TIndexKey, TPk> {
+class OIMIndexStore<TIndexKey, TPk> {
     private data = new Map<TIndexKey, Set<EntitySlot<TPk>> | EntitySlot<TPk>[]>();
     private comparePks?: TOIMIndexComparator<TPk>;
     public emitter: OIMIndexUpdateEventEmitter<TIndexKey>;

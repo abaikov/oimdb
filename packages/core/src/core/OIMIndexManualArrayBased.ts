@@ -1,11 +1,8 @@
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
-import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
-import {
-    TOIMAnyEntitySlot,
-    TOIMEntitySlotResolver,
-} from '../type/TOIMEntitySlot';
+import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 
 /**
  * Manual Array-based index that allows direct manipulation of key-to-primary-keys mappings.
@@ -19,22 +16,9 @@ export class OIMIndexManualArrayBased<
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreArrayBased<TIndexKey, TPk>;
-            resolveSlot?: TOIMEntitySlotResolver<TPk>;
         } = {}
     ) {
         super(options);
-    }
-
-    /**
-     * Set primary keys for a specific index key, replacing any existing values.
-     * Uses optional comparator to skip updates if PKs haven't actually changed.
-     */
-    public setPks(key: TIndexKey, pks: TPk[]): void {
-        const hasChanges = this.setPksWithComparison(key, pks);
-
-        if (hasChanges) {
-            this.emitUpdateOne(key);
-        }
     }
 
     public setSlots(
@@ -44,59 +28,6 @@ export class OIMIndexManualArrayBased<
         const hasChanges = this.setSlotsWithComparison(key, slots);
 
         if (hasChanges) {
-            this.emitUpdateOne(key);
-        }
-    }
-
-    /**
-     * Add primary keys to a specific index key
-     */
-    public addPks(key: TIndexKey, pks: readonly TPk[]): void {
-        if (pks.length === 0) return;
-
-        let slotsArray = this.store.getOneByKey(key);
-        if (!slotsArray) {
-            slotsArray = [];
-            this.store.setOneByKey(key, slotsArray);
-        }
-
-        // Use Set to avoid duplicates, then convert back to array
-        const pksSet = new Set(slotsArray.map(slot => slot.pk));
-        let hasChanges = false;
-        const nextSlots = slotsArray.slice();
-        for (const pk of pks) {
-            if (!pksSet.has(pk)) {
-                pksSet.add(pk);
-                nextSlots.push(this.getOrCreateSlot(pk));
-                hasChanges = true;
-            }
-        }
-
-        if (hasChanges) {
-            this.store.setOneByKey(key, nextSlots);
-            this.emitUpdateOne(key);
-        }
-    }
-
-    /**
-     * Remove primary keys from a specific index key
-     */
-    public removePks(key: TIndexKey, pks: readonly TPk[]): void {
-        if (pks.length === 0) return;
-
-        const slotsArray = this.store.getOneByKey(key);
-        if (!slotsArray) return;
-
-        const pksSet = new Set(pks);
-        const filtered = slotsArray.filter(slot => !pksSet.has(slot.pk));
-        const hasChanges = filtered.length !== slotsArray.length;
-
-        if (hasChanges) {
-            if (filtered.length === 0) {
-                this.store.removeOneByKey(key);
-            } else {
-                this.store.setOneByKey(key, filtered);
-            }
             this.emitUpdateOne(key);
         }
     }

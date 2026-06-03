@@ -31,7 +31,7 @@ npm install @oimdb/react @oimdb/core
 ```
 
 **Key Features:**
-- Direct integration with `OIMReactiveCollection` and `OIMReactiveIndex`
+- Direct integration with `OIMReactiveCollection` and collection-bound indexes
 - Automatic subscriptions using `useSyncExternalStore`
 - React Context support for centralized collection management
 - Key-specific subscriptions for efficient re-renders
@@ -85,9 +85,18 @@ users.updateEventEmitter.subscribeOnKey('user1', () => {
   console.log('User1 updated!');
 });
 
-// Insert and update data
-users.upsertOne({ id: 'user1', name: 'John', email: 'john@example.com' });
-users.upsertOne({ id: 'user1', name: 'John Doe', email: 'john@example.com' });
+// Insert and update data. Writes return canonical slots, which can be reused by indexes.
+const userSlot = users.upsertOne({
+  id: 'user1',
+  name: 'John',
+  email: 'john@example.com'
+});
+const updatedUserSlot = users.upsertOne({
+  id: 'user1',
+  name: 'John Doe',
+  email: 'john@example.com'
+});
+console.log(userSlot === updatedUserSlot); // true
 // Only one notification fires due to intelligent coalescing
 ```
 
@@ -125,10 +134,12 @@ npm run build
 
 ## 📚 Documentation
 
-Additional documentation is available in the [`docs/`](docs/) directory:
+Full documentation is published at **[abaikov.github.io/oimdb](https://abaikov.github.io/oimdb/)**.
 
-- [Architecture](docs/ARCHITECTURE.md) - Design principles and component structure
-- [Performance Guide](docs/PERFORMANCE.md) - Optimization strategies and benchmarks
+Source docs live in [`website/docs/`](website/docs/). Legacy markdown files:
+
+- [Architecture](docs/ARCHITECTURE.md) — design principles and component structure
+- [Performance Guide](docs/PERFORMANCE.md) — optimization strategies and benchmarks
 
 ## 🤝 Contributing
 

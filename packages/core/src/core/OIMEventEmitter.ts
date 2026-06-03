@@ -1,4 +1,4 @@
-import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { TOIMEventHandler } from '../types/TOIMEventHandler';
 
 // Performance-optimized bucket: O(1) removal, O(n) iteration with minimal overhead
 type TOIMEventBucket<T, K extends keyof T> = {

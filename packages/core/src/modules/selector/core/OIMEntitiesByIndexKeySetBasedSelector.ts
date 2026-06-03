@@ -1,10 +1,10 @@
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexSetBased } from '../../../abstract/OIMReactiveIndexSetBased';
-import { TOIMPk } from '../../../type/TOIMPk';
+import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexSetBased } from '../../../abstract/OIMIndexSetBased';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyEntitiesByIndexKeySetBased } from './OIMSelectorSourceDependencyEntitiesByIndexKeySetBased';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMEntitiesByIndexKeySetBasedSelector<
     TEntity extends object,
@@ -13,7 +13,7 @@ export class OIMEntitiesByIndexKeySetBasedSelector<
     TIndex extends OIMIndexSetBased<TKey, TPk>,
 > extends OIMSelector<readonly (TEntity | undefined)[]> {
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         private readonly collection: OIMReactiveCollection<TEntity, TPk>,
         private readonly reactiveIndex: OIMReactiveIndexSetBased<
             TKey,
@@ -30,18 +30,15 @@ export class OIMEntitiesByIndexKeySetBasedSelector<
                 TIndex
             >(collection, reactiveIndex, key),
         ]);
-        this.reactiveIndex.index.setSlotResolver(pk =>
-            this.collection.getSlotByPk(pk)
-        );
     }
 
     public getValue(): readonly (TEntity | undefined)[] {
-        const slots = this.reactiveIndex.getSlotsByKey(this.key);
+        const pks = this.reactiveIndex.getPksByKey(this.key);
         const entities: Array<TEntity | undefined> = [];
-        entities.length = slots.size;
+        entities.length = pks.size;
         let writeIndex = 0;
-        for (const slot of slots) {
-            entities[writeIndex++] = slot.item as TEntity | undefined;
+        for (const pk of pks) {
+            entities[writeIndex++] = this.collection.getOneByPk(pk);
         }
         return entities;
     }

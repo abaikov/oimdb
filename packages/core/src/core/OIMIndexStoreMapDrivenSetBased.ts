@@ -1,6 +1,6 @@
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
-import { TOIMAnyEntitySlot } from '../type/TOIMEntitySlot';
+import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 
 export class OIMIndexStoreMapDrivenSetBased<
     TKey extends TOIMPk,

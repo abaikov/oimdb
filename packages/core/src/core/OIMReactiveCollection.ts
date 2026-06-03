@@ -1,11 +1,12 @@
-import { TOIMCollectionOptions } from '../type/TOIMCollectionOptions';
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollection } from './OIMCollection';
 import { OIMEventQueue } from './OIMEventQueue';
-import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
-import { EOIMCollectionEventType } from '../enum/EOIMCollectionEventType';
+import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
+import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
 export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     extends OIMCollection<TEntity, TPk>
@@ -86,27 +87,40 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
         };
     }
 
-    public override upsertOneByPk(pk: TPk, entity: Partial<TEntity>): void {
-        this.upsertOneWithoutNotificationsByPk(pk, entity);
+    public override upsertOneByPk(
+        pk: TPk,
+        entity: Partial<TEntity>
+    ): TOIMEntitySlot<TEntity, TPk> {
+        const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
+        return slot;
     }
 
-    public override upsertOne(entity: TEntity | Partial<TEntity>): void {
-        const pk = this.upsertOneWithoutNotifications(entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
-        this.updateEmitter.markUpdatedKey(pk);
-        this.trackAnyUpdatePk(pk);
+    public override upsertOne(
+        entity: TEntity | Partial<TEntity>
+    ): TOIMEntitySlot<TEntity, TPk> {
+        const slot = this.upsertOneWithoutNotifications(entity);
+        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [slot.pk] });
+        this.updateEmitter.markUpdatedKey(slot.pk);
+        this.trackAnyUpdatePk(slot.pk);
+        return slot;
     }
 
-    public override upsertMany(entities: (TEntity | Partial<TEntity>)[]): void {
-        const pks = entities.map(entity =>
+    public override upsertMany(
+        entities: (TEntity | Partial<TEntity>)[]
+    ): TOIMEntitySlot<TEntity, TPk>[] {
+        if (entities.length === 0) return [];
+
+        const slots = entities.map(entity =>
             this.upsertOneWithoutNotifications(entity)
         );
+        const pks = slots.map(slot => slot.pk);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
+        return slots;
     }
 
     public override removeOne(entity: TEntity): void {
@@ -118,6 +132,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     }
 
     public override removeMany(entities: TEntity[]): void {
+        if (entities.length === 0) return;
+
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
@@ -133,6 +149,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     }
 
     public override removeManyByPks(pks: readonly TPk[]): void {
+        if (pks.length === 0) return;
+
         this.store.removeManyByPks(pks);
         this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         this.updateEmitter.markUpdatedKeys(pks);

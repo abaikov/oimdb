@@ -1,10 +1,10 @@
 import {
     OIMEventQueue,
     OIMReactiveCollection,
-    OIMReactiveIndexManualSetBased,
+    OIMReactiveCollectionIndexManualSetBased,
     OIMReactiveObject,
     OIMComputed,
-    OIMComputativeRuntime,
+    OIMComputeRuntime,
     OIMEffectDependencyComputed,
     OIMEffectDependencyKeyedCollection,
     OIMEffectDependencyKeyedIndex,
@@ -15,7 +15,7 @@ describe('OIMComputed', () => {
     test('recomputes on dependency updates via the same queue and notifies subscribers', () => {
         type TKey = 'a';
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<TKey, number>(queue);
 
         const computed = new OIMComputed<number>(runtime, {
@@ -43,7 +43,7 @@ describe('OIMComputed', () => {
 
     test('can depend on object key + collection pk + index key and compute from all of them', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
 
         type TObjectKey = 'a';
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
@@ -52,9 +52,11 @@ describe('OIMComputed', () => {
         const collection = new OIMReactiveCollection<TEntity, number>(queue);
 
         type TIndexKey = 'g';
-        const index = new OIMReactiveIndexManualSetBased<TIndexKey, number>(
-            queue
-        );
+        const index = new OIMReactiveCollectionIndexManualSetBased<
+            TIndexKey,
+            number,
+            TEntity
+        >(queue, { collection });
 
         const computed = new OIMComputed<number>(runtime, {
             compute: () => {
@@ -77,6 +79,7 @@ describe('OIMComputed', () => {
 
         obj.setProperty('a', 1);
         collection.upsertOneByPk(1, { id: 1, x: 10 });
+        collection.upsertOneByPk(2, { id: 2, x: 0 });
         index.setPks('g', [1, 2]);
 
         // Single drain flush: recompute + subscriber delivery happen within the same flush.
@@ -95,7 +98,7 @@ describe('OIMComputed', () => {
     test('supports many computed with computed-to-computed dependencies (chain + diamond)', () => {
         type TObjectKey = 'a' | 'b';
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<TObjectKey, number>(queue);
 
         const calls = {

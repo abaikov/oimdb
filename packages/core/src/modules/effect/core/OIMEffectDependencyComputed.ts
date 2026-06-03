@@ -16,9 +16,9 @@ type TOIMComputedLike = {
  * Effect dependency on a computed.
  */
 export class OIMEffectDependencyComputed implements IOIMEffectDependency {
-    constructor(private readonly computed: TOIMComputedLike) {}
+    constructor(public readonly source: TOIMComputedLike) {}
 
     public subscribe(onUpdate: () => void): () => void {
-        return this.computed.emitter.on('update', onUpdate);
+        return this.source.emitter.on('update', onUpdate);
     }
 }

@@ -312,15 +312,11 @@ export const useSelectEntitiesByIndexKeySetBased = <
 ) => {
     const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
     const subscribe = useMemo(() => {
-        reactiveIndex.index.setSlotResolver(pk =>
-            reactiveCollection.getSlotByPk(pk)
-        );
         const readSnapshot = () =>
-            Array.from(reactiveIndex.getSlotsByKey(key), slot =>
-                slot.item as TEntity | undefined
+            Array.from(reactiveIndex.getPksByKey(key), pk =>
+                reactiveCollection.getOneByPk(pk)
             );
-        const readPks = () =>
-            Array.from(reactiveIndex.getSlotsByKey(key), slot => slot.pk);
+        const readPks = () => Array.from(reactiveIndex.getPksByKey(key));
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
@@ -375,16 +371,12 @@ export const useSelectEntitiesByIndexKeysSetBased = <
     const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
     const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
     const subscribe = useMemo(() => {
-        reactiveIndex.index.setSlotResolver(pk =>
-            reactiveCollection.getSlotByPk(pk)
-        );
-        const readSlots = () =>
+        const readPks = () =>
             stableKeys.flatMap(key =>
-                Array.from(reactiveIndex.getSlotsByKey(key))
+                Array.from(reactiveIndex.getPksByKey(key))
             );
         const readSnapshot = () =>
-            readSlots().map(slot => slot.item as TEntity | undefined);
-        const readPks = () => readSlots().map(slot => slot.pk);
+            readPks().map(pk => reactiveCollection.getOneByPk(pk));
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
@@ -437,15 +429,11 @@ export const useSelectEntitiesByIndexKeyArrayBased = <
 ) => {
     const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
     const subscribe = useMemo(() => {
-        reactiveIndex.index.setSlotResolver(pk =>
-            reactiveCollection.getSlotByPk(pk)
-        );
         const readSnapshot = () =>
             reactiveIndex
-                .getSlotsByKey(key)
-                .map(slot => slot.item as TEntity | undefined);
-        const readPks = () =>
-            reactiveIndex.getSlotsByKey(key).map(slot => slot.pk);
+                .getPksByKey(key)
+                .map(pk => reactiveCollection.getOneByPk(pk));
+        const readPks = () => reactiveIndex.getPksByKey(key);
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
@@ -500,14 +488,10 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
     const stableKeys = keysAreEqual ? (prevKeysRef.current ?? keys) : keys;
     const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
     const subscribe = useMemo(() => {
-        reactiveIndex.index.setSlotResolver(pk =>
-            reactiveCollection.getSlotByPk(pk)
-        );
-        const readSlots = () =>
-            stableKeys.flatMap(key => reactiveIndex.getSlotsByKey(key));
+        const readPks = () =>
+            stableKeys.flatMap(key => reactiveIndex.getPksByKey(key));
         const readSnapshot = () =>
-            readSlots().map(slot => slot.item as TEntity | undefined);
-        const readPks = () => readSlots().map(slot => slot.pk);
+            readPks().map(pk => reactiveCollection.getOneByPk(pk));
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {

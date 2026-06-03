@@ -11,7 +11,7 @@ export * from './core/OIMCollectionAsync';
 export * from './core/OIMReactiveCollectionAsync';
 
 // Async indexes
-export * from './core/OIMIndexManualAsync';
-export * from './core/OIMReactiveIndexManualAsync';
+export * from './core/OIMPkIndexManualAsync';
+export * from './core/OIMReactivePkIndexManualAsync';
 export * from './core/OIMIndexStoreMapDrivenAsync';
 

@@ -5,8 +5,8 @@ import {
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
     OIMReactiveCollection,
-    OIMReactiveIndexManualSetBased,
-    OIMReactiveIndexManualArrayBased,
+    OIMReactiveCollectionIndexManualSetBased,
+    OIMReactiveCollectionIndexManualArrayBased,
 } from '@oimdb/core';
 import {
     useSelectEntityByPk,
@@ -423,8 +423,9 @@ describe('Render Optimization Tests', () => {
 
     describe('useSelectEntitiesByIndexKeySetBased - minimum re-renders', () => {
         test('should only re-render when index key changes', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -527,8 +528,9 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should re-render when entity in index changes', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -584,8 +586,9 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should not re-render when unrelated index key changes', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -639,8 +642,9 @@ describe('Render Optimization Tests', () => {
 
     describe('useSelectEntitiesByIndexKeyArrayBased - minimum re-renders', () => {
         test('should only re-render when index key changes', () => {
-            const index = new OIMReactiveIndexManualArrayBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualArrayBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -731,8 +735,9 @@ describe('Render Optimization Tests', () => {
 
     describe('Complex scenarios - multiple components', () => {
         test('should minimize re-renders in complex scenario with multiple entities and indexes', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -889,8 +894,9 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should handle index changes without affecting unrelated components', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -998,8 +1004,15 @@ describe('Render Optimization Tests', () => {
 
     describe('useSelectPksByIndexKey - minimum re-renders', () => {
         test('should only re-render when index key changes (SetBased)', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            collection.upsertMany([
+                { id: '1', name: 'Alice',   age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob',     age: 25, email: 'bob@test.com' },
+                { id: '3', name: 'Charlie', age: 35, email: 'charlie@test.com' },
+                { id: '4', name: 'Dave',    age: 28, email: 'dave@test.com' },
+            ]);
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             index.setPks('team1', ['1', '2']);
@@ -1068,8 +1081,15 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should only re-render when index key changes (ArrayBased)', () => {
-            const index = new OIMReactiveIndexManualArrayBased<string, string>(
-                queue
+            collection.upsertMany([
+                { id: '1', name: 'Alice',   age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob',     age: 25, email: 'bob@test.com' },
+                { id: '3', name: 'Charlie', age: 35, email: 'charlie@test.com' },
+                { id: '4', name: 'Dave',    age: 28, email: 'dave@test.com' },
+            ]);
+            const index = new OIMReactiveCollectionIndexManualArrayBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             index.setPks('team1', ['1', '2']);
@@ -1140,8 +1160,17 @@ describe('Render Optimization Tests', () => {
 
     describe('useSelectPksByIndexKeys - minimum re-renders', () => {
         test('should only re-render when subscribed index keys change (SetBased)', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            collection.upsertMany([
+                { id: '1', name: 'Alice',   age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob',     age: 25, email: 'bob@test.com' },
+                { id: '3', name: 'Charlie', age: 35, email: 'charlie@test.com' },
+                { id: '4', name: 'Dave',    age: 28, email: 'dave@test.com' },
+                { id: '5', name: 'Eve',     age: 32, email: 'eve@test.com' },
+                { id: '6', name: 'Frank',   age: 27, email: 'frank@test.com' },
+            ]);
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             index.setPks('team1', ['1', '2']);
@@ -1226,8 +1255,17 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should only re-render when subscribed index keys change (ArrayBased)', () => {
-            const index = new OIMReactiveIndexManualArrayBased<string, string>(
-                queue
+            collection.upsertMany([
+                { id: '1', name: 'Alice',   age: 30, email: 'alice@test.com' },
+                { id: '2', name: 'Bob',     age: 25, email: 'bob@test.com' },
+                { id: '3', name: 'Charlie', age: 35, email: 'charlie@test.com' },
+                { id: '4', name: 'Dave',    age: 28, email: 'dave@test.com' },
+                { id: '5', name: 'Eve',     age: 32, email: 'eve@test.com' },
+                { id: '6', name: 'Frank',   age: 27, email: 'frank@test.com' },
+            ]);
+            const index = new OIMReactiveCollectionIndexManualArrayBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             index.setPks('team1', ['1', '2']);
@@ -1316,8 +1354,9 @@ describe('Render Optimization Tests', () => {
 
     describe('useSelectEntitiesByIndexKeys - minimum re-renders', () => {
         test('should only re-render when subscribed index keys change (SetBased)', () => {
-            const index = new OIMReactiveIndexManualSetBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualSetBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([
@@ -1438,8 +1477,9 @@ describe('Render Optimization Tests', () => {
         });
 
         test('should only re-render when subscribed index keys change (ArrayBased)', () => {
-            const index = new OIMReactiveIndexManualArrayBased<string, string>(
-                queue
+            const index = new OIMReactiveCollectionIndexManualArrayBased<string, string, User>(
+                queue,
+                { collection }
             );
 
             collection.upsertMany([

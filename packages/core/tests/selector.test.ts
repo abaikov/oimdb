@@ -2,13 +2,13 @@
 
 import {
     OIMCollectionByPkSelector,
-    OIMComputativeRuntime,
+    OIMComputeRuntime,
     OIMEntitiesByIndexKeyArrayBasedSelector,
     OIMEntitiesByIndexKeySetBasedSelector,
     OIMEventQueue,
     OIMReactiveCollection,
-    OIMReactiveIndexManualArrayBased,
-    OIMReactiveIndexManualSetBased,
+    OIMReactiveCollectionIndexManualArrayBased,
+    OIMReactiveCollectionIndexManualSetBased,
 } from '../src';
 
 type TUser = { id: string; name: string; groupId?: string };
@@ -16,7 +16,7 @@ type TUser = { id: string; name: string; groupId?: string };
 describe('selectors', () => {
     test('OIMCollectionByPkSelector.watch is coalesced on flush and cancellable before flush', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const users = new OIMReactiveCollection<TUser, string>(queue, {
             selectPk: u => u.id,
         });
@@ -45,11 +45,15 @@ describe('selectors', () => {
 
     test('OIMEntitiesByIndexKeySetBasedSelector resubscribes collection keys when index changes', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const users = new OIMReactiveCollection<TUser, string>(queue, {
             selectPk: u => u.id,
         });
-        const byGroup = new OIMReactiveIndexManualSetBased<string, string>(queue);
+        const byGroup = new OIMReactiveCollectionIndexManualSetBased<
+            string,
+            string,
+            TUser
+        >(queue, { collection: users });
 
         users.upsertMany([
             { id: 'u1', name: 'A', groupId: 'g1' },
@@ -84,13 +88,15 @@ describe('selectors', () => {
 
     test('OIMEntitiesByIndexKeyArrayBasedSelector reads through canonical slots', () => {
         const queue = new OIMEventQueue();
-        const runtime = new OIMComputativeRuntime(queue);
+        const runtime = new OIMComputeRuntime(queue);
         const users = new OIMReactiveCollection<TUser, string>(queue, {
             selectPk: u => u.id,
         });
-        const byGroup = new OIMReactiveIndexManualArrayBased<string, string>(
-            queue
-        );
+        const byGroup = new OIMReactiveCollectionIndexManualArrayBased<
+            string,
+            string,
+            TUser
+        >(queue, { collection: users });
 
         users.upsertMany([
             { id: 'u1', name: 'A', groupId: 'g1' },

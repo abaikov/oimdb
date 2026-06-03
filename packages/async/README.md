@@ -15,7 +15,7 @@ This package provides async versions of collections and indexes that work with a
 ## Features
 
 - **Async Collections** - `OIMCollectionAsync` and `OIMReactiveCollectionAsync`
-- **Async Indexes** - `OIMIndexManualAsync` and `OIMReactiveIndexManualAsync`
+- **Async PK Indexes** - `OIMPkIndexManualAsync` and `OIMReactivePkIndexManualAsync`
 - **No cache** - data is not cached in memory, all operations go directly to the store
 - **Type-safe** - full TypeScript support
 - **Reactive** - supports event system from core package
@@ -72,9 +72,9 @@ await users.upsertOne({ id: 'user1', name: 'John' });
 ### Async Index
 
 ```typescript
-import { OIMIndexManualAsync } from '@oimdb/async';
+import { OIMPkIndexManualAsync } from '@oimdb/async';
 
-const index = new OIMIndexManualAsync<string, string>();
+const index = new OIMPkIndexManualAsync<string, string>();
 
 // All operations are async
 await index.setPks('admin', ['user1', 'user2']);
@@ -85,14 +85,14 @@ const adminUsers = index.getPksByKey('admin'); // Synchronous read from memory
 ### Reactive Async Index
 
 ```typescript
-import { OIMReactiveIndexManualAsync } from '@oimdb/async';
+import { OIMReactivePkIndexManualAsync } from '@oimdb/async';
 import { OIMEventQueue, OIMEventQueueSchedulerFactory } from '@oimdb/core';
 
 const queue = new OIMEventQueue({
     scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
 });
 
-const index = new OIMReactiveIndexManualAsync<string, string>(queue);
+const index = new OIMReactivePkIndexManualAsync<string, string>(queue);
 
 // Subscribe to updates
 index.updateEventEmitter.subscribeOnKey('admin', () => {
@@ -112,8 +112,8 @@ await index.setPks('admin', ['user1', 'user2']);
 
 ### Indexes
 
-- `OIMIndexManualAsync<TIndexKey, TPk>` - Manual async index
-- `OIMReactiveIndexManualAsync<TIndexKey, TPk>` - Reactive manual async index
+- `OIMPkIndexManualAsync<TIndexKey, TPk>` - Manual async PK index
+- `OIMReactivePkIndexManualAsync<TIndexKey, TPk>` - Reactive manual async PK index
 
 ### Interfaces
 

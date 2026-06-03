@@ -1,11 +1,15 @@
 {
   "name": "@oimdb/snapshot-manager",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Snapshot manager for OIMDB collections",
   "type": "module",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -32,7 +36,7 @@
     "typescript": "^5.2.2"
   },
   "peerDependencies": {
-    "@oimdb/core": "^1.5.0"
+    "@oimdb/core": "^2.0.0"
   },
   "keywords": [
     "oimdb",
@@ -45,7 +49,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/abaikov/oimdb.git",
+    "url": "git+https://github.com/abaikov/oimdb.git",
     "directory": "packages/snapshot-manager"
   }
 }

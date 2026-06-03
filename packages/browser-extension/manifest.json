@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "OIMDB DevTools",
+  "version": "1.0.0",
+  "description": "Inspect OIMDB collections, indexes, and computed values",
+  "devtools_page": "devtools.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png"
+  }
+}

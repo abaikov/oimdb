@@ -1,4 +1,4 @@
-import { TOIMComparator } from '../type/TOIMComparator';
+import { TOIMComparator } from '../types/TOIMComparator';
 
 export class OIMComparatorFactory<TEntity extends object> {
     createShallowComparator(): TOIMComparator<TEntity> {

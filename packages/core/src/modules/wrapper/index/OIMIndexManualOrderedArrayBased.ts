@@ -1,14 +1,15 @@
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
-import { TOIMPk } from '../../../type/TOIMPk';
-import { TOIMAnyEntitySlot } from '../../../type/TOIMEntitySlot';
+import { TOIMPk } from '../../../types/TOIMPk';
+import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
 
 /**
  * Manual ordered Array-based index.
  *
- * Unlike `OIMIndexManualArrayBased.addPks/removePks`, this class is explicitly ordered:
+ * Unlike generic Array-based indexes, this class is explicitly ordered:
  * - preserves order
  * - allows O(1) append (`push`)
  * - supports `move` and `removeAt` without computing diffs
+ * - stores slots directly; collection-bound variants resolve PKs before writes
  *
  * It emits UPDATE events per key on every successful mutation.
  */
@@ -31,22 +32,30 @@ export class OIMIndexManualOrderedArrayBased<
         }
     }
 
-    public push(key: TKey, itemKey: TItemKey): number {
+    public pushSlot(key: TKey, slot: TOIMAnyEntitySlot<TItemKey>): number {
         const list = this.getOrCreateList(key);
         const index = list.length;
-        list.push(this.getOrCreateSlot(itemKey));
+        list.push(slot);
         this.emitUpdate([key]);
         return index;
     }
 
-    public insertAt(key: TKey, index: number, itemKey: TItemKey): void {
+    public insertSlotAt(
+        key: TKey,
+        index: number,
+        slot: TOIMAnyEntitySlot<TItemKey>
+    ): number {
         const list = this.getOrCreateList(key);
         const safeIndex = Math.max(0, Math.min(index, list.length));
-        list.splice(safeIndex, 0, this.getOrCreateSlot(itemKey));
+        list.splice(safeIndex, 0, slot);
         this.emitUpdate([key]);
+        return safeIndex;
     }
 
-    public removeAt(key: TKey, index: number): TItemKey | undefined {
+    public removeAt(
+        key: TKey,
+        index: number
+    ): TOIMAnyEntitySlot<TItemKey> | undefined {
         const list = this.store.getOneByKey(key);
         if (!list) return undefined;
         if (index < 0 || index >= list.length) return undefined;
@@ -56,36 +65,39 @@ export class OIMIndexManualOrderedArrayBased<
             this.store.removeOneByKey(key);
         }
         this.emitUpdate([key]);
-        return removed?.pk;
+        return removed;
     }
 
     public move(
         key: TKey,
         fromIndex: number,
         toIndex: number
-    ): TItemKey | undefined {
+    ): TOIMAnyEntitySlot<TItemKey> | undefined {
         const list = this.store.getOneByKey(key);
         if (!list) return undefined;
         if (fromIndex < 0 || fromIndex >= list.length) return undefined;
         if (toIndex < 0 || toIndex >= list.length) return undefined;
-        if (fromIndex === toIndex) return list[fromIndex]?.pk;
+        if (fromIndex === toIndex) return list[fromIndex];
 
-        const [itemKey] = list.splice(fromIndex, 1);
-        if (itemKey === undefined) return undefined;
-        list.splice(toIndex, 0, itemKey);
+        const [slot] = list.splice(fromIndex, 1);
+        if (slot === undefined) return undefined;
+        list.splice(toIndex, 0, slot);
         this.emitUpdate([key]);
-        return itemKey.pk;
+        return slot;
     }
 
-    public reset(key: TKey, itemKeys: readonly TItemKey[]): void {
-        if (itemKeys.length === 0) {
+    public resetSlots(
+        key: TKey,
+        slots: readonly TOIMAnyEntitySlot<TItemKey>[]
+    ): void {
+        if (slots.length === 0) {
             if (this.store.getOneByKey(key) !== undefined) {
                 this.store.removeOneByKey(key);
                 this.emitUpdate([key]);
             }
             return;
         }
-        this.store.setOneByKey(key, this.resolveSlots(itemKeys));
+        this.store.setOneByKey(key, slots.slice());
         this.emitUpdate([key]);
     }
 

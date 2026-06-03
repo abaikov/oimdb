@@ -2,11 +2,11 @@ import * as React from 'react';
 import { render } from '@testing-library/react';
 import {
     OIMEventQueue,
-    OIMReactiveIndexManualArrayBased,
-    OIMRICollection,
+    OIMReactiveCollection,
+    OIMReactiveCollectionIndexManualArrayBased,
 } from '@oimdb/core';
 import {
-    OIMRICollectionsProvider,
+    OIMCollectionsProvider,
     useOIMCollectionsContext,
     CollectionsDictionary,
 } from '../src/context';
@@ -78,80 +78,94 @@ type AppState = {
 function createOimdbStore() {
     const queue = new OIMEventQueue({});
 
-    const cardsByDeckIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const allCardsIndex = new OIMReactiveIndexManualArrayBased<string, string>(
-        queue
-    );
-    const commentsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const assignmentsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const tagsByCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-    const usersByAssignedCardIndex = new OIMReactiveIndexManualArrayBased<
-        string,
-        string
-    >(queue);
-
     const collections = {
-        decks: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (deck: Deck) => deck.id },
-            indexes: {
-                all: new OIMReactiveIndexManualArrayBased<string, string>(
-                    queue
-                ),
-            },
+        decks: new OIMReactiveCollection<Deck, string>(queue, {
+            selectPk: (deck: Deck) => deck.id,
         }),
 
-        cards: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (card: Card) => card.id },
-            indexes: { byDeck: cardsByDeckIndex, all: allCardsIndex },
+        cards: new OIMReactiveCollection<Card, string>(queue, {
+            selectPk: (card: Card) => card.id,
         }),
 
-        comments: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (comment: Comment) => comment.id },
-            indexes: { byCard: commentsByCardIndex },
+        comments: new OIMReactiveCollection<Comment, string>(queue, {
+            selectPk: (comment: Comment) => comment.id,
         }),
 
-        users: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (user: User) => user.id },
-            indexes: { assignedCardId: usersByAssignedCardIndex },
+        users: new OIMReactiveCollection<User, string>(queue, {
+            selectPk: (user: User) => user.id,
         }),
 
-        tags: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (tag: Tag) => tag.id },
+        tags: new OIMReactiveCollection<Tag, string>(queue, {
+            selectPk: (tag: Tag) => tag.id,
         }),
 
-        cardAssignments: new OIMRICollection(queue, {
-            collectionOpts: {
+        cardAssignments: new OIMReactiveCollection<CardAssignment, string>(
+            queue,
+            {
                 selectPk: (assignment: CardAssignment) => assignment.id,
-            },
-            indexes: { byCard: assignmentsByCardIndex },
+            }
+        ),
+
+        cardTags: new OIMReactiveCollection<CardTag, string>(queue, {
+            selectPk: (cardTag: CardTag) => cardTag.id,
         }),
 
-        cardTags: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (cardTag: CardTag) => cardTag.id },
-            indexes: {
-                byCard: tagsByCardIndex,
-            },
-        }),
-
-        appState: new OIMRICollection(queue, {
-            collectionOpts: { selectPk: (state: AppState) => state.id },
-            indexes: {},
+        appState: new OIMReactiveCollection<AppState, string>(queue, {
+            selectPk: (state: AppState) => state.id,
         }),
     };
 
-    return { collections, queue };
+    const indexes = {
+        decks: {
+            all: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Deck
+            >(queue, { collection: collections.decks }),
+        },
+        cards: {
+            byDeck: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Card
+            >(queue, { collection: collections.cards }),
+            all: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Card
+            >(queue, { collection: collections.cards }),
+        },
+        comments: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                Comment
+            >(queue, { collection: collections.comments }),
+        },
+        users: {
+            assignedCardId: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                User
+            >(queue, { collection: collections.users }),
+        },
+        cardAssignments: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                CardAssignment
+            >(queue, { collection: collections.cardAssignments }),
+        },
+        cardTags: {
+            byCard: new OIMReactiveCollectionIndexManualArrayBased<
+                string,
+                string,
+                CardTag
+            >(queue, { collection: collections.cardTags }),
+        },
+    };
+
+    return { collections, indexes, queue };
 }
 
 // Type for collections from store
@@ -159,7 +173,7 @@ type StoreCollections = ReturnType<typeof createOimdbStore>['collections'];
 
 describe('Context and Hooks Type Safety with t.ts Collections', () => {
     test('should work with typed collections from context', () => {
-        const { collections } = createOimdbStore();
+        const { collections, indexes } = createOimdbStore();
 
         // Add some test data
         collections.decks.upsertOne({
@@ -220,19 +234,19 @@ describe('Context and Hooks Type Safety with t.ts Collections', () => {
             // Test index access
             const cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cards,
-                typedCollections.cards.indexes.byDeck,
+                indexes.cards.byDeck,
                 'deck1'
             );
 
             const commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.comments,
-                typedCollections.comments.indexes.byCard,
+                indexes.comments.byCard,
                 'card1'
             );
 
             // Test PKs from index
             const cardPks = useSelectPksByIndexKeyArrayBased(
-                typedCollections.cards.indexes.byDeck,
+                indexes.cards.byDeck,
                 'deck1'
             );
 
@@ -268,9 +282,9 @@ describe('Context and Hooks Type Safety with t.ts Collections', () => {
         };
 
         const { getByTestId } = render(
-            <OIMRICollectionsProvider collections={collections}>
+            <OIMCollectionsProvider collections={collections}>
                 <TestComponent />
-            </OIMRICollectionsProvider>
+            </OIMCollectionsProvider>
         );
 
         expect(getByTestId('deck').textContent).toBe('Test Deck');
@@ -282,7 +296,7 @@ describe('Context and Hooks Type Safety with t.ts Collections', () => {
     });
 
     test('should preserve types when accessing collections properties', () => {
-        const { collections } = createOimdbStore();
+        const { collections, indexes } = createOimdbStore();
 
         const TestComponent: React.FC = () => {
             const typedCollections =
@@ -322,7 +336,7 @@ describe('Context and Hooks Type Safety with t.ts Collections', () => {
             const cardsByDeck: readonly (Card | undefined)[] | undefined =
                 useSelectEntitiesByIndexKeyArrayBased(
                     typedCollections.cards,
-                    typedCollections.cards.indexes.byDeck,
+                    indexes.cards.byDeck,
                     'deck1'
                 );
 
@@ -341,9 +355,9 @@ describe('Context and Hooks Type Safety with t.ts Collections', () => {
         };
 
         render(
-            <OIMRICollectionsProvider collections={collections}>
+            <OIMCollectionsProvider collections={collections}>
                 <TestComponent />
-            </OIMRICollectionsProvider>
+            </OIMCollectionsProvider>
         );
     });
 

@@ -1,14 +1,14 @@
 import { OIMReactiveObject } from '../../../core/OIMReactiveObject';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorSourceDependencyUpdateEventEmitterKey';
-import { OIMComputativeRuntime } from '../../computative/core/OIMComputativeRuntime';
+import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMObjectValueByKeySelector<
     TKey extends string,
     TValue,
 > extends OIMSelector<TValue | undefined> {
     constructor(
-        runtime: OIMComputativeRuntime,
+        runtime: OIMComputeRuntime,
         private readonly obj: OIMReactiveObject<TKey, TValue>,
         private readonly key: TKey
     ) {

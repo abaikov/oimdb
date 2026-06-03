@@ -1,0 +1,61 @@
+{
+  "name": "@oimdb/mcp",
+  "version": "1.0.0",
+  "description": "MCP server and CDP inspector for OIMDB — connects AI assistants to live browser state",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "bin": {
+    "oimdb-mcp":      "bin/server.js",
+    "oimdb-devtools": "bin/devtools.js",
+    "oimdb-cdp":      "bin/cdp.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "ui"
+  ],
+  "scripts": {
+    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
+    "dev": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json --watch",
+    "type-check": "tsc --noEmit",
+    "prepublishOnly": "npm run type-check && npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "tsup": "^8.0.0",
+    "typescript": "^5.2.2"
+  },
+  "keywords": [
+    "oimdb",
+    "mcp",
+    "devtools",
+    "debug",
+    "cdp",
+    "ai"
+  ],
+  "author": "Andrei Baikov",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abaikov/oimdb.git",
+    "directory": "packages/mcp"
+  }
+}

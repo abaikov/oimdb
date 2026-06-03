@@ -1,6 +1,6 @@
 import {
     OIMReactiveCollection,
-    OIMReactiveIndexManualSetBased,
+    OIMReactiveCollectionIndexManualSetBased,
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
 } from '@oimdb/core';
@@ -137,10 +137,10 @@ describe('Default Mappers', () => {
     });
 
     describe('defaultIndexMapper', () => {
-        let index: OIMReactiveIndexManualSetBased<string, string>;
+        let index: OIMReactiveCollectionIndexManualSetBased<string, string>;
 
         beforeEach(() => {
-            index = new OIMReactiveIndexManualSetBased<string, string>(queue);
+            index = new OIMReactiveCollectionIndexManualSetBased<string, string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
         });
 
         test('should initialize state with all keys when currentState is undefined', () => {

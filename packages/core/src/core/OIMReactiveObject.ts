@@ -1,9 +1,9 @@
 import { OIMObject } from './OIMObject';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
-import { TOIMObjectOptions } from '../type/TOIMObjectOptions';
-import { EOIMObjectEventType } from '../enum/EOIMObjectEventType';
-import { TOIMEventHandler } from '../type/TOIMEventHandler';
+import { TOIMObjectOptions } from '../types/TOIMObjectOptions';
+import { EOIMObjectEventType } from '../enums/EOIMObjectEventType';
+import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 
 export class OIMReactiveObject<TKey extends string, TValue>

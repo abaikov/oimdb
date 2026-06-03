@@ -1,5 +1,5 @@
-import { TOIMPk } from '../type/TOIMPk';
-import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
+import { TOIMPk } from '../types/TOIMPk';
+import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 
 /**
  * Factory for creating index comparators.

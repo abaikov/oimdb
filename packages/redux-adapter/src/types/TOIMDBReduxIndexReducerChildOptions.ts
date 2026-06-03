@@ -26,7 +26,8 @@ export type TOIMDBReduxIndexReducerChildOptions<
 
     /**
      * Function to extract index state from Redux state and sync it to OIMDB index
-     * Should directly update the index using addPks/removePks (for SetBased) or setPks (for ArrayBased)
+     * Should directly update a collection-bound PK index using addPks/removePks
+     * (for SetBased) or setPks (for ArrayBased)
      * If not provided, default implementation will be used for TOIMDBReduxDefaultIndexState
      * @param prevState - Previous Redux state (undefined on first call)
      * @param nextState - New Redux state after child reducer processed action

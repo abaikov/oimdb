@@ -30,6 +30,7 @@ describe('OIMReactiveCollectionAsync', () => {
 
         afterEach(() => {
             collection.emitter.offAll();
+            queue.destroy();
         });
 
         test('should subscribe to key-specific updates', async () => {

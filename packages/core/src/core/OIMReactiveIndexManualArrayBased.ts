@@ -1,14 +1,11 @@
 import { OIMReactiveIndexArrayBased } from '../abstract/OIMReactiveIndexArrayBased';
 import { OIMIndexManualArrayBased } from './OIMIndexManualArrayBased';
-import { TOIMPk } from '../type/TOIMPk';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
-import { TOIMIndexComparator } from '../type/TOIMIndexComparator';
-import {
-    TOIMAnyEntitySlot,
-    TOIMEntitySlotResolver,
-} from '../type/TOIMEntitySlot';
+import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 
 class OIMIndexManualArrayBasedReactive<
     TKey extends TOIMPk,
@@ -19,7 +16,6 @@ class OIMIndexManualArrayBasedReactive<
         opts?: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreArrayBased<TKey, TPk>;
-            resolveSlot?: TOIMEntitySlotResolver<TPk>;
         }
     ) {
         super(opts);
@@ -48,7 +44,6 @@ export class OIMReactiveIndexManualArrayBased<
             indexOptions?: {
                 comparePks?: TOIMIndexComparator<TPk>;
                 store?: OIMIndexStoreArrayBased<TKey, TPk>;
-                resolveSlot?: TOIMEntitySlotResolver<TPk>;
             };
         }
     ) {
@@ -60,20 +55,8 @@ export class OIMReactiveIndexManualArrayBased<
         });
     }
 
-    public setPks(key: TKey, pks: TPk[]): void {
-        this.index.setPks(key, pks);
-    }
-
     public setSlots(key: TKey, slots: TOIMAnyEntitySlot<TPk>[]): void {
         this.index.setSlots(key, slots);
-    }
-
-    public addPks(key: TKey, pks: readonly TPk[]): void {
-        this.index.addPks(key, pks);
-    }
-
-    public removePks(key: TKey, pks: readonly TPk[]): void {
-        this.index.removePks(key, pks);
     }
 
     public clear(key?: TKey): void {

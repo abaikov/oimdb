@@ -1,12 +1,12 @@
 import * as React from 'react';
 import {
-    OIMRICollectionsProvider,
+    OIMCollectionsProvider,
     useOIMCollectionsContext,
 } from '../src/context/index';
 import {
-    OIMRICollection,
     OIMEventQueue,
-    OIMReactiveIndexManualArrayBased,
+    OIMReactiveCollection,
+    OIMReactiveCollectionIndexManualArrayBased,
 } from '@oimdb/core';
 import {
     useSelectEntitiesByPks,
@@ -30,17 +30,20 @@ interface Team {
 function createCollections() {
     const queue = new OIMEventQueue();
 
-    const userTeamIndex = new OIMReactiveIndexManualArrayBased<string, string>(
-        queue
-    );
-    const usersCollection = new OIMRICollection(queue, {
-        collectionOpts: { selectPk: (user: User) => user.id },
-        indexes: { byTeam: userTeamIndex },
+    const usersCollection = new OIMReactiveCollection<User, string>(queue, {
+        selectPk: (user: User) => user.id,
     });
 
-    const teamsCollection = new OIMRICollection(queue, {
-        collectionOpts: { selectPk: (team: Team) => team.id },
-        indexes: {},
+    const userTeamIndex = new OIMReactiveCollectionIndexManualArrayBased<
+        string,
+        string,
+        User
+    >(queue, {
+        collection: usersCollection,
+    });
+
+    const teamsCollection = new OIMReactiveCollection<Team, string>(queue, {
+        selectPk: (team: Team) => team.id,
     });
 
     // Add some sample data
@@ -85,28 +88,39 @@ function createCollections() {
         ]);
 
         // Update indexes
-        usersCollection.indexes.byTeam.setPks('team1', ['user1', 'user2']);
-        usersCollection.indexes.byTeam.setPks('team2', ['user3']);
-        usersCollection.indexes.byTeam.setPks('team3', ['user4']);
+        userTeamIndex.setPks('team1', ['user1', 'user2']);
+        userTeamIndex.setPks('team2', ['user3']);
+        userTeamIndex.setPks('team3', ['user4']);
     }, 100);
 
-    const collections = {
-        users: usersCollection,
-        teams: teamsCollection,
+    return {
+        collections: {
+            users: usersCollection,
+            teams: teamsCollection,
+        },
+        indexes: {
+            usersByTeam: userTeamIndex,
+        },
     };
-    return collections;
 }
 
 // Extract type using typeof to preserve collection generic types
-type AppCollections = ReturnType<typeof createCollections>;
+type AppCollections = ReturnType<typeof createCollections>['collections'];
+type AppIndexes = ReturnType<typeof createCollections>['indexes'];
 
-function TeamMembersList({ teamId }: { teamId: string }) {
+function TeamMembersList({
+    teamId,
+    indexes,
+}: {
+    teamId: string;
+    indexes: AppIndexes;
+}) {
     const { users } = useOIMCollectionsContext<AppCollections>();
 
     // Get users for specific team using your existing hooks
     const teamUsers = useSelectEntitiesByIndexKeyArrayBased(
         users,
-        users.indexes.byTeam,
+        indexes.usersByTeam,
         teamId
     );
 
@@ -135,20 +149,23 @@ function TeamMembersList({ teamId }: { teamId: string }) {
     );
 }
 
-function TeamsAndUsers() {
+function TeamsAndUsers({ indexes }: { indexes: AppIndexes }) {
     const { teams } = useOIMCollectionsContext<AppCollections>();
 
     // Get all teams using your existing hooks
-    const allTeams = useSelectEntitiesByPks(teams, []);
+    const allTeams = useSelectEntitiesByPks(teams, []) ?? [];
+    const validTeams = allTeams.filter(
+        (team): team is Team => team !== undefined
+    );
 
     return (
         <div style={{ padding: 20 }}>
             <h2>Teams & Users</h2>
-            {allTeams.length === 0 ? (
+            {validTeams.length === 0 ? (
                 <p>Loading teams...</p>
             ) : (
                 <div>
-                    {allTeams.map(team => (
+                    {validTeams.map(team => (
                         <div
                             key={team.id}
                             style={{
@@ -160,7 +177,10 @@ function TeamsAndUsers() {
                         >
                             <h3>{team.name}</h3>
                             <p>Department: {team.department}</p>
-                            <TeamMembersList teamId={team.id} />
+                            <TeamMembersList
+                                teamId={team.id}
+                                indexes={indexes}
+                            />
                         </div>
                     ))}
                 </div>
@@ -172,9 +192,12 @@ function TeamsAndUsers() {
 function UserStats() {
     const { users } = useOIMCollectionsContext<AppCollections>();
 
-    const allUsers = useSelectEntitiesByPks(users, []);
-    const adminCount = allUsers.filter(user => user.role === 'admin').length;
-    const userCount = allUsers.filter(user => user.role === 'user').length;
+    const allUsers = useSelectEntitiesByPks(users, []) ?? [];
+    const validUsers = allUsers.filter(
+        (user): user is User => user !== undefined
+    );
+    const adminCount = validUsers.filter(user => user.role === 'admin').length;
+    const userCount = validUsers.filter(user => user.role === 'user').length;
 
     return (
         <div
@@ -186,7 +209,7 @@ function UserStats() {
             }}
         >
             <h3>User Statistics</h3>
-            <p>Total Users: {allUsers.length}</p>
+            <p>Total Users: {validUsers.length}</p>
             <p>Admins: {adminCount}</p>
             <p>Regular Users: {userCount}</p>
         </div>
@@ -194,10 +217,13 @@ function UserStats() {
 }
 
 function App() {
-    const collections = React.useMemo(() => createCollections(), []);
+    const { collections, indexes } = React.useMemo(
+        () => createCollections(),
+        []
+    );
 
     return (
-        <OIMRICollectionsProvider collections={collections}>
+        <OIMCollectionsProvider collections={collections}>
             <div style={{ fontFamily: 'Arial, sans-serif' }}>
                 <header
                     style={{
@@ -211,9 +237,9 @@ function App() {
                     <p>Real-world example with teams and users</p>
                 </header>
                 <UserStats />
-                <TeamsAndUsers />
+                <TeamsAndUsers indexes={indexes} />
             </div>
-        </OIMRICollectionsProvider>
+        </OIMCollectionsProvider>
     );
 }
 

@@ -2,8 +2,8 @@ import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
-import { EOIMCollectionEventType } from '../src/enum/EOIMCollectionEventType';
-import { TOIMCollectionUpdatePayload } from '../src/type/TOIMCollectionUpdatePayload';
+import { EOIMCollectionEventType } from '../src/enums/EOIMCollectionEventType';
+import { TOIMCollectionUpdatePayload } from '../src/types/TOIMCollectionUpdatePayload';
 
 interface TOIMUser {
     id: string;
@@ -20,6 +20,29 @@ interface TOIMProduct {
 }
 
 describe('OIMCollection', () => {
+    describe('Store slot writes', () => {
+        test('setOneByPk returns the canonical slot and keeps it stable on update', () => {
+            const store = new OIMCollectionStoreMapDriven<TOIMUser, string>();
+            const user: TOIMUser = {
+                id: 'user1',
+                name: 'John Doe',
+                age: 30,
+                email: 'john@example.com',
+            };
+            const updatedUser: TOIMUser = {
+                ...user,
+                name: 'John Smith',
+            };
+
+            const slot = store.setOneByPk('user1', user);
+            const updatedSlot = store.setOneByPk('user1', updatedUser);
+
+            expect(slot).toBe(updatedSlot);
+            expect(updatedSlot).toBe(store.getSlotByPk('user1'));
+            expect(updatedSlot.item).toEqual(updatedUser);
+        });
+    });
+
     describe('Basic CRUD Operations', () => {
         let collection: OIMCollection<TOIMUser, string>;
         let eventSpy: jest.Mock;
@@ -50,12 +73,14 @@ describe('OIMCollection', () => {
                 email: 'john@example.com',
             };
 
-            collection.upsertOne(user);
+            const slot = collection.upsertOne(user);
 
             expect(eventSpy).toHaveBeenCalledTimes(1);
             expect(eventSpy).toHaveBeenCalledWith({
                 pks: ['user1'],
             } as TOIMCollectionUpdatePayload<string>);
+            expect(slot).toBe(collection.getSlotByPk('user1'));
+            expect(slot).toEqual({ pk: 'user1', item: user });
         });
 
         test('should insert multiple entities and emit single update event', () => {
@@ -75,12 +100,17 @@ describe('OIMCollection', () => {
                 { id: 'user3', name: 'Bob', age: 35, email: 'bob@example.com' },
             ];
 
-            collection.upsertMany(users);
+            const slots = collection.upsertMany(users);
 
             expect(eventSpy).toHaveBeenCalledTimes(1);
             expect(eventSpy).toHaveBeenCalledWith({
                 pks: ['user1', 'user2', 'user3'],
             });
+            expect(slots).toEqual(collection.getSlotsByPks([
+                'user1',
+                'user2',
+                'user3',
+            ]));
         });
 
         test('should update existing entity', () => {
@@ -91,7 +121,7 @@ describe('OIMCollection', () => {
                 email: 'john@example.com',
             };
 
-            collection.upsertOne(user);
+            const originalSlot = collection.upsertOne(user);
             eventSpy.mockClear();
 
             const updatedUser = {
@@ -101,12 +131,14 @@ describe('OIMCollection', () => {
                 email: 'johnsmith@example.com',
             };
 
-            collection.upsertOne(updatedUser);
+            const updatedSlot = collection.upsertOne(updatedUser);
 
             expect(eventSpy).toHaveBeenCalledTimes(1);
             expect(eventSpy).toHaveBeenCalledWith({
                 pks: ['user1'],
             });
+            expect(updatedSlot).toBe(originalSlot);
+            expect(updatedSlot.item).toEqual(updatedUser);
         });
 
         test('should remove single entity and emit update event', () => {
@@ -335,9 +367,7 @@ describe('OIMCollection', () => {
             collection.upsertMany([]);
             collection.removeMany([]);
 
-            expect(eventSpy).toHaveBeenCalledTimes(2);
-            expect(eventSpy).toHaveBeenNthCalledWith(1, { pks: [] });
-            expect(eventSpy).toHaveBeenNthCalledWith(2, { pks: [] });
+            expect(eventSpy).not.toHaveBeenCalled();
         });
 
         test('should handle removing non-existent entity', () => {

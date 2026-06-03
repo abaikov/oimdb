@@ -1,23 +1,24 @@
-import { OIMReactiveIndexManualAsync } from '../src/core/OIMReactiveIndexManualAsync';
+import { OIMReactivePkIndexManualAsync } from '../src/core/OIMReactivePkIndexManualAsync';
 import {
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
 } from '@oimdb/core';
 
-describe('OIMReactiveIndexManualAsync', () => {
+describe('OIMReactivePkIndexManualAsync', () => {
     describe('Reactive Operations', () => {
-        let index: OIMReactiveIndexManualAsync<string, number>;
+        let index: OIMReactivePkIndexManualAsync<string, number>;
         let queue: OIMEventQueue;
 
         beforeEach(() => {
             queue = new OIMEventQueue({
                 scheduler: new OIMEventQueueSchedulerImmediate(),
             });
-            index = new OIMReactiveIndexManualAsync<string, number>(queue);
+            index = new OIMReactivePkIndexManualAsync<string, number>(queue);
         });
 
         afterEach(async () => {
             index.destroy();
+            queue.destroy();
         });
 
         test('should have index', () => {

@@ -8,8 +8,8 @@ Most snippets in this document assume the following variables/types (all from `@
 
 - **`queue`**: `OIMEventQueue` (optionally created with `OIMEventQueueSchedulerFactory`)
 - **`users` / `orders`**: `OIMReactiveCollection<TEntity, TPk>` (so `users.updateEventEmitter` exists)
-- **`userByEmail`**: `OIMIndexManualSetBased<string, string>` (or `OIMIndexManualArrayBased<string, string>`)
-- **`roleIndex`**: any manual index with `setPks(...)` (e.g. `OIMIndexManualSetBased`)
+- **`userByEmail`**: collection-bound PK index, e.g. `OIMReactiveCollectionIndexManualSetBased<string, string, User>`
+- **`roleIndex`**: collection-bound PK index with `setPks(...)`, e.g. `OIMReactiveCollectionIndexManualSetBased`
 - **`largeUserArray`**: `Array<{ id: string; ... }>` (or your entity type)
 
 ## Performance Overview
@@ -206,17 +206,19 @@ const timeIndex = new OIMIndexManualArrayBased<number, string>({
 // ❌ Avoid complex keys
 import { OIMIndexManualSetBased } from '@oimdb/core';
 
+const productSlot = { pk: 'product1', item: { id: 'product1' } };
+
 const complexIndex = new OIMIndexManualSetBased<string, string>();
-complexIndex.setPks(
+complexIndex.setSlots(
     JSON.stringify({ category: 'books', price: 100 }),
-    ['product1']
+    new Set([productSlot])
 );
 
 // ✅ Use simple, hashable keys
 const categoryIndex = new OIMIndexManualSetBased<string, string>();
 const priceIndex = new OIMIndexManualSetBased<number, string>();
-categoryIndex.setPks('books', ['product1']);
-priceIndex.setPks(100, ['product1']);
+categoryIndex.setSlots('books', new Set([productSlot]));
+priceIndex.setSlots(100, new Set([productSlot]));
 ```
 
 ### 3. Event System Optimization
@@ -283,7 +285,10 @@ largeUserArray.forEach(user => {
 });
 
 // ✅ Single batch operation
-users.upsertMany(largeUserArray);
+const slots = users.upsertMany(largeUserArray);
+
+// Returned slots are canonical and can be reused by slot-first indexes.
+rawIndex.setSlots('visible', slots);
 ```
 
 **Batch Index Updates:**
