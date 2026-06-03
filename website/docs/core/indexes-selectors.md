@@ -4,118 +4,181 @@ sidebar_position: 2
 
 # Indexes and Selectors
 
-Indexes are collection-bound structures created next to a collection. They keep the `queue + collection` binding in one place, but they do not become part of the collection.
+Indexes are collection-bound structures created via `indexFactory`. They live next to the collection but are not stored inside it.
 
-Selectors are reactive read helpers backed by `OIMComputeRuntime`. They subscribe to the collection and indexes they read from, then deliver coalesced values after `queue.flush()`.
+Selectors deliver reactive values to a callback. They coalesce multiple invalidations within a flush into a single delivery.
 
-## Derived Indexes
+## Derived indexes
 
-Use derived indexes when membership comes from entity fields.
+Membership is computed automatically from entity fields.
 
 ```typescript
-type Card = {
-  id: string;
-  deckId: string;
-  title: string;
-  position: number;
-};
+// Set-based — order doesn't matter
+const usersByTeam = users.indexFactory.derivedSetIndex(
+  (user) => user.teamId     // return one key or an array of keys
+);
 
-const cards = createOIMCollectionContext<Card, string>(queue, {
-  selectPk: (card) => card.id,
-});
-
+// Array-based — preserves order
 const cardsByDeck = cards.indexFactory.derivedArrayIndex(
   (card) => card.deckId,
-  { orderBy: (card) => card.position }
+  { orderBy: (card) => card.position }  // or compareEntities for custom sort
 );
 
 cards.collection.upsertMany([
   { id: 'c1', deckId: 'deck1', title: 'Second', position: 2 },
-  { id: 'c2', deckId: 'deck1', title: 'First', position: 1 },
+  { id: 'c2', deckId: 'deck1', title: 'First',  position: 1 },
 ]);
 
-console.log(cardsByDeck.getPksByKey('deck1')); // ['c2', 'c1']
+cardsByDeck.getPksByKey('deck1'); // ['c2', 'c1']
 ```
 
-Set-based derived indexes are best for membership where order does not matter:
+`selectIndexKeys` can return a single key or an array — useful for multi-category membership:
 
 ```typescript
-const usersByTeam = users.indexFactory.derivedSetIndex(
-  (user) => user.teamId
+// entity appears under every tag it belongs to
+const postsByTag = posts.indexFactory.derivedSetIndex(
+  (post) => post.tags  // string[]
 );
 ```
 
-Array-based derived indexes support `orderBy` or `compareEntities`.
+## Manual indexes
 
-## Manual Indexes
-
-Use manual indexes when membership comes from outside the entity itself: search results, permissions, server-provided ordering, or transient UI state.
+Use when membership comes from outside the entity: search results, server ordering, permissions, UI state.
 
 ```typescript
+// Set-based — unordered membership
+const adminUsers = users.indexFactory.setBasedIndex<string>();
+adminUsers.setPks('active', ['u1', 'u2']);
+adminUsers.addPks('active', ['u3']);
+adminUsers.removePks('active', ['u1']);
+
+// Array-based — ordered, full-replace writes
 const searchResults = users.indexFactory.arrayBasedIndex<string>();
-const visibleUsers = users.indexFactory.orderedList<string>();
-
-searchResults.setPks('query:alice', ['u1']);
-visibleUsers.set('main', ['u1', 'u2']);
+searchResults.setPks('query:alice', ['u3', 'u1']);
 ```
 
-Ordered list command streams emit incremental commands. Insertions use `type: 'insert'`.
+### Index reads
+
+Both types expose the same read API:
 
 ```typescript
-visibleUsers.push('main', 'u3');
-
-const commands = visibleUsers.getCommandsByKey('main');
-const last = commands[commands.length - 1];
-
-if (last?.type === 'insert') {
-  console.log(last.pk, last.index);
-}
+index.getPksByKey('key');          // Set<TPk> or TPk[]
+index.getEntitiesByKey('key');     // TEntity[] (reads slot.item directly, no extra lookup)
+index.hasKey('key');               // boolean
+index.getKeys();                   // all known keys
 ```
 
-## Selector DX
+## Ordered list command stream
 
-`createOIMCollectionContext` includes `select`, a facade over the lower-level selector classes.
+`indexFactory.orderedList()` creates an `OIMCollectionOrderedListCommandStream`. Unlike `arrayBasedIndex`, it also produces incremental commands (insert / remove / move / set) that consumers can replay without diffing.
 
 ```typescript
-const user = users.select.byPk('u1');
-const selectedUsers = users.select.byPks(['u1', 'u2']);
+const queue = users.indexFactory.orderedList<string>();
+
+queue.push('main', 'u1');          // append
+queue.push('main', 'u2');
+queue.insertAt('main', 0, 'u3');   // insert at position
+queue.set('main', ['u3', 'u1', 'u2']); // replace entire list
+```
+
+Subscribe to command delivery via `commandsEventEmitter`, then read buffered commands inside the callback. The buffer clears automatically after each flush.
+
+```typescript
+const off = queue.commandsEventEmitter.subscribeOnKey('main', () => {
+  const commands = queue.getBufferedCommands('main');
+
+  for (const cmd of commands) {
+    if (cmd.type === 'insert') console.log('insert', cmd.pk, 'at', cmd.index);
+    if (cmd.type === 'remove') console.log('remove', cmd.pk, 'from', cmd.index);
+    if (cmd.type === 'move')   console.log('move',   cmd.pk, cmd.fromIndex, '->', cmd.toIndex);
+    if (cmd.type === 'set')    console.log('set',    cmd.pks);
+  }
+});
+
+// Read current state without commands
+queue.getPksByKey('main');       // TPk[]
+queue.getEntitiesByKey('main');  // TEntity[]
+```
+
+If multiple operations happen in one flush, they are buffered in order. If a `set` is mixed with incremental ops, the stream collapses everything into one `set` command.
+
+## Selectors
+
+The `select` facade on `createOIMCollectionContext` covers the most common patterns:
+
+```typescript
+const user      = users.select.byPk('u1');
 const teamUsers = users.select.entitiesBySetIndexKey(usersByTeam, 'team1');
 const deckCards = cards.select.entitiesByArrayIndexKey(cardsByDeck, 'deck1');
 ```
 
-Selectors can be read synchronously:
+All selectors share the same API:
 
 ```typescript
-const current = user.getValue();
-```
+// Sync read — always up to date
+const current = selector.getValue();
 
-Or watched reactively:
-
-```typescript
-const unwatch = teamUsers.watch((value) => {
-  console.log(value);
+// Reactive — fires immediately with current value, then on each change after flush
+const unwatch = selector.watch((value) => {
+  render(value);
 });
 
-users.collection.upsertOneByPk('u1', { name: 'Alicia' });
-queue.flush();
-
-unwatch();
+unwatch(); // stop watching
 ```
 
-## Factory Methods
+Selectors skip delivery if the value hasn't changed (`Object.is` by default).
 
-`OIMCollectionIndexFactory` exposes:
+## Field-level change tracking
 
-- `derivedSetIndex(selectIndexKeys, opts?)`
-- `derivedArrayIndex(selectIndexKeys, opts?)`
-- `setBasedIndex(opts?)`
-- `arrayBasedIndex(opts?)`
-- `orderedIndex()`
-- `orderedList(opts?)`
+`OIMCollectionChangedFields` wraps a collection and tracks which fields changed per write. Subscribe by field to react only to relevant changes.
 
-`OIMCollectionSelectors` exposes:
+```typescript
+import { OIMCollectionChangedFields } from '@oimdb/core';
 
-- `byPk(pk)`
-- `byPks(pks)`
-- `entitiesBySetIndexKey(index, key)`
-- `entitiesByArrayIndexKey(index, key)`
+const tracker = new OIMCollectionChangedFields(queue, users.collection, {
+  selectPk: (user) => user.id,
+});
+
+// Write through the tracker instead of the collection directly
+tracker.upsertOneByPk('u1', { name: 'Alice', role: 'admin' });
+
+// changedPksEventEmitter fires per PK that changed
+tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+  const fields = tracker.getChangedFieldsByPk('u1');
+  console.log('changed fields:', fields); // Set {'name', 'role'}
+});
+
+// changedFieldsEventEmitter fires per field name that changed
+tracker.changedFieldsEventEmitter.subscribeOnKey('role', () => {
+  const pks = tracker.getChangedPksByField('role');
+  console.log('PKs with changed role:', pks);
+});
+
+queue.flush(); // both emitters fire
+
+tracker.destroy();
+```
+
+The buffer (changed fields/PKs) is cleared automatically after each flush. Read inside the subscription callback.
+
+## Reference
+
+### `indexFactory` methods
+
+| Method | Returns | Use for |
+|---|---|---|
+| `derivedSetIndex(fn, opts?)` | `OIMDerivedCollectionIndexSetBased` | Auto-maintained, unordered |
+| `derivedArrayIndex(fn, opts?)` | `OIMDerivedCollectionIndexArrayBased` | Auto-maintained, ordered |
+| `setBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualSetBased` | Manual, unordered |
+| `arrayBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualArrayBased` | Manual, ordered |
+| `orderedList(opts?)` | `OIMCollectionOrderedListCommandStream` | Incremental commands |
+| `orderedIndex()` | `OIMCollectionIndexManualOrderedArrayBased` | Slot-first ordered index |
+
+### `select` methods
+
+| Method | Returns |
+|---|---|
+| `byPk(pk)` | `OIMCollectionByPkSelector` — `TEntity \| undefined` |
+| `byPks(pks)` | `OIMCollectionByPksSelector` — `(TEntity \| undefined)[]` |
+| `entitiesBySetIndexKey(index, key)` | `OIMEntitiesByIndexKeySetBasedSelector` — `(TEntity \| undefined)[]` |
+| `entitiesByArrayIndexKey(index, key)` | `OIMEntitiesByIndexKeyArrayBasedSelector` — `(TEntity \| undefined)[]` |

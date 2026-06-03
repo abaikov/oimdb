@@ -16,15 +16,17 @@ npm install @oimdb/core
 
 **Includes:**
 
-- `createOIMCollectionContext` — DX facade for `queue + collection + indexFactory + selectors`
-- `OIMReactiveCollection` — reactive entity storage with canonical slots
-- `OIMCollectionIndexFactory` — collection-bound index factories
-- `OIMCollectionSelectors` — reactive selector factories
-- `OIMDerivedCollectionIndexSetBased` / `ArrayBased` — automatically maintained derived indexes
-- `OIMReactiveCollectionIndexManualSetBased` / `ArrayBased` — advanced manual collection-bound indexes
-- `OIMCollectionOrderedListCommandStream` — collection-bound ordered lists with `insert` commands
-- `OIMEventQueue` — configurable schedulers and flush semantics
-- `OIMEffect`, `OIMComputed`, `OIMSelector` — reactive primitives
+- `createOIMCollectionContext` — DX facade: `{ queue, collection, indexFactory, select }`
+- `OIMReactiveCollection` — reactive entity store with canonical slots
+- `OIMCollectionIndexFactory` — creates derived, manual, and ordered indexes bound to a collection
+- `OIMCollectionSelectors` — reactive selector facade (`byPk`, `entitiesBySetIndexKey`, …)
+- `OIMReactiveObject` — reactive key-value store for settings, flags, and single values
+- `OIMEffect` — runs a side effect when dependencies change
+- `OIMComputed` — derives a value from dependencies, notifies on change
+- `OIMComputeRuntime` — schedules effects and computeds within the queue flush cycle
+- `OIMCollectionChangedFields` — field-level change tracking on top of a collection
+- `OIMCollectionOrderedListCommandStream` — ordered list with incremental commands (insert/remove/move/set)
+- `OIMEventQueue` + `OIMEventQueueSchedulerFactory` — configurable event batching and delivery
 
 [Core Model](/docs/core/model) · [Indexes and Selectors](/docs/core/indexes-selectors) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/core) · [npm](https://www.npmjs.com/package/@oimdb/core)
 
