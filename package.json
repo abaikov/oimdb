@@ -66,8 +66,7 @@
     "publish:redux-adapter": "npm publish --workspace @oimdb/redux-adapter --access public",
     "publish:devtools": "npm publish --workspace @oimdb/devtools --access public",
     "publish:mcp": "npm publish --workspace @oimdb/mcp --access public",
-    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async && npm run publish:persist && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp",
-    "publish:rest": "npm run publish:react && npm run publish:async && npm run publish:persist && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp"
+    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async && npm run publish:persist && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp"
   },
   "files": [
     "dist"
