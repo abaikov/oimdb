@@ -2,6 +2,8 @@
 
 React hooks and context helpers for OIMDB reactive collections, objects, and indexes.
 
+📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+
 ## For AI Assistants
 
 If you are an AI assistant, read the full API reference before writing any OIMDB code:

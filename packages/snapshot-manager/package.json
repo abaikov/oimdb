@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/snapshot-manager",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Snapshot manager for OIMDB collections",
   "type": "module",
   "main": "./dist/index.cjs",

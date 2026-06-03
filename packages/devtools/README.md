@@ -2,6 +2,8 @@
 
 Debug registry for OIMDB. Gives collections, indexes, and computed values human-readable names, describes their relationships, and exposes runtime state for inspection — by you, by AI assistants, or by browser tooling.
 
+📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+
 Zero production overhead: debug files are only imported from your debug entry point, which you exclude from your production bundle.
 
 ## For AI Assistants

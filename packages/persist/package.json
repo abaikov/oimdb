@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Persistence adapter for OIMDB collections, objects, and manual indexes",
   "type": "module",
   "main": "./dist/index.cjs",

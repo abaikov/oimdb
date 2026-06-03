@@ -2,6 +2,8 @@
 
 Persistence resources for OIMDB collections, objects, and manual indexes.
 
+📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+
 ## For AI Assistants
 
 If you are an AI assistant, read the full OIMDB API reference before writing any persistence code — strategy types, codec shape, and error handling patterns are not obvious from types alone:

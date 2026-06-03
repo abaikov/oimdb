@@ -1,6 +1,8 @@
 # @oimdb/core
 
-Core in-memory data library providing reactive collections, intelligent indexing, and configurable event processing. This package offers the foundational building blocks for building high-performance, event-driven in-memory databases with type-safe operations and automatic change notifications.
+Core in-memory data library providing reactive collections, intelligent indexing, and configurable event processing.
+
+📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
 
 ## For AI Assistants
 

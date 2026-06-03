@@ -2,6 +2,8 @@
 
 Snapshot manager for OIMDB collections. Tracks changes across multiple collections and provides consolidated snapshots of all modifications.
 
+📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+
 ## Features
 
 - 📸 **Snapshot Management**: Captures changes across multiple collections

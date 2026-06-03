@@ -136,10 +136,7 @@ npm run build
 
 Full documentation is published at **[abaikov.github.io/oimdb](https://abaikov.github.io/oimdb/)**.
 
-Source docs live in [`website/docs/`](website/docs/). Legacy markdown files:
-
-- [Architecture](docs/ARCHITECTURE.md) — design principles and component structure
-- [Performance Guide](docs/PERFORMANCE.md) — optimization strategies and benchmarks
+Source docs live in [`website/docs/`](website/docs/).
 
 ## 🤝 Contributing
 
