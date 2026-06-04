@@ -25,7 +25,14 @@ export class OIMDevMcpServer {
 
     constructor(options: TOIMDevMcpOptions = {}) {
         this.wsPort = options.wsPort ?? 7432;
-        this.mcpServer = new McpServer({ name: 'oimdb', version: '1.0.0' });
+        this.mcpServer = new McpServer(
+            { name: 'oimdb', version: '1.0.0' },
+            {
+                instructions:
+                    'Before using these tools, read the OIMDB API reference so you know how to write correct code: node_modules/@oimdb/core/llms.txt. ' +
+                    'Then use oimdb_inspect to see the live data model of the running app (collections, indexes, computeds).',
+            }
+        );
         this.registerTools();
     }
 
