@@ -7,7 +7,7 @@ sidebar_position: 1
 OIMDB's current app-level model is:
 
 - a shared `OIMEventQueue`
-- a collection model created with `createOIMCollectionContext`
+- a collection model created with `createOIMCollectionKit`
 - indexes that live next to the collection
 - selectors for reactive reads
 
@@ -17,7 +17,7 @@ Collections remain the source of truth for entities. Indexes and ordered lists k
 
 ```typescript
 import {
-  createOIMCollectionContext,
+  createOIMCollectionKit,
   OIMEventQueue,
   OIMEventQueueSchedulerFactory,
 } from '@oimdb/core';
@@ -32,7 +32,7 @@ const queue = new OIMEventQueue({
   scheduler: OIMEventQueueSchedulerFactory.createMicrotask(),
 });
 
-const users = createOIMCollectionContext<User, string>(queue, {
+const users = createOIMCollectionKit<User, string>(queue, {
   selectPk: (user) => user.id,
 });
 ```
@@ -40,7 +40,7 @@ const users = createOIMCollectionContext<User, string>(queue, {
 The model facade contains:
 
 ```typescript
-type TOIMCollectionContext<TEntity, TPk> = {
+type TOIMCollectionKit<TEntity, TPk> = {
   queue: OIMEventQueue;
   collection: OIMReactiveCollection<TEntity, TPk>;
   indexFactory: OIMCollectionIndexFactory<TEntity, TPk>;

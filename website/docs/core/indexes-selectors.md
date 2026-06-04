@@ -104,7 +104,7 @@ If multiple operations happen in one flush, they are buffered in order. If a `se
 
 ## Selectors
 
-The `select` facade on `createOIMCollectionContext` covers the most common patterns:
+The `select` facade on `createOIMCollectionKit` covers the most common patterns:
 
 ```typescript
 const user      = users.select.byPk('u1');

@@ -39,7 +39,7 @@ export * from './core/OIMPkSelectorFactory';
 // NOTE: update emitters are internal implementation details of reactive nodes.
 
 // DX factories/facades
-export * from './dx/OIMCollectionContext';
+export * from './dx/OIMCollectionKit';
 export * from './dx/OIMCollectionSelectors';
 
 // Wrappers (DX utilities built on top of core primitives)
@@ -70,7 +70,7 @@ export * from './types/TOIMEventHandler';
 export * from './types/TOIMEventQueueOptions';
 export * from './types/TOIMEntitySlot';
 export * from './types/TOIMCollectionIndexOptions';
-export * from './types/TOIMCollectionContext';
+export * from './types/TOIMCollectionKit';
 export * from './types/TOIMCollectionSelectors';
 export * from './types/TOIMIndexComparator';
 export * from './types/TOIMIndexKey';

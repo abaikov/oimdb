@@ -108,6 +108,21 @@ __OIMDB_DEV__.dump()
 __OIMDB_DEV__.inspect()
 ```
 
+## Flush history
+
+Call `trackFlushes` to record entity counts on every queue flush. The last 50 flushes appear in `inspect()` and in the DevTools UI.
+
+```ts
+// debug.ts
+import { registry } from '@oimdb/devtools';
+import { EOIMEventQueueEventType } from '@oimdb/core';
+import { queue } from './store';
+
+registry.trackFlushes(handler =>
+    queue.emitter.on(EOIMEventQueueEventType.AFTER_FLUSH, handler)
+);
+```
+
 ## Computed values
 
 Register `OIMComputed` instances to see their status in `inspect()` and `dump()`:

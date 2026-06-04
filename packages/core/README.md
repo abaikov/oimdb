@@ -94,7 +94,7 @@ Use the `dx` factories when you want a concise entrypoint without changing the u
 
 ```typescript
 import {
-    createOIMCollectionContext,
+    createOIMCollectionKit,
     OIMEventQueue,
     OIMEventQueueSchedulerFactory
 } from '@oimdb/core';
@@ -108,7 +108,7 @@ type User = {
 const queue = new OIMEventQueue({
     scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
 });
-const users = createOIMCollectionContext<User, string>(queue, {
+const users = createOIMCollectionKit<User, string>(queue, {
     selectPk: user => user.id,
 });
 
@@ -191,7 +191,7 @@ OIMDB provides two types of indexes optimized for different use cases:
 
 Indexes are slot-backed internally and expose PK projections through `getPksByKey` (`Set<TPk>` for SetBased, `TPk[]` for ArrayBased). Raw indexes can be used as standalone PK/slot structures. When an index belongs to a collection, prefer `OIMReactiveCollectionIndexManual*`; it binds the collection at construction time so PK writes resolve canonical collection slots without a later lifecycle setter.
 
-For most app-level entity relations, start with `createOIMCollectionContext(...).indexFactory.derivedSetIndex(...)` or `.derivedArrayIndex(...)`. The manual indexes below are the advanced path for externally maintained memberships such as search results, permissions, or server-provided order.
+For most app-level entity relations, start with `createOIMCollectionKit(...).indexFactory.derivedSetIndex(...)` or `.derivedArrayIndex(...)`. The manual indexes below are the advanced path for externally maintained memberships such as search results, permissions, or server-provided order.
 
 #### SetBased Indexes (for incremental updates)
 
@@ -1158,7 +1158,7 @@ npm install @oimdb/react
 Create your collections outside React, wire them up once, then use hooks inside components:
 
 ```typescript
-import { createOIMCollectionContext, OIMEventQueue } from '@oimdb/core';
+import { createOIMCollectionKit, OIMEventQueue } from '@oimdb/core';
 import {
     OIMCollectionsProvider,
     useOIMCollectionsContext,
@@ -1169,7 +1169,7 @@ import {
 // --- store.ts (created once, outside React) ---
 const queue = new OIMEventQueue();
 const { collection: users, indexFactory } =
-    createOIMCollectionContext<User, string>(queue, { selectPk: (u) => u.id });
+    createOIMCollectionKit<User, string>(queue, { selectPk: (u) => u.id });
 const byTeam = indexFactory.derivedSetIndex((u) => [u.teamId]);
 export const collections = { users };
 export { byTeam };
@@ -1268,11 +1268,11 @@ unsubscribe();
 #### `createOIMReactiveCollection<TEntity, TPk>(queue, opts?)`
 Creates an `OIMReactiveCollection<TEntity, TPk>` with less constructor noise.
 
-#### `createOIMCollectionContext<TEntity, TPk>(queue, opts?)`
+#### `createOIMCollectionKit<TEntity, TPk>(queue, opts?)`
 Creates a small facade:
 
 ```typescript
-type TOIMCollectionContext<TEntity, TPk> = {
+type TOIMCollectionKit<TEntity, TPk> = {
     queue: OIMEventQueue;
     collection: OIMReactiveCollection<TEntity, TPk>;
     relations: OIMCollectionRelations<TEntity, TPk>;

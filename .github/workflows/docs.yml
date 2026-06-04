@@ -29,6 +29,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Copy llms.txt to static
+        run: cp llms.txt website/static/llms.txt
       - name: Build docs
         run: npm run docs:build
       - uses: actions/upload-pages-artifact@v3

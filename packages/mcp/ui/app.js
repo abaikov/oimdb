@@ -2,8 +2,8 @@
 
 // ── State ──────────────────────────────────────────────────────
 
-let autoTimer   = null;
-let expanded    = new Set();
+let autoTimer = null;
+let expanded  = new Set();
 
 // ── Elements ───────────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ const badgeCollections = document.getElementById('badge-collections');
 const badgeComputeds   = document.getElementById('badge-computeds');
 const listCollections  = document.getElementById('list-collections');
 const listComputeds    = document.getElementById('list-computeds');
+const listHistory      = document.getElementById('list-history');
 const btnRefresh       = document.getElementById('btn-refresh');
 const chkAuto          = document.getElementById('chk-auto');
 
@@ -23,7 +24,8 @@ const chkAuto          = document.getElementById('chk-auto');
 
 async function poll() {
     try {
-        const res  = await fetch('/api/inspect');
+        const base = location.origin !== 'null' ? location.origin : '';
+        const res  = await fetch(base + '/api/inspect');
         const json = await res.json();
 
         if (!json.connected || !json.data) {
@@ -43,7 +45,7 @@ async function poll() {
 // ── Layout ──────────────────────────────────────────────────────
 
 function showWaiting() {
-    connDot.className   = 'conn-dot disconnected';
+    connDot.className     = 'conn-dot disconnected';
     connLabel.textContent = 'Waiting for browser…';
     screenWaiting.classList.remove('hidden');
     screenMain.classList.add('hidden');
@@ -56,7 +58,7 @@ function showMain() {
 
 function setConnected(tab) {
     connDot.className     = 'conn-dot connected';
-    connLabel.textContent = tab ? `${tab.title}` : 'Connected';
+    connLabel.textContent = tab ? tab.title : 'Connected';
 }
 
 // ── Render ──────────────────────────────────────────────────────
@@ -64,12 +66,14 @@ function setConnected(tab) {
 function render(state) {
     const collections = state.collections || {};
     const computeds   = state.computeds   || {};
+    const history     = state.history     || [];
 
     badgeCollections.textContent = Object.keys(collections).length;
     badgeComputeds.textContent   = Object.keys(computeds).length;
 
     renderCollections(collections);
     renderComputeds(computeds);
+    renderHistory(history);
 }
 
 // ── Collections ─────────────────────────────────────────────────
@@ -109,7 +113,11 @@ function buildCollRow(name, info) {
 
     const detail = document.createElement('div');
     detail.className = 'c-detail' + (isOpen ? ' open' : '');
-    detail.innerHTML = buildCollDetail(info);
+    detail.innerHTML = buildCollMeta(info);
+
+    // Entity table
+    const table = buildEntityTable(info);
+    if (table) detail.appendChild(table);
 
     summary.addEventListener('click', () => {
         const opening = detail.classList.toggle('open');
@@ -122,7 +130,7 @@ function buildCollRow(name, info) {
     return row;
 }
 
-function buildCollDetail(info) {
+function buildCollMeta(info) {
     const parts = [];
 
     if (info.sampleEntity && typeof info.sampleEntity === 'object') {
@@ -152,7 +160,79 @@ function buildCollDetail(info) {
         parts.push(drow('desc', `<span style="color:var(--text-dim)">${esc(info.description)}</span>`));
     }
 
-    return parts.join('') || '<div class="d-row"><span style="color:var(--text-dim);font-size:11px">No details</span></div>';
+    return parts.join('') || '';
+}
+
+// ── Entity table ────────────────────────────────────────────────
+
+const MAX_ENTITY_ROWS = 200;
+
+function buildEntityTable(info) {
+    const entities = info.entities;
+    if (!Array.isArray(entities) || entities.length === 0) return null;
+
+    const first = entities[0];
+    if (!first || typeof first !== 'object') return null;
+    const cols = Object.keys(first);
+    if (cols.length === 0) return null;
+
+    const shown = entities.slice(0, MAX_ENTITY_ROWS);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'entity-wrap';
+
+    const tableWrap = document.createElement('div');
+    tableWrap.className = 'entity-table-wrap';
+
+    const table = document.createElement('table');
+    table.className = 'entity-table';
+
+    // Head
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    cols.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        headRow.appendChild(th);
+    });
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
+    // Body
+    const tbody = document.createElement('tbody');
+    shown.forEach(entity => {
+        const tr = document.createElement('tr');
+        cols.forEach(col => {
+            const td = document.createElement('td');
+            const val = (entity)[col];
+            td.textContent = fmtCell(val);
+            td.title = JSON.stringify(val);
+            tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    tableWrap.appendChild(table);
+    wrap.appendChild(tableWrap);
+
+    if (entities.length > MAX_ENTITY_ROWS) {
+        const note = document.createElement('div');
+        note.className = 'entity-note';
+        note.textContent = `showing ${MAX_ENTITY_ROWS} of ${entities.length}`;
+        wrap.appendChild(note);
+    }
+
+    return wrap;
+}
+
+function fmtCell(v) {
+    if (v === null || v === undefined) return '—';
+    if (typeof v === 'object') {
+        const s = JSON.stringify(v);
+        return s.length > 40 ? s.slice(0, 40) + '…' : s;
+    }
+    const s = String(v);
+    return s.length > 60 ? s.slice(0, 60) + '…' : s;
 }
 
 function drow(label, content) {
@@ -240,6 +320,62 @@ function buildCompRow(name, info) {
     return row;
 }
 
+// ── Flush History ───────────────────────────────────────────────
+
+function renderHistory(history) {
+    if (!history.length) {
+        listHistory.innerHTML = '<div class="empty">No flushes recorded yet.<br>Call <code>registry.trackFlushes(...)</code> in debug.ts.</div>';
+        return;
+    }
+    listHistory.innerHTML = '';
+    history.forEach((record, i) => {
+        const prev = history[i + 1];
+        listHistory.appendChild(buildFlushRow(record, prev));
+    });
+}
+
+function buildFlushRow(record, prev) {
+    const row = document.createElement('div');
+    row.className = 'flush-row';
+
+    const time = document.createElement('span');
+    time.className = 'flush-time';
+    time.textContent = new Date(record.time).toLocaleTimeString('en', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        fractionalSecondDigits: 3,
+    });
+    row.appendChild(time);
+
+    const tags = document.createElement('span');
+    tags.className = 'flush-tags';
+
+    for (const [name, count] of Object.entries(record.counts)) {
+        const prevCount = prev ? (prev.counts[name] ?? 0) : 0;
+        const diff = count - prevCount;
+        const tag = document.createElement('span');
+        tag.className = 'flush-tag';
+
+        if (diff === 0 && i !== 0) continue; // skip unchanged (unless first flush)
+        const sign = diff > 0 ? '+' : '';
+        tag.textContent = diff !== 0 ? `${name} ${sign}${diff}` : `${name} ${count}`;
+        tag.className = 'flush-tag' + (diff > 0 ? ' flush-add' : diff < 0 ? ' flush-del' : '');
+        tags.appendChild(tag);
+    }
+
+    if (!tags.children.length) {
+        const tag = document.createElement('span');
+        tag.className = 'flush-tag flush-no-change';
+        tag.textContent = 'no changes';
+        tags.appendChild(tag);
+    }
+
+    row.appendChild(tags);
+    return row;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────
 
 function esc(s) {
@@ -261,8 +397,8 @@ function fmt(v) {
 
 // ── Auto-refresh ─────────────────────────────────────────────────
 
-function startAuto()  { stopAuto(); autoTimer = setInterval(poll, 1000); }
-function stopAuto()   { if (autoTimer !== null) { clearInterval(autoTimer); autoTimer = null; } }
+function startAuto() { stopAuto(); autoTimer = setInterval(poll, 1000); }
+function stopAuto()  { if (autoTimer !== null) { clearInterval(autoTimer); autoTimer = null; } }
 
 // ── Boot ────────────────────────────────────────────────────────
 

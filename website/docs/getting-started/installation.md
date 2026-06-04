@@ -20,11 +20,15 @@ npm install @oimdb/core
 npm install @oimdb/react @oimdb/core
 ```
 
+→ [React guide](/docs/packages/react)
+
 ## Redux Adapter
 
 ```bash
 npm install @oimdb/redux-adapter @oimdb/core redux
 ```
+
+→ [Redux Adapter guide](/docs/packages/redux-adapter)
 
 ## Async
 
@@ -47,6 +51,8 @@ npm install @oimdb/persist @oimdb/core
 ```bash
 npm install @oimdb/snapshot-manager @oimdb/core
 ```
+
+→ [Snapshot Manager guide](/docs/packages/snapshot-manager)
 
 ## Requirements
 

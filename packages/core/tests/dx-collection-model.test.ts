@@ -1,8 +1,8 @@
 import {
-    createOIMCollectionContext,
+    createOIMCollectionKit,
     OIMEventQueue,
     OIMReactiveCollection,
-    TOIMCollectionContext,
+    TOIMCollectionKit,
 } from '../src';
 
 type User = {
@@ -35,10 +35,10 @@ describe('DX collection model factories', () => {
         queue.destroy();
     });
 
-    test('createOIMCollectionContext returns collection and relations together', () => {
+    test('createOIMCollectionKit returns collection and relations together', () => {
         const queue = new OIMEventQueue();
-        const users: TOIMCollectionContext<User, string> =
-            createOIMCollectionContext<User, string>(queue, {
+        const users: TOIMCollectionKit<User, string> =
+            createOIMCollectionKit<User, string>(queue, {
                 selectPk: user => user.id,
             });
 

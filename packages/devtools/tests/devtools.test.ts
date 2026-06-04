@@ -43,6 +43,50 @@ describe('OIMDevRegistry', () => {
         expect(info.sampleEntity).toEqual({ id: 'u1', name: 'Alice', role: 'admin' });
     });
 
+    test('inspect() includes all entities', () => {
+        const reg = new OIMDevRegistry();
+        const items = [
+            { id: 'u1', name: 'Alice', role: 'admin' },
+            { id: 'u2', name: 'Bob',   role: 'user' },
+        ];
+        const users = makeCollection<User, string>(items, (u) => u.id);
+
+        reg.collection('users', users);
+        const info = reg.inspect().collections['users'];
+
+        expect(info.entities).toEqual(items);
+    });
+
+    test('inspect() includes empty history by default', () => {
+        const reg = new OIMDevRegistry();
+        const result = reg.inspect();
+        expect(result.history).toEqual([]);
+    });
+
+    test('trackFlushes() records flush history', () => {
+        const reg = new OIMDevRegistry();
+        const items: User[] = [{ id: 'u1', name: 'Alice', role: 'admin' }];
+        const users = makeCollection<User, string>(items, (u) => u.id);
+        reg.collection('users', users);
+
+        const handlers: Array<() => void> = [];
+        const off = reg.trackFlushes((handler) => {
+            handlers.push(handler);
+            return () => { handlers.splice(handlers.indexOf(handler), 1); };
+        });
+
+        handlers.forEach(h => h());
+        items.push({ id: 'u2', name: 'Bob', role: 'user' });
+        handlers.forEach(h => h());
+
+        const history = reg.inspect().history;
+        expect(history).toHaveLength(2);
+        expect(history[0].counts['users']).toBe(2);
+        expect(history[1].counts['users']).toBe(1);
+
+        off();
+    });
+
     test('inspect() includes index key counts', () => {
         const reg = new OIMDevRegistry();
         const tasks = makeCollection<Task, string>(

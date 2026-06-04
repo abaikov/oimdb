@@ -80,13 +80,13 @@ queue.flush(); // delivers subscription
 
 ### DX Layer — Collection Model
 
-`createOIMCollectionContext` wires queue + collection + index factory + selectors together.
+`createOIMCollectionKit` wires queue + collection + index factory + selectors together.
 
 ```ts
-import { createOIMCollectionContext } from '@oimdb/core';
+import { createOIMCollectionKit } from '@oimdb/core';
 
 const { collection, indexFactory, select } =
-    createOIMCollectionContext<User, string>(queue, { selectPk: (u) => u.id });
+    createOIMCollectionKit<User, string>(queue, { selectPk: (u) => u.id });
 
 // Derived index: built automatically from entity data
 const byRole = indexFactory.derivedSetIndex((u) => [u.role]);
@@ -181,7 +181,7 @@ import {
 // store.ts — outside React
 const queue = new OIMEventQueue();
 const { collection: users, indexFactory } =
-    createOIMCollectionContext<User, string>(queue, { selectPk: (u) => u.id });
+    createOIMCollectionKit<User, string>(queue, { selectPk: (u) => u.id });
 const byTeam = indexFactory.derivedSetIndex((u) => [u.teamId]);
 export const collections = { users };
 
@@ -329,7 +329,7 @@ Variable names: drop the prefix, start lowercase. Context goes first: `prevColle
 const queue = new OIMEventQueue({ scheduler: new OIMEventQueueSchedulerImmediate() });
 
 const { collection: tasks, indexFactory, select } =
-    createOIMCollectionContext<Task, string>(queue, { selectPk: (t) => t.id });
+    createOIMCollectionKit<Task, string>(queue, { selectPk: (t) => t.id });
 
 const byStatus  = indexFactory.derivedSetIndex((t) => [t.status]);
 const byAssignee = indexFactory.derivedSetIndex((t) => [t.assigneeId]);

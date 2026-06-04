@@ -13,11 +13,11 @@ OIMDB is organized as a monorepo with separate npm packages:
 | Package | Description |
 |---------|-------------|
 | [`@oimdb/core`](/docs/packages/#oimdbcore) | Reactive collections, indexes, event queue, selectors |
-| [`@oimdb/react`](/docs/packages/#oimdbreact) | React hooks and context helpers |
-| [`@oimdb/redux-adapter`](/docs/packages/#oimdbredux-adapter) | Two-way Redux synchronization |
+| [`@oimdb/react`](/docs/packages/react) | React hooks and context provider |
+| [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Redux reducers backed by OIMDB, two-way sync |
 | [`@oimdb/async`](/docs/packages/#oimdbasync) | Async collections and indexes |
-| [`@oimdb/persist`](/docs/packages/#oimdbpersist) | Storage-specific persistence resources for OIMDB primitives |
-| [`@oimdb/snapshot-manager`](/docs/packages/#oimdbsnapshot-manager) | Snapshot persistence utilities |
+| [`@oimdb/persist`](/docs/packages/persist) | localStorage, IndexedDB, and memory persistence |
+| [`@oimdb/snapshot-manager`](/docs/packages/snapshot-manager) | Track and snapshot cross-collection changes |
 
 ## Key Benefits
 
@@ -31,7 +31,7 @@ OIMDB is organized as a monorepo with separate npm packages:
 
 ```typescript
 import {
-  createOIMCollectionContext,
+  createOIMCollectionKit,
   OIMEventQueue,
   OIMEventQueueSchedulerFactory,
 } from '@oimdb/core';
@@ -47,7 +47,7 @@ const queue = new OIMEventQueue({
   scheduler: OIMEventQueueSchedulerFactory.createMicrotask(),
 });
 
-const users = createOIMCollectionContext<User, string>(queue, {
+const users = createOIMCollectionKit<User, string>(queue, {
   selectPk: (user) => user.id,
 });
 const usersByTeam = users.indexFactory.derivedSetIndex((user) => user.teamId);

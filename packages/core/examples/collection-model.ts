@@ -1,7 +1,7 @@
 import {
     OIMEventQueue,
     OIMEventQueueSchedulerImmediate,
-    createOIMCollectionContext,
+    createOIMCollectionKit,
 } from '@oimdb/core';
 
 interface ITask {
@@ -14,7 +14,7 @@ interface ITask {
 function collectionModelExample(): void {
     const queue = new OIMEventQueue({ scheduler: new OIMEventQueueSchedulerImmediate() });
     const { collection, indexFactory, select } =
-        createOIMCollectionContext<ITask, string>(queue, { selectPk: (t) => t.id });
+        createOIMCollectionKit<ITask, string>(queue, { selectPk: (t) => t.id });
 
     const byAssignee = indexFactory.derivedSetIndex<string>((task) => [task.assigneeId]);
 

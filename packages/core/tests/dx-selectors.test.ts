@@ -1,5 +1,5 @@
 import {
-    createOIMCollectionContext,
+    createOIMCollectionKit,
     OIMEventQueue,
     OIMReactiveCollectionIndexManualArrayBased,
 } from '../src';
@@ -13,7 +13,7 @@ type User = {
 describe('DX collection selectors', () => {
     test('byPk reads immediately and coalesces watched updates', () => {
         const queue = new OIMEventQueue();
-        const users = createOIMCollectionContext<User, string>(queue, {
+        const users = createOIMCollectionKit<User, string>(queue, {
             selectPk: user => user.id,
         });
 
@@ -47,7 +47,7 @@ describe('DX collection selectors', () => {
 
     test('byPks returns entities in requested order', () => {
         const queue = new OIMEventQueue();
-        const users = createOIMCollectionContext<User, string>(queue, {
+        const users = createOIMCollectionKit<User, string>(queue, {
             selectPk: user => user.id,
         });
 
@@ -70,7 +70,7 @@ describe('DX collection selectors', () => {
 
     test('entitiesBySetIndexKey reacts to index membership and entity updates', () => {
         const queue = new OIMEventQueue();
-        const users = createOIMCollectionContext<User, string>(queue, {
+        const users = createOIMCollectionKit<User, string>(queue, {
             selectPk: user => user.id,
         });
         const usersByTeam = users.indexFactory.derivedSetIndex(
@@ -112,7 +112,7 @@ describe('DX collection selectors', () => {
 
     test('entitiesByArrayIndexKey reads collection-bound array indexes', () => {
         const queue = new OIMEventQueue();
-        const users = createOIMCollectionContext<User, string>(queue, {
+        const users = createOIMCollectionKit<User, string>(queue, {
             selectPk: user => user.id,
         });
         const usersByTeam = new OIMReactiveCollectionIndexManualArrayBased<

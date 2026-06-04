@@ -16,7 +16,7 @@ npm install @oimdb/core
 
 **Includes:**
 
-- `createOIMCollectionContext` — DX facade: `{ queue, collection, indexFactory, select }`
+- `createOIMCollectionKit` — DX facade: `{ queue, collection, indexFactory, select }`
 - `OIMReactiveCollection` — reactive entity store with canonical slots
 - `OIMCollectionIndexFactory` — creates derived, manual, and ordered indexes bound to a collection
 - `OIMCollectionSelectors` — reactive selector facade (`byPk`, `entitiesBySetIndexKey`, …)
@@ -42,10 +42,10 @@ npm install @oimdb/react @oimdb/core
 
 - `OIMCollectionsProvider` — React context for collections
 - `useOIMCollectionsContext` — typed collection access
-- `useSelectEntitiesByIndexKeySetBased` / `ArrayBased` — index subscriptions
-- Key-scoped hooks for efficient re-renders
+- `useSelectEntityByPk`, `useSelectEntitiesByIndexKeySetBased` / `ArrayBased` — key-scoped hooks, re-render only on relevant changes
+- `useSelectValueByObjectKey` — watch `OIMReactiveObject` keys
 
-[Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/react) · [npm](https://www.npmjs.com/package/@oimdb/react)
+[React Guide](/docs/packages/react) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/react) · [npm](https://www.npmjs.com/package/@oimdb/react)
 
 ## @oimdb/redux-adapter
 
@@ -57,12 +57,12 @@ npm install @oimdb/redux-adapter @oimdb/core redux
 
 **Includes:**
 
-- Two-way synchronization between OIMDB and Redux
-- Automatic flushing middleware after Redux actions
-- Flexible state mappers for any Redux shape
-- Optimized diffing for large datasets
+- `OIMDBReduxAdapter` — creates Redux reducers backed by OIMDB collections and indexes
+- Middleware for auto-flushing queue after each Redux action
+- Child reducers for two-way sync: Redux actions → OIMDB writes
+- Custom state mappers for any Redux shape
 
-[Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/redux-adapter) · [npm](https://www.npmjs.com/package/@oimdb/redux-adapter)
+[Redux Adapter Guide](/docs/packages/redux-adapter) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/redux-adapter) · [npm](https://www.npmjs.com/package/@oimdb/redux-adapter)
 
 ## @oimdb/async
 
@@ -99,10 +99,15 @@ npm install @oimdb/persist @oimdb/core
 
 ## @oimdb/snapshot-manager
 
-Snapshot persistence utilities for saving and restoring OIMDB state.
+Tracks which entities changed across multiple collections and returns a consolidated snapshot on demand. Use for server sync, undo/redo, or change auditing.
 
 ```bash
 npm install @oimdb/snapshot-manager @oimdb/core
 ```
 
-[Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/snapshot-manager) · [npm](https://www.npmjs.com/package/@oimdb/snapshot-manager)
+**Includes:**
+
+- `OIMSnapshotManager` — accumulates changed PKs, delivers them via `takeSnapshot()`
+- Bypasses queue coalescing — tracks every raw write, collapses to final entity state
+
+[Snapshot Manager Guide](/docs/packages/snapshot-manager) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/snapshot-manager) · [npm](https://www.npmjs.com/package/@oimdb/snapshot-manager)

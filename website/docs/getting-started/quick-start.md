@@ -32,7 +32,7 @@ Common schedulers:
 The DX model keeps the core pieces together without storing indexes inside the collection:
 
 ```typescript
-import { createOIMCollectionContext } from '@oimdb/core';
+import { createOIMCollectionKit } from '@oimdb/core';
 
 type User = {
   id: string;
@@ -41,7 +41,7 @@ type User = {
   teamId: string;
 };
 
-const users = createOIMCollectionContext<User, string>(queue, {
+const users = createOIMCollectionKit<User, string>(queue, {
   selectPk: (user) => user.id,
 });
 ```

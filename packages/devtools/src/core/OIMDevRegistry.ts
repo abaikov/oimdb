@@ -1,7 +1,7 @@
 import { IOIMDevCollectionLike } from '../interfaces/IOIMDevCollectionLike';
 import { IOIMDevComputedLike } from '../interfaces/IOIMDevComputedLike';
 import { TOIMDevCollectionOptions } from '../types/TOIMDevCollectionOptions';
-import { TOIMDevInspectResult } from '../types/TOIMDevInspectResult';
+import { TOIMDevFlushRecord, TOIMDevInspectResult } from '../types/TOIMDevInspectResult';
 
 type TOIMDevRegistryEntry = {
     name: string;
@@ -29,6 +29,8 @@ export class OIMDevRegistry {
     private readonly entries = new Map<string, TOIMDevRegistryEntry>();
     private readonly computedEntries = new Map<string, IOIMDevComputedLike>();
     private readonly nameByInstance = new WeakMap<object, string>();
+    private readonly flushHistory: TOIMDevFlushRecord[] = [];
+    private static readonly MAX_HISTORY = 50;
 
     public collection(
         name: string,
@@ -73,6 +75,7 @@ export class OIMDevRegistry {
                 count: allPks.length,
                 samplePks: allPks.slice(0, 5),
                 sampleEntity: all[0] ?? null,
+                entities: all,
                 indexes,
                 relations: entry.options.relations ?? {},
                 description: entry.options.description,
@@ -91,7 +94,7 @@ export class OIMDevRegistry {
             };
         }
 
-        return { collections, computeds };
+        return { collections, computeds, history: this.flushHistory.slice() };
     }
 
     public dumpString(): string {
@@ -154,6 +157,30 @@ export class OIMDevRegistry {
 
     public dump(): void {
         console.log(this.dumpString());
+    }
+
+    /**
+     * Subscribe to queue flushes and record them in the history.
+     * Returns an unsubscribe function.
+     *
+     * Usage:
+     * ```ts
+     * registry.trackFlushes(handler =>
+     *   queue.emitter.on(EOIMEventQueueEventType.AFTER_FLUSH, handler)
+     * );
+     * ```
+     */
+    public trackFlushes(subscribe: (handler: () => void) => () => void): () => void {
+        return subscribe(() => {
+            const counts: Record<string, number> = {};
+            for (const [name, entry] of this.entries) {
+                counts[name] = entry.collection.getAllPks().length;
+            }
+            this.flushHistory.unshift({ time: Date.now(), counts });
+            if (this.flushHistory.length > OIMDevRegistry.MAX_HISTORY) {
+                this.flushHistory.length = OIMDevRegistry.MAX_HISTORY;
+            }
+        });
     }
 
     public connect(url = 'ws://localhost:7432'): () => void {

@@ -10,7 +10,7 @@ export type TOIMReactiveCollectionFactoryOptions<
     TPk extends TOIMPk,
 > = TOIMCollectionOptions<TEntity, TPk>;
 
-export type TOIMCollectionContext<
+export type TOIMCollectionKit<
     TEntity extends object,
     TPk extends TOIMPk,
 > = {
