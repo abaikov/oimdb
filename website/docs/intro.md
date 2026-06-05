@@ -16,7 +16,12 @@ OIMDB is organized as a monorepo with separate npm packages:
 | [`@oimdb/react`](/docs/packages/react) | React hooks and context provider |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Redux reducers backed by OIMDB, two-way sync |
 | [`@oimdb/async`](/docs/packages/#oimdbasync) | Async collections and indexes |
-| [`@oimdb/persist`](/docs/packages/persist) | localStorage, IndexedDB, and memory persistence |
+| [`@oimdb/persist`](/docs/packages/persist) | Storage-agnostic persistence engine for collections, objects, indexes; `onHydrate`/`byPk` hydration-merge |
+| [`@oimdb/persist-memory`](/docs/packages/persist) | Persist backend: in-memory `Map` (tests, SSR) |
+| [`@oimdb/persist-localstorage`](/docs/packages/persist) | Persist backend: `localStorage` |
+| [`@oimdb/persist-idb`](/docs/packages/persist) | Persist backend: IndexedDB |
+| [`@oimdb/persist-json`](/docs/packages/persist) | Persist backend: JSON dump for SSR dehydrate/hydrate |
+| [`@oimdb/persist-async-kv`](/docs/packages/persist) | Persist backend: async key-value — React Native AsyncStorage, Cordova |
 | [`@oimdb/snapshot-manager`](/docs/packages/snapshot-manager) | Track and snapshot cross-collection changes |
 
 ## Key Benefits

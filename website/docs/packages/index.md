@@ -82,20 +82,94 @@ npm install @oimdb/async @oimdb/core
 
 ## @oimdb/persist
 
-Storage-specific persistence resources for OIMDB collections, objects, and manual indexes.
+Storage-agnostic persistence **engine** for OIMDB collections, objects, and manual indexes. The concrete storage backends ship as separate packages — install the engine plus the backend(s) you need.
 
 ```bash
-npm install @oimdb/persist @oimdb/core
+npm install @oimdb/persist @oimdb/persist-localstorage @oimdb/core
 ```
 
 **Includes:**
 
-- Storage-specific persistors for memory, `localStorage`, and IndexedDB
-- Resource factories for collections, objects, set indexes, array indexes, and ordered indexes
-- Backend-native strategies such as `storageKey`, `path`, `tableName`, and `primaryKey`
+- `OIMPersistor` and `OIMPersistResource` — persistor lifecycle and resource binding
+- Source adapters (`createCollectionSourceAdapter`, `createObjectSourceAdapter`, `createSetIndexSourceAdapter`, …)
+- `createVersionedCodec` — versioned codec for schema migrations
+- `byPk` and the resource `.onHydrate(reconcile)` hook — merge a later hydrate (e.g. a durable cache) onto current state instead of replacing it (`TOIMPersistHydrateReconcile`)
+- `TOIM…` types and `IOIMAnyPersistResource`
 - Lifecycle helpers: `hydrate`, `persist`, `start`, `stop`, `addResource`, and `removeResource`
 
 [Persist Guide](/docs/packages/persist) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist) · [npm](https://www.npmjs.com/package/@oimdb/persist)
+
+## @oimdb/persist-memory
+
+In-memory `Map` backend for the persist engine. Ideal for tests, SSR, and server-side fill.
+
+```bash
+npm install @oimdb/persist @oimdb/persist-memory @oimdb/core
+```
+
+**Includes:**
+
+- `createMemoryPersistor` — persistor backed by an in-memory `Map`
+
+[Persist Guide](/docs/packages/persist) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist-memory) · [npm](https://www.npmjs.com/package/@oimdb/persist-memory)
+
+## @oimdb/persist-localstorage
+
+`localStorage` backend for the persist engine.
+
+```bash
+npm install @oimdb/persist @oimdb/persist-localstorage @oimdb/core
+```
+
+**Includes:**
+
+- `createLocalStoragePersistor` — persistor backed by `localStorage`
+
+[Persist Guide](/docs/packages/persist) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist-localstorage) · [npm](https://www.npmjs.com/package/@oimdb/persist-localstorage)
+
+## @oimdb/persist-idb
+
+IndexedDB backend for the persist engine.
+
+```bash
+npm install @oimdb/persist @oimdb/persist-idb @oimdb/core
+```
+
+**Includes:**
+
+- `createIndexedDbPersistor` — persistor backed by IndexedDB
+
+[Persist Guide](/docs/packages/persist) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist-idb) · [npm](https://www.npmjs.com/package/@oimdb/persist-idb)
+
+## @oimdb/persist-json
+
+JSON-dump backend for the persist engine — the SSR dehydrate/hydrate transport. Storage is a single plain JSON-serializable object, so the whole registered state can be `JSON.stringify`-ed on the server and seeded back on the client.
+
+```bash
+npm install @oimdb/persist @oimdb/persist-json @oimdb/core
+```
+
+**Includes:**
+
+- `createJsonPersistor({ initial? })` — persistor backed by a plain JSON object; `initial` seeds it from an SSR blob
+- `persistor.dehydrate()` — returns the JSON-serializable dump of everything persisted
+
+[Persist Guide](/docs/packages/persist) · [SSR Guide](/docs/guides/ssr) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist-json) · [npm](https://www.npmjs.com/package/@oimdb/persist-json)
+
+## @oimdb/persist-async-kv
+
+Async key-value backend for the persist engine — the async twin of `@oimdb/persist-localstorage`. Serializes snapshots to strings and stores them through any object implementing the small async `TOIMAsyncKVLike` interface. Built for **React Native** (`AsyncStorage` drops in directly) and **Cordova native storage** (via a thin adapter); Cordova webviews can also just use `@oimdb/persist-localstorage` or `@oimdb/persist-idb`.
+
+```bash
+npm install @oimdb/persist @oimdb/persist-async-kv @oimdb/core
+```
+
+**Includes:**
+
+- `createAsyncKVPersistor({ storage })` — persistor backed by any `TOIMAsyncKVLike` storage; `storage` is required (no global default), with optional `serialize` / `deserialize` codec
+- `TOIMAsyncKVLike` — the async key-value interface; `@react-native-async-storage/async-storage` satisfies it directly, including `multiGet` / `multiSet` batch writes
+
+[Persist Guide](/docs/packages/persist) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/persist-async-kv) · [npm](https://www.npmjs.com/package/@oimdb/persist-async-kv)
 
 ## @oimdb/snapshot-manager
 

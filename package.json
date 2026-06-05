@@ -42,6 +42,11 @@
     "build:react": "cd packages/react && npm run build",
     "build:async": "cd packages/async && npm run build",
     "build:persist": "cd packages/persist && npm run build",
+    "build:persist-memory": "cd packages/persist-memory && npm run build",
+    "build:persist-localstorage": "cd packages/persist-localstorage && npm run build",
+    "build:persist-idb": "cd packages/persist-idb && npm run build",
+    "build:persist-async-kv": "cd packages/persist-async-kv && npm run build",
+    "build:persist-json": "cd packages/persist-json && npm run build",
     "build:snapshot-manager": "cd packages/snapshot-manager && npm run build",
     "build:redux-adapter": "cd packages/redux-adapter && npm run build",
     "build:devtools": "cd packages/devtools && npm run build",
@@ -53,7 +58,7 @@
     "lint": "eslint src --ext .ts && eslint packages/core/src --ext .ts && eslint packages/react/src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix && eslint packages/core/src --ext .ts --fix && eslint packages/react/src --ext .ts --fix",
     "format": "prettier --write \"src/**/*.ts\" \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
-    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist packages/persist/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
+    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist packages/persist/dist packages/persist-memory/dist packages/persist-localstorage/dist packages/persist-idb/dist packages/persist-async-kv/dist packages/persist-json/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
     "docs:dev": "npm run start --workspace website",
     "docs:build": "npm run build --workspace website",
     "docs:serve": "npm run serve --workspace website",
@@ -62,11 +67,16 @@
     "publish:react": "npm publish --workspace @oimdb/react --access public",
     "publish:async": "npm publish --workspace @oimdb/async --access public",
     "publish:persist": "npm publish --workspace @oimdb/persist --access public",
+    "publish:persist-memory": "npm publish --workspace @oimdb/persist-memory --access public",
+    "publish:persist-localstorage": "npm publish --workspace @oimdb/persist-localstorage --access public",
+    "publish:persist-idb": "npm publish --workspace @oimdb/persist-idb --access public",
+    "publish:persist-async-kv": "npm publish --workspace @oimdb/persist-async-kv --access public",
+    "publish:persist-json": "npm publish --workspace @oimdb/persist-json --access public",
     "publish:snapshot-manager": "npm publish --workspace @oimdb/snapshot-manager --access public",
     "publish:redux-adapter": "npm publish --workspace @oimdb/redux-adapter --access public",
     "publish:devtools": "npm publish --workspace @oimdb/devtools --access public",
     "publish:mcp": "npm publish --workspace @oimdb/mcp --access public",
-    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async && npm run publish:persist && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp"
+    "publish:all": "npm run publish:core && npm run publish:react && npm run publish:async && npm run publish:persist && npm run publish:persist-memory && npm run publish:persist-localstorage && npm run publish:persist-idb && npm run publish:persist-async-kv && npm run publish:persist-json && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp"
   },
   "files": [
     "dist"

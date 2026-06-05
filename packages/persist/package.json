@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/persist",
-  "version": "2.0.1",
-  "description": "Persistence adapter for OIMDB collections, objects, and manual indexes",
+  "version": "3.0.0",
+  "description": "Storage-agnostic persistence engine for OIMDB (source adapters, resources, versioned codec). Backends ship as @oimdb/persist-memory, -localstorage, -idb.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -52,9 +52,9 @@
     "oimdb",
     "persist",
     "persistence",
-    "localStorage",
-    "storage",
-    "database",
+    "engine",
+    "codec",
+    "ssr",
     "typescript"
   ],
   "author": "Andrei Baikov",

@@ -1,24 +1,15 @@
 import { EOIMEventQueueEventType, OIMEventQueue } from '@oimdb/core';
-import { OIMPersistResource } from './OIMPersistResource';
-
-export type TOIMPersistErrorContext = {
-    resource: OIMPersistResource<unknown, unknown, unknown>;
-    operation: 'persist' | 'hydrate';
-};
-
-export type TOIMPersistorOptions<TStorage> = {
-    storage: TStorage;
-    queue?: OIMEventQueue;
-    onError?: (error: unknown, context: TOIMPersistErrorContext) => void;
-};
+import { IOIMAnyPersistResource } from '../interfaces/IOIMAnyPersistResource';
+import { TOIMPersistErrorContext } from '../types/TOIMPersistErrorContext';
+import { TOIMPersistorOptions } from '../types/TOIMPersistorOptions';
 
 export class OIMPersistor<TStorage> {
     public readonly storage: TStorage;
     public readonly queue?: OIMEventQueue;
 
-    protected readonly resources: OIMPersistResource<any, any, any>[] = [];
+    protected readonly resources: IOIMAnyPersistResource<this>[] = [];
     protected readonly onError?: (error: unknown, context: TOIMPersistErrorContext) => void;
-    private readonly pendingWrites = new Set<OIMPersistResource<any, any, any>>();
+    private readonly pendingWrites = new Set<IOIMAnyPersistResource<this>>();
     private isStarted = false;
     private isFlushScheduled = false;
     private unsubscribeAfterFlush?: () => void;
@@ -29,7 +20,7 @@ export class OIMPersistor<TStorage> {
         this.onError = options.onError;
     }
 
-    public addResource<TResource extends OIMPersistResource<any, any, any>>(
+    public addResource<TResource extends IOIMAnyPersistResource<this>>(
         resource: TResource
     ): TResource {
         this.resources.push(resource);
@@ -37,7 +28,7 @@ export class OIMPersistor<TStorage> {
         return resource;
     }
 
-    public removeResource(resource: OIMPersistResource<any, any, any>): void {
+    public removeResource(resource: IOIMAnyPersistResource<this>): void {
         const index = this.resources.indexOf(resource);
         if (index < 0) return;
         this.resources.splice(index, 1);
@@ -45,11 +36,11 @@ export class OIMPersistor<TStorage> {
         resource.stop();
     }
 
-    public getResources(): readonly OIMPersistResource<any, any, any>[] {
+    public getResources(): readonly IOIMAnyPersistResource<this>[] {
         return this.resources;
     }
 
-    public markDirty(resource: OIMPersistResource<any, any, any>): void {
+    public markDirty(resource: IOIMAnyPersistResource<this>): void {
         if (!this.isStarted) return;
         this.pendingWrites.add(resource);
         if (!this.queue && !this.isFlushScheduled) {
@@ -116,7 +107,7 @@ export class OIMPersistor<TStorage> {
     }
 
     protected async batchPersist(
-        resources: readonly OIMPersistResource<any, any, any>[]
+        resources: readonly IOIMAnyPersistResource<this>[]
     ): Promise<void> {
         for (let i = 0; i < resources.length; i++) {
             const resource = resources[i];

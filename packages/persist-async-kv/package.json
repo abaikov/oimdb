@@ -1,0 +1,61 @@
+{
+  "name": "@oimdb/persist-async-kv",
+  "version": "3.0.0",
+  "description": "Async key-value persistence backend for @oimdb/persist — React Native AsyncStorage, Cordova, any async KV",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abaikov/oimdb.git",
+    "directory": "packages/persist-async-kv"
+  },
+  "bugs": {
+    "url": "https://github.com/abaikov/oimdb/issues"
+  },
+  "homepage": "https://github.com/abaikov/oimdb#readme",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
+    "test": "jest",
+    "type-check": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@oimdb/core": "^2.0.0",
+    "@oimdb/persist": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.2.2",
+    "rimraf": "^5.0.5"
+  },
+  "keywords": [
+    "oimdb",
+    "persist",
+    "async-storage",
+    "react-native",
+    "cordova",
+    "indexeddb-free"
+  ],
+  "author": "Andrei Baikov",
+  "license": "MIT"
+}

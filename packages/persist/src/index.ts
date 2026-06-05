@@ -1,60 +1,44 @@
+// --- Core engine ---
 export { OIMPersistor } from './core/OIMPersistor';
-export type { TOIMPersistorOptions, TOIMPersistErrorContext } from './core/OIMPersistor';
 export { OIMPersistResource } from './core/OIMPersistResource';
-export type { TOIMPersistResourceOptions } from './core/OIMPersistResource';
-export * from './core/OIMSourceAdapters';
 
-export {
-    OIMMemoryPersistor,
-    createMemoryCollectionRecordsStrategy,
-    createMemoryEntryStrategy,
-    createMemoryPersistStorageRuntime,
-    createMemoryPersistor,
-} from './persistors/OIMMemoryPersistor';
-export type {
-    TOIMMemoryEntryStrategyOptions,
-    TOIMMemoryPersistStorage,
-    TOIMMemoryPersistorOptions,
-    TOIMMemoryRecordsStrategyOptions,
-} from './persistors/OIMMemoryPersistor';
-export {
-    OIMLocalStoragePersistor,
-    createLocalStorageEntryStrategy,
-    createLocalStoragePathStrategy,
-    createLocalStoragePersistor,
-} from './persistors/OIMLocalStoragePersistor';
-export type {
-    TOIMLocalStorageBatchStrategy,
-    TOIMLocalStorageEntryOptions,
-    TOIMLocalStorageLike,
-    TOIMLocalStoragePathOptions,
-    TOIMLocalStoragePersistorOptions,
-    TOIMLocalStorageRuntime,
-} from './persistors/OIMLocalStoragePersistor';
-export {
-    OIMIndexedDbPersistor,
-    createIndexedDbCollectionRecordsStrategy,
-    createIndexedDbEntryStrategy,
-    createIndexedDbPersistor,
-} from './persistors/OIMIndexedDbPersistor';
-export type {
-    TOIMIndexedDbBatchStrategy,
-    TOIMIndexedDbEntryStrategyOptions,
-    TOIMIndexedDbPersistorOptions,
-    TOIMIndexedDbPrimaryKey,
-    TOIMIndexedDbRecordsStrategyOptions,
-    TOIMIndexedDbRuntime,
-} from './persistors/OIMIndexedDbPersistor';
+// --- Interfaces ---
+export type { IOIMAnyPersistResource } from './interfaces/IOIMAnyPersistResource';
 
-export type {
-    TOIMPersistCodec,
-    TOIMPersistSourceAdapter,
-    TOIMPersistStrategy,
-    TOIMPersistUnsubscribe,
-} from './types/TOIMPersistResource';
+// --- Contracts / types ---
+export type { TOIMPersistUnsubscribe } from './types/TOIMPersistUnsubscribe';
+export type { TOIMPersistCodec } from './types/TOIMPersistCodec';
+export type { TOIMPersistSourceAdapter } from './types/TOIMPersistSourceAdapter';
+export type { TOIMPersistStrategy } from './types/TOIMPersistStrategy';
+export type { TOIMPersistResourceOptions } from './types/TOIMPersistResourceOptions';
+export type { TOIMPersistorOptions } from './types/TOIMPersistorOptions';
+export type { TOIMPersistErrorContext } from './types/TOIMPersistErrorContext';
+export type { TOIMPersistHydrateReconcile } from './types/TOIMPersistHydrateReconcile';
+export type { TOIMEmitter } from './types/TOIMEmitter';
 
+// --- Snapshot shapes ---
+export type { TOIMCollectionPersistSnapshot } from './types/TOIMCollectionPersistSnapshot';
+export type { TOIMObjectPersistSnapshot } from './types/TOIMObjectPersistSnapshot';
+export type { TOIMIndexPersistSnapshot } from './types/TOIMIndexPersistSnapshot';
+
+// --- Source shapes ---
+export type { TOIMCollectionPersistSource } from './types/TOIMCollectionPersistSource';
+export type { TOIMObjectPersistSource } from './types/TOIMObjectPersistSource';
+export type { TOIMSetIndexPersistSource } from './types/TOIMSetIndexPersistSource';
+export type { TOIMArrayIndexPersistSource } from './types/TOIMArrayIndexPersistSource';
+export type { TOIMOrderedArrayIndexPersistSource } from './types/TOIMOrderedArrayIndexPersistSource';
+
+// --- Source adapters ---
+export { createCollectionSourceAdapter } from './adapters/createCollectionSourceAdapter';
+export { createObjectSourceAdapter } from './adapters/createObjectSourceAdapter';
+export { createSetIndexSourceAdapter } from './adapters/createSetIndexSourceAdapter';
+export { createArrayIndexSourceAdapter } from './adapters/createArrayIndexSourceAdapter';
+export { createOrderedArrayIndexSourceAdapter } from './adapters/createOrderedArrayIndexSourceAdapter';
+
+// --- Hydration reconcilers ---
+export { byPk } from './reconcile/byPk';
+
+// --- Versioned codec ---
 export { createVersionedCodec } from './utils/createVersionedCodec';
-export type {
-    TOIMVersionedPersistedShape,
-    TOIMVersionedCodecOptions,
-} from './utils/createVersionedCodec';
+export type { TOIMVersionedPersistedShape } from './types/TOIMVersionedPersistedShape';
+export type { TOIMVersionedCodecOptions } from './types/TOIMVersionedCodecOptions';

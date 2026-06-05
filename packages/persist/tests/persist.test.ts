@@ -1,40 +1,59 @@
+import { OIMCollection, OIMEventQueue } from '@oimdb/core';
 import {
-    OIMCollection,
-    OIMCollectionIndexManualOrderedArrayBased,
-    OIMEventQueue,
-    OIMIndexManualArrayBased,
-    OIMIndexManualSetBased,
-    OIMObject,
-} from '@oimdb/core';
-import {
-    createLocalStoragePersistor,
-    createMemoryPersistor,
+    byPk,
+    createCollectionSourceAdapter,
     createVersionedCodec,
+    OIMPersistor,
     OIMPersistResource,
-    TOIMLocalStorageLike,
     TOIMPersistErrorContext,
+    TOIMPersistStrategy,
 } from '../src';
-import { createCollectionSourceAdapter } from '../src/core/OIMSourceAdapters';
 
 type User = {
     id: string;
     name: string;
 };
 
-function createLocalStorageMock(): TOIMLocalStorageLike {
-    const data = new Map<string, string>();
+type TStorage = Map<string, unknown>;
+
+/** Minimal in-memory strategy used to exercise the storage-agnostic engine. */
+function mapStrategy<TSnapshot>(
+    key: string
+): TOIMPersistStrategy<OIMPersistor<TStorage>, TSnapshot> {
     return {
-        getItem: (key) => data.get(key) ?? null,
-        setItem: (key, value) => { data.set(key, value); },
-        removeItem: (key) => { data.delete(key); },
+        async read(persistor) {
+            return persistor.storage.get(key) as TSnapshot | undefined;
+        },
+        async write(persistor, snapshot) {
+            persistor.storage.set(key, snapshot);
+        },
+        async clear(persistor) {
+            persistor.storage.delete(key);
+        },
     };
 }
 
-describe('persist architecture', () => {
-    test('persists and hydrates a collection through memory records strategy', async () => {
-        const persistor = createMemoryPersistor({});
+function createEnginePersistor(
+    options: { queue?: OIMEventQueue; onError?: TOIMPersistorOnError } = {}
+): OIMPersistor<TStorage> {
+    return new OIMPersistor<TStorage>({ storage: new Map(), ...options });
+}
+
+type TOIMPersistorOnError = (
+    error: unknown,
+    context: TOIMPersistErrorContext
+) => void;
+
+describe('persist engine', () => {
+    test('persists and hydrates a collection through a custom strategy', async () => {
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
-        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
 
         users.upsertMany([
             { id: 'u1', name: 'Ada' },
@@ -43,8 +62,16 @@ describe('persist architecture', () => {
         await persistor.persist();
 
         const targetUsers = new OIMCollection<User, string>();
-        persistor.collection(targetUsers).records({ bucketName: 'users' });
-        await persistor.hydrate();
+        const targetPersistor = new OIMPersistor<TStorage>({
+            storage: persistor.storage,
+        });
+        targetPersistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(targetUsers),
+                strategy: mapStrategy('users'),
+            })
+        );
+        await targetPersistor.hydrate();
 
         expect(targetUsers.getAll()).toEqual([
             { id: 'u1', name: 'Ada' },
@@ -52,84 +79,15 @@ describe('persist architecture', () => {
         ]);
     });
 
-    test('persists collection snapshot into one localStorage key', async () => {
-        const storage = createLocalStorageMock();
-        const persistor = createLocalStoragePersistor({ storage });
+    test('addResource/removeResource control the lifecycle registry', async () => {
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
-
-        persistor.collection(users).entry({ storageKey: 'app:users' });
-        users.upsertOne({ id: 'u1', name: 'Ada' });
-        await persistor.persist();
-
-        expect(JSON.parse(storage.getItem('app:users')!)).toEqual({
-            records: [{ pk: 'u1', value: { id: 'u1', name: 'Ada' } }],
-        });
-    });
-
-    test('persists collection snapshot into a path inside one localStorage key', async () => {
-        const storage = createLocalStorageMock();
-        const persistor = createLocalStoragePersistor({ storage });
-        const users = new OIMCollection<User, string>();
-
-        persistor.collection(users).path({ storageKey: 'app', path: ['collections', 'users'] });
-        users.upsertOne({ id: 'u1', name: 'Ada' });
-        await persistor.persist();
-
-        expect(JSON.parse(storage.getItem('app')!)).toEqual({
-            collections: {
-                users: { records: [{ pk: 'u1', value: { id: 'u1', name: 'Ada' } }] },
-            },
-        });
-    });
-
-    test('two path strategies sharing the same root key produce one write', async () => {
-        const storage = createLocalStorageMock();
-        const persistor = createLocalStoragePersistor({ storage });
-        const users = new OIMCollection<User, string>();
-        const settings = new OIMObject<'theme', string>();
-
-        persistor.collection(users).path({ storageKey: 'app', path: ['users'] });
-        persistor.object(settings).path({ storageKey: 'app', path: ['settings'] });
-
-        users.upsertOne({ id: 'u1', name: 'Ada' });
-        settings.setProperty('theme', 'dark');
-        await persistor.persist();
-
-        const root = JSON.parse(storage.getItem('app')!);
-        expect(root.users.records).toHaveLength(1);
-        expect(root.settings).toEqual({ theme: 'dark' });
-    });
-
-    test('custom strategy can write to arbitrary storage shape', async () => {
-        const persistor = createMemoryPersistor({});
-        const users = new OIMCollection<User, string>();
-
-        persistor.collection(users).using({
-            async read(p) {
-                return p.storage.entries.get('entities:users') as
-                    | { records: Array<{ pk: string; value: User }> }
-                    | undefined;
-            },
-            async write(p, snapshot) {
-                p.storage.entries.set('entities:users', snapshot);
-            },
-            async clear(p) {
-                p.storage.entries.delete('entities:users');
-            },
-        });
-
-        users.upsertOne({ id: 'u1', name: 'Ada' });
-        await persistor.persist();
-
-        expect(persistor.storage.entries.get('entities:users')).toEqual({
-            records: [{ pk: 'u1', value: { id: 'u1', name: 'Ada' } }],
-        });
-    });
-
-    test('addResource/removeResource control lifecycle registry', async () => {
-        const persistor = createMemoryPersistor({});
-        const users = new OIMCollection<User, string>();
-        const resource = persistor.collection(users).records({ bucketName: 'users' });
+        const resource = persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
 
         expect(persistor.getResources()).toEqual([resource]);
 
@@ -138,48 +96,84 @@ describe('persist architecture', () => {
 
         users.upsertOne({ id: 'u1', name: 'Ada' });
         await persistor.persist();
-        expect(persistor.storage.recordBuckets.get('users')).toBeUndefined();
+        expect(persistor.storage.get('users')).toBeUndefined();
+    });
+
+    test('clearPersisted removes the stored snapshot key', async () => {
+        const persistor = createEnginePersistor();
+        const users = new OIMCollection<User, string>();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
+
+        users.upsertOne({ id: 'u1', name: 'Ada' });
+        await persistor.persist();
+        expect(persistor.storage.get('users')).toBeDefined();
+
+        await persistor.clearPersisted();
+        expect(persistor.storage.has('users')).toBe(false);
     });
 
     test('start autosaves without queue (immediate flush)', async () => {
-        const persistor = createMemoryPersistor({});
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
-        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
 
         persistor.start();
         users.upsertOne({ id: 'u1', name: 'Ada' });
         await Promise.resolve();
 
-        expect(persistor.storage.recordBuckets.get('users')?.get('u1')).toEqual({
-            id: 'u1',
-            name: 'Ada',
+        expect(persistor.storage.get('users')).toEqual({
+            records: [{ pk: 'u1', value: { id: 'u1', name: 'Ada' } }],
         });
         persistor.destroy();
     });
 
     test('start autosaves with queue — batches all mutations from one flush', async () => {
         const queue = new OIMEventQueue();
-        const persistor = createMemoryPersistor({ queue });
+        const persistor = createEnginePersistor({ queue });
         const users = new OIMCollection<User, string>();
-        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
 
         persistor.start();
         users.upsertOne({ id: 'u1', name: 'Ada' });
         users.upsertOne({ id: 'u2', name: 'Grace' });
-        expect(persistor.storage.recordBuckets.get('users')).toBeUndefined();
+        expect(persistor.storage.get('users')).toBeUndefined();
 
         queue.flush();
         await Promise.resolve();
 
-        expect(persistor.storage.recordBuckets.get('users')?.get('u1')).toEqual({ id: 'u1', name: 'Ada' });
-        expect(persistor.storage.recordBuckets.get('users')?.get('u2')).toEqual({ id: 'u2', name: 'Grace' });
+        expect(persistor.storage.get('users')).toEqual({
+            records: [
+                { pk: 'u1', value: { id: 'u1', name: 'Ada' } },
+                { pk: 'u2', value: { id: 'u2', name: 'Grace' } },
+            ],
+        });
         persistor.destroy();
     });
 
     test('dirty flag: changes during in-flight write are not lost', async () => {
-        const persistor = createMemoryPersistor({});
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
-        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: mapStrategy('users'),
+            })
+        );
         persistor.start();
 
         users.upsertOne({ id: 'u1', name: 'Ada' });
@@ -187,75 +181,68 @@ describe('persist architecture', () => {
 
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        expect(persistor.storage.recordBuckets.get('users')?.size).toBe(2);
+        expect(persistor.storage.get('users')).toEqual({
+            records: [
+                { pk: 'u1', value: { id: 'u1', name: 'Ada' } },
+                { pk: 'u2', value: { id: 'u2', name: 'Grace' } },
+            ],
+        });
         persistor.destroy();
     });
 
-    test('object and manual indexes roundtrip through memory entry strategy', async () => {
-        const persistor = createMemoryPersistor({});
-        const settings = new OIMObject<'theme', string>();
-        settings.setProperty('theme', 'dark');
-
+    test('hydrate does not trigger an immediate re-persist (isHydrating guard)', async () => {
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
-        users.upsertMany([
-            { id: 'u1', name: 'Ada' },
-            { id: 'u2', name: 'Grace' },
-        ]);
+        persistor.storage.set('users', {
+            records: [{ pk: 'u1', value: { id: 'u1', name: 'Ada' } }],
+        });
 
-        const setIndex = new OIMIndexManualSetBased<string, string>();
-        setIndex.setSlots('admin', [users.getSlotByPk('u1')!, users.getSlotByPk('u2')!]);
-
-        const arrayIndex = new OIMIndexManualArrayBased<string, string>();
-        arrayIndex.setSlots('featured', [users.getSlotByPk('u2')!, users.getSlotByPk('u1')!]);
-
-        const orderedIndex = new OIMCollectionIndexManualOrderedArrayBased<string, string, User>(
-            { resolveSlot: pk => users.getSlotByPk(pk) }
-        );
-        orderedIndex.reset('queue', ['u2', 'u1']);
-
-        persistor.object(settings).entry({ bucketName: 'settings' });
-        persistor.setIndex(setIndex).entry({ bucketName: 'set' });
-        persistor.arrayIndex(arrayIndex).entry({ bucketName: 'array' });
-        persistor.orderedArrayIndex(orderedIndex).entry({ bucketName: 'ordered' });
-        await persistor.persist();
-
-        const targetPersistor = createMemoryPersistor({ storage: persistor.storage });
-        const targetSettings = new OIMObject<'theme', string>();
-        const targetSetIndex = new OIMIndexManualSetBased<string, string>();
-        const targetArrayIndex = new OIMIndexManualArrayBased<string, string>();
-        const targetOrderedIndex = new OIMCollectionIndexManualOrderedArrayBased<string, string, User>(
-            { resolveSlot: pk => users.getSlotByPk(pk) }
+        let writes = 0;
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: {
+                    async read(persistor: OIMPersistor<TStorage>) {
+                        return persistor.storage.get('users');
+                    },
+                    async write() {
+                        writes++;
+                    },
+                    async clear() {},
+                },
+            })
         );
 
-        targetPersistor.object(targetSettings).entry({ bucketName: 'settings' });
-        targetPersistor.setIndex(targetSetIndex).entry({ bucketName: 'set' });
-        targetPersistor.arrayIndex(targetArrayIndex).entry({ bucketName: 'array' });
-        targetPersistor.orderedArrayIndex(targetOrderedIndex).entry({ bucketName: 'ordered' });
-        await targetPersistor.hydrate();
+        persistor.start();
+        await persistor.hydrate();
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-        expect(targetSettings.getAll()).toEqual({ theme: 'dark' });
-        expect(Array.from(targetSetIndex.getPksByKey('admin'))).toEqual(['u1', 'u2']);
-        expect(targetArrayIndex.getPksByKey('featured')).toEqual(['u2', 'u1']);
-        expect(targetOrderedIndex.getPksByKey('queue')).toEqual(['u2', 'u1']);
+        expect(users.getAll()).toEqual([{ id: 'u1', name: 'Ada' }]);
+        expect(writes).toBe(0);
+        persistor.destroy();
     });
 });
 
 describe('error handling', () => {
     test('hydrate: calls onError per-resource when strategy.read throws', async () => {
         const errors: TOIMPersistErrorContext[] = [];
-        const persistor = createMemoryPersistor({
+        const persistor = createEnginePersistor({
             onError: (_err, ctx) => errors.push(ctx),
         });
         const users = new OIMCollection<User, string>();
 
-        persistor.addResource(new OIMPersistResource({
-            source: createCollectionSourceAdapter(users),
-            strategy: {
-                async read() { throw new Error('corrupt'); },
-                async write() {},
-                async clear() {},
-            },
-        }));
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: {
+                    async read() {
+                        throw new Error('corrupt');
+                    },
+                    async write() {},
+                    async clear() {},
+                },
+            })
+        );
 
         await expect(persistor.hydrate()).resolves.toBeUndefined();
         expect(errors).toHaveLength(1);
@@ -263,37 +250,47 @@ describe('error handling', () => {
     });
 
     test('hydrate: rethrows when no onError provided', async () => {
-        const persistor = createMemoryPersistor({});
+        const persistor = createEnginePersistor();
         const users = new OIMCollection<User, string>();
 
-        persistor.addResource(new OIMPersistResource({
-            source: createCollectionSourceAdapter(users),
-            strategy: {
-                async read() { throw new Error('corrupt'); },
-                async write() {},
-                async clear() {},
-            },
-        }));
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: {
+                    async read() {
+                        throw new Error('corrupt');
+                    },
+                    async write() {},
+                    async clear() {},
+                },
+            })
+        );
 
         await expect(persistor.hydrate()).rejects.toThrow('corrupt');
     });
 
     test('persist: calls onError per-resource when strategy.write throws', async () => {
         const errors: TOIMPersistErrorContext[] = [];
-        const persistor = createMemoryPersistor({
+        const persistor = createEnginePersistor({
             onError: (_err, ctx) => errors.push(ctx),
         });
         const users = new OIMCollection<User, string>();
         users.upsertOne({ id: 'u1', name: 'Ada' });
 
-        persistor.addResource(new OIMPersistResource({
-            source: createCollectionSourceAdapter(users),
-            strategy: {
-                async read() { return undefined; },
-                async write() { throw new Error('write failure'); },
-                async clear() {},
-            },
-        }));
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(users),
+                strategy: {
+                    async read() {
+                        return undefined;
+                    },
+                    async write() {
+                        throw new Error('write failure');
+                    },
+                    async clear() {},
+                },
+            })
+        );
 
         await expect(persistor.persist()).resolves.toBeUndefined();
         expect(errors).toHaveLength(1);
@@ -370,5 +367,117 @@ describe('createVersionedCodec', () => {
 
         const decoded = codec.decode(legacySnapshot);
         expect(decoded.records[0].value).toEqual({ id: 'u1', name: 'Ada Lovelace' });
+    });
+});
+
+describe('hydration reconcile (onHydrate / byPk)', () => {
+    type Q = { id: string; text?: string; answer?: string };
+
+    function answersResource(
+        persistor: OIMPersistor<TStorage>,
+        questions: OIMCollection<Q, string>
+    ) {
+        return persistor
+            .addResource(
+                new OIMPersistResource({
+                    source: createCollectionSourceAdapter(questions),
+                    strategy: mapStrategy('answers'),
+                })
+            )
+            .onHydrate(
+                byPk((current, incoming) =>
+                    current ? { ...current, answer: incoming.answer } : incoming
+                )
+            );
+    }
+
+    test('overlays incoming onto current, leaving untouched entities intact', async () => {
+        const persistor = createEnginePersistor();
+        const questions = new OIMCollection<Q, string>();
+        questions.upsertMany([
+            { id: 'q1', text: 'T1' },
+            { id: 'q2', text: 'T2' },
+        ]);
+        // current = questions (from "SSR"); incoming = stored answers (from "storage")
+        persistor.storage.set('answers', {
+            records: [{ pk: 'q1', value: { id: 'q1', answer: 'A1' } }],
+        });
+        answersResource(persistor, questions);
+
+        await persistor.hydrate();
+
+        expect(questions.getOneByPk('q1')).toEqual({ id: 'q1', text: 'T1', answer: 'A1' });
+        expect(questions.getOneByPk('q2')).toEqual({ id: 'q2', text: 'T2' });
+    });
+
+    test('byPk unions keys: an incoming-only entity is added', async () => {
+        const persistor = createEnginePersistor();
+        const questions = new OIMCollection<Q, string>();
+        questions.upsertMany([{ id: 'q1', text: 'T1' }]);
+        persistor.storage.set('answers', {
+            records: [
+                { pk: 'q1', value: { id: 'q1', answer: 'A1' } },
+                { pk: 'q9', value: { id: 'q9', answer: 'Z' } },
+            ],
+        });
+        answersResource(persistor, questions);
+
+        await persistor.hydrate();
+
+        expect(questions.getOneByPk('q1')).toEqual({ id: 'q1', text: 'T1', answer: 'A1' });
+        expect(questions.getOneByPk('q9')).toEqual({ id: 'q9', answer: 'Z' });
+    });
+
+    test('a resolver returning undefined drops the entity', async () => {
+        const persistor = createEnginePersistor();
+        const questions = new OIMCollection<Q, string>();
+        questions.upsertMany([
+            { id: 'q1', text: 'T1' },
+            { id: 'q2', text: 'T2' },
+        ]);
+        persistor.storage.set('answers', {
+            records: [{ pk: 'q1', value: { id: 'q1', answer: '__DELETE__' } }],
+        });
+        persistor
+            .addResource(
+                new OIMPersistResource({
+                    source: createCollectionSourceAdapter(questions),
+                    strategy: mapStrategy('answers'),
+                })
+            )
+            .onHydrate(
+                byPk((current, incoming) =>
+                    incoming.answer === '__DELETE__'
+                        ? undefined
+                        : current
+                          ? { ...current, answer: incoming.answer }
+                          : incoming
+                )
+            );
+
+        await persistor.hydrate();
+
+        expect(questions.getOneByPk('q1')).toBeUndefined();
+        expect(questions.getOneByPk('q2')).toEqual({ id: 'q2', text: 'T2' });
+    });
+
+    test('without onHydrate, hydrate replaces current (default, backward compatible)', async () => {
+        const persistor = createEnginePersistor();
+        const questions = new OIMCollection<Q, string>();
+        questions.upsertMany([{ id: 'q1', text: 'T1' }]);
+        persistor.storage.set('answers', {
+            records: [{ pk: 'q2', value: { id: 'q2', text: 'T2' } }],
+        });
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(questions),
+                strategy: mapStrategy('answers'),
+            })
+        );
+
+        await persistor.hydrate();
+
+        expect(questions.getOneByPk('q1')).toBeUndefined();
+        expect(questions.getOneByPk('q2')).toEqual({ id: 'q2', text: 'T2' });
     });
 });

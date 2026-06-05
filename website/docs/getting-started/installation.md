@@ -40,11 +40,26 @@ npm install @oimdb/async @oimdb/core
 
 ## Persist
 
-For durable persistence with memory, `localStorage`, IndexedDB, or custom strategies:
+`@oimdb/persist` is the storage-agnostic engine; the concrete storage backends ship as separate packages. Install the engine plus the backend(s) you need:
 
 ```bash
-npm install @oimdb/persist @oimdb/core
+# in-memory (tests, SSR)
+npm install @oimdb/persist @oimdb/persist-memory @oimdb/core
+
+# localStorage
+npm install @oimdb/persist @oimdb/persist-localstorage @oimdb/core
+
+# IndexedDB
+npm install @oimdb/persist @oimdb/persist-idb @oimdb/core
+
+# JSON dump (SSR dehydrate/hydrate transport)
+npm install @oimdb/persist @oimdb/persist-json @oimdb/core
+
+# async key-value (React Native AsyncStorage, Cordova native storage)
+npm install @oimdb/persist @oimdb/persist-async-kv @oimdb/core
 ```
+
+→ [Persist guide](/docs/packages/persist) · [SSR guide](/docs/guides/ssr)
 
 ## Snapshot Manager
 
