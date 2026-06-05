@@ -64,7 +64,8 @@ export class OIMDevRegistry {
             if (entry.options.indexes) {
                 for (const [indexName, index] of Object.entries(entry.options.indexes)) {
                     const keys = index.getKeys();
-                    indexes[indexName] = { keyCount: keys.length, keys };
+                    // Copy into a fresh mutable array for the serializable result.
+                    indexes[indexName] = { keyCount: keys.length, keys: [...keys] };
                 }
             }
 

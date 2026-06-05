@@ -118,11 +118,59 @@ Run: npx @oimdb/mcp cdp
 
 Or paste the output into a prompt manually.
 
+---
+
+## Option C — Offline / in-process model (no browser)
+
+The same MCP tools (`oimdb_inspect`, `oimdb_dump`, `oimdb_collection`, `oimdb_computed`) can read an **in-process model** instead of a live tab — so an assistant can answer *"what's the data model?"* without running the app. Structure (collections, indexes, relations) is available statically; entity field names appear only if the model holds a sample entity (TypeScript types are erased at runtime).
+
+### Via the CLI — a model module
+
+Point the server at a module that builds the model in Node and exports a `registry` (or a default export, or a zero-arg factory):
+
+```ts
+// oimdb-model.js  (built JS, or run the server under a TS loader)
+import { OIMEventQueue, OIMReactiveCollection } from '@oimdb/core';
+import { OIMDevRegistry } from '@oimdb/devtools';
+
+const queue = new OIMEventQueue();
+const users = new OIMReactiveCollection(queue, { selectPk: u => u.id });
+
+export const registry = new OIMDevRegistry();
+registry.collection('users', users, { indexes: { /* ... */ } });
+```
+
+```json
+{
+  "mcpServers": {
+    "oimdb": {
+      "command": "node",
+      "args": ["./node_modules/@oimdb/mcp/bin/server.cjs"],
+      "env": { "OIMDB_MODEL_MODULE": "./oimdb-model.js" }
+    }
+  }
+}
+```
+
+No WebSocket port is opened and no browser is required.
+
+### Embedded — inject a registry
+
+When running the server from your own Node process:
+
+```ts
+import { createOIMDevMcpServer } from '@oimdb/mcp';
+import { registry } from './oimdb-model';
+
+await createOIMDevMcpServer({ registry }).start();
+```
+
 ### When to use each
 
-| | MCP server | CDP |
-|---|---|---|
-| Setup | Configure once per project | Launch Chrome with a flag |
-| Connection | Persistent, live | One-shot |
-| Page changes needed | `registry.connect()` | None (`window.__OIMDB_DEV__` only) |
-| Best for | Active debugging sessions | Quick one-off inspection |
+| | MCP server (live) | CDP | Offline model |
+|---|---|---|---|
+| Setup | Configure once per project | Launch Chrome with a flag | Point at a model module |
+| Connection | Persistent, live | One-shot | In-process, static |
+| Page changes needed | `registry.connect()` | None (`window.__OIMDB_DEV__` only) | None — no browser at all |
+| Live data | Yes | Yes | Structure always; fields only if seeded |
+| Best for | Active debugging sessions | Quick one-off inspection | "What's the model?" offline |

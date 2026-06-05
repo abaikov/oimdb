@@ -128,7 +128,7 @@ describe('collection-bound PK indexes', () => {
         ]);
     });
 
-    test('PK writes fail fast when a collection slot is missing', () => {
+    test('PK writes for a missing slot are tolerated and fill in later', () => {
         const { queue, users } = createUsers();
         const index = new OIMReactiveCollectionIndexManualArrayBased<
             string,
@@ -136,8 +136,17 @@ describe('collection-bound PK indexes', () => {
             TEntity
         >(queue, { collection: users });
 
-        expect(() => index.setPks('team1', ['missing'])).toThrow(
-            'Unable to resolve slot'
-        );
+        // Indexing a pk whose entity has not arrived yet must not throw; the
+        // entity simply does not materialize until it exists.
+        expect(() => index.setPks('team1', ['missing'])).not.toThrow();
+        expect(index.getPksByKey('team1')).toEqual(['missing']);
+        expect(index.getEntitiesByKey<TEntity>('team1')).toEqual([]);
+
+        // The reserved slot is a stable reference: once the entity is written,
+        // it fills in without re-indexing.
+        users.upsertOne({ id: 'missing', name: 'Z' });
+        expect(index.getEntitiesByKey<TEntity>('team1')).toEqual([
+            { id: 'missing', name: 'Z' },
+        ]);
     });
 });

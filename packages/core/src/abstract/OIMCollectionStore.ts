@@ -14,6 +14,16 @@ export abstract class OIMCollectionStore<
         pk: TPk
     ): TOIMEntitySlot<TEntity, TPk> | undefined;
 
+    /**
+     * Returns the canonical slot for `pk`, creating a reserved empty slot
+     * (`item: undefined`) if no entity exists yet. The reserved slot is a stable
+     * reference that fills in when the entity is later written, so indexes can
+     * hold it ahead of the entity's arrival without crashing.
+     */
+    abstract getOrReserveSlotByPk(
+        pk: TPk
+    ): TOIMEntitySlot<TEntity, TPk>;
+
     abstract getSlotsByPks(
         pks: readonly TPk[]
     ): TOIMEntitySlot<TEntity, TPk>[];

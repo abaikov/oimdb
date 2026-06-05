@@ -45,6 +45,10 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
         return this.store.getSlotByPk(pk);
     }
 
+    getOrReserveSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
+        return this.store.getOrReserveSlotByPk(pk);
+    }
+
     getSlotsByPks(pks: readonly TPk[]): TOIMEntitySlot<TEntity, TPk>[] {
         return this.store.getSlotsByPks(pks);
     }

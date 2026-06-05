@@ -7,17 +7,40 @@ export class OIMCollectionStoreMapDriven<
     TPk extends TOIMPk,
 > extends OIMCollectionStore<TEntity, TPk> {
     protected readonly slots = new Map<TPk, TOIMEntitySlot<TEntity, TPk>>();
+    // Slots reserved by indexes for PKs whose entity has not arrived yet.
+    // They carry `item: undefined` and live apart from `slots` so they do not
+    // leak into entity enumeration (getAll/getAllPks/countAll). When the entity
+    // is finally written, the reserved slot is promoted into `slots` — keeping
+    // the reference that indexes already hold, so it fills in live.
+    protected readonly reservedSlots = new Map<TPk, TOIMEntitySlot<TEntity, TPk>>();
 
     setOneByPk(pk: TPk, entity: TEntity): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.slots.get(pk);
         if (slot) {
             slot.item = entity;
             return slot;
-        } else {
-            const nextSlot = { pk, item: entity };
-            this.slots.set(pk, nextSlot);
-            return nextSlot;
         }
+        const reserved = this.reservedSlots.get(pk);
+        if (reserved) {
+            reserved.item = entity;
+            this.reservedSlots.delete(pk);
+            this.slots.set(pk, reserved);
+            return reserved;
+        }
+        const nextSlot = { pk, item: entity };
+        this.slots.set(pk, nextSlot);
+        return nextSlot;
+    }
+
+    getOrReserveSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
+        const slot = this.slots.get(pk);
+        if (slot) return slot;
+        let reserved = this.reservedSlots.get(pk);
+        if (!reserved) {
+            reserved = { pk, item: undefined };
+            this.reservedSlots.set(pk, reserved);
+        }
+        return reserved;
     }
 
     setManyByPks(
@@ -58,6 +81,11 @@ export class OIMCollectionStoreMapDriven<
         const slot = this.slots.get(pk);
         if (slot) slot.item = undefined;
         this.slots.delete(pk);
+        const reserved = this.reservedSlots.get(pk);
+        if (reserved) {
+            reserved.item = undefined;
+            this.reservedSlots.delete(pk);
+        }
     }
 
     removeManyByPks(pks: readonly TPk[]): void {
@@ -103,6 +131,10 @@ export class OIMCollectionStoreMapDriven<
             slot.item = undefined;
         }
         this.slots.clear();
+        for (const slot of this.reservedSlots.values()) {
+            slot.item = undefined;
+        }
+        this.reservedSlots.clear();
     }
 
     getAllPks(): TPk[] {

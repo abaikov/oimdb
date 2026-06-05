@@ -23,7 +23,7 @@ export class OIMReactiveCollectionIndexManualArrayBased<
     ) {
         const resolveSlot =
             opts.collection !== undefined
-                ? (pk: TPk) => opts.collection.getSlotByPk(pk)
+                ? (pk: TPk) => opts.collection.getOrReserveSlotByPk(pk)
                 : opts.resolveSlot;
 
         super(queue, {
@@ -91,11 +91,11 @@ export class OIMReactiveCollectionIndexManualArrayBased<
 
     private resolveRequiredSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {
         const slot = this.resolveSlot(pk);
-        if (!slot) {
-            throw new Error(
-                `[OIMReactiveCollectionIndexManualArrayBased]: Unable to resolve slot for PK "${String(pk)}".`
-            );
-        }
+        // A custom resolver may not have a slot for this pk yet. Rather than
+        // crashing, hold a transient empty slot so the pk stays indexed and the
+        // entity simply does not materialize until it exists. (The collection-
+        // bound resolver returns a reserved slot that fills in live.)
+        if (!slot) return { pk, item: undefined };
         return slot;
     }
 }

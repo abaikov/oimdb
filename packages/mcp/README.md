@@ -108,6 +108,49 @@ Call oimdb_inspect to see what's in the store.
 | `oimdb_collection` | Details of one collection by name |
 | `oimdb_computed` | Status + deps of one computed by name |
 
+## Offline / static mode (no browser)
+
+By default the tools read a **live browser tab**. You can instead point the
+server at an **in-process model** so it answers offline — ideal for "what's the
+data model?" questions without running the app.
+
+**CLI — a model module.** Set `OIMDB_MODEL_MODULE` to a module that builds the
+model in Node and exports a `registry` (or a default export, or a zero-arg
+factory returning one):
+
+```ts
+// oimdb-model.js  (built JS, or run the server under a TS loader)
+import { OIMEventQueue, OIMReactiveCollection } from '@oimdb/core';
+import { OIMDevRegistry } from '@oimdb/devtools';
+
+const queue = new OIMEventQueue();
+const users = new OIMReactiveCollection(queue, { selectPk: u => u.id });
+
+export const registry = new OIMDevRegistry();
+registry.collection('users', users, { indexes: { /* ... */ } });
+```
+
+```bash
+OIMDB_MODEL_MODULE=./oimdb-model.js npx @oimdb/mcp
+```
+
+No WebSocket port is opened in this mode — no browser required.
+
+**Embedded — inject a registry.** When running the server from your own Node
+process, pass the registry directly:
+
+```ts
+import { createOIMDevMcpServer } from '@oimdb/mcp';
+import { registry } from './oimdb-model';
+
+await createOIMDevMcpServer({ registry }).start();
+```
+
+> **Fields offline:** structure (collections, indexes, relations) is available
+> as soon as the model is constructed. Entity **field names** appear only when
+> the model holds at least one sample entity (TypeScript types are erased at
+> runtime) — seed a representative row in the model module if you want them.
+
 ## CDP Inspector (no browser-side code needed)
 
 Launch Chrome with `--remote-debugging-port=9222`, then:

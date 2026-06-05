@@ -5,6 +5,7 @@ import type { TOIMDevUIServerOptions } from './core/OIMDevUIServer';
 
 export { OIMDevMcpServer, OIMDevUIServer };
 export type { TOIMDevMcpOptions, TOIMDevUIServerOptions };
+export type { IOIMDevRegistryLike } from './types/TOIMDevMcpOptions';
 
 export function createOIMDevMcpServer(options?: TOIMDevMcpOptions): OIMDevMcpServer {
     return new OIMDevMcpServer(options);
