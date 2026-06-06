@@ -106,6 +106,32 @@ For `OIMReactiveObject` (settings, flags, single values):
 | `useSelectValueByObjectKey(obj, key)` | `TValue \| undefined` |
 | `useSelectValuesByObjectKeys(obj, keys)` | `(TValue \| undefined)[]` |
 
+## Fast binding (opt-in)
+
+The default hooks are built on React's `useSyncExternalStore`, which is **Concurrent-Mode safe** (anti-tearing). That safety has a cost: `getSnapshot` is called several times per update plus extra bookkeeping.
+
+For update-heavy UIs that don't rely on Concurrent features (Suspense / transitions), every hook has a `*Fast` twin — same name + `Fast`, same signature and return type:
+
+```tsx
+import { useSelectEntityByPkFast, useSelectPksByIndexKeyArrayBasedFast } from '@oimdb/react';
+
+const user = useSelectEntityByPkFast(users, userId);
+const cardIds = useSelectPksByIndexKeyArrayBasedFast(cardsByDeck, deckId);
+```
+
+The fast variants subscribe manually and `forceUpdate`, reading the value synchronously during render. They **keep reference stability** (the same array/Set/entity reference is returned while the content is unchanged, so `React.memo` children are not re-rendered) and skip re-renders when a fired key didn't actually change the value.
+
+**Trade-off — choose deliberately:**
+
+| | Default hooks | `*Fast` hooks |
+|---|---|---|
+| Throughput | Baseline | ~25% faster on update-heavy workloads |
+| Concurrent Mode (Suspense/transitions) | Tearing-safe | **Not** tearing-safe |
+| Reference stability | Yes | Yes |
+| API | — | identical, `+Fast` suffix |
+
+Default to the standard hooks; reach for `*Fast` when a profiler shows the binding is your bottleneck and you're not using Concurrent features.
+
 ## Multiple contexts
 
 If you have multiple independent app sections, create separate typed contexts instead of sharing the global one:

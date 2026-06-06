@@ -3,9 +3,10 @@ import {
     TOIMDerivedCollectionIndexArrayBasedOptions,
     TOIMDerivedEntityComparator,
     TOIMDerivedEntityOrderSelector,
+    TOIMDerivedEntityOrderValue,
     TOIMDerivedIndexKeySelector,
 } from '../types/TOIMCollectionIndexOptions';
-import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import { TOIMAnyEntitySlot, TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
@@ -31,6 +32,9 @@ export class OIMDerivedCollectionIndexArrayBased<
     private readonly orderBy?: TOIMDerivedEntityOrderSelector<TEntity>;
     private readonly unsubscribeFromCollection: () => void;
     private readonly keysByPk = new Map<TPk, Set<TKey>>();
+    // Last known sort value per pk (only when `orderBy` is used), so an update
+    // touching an unrelated field can skip re-sorting when the value is unchanged.
+    private readonly orderValueByPk = new Map<TPk, TOIMDerivedEntityOrderValue>();
 
     constructor(
         queue: OIMEventQueue,
@@ -57,6 +61,7 @@ export class OIMDerivedCollectionIndexArrayBased<
 
     public rebuildFromCollection(): void {
         this.keysByPk.clear();
+        this.orderValueByPk.clear();
         super.clear();
 
         const slotsByKey = new Map<TKey, TOIMEntitySlot<TEntity, TPk>[]>();
@@ -68,6 +73,9 @@ export class OIMDerivedCollectionIndexArrayBased<
             if (keys.length === 0) continue;
 
             this.keysByPk.set(slot.pk, new Set(keys));
+            if (this.orderBy) {
+                this.orderValueByPk.set(slot.pk, this.orderBy(slot.item));
+            }
             for (const key of keys) {
                 let slotsForKey = slotsByKey.get(key);
                 if (!slotsForKey) {
@@ -86,6 +94,7 @@ export class OIMDerivedCollectionIndexArrayBased<
     public override clear(key?: TKey): void {
         if (key === undefined) {
             this.keysByPk.clear();
+            this.orderValueByPk.clear();
         } else {
             for (const keys of this.keysByPk.values()) {
                 keys.delete(key);
@@ -97,6 +106,7 @@ export class OIMDerivedCollectionIndexArrayBased<
     public override destroy(): void {
         this.unsubscribeFromCollection();
         this.keysByPk.clear();
+        this.orderValueByPk.clear();
         super.destroy();
     }
 
@@ -106,60 +116,78 @@ export class OIMDerivedCollectionIndexArrayBased<
             return;
         }
 
-        const affectedKeys = new Set<TKey>();
+        const ordered = !!(this.compareEntities || this.orderBy);
+        // Keys whose bucket order must be recomputed (membership add or a moved
+        // sort position). Removal-only keys keep their order, so they are not here.
+        const keysToSort = ordered ? new Set<TKey>() : null;
+
         for (const pk of pks) {
-            this.trackPkKeys(pk, affectedKeys);
+            const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
+            const slot = this.collection.getSlotByPk(pk);
+            const entity = slot?.item;
+            const nextKeys =
+                entity === undefined
+                    ? new Set<TKey>()
+                    : new Set(this.normalizeKeys(this.selectIndexKeys(entity)));
+
+            // Did this entity's sort position possibly change?
+            let orderChanged = false;
+            if (this.orderBy) {
+                if (entity === undefined || nextKeys.size === 0) {
+                    this.orderValueByPk.delete(pk);
+                } else {
+                    const value = this.orderBy(entity);
+                    orderChanged =
+                        !this.orderValueByPk.has(pk) ||
+                        this.orderValueByPk.get(pk) !== value;
+                    this.orderValueByPk.set(pk, value);
+                }
+            } else if (this.compareEntities && entity !== undefined) {
+                // A custom comparator may depend on any field — be conservative.
+                orderChanged = true;
+            }
+
+            // Removed keys: drop membership; order of the remaining slots is kept.
+            for (const key of prevKeys) {
+                if (!nextKeys.has(key)) this.removePks(key, [pk]);
+            }
+
+            // Added / retained keys.
+            if (entity !== undefined) {
+                for (const key of nextKeys) {
+                    if (!prevKeys.has(key)) {
+                        this.addPks(key, [pk]); // new member needs ordering
+                        keysToSort?.add(key);
+                    } else if (orderChanged) {
+                        keysToSort?.add(key); // same member, position moved
+                    }
+                }
+            }
+
+            if (nextKeys.size === 0) this.keysByPk.delete(pk);
+            else this.keysByPk.set(pk, nextKeys);
         }
-        for (const key of affectedKeys) {
-            this.rebuildKey(key);
+
+        // Re-sort only the touched buckets, reading each bucket's own slots
+        // (O(bucket)) rather than scanning the whole collection per key.
+        if (keysToSort) {
+            for (const key of keysToSort) {
+                this.setSlots(
+                    key,
+                    this.sortSlots(this.index.getSlotsByKey(key))
+                );
+            }
         }
     };
 
-    private trackPkKeys(pk: TPk, affectedKeys: Set<TKey>): void {
-        const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
-        for (const key of prevKeys) affectedKeys.add(key);
-
-        const slot = this.collection.getSlotByPk(pk);
-        const entity = slot?.item;
-        const nextKeys =
-            entity === undefined
-                ? new Set<TKey>()
-                : new Set(this.normalizeKeys(this.selectIndexKeys(entity)));
-
-        for (const key of nextKeys) affectedKeys.add(key);
-
-        if (nextKeys.size === 0) {
-            this.keysByPk.delete(pk);
-        } else {
-            this.keysByPk.set(pk, nextKeys);
-        }
-    }
-
-    private rebuildKey(key: TKey): void {
-        const keySlots: TOIMEntitySlot<TEntity, TPk>[] = [];
-        const slots = this.collection.getAllSlots();
-
-        for (const slot of slots) {
-            if (slot.item === undefined) continue;
-            const keys = this.keysByPk.get(slot.pk);
-            if (keys?.has(key)) keySlots.push(slot);
-        }
-
-        if (keySlots.length === 0) {
-            super.clear(key);
-        } else {
-            this.setSlots(key, this.sortSlots(keySlots));
-        }
-    }
-
     private sortSlots(
-        slots: TOIMEntitySlot<TEntity, TPk>[]
-    ): TOIMEntitySlot<TEntity, TPk>[] {
-        if (!this.compareEntities && !this.orderBy) return slots;
+        slots: readonly TOIMAnyEntitySlot<TPk>[]
+    ): TOIMAnyEntitySlot<TPk>[] {
+        if (!this.compareEntities && !this.orderBy) return slots.slice();
 
         return slots.slice().sort((a, b) => {
-            const aItem = a.item;
-            const bItem = b.item;
+            const aItem = a.item as TEntity | undefined;
+            const bItem = b.item as TEntity | undefined;
             if (aItem === undefined || bItem === undefined) return 0;
             if (this.compareEntities) {
                 return this.compareEntities(aItem, bItem);

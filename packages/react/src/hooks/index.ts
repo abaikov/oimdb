@@ -530,3 +530,6 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
     const getSnapshot = useMemo(() => () => snapshotRef.current, []);
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
+
+// Fast (non-Concurrent) binding variants — opt-in, see ./fast.ts
+export * from './fast';
