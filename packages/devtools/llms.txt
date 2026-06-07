@@ -11,7 +11,7 @@ OIMDB is a TypeScript in-memory reactive database. It stores entities in typed c
 | Package | Purpose |
 |---|---|
 | `@oimdb/core` | Collections, indexes, event queue, reactive primitives |
-| `@oimdb/persist` | Persist/hydrate collections to localStorage, IndexedDB, memory |
+| `@oimdb/persist` | Storage-agnostic persist/hydrate engine (source adapters, resources, versioned codec). Backends ship separately: `@oimdb/persist-memory`, `-localstorage`, `-idb`, `-async-kv`, `-json` |
 | `@oimdb/react` | React hooks for collections and selectors |
 | `@oimdb/async` | Async-aware reactive collection and index variants |
 | `@oimdb/devtools` | Debug registry: name collections/indexes/computeds, inspect runtime state |
@@ -77,6 +77,12 @@ byRole.subscribeOnKey('admin', () => {
 });
 queue.flush(); // delivers subscription
 ```
+
+Membership writes are incremental (touch only the changed pks):
+- `addPks(key, pks)` / `removePks(key, pks)` — **set-based**: O(1) per pk for both. **array-based**: `addPks` O(1), `removePks` O(bucket) (ordered, must scan).
+- For frequently changing membership (e.g. a **virtual/windowed list** indexing the on-screen rows, adding/removing on scroll) prefer **set-based**.
+- `setPks` / `addPks` resolve each pk → slot (O(1) lookup); if you already hold slots (`collection.upsertMany` returns them) use `setSlots` / `appendSlots` to skip the lookup.
+- `getEntitiesByKey(key)` returns `(TEntity | undefined)[]` — positional holes for not-yet-loaded pks, aligned with `getPksByKey` (not dropped), so you can render a loading state.
 
 ### DX Layer — Collection Model
 
@@ -210,10 +216,32 @@ const { users } = useOIMCollectionsContext<AppCollections>();
 | `useSelectValueByObjectKey(object, key)` | One key from `OIMReactiveObject` |
 | `useSelectValuesByObjectKeys(object, keys)` | Multiple keys from `OIMReactiveObject` |
 
+All hooks above use `useSyncExternalStore` (Concurrent-safe; detect change by `Object.is` reference).
+
+### Mutable mode + signal hooks (advanced, opt-in)
+
+For update-heavy / fine-grained UIs, run a collection **in place** (no per-update object copy) and bind with the lighter **signal hooks** (re-render on the keyed notification, no `useSyncExternalStore`, no `Object.is`):
+
+```ts
+import { OIMReactiveCollection, createInPlaceEntityUpdater } from '@oimdb/core';
+import { useSelectEntityByPkSignal, useSelectPksByIndexKeyArrayBasedSignal } from '@oimdb/react';
+
+const cards = new OIMReactiveCollection(queue, {
+    selectPk: c => c.id,
+    updateEntity: createInPlaceEntityUpdater(), // mutate in place, no allocation
+});
+const card = useSelectEntityByPkSignal(cards, id); // sees in-place mutations (uSES would miss them)
+```
+
+Signal hooks: `useSelectEntityByPkSignal(collection, pk)`, `useSelectPksByIndexKeyArrayBasedSignal(index, key)`, `useSelectPksByIndexKeySetBasedSignal(index, key)`. Use the fine-grained pattern (parent reads pks by index key; each row reads its own entity by pk).
+
+Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Default to the standard immutable hooks; reach for this only when a profile shows the data layer is the bottleneck.
+
 ## Persist (`@oimdb/persist`)
 
 ```ts
-import { createLocalStoragePersistor } from '@oimdb/persist';
+// Backends are separate packages: @oimdb/persist-localstorage / -idb / -memory / -async-kv / -json
+import { createLocalStoragePersistor } from '@oimdb/persist-localstorage';
 
 const persistor = createLocalStoragePersistor({});
 

@@ -2,7 +2,7 @@ import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';
 import { OIMIndexManualSetBased } from './OIMIndexManualSetBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
-import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
+import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
@@ -12,7 +12,7 @@ class OIMIndexManualSetBasedReactive<
     TPk extends TOIMPk,
 > extends OIMIndexManualSetBased<TKey, TPk> {
     constructor(
-        private readonly updateEmitter: OIMUpdateEventEmitter<TKey>,
+        private readonly updateEmitter: IOIMKeyedUpdateEmitter<TKey>,
         opts?: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TKey, TPk>;

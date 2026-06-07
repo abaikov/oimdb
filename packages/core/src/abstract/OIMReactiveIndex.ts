@@ -1,5 +1,8 @@
 import { TOIMPk } from '../types/TOIMPk';
-import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
+import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
+import { OIMCarrierKeyedEmitter } from '../core/OIMCarrierKeyedEmitter';
+import { OIMKeyedCarrierResolver } from '../core/OIMKeyedCarrierResolver';
+import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
@@ -12,13 +15,19 @@ export abstract class OIMReactiveIndex<
     TIndex extends OIMIndex<TKey, TPk, Iterable<TOIMAnyEntitySlot<TPk>>>,
 > implements IOIMKeyedSubscription<TKey> {
     public readonly index: TIndex;
-    protected readonly updateEmitter: OIMUpdateEventEmitter<TKey>;
+    protected readonly updateEmitter: IOIMKeyedUpdateEmitter<TKey>;
 
     constructor(
         queue: OIMEventQueue,
-        createIndex: (updateEmitter: OIMUpdateEventEmitter<TKey>) => TIndex
+        createIndex: (updateEmitter: IOIMKeyedUpdateEmitter<TKey>) => TIndex
     ) {
-        this.updateEmitter = new OIMUpdateEventEmitter<TKey>(queue);
+        // Carrier-based keyed emitter: handlers live on a per-key carrier, so
+        // marking dirty is an O(1) flag set and delivery needs no per-key map
+        // lookup. The resolver owns the key→carrier map and prunes empties.
+        this.updateEmitter = new OIMCarrierKeyedEmitter<
+            TKey,
+            IOIMKeyCarrier<TKey>
+        >(queue, new OIMKeyedCarrierResolver<TKey>());
         this.index = createIndex(this.updateEmitter);
     }
 

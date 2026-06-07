@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/devtools",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Debug registry for OIMDB: name collections and indexes, inspect runtime state, assist AI development",
   "type": "module",
   "main": "./dist/index.cjs",

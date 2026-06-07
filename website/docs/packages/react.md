@@ -128,6 +128,16 @@ const card = useSelectEntityByPkSignal(cards, id);
 const ids  = useSelectPksByIndexKeyArrayBasedSignal(cardsByDeck, deckId);
 ```
 
+Available signal hooks (same signatures as their default counterparts):
+
+| Hook | Returns |
+|---|---|
+| `useSelectEntityByPkSignal(collection, pk)` | `TEntity \| undefined` |
+| `useSelectPksByIndexKeyArrayBasedSignal(index, key)` | `readonly TPk[]` |
+| `useSelectPksByIndexKeySetBasedSignal(index, key)` | `ReadonlySet<TPk>` |
+
+These three cover the fine-grained pattern: a parent reads pks by index key, each row reads its own entity by pk. (Entity-by-pk for the row + pks-by-index for the list — no signal variants exist for the `*Keys` plural or entities-by-index hooks; compose from these.)
+
 This drops both the merge copy and the uSES overhead — the per-update work MobX also avoids. It pays off where the data layer is the bottleneck (very fine-grained renderers, large update-heavy lists); in plain React the per-component commit usually dominates, so the win is small.
 
 **Use only when every reader is subscription-driven**, and mind the trade-offs:

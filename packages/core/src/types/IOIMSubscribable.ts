@@ -5,4 +5,12 @@
  */
 export interface IOIMSubscribable {
     subscribers?: Set<() => void>;
+    /**
+     * Dirty-batch membership flag, owned by the keyed emitter. `true` while the
+     * carrier sits in the pending flush batch — lets the emitter dedup marks with
+     * an O(1) boolean check instead of a `Set` identity-hash lookup. Reset to
+     * `false` as the carrier is delivered (or on flush teardown). Do not read or
+     * write outside the emitter.
+     */
+    dirty?: boolean;
 }

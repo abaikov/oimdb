@@ -1,6 +1,6 @@
 import { OIMIndexArrayBased } from './OIMIndexArrayBased';
 import { TOIMPk } from '../types/TOIMPk';
-import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
+import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMReactiveIndex } from './OIMReactiveIndex';
@@ -12,7 +12,7 @@ export abstract class OIMReactiveIndexArrayBased<
 > extends OIMReactiveIndex<TKey, TPk, TIndex> {
     constructor(
         queue: OIMEventQueue,
-        createIndex: (updateEmitter: OIMUpdateEventEmitter<TKey>) => TIndex
+        createIndex: (updateEmitter: IOIMKeyedUpdateEmitter<TKey>) => TIndex
     ) {
         super(queue, createIndex);
     }

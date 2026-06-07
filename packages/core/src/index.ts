@@ -33,6 +33,7 @@ export * from './core/createInPlaceEntityUpdater';
 export * from './core/OIMEventEmitter';
 export * from './core/OIMCarrierKeyedEmitter';
 export * from './types/IOIMSubscribable';
+export * from './interfaces/IOIMKeyedUpdateEmitter';
 export * from './core/OIMEventQueue';
 export * from './core/OIMIndexComparatorFactory';
 export * from './core/OIMIndexManualSetBased';

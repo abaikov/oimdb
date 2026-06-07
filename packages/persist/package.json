@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Storage-agnostic persistence engine for OIMDB (source adapters, resources, versioned codec). Backends ship as @oimdb/persist-memory, -localstorage, -idb.",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -2,6 +2,7 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { TOIMPk } from '../types/TOIMPk';
 import { IOIMSubscribable } from '../types/IOIMSubscribable';
+import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 
 /**
  * Resolves a key to its carrier — the object that holds the key's subscribers.
@@ -15,6 +16,13 @@ import { IOIMSubscribable } from '../types/IOIMSubscribable';
 export interface IOIMCarrierResolver<TKey extends TOIMPk, TCarrier> {
     getOrReserveCarrier(key: TKey): TCarrier;
     findCarrier(key: TKey): TCarrier | undefined;
+    /**
+     * Optional: called when a carrier loses its last subscriber, so a resolver
+     * that owns standalone carriers (e.g. the index's key→carrier map) can prune
+     * it and not leak the key space. Resolvers whose carriers are owned
+     * elsewhere (e.g. the collection's slots) leave this unset.
+     */
+    onCarrierEmptied?(carrier: TCarrier): void;
 }
 
 /**
@@ -31,12 +39,16 @@ export interface IOIMCarrierResolver<TKey extends TOIMPk, TCarrier> {
 export class OIMCarrierKeyedEmitter<
     TKey extends TOIMPk,
     TCarrier extends IOIMSubscribable,
-> {
+> implements IOIMKeyedUpdateEmitter<TKey> {
     private readonly queue: OIMEventQueue;
     private readonly resolver: IOIMCarrierResolver<TKey, TCarrier>;
     // Carriers with at least one subscriber — for markAllUpdated / metrics.
     private readonly subscribedCarriers = new Set<TCarrier>();
-    private dirtyCarriers = new Set<TCarrier>();
+    // Pending flush batch. A plain array + a `carrier.dirty` flag for dedup —
+    // marking is the hottest write-path op, and pushing to an array with a
+    // boolean check is ~4x cheaper than a `Set` identity-hash add. The flag
+    // doubles as membership: a carrier is in this array iff `carrier.dirty`.
+    private dirtyCarriers: TCarrier[] = [];
     private isFlushEnqueued = false;
     private dequeueFlush?: () => void;
 
@@ -107,8 +119,10 @@ export class OIMCarrierKeyedEmitter<
         subscribers.delete(handler);
         if (subscribers.size === 0) {
             this.subscribedCarriers.delete(carrier);
-            // The carrier is left in place (it may still hold data or be
-            // referenced elsewhere); the store/index reclaims it on remove/clear.
+            // Let a resolver that owns standalone carriers prune this one
+            // (index key→carrier map). Carriers owned elsewhere (collection
+            // slots) have no hook and are reclaimed on remove/clear instead.
+            this.resolver.onCarrierEmptied?.(carrier);
         }
     }
 
@@ -117,7 +131,9 @@ export class OIMCarrierKeyedEmitter<
         this.assertNotInFlush();
         const subscribers = carrier.subscribers;
         if (!subscribers || subscribers.size === 0) return;
-        this.dirtyCarriers.add(carrier);
+        if (carrier.dirty) return; // already in the pending batch
+        carrier.dirty = true;
+        this.dirtyCarriers.push(carrier);
         this.scheduleFlush();
     }
 
@@ -134,9 +150,11 @@ export class OIMCarrierKeyedEmitter<
     public markAllUpdated(): void {
         this.assertNotInFlush();
         if (this.subscribedCarriers.size === 0) return;
-        this.subscribedCarriers.forEach(carrier =>
-            this.dirtyCarriers.add(carrier)
-        );
+        this.subscribedCarriers.forEach(carrier => {
+            if (carrier.dirty) return;
+            carrier.dirty = true;
+            this.dirtyCarriers.push(carrier);
+        });
         this.scheduleFlush();
     }
 
@@ -163,7 +181,7 @@ export class OIMCarrierKeyedEmitter<
             totalKeys,
             totalHandlers,
             averageHandlersPerKey: totalKeys > 0 ? totalHandlers / totalKeys : 0,
-            queueLength: this.dirtyCarriers.size,
+            queueLength: this.dirtyCarriers.length,
         };
     }
 
@@ -177,7 +195,10 @@ export class OIMCarrierKeyedEmitter<
             carrier.subscribers = undefined;
         });
         this.subscribedCarriers.clear();
-        this.dirtyCarriers.clear();
+        for (let i = 0; i < this.dirtyCarriers.length; i++) {
+            this.dirtyCarriers[i].dirty = false;
+        }
+        this.dirtyCarriers = [];
         this.isFlushEnqueued = false;
     }
 
@@ -199,11 +220,25 @@ export class OIMCarrierKeyedEmitter<
     private readonly onFlush = (): void => {
         this.isFlushEnqueued = false;
         this.dequeueFlush = undefined;
-        if (this.dirtyCarriers.size === 0) return;
+        if (this.dirtyCarriers.length === 0) return;
 
+        // Swap in a fresh batch so any (illegal) re-mark wouldn't touch this one.
         const flushing = this.dirtyCarriers;
-        this.dirtyCarriers = new Set();
-        flushing.forEach(carrier => this.notify(carrier));
+        this.dirtyCarriers = [];
+        let i = 0;
+        try {
+            for (; i < flushing.length; i++) {
+                // Clear before notifying: even if a handler throws, the carrier
+                // is left re-markable rather than stuck dirty.
+                flushing[i].dirty = false;
+                this.notify(flushing[i]);
+            }
+        } finally {
+            // On a thrown handler, clear flags of the carriers we never reached
+            // so they can be re-marked (they drop from this batch, as the old
+            // Set-based flush also dropped its remaining carriers).
+            for (; i < flushing.length; i++) flushing[i].dirty = false;
+        }
     };
 
     private notify(carrier: TCarrier): void {
