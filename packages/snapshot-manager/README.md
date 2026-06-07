@@ -34,9 +34,9 @@ const collections = {
 const snapshotManager = new OIMSnapshotManager(collections);
 
 // Let changes happen...
-// userCollection.create({...});
-// postCollection.updateByPk(1, {...});
-// commentCollection.deleteByPk(5);
+// userCollection.upsertOne({...});
+// postCollection.upsertOneByPk(1, {...});
+// commentCollection.removeOneByPk(5);
 
 // Take snapshot
 const snapshot = snapshotManager.takeSnapshot();
@@ -56,12 +56,14 @@ snapshotManager.destroy();
 ### `OIMSnapshotManager<TCollections>`
 
 #### Constructor
-- `new OIMSnapshotManager(collections)` - Creates manager and subscribes to collection events
+- `new OIMSnapshotManager(collections, options?)` - Creates manager and subscribes to collection events.
+  - `options.includeEmptyCollections?: boolean` (default `true`) - include collections with no recorded changes as empty arrays in the snapshot.
 
 #### Methods
-- `takeSnapshot()` - Returns snapshot of all changes and clears internal state
+- `takeSnapshot()` - Returns snapshot of all changes and **clears internal state** (each snapshot is the delta since the previous one).
 - `destroy()` - Unsubscribes from all events
 
 #### Types
+- `SnapshotManagerOptions` - Constructor options (`includeEmptyCollections`)
 - `SnapshotData<T>` - Type for snapshot results
 - `EntitySnapshot<TEntity, TPk>` - Individual entity snapshot

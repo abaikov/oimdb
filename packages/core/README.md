@@ -546,6 +546,31 @@ users.upsertOne({ id: 'user1', name: 'John' });
 users.upsertOne({ id: 'user1', email: 'john@example.com' }); // Merges with existing
 ```
 
+#### Built-in updaters
+
+Two updater strategies ship as factories — pass the result as `updateEntity`:
+
+```typescript
+import { createMergeEntityUpdater, createInPlaceEntityUpdater } from '@oimdb/core';
+
+// Default: immutable shallow merge — `{ ...prev, ...draft }`. Each update produces
+// a NEW entity object (required for React's Object.is / useSyncExternalStore).
+const a = new OIMReactiveCollection<User, string>(queue, {
+    selectPk: (u) => u.id,
+    updateEntity: createMergeEntityUpdater(),
+});
+
+// In-place: `Object.assign(prev, draft)` — mutates the existing object, no
+// per-update allocation. The entity reference is STABLE across changes, so it
+// only works with subscription-driven readers (e.g. the `*Signal` hooks in
+// @oimdb/react), not with Object.is/React.memo diffing. Fastest on the data
+// layer for update-heavy workloads.
+const b = new OIMReactiveCollection<User, string>(queue, {
+    selectPk: (u) => u.id,
+    updateEntity: createInPlaceEntityUpdater(),
+});
+```
+
 ### Event Coalescing and Update Subscriptions
 
 ```typescript
@@ -1509,7 +1534,7 @@ new OIMIndexManualOrderedArrayBased<TKey, TPk>()
 **Query:**
 - `getPksByKey(key: TKey): TPk[]` - Returns the ordered primary-key array
 - `getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - Returns the stored ordered slots
-- `getEntitiesByKey<TEntity>(key: TKey): TEntity[]` - Returns existing entities from stored slots
+- `getEntitiesByKey<TEntity>(key: TKey): (TEntity | undefined)[]` - Returns entities from stored slots, aligned 1:1 with the pks (holes are `undefined`)
 
 #### `OIMCollectionIndexManualOrderedArrayBased<TKey, TPk, TEntity>`
 Collection-bound ordered Array-based index. Use this when ordered PK writes should resolve to canonical slots from a collection.
@@ -1518,7 +1543,7 @@ Collection-bound ordered Array-based index. Use this when ordered PK writes shou
 - `push(key: TKey, pk: TPk): number` - Append a PK as its canonical slot
 - `insertAt(key: TKey, index: number, pk: TPk): number` - Insert a PK as its canonical slot
 - `reset(key: TKey, pks: readonly TPk[]): void` - Replace the whole ordered list from PKs
-- `getEntitiesByKey(key: TKey): TEntity[]` - Returns entities from canonical slots
+- `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Returns entities from canonical slots (holes are `undefined`)
 
 #### `OIMOrderedListCommandStream<TKey, TPk, TEntity>`
 Slot-first ordered per-key list with a command stream for imperative consumers. It stores data in an `OIMIndexManualOrderedArrayBased` and emits `TOIMOrderedListCommand` batches through `commandsEventEmitter`.
@@ -1545,7 +1570,7 @@ new OIMOrderedListCommandStream(
 - `getBufferedCommands(key: TKey): readonly TOIMOrderedListCommand<TPk, TEntity>[]` - Peek at buffered commands without clearing them
 - `getPksByKey(key: TKey): readonly TPk[]` - Read the current ordered list
 - `getSlotsByKey(key: TKey): readonly TOIMEntitySlot<TEntity, TPk>[]` - Read current ordered slots
-- `getEntitiesByKey(key: TKey): TEntity[]` - Read current ordered entities
+- `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Read current ordered entities (holes are `undefined`)
 - `clear(key?: TKey): void` - Clear all keys or a specific key
 - `destroy(): void` - Dispose subscriptions and clear state
 

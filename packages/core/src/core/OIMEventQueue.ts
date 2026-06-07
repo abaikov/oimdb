@@ -15,7 +15,7 @@ export class OIMEventQueue {
     // Reused buffer swapped in during flush so the pending set is never copied
     // (no per-flush array snapshot) and new enqueues land in a fresh set.
     protected tasksSpare = new Set<() => void>();
-    // The set currently being drained, so cancelTask() can also remove a task
+    // The set currently being drained, so cancel() can also remove a task
     // mid-flush (a Set's for..of skips entries deleted before they're reached).
     protected flushing?: Set<() => void>;
     protected readonly scheduler?: OIMEventQueueScheduler;
@@ -36,52 +36,24 @@ export class OIMEventQueue {
     }
 
     /**
-     * Enqueue a one-shot task to be executed on the next flush.
-     * Returns a dequeue function that can be called to cancel the task before it runs.
+     * Enqueue a one-shot task to run on the next flush. The function is stored
+     * directly (no wrapper, no returned closure) and cancelled via {@link cancel}
+     * by passing the same reference. Enqueuing the same reference twice is
+     * idempotent — it is Set-deduped and runs once per flush.
      */
-    public enqueue(fn: () => void): () => void {
-        let isActive = true;
-        const task = () => {
-            if (!isActive) return;
-            fn();
-        };
-        this.tasks.add(task);
-        this.ensureScheduled();
-
-        return () => {
-            if (!isActive) return;
-            isActive = false;
-            this.tasks.delete(task);
-        };
-    }
-
-    /**
-     * Allocation-free enqueue for a **stable** function reference (e.g. a bound
-     * `onFlush` method). The function is stored directly — no wrapper, no
-     * returned closure — and cancelled via {@link cancelTask}. Enqueuing the
-     * same reference twice is idempotent (Set-deduped); callers that may run a
-     * task more than once per flush should use {@link enqueue} instead.
-     */
-    public enqueueTask(fn: () => void): void {
+    public enqueue(fn: () => void): void {
         this.tasks.add(fn);
         this.ensureScheduled();
     }
 
-    /** Cancel a task scheduled via {@link enqueueTask}; safe to call mid-flush. */
-    public cancelTask(fn: () => void): void {
+    /** Cancel a previously enqueued task by its reference; safe to call mid-flush. */
+    public cancel(fn: () => void): void {
         this.tasks.delete(fn);
         this.flushing?.delete(fn);
     }
 
     public get isInFlush(): boolean {
         return this.isFlushing;
-    }
-
-    /**
-     * Dequeue (cancel) a previously enqueued task by its dequeue function.
-     */
-    public dequeue(dequeueFn: () => void): void {
-        dequeueFn();
     }
 
     /**

@@ -219,7 +219,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     private ensureAnyUpdateEnqueued(): void {
         if (this.isAnyUpdateScheduled) return;
         this.isAnyUpdateScheduled = true;
-        this.queue.enqueueTask(this.runAnyUpdate);
+        this.queue.enqueue(this.runAnyUpdate);
     }
 
     private readonly runAnyUpdate = () => {
@@ -239,7 +239,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     public override destroy(): void {
         this.updateEmitter.destroy();
         if (this.isAnyUpdateScheduled) {
-            this.queue.cancelTask(this.runAnyUpdate);
+            this.queue.cancel(this.runAnyUpdate);
             this.isAnyUpdateScheduled = false;
         }
         this.anyUpdateHandlers.clear();

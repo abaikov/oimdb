@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 /**
  * One-shot CDP inspector: connects to Chrome, evaluates __OIMDB_DEV__.inspect(),
  * prints JSON to stdout. Pipe to jq or paste into an AI prompt.
@@ -90,7 +89,10 @@ async function run() {
     });
 }
 
-run().catch((err) => {
-    process.stderr.write('[OIMDB CDP] Error: ' + err.message + '\n');
-    process.exit(1);
-});
+/** Run the one-shot CDP snapshot (`cdp` subcommand). */
+module.exports = function runCdp() {
+    run().catch((err) => {
+        process.stderr.write('[OIMDB CDP] Error: ' + err.message + '\n');
+        process.exit(1);
+    });
+};

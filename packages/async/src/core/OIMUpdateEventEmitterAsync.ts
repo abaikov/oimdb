@@ -11,7 +11,6 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
     private readonly keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     private updatedKeys = new Set<TKey>();
     private isFlushEnqueued = false;
-    private dequeueFlush?: () => void;
 
     constructor(private readonly queue: OIMEventQueue) {}
 
@@ -62,11 +61,10 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
 
         if (this.keyHandlers.size === 0) {
             this.updatedKeys.clear();
-            if (this.dequeueFlush) {
-                this.dequeueFlush();
-                this.dequeueFlush = undefined;
+            if (this.isFlushEnqueued) {
+                this.queue.cancel(this.onFlush);
+                this.isFlushEnqueued = false;
             }
-            this.isFlushEnqueued = false;
         }
     }
 
@@ -112,12 +110,11 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
     private ensureFlushEnqueued(): void {
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+        this.queue.enqueue(this.onFlush);
     }
 
     private readonly onFlush = () => {
         this.isFlushEnqueued = false;
-        this.dequeueFlush = undefined;
 
         if (this.keyHandlers.size === 0 || this.updatedKeys.size === 0) {
             this.updatedKeys.clear();
@@ -139,9 +136,9 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
     };
 
     public destroy(): void {
-        if (this.dequeueFlush) {
-            this.dequeueFlush();
-            this.dequeueFlush = undefined;
+        if (this.isFlushEnqueued) {
+            this.queue.cancel(this.onFlush);
+            this.isFlushEnqueued = false;
         }
         this.keyHandlers.forEach(h => h.clear());
         this.keyHandlers.clear();

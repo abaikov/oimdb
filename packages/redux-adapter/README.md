@@ -99,7 +99,7 @@ Enable bidirectional synchronization by providing a child reducer. The middlewar
 
 ```typescript
 import { 
-    OIMDBAdapter,
+    OIMDBReduxAdapter,
     TOIMDBReduxDefaultCollectionState,
     TOIMDBReduxCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
@@ -169,7 +169,7 @@ The entity's PK (obtained via `getPk`) becomes the index key, and the array fiel
 
 ```typescript
 import { 
-    OIMDBAdapter,
+    OIMDBReduxAdapter,
     TOIMDBReduxDefaultCollectionState,
     TOIMDBReduxCollectionReducerChildOptions 
 } from '@oimdb/redux-adapter';
@@ -292,7 +292,7 @@ const childOptions: TOIMDBReduxCollectionReducerChildOptions<User, string, Array
         const nextIds = nextState.users.map(u => getPk(u));
         
         // Use utility function for efficient diffing
-        const { findUpdatedInArray } = require('@oimdb/redux-adapter');
+        import { findUpdatedInArray } from '@oimdb/redux-adapter';
         const diff = findUpdatedInArray(prevIds, nextIds);
         
         // Sync changes to OIMDB
@@ -445,7 +445,7 @@ Enable bidirectional synchronization for indexes by providing a child reducer:
 
 ```typescript
 import { 
-    OIMDBAdapter,
+    OIMDBReduxAdapter,
     TOIMDBReduxDefaultIndexState,
     TOIMDBReduxIndexReducerChildOptions 
 } from '@oimdb/redux-adapter';

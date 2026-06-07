@@ -70,7 +70,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.queue.enqueueTask(this.onFlush);
+        this.queue.enqueue(this.onFlush);
     }
 
     public markUpdatedKey(key: TKey): void {
@@ -98,7 +98,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.queue.enqueueTask(this.onFlush);
+        this.queue.enqueue(this.onFlush);
     }
 
     public markAllUpdated(): void {
@@ -125,7 +125,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.queue.enqueueTask(this.onFlush);
+        this.queue.enqueue(this.onFlush);
     }
 
     // Stable handler reference to avoid allocating a new closure on every HAS_CHANGES.
@@ -201,7 +201,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
     public destroy() {
         if (this.isFlushEnqueued) {
-            this.queue.cancelTask(this.onFlush);
+            this.queue.cancel(this.onFlush);
             this.isFlushEnqueued = false;
         }
         if (this.unsubscribeAfterFlushDelivery) {
@@ -278,7 +278,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
         if (this.keyHandlers.size === 0) {
             this.updatedKeys.clear();
             if (this.isFlushEnqueued) {
-                this.queue.cancelTask(this.onFlush);
+                this.queue.cancel(this.onFlush);
             }
             this.isFlushEnqueued = false;
         }

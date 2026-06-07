@@ -136,7 +136,7 @@ await index.setPks('admin', ['user1', 'user2']);
 
 ## Requirements
 
-- `@oimdb/core` ^1.1.0 (peer dependency)
+- `@oimdb/core` ^3.3.0 (peer dependency)
 
 ## License
 

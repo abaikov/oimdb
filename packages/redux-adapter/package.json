@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/redux-adapter",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "Redux adapter for OIMDB - Create Redux reducers from OIMDB collections and indexes",
   "type": "module",
   "main": "./dist/index.cjs",

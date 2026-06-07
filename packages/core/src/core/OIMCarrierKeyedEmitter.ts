@@ -186,7 +186,7 @@ export class OIMCarrierKeyedEmitter<
 
     public destroy(): void {
         if (this.isFlushEnqueued) {
-            this.queue.cancelTask(this.onFlush);
+            this.queue.cancel(this.onFlush);
             this.isFlushEnqueued = false;
         }
         this.subscribedCarriers.forEach(carrier => {
@@ -213,7 +213,7 @@ export class OIMCarrierKeyedEmitter<
     private scheduleFlush(): void {
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.queue.enqueueTask(this.onFlush);
+        this.queue.enqueue(this.onFlush);
     }
 
     private readonly onFlush = (): void => {

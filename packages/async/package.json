@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/async",
-  "version": "2.0.2",
+  "version": "2.1.0",
   "description": "Async stores support for OIMDB - async collections and indexes",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -36,7 +36,7 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^2.0.0 || ^3.0.0"
+    "@oimdb/core": "^3.3.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
