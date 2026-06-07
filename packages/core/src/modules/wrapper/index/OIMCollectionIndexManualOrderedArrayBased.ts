@@ -38,13 +38,13 @@ export class OIMCollectionIndexManualOrderedArrayBased<
 
     public override getEntitiesByKey<TItem extends object = TEntity>(
         key: TKey
-    ): TItem[] {
+    ): (TItem | undefined)[] {
         return super.getEntitiesByKey<TItem>(key);
     }
 
     public override getEntitiesByKeys<TItem extends object = TEntity>(
         keys: readonly TKey[]
-    ): Map<TKey, TItem[]> {
+    ): Map<TKey, (TItem | undefined)[]> {
         return super.getEntitiesByKeys<TItem>(keys);
     }
 

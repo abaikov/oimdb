@@ -140,27 +140,32 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
             return;
         }
 
-        const makeHandlerSnapshot = (
-            handlers: Set<TOIMEventHandler<void>>
-        ): TOIMEventHandler<void>[] => {
-            const snapshot: TOIMEventHandler<void>[] = [];
-            handlers.forEach(h => snapshot.push(h));
-            return snapshot;
-        };
-
-        this.runSinglePass(makeHandlerSnapshot);
+        this.runSinglePass();
     };
 
     private deliverImmediate(): void {
-        const makeHandlerSnapshot = (
-            handlers: Set<TOIMEventHandler<void>>
-        ): TOIMEventHandler<void>[] => {
-            const snapshot: TOIMEventHandler<void>[] = [];
-            handlers.forEach(h => snapshot.push(h));
-            return snapshot;
-        };
+        this.runSinglePass();
+    }
 
-        this.runSinglePass(makeHandlerSnapshot);
+    /**
+     * Notifies all handlers for a key. The overwhelmingly common case is a
+     * single subscriber per key (one component per pk), handled without any
+     * allocation. For multiple subscribers a snapshot is taken so a handler may
+     * (un)subscribe during iteration without corrupting the walk.
+     */
+    private notifyHandlers(handlers: Set<TOIMEventHandler<void>>): void {
+        if (handlers.size === 1) {
+            const only = handlers.values().next().value;
+            if (only) only();
+            return;
+        }
+
+        const snapshot: TOIMEventHandler<void>[] = [];
+        handlers.forEach(h => snapshot.push(h));
+        for (let i = 0; i < snapshot.length; i++) {
+            const handler = snapshot[i];
+            if (handlers.has(handler)) handler();
+        }
     }
 
     private readonly onAfterFlush = () => {
@@ -173,11 +178,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
      * Deliver updated keys and notify handlers once.
      * Re-entrant updates during delivery are forbidden and will throw in markUpdatedKeys().
      */
-    protected runSinglePass(
-        makeHandlerSnapshot: (
-            handlers: Set<TOIMEventHandler<void>>
-        ) => TOIMEventHandler<void>[]
-    ): void {
+    protected runSinglePass(): void {
         if (this.updatedKeys.size === 0) return;
 
         const flushingKeys = this.updatedKeys;
@@ -189,23 +190,13 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
             flushingKeys.forEach(key => {
                 const handlers = this.keyHandlers.get(key);
                 if (!handlers || handlers.size === 0) return;
-
-                const handlerSnapshot = makeHandlerSnapshot(handlers);
-                for (let i = 0; i < handlerSnapshot.length; i++) {
-                    const handler = handlerSnapshot[i];
-                    if (handlers.has(handler)) handler();
-                }
+                this.notifyHandlers(handlers);
             });
         } else {
             this.keyHandlers.forEach((handlers, key) => {
                 if (!flushingKeys.has(key)) return;
                 if (!handlers || handlers.size === 0) return;
-
-                const handlerSnapshot = makeHandlerSnapshot(handlers);
-                for (let i = 0; i < handlerSnapshot.length; i++) {
-                    const handler = handlerSnapshot[i];
-                    if (handlers.has(handler)) handler();
-                }
+                this.notifyHandlers(handlers);
             });
         }
     }

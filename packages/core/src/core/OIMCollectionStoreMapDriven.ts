@@ -59,6 +59,14 @@ export class OIMCollectionStoreMapDriven<
         return this.slots.get(pk);
     }
 
+    findSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {
+        return this.slots.get(pk) ?? this.reservedSlots.get(pk);
+    }
+
+    private hasSubscribers(slot: TOIMEntitySlot<TEntity, TPk>): boolean {
+        return slot.subscribers !== undefined && slot.subscribers.size > 0;
+    }
+
     getSlotsByPks(pks: readonly TPk[]): TOIMEntitySlot<TEntity, TPk>[] {
         const result: TOIMEntitySlot<TEntity, TPk>[] = [];
         result.length = pks.length;
@@ -79,12 +87,22 @@ export class OIMCollectionStoreMapDriven<
 
     removeOneByPk(pk: TPk): void {
         const slot = this.slots.get(pk);
-        if (slot) slot.item = undefined;
-        this.slots.delete(pk);
+        if (slot) {
+            slot.item = undefined;
+            this.slots.delete(pk);
+            // A subscribed slot must outlive its entity: keep it (empty) so a
+            // later re-add reuses the same slot and its subscribers fire.
+            if (this.hasSubscribers(slot)) {
+                this.reservedSlots.set(pk, slot);
+            }
+            return;
+        }
         const reserved = this.reservedSlots.get(pk);
         if (reserved) {
             reserved.item = undefined;
-            this.reservedSlots.delete(pk);
+            if (!this.hasSubscribers(reserved)) {
+                this.reservedSlots.delete(pk);
+            }
         }
     }
 
@@ -127,14 +145,22 @@ export class OIMCollectionStoreMapDriven<
     }
 
     clear(): void {
+        // Empty every slot; retain only those that still have subscribers (as
+        // reserved) so live subscriptions survive a clear and fire on re-add.
+        const retained: TOIMEntitySlot<TEntity, TPk>[] = [];
         for (const slot of this.slots.values()) {
             slot.item = undefined;
+            if (this.hasSubscribers(slot)) retained.push(slot);
         }
         this.slots.clear();
         for (const slot of this.reservedSlots.values()) {
             slot.item = undefined;
+            if (this.hasSubscribers(slot)) retained.push(slot);
         }
         this.reservedSlots.clear();
+        for (const slot of retained) {
+            this.reservedSlots.set(slot.pk, slot);
+        }
     }
 
     getAllPks(): TPk[] {
@@ -143,5 +169,11 @@ export class OIMCollectionStoreMapDriven<
 
     destroy(): void {
         this.clear();
+        // Full teardown: drop retained (subscribed) slots and their handler sets.
+        for (const slot of this.reservedSlots.values()) {
+            slot.subscribers?.clear();
+            slot.subscribers = undefined;
+        }
+        this.reservedSlots.clear();
     }
 }

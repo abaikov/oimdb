@@ -8,6 +8,86 @@ Indexes are collection-bound structures created via `indexFactory`. They live ne
 
 Selectors deliver reactive values to a callback. They coalesce multiple invalidations within a flush into a single delivery.
 
+## Which kind to use
+
+Two kinds, by **who decides membership**:
+
+- **Manual indexes** — *you* set membership and order with `setPks` / `addPks` / `removePks`. This is the common case: server-provided ordering, search results, sorted lists, drag-and-drop, filters, selection — anything where the order/membership isn't simply a field on the entity. Start here.
+- **Derived indexes** — membership is computed from an entity field via a selector and stays in sync automatically. Use only when "which group an entity belongs to" *is* a pure function of its data (e.g. `card.deckId`).
+
+Both come in **set-based** (unordered) and **array-based** (ordered) flavours. See [Manual indexes](#manual-indexes) first; [Derived indexes](#derived-indexes) below.
+
+## Manual indexes
+
+You own membership and order. Writes are incremental (only the changed pks are touched).
+
+```typescript
+// Set-based — unordered membership (roles, tags, selection, flags)
+const adminUsers = users.indexFactory.setBasedIndex<string>();
+adminUsers.setPks('active', ['u1', 'u2']);  // replace the whole key
+adminUsers.addPks('active', ['u3']);         // add (O(1) per pk, dedups)
+adminUsers.removePks('active', ['u1']);      // remove (O(1) per pk)
+
+// Array-based — ordered membership (search results, ranked / sorted lists)
+const ranked = users.indexFactory.arrayBasedIndex<string>();
+ranked.setPks('byScore', ['u3', 'u1', 'u2']); // order is exactly what you pass
+```
+
+### Writing by pk vs by slot
+
+The `*Pks` methods resolve each pk to its entity slot (one O(1) lookup per pk) — use them when you have **ids** (scroll position, URL, server response). That covers virtually every UI case.
+
+If you already hold the **slots** — `collection.upsertMany()` returns them — skip the re-lookup with the lower-level `setSlots` / `appendSlots`:
+
+```typescript
+const slots = users.collection.upsertMany(batch); // slots already resolved
+ranked.setSlots('byScore', slots);                // no per-pk lookup
+```
+
+Reads are slot-native too: `getSlotsByKey(key)` returns the slots directly, and `getEntitiesByKey(key)` reads `slot.item` with no secondary lookup.
+
+### Order & sorting
+
+An **array-based** index keeps **the order you give it** — there is no automatic field sort (that's a derived index's `orderBy`). You own the order:
+
+```typescript
+// keep a list sorted by a field: sort the pks yourself, then setPks
+function syncSorted() {
+  const sorted = users.collection
+    .getAll()
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(u => u.id);
+  ranked.setPks('byName', sorted);
+}
+syncSorted();                  // re-run when the data or sort key changes
+```
+
+- `addPks` **appends** to the end (it does not re-sort) — fine for "newest last" / insertion order; re-`setPks` with sorted pks when you need a specific order.
+- For **incremental** ordered edits (insert at position, move) without rebuilding the array, use the [ordered list command stream](#ordered-list-command-stream).
+- A **set-based** index has no order; iterate its pks/entities in whatever order you render.
+
+### Choosing set vs array
+
+| | `addPks` | `removePks` | order |
+|---|---|---|---|
+| **set-based** | O(added) | O(removed) | unordered |
+| **array-based** | O(added) | O(bucket) | preserved |
+
+Frequently changing membership is a **common, hot** case, not a rare one — e.g. a **virtual/windowed list** keeps an index of just the on-screen pks and adds/removes rows on every scroll. For these, prefer a **set-based** index: `addPks`/`removePks` are O(1) per pk, so per-scroll churn stays cheap.
+
+```typescript
+// virtual list: index holds the currently visible rows
+const visible = rows.indexFactory.setBasedIndex<string>();
+
+function onScroll(firstVisible: number, lastVisible: number) {
+  // add rows that entered the viewport, remove the ones that left — O(changed)
+  visible.addPks('viewport', enteredPks);
+  visible.removePks('viewport', leftPks);
+}
+```
+
+Use **array-based** when you need order; its removal is O(bucket) because an ordered array must be scanned (batch `removePks` when you can). For an *ordered* virtual list with incremental moves, the [ordered list command stream](#ordered-list-command-stream) emits insert/remove/move commands you can apply directly to the DOM.
+
 ## Derived indexes
 
 Membership is computed automatically from entity fields.
@@ -41,29 +121,15 @@ const postsByTag = posts.indexFactory.derivedSetIndex(
 );
 ```
 
-## Manual indexes
-
-Use when membership comes from outside the entity: search results, server ordering, permissions, UI state.
-
-```typescript
-// Set-based — unordered membership
-const adminUsers = users.indexFactory.setBasedIndex<string>();
-adminUsers.setPks('active', ['u1', 'u2']);
-adminUsers.addPks('active', ['u3']);
-adminUsers.removePks('active', ['u1']);
-
-// Array-based — ordered, full-replace writes
-const searchResults = users.indexFactory.arrayBasedIndex<string>();
-searchResults.setPks('query:alice', ['u3', 'u1']);
-```
-
 ### Index reads
 
 Both types expose the same read API:
 
 ```typescript
 index.getPksByKey('key');          // Set<TPk> or TPk[]
-index.getEntitiesByKey('key');     // TEntity[] (reads slot.item directly, no extra lookup)
+index.getEntitiesByKey('key');     // (TEntity | undefined)[] — aligned with the pks,
+                                   // a not-yet-loaded entity is a positional `undefined`
+                                   // hole (not dropped), so you can render a loading state
 index.hasKey('key');               // boolean
 index.getKeys();                   // all known keys
 ```
@@ -97,7 +163,7 @@ const off = queue.commandsEventEmitter.subscribeOnKey('main', () => {
 
 // Read current state without commands
 queue.getPksByKey('main');       // TPk[]
-queue.getEntitiesByKey('main');  // TEntity[]
+queue.getEntitiesByKey('main');  // (TEntity | undefined)[] — holes preserved
 ```
 
 If multiple operations happen in one flush, they are buffered in order. If a `set` is mixed with incremental ops, the stream collapses everything into one `set` command.

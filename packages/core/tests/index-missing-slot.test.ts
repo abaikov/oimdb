@@ -25,13 +25,19 @@ describe('collection-bound index: pk indexed before its entity exists', () => {
         expect(() => usersByTeam.addPks('team1', ['u2'])).not.toThrow();
 
         expect(usersByTeam.getPksByKey('team1')).toEqual(new Set(['u1', 'u2']));
-        // Missing entities simply do not materialize.
-        expect(usersByTeam.getEntitiesByKey('team1')).toEqual([]);
+        // Missing entities surface as positional holes (aligned with the pks),
+        // not dropped — so a consumer can show a per-item loading state.
+        expect(usersByTeam.getEntitiesByKey('team1')).toStrictEqual([
+            undefined,
+            undefined,
+        ]);
 
-        // When the entity arrives later, the previously reserved slot fills in.
+        // When the entity arrives later, the previously reserved slot fills in;
+        // the still-missing one stays a hole.
         users.upsertOne({ id: 'u1', name: 'Alice' });
-        expect(usersByTeam.getEntitiesByKey('team1')).toEqual([
+        expect(usersByTeam.getEntitiesByKey('team1')).toStrictEqual([
             { id: 'u1', name: 'Alice' },
+            undefined,
         ]);
 
         usersByTeam.destroy();
@@ -46,13 +52,16 @@ describe('collection-bound index: pk indexed before its entity exists', () => {
         expect(() =>
             orderedUsersByTeam.setPks('team1', ['u2', 'u1'])
         ).not.toThrow();
-        expect(orderedUsersByTeam.getEntitiesByKey('team1')).toEqual([]);
+        expect(orderedUsersByTeam.getEntitiesByKey('team1')).toStrictEqual([
+            undefined,
+            undefined,
+        ]);
 
         users.upsertMany([
             { id: 'u1', name: 'Alice' },
             { id: 'u2', name: 'Bob' },
         ]);
-        expect(orderedUsersByTeam.getEntitiesByKey('team1')).toEqual([
+        expect(orderedUsersByTeam.getEntitiesByKey('team1')).toStrictEqual([
             { id: 'u2', name: 'Bob' },
             { id: 'u1', name: 'Alice' },
         ]);

@@ -531,5 +531,5 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
 
-// Fast (non-Concurrent) binding variants — opt-in, see ./fast.ts
-export * from './fast';
+// Signal-driven bindings (lightest; for in-place/mutable collections)
+export * from './signal';

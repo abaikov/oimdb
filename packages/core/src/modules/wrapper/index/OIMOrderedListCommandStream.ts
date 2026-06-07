@@ -68,7 +68,7 @@ export class OIMOrderedListCommandStream<
         ) as readonly TOIMEntitySlot<TEntity, TPk>[];
     }
 
-    public getEntitiesByKey(key: TKey): TEntity[] {
+    public getEntitiesByKey(key: TKey): (TEntity | undefined)[] {
         return this.index.getEntitiesByKey<TEntity>(key);
     }
 

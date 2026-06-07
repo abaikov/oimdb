@@ -59,6 +59,13 @@ export class OIMReactiveIndexManualArrayBased<
         this.index.setSlots(key, slots);
     }
 
+    public appendSlots(
+        key: TKey,
+        slots: readonly TOIMAnyEntitySlot<TPk>[]
+    ): void {
+        this.index.appendSlots(key, slots);
+    }
+
     public clear(key?: TKey): void {
         this.index.clear(key);
     }

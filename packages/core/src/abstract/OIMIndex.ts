@@ -61,15 +61,15 @@ export abstract class OIMIndex<
 
     public getEntitiesByKey<TEntity extends object = object>(
         key: TKey
-    ): TEntity[] {
+    ): (TEntity | undefined)[] {
         const bucket = this.store.getOneByKey(key);
         return bucket ? this.slotsToEntities<TEntity>(bucket) : [];
     }
 
     public getEntitiesByKeys<TEntity extends object = object>(
         keys: readonly TKey[]
-    ): Map<TKey, TEntity[]> {
-        const result = new Map<TKey, TEntity[]>();
+    ): Map<TKey, (TEntity | undefined)[]> {
+        const result = new Map<TKey, (TEntity | undefined)[]>();
         const bucketsByKey = this.store.getManyByKeys(keys);
         for (const [key, bucket] of bucketsByKey) {
             result.set(key, this.slotsToEntities<TEntity>(bucket));
@@ -112,12 +112,20 @@ export abstract class OIMIndex<
         this.emitUpdate([key]);
     }
 
+    /**
+     * Maps a bucket's slots to entities, preserving positional holes: a slot
+     * whose entity is not present yet (reserved by an index ahead of its data)
+     * or was removed yields `undefined` at its position rather than being
+     * dropped. This keeps the result aligned with `getPksByKey`, so callers can
+     * render a per-item loading/placeholder state instead of a silently shorter
+     * list.
+     */
     protected slotsToEntities<TEntity extends object>(
         slots: Iterable<TOIMAnyEntitySlot<TPk>>
-    ): TEntity[] {
-        const entities: TEntity[] = [];
+    ): (TEntity | undefined)[] {
+        const entities: (TEntity | undefined)[] = [];
         for (const slot of slots) {
-            if (slot.item !== undefined) entities.push(slot.item as TEntity);
+            entities.push(slot.item as TEntity | undefined);
         }
         return entities;
     }

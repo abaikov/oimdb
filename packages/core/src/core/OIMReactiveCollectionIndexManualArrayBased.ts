@@ -16,6 +16,9 @@ export class OIMReactiveCollectionIndexManualArrayBased<
     TEntity extends object = object,
 > extends OIMReactiveIndexManualArrayBased<TKey, TPk> {
     private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    // Persistent per-key pk membership for O(1) `addPks` dedup (avoids rebuilding
+    // a Set from the whole bucket on every call). Kept in sync by setSlots/clear.
+    private readonly pksByKey = new Map<TKey, Set<TPk>>();
 
     constructor(
         queue: OIMEventQueue,
@@ -33,25 +36,25 @@ export class OIMReactiveCollectionIndexManualArrayBased<
     }
 
     public setPks(key: TKey, pks: readonly TPk[]): void {
-        this.setSlots(key, this.resolveSlots(pks));
+        const pkSet = new Set<TPk>();
+        for (let i = 0; i < pks.length; i++) pkSet.add(pks[i]);
+        this.pksByKey.set(key, pkSet);
+        super.setSlots(key, this.resolveSlots(pks));
     }
 
     public addPks(key: TKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        const existingSlots = this.index.getSlotsByKey(key);
-        const existingPks = new Set(existingSlots.map(slot => slot.pk));
-        const nextSlots = existingSlots.slice();
-        let hasChanges = false;
-
+        // O(added), not O(bucket): dedup via the persistent membership set and
+        // append in place — no whole-bucket map/Set rebuild and no slice copy.
+        const pkSet = this.membershipOf(key);
+        const newSlots: TOIMAnyEntitySlot<TPk>[] = [];
         for (const pk of pks) {
-            if (existingPks.has(pk)) continue;
-            nextSlots.push(this.resolveRequiredSlot(pk));
-            existingPks.add(pk);
-            hasChanges = true;
+            if (pkSet.has(pk)) continue;
+            pkSet.add(pk);
+            newSlots.push(this.resolveRequiredSlot(pk));
         }
-
-        if (hasChanges) this.setSlots(key, nextSlots);
+        if (newSlots.length > 0) this.appendSlots(key, newSlots);
     }
 
     public removePks(key: TKey, pks: readonly TPk[]): void {
@@ -64,19 +67,47 @@ export class OIMReactiveCollectionIndexManualArrayBased<
         );
 
         if (nextSlots.length === existingSlots.length) return;
+        // Update membership incrementally — do NOT rebuild it from the bucket.
+        const pkSet = this.pksByKey.get(key);
+        if (pkSet) {
+            for (let i = 0; i < pks.length; i++) pkSet.delete(pks[i]);
+        }
         if (nextSlots.length === 0) this.clear(key);
-        else this.setSlots(key, nextSlots);
+        else super.setSlots(key, nextSlots);
+    }
+
+    public override clear(key?: TKey): void {
+        if (key === undefined) this.pksByKey.clear();
+        else this.pksByKey.delete(key);
+        super.clear(key);
+    }
+
+    /**
+     * The membership set for a key, lazily seeded from the current bucket so it
+     * stays correct even if slots were set through a lower-level path.
+     */
+    private membershipOf(key: TKey): Set<TPk> {
+        let pkSet = this.pksByKey.get(key);
+        if (!pkSet) {
+            pkSet = new Set();
+            const existing = this.index.getSlotsByKey(key);
+            for (let i = 0; i < existing.length; i++) {
+                pkSet.add(existing[i].pk);
+            }
+            this.pksByKey.set(key, pkSet);
+        }
+        return pkSet;
     }
 
     public override getEntitiesByKey<TItem extends object = TEntity>(
         key: TKey
-    ): TItem[] {
+    ): (TItem | undefined)[] {
         return super.getEntitiesByKey<TItem>(key);
     }
 
     public override getEntitiesByKeys<TItem extends object = TEntity>(
         keys: readonly TKey[]
-    ): Map<TKey, TItem[]> {
+    ): Map<TKey, (TItem | undefined)[]> {
         return super.getEntitiesByKeys<TItem>(keys);
     }
 

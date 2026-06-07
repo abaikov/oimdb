@@ -85,7 +85,7 @@ export class OIMCollectionOrderedListCommandStream<
         ) as readonly TOIMEntitySlot<TEntity, TPk>[];
     }
 
-    public override getEntitiesByKey(key: TKey): TEntity[] {
+    public override getEntitiesByKey(key: TKey): (TEntity | undefined)[] {
         return this.index.getEntitiesByKey(key);
     }
 

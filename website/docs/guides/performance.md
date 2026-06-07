@@ -39,6 +39,34 @@ npx tsx packages/core/bench/index.ts
 
 Computed values and effects run inside the same `queue.flush()` drain — derived recompute and subscriber delivery happen in the same pass.
 
+## Mutable mode (advanced)
+
+By default entities are updated **immutably** (`{ ...prev, ...draft }`), so each update produces a new object reference — required for React's `Object.is` change detection (`useSyncExternalStore`). The copy is the largest per-update data-layer cost.
+
+For update-heavy, fine-grained UIs you can update entities **in place** and bind with the lighter **signal hooks**:
+
+```typescript
+import { OIMReactiveCollection, createInPlaceEntityUpdater } from '@oimdb/core';
+import { useSelectEntityByPkSignal } from '@oimdb/react';
+
+const cards = new OIMReactiveCollection(queue, {
+  selectPk: c => c.id,
+  updateEntity: createInPlaceEntityUpdater(), // mutate in place — no per-update allocation
+});
+
+// Signal hooks re-render on the keyed notification (no Object.is), so they see
+// in-place mutations that the default uSES hooks would miss.
+const card = useSelectEntityByPkSignal(cards, id);
+```
+
+This drops both the merge copy and the `useSyncExternalStore` overhead — the per-update work MobX also avoids. It pays off where the **data layer** is the bottleneck (very fine-grained renderers, large update-heavy lists); in plain React the per-component commit dominates, so the win is small.
+
+**Use only when every reader is subscription-driven.** Trade-offs: not Concurrent-Mode safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Select each entity where you render it (by pk); don't pass mutable entities into `React.memo` children.
+
+## Index membership writes
+
+`addPks` / `removePks` are incremental (touch only the changed pks). For frequently changing membership prefer a **set-based** index — both add and remove are O(1) per pk; array-based add is O(1) but removal is O(bucket) (it preserves order). See [Indexes — set vs array](/docs/core/indexes-selectors).
+
 ## Key patterns
 
 ### Batch writes

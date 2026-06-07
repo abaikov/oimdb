@@ -24,6 +24,15 @@ export abstract class OIMCollectionStore<
         pk: TPk
     ): TOIMEntitySlot<TEntity, TPk>;
 
+    /**
+     * Returns the existing slot for `pk` (live or reserved) without creating
+     * one. Used by the slot-based emitter to resolve a slot for delivery /
+     * unsubscribe without side effects.
+     */
+    abstract findSlotByPk(
+        pk: TPk
+    ): TOIMEntitySlot<TEntity, TPk> | undefined;
+
     abstract getSlotsByPks(
         pks: readonly TPk[]
     ): TOIMEntitySlot<TEntity, TPk>[];

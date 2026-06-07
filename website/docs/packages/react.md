@@ -106,31 +106,40 @@ For `OIMReactiveObject` (settings, flags, single values):
 | `useSelectValueByObjectKey(obj, key)` | `TValue \| undefined` |
 | `useSelectValuesByObjectKeys(obj, keys)` | `(TValue \| undefined)[]` |
 
-## Fast binding (opt-in)
+## Signal hooks + mutable collections (advanced)
 
-The default hooks are built on React's `useSyncExternalStore`, which is **Concurrent-Mode safe** (anti-tearing). That safety has a cost: `getSnapshot` is called several times per update plus extra bookkeeping.
+The default hooks use `useSyncExternalStore`, which detects change by **reference** (`Object.is`). That requires the store to produce a new entity object per update — the default immutable merge (`{ ...prev, ...draft }`), whose copy is the biggest per-update data-layer cost.
 
-For update-heavy UIs that don't rely on Concurrent features (Suspense / transitions), every hook has a `*Fast` twin — same name + `Fast`, same signature and return type:
+For update-heavy workloads you can run a collection in **mutable / in-place** mode and bind it with the lighter **signal hooks**:
 
 ```tsx
-import { useSelectEntityByPkFast, useSelectPksByIndexKeyArrayBasedFast } from '@oimdb/react';
+import { OIMReactiveCollection, createInPlaceEntityUpdater } from '@oimdb/core';
+import { useSelectEntityByPkSignal, useSelectPksByIndexKeyArrayBasedSignal } from '@oimdb/react';
 
-const user = useSelectEntityByPkFast(users, userId);
-const cardIds = useSelectPksByIndexKeyArrayBasedFast(cardsByDeck, deckId);
+// Mutate entities in place — no per-update object allocation.
+const cards = new OIMReactiveCollection(queue, {
+  selectPk: c => c.id,
+  updateEntity: createInPlaceEntityUpdater(),
+});
+
+// Signal hooks re-render on the keyed notification (no Object.is), so they see
+// in-place mutations that the default uSES hooks would miss.
+const card = useSelectEntityByPkSignal(cards, id);
+const ids  = useSelectPksByIndexKeyArrayBasedSignal(cardsByDeck, deckId);
 ```
 
-The fast variants subscribe manually and `forceUpdate`, reading the value synchronously during render. They **keep reference stability** (the same array/Set/entity reference is returned while the content is unchanged, so `React.memo` children are not re-rendered) and skip re-renders when a fired key didn't actually change the value.
+This drops both the merge copy and the uSES overhead — the per-update work MobX also avoids. It pays off where the data layer is the bottleneck (very fine-grained renderers, large update-heavy lists); in plain React the per-component commit usually dominates, so the win is small.
 
-**Trade-off — choose deliberately:**
+**Use only when every reader is subscription-driven**, and mind the trade-offs:
 
-| | Default hooks | `*Fast` hooks |
+| | Default hooks | `*Signal` hooks + in-place |
 |---|---|---|
-| Throughput | Baseline | ~25% faster on update-heavy workloads |
-| Concurrent Mode (Suspense/transitions) | Tearing-safe | **Not** tearing-safe |
-| Reference stability | Yes | Yes |
-| API | — | identical, `+Fast` suffix |
+| Change detection | reference (`Object.is`) | keyed notification |
+| Per-update allocation | new entity object | none (in place) |
+| Concurrent Mode | tearing-safe | **not** tearing-safe |
+| Reference identity | stable per change | **stable across changes** — breaks `React.memo` on entities, prev/next diffing, time-travel, and the immutable-only consumers (e.g. the default uSES hooks on the same collection) |
 
-Default to the standard hooks; reach for `*Fast` when a profiler shows the binding is your bottleneck and you're not using Concurrent features.
+Select each entity where you render it (by pk); don't pass mutable entities into `React.memo` children expecting them to re-render.
 
 ## Multiple contexts
 

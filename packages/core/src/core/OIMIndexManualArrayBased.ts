@@ -33,6 +33,25 @@ export class OIMIndexManualArrayBased<
     }
 
     /**
+     * Appends pre-deduplicated slots to a key's bucket IN PLACE (no copy of the
+     * existing bucket) and emits once. Callers own dedup (so this stays O(added),
+     * not O(bucket)); used by collection-bound indexes for fast `addPks`.
+     */
+    public appendSlots(
+        key: TIndexKey,
+        slots: readonly TOIMAnyEntitySlot<TPk>[]
+    ): void {
+        if (slots.length === 0) return;
+        let bucket = this.store.getOneByKey(key);
+        if (!bucket) {
+            bucket = [];
+            this.store.setOneByKey(key, bucket);
+        }
+        for (let i = 0; i < slots.length; i++) bucket.push(slots[i]);
+        this.emitUpdateOne(key);
+    }
+
+    /**
      * Clear all primary keys for a specific index key, or all keys if no key specified
      */
     public clear(key?: TIndexKey): void {

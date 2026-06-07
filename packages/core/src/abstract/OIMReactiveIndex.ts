@@ -24,13 +24,13 @@ export abstract class OIMReactiveIndex<
 
     public getEntitiesByKey<TEntity extends object = object>(
         key: TKey
-    ): TEntity[] {
+    ): (TEntity | undefined)[] {
         return this.index.getEntitiesByKey<TEntity>(key);
     }
 
     public getEntitiesByKeys<TEntity extends object = object>(
         keys: readonly TKey[]
-    ): Map<TKey, TEntity[]> {
+    ): Map<TKey, (TEntity | undefined)[]> {
         return this.index.getEntitiesByKeys<TEntity>(keys);
     }
 

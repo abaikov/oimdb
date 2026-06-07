@@ -4,7 +4,7 @@ import { OIMCollection } from './OIMCollection';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
-import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
+import { OIMCarrierKeyedEmitter } from './OIMCarrierKeyedEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
@@ -13,7 +13,12 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     implements IOIMKeyedSubscription<TPk>
 {
     private readonly queue: OIMEventQueue;
-    protected readonly updateEmitter: OIMUpdateEventEmitter<TPk>;
+    // Slot-based keyed delivery: handlers live on the entity slot, so marking
+    // and notifying need no per-key map lookup on the hot path.
+    protected readonly updateEmitter: OIMCarrierKeyedEmitter<
+        TPk,
+        TOIMEntitySlot<TEntity, TPk>
+    >;
 
     private readonly anyUpdateHandlers = new Set<
         (pks: readonly TPk[]) => void
@@ -29,7 +34,10 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     ) {
         super(opts);
         this.queue = queue;
-        this.updateEmitter = new OIMUpdateEventEmitter<TPk>(queue, 'queue');
+        this.updateEmitter = new OIMCarrierKeyedEmitter(queue, {
+            getOrReserveCarrier: (pk: TPk) => this.store.getOrReserveSlotByPk(pk),
+            findCarrier: (pk: TPk) => this.store.findSlotByPk(pk),
+        });
     }
 
     public subscribeOnKey(
@@ -87,13 +95,29 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
         };
     }
 
+    // The legacy `emitter` (EOIMCollectionEventType.UPDATE) coexists with the
+    // keyed `updateEmitter`. Build its payload only when something is actually
+    // subscribed — otherwise every upsert/remove allocates a throwaway
+    // `{ pks }` object (and array) that nobody reads.
+    private notifyLegacy(pk: TPk): void {
+        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
+            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        }
+    }
+
+    private notifyLegacyMany(pks: readonly TPk[]): void {
+        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
+            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        }
+    }
+
     public override upsertOneByPk(
         pk: TPk,
         entity: Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
-        this.updateEmitter.markUpdatedKey(pk);
+        this.notifyLegacy(pk);
+        this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(pk);
         return slot;
     }
@@ -102,8 +126,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
         entity: TEntity | Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotifications(entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [slot.pk] });
-        this.updateEmitter.markUpdatedKey(slot.pk);
+        this.notifyLegacy(slot.pk);
+        this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(slot.pk);
         return slot;
     }
@@ -117,8 +141,10 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
             this.upsertOneWithoutNotifications(entity)
         );
         const pks = slots.map(slot => slot.pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
-        this.updateEmitter.markUpdatedKeys(pks);
+        this.notifyLegacyMany(pks);
+        for (let i = 0; i < slots.length; i++) {
+            this.updateEmitter.markUpdatedCarrier(slots[i]);
+        }
         this.trackAnyUpdatePks(pks);
         return slots;
     }
@@ -126,7 +152,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     public override removeOne(entity: TEntity): void {
         const pk = this.selectPk(entity);
         this.store.removeOneByPk(pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        this.notifyLegacy(pk);
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -136,14 +162,14 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
 
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        this.notifyLegacyMany(pks);
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override removeOneByPk(pk: TPk): void {
         this.store.removeOneByPk(pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        this.notifyLegacy(pk);
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -152,15 +178,21 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
         if (pks.length === 0) return;
 
         this.store.removeManyByPks(pks);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        this.notifyLegacyMany(pks);
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override clear(): void {
         this.store.clear();
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
-        // Unknown keys: notify all subscribed keys.
+        // clear() removes every key, so the individually-changed keys are
+        // unknown. On the legacy UPDATE event an empty `pks` is the agreed
+        // "rebuild from scratch" signal (derived indexes act on
+        // `pks.length === 0`). Emit it only if something is subscribed.
+        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
+            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
+        }
+        // Keyed subscribers are notified separately across all known keys.
         this.updateEmitter.markAllUpdated();
         this.trackAnyUpdateClear();
     }

@@ -16,6 +16,9 @@ export class OIMReactiveCollectionIndexManualSetBased<
     TEntity extends object = object,
 > extends OIMReactiveIndexManualSetBased<TKey, TPk> {
     private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    // Persistent per-key pk → slot map for O(1) add (dedup) and O(1) remove
+    // (slot lookup by pk). Kept in sync by setPks/addPks/removePks/clear.
+    private readonly slotByPk = new Map<TKey, Map<TPk, TOIMAnyEntitySlot<TPk>>>();
 
     constructor(
         queue: OIMEventQueue,
@@ -33,65 +36,86 @@ export class OIMReactiveCollectionIndexManualSetBased<
     }
 
     public setPks(key: TKey, pks: readonly TPk[]): void {
-        this.setSlots(key, this.resolveSlots(pks));
+        const map = new Map<TPk, TOIMAnyEntitySlot<TPk>>();
+        const slots: TOIMAnyEntitySlot<TPk>[] = [];
+        for (let i = 0; i < pks.length; i++) {
+            const pk = pks[i];
+            const slot = this.resolveRequiredSlot(pk);
+            if (!map.has(pk)) map.set(pk, slot);
+            slots.push(slot);
+        }
+        this.slotByPk.set(key, map);
+        super.setSlots(key, slots);
     }
 
     public addPks(key: TKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        const existingSlots = this.index.getSlotsByKey(key);
-        const existingPks = this.index.getPksByKey(key);
-        const nextSlots = new Set(existingSlots);
-        let hasChanges = false;
-
+        // O(added): dedup via the persistent pk→slot map and add in place —
+        // no whole-bucket Set copy.
+        const map = this.membershipOf(key);
+        const newSlots: TOIMAnyEntitySlot<TPk>[] = [];
         for (const pk of pks) {
-            if (existingPks.has(pk)) continue;
+            if (map.has(pk)) continue;
             const slot = this.resolveRequiredSlot(pk);
-            nextSlots.add(slot);
-            existingPks.add(pk);
-            hasChanges = true;
+            map.set(pk, slot);
+            newSlots.push(slot);
         }
-
-        if (hasChanges) this.setSlots(key, nextSlots);
+        if (newSlots.length > 0) this.addSlots(key, newSlots);
     }
 
     public removePks(key: TKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
-        const pksToRemove = new Set(pks);
-        const existingSlots = this.index.getSlotsByKey(key);
-        const nextSlots = new Set<TOIMAnyEntitySlot<TPk>>();
-        let hasChanges = false;
-
-        for (const slot of existingSlots) {
-            if (pksToRemove.has(slot.pk)) {
-                hasChanges = true;
-            } else {
-                nextSlots.add(slot);
+        // O(removed): look up each slot by pk and delete it from the bucket
+        // in place — no whole-bucket rebuild. Lazily seed the map so it is
+        // correct even when slots were set via a lower-level path (setSlots).
+        const map = this.membershipOf(key);
+        if (map.size === 0) return;
+        const removed: TOIMAnyEntitySlot<TPk>[] = [];
+        for (const pk of pks) {
+            const slot = map.get(pk);
+            if (slot) {
+                map.delete(pk);
+                removed.push(slot);
             }
         }
+        if (removed.length === 0) return;
+        if (map.size === 0) this.slotByPk.delete(key);
+        this.removeSlots(key, removed);
+    }
 
-        if (!hasChanges) return;
-        if (nextSlots.size === 0) this.clear(key);
-        else this.setSlots(key, nextSlots);
+    public override clear(key?: TKey): void {
+        if (key === undefined) this.slotByPk.clear();
+        else this.slotByPk.delete(key);
+        super.clear(key);
+    }
+
+    /**
+     * The pk→slot map for a key, lazily seeded from the current bucket so it
+     * stays correct even if slots were set through a lower-level path.
+     */
+    private membershipOf(key: TKey): Map<TPk, TOIMAnyEntitySlot<TPk>> {
+        let map = this.slotByPk.get(key);
+        if (!map) {
+            map = new Map();
+            const existing = this.index.getSlotsByKey(key);
+            for (const slot of existing) map.set(slot.pk, slot);
+            this.slotByPk.set(key, map);
+        }
+        return map;
     }
 
     public override getEntitiesByKey<TItem extends object = TEntity>(
         key: TKey
-    ): TItem[] {
+    ): (TItem | undefined)[] {
         return super.getEntitiesByKey<TItem>(key);
     }
 
     public override getEntitiesByKeys<TItem extends object = TEntity>(
         keys: readonly TKey[]
-    ): Map<TKey, TItem[]> {
+    ): Map<TKey, (TItem | undefined)[]> {
         return super.getEntitiesByKeys<TItem>(keys);
-    }
-
-    private resolveSlots(pks: readonly TPk[]): Set<TOIMAnyEntitySlot<TPk>> {
-        const slots = new Set<TOIMAnyEntitySlot<TPk>>();
-        for (const pk of pks) slots.add(this.resolveRequiredSlot(pk));
-        return slots;
     }
 
     private resolveRequiredSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {

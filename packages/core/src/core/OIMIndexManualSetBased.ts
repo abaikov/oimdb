@@ -33,6 +33,49 @@ export class OIMIndexManualSetBased<
     }
 
     /**
+     * Adds slots to a key's bucket IN PLACE (no copy of the existing Set) and
+     * emits once. O(added). Used by collection-bound indexes for fast `addPks`.
+     */
+    public addSlots(
+        key: TIndexKey,
+        slots: readonly TOIMAnyEntitySlot<TPk>[]
+    ): void {
+        if (slots.length === 0) return;
+        let bucket = this.store.getOneByKey(key);
+        if (!bucket) {
+            bucket = new Set();
+            this.store.setOneByKey(key, bucket);
+        }
+        let changed = false;
+        for (let i = 0; i < slots.length; i++) {
+            if (!bucket.has(slots[i])) {
+                bucket.add(slots[i]);
+                changed = true;
+            }
+        }
+        if (changed) this.emitUpdateOne(key);
+    }
+
+    /**
+     * Removes slots from a key's bucket IN PLACE (O(removed)) and emits once.
+     */
+    public removeSlots(
+        key: TIndexKey,
+        slots: readonly TOIMAnyEntitySlot<TPk>[]
+    ): void {
+        if (slots.length === 0) return;
+        const bucket = this.store.getOneByKey(key);
+        if (!bucket) return;
+        let changed = false;
+        for (let i = 0; i < slots.length; i++) {
+            if (bucket.delete(slots[i])) changed = true;
+        }
+        if (!changed) return;
+        if (bucket.size === 0) this.store.removeOneByKey(key);
+        this.emitUpdateOne(key);
+    }
+
+    /**
      * Clear all primary keys for a specific index key, or all keys if no key specified
      */
     public clear(key?: TIndexKey): void {
