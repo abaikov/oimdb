@@ -39,6 +39,117 @@ npx tsx packages/core/bench/index.ts
 
 Computed values and effects run inside the same `queue.flush()` drain — derived recompute and subscriber delivery happen in the same pass.
 
+## Compared to other state managers
+
+Cross-library numbers measured in **two planes**, because they answer different
+questions. These are **directional** — reproduce on your own hardware/versions
+before quoting. Methodology that matters: production React build only (dev adds
+~2× `jsxDEV`/validation overhead and distorts everything), one update at a time
+via `flushSync` (so this is CPU cost per update, not frame-paced perceived
+latency), instrumentation kept out of the timing window.
+
+### React throughput (production)
+
+Cost of one entity update in a real React app (1500 components, 1 subscriber
+each). Lower is better.
+
+| Library (idiom) | µs/update | re-renders/update |
+|---|---|---|
+| MobX (deep, in-place) | 33.0 | 1 |
+| MobX (ids-based) | 33.3 | 1 |
+| **oimdb** | 33.4 | 1 |
+| oimdb + cnstra (in-place) | 33.9 | 1 |
+| oimdb + cnstra (ids-based) | 34.2 | 1 |
+| Effector (atomic stores) | 36.1 | 1 |
+| *— tier boundary —* | | |
+| Effector (ids-based, Record copy) | 1,230 | 1 |
+| Zustand (ids-based) | 2,372 | 1 |
+| Redux Toolkit (ids-based) | 5,430 | 1 |
+
+**Read this honestly.** Inside the top tier the 33–36µs spread is **noise**:
+React's commit cost dominates and swamps the store layer, so a 1–3µs lead is a
+coin flip that does not reproduce. What React does *not* hide is **fine-grained
+vs coarse** — stores that copy the whole collection and re-run every selector on
+each update (effector-ids, zustand, redux) land 35–160× slower. oimdb sits
+firmly in the fine-grained tier: on par with the best (MobX deep, atomic
+Effector), without `observer` everywhere or a store-per-entity. The `re-renders
+/update = 1` column confirms all fine-grained libraries invalidate equally
+precisely — the difference is pure per-update CPU, not render volume.
+
+### Data layer (no React)
+
+Pure cost of a store update plus confirmed delivery to one subscriber per
+entity — i.e. the end-to-end cost when there is **no React commit to hide
+behind**. Lower is better.
+
+| Layer | µs/update |
+|---|---|
+| oimdb in-place upsert + flush | 0.25 |
+| oimdb merge upsert + flush | 0.34 |
+| cnstra → oimdb (full stimulate) | 0.48 |
+| MobX (deep in-place + reaction) | 0.67 |
+| MobX (map.set + reaction) | 0.74 |
+| Effector (atomic + watch) | 0.89 |
+| Zustand (setState + N selectors) | 95 |
+| Effector (record + useStoreMap) | 248 |
+| Redux (dispatch + N selectors) | 302 |
+
+Here the fine-grained stores rank honestly and oimdb leads (~2–3× MobX). **Keep
+the proportion**: in a React app this ~0.4µs lives under a ~33µs commit, so it is
+invisible end-to-end — the top table rules out any "faster in your React app"
+claim. It becomes visible exactly where the bottleneck *is* the data layer and
+not the React commit:
+
+- headless / non-render consumers — computed/effect graphs, persistence,
+  server-side, data pipelines, game loops;
+- cnstra-orchestrated flows (the `0.48µs` full stimulate above is already
+  end-to-end — no React);
+- high-frequency updates where thousands of entities change but only a few are
+  on screen — the store cost is paid for all, the render only for the visible;
+- fine-grained renderers (Solid/Svelte) whose per-update floor is low enough for
+  the data-layer ranking to show through (lower floor → the 0.4µs is a larger
+  share). This last case is plausible but **not yet measured here** — treat it
+  as a hypothesis until there is a Solid/Svelte adapter on the same workload.
+
+### Memory (steady-state heap, production)
+
+Heap after GC with the same rendered DOM across all adapters (50,162 nodes).
+Lower is better.
+
+| Library (idiom) | heap MB |
+|---|---|
+| oimdb + cnstra (in-place) | 25.8 |
+| oimdb + cnstra (ids-based) | 28.1 |
+| oimdb (no cnstra) | 28.1 |
+| Zustand (ids-based) | 30.2 |
+| MobX (ids-based) | 31.5 |
+| MobX (deep, in-place) | 37.4 |
+| Redux Toolkit (ids-based) | 37.7 |
+| Effector (ids-based) | 42.0 |
+| Effector (atomic stores) | 89.7 |
+
+This is where the **fast-tier trade-offs become explicit**:
+
+- oimdb/cnstra has the lightest footprint (25.8–28.1 MB); in-place mode trims it
+  further by avoiding per-update allocation — the steady-state heap backs the
+  allocation argument that a mean-µs number alone can't show.
+- Atomic Effector is in the fast update tier (36µs) but costs **89.7 MB, ~3.5×
+  the lightest** — a store + event per entity means thousands of units. It buys
+  update speed with memory; name that trade-off.
+- MobX deep (37.4) is heavier than MobX ids (31.5): deep observables wrap every
+  field in a proxy/atom. The "native" mode has its own memory cost.
+
+Caveat: a single steady-state heap number doesn't capture GC pause
+*distribution* — in-place's allocation savings mainly help tail latency under
+sustained high-frequency updates, which this number only hints at.
+
+**Bottom line:** oimdb is in the fast tier for React, the fastest measured at the
+data layer, and the lightest in memory — with a real end-to-end win wherever the
+data layer (not the React commit) is the bottleneck. The honest non-claim: it is
+*not* faster than MobX/atomic-Effector *inside a React app* — React's commit
+floor erases that — but it reaches the same tier without their memory cost
+(atomic Effector) or `observer`/proxy overhead (MobX deep).
+
 ## Mutable mode (advanced)
 
 By default entities are updated **immutably** (`{ ...prev, ...draft }`), so each update produces a new object reference — required for React's `Object.is` change detection (`useSyncExternalStore`). The copy is the largest per-update data-layer cost.
