@@ -50,7 +50,6 @@ export class OIMCarrierKeyedEmitter<
     // doubles as membership: a carrier is in this array iff `carrier.dirty`.
     private dirtyCarriers: TCarrier[] = [];
     private isFlushEnqueued = false;
-    private dequeueFlush?: () => void;
 
     constructor(
         queue: OIMEventQueue,
@@ -186,9 +185,9 @@ export class OIMCarrierKeyedEmitter<
     }
 
     public destroy(): void {
-        if (this.dequeueFlush) {
-            this.dequeueFlush();
-            this.dequeueFlush = undefined;
+        if (this.isFlushEnqueued) {
+            this.queue.cancelTask(this.onFlush);
+            this.isFlushEnqueued = false;
         }
         this.subscribedCarriers.forEach(carrier => {
             carrier.subscribers?.clear();
@@ -214,12 +213,11 @@ export class OIMCarrierKeyedEmitter<
     private scheduleFlush(): void {
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+        this.queue.enqueueTask(this.onFlush);
     }
 
     private readonly onFlush = (): void => {
         this.isFlushEnqueued = false;
-        this.dequeueFlush = undefined;
         if (this.dirtyCarriers.length === 0) return;
 
         // Swap in a fresh batch so any (illegal) re-mark wouldn't touch this one.

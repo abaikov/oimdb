@@ -1,8 +1,10 @@
 import { OIMObject } from './OIMObject';
 import { OIMEventQueue } from './OIMEventQueue';
-import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
+import { OIMCarrierKeyedEmitter } from './OIMCarrierKeyedEmitter';
+import { OIMKeyedCarrierResolver } from './OIMKeyedCarrierResolver';
+import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
+import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import { TOIMObjectOptions } from '../types/TOIMObjectOptions';
-import { EOIMObjectEventType } from '../enums/EOIMObjectEventType';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
 
@@ -10,16 +12,31 @@ export class OIMReactiveObject<TKey extends string, TValue>
     extends OIMObject<TKey, TValue>
     implements IOIMKeyedSubscription<TKey>
 {
-    protected readonly updateEmitter: OIMUpdateEventEmitter<TKey>;
+    protected readonly updateEmitter: IOIMKeyedUpdateEmitter<TKey>;
 
     constructor(queue: OIMEventQueue, opts?: TOIMObjectOptions<TKey, TValue>) {
         super(opts);
-        this.updateEmitter = new OIMUpdateEventEmitter<TKey>(queue, 'queue');
+        // Carrier-based keyed emitter: marking a written key dirty is an O(1)
+        // flag set on its carrier, with no per-key map lookup or payload.
+        this.updateEmitter = new OIMCarrierKeyedEmitter<
+            TKey,
+            IOIMKeyCarrier<TKey>
+        >(queue, new OIMKeyedCarrierResolver<TKey>());
+    }
 
-        // Internal bridge: object emitter -> updateEventEmitter batching.
-        this.emitter.on(EOIMObjectEventType.UPDATE, payload => {
-            this.updateEmitter.markUpdatedKeys(payload.keys);
-        });
+    /**
+     * Mark the written key(s) on the keyed emitter directly — no general-event
+     * bridge, no `{ keys }` payload on the single-key path. `super` still fires
+     * the general UPDATE event for any low-level `emitter` subscribers.
+     */
+    protected override onUpdatedKey(key: TKey): void {
+        this.updateEmitter.markUpdatedKey(key);
+        super.onUpdatedKey(key);
+    }
+
+    protected override onUpdatedKeys(keys: TKey[]): void {
+        this.updateEmitter.markUpdatedKeys(keys);
+        super.onUpdatedKeys(keys);
     }
 
     public subscribeOnKey(

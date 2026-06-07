@@ -20,19 +20,17 @@ export class OIMObject<TKey extends string, TValue> {
 
     public setProperty(key: TKey, value: TValue): void {
         this.store.setProperty(key, value);
-        this.emitter.emit(EOIMObjectEventType.UPDATE, { keys: [key] });
+        this.onUpdatedKey(key);
     }
 
     public merge(draft: Partial<Record<TKey, TValue>>): void {
         this.store.merge(draft);
-        this.emitter.emit(EOIMObjectEventType.UPDATE, {
-            keys: Object.keys(draft) as unknown as TKey[],
-        });
+        this.onUpdatedKeys(Object.keys(draft) as unknown as TKey[]);
     }
 
     public delete(key: TKey): void {
         this.store.delete(key);
-        this.emitter.emit(EOIMObjectEventType.UPDATE, { keys: [key] });
+        this.onUpdatedKey(key);
     }
 
     public get(key: TKey): TValue | undefined {
@@ -45,7 +43,26 @@ export class OIMObject<TKey extends string, TValue> {
 
     public clear(): void {
         this.store.clear();
-        this.emitter.emit(EOIMObjectEventType.UPDATE, { keys: [] });
+        this.onUpdatedKeys([]);
+    }
+
+    /**
+     * Write fan-out hooks. Split single-key vs multi-key so a reactive subclass
+     * can mark its keyed emitter on the hot single-property path without
+     * allocating a `{ keys: [key] }` payload. The base only fires the general
+     * UPDATE event, and only when something is actually subscribed to it — so an
+     * unobserved write skips the payload allocation entirely.
+     */
+    protected onUpdatedKey(key: TKey): void {
+        if (this.emitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
+            this.emitter.emit(EOIMObjectEventType.UPDATE, { keys: [key] });
+        }
+    }
+
+    protected onUpdatedKeys(keys: TKey[]): void {
+        if (this.emitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
+            this.emitter.emit(EOIMObjectEventType.UPDATE, { keys });
+        }
     }
 
     public count(): number {

@@ -26,7 +26,6 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     private pendingAnyUpdatePks = new Set<TPk>();
     private isAnyUpdateClearPending = false;
     private isAnyUpdateScheduled = false;
-    private dequeueAnyUpdate?: () => void;
 
     constructor(
         queue: OIMEventQueue,
@@ -220,13 +219,12 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     private ensureAnyUpdateEnqueued(): void {
         if (this.isAnyUpdateScheduled) return;
         this.isAnyUpdateScheduled = true;
-        this.dequeueAnyUpdate = this.queue.enqueue(this.runAnyUpdate);
+        this.queue.enqueueTask(this.runAnyUpdate);
     }
 
     private readonly runAnyUpdate = () => {
         if (!this.isAnyUpdateScheduled) return;
         this.isAnyUpdateScheduled = false;
-        this.dequeueAnyUpdate = undefined;
 
         const pks = this.isAnyUpdateClearPending
             ? []
@@ -240,9 +238,9 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
 
     public override destroy(): void {
         this.updateEmitter.destroy();
-        if (this.dequeueAnyUpdate) {
-            this.dequeueAnyUpdate();
-            this.dequeueAnyUpdate = undefined;
+        if (this.isAnyUpdateScheduled) {
+            this.queue.cancelTask(this.runAnyUpdate);
+            this.isAnyUpdateScheduled = false;
         }
         this.anyUpdateHandlers.clear();
         this.pendingAnyUpdatePks.clear();

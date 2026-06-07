@@ -6,6 +6,8 @@ sidebar_position: 4
 
 `OIMReactiveObject<TKey, TValue>` is a reactive key-value store for single values: app settings, feature flags, current user, UI state. Unlike collections, it has no primary key — keys are typed string literals defined at the type level.
 
+> **Object vs Collection.** Use an **object** for a fixed, known set of *named* values (settings, the current user, a few UI flags) — keys are string-literal types, there is no id. Use a [collection](/docs/core/model) for a *dynamic set of entities* keyed by a primary key. Both subscribe per-key and deliver through the same queue, so they coalesce together.
+
 ## Basic usage
 
 ```typescript
@@ -51,6 +53,39 @@ queue.flush(); // callbacks fire once
 off();
 off2();
 ```
+
+## With React
+
+`@oimdb/react` exposes object hooks that re-render a component only when the key it watches changes:
+
+```tsx
+import { useSelectValueByObjectKey, useSelectValuesByObjectKeys } from '@oimdb/react';
+
+function ThemeToggle() {
+  const theme = useSelectValueByObjectKey(settings, 'theme'); // string | undefined
+  return (
+    <button onClick={() => settings.setProperty('theme', theme === 'dark' ? 'light' : 'dark')}>
+      {theme ?? '—'}
+    </button>
+  );
+}
+
+function Header() {
+  const [theme, lang] = useSelectValuesByObjectKeys(settings, ['theme', 'lang']);
+  return <header className={theme}>{lang}</header>;
+}
+```
+
+Hold the object in a module/closure (or pass it through your own context), the same way you wire collections.
+
+## Delivery model
+
+Writes are **batched through the queue**. `setProperty` / `merge` / `delete` mark the changed keys dirty and schedule a single delivery on the next `queue.flush()`. Two consequences:
+
+- **Coalescing** — several writes in the same tick collapse into one notification per key.
+- **Glitch-free with the rest of oimdb** — update an object *and* a collection in one action and subscribers see a single consistent batch, not two separate renders.
+
+This is the deliberate trade-off against a synchronous micro-observable (which calls subscribers inline on every write): for one isolated write the sync model has less overhead, but it can't coalesce and can tear across mixed updates. If you specifically need synchronous, non-queued notification for a standalone value, the non-reactive `OIMObject` base exposes a plain `emitter` that fires inline — at the cost of no queue integration. See [Performance](/docs/guides/performance) for the numbers and the trade-off.
 
 ## Selectors
 

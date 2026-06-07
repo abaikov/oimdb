@@ -12,6 +12,12 @@ export class OIMEventQueue {
         Record<EOIMEventQueueEventType, void>
     >();
     protected tasks = new Set<() => void>();
+    // Reused buffer swapped in during flush so the pending set is never copied
+    // (no per-flush array snapshot) and new enqueues land in a fresh set.
+    protected tasksSpare = new Set<() => void>();
+    // The set currently being drained, so cancelTask() can also remove a task
+    // mid-flush (a Set's for..of skips entries deleted before they're reached).
+    protected flushing?: Set<() => void>;
     protected readonly scheduler?: OIMEventQueueScheduler;
     protected flushBound?: () => void;
     protected isFlushing = false;
@@ -49,6 +55,24 @@ export class OIMEventQueue {
         };
     }
 
+    /**
+     * Allocation-free enqueue for a **stable** function reference (e.g. a bound
+     * `onFlush` method). The function is stored directly — no wrapper, no
+     * returned closure — and cancelled via {@link cancelTask}. Enqueuing the
+     * same reference twice is idempotent (Set-deduped); callers that may run a
+     * task more than once per flush should use {@link enqueue} instead.
+     */
+    public enqueueTask(fn: () => void): void {
+        this.tasks.add(fn);
+        this.ensureScheduled();
+    }
+
+    /** Cancel a task scheduled via {@link enqueueTask}; safe to call mid-flush. */
+    public cancelTask(fn: () => void): void {
+        this.tasks.delete(fn);
+        this.flushing?.delete(fn);
+    }
+
     public get isInFlush(): boolean {
         return this.isFlushing;
     }
@@ -73,12 +97,18 @@ export class OIMEventQueue {
         this.isFlushing = true;
         this.emitter.emit(EOIMEventQueueEventType.BEFORE_FLUSH, undefined);
 
-        const snapshot = Array.from(this.tasks);
-        this.tasks.clear();
+        // Swap the pending set out for an empty spare: tasks enqueued during the
+        // drain land in the fresh set (run next flush), exactly as before — but
+        // without copying the pending set into a snapshot array.
+        const flushing = this.tasks;
+        this.tasks = this.tasksSpare;
+        this.flushing = flushing;
 
-        for (let i = 0; i < snapshot.length; i++) {
-            snapshot[i]();
-        }
+        for (const task of flushing) task();
+
+        flushing.clear();
+        this.tasksSpare = flushing;
+        this.flushing = undefined;
 
         this.isFlushing = false;
         this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);

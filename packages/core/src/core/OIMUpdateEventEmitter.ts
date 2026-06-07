@@ -14,7 +14,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
     protected queue: OIMEventQueue;
     private readonly deliveryMode: TOIMUpdateEventEmitterDeliveryMode;
     private isFlushEnqueued = false;
-    private dequeueFlush?: () => void;
     private updatedKeys = new Set<TKey>();
     private isAfterFlushDeliveryScheduled = false;
     private unsubscribeAfterFlushDelivery?: () => void;
@@ -71,7 +70,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+        this.queue.enqueueTask(this.onFlush);
     }
 
     public markUpdatedKey(key: TKey): void {
@@ -99,7 +98,7 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+        this.queue.enqueueTask(this.onFlush);
     }
 
     public markAllUpdated(): void {
@@ -126,13 +125,12 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
 
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
-        this.dequeueFlush = this.queue.enqueue(this.onFlush);
+        this.queue.enqueueTask(this.onFlush);
     }
 
     // Stable handler reference to avoid allocating a new closure on every HAS_CHANGES.
     protected readonly onFlush = () => {
         this.isFlushEnqueued = false;
-        this.dequeueFlush = undefined;
 
         // Early exit if no handlers are registered
         if (this.keyHandlers.size === 0) {
@@ -202,9 +200,9 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
     }
 
     public destroy() {
-        if (this.dequeueFlush) {
-            this.dequeueFlush();
-            this.dequeueFlush = undefined;
+        if (this.isFlushEnqueued) {
+            this.queue.cancelTask(this.onFlush);
+            this.isFlushEnqueued = false;
         }
         if (this.unsubscribeAfterFlushDelivery) {
             this.unsubscribeAfterFlushDelivery();
@@ -279,9 +277,8 @@ export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
         // If there are no subscriptions at all, drop any pending work and cancel scheduled flush.
         if (this.keyHandlers.size === 0) {
             this.updatedKeys.clear();
-            if (this.dequeueFlush) {
-                this.dequeueFlush();
-                this.dequeueFlush = undefined;
+            if (this.isFlushEnqueued) {
+                this.queue.cancelTask(this.onFlush);
             }
             this.isFlushEnqueued = false;
         }
