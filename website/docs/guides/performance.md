@@ -41,12 +41,19 @@ Computed values and effects run inside the same `queue.flush()` drain — derive
 
 ## Compared to other state managers
 
-Cross-library numbers measured in **two planes**, because they answer different
-questions. These are **directional** — reproduce on your own hardware/versions
-before quoting. Methodology that matters: production React build only (dev adds
-~2× `jsxDEV`/validation overhead and distorts everything), one update at a time
-via `flushSync` (so this is CPU cost per update, not frame-paced perceived
-latency), instrumentation kept out of the timing window.
+Cross-library numbers measured in **three planes**, because they answer
+different questions. These are **directional** — reproduce on your own
+hardware/versions before quoting.
+
+Run it and read every adapter yourself — nothing here is hand-waved:
+
+- **Live benchmark:** [abaikov.github.io/cnstra-oimdb-bench](https://abaikov.github.io/cnstra-oimdb-bench/)
+- **Source (all adapters):** [github.com/abaikov/cnstra-oimdb-bench](https://github.com/abaikov/cnstra-oimdb-bench)
+
+Methodology that matters: production React build only (dev adds ~2×
+`jsxDEV`/validation overhead and distorts everything), one update at a time via
+`flushSync` (so this is CPU cost per update, not frame-paced perceived latency),
+instrumentation kept out of the timing window.
 
 ### React throughput (production)
 
