@@ -11,8 +11,9 @@ import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBas
 /**
  * Slot-first ordered-list command stream.
  *
- * Use this when you already have slots and want incremental commands for an
- * imperative renderer. For PK writes bound to a collection, use
+ * Emits position-addressed {@link TOIMOrderedListCommand}s whose `item` is the
+ * entity slot. Use this when you already have slots and want incremental
+ * commands for an imperative renderer. For PK writes bound to a collection, use
  * `OIMCollectionOrderedListCommandStream`.
  */
 export class OIMOrderedListCommandStream<
@@ -27,7 +28,7 @@ export class OIMOrderedListCommandStream<
 
     private readonly commandsByKey = new Map<
         TKey,
-        TOIMOrderedListCommand<TPk, TEntity>[]
+        TOIMOrderedListCommand<TOIMEntitySlot<TEntity, TPk>>[]
     >();
 
     /** Underlying slot-first ordered index. */
@@ -49,7 +50,7 @@ export class OIMOrderedListCommandStream<
             this.onAfterFlush
         );
 
-        // If the index is mutated directly, emit a full `set` command to resync.
+        // If the index is mutated directly, emit a full `reset` command to resync.
         this.unsubscribeFromIndexEmitter = this.index.emitter.on(
             EOIMIndexEventType.UPDATE,
             this.onIndexUpdate
@@ -83,12 +84,7 @@ export class OIMOrderedListCommandStream<
     public pushSlot(key: TKey, slot: TOIMEntitySlot<TEntity, TPk>): void {
         this.withWrite(() => {
             const index = this.index.pushSlot(key, slot);
-            this.appendCommand(key, {
-                type: 'insert',
-                pk: slot.pk,
-                slot,
-                index,
-            });
+            this.appendCommand(key, { type: 'insert', index, item: slot });
         });
     }
 
@@ -101,9 +97,25 @@ export class OIMOrderedListCommandStream<
             const safeIndex = this.index.insertSlotAt(key, index, slot);
             this.appendCommand(key, {
                 type: 'insert',
-                pk: slot.pk,
-                slot,
                 index: safeIndex,
+                item: slot,
+            });
+        });
+    }
+
+    /** Replace the slot at `index` in place. */
+    public setSlotAt(
+        key: TKey,
+        index: number,
+        slot: TOIMEntitySlot<TEntity, TPk>
+    ): void {
+        this.withWrite(() => {
+            const safeIndex = this.index.setSlotAt(key, index, slot);
+            if (safeIndex < 0) return;
+            this.appendCommand(key, {
+                type: 'set',
+                index: safeIndex,
+                item: slot,
             });
         });
     }
@@ -112,12 +124,16 @@ export class OIMOrderedListCommandStream<
         this.withWrite(() => {
             const slot = this.index.removeAt(key, index);
             if (slot === undefined) return;
-            this.appendCommand(key, {
-                type: 'remove',
-                pk: slot.pk,
-                slot: slot as TOIMEntitySlot<TEntity, TPk>,
-                index,
-            });
+            this.appendCommand(key, { type: 'remove', index });
+        });
+    }
+
+    /** Remove `count` consecutive elements from `index`; emits `remove` with `count`. */
+    public removeRange(key: TKey, index: number, count: number): void {
+        this.withWrite(() => {
+            const removed = this.index.removeRange(key, index, count);
+            if (removed <= 0) return;
+            this.appendCommand(key, { type: 'remove', index, count: removed });
         });
     }
 
@@ -127,11 +143,26 @@ export class OIMOrderedListCommandStream<
             if (slot === undefined) return;
             this.appendCommand(key, {
                 type: 'move',
-                pk: slot.pk,
-                slot: slot as TOIMEntitySlot<TEntity, TPk>,
-                fromIndex,
-                toIndex,
+                from: fromIndex,
+                to: toIndex,
             });
+        });
+    }
+
+    /**
+     * Move `count` consecutive elements from `from` to `to`; emits `move` with
+     * `count`. `to` is in the post-extraction coordinate space (as single `move`).
+     */
+    public moveRange(
+        key: TKey,
+        from: number,
+        to: number,
+        count: number
+    ): void {
+        this.withWrite(() => {
+            const moved = this.index.moveRange(key, from, to, count);
+            if (moved <= 0) return;
+            this.appendCommand(key, { type: 'move', from, to, count: moved });
         });
     }
 
@@ -141,17 +172,19 @@ export class OIMOrderedListCommandStream<
     ): void {
         this.withWrite(() => {
             this.index.resetSlots(key, slots);
-            this.appendSetCommand(key, slots);
+            this.appendResetCommand(key, slots);
         });
     }
 
     public getBufferedCommands(
         key: TKey
-    ): readonly TOIMOrderedListCommand<TPk, TEntity>[] {
+    ): readonly TOIMOrderedListCommand<TOIMEntitySlot<TEntity, TPk>>[] {
         return this.commandsByKey.get(key) ?? [];
     }
 
-    public consumeCommands(key: TKey): TOIMOrderedListCommand<TPk, TEntity>[] {
+    public consumeCommands(
+        key: TKey
+    ): TOIMOrderedListCommand<TOIMEntitySlot<TEntity, TPk>>[] {
         const cmds = this.commandsByKey.get(key);
         if (!cmds || cmds.length === 0) return [];
         return cmds.slice();
@@ -186,7 +219,7 @@ export class OIMOrderedListCommandStream<
 
         for (let i = 0; i < payload.keys.length; i++) {
             const key = payload.keys[i];
-            this.appendSetCommand(key, this.getSlotsByKey(key));
+            this.appendResetCommand(key, this.getSlotsByKey(key));
         }
     };
 
@@ -205,7 +238,7 @@ export class OIMOrderedListCommandStream<
 
     protected appendCommand(
         key: TKey,
-        cmd: TOIMOrderedListCommand<TPk, TEntity>
+        cmd: TOIMOrderedListCommand<TOIMEntitySlot<TEntity, TPk>>
     ): void {
         let cmds = this.commandsByKey.get(key);
         if (!cmds) {
@@ -213,12 +246,14 @@ export class OIMOrderedListCommandStream<
             this.commandsByKey.set(key, cmds);
         }
 
-        if (cmd.type === 'set') {
+        if (cmd.type === 'reset') {
+            // A full reset supersedes everything buffered so far.
             cmds.length = 0;
             cmds.push(cmd);
-        } else if (cmds.length > 0 && cmds[0].type === 'set') {
-            const slots = this.getSlotsByKey(key);
-            cmds[0] = this.createSetCommand(slots);
+        } else if (cmds.length > 0 && cmds[0].type === 'reset') {
+            // Once the batch starts with a reset, fold later structural edits
+            // into a fresh reset that reflects the current list.
+            cmds[0] = this.createResetCommand(this.getSlotsByKey(key));
         } else {
             cmds.push(cmd);
         }
@@ -226,20 +261,16 @@ export class OIMOrderedListCommandStream<
         this.commandsEventEmitter.markUpdatedKeys([key]);
     }
 
-    protected appendSetCommand(
+    protected appendResetCommand(
         key: TKey,
         slots: readonly TOIMEntitySlot<TEntity, TPk>[]
     ): void {
-        this.appendCommand(key, this.createSetCommand(slots));
+        this.appendCommand(key, this.createResetCommand(slots));
     }
 
-    protected createSetCommand(
+    protected createResetCommand(
         slots: readonly TOIMEntitySlot<TEntity, TPk>[]
-    ): TOIMOrderedListCommand<TPk, TEntity> {
-        return {
-            type: 'set',
-            pks: slots.map(slot => slot.pk),
-            slots,
-        };
+    ): TOIMOrderedListCommand<TOIMEntitySlot<TEntity, TPk>> {
+        return { type: 'reset', items: slots };
     }
 }

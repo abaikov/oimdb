@@ -47,12 +47,7 @@ export class OIMCollectionOrderedListCommandStream<
         this.withWrite(() => {
             const slot = this.resolvePk(pk);
             const index = this.index.pushSlot(key, slot);
-            this.appendCommand(key, {
-                type: 'insert',
-                pk,
-                slot,
-                index,
-            });
+            this.appendCommand(key, { type: 'insert', index, item: slot });
         });
     }
 
@@ -62,9 +57,22 @@ export class OIMCollectionOrderedListCommandStream<
             const safeIndex = this.index.insertSlotAt(key, index, slot);
             this.appendCommand(key, {
                 type: 'insert',
-                pk,
-                slot,
                 index: safeIndex,
+                item: slot,
+            });
+        });
+    }
+
+    /** Replace the element at `index` with the slot for `pk`, in place. */
+    public setAt(key: TKey, index: number, pk: TPk): void {
+        this.withWrite(() => {
+            const slot = this.resolvePk(pk);
+            const safeIndex = this.index.setSlotAt(key, index, slot);
+            if (safeIndex < 0) return;
+            this.appendCommand(key, {
+                type: 'set',
+                index: safeIndex,
+                item: slot,
             });
         });
     }
@@ -73,7 +81,7 @@ export class OIMCollectionOrderedListCommandStream<
         this.withWrite(() => {
             const slots = pks.map(pk => this.resolvePk(pk));
             this.index.resetSlots(key, slots);
-            this.appendSetCommand(key, slots);
+            this.appendResetCommand(key, slots);
         });
     }
 

@@ -136,7 +136,7 @@ index.getKeys();                   // all known keys
 
 ## Ordered list command stream
 
-`indexFactory.orderedList()` creates an `OIMCollectionOrderedListCommandStream`. Unlike `arrayBasedIndex`, it also produces incremental commands (insert / remove / move / set) that consumers can replay without diffing.
+`indexFactory.orderedList()` creates an `OIMCollectionOrderedListCommandStream`. Unlike `arrayBasedIndex`, it also produces incremental, **position-addressed** commands that consumers can replay without diffing.
 
 ```typescript
 const queue = users.indexFactory.orderedList<string>();
@@ -144,7 +144,23 @@ const queue = users.indexFactory.orderedList<string>();
 queue.push('main', 'u1');          // append
 queue.push('main', 'u2');
 queue.insertAt('main', 0, 'u3');   // insert at position
+queue.setAt('main', 1, 'u4');      // replace the element at index 1
+queue.removeRange('main', 0, 2);   // remove 2 consecutive → remove{count:2}
+queue.moveRange('main', 0, 3, 2);  // move a block of 2 → move{count:2}
 queue.set('main', ['u3', 'u1', 'u2']); // replace entire list
+```
+
+`removeRange`/`moveRange` emit `remove`/`move` commands with `count > 1`; the single-element `removeAt`/`move` omit `count` (consumers read `count ?? 1`).
+
+Commands are addressed by **position**, and each command's `item` is the entity **slot** (read the entity via `item.item`):
+
+```typescript
+type Command<Slot> =
+  | { type: 'insert'; index: number; item: Slot }
+  | { type: 'remove'; index: number; count?: number }   // count may be > 1
+  | { type: 'move';   from: number; to: number; count?: number }
+  | { type: 'set';    index: number; item: Slot }        // replace one element
+  | { type: 'reset';  items: readonly Slot[] };          // replace whole list
 ```
 
 Subscribe to command delivery via `commandsEventEmitter`, then read buffered commands inside the callback. The buffer clears automatically after each flush.
@@ -154,10 +170,11 @@ const off = queue.commandsEventEmitter.subscribeOnKey('main', () => {
   const commands = queue.getBufferedCommands('main');
 
   for (const cmd of commands) {
-    if (cmd.type === 'insert') console.log('insert', cmd.pk, 'at', cmd.index);
-    if (cmd.type === 'remove') console.log('remove', cmd.pk, 'from', cmd.index);
-    if (cmd.type === 'move')   console.log('move',   cmd.pk, cmd.fromIndex, '->', cmd.toIndex);
-    if (cmd.type === 'set')    console.log('set',    cmd.pks);
+    if (cmd.type === 'insert') console.log('insert', cmd.item.item, 'at', cmd.index);
+    if (cmd.type === 'remove') console.log('remove', cmd.count ?? 1, 'from', cmd.index);
+    if (cmd.type === 'move')   console.log('move',   cmd.from, '->', cmd.to);
+    if (cmd.type === 'set')    console.log('set', cmd.index, cmd.item.item);
+    if (cmd.type === 'reset')  console.log('reset', cmd.items.length, 'items');
   }
 });
 
@@ -166,7 +183,7 @@ queue.getPksByKey('main');       // TPk[]
 queue.getEntitiesByKey('main');  // (TEntity | undefined)[] — holes preserved
 ```
 
-If multiple operations happen in one flush, they are buffered in order. If a `set` is mixed with incremental ops, the stream collapses everything into one `set` command.
+If multiple operations happen in one flush, they are buffered in order. If a `reset` (whole-list replace) is mixed with incremental ops, the stream collapses everything into one `reset` command.
 
 ## Selectors
 
@@ -226,6 +243,48 @@ tracker.destroy();
 ```
 
 The buffer (changed fields/PKs) is cleared automatically after each flush. Read inside the subscription callback.
+
+By default the tracker also watches for writes that **bypass** it (direct collection mutations) and infers the changed fields by diffing entity snapshots. That diff is shallow (it can't see deep in-place mutations) and it keeps a snapshot clone per PK (~2x entity memory).
+
+**Keep it on (the default) when something other than the tracker writes to the same collection** — a realtime sync handler, persistence hydration, or another feature module — and you still want those changes reflected:
+
+```typescript
+const tracker = new OIMCollectionChangedFields(queue, users.collection, {
+  selectPk: (user) => user.id,
+}); // detectExternalMutations defaults to true
+
+// A websocket handler writes straight to the collection, not through the tracker:
+socket.on('user:patch', (patch) => users.collection.upsertOneByPk(patch.id, patch));
+
+// The tracker still reports the changed fields, so the UI can highlight them:
+tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+  highlight(tracker.getChangedFieldsByPk('u1')); // works even though the write bypassed the tracker
+});
+```
+
+**Turn it off** only when *every* write goes through the tracker — it drops the snapshot clone and the per-PK snapshot map:
+
+```typescript
+const tracker = new OIMCollectionChangedFields(queue, users.collection, {
+  selectPk: (user) => user.id,
+  detectExternalMutations: false, // drop the snapshot clone + per-PK snapshot map
+});
+
+// All writes must go through the tracker (it forwards to the collection and
+// records the patched fields from the patch keys — no snapshot/diff needed):
+tracker.upsertOneByPk('u1', { role: 'admin' }); // returns the canonical slot
+tracker.upsertOne({ id: 'u2', name: 'Ann' });   // needs selectPk
+tracker.upsertMany([{ id: 'u3' }, { id: 'u4' }]);
+
+tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+  highlight(tracker.getChangedFieldsByPk('u1')); // {'role'}
+});
+
+// ⚠️ With detection off, a direct write bypasses tracking entirely:
+users.collection.upsertOneByPk('u1', { role: 'guest' }); // NOT reported
+```
+
+**Speed:** detection on costs about **1.5× the per-write time** vs off (~+0.3µs per `upsert*`, min-of-N on a tight loop) — it keeps one snapshot clone per write plus an update subscription. The clone also means per-write **allocation → GC pressure** under sustained writes, where off allocates nothing (so the gap is larger and noisier in tail latency than the steady-state number suggests). Data-layer cost: real for high-frequency writes, invisible under a React render.
 
 ## Reference
 

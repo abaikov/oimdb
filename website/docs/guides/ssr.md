@@ -9,7 +9,7 @@ already populated before you call `hydrate()`.** The server fills collections fr
 your data source, serializes them, and the client seeds the *same* collections from
 that blob so the first client render matches the server HTML.
 
-The only genuinely special part is what happens when a *second*, durable source
+The only special part is what happens when a *second*, durable source
 (e.g. an IndexedDB cache of the user's local edits) hydrates **after** the SSR
 pre-state is already in the collection. Instead of letting that later hydrate
 **replace** the pre-state, you reconcile it via the engine's `.onHydrate(reconcile)`

@@ -68,6 +68,23 @@ export class OIMIndexManualOrderedArrayBased<
         return removed;
     }
 
+    /**
+     * Remove up to `count` consecutive slots starting at `index`.
+     * Returns the number actually removed (clamped to bounds; 0 if nothing).
+     */
+    public removeRange(key: TKey, index: number, count: number): number {
+        const list = this.store.getOneByKey(key);
+        if (!list) return 0;
+        if (index < 0 || index >= list.length || count <= 0) return 0;
+        const actual = Math.min(count, list.length - index);
+        list.splice(index, actual);
+        if (list.length === 0) {
+            this.store.removeOneByKey(key);
+        }
+        this.emitUpdate([key]);
+        return actual;
+    }
+
     public move(
         key: TKey,
         fromIndex: number,
@@ -84,6 +101,43 @@ export class OIMIndexManualOrderedArrayBased<
         list.splice(toIndex, 0, slot);
         this.emitUpdate([key]);
         return slot;
+    }
+
+    /** Replace the slot at `index` in place. Returns the safe index, or -1. */
+    public setSlotAt(
+        key: TKey,
+        index: number,
+        slot: TOIMAnyEntitySlot<TItemKey>
+    ): number {
+        const list = this.store.getOneByKey(key);
+        if (!list) return -1;
+        if (index < 0 || index >= list.length) return -1;
+        list[index] = slot;
+        this.emitUpdate([key]);
+        return index;
+    }
+
+    /**
+     * Move up to `count` consecutive slots from `from` to `to`. `to` is in the
+     * coordinate space *after* the block is extracted (same as single `move`).
+     * Returns the number actually moved (0 if a no-op / out of bounds).
+     */
+    public moveRange(
+        key: TKey,
+        from: number,
+        to: number,
+        count: number
+    ): number {
+        const list = this.store.getOneByKey(key);
+        if (!list) return 0;
+        if (from < 0 || from >= list.length || count <= 0) return 0;
+        const actual = Math.min(count, list.length - from);
+        const insertAt = Math.max(0, Math.min(to, list.length - actual));
+        if (insertAt === from) return 0; // no-op
+        const block = list.splice(from, actual);
+        list.splice(insertAt, 0, ...block);
+        this.emitUpdate([key]);
+        return actual;
     }
 
     public resetSlots(

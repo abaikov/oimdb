@@ -71,6 +71,35 @@ describe('OIMCollectionChangedFields', () => {
         expect(snapshots).toEqual([['a', 'b'], ['a']]);
     });
 
+    test('detectExternalMutations: false skips external detection (and snapshots)', () => {
+        const queue = new OIMEventQueue();
+        const collection = new OIMReactiveCollection<TEntity, string>(queue);
+        const wrapper = new OIMCollectionChangedFields<TEntity, string>(
+            queue,
+            collection,
+            {
+                selectPk: (e: TEntity | Partial<TEntity>) => (e as TEntity).id,
+                detectExternalMutations: false,
+            }
+        );
+
+        const seen: string[][] = [];
+        wrapper.changedPksEventEmitter.subscribeOnKey('u1', () => {
+            seen.push(Array.from(wrapper.getChangedFieldsByPk('u1')).sort());
+        });
+
+        // Writes through the wrapper still track fields normally.
+        wrapper.upsertOneByPk('u1', { a: 1, b: 'x' });
+        queue.flush();
+        expect(seen).toEqual([['a', 'b']]);
+
+        // A write that bypasses the wrapper is NOT detected (no subscription).
+        seen.length = 0;
+        collection.upsertOneByPk('u1', { a: 99 });
+        queue.flush();
+        expect(seen).toEqual([]);
+    });
+
     test('returns canonical slots from wrapped upserts', () => {
         const queue = new OIMEventQueue();
         const collection = new OIMReactiveCollection<TEntity, string>(queue);

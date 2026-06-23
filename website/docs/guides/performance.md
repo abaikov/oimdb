@@ -73,9 +73,9 @@ each). Lower is better.
 | Zustand (ids-based) | 2,372 | 1 |
 | Redux Toolkit (ids-based) | 5,430 | 1 |
 
-**Read this honestly.** Inside the top tier the 33–36µs spread is **noise**:
-React's commit cost dominates and swamps the store layer, so a 1–3µs lead is a
-coin flip that does not reproduce. What React does *not* hide is **fine-grained
+Inside the top tier the 33–36µs spread is **noise**: React's commit cost
+dominates and swamps the store layer, so a 1–3µs lead is a coin flip that does
+not reproduce. What React does *not* hide is **fine-grained
 vs coarse** — stores that copy the whole collection and re-run every selector on
 each update (effector-ids, zustand, redux) land 35–160× slower. oimdb sits
 firmly in the fine-grained tier: on par with the best (MobX deep, atomic
@@ -101,11 +101,10 @@ behind**. Lower is better.
 | Effector (record + useStoreMap) | 248 |
 | Redux (dispatch + N selectors) | 302 |
 
-Here the fine-grained stores rank honestly and oimdb leads (~2–3× MobX). **Keep
-the proportion**: in a React app this ~0.4µs lives under a ~33µs commit, so it is
-invisible end-to-end — the top table rules out any "faster in your React app"
-claim. It becomes visible exactly where the bottleneck *is* the data layer and
-not the React commit:
+oimdb leads here (~2–3× MobX). In a React app this ~0.4µs lives under a ~33µs
+commit, so it is invisible end-to-end — the top table rules out any "faster in
+your React app" claim. It becomes visible where the bottleneck *is* the data
+layer and not the React commit:
 
 - headless / non-render consumers — computed/effect graphs, persistence,
   server-side, data pipelines, game loops;
@@ -135,14 +134,14 @@ Lower is better.
 | Effector (ids-based) | 42.0 |
 | Effector (atomic stores) | 89.7 |
 
-This is where the **fast-tier trade-offs become explicit**:
+Fast-tier trade-offs:
 
 - oimdb/cnstra has the lightest footprint (25.8–28.1 MB); in-place mode trims it
   further by avoiding per-update allocation — the steady-state heap backs the
   allocation argument that a mean-µs number alone can't show.
 - Atomic Effector is in the fast update tier (36µs) but costs **89.7 MB, ~3.5×
   the lightest** — a store + event per entity means thousands of units. It buys
-  update speed with memory; name that trade-off.
+  update speed with memory.
 - MobX deep (37.4) is heavier than MobX ids (31.5): deep observables wrap every
   field in a proxy/atom. The "native" mode has its own memory cost.
 
@@ -152,10 +151,10 @@ sustained high-frequency updates, which this number only hints at.
 
 **Bottom line:** oimdb is in the fast tier for React, the fastest measured at the
 data layer, and the lightest in memory — with a real end-to-end win wherever the
-data layer (not the React commit) is the bottleneck. The honest non-claim: it is
-*not* faster than MobX/atomic-Effector *inside a React app* — React's commit
-floor erases that — but it reaches the same tier without their memory cost
-(atomic Effector) or `observer`/proxy overhead (MobX deep).
+data layer (not the React commit) is the bottleneck. It is *not* faster than
+MobX/atomic-Effector *inside a React app* — React's commit floor erases that —
+but it reaches the same tier without their memory cost (atomic Effector) or
+`observer`/proxy overhead (MobX deep).
 
 ## Mutable mode (advanced)
 

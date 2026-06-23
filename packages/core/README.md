@@ -318,16 +318,20 @@ cardsByDeck.commandsEventEmitter.subscribeOnKey('deck1', () => {
     for (const command of commands) {
         switch (command.type) {
             case 'insert':
-                // Insert command.pk / command.slot.item at command.index
+                // Insert command.item (the slot; entity is command.item.item)
+                // at command.index
                 break;
             case 'remove':
-                // Remove command.pk from command.index
+                // Remove command.count ?? 1 elements starting at command.index
                 break;
             case 'move':
-                // Move command.pk from command.fromIndex to command.toIndex
+                // Move command.count ?? 1 elements from command.from to command.to
                 break;
             case 'set':
-                // Replace the whole list with command.pks or command.slots
+                // Replace the single element at command.index with command.item
+                break;
+            case 'reset':
+                // Replace the whole list with command.items (slots)
                 break;
         }
     }
@@ -1546,7 +1550,16 @@ Collection-bound ordered Array-based index. Use this when ordered PK writes shou
 - `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Returns entities from canonical slots (holes are `undefined`)
 
 #### `OIMOrderedListCommandStream<TKey, TPk, TEntity>`
-Slot-first ordered per-key list with a command stream for imperative consumers. It stores data in an `OIMIndexManualOrderedArrayBased` and emits `TOIMOrderedListCommand` batches through `commandsEventEmitter`.
+Slot-first ordered per-key list with a command stream for imperative consumers. It stores data in an `OIMIndexManualOrderedArrayBased` and emits position-addressed `TOIMOrderedListCommand<Slot>` batches through `commandsEventEmitter`. Each command's `item` is the entity slot (read the entity via `item.item`):
+
+```typescript
+type TOIMOrderedListCommand<TItem> =
+    | { type: 'insert'; index: number; item: TItem }
+    | { type: 'remove'; index: number; count?: number }   // count may be > 1
+    | { type: 'move'; from: number; to: number; count?: number }
+    | { type: 'set'; index: number; item: TItem }          // replace one element
+    | { type: 'reset'; items: readonly TItem[] };          // replace whole list
+```
 
 **Constructor:**
 ```typescript
@@ -1560,14 +1573,17 @@ new OIMOrderedListCommandStream(
 - `index: OIMIndexManualOrderedArrayBased<TKey, TPk>` - Underlying ordered index and source of truth
 - `commandsEventEmitter: OIMUpdateEventEmitter<TKey>` - Key-specific command notifications delivered after queue flush
 
-**Methods:**
-- `setSlots(key: TKey, slots: readonly TOIMEntitySlot<TEntity, TPk>[]): void` - Replace the whole ordered list and emit a `set` command
-- `pushSlot(key: TKey, slot: TOIMEntitySlot<TEntity, TPk>): void` - Append a slot and emit an `insert` command
-- `insertSlotAt(key: TKey, index: number, slot: TOIMEntitySlot<TEntity, TPk>): void` - Insert a slot and emit an `insert` command
+**Methods:** (`Slot` = `TOIMEntitySlot<TEntity, TPk>`)
+- `setSlots(key: TKey, slots: readonly Slot[]): void` - Replace the whole ordered list and emit a `reset` command
+- `pushSlot(key: TKey, slot: Slot): void` - Append a slot and emit an `insert` command
+- `insertSlotAt(key: TKey, index: number, slot: Slot): void` - Insert a slot and emit an `insert` command
+- `setSlotAt(key: TKey, index: number, slot: Slot): void` - Replace the slot at `index` in place and emit a `set` command
 - `removeAt(key: TKey, index: number): void` - Remove by index and emit a `remove` command
+- `removeRange(key: TKey, index: number, count: number): void` - Remove `count` consecutive elements from `index` and emit a `remove` command with `count`
 - `move(key: TKey, fromIndex: number, toIndex: number): void` - Move within the list and emit a `move` command
-- `consumeCommands(key: TKey): TOIMOrderedListCommand<TPk, TEntity>[]` - Read buffered commands for a key inside the notification handler
-- `getBufferedCommands(key: TKey): readonly TOIMOrderedListCommand<TPk, TEntity>[]` - Peek at buffered commands without clearing them
+- `moveRange(key: TKey, from: number, to: number, count: number): void` - Move `count` consecutive elements and emit a `move` command with `count` (`to` is post-extraction space)
+- `consumeCommands(key: TKey): TOIMOrderedListCommand<Slot>[]` - Read buffered commands for a key inside the notification handler
+- `getBufferedCommands(key: TKey): readonly TOIMOrderedListCommand<Slot>[]` - Peek at buffered commands without clearing them
 - `getPksByKey(key: TKey): readonly TPk[]` - Read the current ordered list
 - `getSlotsByKey(key: TKey): readonly TOIMEntitySlot<TEntity, TPk>[]` - Read current ordered slots
 - `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Read current ordered entities (holes are `undefined`)
@@ -1575,10 +1591,11 @@ new OIMOrderedListCommandStream(
 - `destroy(): void` - Dispose subscriptions and clear state
 
 #### `OIMCollectionOrderedListCommandStream<TKey, TPk, TEntity>`
-Collection-bound ordered-list command stream. Public writes use PKs, commands include both `pk`/`pks` and canonical `slot`/`slots`.
+Collection-bound ordered-list command stream. Public writes use PKs that resolve to canonical collection slots; emitted commands carry the slot as `item` (entity via `item.item`).
 
 **Methods:**
-- `set(key: TKey, pks: readonly TPk[]): void` - Replace the whole ordered list from PKs
+- `set(key: TKey, pks: readonly TPk[]): void` - Replace the whole ordered list from PKs (emits `reset`)
+- `setAt(key: TKey, index: number, pk: TPk): void` - Replace the element at `index` with the slot for `pk` (emits `set`)
 - `push(key: TKey, pk: TPk): void` - Append a PK
 - `insertAt(key: TKey, index: number, pk: TPk): void` - Insert a PK
 - all read/command methods from `OIMOrderedListCommandStream`

@@ -85,7 +85,7 @@ Writes are **batched through the queue**. `setProperty` / `merge` / `delete` mar
 - **Coalescing** — several writes in the same tick collapse into one notification per key.
 - **Glitch-free with the rest of oimdb** — update an object *and* a collection in one action and subscribers see a single consistent batch, not two separate renders.
 
-This is the deliberate trade-off against a synchronous micro-observable (which calls subscribers inline on every write): for one isolated write the sync model has less overhead, but it can't coalesce and can tear across mixed updates. If you specifically need synchronous, non-queued notification for a standalone value, the non-reactive `OIMObject` base exposes a plain `emitter` that fires inline — at the cost of no queue integration. See [Performance](/docs/guides/performance) for the numbers and the trade-off.
+This is the trade-off against a synchronous micro-observable (which calls subscribers inline on every write): for one isolated write the sync model has less overhead, but it can't coalesce and can tear across mixed updates. If you specifically need synchronous, non-queued notification for a standalone value, the non-reactive `OIMObject` base exposes a plain `emitter` that fires inline — at the cost of no queue integration. See [Performance](/docs/guides/performance) for the numbers and the trade-off.
 
 ## Selectors
 

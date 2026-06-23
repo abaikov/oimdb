@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/snapshot-manager",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "Snapshot manager for OIMDB collections",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -45,7 +45,7 @@
     "collection",
     "database"
   ],
-  "author": "OIMDB Team",
+  "author": "Andrei Baikov",
   "license": "MIT",
   "repository": {
     "type": "git",

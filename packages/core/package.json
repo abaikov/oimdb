@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/core",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Core in-memory data library with type-safe indices, reactive subscriptions, and event processing",
   "type": "module",
   "main": "./dist/index.cjs",

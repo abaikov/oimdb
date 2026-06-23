@@ -71,9 +71,8 @@ describe('OIMCollectionIndexFactory', () => {
         ]);
         expect(seen).toEqual([
             {
-                type: 'set',
-                pks: ['u1', 'u3', 'u2'],
-                slots: [
+                type: 'reset',
+                items: [
                     users.getSlotByPk('u1'),
                     users.getSlotByPk('u3'),
                     users.getSlotByPk('u2'),

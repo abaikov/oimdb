@@ -30,6 +30,7 @@ export * from './core/OIMIndexStoreMapDrivenArrayBased';
 export * from './core/OIMComparatorFactory';
 export * from './core/OIMEntityUpdaterFactory';
 export * from './core/createInPlaceEntityUpdater';
+export * from './core/createMergeEntityUpdater';
 export * from './core/OIMEventEmitter';
 export * from './core/OIMCarrierKeyedEmitter';
 export * from './types/IOIMSubscribable';

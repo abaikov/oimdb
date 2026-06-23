@@ -38,7 +38,15 @@ const config: Config = {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/abaikov/oimdb/tree/master/website/',
         },
-        blog: false,
+        blog: {
+          showReadingTime: true,
+          blogTitle: 'OIMDB Engineering',
+          blogDescription:
+            'Design decisions and trade-offs behind OIMDB — what options we had and why we picked ours.',
+          postsPerPage: 10,
+          blogSidebarTitle: 'All posts',
+          blogSidebarCount: 'ALL',
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -63,6 +71,11 @@ const config: Config = {
           sidebarId: 'docsSidebar',
           position: 'left',
           label: 'Docs',
+        },
+        {
+          to: '/blog',
+          label: 'Blog',
+          position: 'left',
         },
         {
           href: 'https://github.com/abaikov/oimdb',

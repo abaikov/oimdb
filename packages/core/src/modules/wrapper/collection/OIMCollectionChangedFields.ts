@@ -24,9 +24,14 @@ export class OIMCollectionChangedFields<
     public readonly collection: OIMCollection<TEntity, TPk>;
     private readonly selectPk: (entity: TEntity | Partial<TEntity>) => TPk;
     private readonly unsubscribeAfterFlush: () => void;
-    private readonly unsubscribeFromCollectionEmitter: () => void;
+    private readonly unsubscribeFromCollectionEmitter?: () => void;
+    private readonly detectExternalMutations: boolean;
     private isInWrite = false;
     private readonly lastEntitySnapshotByPk = new Map<TPk, Partial<TEntity>>();
+    // PKs written through this wrapper during the current flush. Their fields are
+    // already tracked accurately via trackPatch, so the flush-time external-write
+    // handler skips them — no redundant diff + snapshot re-clone. Cleared per flush.
+    private readonly writtenThroughThisFlush = new Set<TPk>();
 
     /**
      * Emits updates scoped by PK. Subscribe, then read state via `getChangedFieldsByPk(...)`
@@ -60,9 +65,22 @@ export class OIMCollectionChangedFields<
              * If not provided, only `upsertOneByPk(...)` should be used.
              */
             selectPk?: (entity: TEntity | Partial<TEntity>) => TPk;
+            /**
+             * Detect writes that bypass this wrapper (direct collection
+             * mutations) by diffing entity snapshots. Default `true`.
+             *
+             * Set to `false` when you always write through this wrapper: it
+             * drops the per-write snapshot clone and the per-PK snapshot map
+             * (~2x entity memory), since those exist only to power external
+             * detection. The shallow diff also can't see deep in-place
+             * mutations anyway — so if that's your model, opting out costs you
+             * nothing it could have caught.
+             */
+            detectExternalMutations?: boolean;
         }
     ) {
         this.collection = collection;
+        this.detectExternalMutations = opts?.detectExternalMutations !== false;
         this.selectPk =
             opts?.selectPk ??
             (() => {
@@ -88,24 +106,27 @@ export class OIMCollectionChangedFields<
         );
 
         // Detect writes that bypass this object so users get correct behavior without having to
-        // remember "always write through the changed-fields tracker".
-        const maybeReactive = collection as unknown as {
-            subscribeOnAnyUpdate?: (
-                handler: (pks: readonly TPk[]) => void
-            ) => () => void;
-        };
+        // remember "always write through the changed-fields tracker". Opt-out drops the
+        // subscription (and, with it, all snapshot maintenance — see updateEntitySnapshot).
+        if (this.detectExternalMutations) {
+            const maybeReactive = collection as unknown as {
+                subscribeOnAnyUpdate?: (
+                    handler: (pks: readonly TPk[]) => void
+                ) => () => void;
+            };
 
-        this.unsubscribeFromCollectionEmitter =
-            maybeReactive.subscribeOnAnyUpdate
-                ? maybeReactive.subscribeOnAnyUpdate(pks => {
-                      this.onCollectionUpdate({
-                          pks,
-                      } as TOIMCollectionUpdatePayload<TPk>);
-                  })
-                : collection.emitter.on(
-                      EOIMCollectionEventType.UPDATE,
-                      this.onCollectionUpdate
-                  );
+            this.unsubscribeFromCollectionEmitter =
+                maybeReactive.subscribeOnAnyUpdate
+                    ? maybeReactive.subscribeOnAnyUpdate(pks => {
+                          this.onCollectionUpdate({
+                              pks,
+                          } as TOIMCollectionUpdatePayload<TPk>);
+                      })
+                    : collection.emitter.on(
+                          EOIMCollectionEventType.UPDATE,
+                          this.onCollectionUpdate
+                      );
+        }
     }
 
     public upsertOneByPk(
@@ -181,12 +202,13 @@ export class OIMCollectionChangedFields<
         this.changedPksEventEmitter.destroy();
         this.changedFieldsEventEmitter.destroy();
         this.unsubscribeAfterFlush();
-        this.unsubscribeFromCollectionEmitter();
+        this.unsubscribeFromCollectionEmitter?.();
         this.clear();
     }
 
     private readonly onAfterFlush = () => {
         this.clear();
+        this.writtenThroughThisFlush.clear();
     };
 
     private readonly onCollectionUpdate = (
@@ -197,6 +219,12 @@ export class OIMCollectionChangedFields<
 
         for (let i = 0; i < payload.pks.length; i++) {
             const pk = payload.pks[i];
+            // Already tracked precisely via trackPatch this flush — the diff
+            // would come back empty. Skip the redundant diff + snapshot reclone.
+            // (Edge: a pk written BOTH through the wrapper and directly in the
+            // same flush has only its wrapper patch tracked; mixing both paths
+            // on one pk in one tick is unsupported.)
+            if (this.writtenThroughThisFlush.has(pk)) continue;
             this.trackExternalMutationByPk(pk);
         }
     };
@@ -251,6 +279,10 @@ export class OIMCollectionChangedFields<
     }
 
     private updateEntitySnapshot(pk: TPk): void {
+        // Snapshots exist solely to diff against external (bypassing) writes.
+        // With detection off, skip the clone entirely — nothing reads them.
+        if (!this.detectExternalMutations) return;
+        this.writtenThroughThisFlush.add(pk);
         const entity = this.collection.getOneByPk(pk);
         if (!entity) {
             this.lastEntitySnapshotByPk.delete(pk);
