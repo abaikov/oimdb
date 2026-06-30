@@ -2,7 +2,7 @@
 
 Async stores support for OIMDB - async collections and indexes.
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## Installation
 

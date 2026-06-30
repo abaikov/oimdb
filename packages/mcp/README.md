@@ -2,7 +2,7 @@
 
 Connects AI assistants to a live OIMDB store running in the browser. Provides MCP tools for Claude Code and an optional CDP inspector for any AI that can run a shell command.
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## For AI Assistants
 

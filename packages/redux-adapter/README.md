@@ -2,7 +2,7 @@
 
 Production-ready Redux adapter for OIMDB that enables seamless integration between OIMDB's reactive in-memory database and Redux state management. This package allows you to gradually migrate from Redux to OIMDB or use both systems side-by-side with automatic two-way synchronization.
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## 🚀 Installation
 

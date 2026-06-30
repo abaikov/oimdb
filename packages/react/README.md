@@ -2,7 +2,7 @@
 
 React hooks and context helpers for OIMDB reactive collections, objects, and indexes.
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## For AI Assistants
 
@@ -153,7 +153,7 @@ const ids = useSelectPksByIndexKeyArrayBasedSignal(cardsByDeck, deckId);
 
 Available signal hooks (same signatures as their default counterparts): `useSelectEntityByPkSignal`, `useSelectPksByIndexKeyArrayBasedSignal`, `useSelectPksByIndexKeySetBasedSignal`. Compose the fine-grained pattern from them: a parent reads pks by index key, each row reads its own entity by pk.
 
-**Use only when every reader is subscription-driven.** Trade-offs: not Concurrent-Mode tearing-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Select each entity where you render it (by pk); don't pass mutable entities into `React.memo` children. See [Performance](https://abaikov.github.io/oimdb/docs/guides/performance) for when this actually pays off (in plain React the per-component commit usually dominates).
+**Use only when every reader is subscription-driven.** Trade-offs: not Concurrent-Mode tearing-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Select each entity where you render it (by pk); don't pass mutable entities into `React.memo` children. See [Performance](https://oimdb.org/docs/guides/performance) for when this actually pays off (in plain React the per-component commit usually dominates).
 
 ## Context API
 

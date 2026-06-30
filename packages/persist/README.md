@@ -14,7 +14,7 @@ so you only bundle the storage you actually use:
 | [`@oimdb/persist-async-kv`](../persist-async-kv) | any async key-value store (React Native `AsyncStorage`, Cordova native storage) |
 | [`@oimdb/persist-json`](../persist-json) | plain JSON dump — SSR dehydrate/hydrate transport |
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## For AI Assistants
 

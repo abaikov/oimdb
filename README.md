@@ -134,7 +134,7 @@ npm run build
 
 ## 📚 Documentation
 
-Full documentation is published at **[abaikov.github.io/oimdb](https://abaikov.github.io/oimdb/)**.
+Full documentation is published at **[oimdb.org](https://oimdb.org/)**.
 
 Source docs live in [`website/docs/`](website/docs/).
 

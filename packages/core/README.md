@@ -2,7 +2,7 @@
 
 Core in-memory data library providing reactive collections, intelligent indexing, and configurable event processing.
 
-📖 **[Full documentation](https://abaikov.github.io/oimdb/)**
+📖 **[Full documentation](https://oimdb.org/)**
 
 ## For AI Assistants
 

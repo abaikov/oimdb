@@ -11,8 +11,8 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://abaikov.github.io',
-  baseUrl: '/oimdb/',
+  url: 'https://oimdb.org',
+  baseUrl: '/',
 
   organizationName: 'abaikov',
   projectName: 'oimdb',

@@ -24,7 +24,7 @@ npm run docs:serve
 
 Docs deploy automatically to GitHub Pages on push to `main` via `.github/workflows/docs.yml`.
 
-Live site: [https://abaikov.github.io/oimdb/](https://abaikov.github.io/oimdb/)
+Live site: [https://oimdb.org/](https://oimdb.org/)
 
 ## Content
 
