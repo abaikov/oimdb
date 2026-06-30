@@ -1,0 +1,213 @@
+import { OIMEventQueue } from '../src/core/OIMEventQueue';
+import { OIMReactiveCollection } from '../src/core/OIMReactiveCollection';
+import { OIMCollectionOrderedListCommandStream } from '../src/modules/wrapper/index/OIMCollectionOrderedListCommandStream';
+import { OIMOrderedListCommandStream } from '../src/modules/wrapper/index/OIMOrderedListCommandStream';
+import { createOIMOrderedListMappedCommandStream } from '../src/modules/wrapper/index/createOIMOrderedListMappedCommandStream';
+import { TOIMEntitySlot } from '../src/types/TOIMEntitySlot';
+import { TOIMOrderedListCommand } from '../src/modules/wrapper/index/TOIMOrderedListCommand';
+
+type User = { id: string; name: string };
+
+const slot = (id: string, name: string): TOIMEntitySlot<User, string> => ({
+    pk: id,
+    item: { id, name },
+});
+
+/** A mapped "node" with a stable instance id so we can prove identity. */
+type Node = { instance: number; label: string };
+
+describe('OIMOrderedListMappedCommandStream', () => {
+    test('translates each command, replacing item with the mapped value', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        let next = 0;
+        const created: Node[] = [];
+        const destroyed: Node[] = [];
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>): Node => {
+                const node = { instance: next++, label: s.item?.name ?? '∅' };
+                created.push(node);
+                return node;
+            },
+            destroy: (node: Node) => destroyed.push(node),
+        });
+
+        const seen: TOIMOrderedListCommand<Node>[] = [];
+        mapped.subscribeCommands('doc', () => {
+            seen.push(...mapped.consumeCommands('doc'));
+        });
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        stream.pushSlot('doc', slot('u2', 'Bob'));
+        queue.flush();
+
+        expect(seen.map(c => c.type)).toEqual(['insert', 'insert']);
+        const firstNode = (seen[0] as { item: Node }).item;
+        const secondNode = (seen[1] as { item: Node }).item;
+        expect(firstNode.label).toBe('Alice');
+        expect(secondNode.label).toBe('Bob');
+        expect(mapped.getItemsByKey('doc')).toEqual([firstNode, secondNode]);
+    });
+
+    test('move reuses the same mapped instance, never recreates it', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        let next = 0;
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>): Node => ({
+                instance: next++,
+                label: s.item?.name ?? '∅',
+            }),
+        });
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        stream.pushSlot('doc', slot('u2', 'Bob'));
+        queue.flush();
+
+        const before = mapped.getItemsByKey('doc').slice();
+        const alice = before[0];
+
+        stream.move('doc', 0, 1);
+        queue.flush();
+
+        const after = mapped.getItemsByKey('doc');
+        expect(after).toEqual([before[1], alice]);
+        // identity preserved: same object reference, no extra create
+        expect(after[1]).toBe(alice);
+        expect(next).toBe(2);
+    });
+
+    test('destroy runs on remove and on set replacement', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        const destroyed: string[] = [];
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
+            destroy: (label: string) => destroyed.push(label),
+        });
+        mapped.subscribeCommands('doc', () => mapped.consumeCommands('doc'));
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        stream.pushSlot('doc', slot('u2', 'Bob'));
+        queue.flush();
+
+        stream.setSlotAt('doc', 0, slot('u3', 'Carol'));
+        stream.removeAt('doc', 1);
+        queue.flush();
+
+        expect(destroyed).toContain('Alice'); // replaced by set
+        expect(destroyed).toContain('Bob'); // removed
+        expect(mapped.getItemsByKey('doc')).toEqual(['Carol']);
+    });
+
+    test('reset destroys every old element and creates the new ones', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        const destroyed: string[] = [];
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
+            destroy: (label: string) => destroyed.push(label),
+        });
+
+        const seen: TOIMOrderedListCommand<string>[] = [];
+        mapped.subscribeCommands('doc', () => {
+            seen.push(...mapped.consumeCommands('doc'));
+        });
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        queue.flush();
+        seen.length = 0;
+
+        stream.setSlots('doc', [slot('u2', 'Bob'), slot('u3', 'Carol')]);
+        queue.flush();
+
+        expect(seen).toHaveLength(1);
+        expect(seen[0].type).toBe('reset');
+        expect((seen[0] as { items: readonly string[] }).items).toEqual([
+            'Bob',
+            'Carol',
+        ]);
+        expect(destroyed).toEqual(['Alice']);
+        expect(mapped.getItemsByKey('doc')).toEqual(['Bob', 'Carol']);
+    });
+
+    test('maps chain: each link projects the previous element', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        const names = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
+        });
+        const lengths = names.map({ create: (name: string) => name.length });
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        stream.pushSlot('doc', slot('u2', 'Bo'));
+        queue.flush();
+
+        expect(names.getItemsByKey('doc')).toEqual(['Alice', 'Bo']);
+        expect(lengths.getItemsByKey('doc')).toEqual([5, 2]);
+    });
+
+    test('destroy() tears down every live mapped element', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<string, string, User>(
+            queue
+        );
+
+        const destroyed: string[] = [];
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
+            destroy: (label: string) => destroyed.push(label),
+        });
+
+        stream.pushSlot('doc', slot('u1', 'Alice'));
+        stream.pushSlot('doc', slot('u2', 'Bob'));
+        queue.flush();
+        mapped.getItemsByKey('doc'); // ensure wired
+
+        mapped.destroy();
+
+        expect(destroyed.sort()).toEqual(['Alice', 'Bob']);
+    });
+
+    test('works over a collection-bound stream (pk writes)', () => {
+        const queue = new OIMEventQueue();
+        const users = new OIMReactiveCollection<User, string>(queue, {
+            selectPk: (u: User) => u.id,
+        });
+        users.upsertMany([
+            { id: 'u1', name: 'Alice' },
+            { id: 'u2', name: 'Bob' },
+        ]);
+        const stream = new OIMCollectionOrderedListCommandStream<
+            string,
+            string,
+            User
+        >(queue, { collection: users });
+
+        const mapped = createOIMOrderedListMappedCommandStream(stream, {
+            create: (s: TOIMEntitySlot<User, string>) =>
+                `${s.pk}:${s.item?.name ?? '∅'}`,
+        });
+
+        stream.push('doc', 'u1');
+        stream.push('doc', 'u2');
+        queue.flush();
+
+        expect(mapped.getItemsByKey('doc')).toEqual(['u1:Alice', 'u2:Bob']);
+    });
+});

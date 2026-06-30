@@ -54,6 +54,10 @@ export * from './modules/wrapper/index/OIMCollectionIndexManualOrderedArrayBased
 export * from './modules/wrapper/index/OIMOrderedListCommandStream';
 export * from './modules/wrapper/index/OIMCollectionOrderedListCommandStream';
 export * from './modules/wrapper/index/TOIMOrderedListCommand';
+export * from './interfaces/IOIMOrderedListCommandSource';
+export * from './types/TOIMOrderedListMapOptions';
+export * from './modules/wrapper/index/OIMOrderedListMappedCommandStream';
+export * from './modules/wrapper/index/createOIMOrderedListMappedCommandStream';
 
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerAnimationFrame';
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerFactory';

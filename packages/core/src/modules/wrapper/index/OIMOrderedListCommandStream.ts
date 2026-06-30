@@ -5,6 +5,7 @@ import { EOIMIndexEventType } from '../../../enums/EOIMIndexEventType';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMIndexUpdatePayload } from '../../../types/TOIMIndexUpdatePayload';
 import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
+import { IOIMOrderedListCommandSource } from '../../../interfaces/IOIMOrderedListCommandSource';
 import { TOIMOrderedListCommand } from './TOIMOrderedListCommand';
 import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBased';
 
@@ -15,12 +16,17 @@ import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBas
  * entity slot. Use this when you already have slots and want incremental
  * commands for an imperative renderer. For PK writes bound to a collection, use
  * `OIMCollectionOrderedListCommandStream`.
+ *
+ * Implements {@link IOIMOrderedListCommandSource} (with the slot as the element)
+ * so it can be projected element-wise via
+ * `createOIMOrderedListMappedCommandStream`.
  */
 export class OIMOrderedListCommandStream<
     TKey extends TOIMPk,
     TPk extends TOIMPk,
     TEntity extends object = object,
-> {
+> implements IOIMOrderedListCommandSource<TKey, TOIMEntitySlot<TEntity, TPk>>
+{
     public readonly commandsEventEmitter: OIMUpdateEventEmitter<TKey>;
     private readonly unsubscribeAfterFlush: () => void;
     private readonly unsubscribeFromIndexEmitter: () => void;
@@ -67,6 +73,18 @@ export class OIMOrderedListCommandStream<
         return this.index.getSlotsByKey(
             key
         ) as readonly TOIMEntitySlot<TEntity, TPk>[];
+    }
+
+    /** {@link IOIMOrderedListCommandSource} — alias of {@link getSlotsByKey}. */
+    public getItemsByKey(
+        key: TKey
+    ): readonly TOIMEntitySlot<TEntity, TPk>[] {
+        return this.getSlotsByKey(key);
+    }
+
+    /** {@link IOIMOrderedListCommandSource} — per-key command subscription. */
+    public subscribeCommands(key: TKey, handler: () => void): () => void {
+        return this.commandsEventEmitter.subscribeOnKey(key, handler);
     }
 
     public getEntitiesByKey(key: TKey): (TEntity | undefined)[] {

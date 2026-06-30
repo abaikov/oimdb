@@ -185,6 +185,34 @@ queue.getEntitiesByKey('main');  // (TEntity | undefined)[] — holes preserved
 
 If multiple operations happen in one flush, they are buffered in order. If a `reset` (whole-list replace) is mixed with incremental ops, the stream collapses everything into one `reset` command.
 
+### Mapping the list to your own elements
+
+When you drive an imperative renderer — moving real DOM nodes, canvas objects, view models — you want the commands to carry **your** element, not the slot. `createOIMOrderedListMappedCommandStream` projects the stream element-wise: same position-addressed commands, with `item` replaced by whatever `create` returns.
+
+```typescript
+const nodes = createOIMOrderedListMappedCommandStream(queue, {
+  create:  (slot) => engine.makeNode(slot.item),  // runs once per element
+  destroy: (node) => engine.dropNode(node),       // runs when it leaves
+});
+
+nodes.subscribeCommands('main', () => {
+  for (const cmd of nodes.consumeCommands('main')) {
+    if (cmd.type === 'insert') engine.insertAt(cmd.index, cmd.item); // cmd.item is your node
+    if (cmd.type === 'move')   engine.move(cmd.from, cmd.to);
+    if (cmd.type === 'remove') engine.removeAt(cmd.index, cmd.count ?? 1);
+    // ...
+  }
+});
+
+nodes.getItemsByKey('main'); // current mapped elements — your initial render
+```
+
+Identity is positional: a `move` reorders the **same** mapped instance — it is never recreated, so the moved node keeps its state. `create` runs on `insert` / `set` / `reset` / the initial build; `destroy` on `remove`, the replaced half of a `set`, every element on `reset`, and `nodes.destroy()`.
+
+The mapped stream rides the source's batching — no queue of its own. It is itself a source (`IOIMOrderedListCommandSource`), so it consumes exactly like the raw stream and maps chain: `nodes.map({ create: ... })`.
+
+> Content updates (an entity's fields changed) are **not** list commands — they arrive through the collection's per-pk subscription. The stream only carries structure (insert / move / remove / set / reset). Keep the two channels separate.
+
 ## Selectors
 
 The `select` facade on `createOIMCollectionKit` covers the most common patterns:
