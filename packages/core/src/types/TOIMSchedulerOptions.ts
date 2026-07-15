@@ -5,4 +5,5 @@ export type TOIMSchedulerOptions = {
     animationFrame: never;
     timeout: { delay?: number };
     immediate: never;
+    sync: never;
 };

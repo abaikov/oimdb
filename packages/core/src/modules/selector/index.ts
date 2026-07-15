@@ -14,6 +14,9 @@ export * from './core/OIMIndexPksByKeysArrayBasedSelector';
 export * from './core/OIMEntitiesByIndexKeySetBasedSelector';
 export * from './core/OIMEntitiesByIndexKeyArrayBasedSelector';
 
+export * from './core/OIMEntitiesByGlobalIndexSetBasedSelector';
+export * from './core/OIMEntitiesByGlobalIndexArrayBasedSelector';
+
 
 
 

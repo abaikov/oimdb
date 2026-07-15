@@ -17,7 +17,7 @@ npm install @oimdb/core
 - Reactive collections/objects/indexes with key-scoped subscriptions
 - Intelligent event coalescing and reentrancy-safe delivery for optimal performance  
 - Configurable schedulers (microtask, timeout, animationFrame, immediate)
-- Effects & Computed scheduled via `OIMComputativeRuntime` (single draining `queue.flush()` boundary)
+- Effects & Computed scheduled via `OIMComputeRuntime` (single draining `queue.flush()` boundary)
 - Type-safe operations with full TypeScript support
 - O(1) lookups and efficient indexing
 

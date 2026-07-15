@@ -87,6 +87,8 @@ function UserCard({ userId }: { userId: string }) {
 | `useSelectEntitiesByIndexKeysSetBased(collection, index, keys)` | `(TEntity \| undefined)[]` |
 | `useSelectEntitiesByIndexKeyArrayBased(collection, index, key)` | `(TEntity \| undefined)[]` |
 | `useSelectEntitiesByIndexKeysArrayBased(collection, index, keys)` | `(TEntity \| undefined)[]` |
+| `useSelectEntitiesByGlobalIndexSetBased(collection, index)` | `(TEntity \| undefined)[]` (keyless) |
+| `useSelectEntitiesByGlobalIndexArrayBased(collection, index)` | `(TEntity \| undefined)[]` (keyless) |
 
 ### Index-only hooks (PKs without entities)
 
@@ -96,6 +98,8 @@ function UserCard({ userId }: { userId: string }) {
 | `useSelectPksByIndexKeysSetBased(index, keys)` | `TPk[]` (flattened) |
 | `useSelectPksByIndexKeyArrayBased(index, key)` | `TPk[]` |
 | `useSelectPksByIndexKeysArrayBased(index, keys)` | `TPk[]` (flattened) |
+| `useSelectPksByGlobalIndexSetBased(index)` | `Set<TPk>` (keyless) |
+| `useSelectPksByGlobalIndexArrayBased(index)` | `TPk[]` (keyless) |
 
 ### Object hooks
 
@@ -135,6 +139,8 @@ Available signal hooks (same signatures as their default counterparts):
 | `useSelectEntityByPkSignal(collection, pk)` | `TEntity \| undefined` |
 | `useSelectPksByIndexKeyArrayBasedSignal(index, key)` | `readonly TPk[]` |
 | `useSelectPksByIndexKeySetBasedSignal(index, key)` | `ReadonlySet<TPk>` |
+| `useSelectPksByGlobalIndexArrayBasedSignal(index)` | `readonly TPk[]` (keyless) |
+| `useSelectPksByGlobalIndexSetBasedSignal(index)` | `ReadonlySet<TPk>` (keyless) |
 
 These three cover the fine-grained pattern: a parent reads pks by index key, each row reads its own entity by pk. (Entity-by-pk for the row + pks-by-index for the list — no signal variants exist for the `*Keys` plural or entities-by-index hooks; compose from these.)
 

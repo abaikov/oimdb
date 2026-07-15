@@ -531,5 +531,8 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };
 
+// Keyless "Global" (whole-collection) index hooks
+export * from './global';
+
 // Signal-driven bindings (lightest; for in-place/mutable collections)
 export * from './signal';

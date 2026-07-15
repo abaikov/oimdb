@@ -23,12 +23,17 @@ npx tsx packages/core/bench/index.ts
 
 ### Schedulers
 
-| Scheduler | Throughput | Best for |
-|-----------|------------|---------|
-| `createMicrotask()` | 2.4B/s | Default — same-tick delivery |
-| `createImmediate()` | 1.8B/s | Tests |
-| `createTimeout(0)` | 16M/s | Batch / import workloads |
-| `createAnimationFrame()` | 8M/s | UI-aligned, React-friendly |
+A scheduler only decides *when* a batched flush runs — it is not a throughput knob (all writes coalesce into one flush per scheduled tick regardless of which one you pick). Choose by delivery timing:
+
+| Scheduler | When it delivers |
+|-----------|------------------|
+| `createMicrotask()` | Default — next microtask: after the current synchronous code, before the next macrotask and before paint |
+| `createImmediate()` | Macrotask — `setImmediate` in Node, falling back to `MessageChannel` then `setTimeout(0)` in browsers; after the microtask queue |
+| `createTimeout(0)` | Macrotask via `setTimeout` — clamped to ~4ms in browsers |
+| `createAnimationFrame()` | Before the next paint (~60fps), aligned with rendering |
+| `createSync()` | Synchronously, in the same call stack, per write — **debug only**, no batching |
+
+The async schedulers all coalesce; `createSync()` does not (it delivers on every write). For synchronous delivery in normal code, call `queue.flush()` directly. Use `createSync()` only to diagnose whether a bug is caused by batch timing — swap it in at the root and see if the bug survives without coalescing.
 
 ### Indexes
 

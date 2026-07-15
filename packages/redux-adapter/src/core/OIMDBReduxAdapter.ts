@@ -19,9 +19,13 @@ import { TOIMDBReduxCollectionMapper } from '../types/TOIMDBReduxCollectionMappe
 import { TOIMDBReduxIndexMapper } from '../types/TOIMDBReduxIndexMapper';
 import { TOIMDBReduxCollectionReducerChildOptions } from '../types/TOIMDBReduxCollectionReducerChildOptions';
 import { TOIMDBReduxIndexReducerChildOptions } from '../types/TOIMDBReduxIndexReducerChildOptions';
+import { TOIMDBReduxGlobalIndex } from '../types/TOIMDBReduxGlobalIndex';
+import { TOIMDBReduxGlobalIndexMapper } from '../types/TOIMDBReduxGlobalIndexMapper';
+import { TOIMDBReduxGlobalIndexReducerChildOptions } from '../types/TOIMDBReduxGlobalIndexReducerChildOptions';
 import {
     defaultCollectionMapper,
     defaultIndexMapper,
+    defaultGlobalIndexMapper,
 } from './OIMDBReduxDefaultMappers';
 import { OIMDBReduxReducerFactory } from './OIMDBReduxReducerFactory';
 
@@ -80,6 +84,11 @@ export class OIMDBReduxAdapter {
         }
     >();
 
+    // Keyless "Global" index reducers. Dirtiness is a single boolean flipped by
+    // the index's keyless `subscribe()` (fires during flush, before AFTER_FLUSH
+    // dispatch), so there are no keys to accumulate.
+    private readonly globalIndexReducers = new Set<{ dirty: boolean }>();
+
     private readonly reducerFactory: OIMDBReduxReducerFactory;
 
     constructor(queue: OIMEventQueue, options?: TOIMDBReduxAdapterOptions) {
@@ -100,6 +109,9 @@ export class OIMDBReduxAdapter {
                 this.indexReducers.forEach(data => {
                     data.pendingKeys.clear();
                     data.updatedKeys = null;
+                });
+                this.globalIndexReducers.forEach(data => {
+                    data.dirty = false;
                 });
                 return;
             }
@@ -358,6 +370,55 @@ export class OIMDBReduxAdapter {
             reducerData,
             child
         );
+    }
+
+    /**
+     * Create Redux reducer for a keyless "Global" (whole-collection) index.
+     * @param index - The reactive Global index (manual or derived)
+     * @param child - Optional child reducer for custom actions (+ sync-back)
+     * @param mapper - Optional mapper; defaults to `{ ids }`
+     */
+    public createGlobalIndexReducer<TPk extends TOIMPk, TState>(
+        index: TOIMDBReduxGlobalIndex<TPk>,
+        child?: TOIMDBReduxGlobalIndexReducerChildOptions<TPk, TState>,
+        mapper?: TOIMDBReduxGlobalIndexMapper<TPk, TState>
+    ): Reducer<TState | undefined, Action> {
+        const actualMapper =
+            mapper ??
+            this.options.defaultGlobalIndexMapper ??
+            (defaultGlobalIndexMapper as TOIMDBReduxGlobalIndexMapper<
+                TPk,
+                TState
+            >);
+
+        const reducerData = {
+            dirty: false,
+            mapper: actualMapper,
+        };
+        this.globalIndexReducers.add(reducerData);
+
+        this.instrumentGlobalIndex(index, reducerData);
+
+        return this.reducerFactory.createGlobalIndexReducer(
+            index,
+            reducerData,
+            child
+        );
+    }
+
+    private instrumentGlobalIndex<TPk extends TOIMPk>(
+        index: TOIMDBReduxGlobalIndex<TPk>,
+        reducerData: { dirty: boolean }
+    ): void {
+        if (this.instrumentedIndexes.has(index as object)) return;
+        this.instrumentedIndexes.add(index as object);
+
+        // The keyless single-carrier emitter fires during the flush task phase
+        // (before AFTER_FLUSH), so the flag is set in time for the dispatch.
+        // Works for manual and derived indexes alike — no method instrumentation.
+        index.subscribe(() => {
+            reducerData.dirty = true;
+        });
     }
 
     private instrumentCollection<TEntity extends object, TPk extends TOIMPk>(

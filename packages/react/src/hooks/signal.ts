@@ -1,7 +1,11 @@
 import {
+    OIMGlobalIndexArrayBased,
+    OIMGlobalIndexSetBased,
     OIMIndexArrayBased,
     OIMIndexSetBased,
     OIMReactiveCollection,
+    OIMReactiveGlobalIndexArrayBased,
+    OIMReactiveGlobalIndexSetBased,
     OIMReactiveIndexArrayBased,
     OIMReactiveIndexSetBased,
     TOIMPk,
@@ -82,4 +86,33 @@ export const useSelectPksByIndexKeySetBasedSignal = <
         [reactiveIndex, key]
     );
     return reactiveIndex.getPksByKey(key);
+};
+
+// Keyless "Global" (whole-collection) signal variants
+export const useSelectPksByGlobalIndexArrayBasedSignal = <
+    TPk extends TOIMPk,
+    TIndex extends OIMGlobalIndexArrayBased<TPk>,
+>(
+    reactiveIndex: OIMReactiveGlobalIndexArrayBased<TPk, TIndex>
+): readonly TPk[] => {
+    const force = useForceUpdate();
+    useIsomorphicLayoutEffect(
+        () => reactiveIndex.subscribe(force),
+        [reactiveIndex]
+    );
+    return reactiveIndex.getPks();
+};
+
+export const useSelectPksByGlobalIndexSetBasedSignal = <
+    TPk extends TOIMPk,
+    TIndex extends OIMGlobalIndexSetBased<TPk>,
+>(
+    reactiveIndex: OIMReactiveGlobalIndexSetBased<TPk, TIndex>
+): ReadonlySet<TPk> => {
+    const force = useForceUpdate();
+    useIsomorphicLayoutEffect(
+        () => reactiveIndex.subscribe(force),
+        [reactiveIndex]
+    );
+    return reactiveIndex.getPks();
 };

@@ -5,6 +5,7 @@ import { OIMEventQueueSchedulerMicrotask } from './OIMEventQueueSchedulerMicrota
 import { OIMEventQueueSchedulerAnimationFrame } from './OIMEventQueueSchedulerAnimationFrame';
 import { OIMEventQueueSchedulerTimeout } from './OIMEventQueueSchedulerTimeout';
 import { OIMEventQueueSchedulerImmediate } from './OIMEventQueueSchedulerImmediate';
+import { OIMEventQueueSchedulerSync } from './OIMEventQueueSchedulerSync';
 
 /**
  * Factory for creating event queue schedulers.
@@ -37,6 +38,9 @@ export class OIMEventQueueSchedulerFactory {
             case 'immediate':
                 return new OIMEventQueueSchedulerImmediate();
 
+            case 'sync':
+                return new OIMEventQueueSchedulerSync();
+
             default:
                 throw new Error(`Unknown scheduler type: ${type}`);
         }
@@ -64,9 +68,17 @@ export class OIMEventQueueSchedulerFactory {
     }
 
     /**
-     * Create an immediate scheduler (fastest execution).
+     * Create an immediate scheduler (setImmediate / MessageChannel / setTimeout(0)).
      */
     static createImmediate(): OIMEventQueueSchedulerImmediate {
         return new OIMEventQueueSchedulerImmediate();
+    }
+
+    /**
+     * Create a synchronous scheduler — flushes in the same call stack, no
+     * batching. Debug/diagnostic use only (see {@link OIMEventQueueSchedulerSync}).
+     */
+    static createSync(): OIMEventQueueSchedulerSync {
+        return new OIMEventQueueSchedulerSync();
     }
 }

@@ -134,6 +134,38 @@ index.hasKey('key');               // boolean
 index.getKeys();                   // all known keys
 ```
 
+## Global (keyless) indexes
+
+Sometimes you want **one** index or ordered list over the *whole* collection —
+"all users, sorted by name", "every visible row". There is no meaningful key, so
+reach for a **Global** index instead of inventing a phantom `'all'` key. Global
+indexes come in the same shapes (set / array) and modes (manual / derived), but
+keyless: reads take no key and you `subscribe(handler)` instead of
+`subscribeOnKey(key, handler)`. Internally each holds a single bucket with a
+single-carrier emitter, so it is lighter than a keyed index carrying one key.
+
+```typescript
+// Manual, collection-bound (write pks directly)
+const list = users.indexFactory.arrayBasedGlobalIndex();
+list.setPks(['u2', 'u1']);      // also addPks / removePks — no key
+list.getPks();                  // ['u2', 'u1']
+list.subscribe(() => { /* the one bucket changed */ });
+
+// Derived — auto-tracks the whole collection, ordered
+const recent = users.indexFactory.derivedArrayGlobalIndex({
+  orderBy: (user) => user.createdAt,   // or compareEntities
+  filter: (user) => !user.archived,    // optional; default: entity exists
+});
+recent.getEntities();           // (User | undefined)[] in order, kept in sync
+
+// Derived set — whole-collection membership
+const everyone = users.indexFactory.derivedSetGlobalIndex();
+```
+
+Reads mirror the keyed API without the key: `getPks()`, `getSlots()`,
+`getEntities()`, `size`, `isEmpty`. Selectors: `select.entitiesByArrayGlobalIndex(list)`
+and `select.entitiesBySetGlobalIndex(set)`.
+
 ## Ordered list command stream
 
 `indexFactory.orderedList()` creates an `OIMCollectionOrderedListCommandStream`. Unlike `arrayBasedIndex`, it also produces incremental, **position-addressed** commands that consumers can replay without diffing.
@@ -187,19 +219,19 @@ If multiple operations happen in one flush, they are buffered in order. If a `re
 
 ### Mapping the list to your own elements
 
-When you drive an imperative renderer — moving real DOM nodes, canvas objects, view models — you want the commands to carry **your** element, not the slot. `createOIMOrderedListMappedCommandStream` projects the stream element-wise: same position-addressed commands, with `item` replaced by whatever `create` returns.
+When you drive an imperative renderer — moving real DOM nodes, canvas objects, view models — you want the commands to carry **your** element, not the slot. `createOIMOrderedListMappedCommandStream(source, create)` projects the stream element-wise: same position-addressed commands, with `item` replaced by whatever `create` returns. `create` is a plain function — no options object.
 
 ```typescript
-const nodes = createOIMOrderedListMappedCommandStream(queue, {
-  create:  (slot) => engine.makeNode(slot.item),  // runs once per element
-  destroy: (node) => engine.dropNode(node),       // runs when it leaves
-});
+const nodes = createOIMOrderedListMappedCommandStream(
+  stream,
+  (slot) => engine.makeNode(slot.item)   // runs once per element
+);
 
 nodes.subscribeCommands('main', () => {
   for (const cmd of nodes.consumeCommands('main')) {
     if (cmd.type === 'insert') engine.insertAt(cmd.index, cmd.item); // cmd.item is your node
     if (cmd.type === 'move')   engine.move(cmd.from, cmd.to);
-    if (cmd.type === 'remove') engine.removeAt(cmd.index, cmd.count ?? 1);
+    if (cmd.type === 'remove') engine.removeAt(cmd.index, cmd.count ?? 1); // tear the node down here
     // ...
   }
 });
@@ -207,11 +239,58 @@ nodes.subscribeCommands('main', () => {
 nodes.getItemsByKey('main'); // current mapped elements — your initial render
 ```
 
-Identity is positional: a `move` reorders the **same** mapped instance — it is never recreated, so the moved node keeps its state. `create` runs on `insert` / `set` / `reset` / the initial build; `destroy` on `remove`, the replaced half of a `set`, every element on `reset`, and `nodes.destroy()`.
+Identity is positional: a `move` reorders the **same** mapped instance — it is never recreated, so the moved node keeps its state. `create` runs on `insert` / `set` / `reset` / the initial build.
 
-The mapped stream rides the source's batching — no queue of its own. It is itself a source (`IOIMOrderedListCommandSource`), so it consumes exactly like the raw stream and maps chain: `nodes.map({ create: ... })`.
+There is **no** teardown callback by design. The element that leaves is already the `remove` / `set` / `reset` command you apply against your own mirror, so any DOM/resource cleanup belongs in that handler — a `destroy` hook would just duplicate a signal you already receive.
+
+The mapped stream rides the source's batching — no queue of its own. It is itself a source (`IOIMOrderedListCommandSource`), so it consumes exactly like the raw stream and maps chain: `nodes.map(create)`.
 
 > Content updates (an entity's fields changed) are **not** list commands — they arrive through the collection's per-pk subscription. The stream only carries structure (insert / move / remove / set / reset). Keep the two channels separate.
+
+### Mapping a plain index to stable objects
+
+For an ordinary set/array index (not the command stream) you often want to turn each slot into your own object — a view-model, a row — and get the **same object back for the same slot** on every read, so `React.memo` / `Object.is` diffing works and you don't rebuild. `createOIMIndexSlotMap(index, create)` is that memo:
+
+```typescript
+const usersByTeam = users.indexFactory.derivedSetIndex((u) => u.teamId);
+const rows = createOIMIndexSlotMap(usersByTeam, (slot) => makeRow(slot.item));
+
+rows.subscribeOnKey('team1', render);
+function render() {
+  for (const row of rows.getByKey('team1')) {
+    // same row instance per slot across renders
+  }
+}
+```
+
+- `create(slot)` runs once per canonical slot; the object is cached by slot identity (a `WeakMap`), so it is reference-stable and reclaimed by GC when the slot is dropped.
+- Same plain-function shape as the ordered mapper — no options object, no `destroy` (these are plain values; nothing to tear down). If your mapped objects hold resources, use the ordered command stream, which has an explicit removal signal.
+- `subscribeOnKey` / `subscribeOnKeys` are passthroughs to the index; `getByKey(key)` returns the mapped objects (array order for array-based, unspecified for set-based).
+
+### Deriving commands from an index
+
+The command stream above is *written* imperatively — you call `push` / `move` / `removeAt`. To instead get commands from an index whose order is maintained automatically (a `derivedArrayIndex`, or any reactive array-based index you replace with `setPks`), wrap it with `OIMOrderedListCommandStreamDiffDriven`. On every per-key change it diffs the previous order against the new one and emits the `insert` / `move` / `remove` that transforms one into the other — so a collection change moves nodes instead of rebuilding them.
+
+```typescript
+const cardsByDeck = cards.indexFactory.derivedArrayIndex(
+  (card) => card.deckId,
+  { orderBy: (card) => card.position }
+);
+
+const stream = createOIMOrderedListCommandStreamDiffDriven(queue, cardsByDeck);
+
+stream.subscribeCommands('deck1', () => {
+  for (const cmd of stream.consumeCommands('deck1')) {
+    // insert / move / remove — apply straight to the DOM
+  }
+});
+```
+
+- Identity is by pk: a reordered card is a `move` of the same slot, never a recreate. Compose `createOIMOrderedListMappedCommandStream` on top to carry your own nodes.
+- It rides the index's batching and delivers on `AFTER_FLUSH`, the same timing as the written stream.
+- A change that leaves the order untouched (e.g. a field the sort doesn't read) emits nothing.
+- `resetThreshold` (default `0` = always diff): when the fraction of shared pks drops below it, a single `reset` is emitted instead of many edits — cheaper when most of the bucket changed.
+- Moves are minimal — a longest-increasing-subsequence pass keeps the items already in relative order and moves each of the rest exactly once (`move count = common − LIS`).
 
 ## Selectors
 
@@ -237,7 +316,7 @@ const unwatch = selector.watch((value) => {
 unwatch(); // stop watching
 ```
 
-Selectors skip delivery if the value hasn't changed (`Object.is` by default).
+Selectors skip delivery if the value hasn't changed. Scalar selectors (e.g. `byPk`) compare with `Object.is`; array-returning selectors (`byPks`, entities-by-index-key) return a fresh array each read but compare it **element-wise (shallow)**, so an unchanged set of entities still coalesces rather than re-firing on every flush.
 
 ## Field-level change tracking
 
@@ -324,6 +403,10 @@ users.collection.upsertOneByPk('u1', { role: 'guest' }); // NOT reported
 | `derivedArrayIndex(fn, opts?)` | `OIMDerivedCollectionIndexArrayBased` | Auto-maintained, ordered |
 | `setBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualSetBased` | Manual, unordered |
 | `arrayBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualArrayBased` | Manual, ordered |
+| `derivedSetGlobalIndex(opts?)` | `OIMDerivedCollectionGlobalIndexSetBased` | Keyless whole-collection, unordered |
+| `derivedArrayGlobalIndex(opts?)` | `OIMDerivedCollectionGlobalIndexArrayBased` | Keyless whole-collection, ordered |
+| `setBasedGlobalIndex(opts?)` | `OIMReactiveCollectionGlobalIndexManualSetBased` | Keyless manual, unordered |
+| `arrayBasedGlobalIndex(opts?)` | `OIMReactiveCollectionGlobalIndexManualArrayBased` | Keyless manual, ordered |
 | `orderedList(opts?)` | `OIMCollectionOrderedListCommandStream` | Incremental commands |
 | `orderedIndex()` | `OIMCollectionIndexManualOrderedArrayBased` | Slot-first ordered index |
 
@@ -335,3 +418,5 @@ users.collection.upsertOneByPk('u1', { role: 'guest' }); // NOT reported
 | `byPks(pks)` | `OIMCollectionByPksSelector` — `(TEntity \| undefined)[]` |
 | `entitiesBySetIndexKey(index, key)` | `OIMEntitiesByIndexKeySetBasedSelector` — `(TEntity \| undefined)[]` |
 | `entitiesByArrayIndexKey(index, key)` | `OIMEntitiesByIndexKeyArrayBasedSelector` — `(TEntity \| undefined)[]` |
+| `entitiesBySetGlobalIndex(index)` | `OIMEntitiesByGlobalIndexSetBasedSelector` — `(TEntity \| undefined)[]` (keyless) |
+| `entitiesByArrayGlobalIndex(index)` | `OIMEntitiesByGlobalIndexArrayBasedSelector` — `(TEntity \| undefined)[]` (keyless) |

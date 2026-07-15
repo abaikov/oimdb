@@ -5,4 +5,5 @@ export type TOIMSchedulerType =
     | 'microtask'
     | 'animationFrame'
     | 'timeout'
-    | 'immediate';
+    | 'immediate'
+    | 'sync';

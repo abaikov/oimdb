@@ -1,5 +1,4 @@
 import { TOIMPk } from '../../../types/TOIMPk';
-import { TOIMOrderedListMapOptions } from '../../../types/TOIMOrderedListMapOptions';
 import { IOIMOrderedListCommandSource } from '../../../interfaces/IOIMOrderedListCommandSource';
 import { OIMOrderedListMappedCommandStream } from './OIMOrderedListMappedCommandStream';
 
@@ -8,13 +7,14 @@ import { OIMOrderedListMappedCommandStream } from './OIMOrderedListMappedCommand
  * source, so it can be mapped again (or via its `.map()` method).
  *
  * ```ts
- * const nodes = createOIMOrderedListMappedCommandStream(stream, {
- *     create: (slot) => engine.makeNode(slot.item),
- *     destroy: (node) => engine.dropNode(node),
- * });
- * nodes.subscribeCommands(key, () =>
- *     engine.apply(nodes.consumeCommands(key))
+ * const nodes = createOIMOrderedListMappedCommandStream(stream, (slot) =>
+ *     engine.makeNode(slot.item)
  * );
+ * nodes.subscribeCommands(key, () => {
+ *     for (const cmd of nodes.consumeCommands(key)) {
+ *         // cmd.item is your node; tear it down on `remove` / `set` / `reset`
+ *     }
+ * });
  * ```
  */
 export function createOIMOrderedListMappedCommandStream<
@@ -23,7 +23,10 @@ export function createOIMOrderedListMappedCommandStream<
     TOut,
 >(
     source: IOIMOrderedListCommandSource<TKey, TIn>,
-    opts: TOIMOrderedListMapOptions<TIn, TOut>
+    create: (item: TIn) => TOut
 ): OIMOrderedListMappedCommandStream<TKey, TOut, TIn> {
-    return new OIMOrderedListMappedCommandStream<TKey, TOut, TIn>(source, opts);
+    return new OIMOrderedListMappedCommandStream<TKey, TOut, TIn>(
+        source,
+        create
+    );
 }

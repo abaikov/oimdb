@@ -48,13 +48,13 @@ const effect = new OIMEffect(runtime, {
 effect.destroy();
 ```
 
-`onUpdate?` fires immediately when a dep is invalidated (before the flush), useful for marking derived state as dirty early:
+`onUpdate?` fires *during* the flush, when the invalidated dependency's change is delivered — earlier than `run()` (which fires at `AFTER_FLUSH`), but not at write time. Useful for marking derived state dirty before the recompute runs:
 
 ```typescript
 const effect = new OIMEffect(runtime, {
   deps: [...],
-  onUpdate: () => { isDirty = true; },  // fires during flush
-  run: () => { /* fires after flush */ },
+  onUpdate: () => { isDirty = true; },  // during flush, on dep delivery
+  run: () => { /* at AFTER_FLUSH, after all deps delivered */ },
 });
 ```
 

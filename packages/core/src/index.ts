@@ -11,6 +11,14 @@ export * from './abstract/OIMReactiveIndexSetBased';
 export * from './abstract/OIMReactiveIndexArrayBased';
 export * from './abstract/OIMObjectStore';
 
+// Keyless "Global" (whole-collection) index — abstract layer
+export * from './abstract/OIMGlobalIndex';
+export * from './abstract/OIMGlobalIndexSetBased';
+export * from './abstract/OIMGlobalIndexArrayBased';
+export * from './abstract/OIMReactiveGlobalIndex';
+export * from './abstract/OIMReactiveGlobalIndexSetBased';
+export * from './abstract/OIMReactiveGlobalIndexArrayBased';
+
 export * from './core/OIMCollection';
 export * from './core/OIMReactiveCollection';
 export * from './core/OIMCollectionIndexFactory';
@@ -22,6 +30,16 @@ export * from './core/OIMReactiveIndexManualSetBased';
 export * from './core/OIMReactiveIndexManualArrayBased';
 export * from './core/OIMReactiveCollectionIndexManualSetBased';
 export * from './core/OIMReactiveCollectionIndexManualArrayBased';
+
+// Keyless "Global" (whole-collection) index — concrete layer
+export * from './core/OIMGlobalIndexManualSetBased';
+export * from './core/OIMGlobalIndexManualArrayBased';
+export * from './core/OIMReactiveGlobalIndexManualSetBased';
+export * from './core/OIMReactiveGlobalIndexManualArrayBased';
+export * from './core/OIMReactiveCollectionGlobalIndexManualSetBased';
+export * from './core/OIMReactiveCollectionGlobalIndexManualArrayBased';
+export * from './core/OIMDerivedCollectionGlobalIndexSetBased';
+export * from './core/OIMDerivedCollectionGlobalIndexArrayBased';
 export * from './core/OIMCollectionStoreMapDriven';
 export * from './core/OIMObjectStoreMapDriven';
 export * from './core/OIMObjectStoreRecordDriven';
@@ -33,8 +51,11 @@ export * from './core/createInPlaceEntityUpdater';
 export * from './core/createMergeEntityUpdater';
 export * from './core/OIMEventEmitter';
 export * from './core/OIMCarrierKeyedEmitter';
+export * from './core/OIMCarrierSingleEmitter';
 export * from './types/IOIMSubscribable';
 export * from './interfaces/IOIMKeyedUpdateEmitter';
+export * from './interfaces/IOIMSingleUpdateEmitter';
+export * from './interfaces/IOIMSubscription';
 export * from './core/OIMEventQueue';
 export * from './core/OIMIndexComparatorFactory';
 export * from './core/OIMIndexManualSetBased';
@@ -49,21 +70,29 @@ export * from './dx/OIMCollectionSelectors';
 
 // Wrappers (DX utilities built on top of core primitives)
 export * from './modules/wrapper/collection/OIMCollectionChangedFields';
-export * from './modules/wrapper/index/OIMIndexManualOrderedArrayBased';
-export * from './modules/wrapper/index/OIMCollectionIndexManualOrderedArrayBased';
+export * from './core/OIMIndexManualOrderedArrayBased';
+export * from './core/OIMCollectionIndexManualOrderedArrayBased';
+export * from './abstract/OIMOrderedListCommandBuffer';
 export * from './modules/wrapper/index/OIMOrderedListCommandStream';
 export * from './modules/wrapper/index/OIMCollectionOrderedListCommandStream';
 export * from './modules/wrapper/index/TOIMOrderedListCommand';
 export * from './interfaces/IOIMOrderedListCommandSource';
-export * from './types/TOIMOrderedListMapOptions';
 export * from './modules/wrapper/index/OIMOrderedListMappedCommandStream';
 export * from './modules/wrapper/index/createOIMOrderedListMappedCommandStream';
+export * from './interfaces/IOIMIndexSlotSource';
+export * from './modules/wrapper/index/OIMIndexSlotMap';
+export * from './modules/wrapper/index/createOIMIndexSlotMap';
+export * from './types/TOIMOrderedListDiffOptions';
+export * from './modules/wrapper/index/diffOrderedListByPk';
+export * from './modules/wrapper/index/OIMOrderedListCommandStreamDiffDriven';
+export * from './modules/wrapper/index/createOIMOrderedListCommandStreamDiffDriven';
 
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerAnimationFrame';
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerFactory';
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerImmediate';
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerMicrotask';
 export * from './core/event-queue-scheduler/OIMEventQueueSchedulerTimeout';
+export * from './core/event-queue-scheduler/OIMEventQueueSchedulerSync';
 
 export * from './enums/EOIMCollectionEventType';
 export * from './enums/EOIMEventQueueSchedulerEventType';
@@ -79,6 +108,7 @@ export * from './types/TOIMEventHandler';
 export * from './types/TOIMEventQueueOptions';
 export * from './types/TOIMEntitySlot';
 export * from './types/TOIMCollectionIndexOptions';
+export * from './types/TOIMCollectionGlobalIndexOptions';
 export * from './types/TOIMCollectionKit';
 export * from './types/TOIMCollectionSelectors';
 export * from './types/TOIMIndexComparator';

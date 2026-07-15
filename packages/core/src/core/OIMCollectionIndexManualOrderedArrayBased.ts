@@ -1,6 +1,6 @@
-import { TOIMAnyEntitySlot, TOIMEntitySlotResolver } from '../../../types/TOIMEntitySlot';
-import { TOIMCollectionOrderedIndexOptions } from '../../../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../../../types/TOIMPk';
+import { TOIMAnyEntitySlot, TOIMEntitySlotResolver } from '../types/TOIMEntitySlot';
+import { TOIMCollectionOrderedIndexOptions } from '../types/TOIMCollectionIndexOptions';
+import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBased';
 
 /**

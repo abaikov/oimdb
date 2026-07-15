@@ -1,26 +1,29 @@
 import { TOIMPk } from '../../../types/TOIMPk';
-import { TOIMOrderedListMapOptions } from '../../../types/TOIMOrderedListMapOptions';
 import { IOIMOrderedListCommandSource } from '../../../interfaces/IOIMOrderedListCommandSource';
 import { TOIMOrderedListCommand } from './TOIMOrderedListCommand';
 
 /**
  * Projects an ordered-list command source element-wise, re-emitting the same
- * position-addressed commands with `item` replaced by the mapped value.
+ * position-addressed commands with `item` replaced by `create(item)`.
  *
  * It rides the source's batching: there is no queue and no independent
  * scheduling. On each source notification it pulls the source commands,
- * translates them (running `create` / `destroy` and updating a positional
- * mirror of the mapped elements), and notifies its own subscribers
- * synchronously — so the source's `after_flush` semantics carry through.
+ * translates them (running `create` and updating a positional mirror of the
+ * mapped elements), and notifies its own subscribers synchronously — so the
+ * source's `after_flush` semantics carry through.
  *
  * Identity is positional: a `move` reorders the *same* mapped references in the
  * mirror, so the mapped element is preserved across moves and never recreated.
- * `create` runs on `insert` / `set` / `reset` / initial build; `destroy` on
- * `remove` / the replaced half of `set` / every element on `reset` / `destroy()`.
+ * `create` runs on `insert` / `set` / `reset` / initial build.
+ *
+ * There is no teardown callback by design: the leaving element is already the
+ * `remove` / `reset` / `set` command a consumer applies against its own mirror,
+ * so any DOM/resource cleanup belongs there — a `destroy` hook would only be
+ * duplicating a signal the consumer already receives.
  *
  * Wiring to the source for a key is lazy (on first `subscribeCommands` or
  * `getItemsByKey`) and lives until `destroy()`; subscriber churn does not
- * create or tear down mapped elements.
+ * create mapped elements.
  *
  * The output is itself an {@link IOIMOrderedListCommandSource}, so maps chain:
  * `source.map(...)` → `.map(...)`.
@@ -33,7 +36,6 @@ export class OIMOrderedListMappedCommandStream<
 {
     private readonly source: IOIMOrderedListCommandSource<TKey, TIn>;
     private readonly create: (item: TIn) => TOut;
-    private readonly destroyItem?: (mapped: TOut) => void;
 
     /** Per-key positional mirror of the mapped elements. */
     private readonly mirror = new Map<TKey, TOut[]>();
@@ -44,11 +46,10 @@ export class OIMOrderedListMappedCommandStream<
 
     constructor(
         source: IOIMOrderedListCommandSource<TKey, TIn>,
-        opts: TOIMOrderedListMapOptions<TIn, TOut>
+        create: (item: TIn) => TOut
     ) {
         this.source = source;
-        this.create = opts.create;
-        this.destroyItem = opts.destroy;
+        this.create = create;
     }
 
     public subscribeCommands(key: TKey, handler: () => void): () => void {
@@ -82,24 +83,17 @@ export class OIMOrderedListMappedCommandStream<
 
     /** Map this source again, chaining the projection. */
     public map<TNext>(
-        opts: TOIMOrderedListMapOptions<TOut, TNext>
+        create: (item: TOut) => TNext
     ): OIMOrderedListMappedCommandStream<TKey, TNext, TOut> {
         return new OIMOrderedListMappedCommandStream<TKey, TNext, TOut>(
             this,
-            opts
+            create
         );
     }
 
     public destroy(): void {
         this.sourceUnsubscribers.forEach(unsubscribe => unsubscribe());
         this.sourceUnsubscribers.clear();
-
-        if (this.destroyItem) {
-            this.mirror.forEach(items =>
-                items.forEach(item => this.destroyItem!(item))
-            );
-        }
-
         this.mirror.clear();
         this.buffer.clear();
         this.subscribers.clear();
@@ -145,12 +139,7 @@ export class OIMOrderedListMappedCommandStream<
                 }
                 case 'remove': {
                     const count = cmd.count ?? 1;
-                    const removed = mirror.splice(cmd.index, count);
-                    if (this.destroyItem) {
-                        for (let r = 0; r < removed.length; r++) {
-                            this.destroyItem(removed[r]);
-                        }
-                    }
+                    mirror.splice(cmd.index, count);
                     out.push({ type: 'remove', index: cmd.index, count });
                     break;
                 }
@@ -168,19 +157,11 @@ export class OIMOrderedListMappedCommandStream<
                 }
                 case 'set': {
                     const mapped = this.create(cmd.item);
-                    const replaced = mirror.splice(cmd.index, 1, mapped);
-                    if (this.destroyItem && replaced.length > 0) {
-                        this.destroyItem(replaced[0]);
-                    }
+                    mirror.splice(cmd.index, 1, mapped);
                     out.push({ type: 'set', index: cmd.index, item: mapped });
                     break;
                 }
                 case 'reset': {
-                    if (this.destroyItem) {
-                        for (let r = 0; r < mirror.length; r++) {
-                            this.destroyItem(mirror[r]);
-                        }
-                    }
                     const mapped = cmd.items.map(item => this.create(item));
                     mirror = mapped;
                     this.mirror.set(key, mapped);

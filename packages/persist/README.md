@@ -127,13 +127,15 @@ const codec = createVersionedCodec<UserSnapshot>({
 ```
 
 Stored snapshots are wrapped as `{ __v, data }`; on hydrate the codec runs every
-migration whose key is greater than the stored version, in ascending order.
+migration whose key is greater than the stored version **and not greater than the
+target `version`**, in ascending order. Migrations keyed above the target are skipped.
 
 ## Autosave And Queue
 
-Without a queue each source change triggers an immediate write. With a queue all
-dirty resources are flushed once after each `AFTER_FLUSH` — all mutations from one
-render cycle become one write. For IndexedDB that means one transaction across all
+Without a queue, dirty resources are flushed on a microtask (`queueMicrotask`) —
+synchronous changes in the same tick still coalesce into a single batched write, not
+one write per change. With a queue all dirty resources are flushed once after each
+`AFTER_FLUSH` — all mutations from one render cycle become one write. For IndexedDB that means one transaction across all
 stores.
 
 ```ts

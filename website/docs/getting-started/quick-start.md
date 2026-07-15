@@ -22,10 +22,15 @@ Common schedulers:
 
 | Scheduler | Use case |
 |-----------|----------|
-| `createMicrotask()` | Default — fast, same-tick delivery |
-| `createTimeout(0)` | Batch many writes before notifying |
-| `createAnimationFrame()` | UI-friendly, aligned with paint |
-| `createImmediate()` | Synchronous — useful in tests |
+| `createMicrotask()` | Default — delivers on the next microtask (after the current sync code, before paint) |
+| `createTimeout(0)` | Macrotask delay — batch many writes before notifying |
+| `createAnimationFrame()` | UI-friendly, aligned with paint (~60fps) |
+| `createImmediate()` | Macrotask — `setImmediate` in Node, falling back to `MessageChannel` then `setTimeout(0)` in browsers; runs after microtasks |
+| `createSync()` | **Debug only** — flushes synchronously per write, no batching |
+
+The first four are asynchronous. For synchronous delivery in normal code, call `queue.flush()` directly (e.g. in tests).
+
+`createSync()` is a **diagnostic tool, not for production**: it strips all coalescing and delivers on every write, in the same call stack. Swap it in at the root when you suspect a bug is caused by batch timing — if the bug disappears under sync delivery it's coalescing-related, if it persists it isn't. It exposes intermediate un-coalesced states, and a cyclic reactive graph can overflow the stack under it.
 
 ## 2. Create a Collection Model
 

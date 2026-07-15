@@ -8,6 +8,16 @@ import {
 } from '@oimdb/core';
 import { TOIMDBReduxDefaultCollectionState } from '../types/TOIMDBReduxDefaultCollectionState';
 import { TOIMDBReduxDefaultIndexState } from '../types/TOIMDBReduxDefaultIndexState';
+import { TOIMDBReduxDefaultGlobalIndexState } from '../types/TOIMDBReduxDefaultGlobalIndexState';
+import { TOIMDBReduxGlobalIndex } from '../types/TOIMDBReduxGlobalIndex';
+
+/** Reads a Global index's pks as a fresh array regardless of its shape. */
+export function globalIndexPksToArray<TPk extends TOIMPk>(
+    index: TOIMDBReduxGlobalIndex<TPk>
+): TPk[] {
+    const pks = index.getPks();
+    return pks instanceof Set ? Array.from(pks) : pks;
+}
 
 /**
  * Default mapper for collections (RTK Entity Adapter style)
@@ -159,4 +169,16 @@ export function defaultIndexMapper<
     }
 
     return { entities: newEntities };
+}
+
+/**
+ * Default mapper for a keyless "Global" (whole-collection) index. Produces the
+ * single ordered/deduped pk list. There are no keys, so a change recomputes the
+ * whole (small) list from `getPks()`.
+ */
+export function defaultGlobalIndexMapper<TPk extends TOIMPk>(
+    index: TOIMDBReduxGlobalIndex<TPk>,
+    _currentState?: TOIMDBReduxDefaultGlobalIndexState<TPk>
+): TOIMDBReduxDefaultGlobalIndexState<TPk> {
+    return { ids: globalIndexPksToArray(index) };
 }

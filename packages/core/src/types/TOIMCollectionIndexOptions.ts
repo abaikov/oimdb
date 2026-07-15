@@ -1,7 +1,7 @@
 import type { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 import type { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
-import type { OIMCollectionIndexManualOrderedArrayBased } from '../modules/wrapper/index/OIMCollectionIndexManualOrderedArrayBased';
+import type { OIMCollectionIndexManualOrderedArrayBased } from '../core/OIMCollectionIndexManualOrderedArrayBased';
 import type { TOIMEntitySlotResolver } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
 import type { TOIMPk } from './TOIMPk';

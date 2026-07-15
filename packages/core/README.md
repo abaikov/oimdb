@@ -40,7 +40,7 @@ This package exports all the core classes, interfaces, and types needed to build
 
 ### Core Classes
 - **OIMReactiveCollection**: Reactive entity storage with automatic change notifications
-- **OIMCollectionRelations**: Helper for creating collection-bound indexes and ordered lists next to a collection
+- **OIMCollectionIndexFactory**: Helper for creating collection-bound indexes and ordered lists next to a collection
 - **OIMReactiveIndexManualSetBased**: Reactive index with Set-based storage (efficient for incremental updates)
 - **OIMReactiveIndexManualArrayBased**: Reactive index with Array-based storage (efficient for full replacements)
 - **OIMReactiveCollectionIndexManualSetBased**: Collection-bound Set-based index with safe PK-oriented writes
@@ -452,11 +452,11 @@ indexes.usersByRole.setPks('admin', ['u1']);
 
 ### Collection Relations Helper
 
-Use `createOIMCollectionRelations` when you want the same clean model with less constructor noise. It does not store indexes inside the collection; it only keeps the shared `queue + collection` binding for related structures that live next to the collection.
+Use `createOIMCollectionIndexFactory` when you want the same clean model with less constructor noise. It does not store indexes inside the collection; it only keeps the shared `queue + collection` binding for related structures that live next to the collection.
 
 ```typescript
 import {
-    createOIMCollectionRelations,
+    createOIMCollectionIndexFactory,
     OIMReactiveCollection,
     OIMEventQueue
 } from '@oimdb/core';
@@ -477,11 +477,11 @@ const queue = new OIMEventQueue();
 const users = new OIMReactiveCollection<User, string>(queue, {
     selectPk: user => user.id,
 });
-const userRelations = createOIMCollectionRelations(queue, users);
+const userRelations = createOIMCollectionIndexFactory(queue, users);
 const cards = new OIMReactiveCollection<Card, string>(queue, {
     selectPk: card => card.id,
 });
-const cardRelations = createOIMCollectionRelations(queue, cards);
+const cardRelations = createOIMCollectionIndexFactory(queue, cards);
 
 // Derived indexes update themselves from collection writes.
 const usersByTeam = userRelations.derivedSetIndex(user => user.teamId);
@@ -638,7 +638,7 @@ users.upsertOne({ id: 'user1', role: 'admin' });
 
 OIMDB uses a single-pass flush boundary: `queue.flush()` executes the current batch of pending work.
 
-Effects and computed values are scheduled through `OIMComputativeRuntime`, which is backed by the same queue. This keeps the public API simple and avoids a multi-phase flush model.
+Effects and computed values are scheduled through `OIMComputeRuntime`, which is backed by the same queue. This keeps the public API simple and avoids a multi-phase flush model.
 
 #### What is an Effect?
 
@@ -649,7 +649,7 @@ Effects and computed values are scheduled through `OIMComputativeRuntime`, which
 ```typescript
 import {
   OIMEffect,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveObject,
   OIMEffectDependencyKeyedObject,
@@ -658,7 +658,7 @@ import {
 type TKey = 'a';
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
 const effect = new OIMEffect(runtime, {
@@ -681,7 +681,7 @@ queue.destroy();
 ```typescript
 import {
   OIMEffect,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveCollection,
   OIMEffectDependencyKeyedCollection,
@@ -693,7 +693,7 @@ interface User {
 }
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
 });
@@ -719,7 +719,7 @@ queue.destroy();
 ```typescript
 import {
   OIMEffect,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveCollection,
   OIMReactiveCollectionIndexManualSetBased,
@@ -732,7 +732,7 @@ interface User {
 }
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
 });
@@ -767,7 +767,7 @@ queue.destroy();
 ```typescript
 import {
   OIMEffect,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveObject,
   OIMReactiveCollection,
@@ -776,7 +776,7 @@ import {
 } from '@oimdb/core';
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const settings = new OIMReactiveObject<'theme' | 'lang', string>(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
@@ -814,14 +814,14 @@ queue.destroy();
 import {
   OIMComputed,
   OIMEventQueue,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMReactiveObject,
   OIMEffectDependencyKeyedObject,
 } from '@oimdb/core';
 
 type TKey = 'a';
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
 const doubled = new OIMComputed<number>(runtime, {
@@ -854,7 +854,7 @@ queue.destroy();
 import {
   OIMComputed,
   OIMEventQueue,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMReactiveCollection,
   OIMReactiveCollectionIndexManualSetBased,
   OIMEffectDependencyKeyedCollection,
@@ -868,7 +868,7 @@ interface User {
 }
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
 });
@@ -925,7 +925,7 @@ For computed-to-computed dependencies you can use `OIMEffectDependencyComputed`.
 import {
   OIMComputed,
   OIMEffect,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEffectDependencyComputed,
   OIMEventQueue,
   OIMReactiveObject,
@@ -934,7 +934,7 @@ import {
 
 type TKey = 'a';
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const obj = new OIMReactiveObject<TKey, number>(queue);
 
 const A = new OIMComputed<number>(runtime, {
@@ -972,7 +972,7 @@ Selectors provide a convenient way to watch and react to changes in collections,
 import {
   OIMCollectionByPkSelector,
   OIMCollectionByPksSelector,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveCollection,
 } from '@oimdb/core';
@@ -983,7 +983,7 @@ interface User {
 }
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
 });
@@ -1020,14 +1020,14 @@ queue.destroy();
 ```typescript
 import {
   OIMEntitiesByIndexKeySetBasedSelector,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveCollection,
   OIMReactiveCollectionIndexManualSetBased,
 } from '@oimdb/core';
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const users = new OIMReactiveCollection<User, string>(queue, {
   selectPk: (u) => u.id,
 });
@@ -1071,13 +1071,13 @@ queue.destroy();
 import {
   OIMObjectValueByKeySelector,
   OIMObjectValuesByKeysSelector,
-  OIMComputativeRuntime,
+  OIMComputeRuntime,
   OIMEventQueue,
   OIMReactiveObject,
 } from '@oimdb/core';
 
 const queue = new OIMEventQueue();
-const runtime = new OIMComputativeRuntime(queue);
+const runtime = new OIMComputeRuntime(queue);
 const settings = new OIMReactiveObject<'theme' | 'lang', string>(queue);
 
 // Watch single key
@@ -1117,10 +1117,13 @@ queue.destroy();
 
 Choose the right scheduler for your use case:
 
-- **`microtask`**: Most common - executes before next browser render
-- **`timeout`**: Configurable delay for custom batching strategies  
-- **`animationFrame`**: Syncs with browser rendering (60fps)
-- **`immediate`**: Fastest execution using platform-specific APIs
+- **`microtask`**: Most common - drains right after the current synchronous code, before the next macrotask and before paint (lowest delivery latency)
+- **`timeout`**: Configurable macrotask delay for custom batching strategies
+- **`animationFrame`**: Syncs with browser rendering (~60fps)
+- **`immediate`**: Macrotask — `setImmediate` in Node, falling back to `MessageChannel` then `setTimeout(0)` in browsers; runs *after* the microtask queue, so higher latency than `microtask`
+- **`sync`** (`createSync()`): flushes synchronously, in the same call stack, on every write — **no batching**. Debug/diagnostic only
+
+The async schedulers coalesce writes into one flush per tick. For synchronous delivery in normal code, call `queue.flush()` directly (e.g. in tests). Use the `sync` scheduler only to diagnose coalescing-related bugs: swap it in at the root and see whether the bug survives without batching (it exposes intermediate un-coalesced states and can overflow the stack on a cyclic graph).
 
 ### Reactive Collection Hierarchy
 
@@ -1151,11 +1154,11 @@ OIMCollectionOrderedListCommandStream (collection-bound ordered-list command str
 - **Indices**: O(1) index lookups with lazy evaluation
 - **Event System**: Smart coalescing prevents redundant notifications
 - **Memory**: Efficient key-based subscriptions, no global listeners
-- **Schedulers**: Configurable timing for optimal batching:
-  - **Microtask**: ~1-5ms delay, ideal for UI updates
-  - **Immediate**: <1ms, fastest execution  
-  - **Timeout**: Custom delay for batching strategies
-  - **AnimationFrame**: 16ms, synced with 60fps rendering
+- **Schedulers**: Configurable timing for batching:
+  - **Microtask**: drains after the current synchronous stack, before macrotasks/paint (lowest latency)
+  - **Immediate**: macrotask — `setImmediate` (Node), falling back to `MessageChannel` then `setTimeout(0)` (browser); runs after the microtask queue, not synchronous
+  - **Timeout**: custom macrotask delay for batching strategies
+  - **AnimationFrame**: ~16ms, synced with ~60fps rendering
 
 ### Index Performance
 
@@ -1294,9 +1297,6 @@ unsubscribe();
 
 ### DX Factories
 
-#### `createOIMReactiveCollection<TEntity, TPk>(queue, opts?)`
-Creates an `OIMReactiveCollection<TEntity, TPk>` with less constructor noise.
-
 #### `createOIMCollectionKit<TEntity, TPk>(queue, opts?)`
 Creates a small facade:
 
@@ -1304,15 +1304,15 @@ Creates a small facade:
 type TOIMCollectionKit<TEntity, TPk> = {
     queue: OIMEventQueue;
     collection: OIMReactiveCollection<TEntity, TPk>;
-    relations: OIMCollectionRelations<TEntity, TPk>;
+    indexFactory: OIMCollectionIndexFactory<TEntity, TPk>;
     select: OIMCollectionSelectors<TEntity, TPk>;
 };
 ```
 
-This is a DX entrypoint only: indexes and lists are still created as separate relation objects, not stored inside the collection.
+This is a DX entrypoint only: indexes and lists are still created as separate structures via `indexFactory`, not stored inside the collection.
 
 #### `OIMCollectionSelectors<TEntity, TPk>`
-DX facade for reactive read selectors backed by one `OIMComputativeRuntime`.
+DX facade for reactive read selectors backed by one `OIMComputeRuntime`.
 
 **Methods:**
 - `byPk(pk)` - Create `OIMCollectionByPkSelector<TEntity, TPk>`
@@ -1346,17 +1346,17 @@ new OIMReactiveCollection(queue: OIMEventQueue, opts?: TOIMCollectionOptions<TEn
 - `getSlotByPk(pk: TPk): OIMEntitySlot<TEntity, TPk> | undefined` - Get the canonical slot for a primary key
 - `getSlotsByPks(pks: readonly TPk[]): OIMEntitySlot<TEntity, TPk>[]` - Get existing canonical slots for primary keys
 
-#### `OIMCollectionRelations<TEntity, TPk>`
-Factory helper for collection-bound relations. It keeps `queue + collection` together for construction only; created indexes/lists still live next to the collection, not inside it.
+#### `OIMCollectionIndexFactory<TEntity, TPk>`
+Factory helper for collection-bound indexes and ordered lists. It keeps `queue + collection` together for construction only; created indexes/lists still live next to the collection, not inside it.
 
 **Constructor:**
 ```typescript
-new OIMCollectionRelations(queue: OIMEventQueue, collection: OIMReactiveCollection<TEntity, TPk>)
+new OIMCollectionIndexFactory(queue: OIMEventQueue, collection: OIMReactiveCollection<TEntity, TPk>)
 ```
 
 **Factory:**
 ```typescript
-createOIMCollectionRelations(queue, collection)
+createOIMCollectionIndexFactory(queue, collection)
 ```
 
 **Methods:**

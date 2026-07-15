@@ -24,16 +24,13 @@ describe('OIMOrderedListMappedCommandStream', () => {
         );
 
         let next = 0;
-        const created: Node[] = [];
-        const destroyed: Node[] = [];
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>): Node => {
-                const node = { instance: next++, label: s.item?.name ?? '∅' };
-                created.push(node);
-                return node;
-            },
-            destroy: (node: Node) => destroyed.push(node),
-        });
+        const mapped = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>): Node => ({
+                instance: next++,
+                label: s.item?.name ?? '∅',
+            })
+        );
 
         const seen: TOIMOrderedListCommand<Node>[] = [];
         mapped.subscribeCommands('doc', () => {
@@ -59,12 +56,13 @@ describe('OIMOrderedListMappedCommandStream', () => {
         );
 
         let next = 0;
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>): Node => ({
+        const mapped = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>): Node => ({
                 instance: next++,
                 label: s.item?.name ?? '∅',
-            }),
-        });
+            })
+        );
 
         stream.pushSlot('doc', slot('u1', 'Alice'));
         stream.pushSlot('doc', slot('u2', 'Bob'));
@@ -83,44 +81,46 @@ describe('OIMOrderedListMappedCommandStream', () => {
         expect(next).toBe(2);
     });
 
-    test('destroy runs on remove and on set replacement', () => {
+    test('remove / set carry the position change; mirror stays correct', () => {
         const queue = new OIMEventQueue();
         const stream = new OIMOrderedListCommandStream<string, string, User>(
             queue
         );
 
-        const destroyed: string[] = [];
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
-            destroy: (label: string) => destroyed.push(label),
+        const mapped = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅'
+        );
+        const seen: TOIMOrderedListCommand<string>[] = [];
+        mapped.subscribeCommands('doc', () => {
+            seen.push(...mapped.consumeCommands('doc'));
         });
-        mapped.subscribeCommands('doc', () => mapped.consumeCommands('doc'));
 
         stream.pushSlot('doc', slot('u1', 'Alice'));
         stream.pushSlot('doc', slot('u2', 'Bob'));
         queue.flush();
+        seen.length = 0;
 
-        stream.setSlotAt('doc', 0, slot('u3', 'Carol'));
-        stream.removeAt('doc', 1);
+        stream.setSlotAt('doc', 0, slot('u3', 'Carol')); // replace Alice
+        stream.removeAt('doc', 1); // remove Bob
         queue.flush();
 
-        expect(destroyed).toContain('Alice'); // replaced by set
-        expect(destroyed).toContain('Bob'); // removed
+        // The consumer learns what left from the commands + its own mirror.
+        expect(seen.map(c => c.type)).toEqual(['set', 'remove']);
+        expect((seen[0] as { item: string }).item).toBe('Carol');
         expect(mapped.getItemsByKey('doc')).toEqual(['Carol']);
     });
 
-    test('reset destroys every old element and creates the new ones', () => {
+    test('reset carries the new mapped items', () => {
         const queue = new OIMEventQueue();
         const stream = new OIMOrderedListCommandStream<string, string, User>(
             queue
         );
 
-        const destroyed: string[] = [];
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
-            destroy: (label: string) => destroyed.push(label),
-        });
-
+        const mapped = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅'
+        );
         const seen: TOIMOrderedListCommand<string>[] = [];
         mapped.subscribeCommands('doc', () => {
             seen.push(...mapped.consumeCommands('doc'));
@@ -139,7 +139,6 @@ describe('OIMOrderedListMappedCommandStream', () => {
             'Bob',
             'Carol',
         ]);
-        expect(destroyed).toEqual(['Alice']);
         expect(mapped.getItemsByKey('doc')).toEqual(['Bob', 'Carol']);
     });
 
@@ -149,10 +148,11 @@ describe('OIMOrderedListMappedCommandStream', () => {
             queue
         );
 
-        const names = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
-        });
-        const lengths = names.map({ create: (name: string) => name.length });
+        const names = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅'
+        );
+        const lengths = names.map((name: string) => name.length);
 
         stream.pushSlot('doc', slot('u1', 'Alice'));
         stream.pushSlot('doc', slot('u2', 'Bo'));
@@ -160,28 +160,6 @@ describe('OIMOrderedListMappedCommandStream', () => {
 
         expect(names.getItemsByKey('doc')).toEqual(['Alice', 'Bo']);
         expect(lengths.getItemsByKey('doc')).toEqual([5, 2]);
-    });
-
-    test('destroy() tears down every live mapped element', () => {
-        const queue = new OIMEventQueue();
-        const stream = new OIMOrderedListCommandStream<string, string, User>(
-            queue
-        );
-
-        const destroyed: string[] = [];
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>) => s.item?.name ?? '∅',
-            destroy: (label: string) => destroyed.push(label),
-        });
-
-        stream.pushSlot('doc', slot('u1', 'Alice'));
-        stream.pushSlot('doc', slot('u2', 'Bob'));
-        queue.flush();
-        mapped.getItemsByKey('doc'); // ensure wired
-
-        mapped.destroy();
-
-        expect(destroyed.sort()).toEqual(['Alice', 'Bob']);
     });
 
     test('works over a collection-bound stream (pk writes)', () => {
@@ -199,10 +177,11 @@ describe('OIMOrderedListMappedCommandStream', () => {
             User
         >(queue, { collection: users });
 
-        const mapped = createOIMOrderedListMappedCommandStream(stream, {
-            create: (s: TOIMEntitySlot<User, string>) =>
-                `${s.pk}:${s.item?.name ?? '∅'}`,
-        });
+        const mapped = createOIMOrderedListMappedCommandStream(
+            stream,
+            (s: TOIMEntitySlot<User, string>) =>
+                `${s.pk}:${s.item?.name ?? '∅'}`
+        );
 
         stream.push('doc', 'u1');
         stream.push('doc', 'u2');

@@ -239,7 +239,34 @@ describe('OIMOrderedListCommandStream', () => {
         );
     });
 
-    test('detects external slot writes and emits reset() to resync', () => {
+    test('clear(key) delivers reset([]) so consumers tear the list down', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<
+            string,
+            string,
+            User
+        >(queue);
+        const u1: TOIMEntitySlot<User, string> = {
+            pk: 'u1',
+            item: { id: 'u1', name: 'Alice' },
+        };
+
+        stream.pushSlot('doc', u1);
+        queue.flush();
+
+        const seen: unknown[] = [];
+        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+            seen.push(...stream.consumeCommands('doc'));
+        });
+
+        stream.clear('doc');
+        queue.flush();
+
+        expect(seen).toEqual([{ type: 'reset', items: [] }]);
+        expect(stream.getPksByKey('doc')).toEqual([]);
+    });
+
+    test('push, move, clear in one tick collapse to a single reset([])', () => {
         const queue = new OIMEventQueue();
         const stream = new OIMOrderedListCommandStream<
             string,
@@ -260,11 +287,38 @@ describe('OIMOrderedListCommandStream', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
-        stream.index.pushSlot('doc', u1);
-        stream.index.pushSlot('doc', u2);
-
+        stream.pushSlot('doc', u1);
+        stream.pushSlot('doc', u2);
+        stream.move('doc', 0, 1);
+        stream.clear('doc');
         queue.flush();
 
-        expect(seen).toEqual([{ type: 'reset', items: [u1, u2] }]);
+        expect(seen).toEqual([{ type: 'reset', items: [] }]);
+    });
+
+    test('move(from === to) is a no-op and emits nothing', () => {
+        const queue = new OIMEventQueue();
+        const stream = new OIMOrderedListCommandStream<
+            string,
+            string,
+            User
+        >(queue);
+        const u1: TOIMEntitySlot<User, string> = {
+            pk: 'u1',
+            item: { id: 'u1', name: 'Alice' },
+        };
+
+        stream.pushSlot('doc', u1);
+        queue.flush();
+
+        const seen: unknown[] = [];
+        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+            seen.push(...stream.consumeCommands('doc'));
+        });
+
+        stream.move('doc', 0, 0);
+        queue.flush();
+
+        expect(seen).toEqual([]);
     });
 });

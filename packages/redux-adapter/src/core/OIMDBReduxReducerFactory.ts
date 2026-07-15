@@ -12,6 +12,10 @@ import { TOIMDBReduxCollectionMapper } from '../types/TOIMDBReduxCollectionMappe
 import { TOIMDBReduxIndexMapper } from '../types/TOIMDBReduxIndexMapper';
 import { TOIMDBReduxCollectionReducerChildOptions } from '../types/TOIMDBReduxCollectionReducerChildOptions';
 import { TOIMDBReduxIndexReducerChildOptions } from '../types/TOIMDBReduxIndexReducerChildOptions';
+import { TOIMDBReduxGlobalIndex } from '../types/TOIMDBReduxGlobalIndex';
+import { TOIMDBReduxGlobalIndexMapper } from '../types/TOIMDBReduxGlobalIndexMapper';
+import { TOIMDBReduxGlobalIndexReducerChildOptions } from '../types/TOIMDBReduxGlobalIndexReducerChildOptions';
+import { TOIMDBReduxDefaultGlobalIndexState } from '../types/TOIMDBReduxDefaultGlobalIndexState';
 import { findUpdatedInRecord } from '../utils/findUpdatedEntities';
 import { TOIMDBReduxDefaultCollectionState } from '../types/TOIMDBReduxDefaultCollectionState';
 import { TOIMDBReduxDefaultIndexState } from '../types/TOIMDBReduxDefaultIndexState';
@@ -648,5 +652,103 @@ export class OIMDBReduxReducerFactory {
         };
 
         return reducer;
+    }
+
+    /**
+     * Create Redux reducer for a keyless "Global" (whole-collection) index.
+     * State is the single pk list; dirtiness is tracked by the adapter via the
+     * index's keyless `subscribe()` (works for manual and derived alike).
+     */
+    public createGlobalIndexReducer<TPk extends TOIMPk, TState>(
+        index: TOIMDBReduxGlobalIndex<TPk>,
+        reducerData: {
+            dirty: boolean;
+            mapper: TOIMDBReduxGlobalIndexMapper<TPk, TState>;
+        },
+        child?: TOIMDBReduxGlobalIndexReducerChildOptions<TPk, TState>
+    ): Reducer<TState | undefined, Action> {
+        const actualMapper = reducerData.mapper;
+        let isSyncingFromChild = false;
+
+        const reducer: Reducer<TState | undefined, Action> = (
+            state: TState | undefined,
+            action: Action
+        ) => {
+            if (state === undefined) {
+                // Initialization already captures the whole current list, so any
+                // pending dirtiness is consumed — no redundant immediate recompute.
+                reducerData.dirty = false;
+                return actualMapper(index, undefined);
+            }
+
+            if (action.type === EOIMDBReduxReducerActionType.UPDATE) {
+                if (isSyncingFromChild) return state;
+                if (!reducerData.dirty) return state;
+                const newState = actualMapper(index, state as TState);
+                reducerData.dirty = false;
+                return newState;
+            }
+
+            if (child) {
+                const childState = child.reducer(state, action);
+                if (childState !== state && childState !== undefined) {
+                    if (child.extractGlobalIndexState) {
+                        isSyncingFromChild = true;
+                        child.extractGlobalIndexState(
+                            state as TState | undefined,
+                            childState as TState,
+                            index
+                        );
+                        isSyncingFromChild = false;
+                    } else {
+                        const defaultState =
+                            childState as unknown as TOIMDBReduxDefaultGlobalIndexState<TPk>;
+                        if (
+                            defaultState &&
+                            typeof defaultState === 'object' &&
+                            'ids' in defaultState
+                        ) {
+                            isSyncingFromChild = true;
+                            this.syncGlobalIndexIds(index, defaultState.ids);
+                            isSyncingFromChild = false;
+                        }
+                    }
+                }
+                return childState;
+            }
+
+            return state;
+        };
+
+        return reducer;
+    }
+
+    /** Sync a pk list from Redux back into a manual Global index. */
+    private syncGlobalIndexIds<TPk extends TOIMPk>(
+        index: TOIMDBReduxGlobalIndex<TPk>,
+        nextIds: readonly TPk[]
+    ): void {
+        const indexManual = index as unknown as {
+            setPks?: (pks: readonly TPk[]) => void;
+            addPks?: (pks: readonly TPk[]) => void;
+            removePks?: (pks: readonly TPk[]) => void;
+        };
+
+        // A full replacement respects order (Global lists are single + small).
+        if (indexManual.setPks) {
+            indexManual.setPks(nextIds.slice());
+            return;
+        }
+        if (!indexManual.addPks || !indexManual.removePks) return;
+
+        const current = index.getPks();
+        const oldPks = current instanceof Set ? current : new Set(current);
+        const newPks = new Set(nextIds);
+        const toAdd: TPk[] = [];
+        for (const pk of newPks) if (!oldPks.has(pk)) toAdd.push(pk);
+        const toRemove: TPk[] = [];
+        for (const pk of oldPks) if (!newPks.has(pk)) toRemove.push(pk);
+        if (toRemove.length > 0) indexManual.removePks(toRemove);
+        if (toAdd.length > 0) indexManual.addPks(toAdd);
     }
 }

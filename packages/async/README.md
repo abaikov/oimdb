@@ -63,7 +63,7 @@ const users = new OIMReactiveCollectionAsync<User, string>(queue, {
 });
 
 // Subscribe to updates
-users.updateEventEmitter.subscribeOnKey('user1', () => {
+users.subscribeOnKey('user1', () => {
     console.log('User1 updated');
 });
 
@@ -81,7 +81,7 @@ const index = new OIMPkIndexManualAsync<string, string>();
 // All operations are async
 await index.setPks('admin', ['user1', 'user2']);
 await index.addPks('admin', ['user3']);
-const adminUsers = index.getPksByKey('admin'); // Synchronous read from memory
+const adminUsers = await index.getPksByKey('admin'); // async → Promise<Set<string>>
 ```
 
 ### Reactive Async Index
@@ -97,7 +97,7 @@ const queue = new OIMEventQueue({
 const index = new OIMReactivePkIndexManualAsync<string, string>(queue);
 
 // Subscribe to updates
-index.updateEventEmitter.subscribeOnKey('admin', () => {
+index.subscribeOnKey('admin', () => {
     console.log('Admin users changed');
 });
 

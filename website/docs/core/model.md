@@ -72,6 +72,8 @@ This is what lets collection-bound indexes store stable slot references while st
 
 **Batching & coalescing** — multiple writes to the same key coalesce into a single notification per `queue.flush()`. Delivery is driven by updated key sets, not by every write.
 
-**Reentrancy** — updates triggered inside a subscriber are collected into the next internal batch. `queue.flush()` is a full drain: work enqueued during a flush runs within the same call.
+**Reentrancy** — writing to a store from a subscription callback *during* `queue.flush()` throws (`updates during queue.flush() are not allowed`). Effects and computeds run at `AFTER_FLUSH`, when the queue is no longer flushing; writes made there are allowed and batched into the **next** flush.
+
+**Single-pass flush** — `queue.flush()` runs each currently-pending task once (buffer swap, no re-drain loop). Tasks enqueued *during* a flush land in a fresh buffer and run on the next flush (scheduled tick or next manual `flush()`), not within the same call.
 
 **Key-scoped subscriptions** — there is no "subscribe to everything". Delivery cost is proportional to the subscriber sets for changed keys only.

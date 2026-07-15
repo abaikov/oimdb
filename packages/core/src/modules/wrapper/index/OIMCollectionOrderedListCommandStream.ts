@@ -5,13 +5,14 @@ import {
 } from '../../../types/TOIMEntitySlot';
 import { TOIMCollectionOrderedListCommandStreamOptions } from '../../../types/TOIMCollectionIndexOptions';
 import { TOIMPk } from '../../../types/TOIMPk';
-import { OIMCollectionIndexManualOrderedArrayBased } from './OIMCollectionIndexManualOrderedArrayBased';
+import { OIMCollectionIndexManualOrderedArrayBased } from '../../../core/OIMCollectionIndexManualOrderedArrayBased';
 import { OIMOrderedListCommandStream } from './OIMOrderedListCommandStream';
 
 /**
  * Collection-bound ordered-list command stream.
  *
- * Public writes use PKs, internally they resolve to canonical collection slots.
+ * Public writes use PKs; they resolve to canonical collection slots (throwing on
+ * an unresolvable pk) before mutating the index and recording the command.
  */
 export class OIMCollectionOrderedListCommandStream<
     TKey extends TOIMPk,
@@ -44,45 +45,37 @@ export class OIMCollectionOrderedListCommandStream<
     }
 
     public push(key: TKey, pk: TPk): void {
-        this.withWrite(() => {
-            const slot = this.resolvePk(pk);
-            const index = this.index.pushSlot(key, slot);
-            this.appendCommand(key, { type: 'insert', index, item: slot });
-        });
+        const slot = this.resolvePk(pk);
+        const index = this.index.pushSlot(key, slot);
+        this.appendCommand(key, { type: 'insert', index, item: slot });
     }
 
     public insertAt(key: TKey, index: number, pk: TPk): void {
-        this.withWrite(() => {
-            const slot = this.resolvePk(pk);
-            const safeIndex = this.index.insertSlotAt(key, index, slot);
-            this.appendCommand(key, {
-                type: 'insert',
-                index: safeIndex,
-                item: slot,
-            });
+        const slot = this.resolvePk(pk);
+        const safeIndex = this.index.insertSlotAt(key, index, slot);
+        this.appendCommand(key, {
+            type: 'insert',
+            index: safeIndex,
+            item: slot,
         });
     }
 
     /** Replace the element at `index` with the slot for `pk`, in place. */
     public setAt(key: TKey, index: number, pk: TPk): void {
-        this.withWrite(() => {
-            const slot = this.resolvePk(pk);
-            const safeIndex = this.index.setSlotAt(key, index, slot);
-            if (safeIndex < 0) return;
-            this.appendCommand(key, {
-                type: 'set',
-                index: safeIndex,
-                item: slot,
-            });
+        const slot = this.resolvePk(pk);
+        const safeIndex = this.index.setSlotAt(key, index, slot);
+        if (safeIndex < 0) return;
+        this.appendCommand(key, {
+            type: 'set',
+            index: safeIndex,
+            item: slot,
         });
     }
 
     public set(key: TKey, pks: readonly TPk[]): void {
-        this.withWrite(() => {
-            const slots = pks.map(pk => this.resolvePk(pk));
-            this.index.resetSlots(key, slots);
-            this.appendResetCommand(key, slots);
-        });
+        const slots = pks.map(pk => this.resolvePk(pk));
+        this.index.resetSlots(key, slots);
+        this.appendResetCommand(key, slots);
     }
 
     public override getSlotsByKey(
@@ -98,9 +91,8 @@ export class OIMCollectionOrderedListCommandStream<
     }
 
     private resolvePk(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
-        return this.index.resolvePk(pk) as TOIMAnyEntitySlot<TPk> as TOIMEntitySlot<
-            TEntity,
-            TPk
-        >;
+        return this.index.resolvePk(
+            pk
+        ) as TOIMAnyEntitySlot<TPk> as TOIMEntitySlot<TEntity, TPk>;
     }
 }

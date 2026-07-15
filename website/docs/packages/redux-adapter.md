@@ -51,6 +51,22 @@ store.getState().users; // { 'u1': { id: 'u1', name: 'Alice', teamId: 'team1' } 
 
 Collections map to `Record<TPk, TEntity>`. Indexes map to `Record<TKey, TPk[]>` (set-based) or `Record<TKey, TPk[]>` (array-based).
 
+## Keyless "Global" indexes
+
+A [Global index](../core/indexes-selectors.md#global-keyless-indexes) (one list over the whole collection) maps to a flat `{ ids: TPk[] }` — there are no keys. Use `createGlobalIndexReducer`; it works for manual and derived Global indexes alike (dirtiness is tracked through the index's keyless `subscribe()`):
+
+```typescript
+const recent = users.indexFactory.derivedArrayGlobalIndex({
+  orderBy: (u) => u.createdAt,
+});
+const recentReducer = adapter.createGlobalIndexReducer(recent);
+// store.getState().recent -> { ids: ['u3', 'u1', 'u2'] }
+```
+
+Custom mapper `(index, currentState) => TState` and a child reducer
+(`{ reducer, extractGlobalIndexState? }`, default sync-back for `{ ids }`) are
+supported, mirroring the keyed reducers.
+
 ## Custom mapper
 
 Override how OIMDB state maps to Redux state:
@@ -96,7 +112,8 @@ const usersReducer = adapter.createCollectionReducer(
 |---|---|
 | `new OIMDBReduxAdapter(queue, opts?)` | Create adapter for the given queue |
 | `.createCollectionReducer(collection, child?, mapper?)` | Redux reducer backed by a collection |
-| `.createIndexReducer(index, child?, mapper?)` | Redux reducer backed by an index |
+| `.createIndexReducer(index, child?, mapper?)` | Redux reducer backed by a keyed index |
+| `.createGlobalIndexReducer(index, child?, mapper?)` | Redux reducer backed by a keyless Global index (`{ ids }`) |
 | `.createMiddleware()` | Redux middleware — auto-flushes queue after each action |
 | `.setStore(store)` | Bind the Redux store (call after `createStore`) |
 | `.flushSilently()` | Flush queue without dispatching `OIMDB_UPDATE` |

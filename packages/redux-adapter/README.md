@@ -580,7 +580,7 @@ const diff = findUpdatedInArray(oldIds, newIds);
 // diff.added = ['4']
 // diff.updated = ['1', '3']
 // diff.removed = ['2']
-// diff.all = ['1', '2', '3', '4']
+// diff.all = ['4', '1', '3', '2']  // added ++ updated ++ removed (not sorted)
 ```
 
 ## 🎨 TypeScript Support
@@ -610,7 +610,8 @@ Main adapter class for integrating OIMDB with Redux. Creates Redux reducers from
 #### Methods
 
 - `createCollectionReducer<TEntity, TPk, TState>(collection, child?, mapper?)`: Create reducer for a collection
-- `createIndexReducer<TIndexKey, TPk, TState>(index, child?, mapper?)`: Create reducer for an index (supports both SetBased and ArrayBased indexes)
+- `createIndexReducer<TIndexKey, TPk, TState>(index, child?, mapper?)`: Create reducer for a keyed index (supports both SetBased and ArrayBased indexes)
+- `createGlobalIndexReducer<TPk, TState>(index, child?, mapper?)`: Create reducer for a keyless "Global" (whole-collection) index — state shape `{ ids: TPk[] }`; works for manual and derived Global indexes
 - `createMiddleware()`: Create Redux middleware that automatically flushes the event queue after each action
 - `setStore(store)`: Set Redux store (can be called later)
 - `flushSilently()`: Flush the event queue without triggering OIMDB_UPDATE dispatch (used internally by middleware)
