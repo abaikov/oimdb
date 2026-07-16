@@ -266,6 +266,15 @@ function render() {
 - `create(slot)` runs once per canonical slot; the object is cached by slot identity (a `WeakMap`), so it is reference-stable and reclaimed by GC when the slot is dropped.
 - Same plain-function shape as the ordered mapper — no options object, no `destroy` (these are plain values; nothing to tear down). If your mapped objects hold resources, use the ordered command stream, which has an explicit removal signal.
 - `subscribeOnKey` / `subscribeOnKeys` are passthroughs to the index; `getByKey(key)` returns the mapped objects (array order for array-based, unspecified for set-based).
+- `.map(create)` chains another projection with the same per-slot stability at each level.
+
+For a [global (keyless) index](#global-keyless-indexes) use `createOIMGlobalIndexSlotMap(index, create)` — the same memo without keys: `getAll()` instead of `getByKey`, `subscribe` instead of `subscribeOnKey`.
+
+```typescript
+const everyone = users.indexFactory.derivedSetGlobalIndex();
+const rows = createOIMGlobalIndexSlotMap(everyone, (slot) => makeRow(slot.item));
+rows.subscribe(() => { for (const row of rows.getAll()) { /* stable per slot */ } });
+```
 
 ### Deriving commands from an index
 

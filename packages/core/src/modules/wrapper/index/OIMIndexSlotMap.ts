@@ -15,9 +15,9 @@ import { IOIMIndexSlotSource } from '../../../interfaces/IOIMIndexSlotSource';
  * and shared per pk). The cache is a `WeakMap`, so a mapped object is reclaimed
  * by GC once its slot is dropped and unreferenced — there is no lifecycle
  * callback and none is needed for plain values. If your mapped objects hold
- * resources that need explicit teardown (DOM nodes, subscriptions), use the
- * ordered command stream (`createOIMOrderedListMappedCommandStream`), which has
- * an exact removal signal to drive `destroy`.
+ * resources that need explicit teardown (DOM nodes, subscriptions), drive an
+ * ordered command stream instead — its `remove` / `set` / `reset` commands are
+ * the exact removal signal you tear down on.
  *
  * This is a thin wrapper: it holds no queue and no standing subscription of its
  * own — `subscribeOnKey` is a passthrough to the index.
