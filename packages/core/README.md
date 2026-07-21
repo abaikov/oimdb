@@ -185,6 +185,25 @@ const multipleUsers = users.getManyByPks(['user1', 'user2']);
 const userSlot = users.getSlotByPk('user1');
 ```
 
+#### Composite primary key
+
+Instead of a primitive PK, a collection can be keyed by a **composite key path** — an arbitrary-length tuple of primitive segments. Pass a trie-backed store:
+
+```typescript
+import { OIMReactiveCollection, OIMCollectionStoreTrieDriven, TOIMKeyPath } from '@oimdb/core';
+
+const memberships = new OIMReactiveCollection<Membership, TOIMKeyPath>(queue, {
+    selectPk: (m) => [m.userId, m.projectId],
+    store: new OIMCollectionStoreTrieDriven<Membership>(),
+});
+
+memberships.getOneByPk([1, 10]);        // matched by content — a fresh array works
+memberships.subscribeOnKey([1, 10], render);
+memberships.removeOneByPk([1, 10]);
+```
+
+Key paths match **by content** (the store interns each logical PK to one canonical `slot.pk`). Indexes work over such a collection too (`indexFactory.setBasedIndex()` indexes composite PKs). Primitive-PK collections keep the native-`Map` store untouched. At serialization boundaries a composite PK needs an `IOIMPkCodec` (`OIMPkCodecKeyPath`) — `@oimdb/persist`/`@oimdb/snapshot-manager` need none; `@oimdb/redux-adapter` takes it.
+
 ### Creating a Reactive Index
 
 OIMDB provides two types of indexes optimized for different use cases:

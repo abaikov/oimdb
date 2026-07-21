@@ -370,6 +370,23 @@ Once all collections are migrated, you can remove Redux entirely and use OIMDB d
 
 ## 🛠️ Advanced Usage
 
+### Composite PK collections (codec)
+
+Redux state keys by string (`entities: Record<pk, entity>`), so a **composite PK** (a `TOIMKeyPath` tuple like `[userId, projectId]`) needs an `IOIMPkCodec`. Pass one as the 4th arg to `createCollectionReducer` — it drives both encode (`entities` keyed by `'[1,10]'`, `ids` keep the raw tuple) and decode (child write-back / linked-index sync recover the raw PK):
+
+```typescript
+import { OIMPkCodecKeyPath } from '@oimdb/core';
+
+const reducer = adapter.createCollectionReducer(
+    memberships,
+    childOptions,           // optional two-way sync
+    undefined,              // codec-aware default mapper
+    new OIMPkCodecKeyPath()
+);
+```
+
+For a read-only projection, pass `mapper: createDefaultCollectionMapper(new OIMPkCodecKeyPath())` instead. Primitive-PK collections need no codec.
+
 ### Custom Mappers
 
 ```typescript

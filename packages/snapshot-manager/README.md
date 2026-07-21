@@ -67,3 +67,7 @@ snapshotManager.destroy();
 - `SnapshotManagerOptions` - Constructor options (`includeEmptyCollections`)
 - `SnapshotData<T>` - Type for snapshot results
 - `EntitySnapshot<TEntity, TPk>` - Individual entity snapshot
+
+## Composite PK
+
+Collections with a composite PK (`OIMCollectionStoreTrieDriven`, PK = `[a, b]`) round-trip with **no codec** — each snapshot entry stores the PK as a value (`{ pk: [1, 10], entity }`), not a string key.

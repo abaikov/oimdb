@@ -220,3 +220,7 @@ persistor.destroy();
 ```
 
 `removeResource(resource)` stops a resource and removes it from the registry. It does not delete persisted data. Use `persistor.clearPersisted()` to delete stored data.
+
+## Composite PK
+
+Collections with a **composite PK** (`OIMCollectionStoreTrieDriven`, PK = `[a, b]`) persist with no PK codec: a collection source serializes entities as an array and re-derives the PK via `selectPk` on hydrate, so the tuple lives inside each entity and round-trips as-is. (This is unrelated to the on-the-wire `## Codec` above.)

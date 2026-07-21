@@ -77,3 +77,29 @@ This is what lets collection-bound indexes store stable slot references while st
 **Single-pass flush** — `queue.flush()` runs each currently-pending task once (buffer swap, no re-drain loop). Tasks enqueued *during* a flush land in a fresh buffer and run on the next flush (scheduled tick or next manual `flush()`), not within the same call.
 
 **Key-scoped subscriptions** — there is no "subscribe to everything". Delivery cost is proportional to the subscriber sets for changed keys only.
+
+## Composite primary key
+
+A collection's PK is usually a primitive (`string`/`number`). It can instead be a **composite key path** — an arbitrary-length tuple of primitive segments, e.g. `[userId, projectId]`. Pass a trie-backed store:
+
+```typescript
+import { OIMReactiveCollection, OIMCollectionStoreTrieDriven } from '@oimdb/core';
+
+const memberships = new OIMReactiveCollection<Membership, readonly (string | number)[]>(
+  queue,
+  {
+    selectPk: (m) => [m.userId, m.projectId],
+    store: new OIMCollectionStoreTrieDriven<Membership>(),
+  }
+);
+
+memberships.getOneByPk([1, 10]);       // matched by content — a fresh array is fine
+memberships.subscribeOnKey([1, 10], render);
+memberships.removeOneByPk([1, 10]);
+```
+
+Key paths are matched **by content** (a freshly built `[1, 10]` resolves to the same entity as one stored earlier); the store interns each logical PK to one canonical `slot.pk` reference. Primitive-PK collections keep the native-`Map` store (`OIMCollectionStoreMapDriven`) untouched — no cost.
+
+Indexes work over a composite-PK collection too — `indexFactory.setBasedIndex()` indexes composite PKs, matching them by content in `setPks`/`addPks`/`removePks`.
+
+**Serialization** (Redux, persist, snapshots) keys by a string, so a composite PK there needs an `IOIMPkCodec` (`OIMPkCodecKeyPath` is the ready one). `@oimdb/persist` and `@oimdb/snapshot-manager` store the PK as a value and need no codec; `@oimdb/redux-adapter` keys state by string and takes the codec (see its docs).

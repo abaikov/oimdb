@@ -165,3 +165,4 @@ persistor.removeResource(resource);
 - There is no mandatory global version or manifest in the base API.
 - `@oimdb/persist` is durable persistence, not a partial cold-cache/query orchestrator.
 - Zero `any` in the public surface — heterogeneous resources are type-erased via `IOIMAnyPersistResource`.
+- **Composite PK** collections (`OIMCollectionStoreTrieDriven`, PK = `[a, b]`) persist with no PK codec — a collection source stores entities as an array and re-derives the PK via `selectPk` on hydrate.

@@ -106,6 +106,26 @@ const usersReducer = adapter.createCollectionReducer(
 );
 ```
 
+## Composite PK collections (codec)
+
+Redux state keys by string (`entities: Record<pk, entity>`), so a **composite PK** (a `TOIMKeyPath` tuple like `[userId, projectId]`) needs an `IOIMPkCodec`. Pass one as the 4th argument to `createCollectionReducer` — it drives both directions:
+
+```typescript
+import { OIMPkCodecKeyPath } from '@oimdb/core';
+
+const reducer = adapter.createCollectionReducer(
+  memberships,
+  childOptions,       // optional two-way sync
+  undefined,          // use the default mapper (codec-aware)
+  new OIMPkCodecKeyPath()
+);
+```
+
+- **Encode** — `entities` are keyed by the JSON-encoded PK (`'[1,10]'`); `ids` keep the raw tuple (`[1, 10]`).
+- **Decode** — child write-back and linked-index sync recover the raw PK from the string key.
+
+For a read-only projection you can also pass `mapper: createDefaultCollectionMapper(new OIMPkCodecKeyPath())` instead. Primitive-PK collections need no codec (unchanged).
+
 ## API
 
 | Method | Description |

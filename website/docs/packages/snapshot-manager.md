@@ -72,3 +72,4 @@ queue.emitter.on('afterFlush', async () => {
 
 - Subscribes to raw collection events, **bypassing queue coalescing**. Multiple writes to the same PK within one flush are collapsed to one snapshot entry — but the snapshot always reflects the final entity state at the time of `takeSnapshot()`.
 - `takeSnapshot()` is not tied to `queue.flush()`. Call it whenever you need a snapshot — after a flush, on a timer, on user action.
+- **Composite PK** collections (`OIMCollectionStoreTrieDriven`, PK = `[a, b]`) round-trip with no codec: each snapshot entry stores the PK as a value (`{ pk: [1, 10], entity }`), not as a string key.
