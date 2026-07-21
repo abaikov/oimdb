@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMOrderedListCommand } from './TOIMOrderedListCommand';
 
@@ -23,7 +24,7 @@ import { TOIMOrderedListCommand } from './TOIMOrderedListCommand';
  * sizes indexes produce, where it runs only on an actual change.
  */
 export function diffOrderedListByPk<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TItem extends { pk: TPk },
 >(
     prev: readonly TItem[],
@@ -93,7 +94,7 @@ export function diffOrderedListByPk<
     return commands;
 }
 
-function indexByPk<TPk extends TOIMPk, TItem extends { pk: TPk }>(
+function indexByPk<TPk extends TOIMKey, TItem extends { pk: TPk }>(
     items: readonly TItem[],
     pk: TPk
 ): number {

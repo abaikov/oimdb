@@ -1,5 +1,5 @@
 import { Reducer, Action } from 'redux';
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 import { TOIMDBReduxGlobalIndex } from './TOIMDBReduxGlobalIndex';
 
 /**
@@ -7,7 +7,7 @@ import { TOIMDBReduxGlobalIndex } from './TOIMDBReduxGlobalIndex';
  * back to a keyless Global index.
  */
 export type TOIMDBReduxGlobalIndexReducerChildOptions<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TState,
 > = {
     reducer: Reducer<TState, Action> | Reducer<TState | undefined, Action>;

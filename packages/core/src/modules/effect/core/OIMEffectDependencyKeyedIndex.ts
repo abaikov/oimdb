@@ -1,9 +1,10 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
-export class OIMEffectDependencyKeyedIndex<TKey extends TOIMPk>
+export class OIMEffectDependencyKeyedIndex<TKey extends TOIMKey>
     implements IOIMEffectDependency
 {
     private readonly dep: OIMEffectDependencyKeyed<TKey>;

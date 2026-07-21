@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
@@ -20,8 +21,8 @@ import { OIMOrderedListCommandStreamDiffDriven } from './OIMOrderedListCommandSt
  * ```
  */
 export function createOIMOrderedListCommandStreamDiffDriven<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
     TIndex extends OIMIndexArrayBased<TKey, TPk> = OIMIndexArrayBased<
         TKey,

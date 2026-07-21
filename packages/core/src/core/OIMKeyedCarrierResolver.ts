@@ -1,6 +1,6 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { IOIMCarrierResolver } from './OIMCarrierKeyedEmitter';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
-import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Backs the index keyed emitter: maps each index key to a small carrier object
@@ -9,7 +9,7 @@ import { TOIMPk } from '../types/TOIMPk';
  * leaves (`onCarrierEmptied`) — mirroring the old per-key handler map, so a
  * churning key space does not leak carriers.
  */
-export class OIMKeyedCarrierResolver<TKey extends TOIMPk>
+export class OIMKeyedCarrierResolver<TKey extends TOIMKey>
     implements IOIMCarrierResolver<TKey, IOIMKeyCarrier<TKey>>
 {
     private readonly carriers = new Map<TKey, IOIMKeyCarrier<TKey>>();

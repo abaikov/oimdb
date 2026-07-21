@@ -1,5 +1,5 @@
 import { OIMReactiveCollection } from '@oimdb/core';
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 
 /**
  * Mapper function for converting collection state to Redux state
@@ -10,7 +10,7 @@ import { TOIMPk } from '@oimdb/core';
  */
 export type TOIMDBReduxCollectionMapper<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TState,
 > = (
     collection: OIMReactiveCollection<TEntity, TPk>,

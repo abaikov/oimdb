@@ -1,4 +1,4 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 import { TOIMDBReduxGlobalIndex } from './TOIMDBReduxGlobalIndex';
 
 /**
@@ -7,7 +7,7 @@ import { TOIMDBReduxGlobalIndex } from './TOIMDBReduxGlobalIndex';
  * @param currentState - Current Redux state (undefined on first call)
  * @returns New Redux state
  */
-export type TOIMDBReduxGlobalIndexMapper<TPk extends TOIMPk, TState> = (
+export type TOIMDBReduxGlobalIndexMapper<TPk extends TOIMKey, TState> = (
     index: TOIMDBReduxGlobalIndex<TPk>,
     currentState: TState | undefined
 ) => TState;

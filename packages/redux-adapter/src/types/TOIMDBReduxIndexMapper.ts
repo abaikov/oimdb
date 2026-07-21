@@ -3,7 +3,7 @@ import {
     OIMReactiveIndexArrayBased,
     OIMIndexSetBased,
     OIMIndexArrayBased,
-    TOIMPk,
+    TOIMKey,
 } from '@oimdb/core';
 
 /**
@@ -14,8 +14,8 @@ import {
  * @returns New Redux state
  */
 export type TOIMDBReduxIndexMapper<
-    TIndexKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TIndexKey extends TOIMKey,
+    TPk extends TOIMKey,
     TState,
 > = (
     index:

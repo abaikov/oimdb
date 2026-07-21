@@ -166,6 +166,58 @@ Reads mirror the keyed API without the key: `getPks()`, `getSlots()`,
 `getEntities()`, `size`, `isEmpty`. Selectors: `select.entitiesByArrayGlobalIndex(list)`
 and `select.entitiesBySetGlobalIndex(set)`.
 
+## Composite (key-path) indexes
+
+Sometimes the key is a **combination** of values — "members of *this project* with
+*this role*", keyed by `[projectId, role]` — not a single primitive. The wrong fix
+is to concatenate a string key like `` `${projectId}|${role}` ``: separators
+collide (`['a|b','c']` vs `['a','b|c']`), `1` and `'1'` merge, and you rebuild a
+string on every read. Reach for a **composite** set-based index instead.
+
+Create it with `indexFactory.compositeSetIndex()`. The key is a `TOIMKeyPath` — an
+ordered, **arbitrary-length** tuple of primitive segments (`readonly (string |
+number)[]`). Every method that took a `key` now takes a path array; everything else
+is identical to `setBasedIndex`.
+
+```typescript
+const membersByScope = members.indexFactory.compositeSetIndex();
+
+membersByScope.setPks(['p1', 'admin'], ['m1', 'm2']);  // also addPks / removePks
+membersByScope.getPksByKey(['p1', 'admin']);           // Set { 'm1', 'm2' }
+membersByScope.getEntitiesByKey(['p1', 'admin']);      // (Member | undefined)[]
+membersByScope.subscribeOnKey(['p1', 'admin'], () => { /* this scope changed */ });
+```
+
+Key paths are **matched by content**, so a freshly built `['p1', 'admin']` resolves
+to the same bucket as the one written earlier — you never need to hold on to the
+array instance. Each segment keeps its own type, no separator can collide, and
+lookup is O(arity) (effectively O(1) for a fixed arity): internally it walks one
+native-`Map` level per segment (a trie). The full path is the lookup unit — there
+are no partial/prefix queries — and paths of different lengths coexist without
+collision (`['a', 'b']` and `['a', 'b', 'c']`).
+
+This is a distinct, opt-in index: `setBasedIndex` and every other index keep their
+native-`Map` fast path untouched, so composite keys add **no cost** to primitive
+ones. Advanced: inject a custom key-path store via `indexOptions.store` (an
+`OIMIndexStoreSetBased<TOIMKeyPath, TPk>`); the default is
+`OIMIndexStoreTrieDrivenSetBased`.
+
+For an **ordered** bucket per composite key, use `compositeArrayIndex()` — the
+array counterpart, where `getPksByKey(path)` returns an array in write order.
+
+Read a composite index through selectors and React hooks just like a primitive
+one, passing a path where a key went:
+
+```typescript
+// Selectors (also entitiesByCompositeArrayIndexKey for the ordered variant)
+const scope = members.select.entitiesByCompositeSetIndexKey(index, ['p1', 'admin']);
+scope.getValue();  // (Member | undefined)[]
+
+// React — stabilizes the path by content, so a fresh array each render is fine
+const rows = useSelectEntitiesByCompositeIndexKeySetBased(members, index, ['p1', 'admin']);
+const pks  = useSelectPksByCompositeIndexKeyArrayBased(orderedIndex, ['c1', 't1']);
+```
+
 ## Ordered list command stream
 
 `indexFactory.orderedList()` creates an `OIMCollectionOrderedListCommandStream`. Unlike `arrayBasedIndex`, it also produces incremental, **position-addressed** commands that consumers can replay without diffing.
@@ -412,6 +464,8 @@ users.collection.upsertOneByPk('u1', { role: 'guest' }); // NOT reported
 | `derivedArrayIndex(fn, opts?)` | `OIMDerivedCollectionIndexArrayBased` | Auto-maintained, ordered |
 | `setBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualSetBased` | Manual, unordered |
 | `arrayBasedIndex(opts?)` | `OIMReactiveCollectionIndexManualArrayBased` | Manual, ordered |
+| `compositeSetIndex(opts?)` | `OIMReactiveCollectionIndexCompositeTrieSetBased` | Manual, unordered, composite key path |
+| `compositeArrayIndex(opts?)` | `OIMReactiveCollectionIndexCompositeTrieArrayBased` | Manual, ordered, composite key path |
 | `derivedSetGlobalIndex(opts?)` | `OIMDerivedCollectionGlobalIndexSetBased` | Keyless whole-collection, unordered |
 | `derivedArrayGlobalIndex(opts?)` | `OIMDerivedCollectionGlobalIndexArrayBased` | Keyless whole-collection, ordered |
 | `setBasedGlobalIndex(opts?)` | `OIMReactiveCollectionGlobalIndexManualSetBased` | Keyless manual, unordered |
@@ -427,5 +481,7 @@ users.collection.upsertOneByPk('u1', { role: 'guest' }); // NOT reported
 | `byPks(pks)` | `OIMCollectionByPksSelector` — `(TEntity \| undefined)[]` |
 | `entitiesBySetIndexKey(index, key)` | `OIMEntitiesByIndexKeySetBasedSelector` — `(TEntity \| undefined)[]` |
 | `entitiesByArrayIndexKey(index, key)` | `OIMEntitiesByIndexKeyArrayBasedSelector` — `(TEntity \| undefined)[]` |
+| `entitiesByCompositeSetIndexKey(index, path)` | `OIMEntitiesByIndexKeySetBasedSelector` — `(TEntity \| undefined)[]` (composite key path) |
+| `entitiesByCompositeArrayIndexKey(index, path)` | `OIMEntitiesByIndexKeyArrayBasedSelector` — `(TEntity \| undefined)[]` (composite key path) |
 | `entitiesBySetGlobalIndex(index)` | `OIMEntitiesByGlobalIndexSetBasedSelector` — `(TEntity \| undefined)[]` (keyless) |
 | `entitiesByArrayGlobalIndex(index)` | `OIMEntitiesByGlobalIndexArrayBasedSelector` — `(TEntity \| undefined)[]` (keyless) |

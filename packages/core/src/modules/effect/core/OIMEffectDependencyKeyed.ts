@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
@@ -6,7 +7,7 @@ function isReadonlyArray<T>(value: unknown): value is readonly T[] {
     return Array.isArray(value);
 }
 
-export class OIMEffectDependencyKeyed<TKey extends TOIMPk>
+export class OIMEffectDependencyKeyed<TKey extends TOIMKey>
     implements IOIMEffectDependency
 {
     private readonly key: TKey | undefined;

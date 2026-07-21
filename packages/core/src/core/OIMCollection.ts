@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMPkSelector } from '../types/TOIMPkSelector';
@@ -10,15 +11,21 @@ import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
 
 /** It's like a store - but with event emitter */
-export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
+export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
     public readonly emitter = new OIMEventEmitter<{
         [EOIMCollectionEventType.UPDATE]: TOIMCollectionUpdatePayload<TPk>;
     }>();
     public readonly selectPk: TOIMPkSelector<TEntity, TPk>;
     protected readonly store: OIMCollectionStore<TEntity, TPk>;
     protected readonly updateEntity: TOIMEntityUpdater<TEntity>;
+
+    /** The collection's PK keying strategy — read by indexes and wrappers. */
+    public get keyDomain(): IOIMKeyDomain<TPk> {
+        return this.store.keyDomain;
+    }
 
     constructor(opts?: TOIMCollectionOptions<TEntity, TPk>) {
         this.selectPk = (opts?.selectPk ??
@@ -144,15 +151,17 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMPk> {
                 `[OIMCollection]: PK is required to upsert an entity ${JSON.stringify(entity)}`
             );
         }
-        const existingEntity = this.store.getOneByPk(pk);
-        if (existingEntity) {
-            return this.store.setOneByPk(
-                pk,
-                this.updateEntity(entity, existingEntity)
-            );
-        } else {
-            return this.store.setOneByPk(pk, entity as TEntity);
+        // Resolve the live slot once and merge in place on a hit. This avoids a
+        // second store lookup inside `setOneByPk` — for a composite (trie) PK
+        // that halves the per-upsert trie walks; for a primitive PK it drops one
+        // `Map.get`. The miss/reserved path still goes through `setOneByPk`,
+        // which promotes a reserved slot as before.
+        const slot = this.store.getSlotByPk(pk);
+        if (slot !== undefined && slot.item !== undefined) {
+            slot.item = this.updateEntity(entity, slot.item);
+            return slot;
         }
+        return this.store.setOneByPk(pk, entity as TEntity);
     }
 
     public destroy(): void {

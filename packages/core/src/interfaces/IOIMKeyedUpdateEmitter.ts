@@ -1,5 +1,6 @@
-import { TOIMPk } from '../types/TOIMPk';
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
+import { IOIMSubscribable } from '../types/IOIMSubscribable';
 
 /**
  * The keyed pub/sub surface a reactive node needs from its update emitter:
@@ -10,7 +11,7 @@ import { TOIMEventHandler } from '../types/TOIMEventHandler';
  * against this interface lets either back the node without leaking the carrier
  * generic into the node's signatures.
  */
-export interface IOIMKeyedUpdateEmitter<TKey extends TOIMPk> {
+export interface IOIMKeyedUpdateEmitter<TKey extends TOIMKey> {
     subscribeOnKey(key: TKey, handler: TOIMEventHandler<void>): () => void;
     subscribeOnKeys(
         keys: readonly TKey[],
@@ -23,6 +24,11 @@ export interface IOIMKeyedUpdateEmitter<TKey extends TOIMPk> {
     ): void;
     markUpdatedKey(key: TKey): void;
     markUpdatedKeys(keys: readonly TKey[]): void;
+    /**
+     * Fast path: mark a carrier the writer already holds (an entity slot or an
+     * index bucket), skipping the key→carrier lookup entirely. O(1).
+     */
+    markUpdatedCarrier(carrier: IOIMSubscribable): void;
     hasSubscriptions(): boolean;
     getHandlerCount(key: TKey): number;
     getMetrics(): {

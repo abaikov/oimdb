@@ -1,8 +1,13 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMReactiveIndexManualArrayBased } from './OIMReactiveIndexManualArrayBased';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMAnyEntitySlot, TOIMEntitySlotResolver } from '../types/TOIMEntitySlot';
 import { TOIMCollectionIndexArrayBasedOptions } from '../types/TOIMCollectionIndexOptions';
 import { TOIMPk } from '../types/TOIMPk';
+import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
+import { IOIMKeyedMap } from '../interfaces/IOIMKeyedMap';
+import { IOIMKeyedSet } from '../interfaces/IOIMKeyedSet';
+import { OIMKeyDomainNative } from './OIMKeyDomainNative';
 
 /**
  * Collection-bound reactive Array-based index.
@@ -11,14 +16,17 @@ import { TOIMPk } from '../types/TOIMPk';
  * through the collection binding supplied at construction time.
  */
 export class OIMReactiveCollectionIndexManualArrayBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveIndexManualArrayBased<TKey, TPk> {
     private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    // PK keying strategy, from the bound collection — native for primitive PKs,
+    // trie for composite PK paths. Keys the per-key pk membership sets.
+    private readonly pkDomain: IOIMKeyDomain<TPk>;
     // Persistent per-key pk membership for O(1) `addPks` dedup (avoids rebuilding
     // a Set from the whole bucket on every call). Kept in sync by setSlots/clear.
-    private readonly pksByKey = new Map<TKey, Set<TPk>>();
+    private readonly pksByKey = new Map<TKey, IOIMKeyedSet<TPk>>();
 
     constructor(
         queue: OIMEventQueue,
@@ -28,15 +36,18 @@ export class OIMReactiveCollectionIndexManualArrayBased<
             opts.collection !== undefined
                 ? (pk: TPk) => opts.collection.getOrReserveSlotByPk(pk)
                 : opts.resolveSlot;
+        const pkDomain =
+            opts.collection?.keyDomain ?? new OIMKeyDomainNative<TPk>();
 
         super(queue, {
             indexOptions: opts.indexOptions,
         });
         this.resolveSlot = resolveSlot;
+        this.pkDomain = pkDomain;
     }
 
     public setPks(key: TKey, pks: readonly TPk[]): void {
-        const pkSet = new Set<TPk>();
+        const pkSet = this.pkDomain.createSet();
         for (let i = 0; i < pks.length; i++) pkSet.add(pks[i]);
         this.pksByKey.set(key, pkSet);
         super.setSlots(key, this.resolveSlots(pks));
@@ -86,10 +97,10 @@ export class OIMReactiveCollectionIndexManualArrayBased<
      * The membership set for a key, lazily seeded from the current bucket so it
      * stays correct even if slots were set through a lower-level path.
      */
-    private membershipOf(key: TKey): Set<TPk> {
+    private membershipOf(key: TKey): IOIMKeyedSet<TPk> {
         let pkSet = this.pksByKey.get(key);
         if (!pkSet) {
-            pkSet = new Set();
+            pkSet = this.pkDomain.createSet();
             const existing = this.index.getSlotsByKey(key);
             for (let i = 0; i < existing.length; i++) {
                 pkSet.add(existing[i].pk);

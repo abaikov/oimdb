@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMReactiveGlobalIndexManualSetBased } from './OIMReactiveGlobalIndexManualSetBased';
 import { OIMEventQueue } from './OIMEventQueue';
 import {
@@ -16,7 +17,7 @@ import { TOIMPk } from '../types/TOIMPk';
  * {@link OIMReactiveCollectionIndexManualSetBased} minus the key.
  */
 export class OIMReactiveCollectionGlobalIndexManualSetBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveGlobalIndexManualSetBased<TPk> {
     private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;

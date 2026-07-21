@@ -1,4 +1,4 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 import { TOIMIndexPersistSnapshot } from '../types/TOIMIndexPersistSnapshot';
 import { TOIMOrderedArrayIndexPersistSource } from '../types/TOIMOrderedArrayIndexPersistSource';
 import { TOIMPersistSourceAdapter } from '../types/TOIMPersistSourceAdapter';
@@ -6,8 +6,8 @@ import { createIndexSourceAdapter } from './createIndexSourceAdapter';
 import { createSlot } from './createSlot';
 
 export function createOrderedArrayIndexSourceAdapter<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 >(
     index: TOIMOrderedArrayIndexPersistSource<TKey, TPk>
 ): TOIMPersistSourceAdapter<TOIMIndexPersistSnapshot<TKey, TPk>> {

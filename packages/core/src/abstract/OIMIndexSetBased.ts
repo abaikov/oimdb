@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { OIMIndexStoreSetBased } from './OIMIndexStoreSetBased';
@@ -6,19 +7,25 @@ import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMIndex } from './OIMIndex';
 
 export abstract class OIMIndexSetBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > extends OIMIndex<TKey, TPk, Set<TOIMAnyEntitySlot<TPk>>> {
+    /**
+     * The same store as the base `store`, narrowed to the set-based contract so
+     * the carrier-bucket lifecycle methods (`getOrReserveBucket`, …) are visible.
+     */
+    protected readonly setStore: OIMIndexStoreSetBased<TKey, TPk>;
+
     constructor(
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TKey, TPk>;
         } = {}
     ) {
-        super(
-            options.store ?? new OIMIndexStoreMapDrivenSetBased<TKey, TPk>(),
-            options.comparePks
-        );
+        const store =
+            options.store ?? new OIMIndexStoreMapDrivenSetBased<TKey, TPk>();
+        super(store, options.comparePks);
+        this.setStore = store;
     }
 
     protected getBucketSize(bucket: Set<TOIMAnyEntitySlot<TPk>>): number {
@@ -57,26 +64,20 @@ export abstract class OIMIndexSetBased<
         return pks;
     }
 
-    protected setSlotsWithComparison(
-        key: TKey,
-        newSlots: Set<TOIMAnyEntitySlot<TPk>>
+    /**
+     * True if a comparator is set and considers `bucket`'s current pks equal to
+     * `newSlots` — i.e. a `setSlots` would be a no-op and should not emit.
+     */
+    protected bucketMatchesComparator(
+        bucket: ReadonlySet<TOIMAnyEntitySlot<TPk>>,
+        newSlots: ReadonlySet<TOIMAnyEntitySlot<TPk>>
     ): boolean {
-        if (this.comparePks) {
-            const existingSlotsSet = this.store.getOneByKey(key);
-            if (existingSlotsSet && existingSlotsSet.size === newSlots.size) {
-                if (
-                    this.comparePks(
-                        Array.from(this.slotsToPks(existingSlotsSet)),
-                        Array.from(this.slotsToPks(newSlots))
-                    )
-                ) {
-                    return false;
-                }
-            } else if (!existingSlotsSet && newSlots.size === 0) {
-                return false;
-            }
-        }
-        this.store.setOneByKey(key, newSlots);
-        return true;
+        if (!this.comparePks) return false;
+        if (bucket.size !== newSlots.size) return false;
+        if (bucket.size === 0) return true;
+        return this.comparePks(
+            Array.from(this.slotsToPks(bucket)),
+            Array.from(this.slotsToPks(newSlots))
+        );
     }
 }

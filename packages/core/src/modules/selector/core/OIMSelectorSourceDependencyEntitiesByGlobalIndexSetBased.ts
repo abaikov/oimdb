@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveGlobalIndexSetBased } from '../../../abstract/OIMReactiveGlobalIndexSetBased';
 import { OIMGlobalIndexSetBased } from '../../../abstract/OIMGlobalIndexSetBased';
@@ -6,7 +7,7 @@ import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDe
 
 export class OIMSelectorSourceDependencyEntitiesByGlobalIndexSetBased<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TIndex extends OIMGlobalIndexSetBased<TPk>,
 > implements IOIMSelectorSourceDependency
 {

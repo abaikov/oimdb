@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMReactiveGlobalIndexArrayBased } from '../abstract/OIMReactiveGlobalIndexArrayBased';
 import { OIMGlobalIndexManualArrayBased } from './OIMGlobalIndexManualArrayBased';
 import { TOIMPk } from '../types/TOIMPk';
@@ -7,7 +8,7 @@ import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 
 class OIMGlobalIndexManualArrayBasedReactive<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > extends OIMGlobalIndexManualArrayBased<TPk> {
     constructor(
         private readonly updateEmitter: IOIMSingleUpdateEmitter,
@@ -26,7 +27,7 @@ class OIMGlobalIndexManualArrayBasedReactive<
  * single-carrier emitter. Mirrors {@link OIMReactiveIndexManualArrayBased}.
  */
 export class OIMReactiveGlobalIndexManualArrayBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > extends OIMReactiveGlobalIndexArrayBased<
     TPk,
     OIMGlobalIndexManualArrayBased<TPk>

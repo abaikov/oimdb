@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMCarrierSingleEmitter } from '../core/OIMCarrierSingleEmitter';
@@ -13,7 +14,7 @@ import { OIMGlobalIndex } from './OIMGlobalIndex';
  * {@link OIMReactiveIndex} minus the key.
  */
 export abstract class OIMReactiveGlobalIndex<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TIndex extends OIMGlobalIndex<TPk>,
 > implements IOIMSubscription
 {

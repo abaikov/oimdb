@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
@@ -19,8 +20,8 @@ import { OIMIndexManualOrderedArrayBased } from '../../../core/OIMIndexManualOrd
  * come from {@link OIMOrderedListCommandBuffer}.
  */
 export class OIMOrderedListCommandStream<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMOrderedListCommandBuffer<TKey, TOIMEntitySlot<TEntity, TPk>> {
     /** Underlying slot-first ordered index. */

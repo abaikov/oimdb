@@ -1,4 +1,4 @@
-import { EOIMIndexEventType, TOIMPk } from '@oimdb/core';
+import { EOIMIndexEventType, TOIMKey } from '@oimdb/core';
 import { TOIMEmitter } from '../types/TOIMEmitter';
 import { TOIMIndexPersistSnapshot } from '../types/TOIMIndexPersistSnapshot';
 import { TOIMPersistSourceAdapter } from '../types/TOIMPersistSourceAdapter';
@@ -9,7 +9,7 @@ import { noop } from '../utils/noop';
  * set / array / ordered indexes live entirely in `writeBucket`, which maps a
  * persisted `{ key, pks }` bucket back onto the concrete index API.
  */
-export function createIndexSourceAdapter<TKey extends TOIMPk, TPk extends TOIMPk>(
+export function createIndexSourceAdapter<TKey extends TOIMKey, TPk extends TOIMKey>(
     index: {
         getKeys(): readonly TKey[];
         getPksByKey(key: TKey): Iterable<TPk>;

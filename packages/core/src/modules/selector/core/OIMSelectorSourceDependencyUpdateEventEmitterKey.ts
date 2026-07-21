@@ -1,9 +1,10 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
 export class OIMSelectorSourceDependencyUpdateEventEmitterKey<
-    TKey extends TOIMPk,
+    TKey extends TOIMKey,
 > implements IOIMSelectorSourceDependency
 {
     constructor(

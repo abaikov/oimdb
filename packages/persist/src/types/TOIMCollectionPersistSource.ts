@@ -1,9 +1,9 @@
-import { EOIMCollectionEventType, TOIMPk } from '@oimdb/core';
+import { EOIMCollectionEventType, TOIMKey } from '@oimdb/core';
 import { TOIMEmitter } from './TOIMEmitter';
 
 export type TOIMCollectionPersistSource<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     // `TEntity` is inferred solely from the covariant `getAll()` so that a
     // concrete `OIMCollection<TEntity>` — whose `upsertMany`/`selectPk` accept

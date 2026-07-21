@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMReactiveCollectionIndexManualSetBased } from './OIMReactiveCollectionIndexManualSetBased';
@@ -16,8 +17,8 @@ import { TOIMPk } from '../types/TOIMPk';
  * updates and maintains key membership automatically.
  */
 export class OIMDerivedCollectionIndexSetBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveCollectionIndexManualSetBased<TKey, TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;

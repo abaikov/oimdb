@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
@@ -9,7 +10,7 @@ import { OIMGlobalIndex } from './OIMGlobalIndex';
  * key.
  */
 export abstract class OIMGlobalIndexSetBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > extends OIMGlobalIndex<TPk> {
     protected slots = new Set<TOIMAnyEntitySlot<TPk>>();
 

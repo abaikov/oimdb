@@ -1,3 +1,4 @@
+import { TOIMKey } from './types/TOIMKey';
 // Core OIMDB exports
 export * from './abstract/OIMCollectionStore';
 export * from './abstract/OIMIndex';
@@ -30,6 +31,8 @@ export * from './core/OIMReactiveIndexManualSetBased';
 export * from './core/OIMReactiveIndexManualArrayBased';
 export * from './core/OIMReactiveCollectionIndexManualSetBased';
 export * from './core/OIMReactiveCollectionIndexManualArrayBased';
+export * from './core/OIMReactiveCollectionIndexCompositeTrieSetBased';
+export * from './core/OIMReactiveCollectionIndexCompositeTrieArrayBased';
 
 // Keyless "Global" (whole-collection) index — concrete layer
 export * from './core/OIMGlobalIndexManualSetBased';
@@ -41,10 +44,17 @@ export * from './core/OIMReactiveCollectionGlobalIndexManualArrayBased';
 export * from './core/OIMDerivedCollectionGlobalIndexSetBased';
 export * from './core/OIMDerivedCollectionGlobalIndexArrayBased';
 export * from './core/OIMCollectionStoreMapDriven';
+export * from './core/OIMCollectionStoreTrieDriven';
 export * from './core/OIMObjectStoreMapDriven';
 export * from './core/OIMObjectStoreRecordDriven';
 export * from './core/OIMIndexStoreMapDrivenSetBased';
 export * from './core/OIMIndexStoreMapDrivenArrayBased';
+export * from './core/OIMIndexStoreTrieDrivenSetBased';
+export * from './core/OIMIndexStoreTrieDrivenArrayBased';
+export * from './core/OIMKeyPathCarrierResolver';
+export * from './core/OIMKeyedBucketSetBased';
+export * from './core/OIMKeyedBucketArrayBased';
+export * from './core/OIMBucketCarrierResolver';
 export * from './core/OIMComparatorFactory';
 export * from './core/OIMEntityUpdaterFactory';
 export * from './core/createInPlaceEntityUpdater';
@@ -61,6 +71,18 @@ export * from './core/OIMIndexComparatorFactory';
 export * from './core/OIMIndexManualSetBased';
 export * from './core/OIMIndexManualArrayBased';
 export * from './core/OIMMap2Keys';
+export * from './core/OIMTrieMap';
+export * from './core/OIMDisposeScope';
+export * from './interfaces/IOIMDisposable';
+export * from './types/TOIMDisposable';
+export * from './core/OIMTrieSet';
+export * from './core/OIMKeyDomainNative';
+export * from './core/OIMKeyDomainTrie';
+export * from './core/OIMPkCodecKeyPath';
+export * from './interfaces/IOIMKeyDomain';
+export * from './interfaces/IOIMPkCodec';
+export * from './interfaces/IOIMKeyedMap';
+export * from './interfaces/IOIMKeyedSet';
 export * from './core/OIMPkSelectorFactory';
 // NOTE: update emitters are internal implementation details of reactive nodes.
 
@@ -120,6 +142,8 @@ export * from './types/TOIMIndexOptions';
 export * from './types/TOIMIndexPksUpdatePayload';
 export * from './types/TOIMIndexUpdatePayload';
 export * from './types/TOIMPk';
+export * from './types/TOIMKey';
+export * from './types/TOIMKeyPath';
 export * from './types/TOIMPkSelector';
 export * from './types/TOIMObjectOptions';
 export * from './types/TOIMSchedulerOptions';

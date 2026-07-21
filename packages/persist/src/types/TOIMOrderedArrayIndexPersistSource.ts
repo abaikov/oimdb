@@ -1,9 +1,9 @@
-import { EOIMIndexEventType, TOIMAnyEntitySlot, TOIMPk } from '@oimdb/core';
+import { EOIMIndexEventType, TOIMAnyEntitySlot, TOIMKey } from '@oimdb/core';
 import { TOIMEmitter } from './TOIMEmitter';
 
 export type TOIMOrderedArrayIndexPersistSource<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     // `TPk` is inferred solely from the covariant `getPksByKey()` return; the
     // contravariant write payloads are wrapped in `NoInfer` so a concrete index

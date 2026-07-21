@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import {
     TOIMDerivedCollectionGlobalIndexSetBasedOptions,
@@ -17,7 +18,7 @@ import { OIMReactiveCollectionGlobalIndexManualSetBased } from './OIMReactiveCol
  * minus the key.
  */
 export class OIMDerivedCollectionGlobalIndexSetBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveCollectionGlobalIndexManualSetBased<TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;

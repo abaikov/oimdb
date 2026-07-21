@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMSelector } from './OIMSelector';
@@ -6,7 +7,7 @@ import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMCollectionByPkSelector<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > extends OIMSelector<TEntity | undefined> {
     constructor(
         runtime: OIMComputeRuntime,

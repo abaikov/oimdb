@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 
@@ -11,7 +12,7 @@ export class OIMIndexComparatorFactory {
      * Compares array lengths and each element using strict equality (===).
      */
     static createElementWiseComparator<
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
     >(): TOIMIndexComparator<TPk> {
         return (
             existingPks: readonly TPk[],
@@ -38,7 +39,7 @@ export class OIMIndexComparatorFactory {
      * Order doesn't matter, only the presence of elements.
      */
     static createSetBasedComparator<
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
     >(): TOIMIndexComparator<TPk> {
         return (
             existingPks: readonly TPk[],
@@ -78,7 +79,7 @@ export class OIMIndexComparatorFactory {
      * Fastest but only works if you're reusing the same array instances.
      */
     static createShallowComparator<
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
     >(): TOIMIndexComparator<TPk> {
         return (
             existingPks: readonly TPk[],
@@ -93,7 +94,7 @@ export class OIMIndexComparatorFactory {
      * Useful for disabling comparison while keeping the same interface.
      */
     static createAlwaysUpdateComparator<
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
     >(): TOIMIndexComparator<TPk> {
         return (): boolean => false;
     }

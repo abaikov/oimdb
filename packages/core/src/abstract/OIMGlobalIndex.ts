@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enums/EOIMIndexEventType';
 import { TOIMPk } from '../types/TOIMPk';
@@ -11,7 +12,7 @@ import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
  * anywhere on its surface. Concrete shape (ordered array vs unordered set) is
  * added by {@link OIMGlobalIndexArrayBased} / {@link OIMGlobalIndexSetBased}.
  */
-export abstract class OIMGlobalIndex<TPk extends TOIMPk> {
+export abstract class OIMGlobalIndex<TPk extends TOIMKey> {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
     public readonly emitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: void;

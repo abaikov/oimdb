@@ -6,6 +6,7 @@ import {
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
     TOIMPk,
+    TOIMKeyPath,
 } from '@oimdb/core';
 import { useMemo, useRef } from 'react';
 import { useSyncExternalStore } from 'react';
@@ -527,6 +528,183 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
             };
         };
     }, [reactiveCollection, reactiveIndex, stableKeys]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+};
+
+// Composite (key-path) Index Hooks
+//
+// A composite key is an array (`TOIMKeyPath`). The primitive hooks above stabilize
+// the key by reference (`===`), which would re-subscribe on every render for a
+// freshly built `[a, b]`. These variants stabilize the path by CONTENT so the
+// subscription stays stable across renders when the segments are equal.
+
+function useStableKeyPath(key: TOIMKeyPath): TOIMKeyPath {
+    const prevRef = useRef<TOIMKeyPath>();
+    const equal =
+        prevRef.current !== undefined && arraysEqual(prevRef.current, key);
+    if (!equal) {
+        prevRef.current = key;
+    }
+    return equal ? (prevRef.current as TOIMKeyPath) : key;
+}
+
+export const useSelectPksByCompositeIndexKeySetBased = <
+    TPk extends TOIMPk,
+    TIndex extends OIMIndexSetBased<TOIMKeyPath, TPk>,
+>(
+    reactiveIndex: OIMReactiveIndexSetBased<TOIMKeyPath, TPk, TIndex>,
+    key: TOIMKeyPath
+) => {
+    const stableKey = useStableKeyPath(key);
+    const snapshotValueRef = useRef<Set<TPk>>();
+    const subscribe = useMemo(() => {
+        snapshotValueRef.current = reactiveIndex.getPksByKey(stableKey);
+        return (onStoreChange: () => void) => {
+            const updateSnapshot = () => {
+                snapshotValueRef.current =
+                    reactiveIndex.getPksByKey(stableKey);
+                onStoreChange();
+            };
+            return reactiveIndex.subscribeOnKey(stableKey, updateSnapshot);
+        };
+    }, [stableKey, reactiveIndex]);
+    const getSnapshot = useMemo(() => () => snapshotValueRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+};
+
+export const useSelectPksByCompositeIndexKeyArrayBased = <
+    TPk extends TOIMPk,
+    TIndex extends OIMIndexArrayBased<TOIMKeyPath, TPk>,
+>(
+    reactiveIndex: OIMReactiveIndexArrayBased<TOIMKeyPath, TPk, TIndex>,
+    key: TOIMKeyPath
+) => {
+    const stableKey = useStableKeyPath(key);
+    const snapshotValueRef = useRef<TPk[]>();
+    const subscribe = useMemo(() => {
+        snapshotValueRef.current = reactiveIndex.getPksByKey(stableKey);
+        return (onStoreChange: () => void) => {
+            const updateSnapshot = () => {
+                snapshotValueRef.current =
+                    reactiveIndex.getPksByKey(stableKey);
+                onStoreChange();
+            };
+            return reactiveIndex.subscribeOnKey(stableKey, updateSnapshot);
+        };
+    }, [stableKey, reactiveIndex]);
+    const getSnapshot = useMemo(() => () => snapshotValueRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+};
+
+export const useSelectEntitiesByCompositeIndexKeySetBased = <
+    TEntity extends object,
+    TPk extends TOIMPk,
+    TIndex extends OIMIndexSetBased<TOIMKeyPath, TPk>,
+>(
+    reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
+    reactiveIndex: OIMReactiveIndexSetBased<TOIMKeyPath, TPk, TIndex>,
+    key: TOIMKeyPath
+) => {
+    const stableKey = useStableKeyPath(key);
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        const readSnapshot = () =>
+            Array.from(reactiveIndex.getPksByKey(stableKey), pk =>
+                reactiveCollection.getOneByPk(pk)
+            );
+        const readPks = () => Array.from(reactiveIndex.getPksByKey(stableKey));
+
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(
+                stableKey,
+                () => {
+                    resubscribeCollection();
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                }
+            );
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [stableKey, reactiveCollection, reactiveIndex]);
+    const getSnapshot = useMemo(() => () => snapshotRef.current, []);
+    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+};
+
+export const useSelectEntitiesByCompositeIndexKeyArrayBased = <
+    TEntity extends object,
+    TPk extends TOIMPk,
+    TIndex extends OIMIndexArrayBased<TOIMKeyPath, TPk>,
+>(
+    reactiveCollection: OIMReactiveCollection<TEntity, TPk>,
+    reactiveIndex: OIMReactiveIndexArrayBased<TOIMKeyPath, TPk, TIndex>,
+    key: TOIMKeyPath
+) => {
+    const stableKey = useStableKeyPath(key);
+    const snapshotRef = useRef<readonly (TEntity | undefined)[]>();
+    const subscribe = useMemo(() => {
+        const readSnapshot = () =>
+            reactiveIndex
+                .getPksByKey(stableKey)
+                .map(pk => reactiveCollection.getOneByPk(pk));
+        const readPks = () => reactiveIndex.getPksByKey(stableKey);
+
+        snapshotRef.current = readSnapshot();
+        return (onStoreChange: () => void) => {
+            let unsubscribeFromCollection =
+                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                });
+
+            const resubscribeCollection = () => {
+                unsubscribeFromCollection();
+                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                    readPks(),
+                    () => {
+                        snapshotRef.current = readSnapshot();
+                        onStoreChange();
+                    }
+                );
+            };
+
+            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(
+                stableKey,
+                () => {
+                    resubscribeCollection();
+                    snapshotRef.current = readSnapshot();
+                    onStoreChange();
+                }
+            );
+
+            return () => {
+                unsubscribeFromIndex();
+                unsubscribeFromCollection();
+            };
+        };
+    }, [stableKey, reactiveCollection, reactiveIndex]);
     const getSnapshot = useMemo(() => () => snapshotRef.current, []);
     return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 };

@@ -1,4 +1,4 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 
 /**
  * Check if two arrays are equal by comparing their elements.
@@ -31,13 +31,13 @@ export function arraysEqual<T>(a: readonly T[], b: readonly T[]): boolean {
 
 /**
  * Check if two arrays of primary keys are equal (same elements in same order).
- * Optimized version for TOIMPk arrays.
+ * Optimized version for TOIMKey arrays.
  *
  * @param a - First array of primary keys
  * @param b - Second array of primary keys
  * @returns true if arrays are equal, false otherwise
  */
-export function arraysEqualPk<TPk extends TOIMPk>(
+export function arraysEqualPk<TPk extends TOIMKey>(
     a: readonly TPk[],
     b: readonly TPk[]
 ): boolean {

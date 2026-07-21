@@ -1,21 +1,23 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 import {
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
     OIMIndexSetBased,
     OIMIndexArrayBased,
+    IOIMPkCodec,
 } from '@oimdb/core';
+import { TOIMReduxKey } from '../types/TOIMReduxKey';
 
 /**
  * Type for linked index configuration
  */
-type TOIMDBReduxLinkedIndexConfig<TEntity extends object, TPk extends TOIMPk> = {
+type TOIMDBReduxLinkedIndexConfig<TEntity extends object, TPk extends TOIMKey> = {
     index:
-        | OIMReactiveIndexSetBased<TOIMPk, TPk, OIMIndexSetBased<TOIMPk, TPk>>
+        | OIMReactiveIndexSetBased<TOIMKey, TPk, OIMIndexSetBased<TOIMKey, TPk>>
         | OIMReactiveIndexArrayBased<
-              TOIMPk,
+              TOIMKey,
               TPk,
-              OIMIndexArrayBased<TOIMPk, TPk>
+              OIMIndexArrayBased<TOIMKey, TPk>
           >
         | OIMReactiveIndexSetBased<string, TPk, OIMIndexSetBased<string, TPk>>
         | OIMReactiveIndexArrayBased<
@@ -38,16 +40,27 @@ type TOIMDBReduxLinkedIndexConfig<TEntity extends object, TPk extends TOIMPk> = 
  */
 export class OIMDBReduxLinkedIndexesUpdater<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > {
     /**
      * Update linked indexes for added and updated entities
      */
+    /** Recover the raw PK from a Redux string key (identity for a primitive PK). */
+    private decodePk(
+        key: TOIMReduxKey<TPk>,
+        pkCodec?: IOIMPkCodec<TPk>
+    ): TPk {
+        return pkCodec
+            ? pkCodec.decode(key as unknown as string)
+            : (key as unknown as TPk);
+    }
+
     public updateLinkedIndexesForEntities(
         linkedIndexes: Array<TOIMDBReduxLinkedIndexConfig<TEntity, TPk>>,
-        updatedPks: TPk[],
-        oldEntities: Record<TPk, TEntity>,
-        newEntities: Record<TPk, TEntity>
+        updatedPks: readonly TOIMReduxKey<TPk>[],
+        oldEntities: Record<TOIMReduxKey<TPk>, TEntity>,
+        newEntities: Record<TOIMReduxKey<TPk>, TEntity>,
+        pkCodec?: IOIMPkCodec<TPk>
     ): void {
         if (linkedIndexes.length === 0) {
             return;
@@ -77,7 +90,7 @@ export class OIMDBReduxLinkedIndexesUpdater<
                 if (oldArray !== newArray) {
                     this.updateIndexForEntity(
                         linkedIndex,
-                        pk,
+                        this.decodePk(pk, pkCodec),
                         oldArray,
                         newArray
                     );
@@ -91,7 +104,8 @@ export class OIMDBReduxLinkedIndexesUpdater<
      */
     public removeLinkedIndexesForEntities(
         linkedIndexes: Array<TOIMDBReduxLinkedIndexConfig<TEntity, TPk>>,
-        removedPks: TPk[]
+        removedPks: readonly TOIMReduxKey<TPk>[],
+        pkCodec?: IOIMPkCodec<TPk>
     ): void {
         if (linkedIndexes.length === 0 || removedPks.length === 0) {
             return;
@@ -99,28 +113,28 @@ export class OIMDBReduxLinkedIndexesUpdater<
 
         const removedPksLength = removedPks.length;
         for (let i = 0; i < removedPksLength; i++) {
-            const entityPk = removedPks[i];
+            const entityPk = this.decodePk(removedPks[i], pkCodec);
 
             const linkedIndexesLength = linkedIndexes.length;
             for (let j = 0; j < linkedIndexesLength; j++) {
                 const linkedIndex = linkedIndexes[j];
-                const indexKey = entityPk as unknown as TOIMPk;
+                const indexKey = entityPk as unknown as TOIMKey;
 
                 // Remove entire index entry for this entity
                 // Get all PKs for this key first
                 const existingPks = Array.from(
                     (
                         linkedIndex.index as unknown as {
-                            getPksByKey: (key: TOIMPk) => Set<TPk>;
+                            getPksByKey: (key: TOIMKey) => Set<TPk>;
                         }
                     ).getPksByKey(indexKey)
                 );
 
                 if (existingPks.length > 0) {
                     const indexManual = linkedIndex.index as unknown as {
-                        removePks?: (key: TOIMPk, pks: readonly TPk[]) => void;
-                        setPks?: (key: TOIMPk, pks: TPk[]) => void;
-                        clear?: (key?: TOIMPk) => void;
+                        removePks?: (key: TOIMKey, pks: readonly TPk[]) => void;
+                        setPks?: (key: TOIMKey, pks: TPk[]) => void;
+                        clear?: (key?: TOIMKey) => void;
                     };
 
                     if (indexManual.removePks) {
@@ -150,13 +164,13 @@ export class OIMDBReduxLinkedIndexesUpdater<
         newArray: TPk[] | undefined
     ): void {
         const indexManual = linkedIndex.index as unknown as {
-            addPks?: (key: TOIMPk, pks: readonly TPk[]) => void;
-            removePks?: (key: TOIMPk, pks: readonly TPk[]) => void;
-            setPks?: (key: TOIMPk, pks: TPk[]) => void;
+            addPks?: (key: TOIMKey, pks: readonly TPk[]) => void;
+            removePks?: (key: TOIMKey, pks: readonly TPk[]) => void;
+            setPks?: (key: TOIMKey, pks: TPk[]) => void;
         };
 
         // Use entity PK as index key
-        const indexKey = entityPk as unknown as TOIMPk;
+        const indexKey = entityPk as unknown as TOIMKey;
 
         // If setPks is available, just set the new array directly (no diff needed)
         if (indexManual.setPks) {

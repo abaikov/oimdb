@@ -133,3 +133,22 @@ const totalWithTax = new OIMComputed<number>(runtime, {
 - **Keep `compute()` pure** — writing to any store inside `compute()` causes re-entrancy bugs.
 - **Don't create loops in `run()`** — effects that modify their own deps will re-fire every flush.
 - **Always call `destroy()`** — effects hold subscriptions until destroyed; leaking them leaks memory.
+
+## Disposing everything at once — `OIMDisposeScope`
+
+Teardown is LIFO: dispose dependents before what they depend on (effects / indexes / selectors → collection → queue). Rather than tracking that order by hand, register into an `OIMDisposeScope` as you build:
+
+```typescript
+import { OIMDisposeScope, OIMEventQueue, OIMReactiveCollection } from '@oimdb/core';
+
+const scope = new OIMDisposeScope();
+const queue = scope.add(new OIMEventQueue());
+const users = scope.add(new OIMReactiveCollection(queue, { selectPk: (u) => u.id }));
+const byTeam = scope.add(users.indexFactory.setBasedIndex());
+scope.add(effect); // any { destroy() }
+scope.add(selector.watch(render)); // …or a bare () => void unsubscribe
+
+scope.destroy(); // disposes in reverse registration order — no manual bookkeeping
+```
+
+`add(x)` returns `x` for inline capture. It accepts both `{ destroy(): void }` objects and bare `() => void` unsubscribe functions (selectors, per-key subscriptions and scheduler tasks expose only the latter). It is idempotent, disposes every item even if one throws (rethrowing the first error afterwards), and nests via `child()`. Factory: `createOIMDisposeScope()`.

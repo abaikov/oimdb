@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
 import { TOIMEventHandler } from '../../../types/TOIMEventHandler';
@@ -23,8 +24,8 @@ import { IOIMIndexSlotSource } from '../../../interfaces/IOIMIndexSlotSource';
  * own — `subscribeOnKey` is a passthrough to the index.
  */
 export class OIMIndexSlotMap<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TMapped,
 > {
     private readonly index: IOIMIndexSlotSource<TKey, TPk>;

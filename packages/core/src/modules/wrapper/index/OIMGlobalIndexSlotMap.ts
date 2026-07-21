@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
 import { TOIMEventHandler } from '../../../types/TOIMEventHandler';
@@ -21,7 +22,7 @@ import { IOIMGlobalIndexSlotSource } from '../../../interfaces/IOIMGlobalIndexSl
  * Thin wrapper: no queue, no standing subscription of its own — `subscribe` is a
  * passthrough to the index.
  */
-export class OIMGlobalIndexSlotMap<TPk extends TOIMPk, TMapped> {
+export class OIMGlobalIndexSlotMap<TPk extends TOIMKey, TMapped> {
     private readonly index: IOIMGlobalIndexSlotSource<TPk>;
     private readonly create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped;
     private readonly cache = new WeakMap<

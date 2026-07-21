@@ -1,5 +1,5 @@
-import { TOIMPk } from './TOIMPk';
+import { TOIMKey } from './TOIMKey';
 
-export type TOIMCollectionUpdatePayload<TPk extends TOIMPk> = {
+export type TOIMCollectionUpdatePayload<TPk extends TOIMKey> = {
     pks: readonly TPk[];
 };

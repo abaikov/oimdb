@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
@@ -5,7 +6,7 @@ import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 
 export class OIMEffectDependencyKeyedCollection<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > implements IOIMEffectDependency
 {
     private readonly dep: OIMEffectDependencyKeyed<TPk>;

@@ -1,8 +1,11 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMCollectionIndexManualOrderedArrayBased } from './OIMCollectionIndexManualOrderedArrayBased';
 import { OIMCollectionOrderedListCommandStream } from '../modules/wrapper/index/OIMCollectionOrderedListCommandStream';
 import {
     TOIMDerivedIndexKeySelector,
     TOIMRelationsArrayIndexOptions,
+    TOIMRelationsCompositeArrayIndexOptions,
+    TOIMRelationsCompositeSetIndexOptions,
     TOIMRelationsDerivedArrayIndexOptions,
     TOIMRelationsDerivedSetIndexOptions,
     TOIMRelationsOrderedListOptions,
@@ -12,6 +15,8 @@ import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollectionIndexManualArrayBased } from './OIMReactiveCollectionIndexManualArrayBased';
 import { OIMReactiveCollectionIndexManualSetBased } from './OIMReactiveCollectionIndexManualSetBased';
+import { OIMReactiveCollectionIndexCompositeTrieSetBased } from './OIMReactiveCollectionIndexCompositeTrieSetBased';
+import { OIMReactiveCollectionIndexCompositeTrieArrayBased } from './OIMReactiveCollectionIndexCompositeTrieArrayBased';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMDerivedCollectionIndexSetBased } from './OIMDerivedCollectionIndexSetBased';
 import { OIMDerivedCollectionIndexArrayBased } from './OIMDerivedCollectionIndexArrayBased';
@@ -35,14 +40,14 @@ import {
  */
 export class OIMCollectionIndexFactory<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > {
     constructor(
         public readonly queue: OIMEventQueue,
         public readonly collection: OIMReactiveCollection<TEntity, TPk>
     ) {}
 
-    public setBasedIndex<TKey extends TOIMPk = string>(
+    public setBasedIndex<TKey extends TOIMKey = string>(
         opts: TOIMRelationsSetIndexOptions<TKey, TPk> = {}
     ): OIMReactiveCollectionIndexManualSetBased<TKey, TPk, TEntity> {
         return new OIMReactiveCollectionIndexManualSetBased<
@@ -55,7 +60,43 @@ export class OIMCollectionIndexFactory<
         });
     }
 
-    public derivedSetIndex<TKey extends TOIMPk = string>(
+    /**
+     * Composite (trie-backed) manual Set-based index keyed by an
+     * arbitrary-length key path, e.g. `setPks([userId, projectId, role], pks)`.
+     * Key paths are matched by content in O(arity) — no string concatenation,
+     * no separator collisions, each segment keeps its type. Primitive-keyed
+     * indexes are unaffected and keep their native-`Map` fast path.
+     */
+    public compositeSetIndex(
+        opts: TOIMRelationsCompositeSetIndexOptions<TPk> = {}
+    ): OIMReactiveCollectionIndexCompositeTrieSetBased<TPk, TEntity> {
+        return new OIMReactiveCollectionIndexCompositeTrieSetBased<
+            TPk,
+            TEntity
+        >(this.queue, {
+            collection: this.collection,
+            indexOptions: opts.indexOptions,
+        });
+    }
+
+    /**
+     * Composite (trie-backed) manual Array-based (ordered) index keyed by an
+     * arbitrary-length key path, e.g. `setPks([channelId, threadId], pks)`.
+     * Ordered counterpart of `compositeSetIndex`.
+     */
+    public compositeArrayIndex(
+        opts: TOIMRelationsCompositeArrayIndexOptions<TPk> = {}
+    ): OIMReactiveCollectionIndexCompositeTrieArrayBased<TPk, TEntity> {
+        return new OIMReactiveCollectionIndexCompositeTrieArrayBased<
+            TPk,
+            TEntity
+        >(this.queue, {
+            collection: this.collection,
+            indexOptions: opts.indexOptions,
+        });
+    }
+
+    public derivedSetIndex<TKey extends TOIMKey = string>(
         selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>,
         opts: TOIMRelationsDerivedSetIndexOptions<
             TEntity,
@@ -74,7 +115,7 @@ export class OIMCollectionIndexFactory<
         );
     }
 
-    public arrayBasedIndex<TKey extends TOIMPk = string>(
+    public arrayBasedIndex<TKey extends TOIMKey = string>(
         opts: TOIMRelationsArrayIndexOptions<TKey, TPk> = {}
     ): OIMReactiveCollectionIndexManualArrayBased<TKey, TPk, TEntity> {
         return new OIMReactiveCollectionIndexManualArrayBased<
@@ -87,7 +128,7 @@ export class OIMCollectionIndexFactory<
         });
     }
 
-    public derivedArrayIndex<TKey extends TOIMPk = string>(
+    public derivedArrayIndex<TKey extends TOIMKey = string>(
         selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>,
         opts: TOIMRelationsDerivedArrayIndexOptions<
             TEntity,
@@ -172,7 +213,7 @@ export class OIMCollectionIndexFactory<
         );
     }
 
-    public orderedIndex<TKey extends TOIMPk = string>(): OIMCollectionIndexManualOrderedArrayBased<
+    public orderedIndex<TKey extends TOIMKey = string>(): OIMCollectionIndexManualOrderedArrayBased<
         TKey,
         TPk,
         TEntity
@@ -186,7 +227,7 @@ export class OIMCollectionIndexFactory<
         });
     }
 
-    public orderedList<TKey extends TOIMPk = string>(
+    public orderedList<TKey extends TOIMKey = string>(
         opts: TOIMRelationsOrderedListOptions<TKey, TPk, TEntity> = {}
     ): OIMCollectionOrderedListCommandStream<TKey, TPk, TEntity> {
         return new OIMCollectionOrderedListCommandStream<TKey, TPk, TEntity>(
@@ -200,7 +241,7 @@ export class OIMCollectionIndexFactory<
 
 export function createOIMCollectionIndexFactory<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 >(
     queue: OIMEventQueue,
     collection: OIMReactiveCollection<TEntity, TPk>

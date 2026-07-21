@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMAnyEntitySlot, TOIMEntitySlotResolver } from '../types/TOIMEntitySlot';
 import { TOIMCollectionOrderedIndexOptions } from '../types/TOIMCollectionIndexOptions';
 import { TOIMPk } from '../types/TOIMPk';
@@ -10,8 +11,8 @@ import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBas
  * them to canonical collection slots at construction-bound write time.
  */
 export class OIMCollectionIndexManualOrderedArrayBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMIndexManualOrderedArrayBased<TKey, TPk> {
     private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;

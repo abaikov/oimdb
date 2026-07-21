@@ -1,5 +1,5 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { IOIMSubscribable } from '../types/IOIMSubscribable';
-import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Carrier for a single index key: holds that key's subscribers + dirty flag
@@ -7,6 +7,6 @@ import { TOIMPk } from '../types/TOIMPk';
  * carrier with no per-key map lookup. Carries its own `key` so the resolver can
  * prune it from the key→carrier map when its last subscriber leaves.
  */
-export interface IOIMKeyCarrier<TKey extends TOIMPk> extends IOIMSubscribable {
+export interface IOIMKeyCarrier<TKey extends TOIMKey> extends IOIMSubscribable {
     key: TKey;
 }

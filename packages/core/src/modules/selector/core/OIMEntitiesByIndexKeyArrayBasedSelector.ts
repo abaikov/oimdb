@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { TOIMPk } from '../../../types/TOIMPk';
@@ -8,8 +9,8 @@ import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMEntitiesByIndexKeyArrayBasedSelector<
     TEntity extends object,
-    TPk extends TOIMPk,
-    TKey extends TOIMPk,
+    TPk extends TOIMKey,
+    TKey extends TOIMKey,
     TIndex extends OIMIndexArrayBased<TKey, TPk>,
 > extends OIMSelector<readonly (TEntity | undefined)[]> {
     constructor(

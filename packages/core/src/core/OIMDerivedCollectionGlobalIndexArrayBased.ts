@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import {
     TOIMDerivedEntityComparator,
@@ -23,7 +24,7 @@ import { OIMReactiveCollectionGlobalIndexManualArrayBased } from './OIMReactiveC
  * boolean set (`presentPks`) instead of a per-pk key-set.
  */
 export class OIMDerivedCollectionGlobalIndexArrayBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveCollectionGlobalIndexManualArrayBased<TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;

@@ -26,7 +26,10 @@ export {
     defaultCollectionMapper,
     defaultIndexMapper,
     defaultGlobalIndexMapper,
+    createDefaultCollectionMapper,
+    createDefaultIndexMapper,
 } from './core/OIMDBReduxDefaultMappers';
+export type { TOIMReduxKey } from './types/TOIMReduxKey';
 
 // Utils
 export {

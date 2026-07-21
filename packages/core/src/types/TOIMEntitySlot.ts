@@ -1,8 +1,8 @@
-import { TOIMPk } from './TOIMPk';
+import { TOIMKey } from './TOIMKey';
 
 export type TOIMEntitySlot<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     pk: TPk;
     item: TEntity | undefined;
@@ -15,11 +15,11 @@ export type TOIMEntitySlot<
     subscribers?: Set<() => void>;
 };
 
-export type TOIMAnyEntitySlot<TPk extends TOIMPk> = TOIMEntitySlot<
+export type TOIMAnyEntitySlot<TPk extends TOIMKey> = TOIMEntitySlot<
     object,
     TPk
 >;
 
-export type TOIMEntitySlotResolver<TPk extends TOIMPk> = (
+export type TOIMEntitySlotResolver<TPk extends TOIMKey> = (
     pk: TPk
 ) => TOIMAnyEntitySlot<TPk> | undefined;

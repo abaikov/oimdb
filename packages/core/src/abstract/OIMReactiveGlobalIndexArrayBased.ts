@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
@@ -6,7 +7,7 @@ import { OIMGlobalIndexArrayBased } from './OIMGlobalIndexArrayBased';
 import { OIMReactiveGlobalIndex } from './OIMReactiveGlobalIndex';
 
 export abstract class OIMReactiveGlobalIndexArrayBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TIndex extends OIMGlobalIndexArrayBased<TPk>,
 > extends OIMReactiveGlobalIndex<TPk, TIndex> {
     constructor(

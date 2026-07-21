@@ -1,4 +1,4 @@
-import { EOIMCollectionEventType, TOIMPk } from '@oimdb/core';
+import { EOIMCollectionEventType, TOIMKey } from '@oimdb/core';
 import { TOIMCollectionPersistSnapshot } from '../types/TOIMCollectionPersistSnapshot';
 import { TOIMCollectionPersistSource } from '../types/TOIMCollectionPersistSource';
 import { TOIMPersistSourceAdapter } from '../types/TOIMPersistSourceAdapter';
@@ -6,7 +6,7 @@ import { noop } from '../utils/noop';
 
 export function createCollectionSourceAdapter<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 >(
     collection: TOIMCollectionPersistSource<TEntity, TPk>
 ): TOIMPersistSourceAdapter<TOIMCollectionPersistSnapshot<TPk, TEntity>> {

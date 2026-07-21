@@ -1,6 +1,6 @@
 import { Reducer, Action } from 'redux';
 import {
-    TOIMPk,
+    TOIMKey,
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
     OIMIndexSetBased,
@@ -12,8 +12,8 @@ import {
  * and sync changes back to OIMDB index
  */
 export type TOIMDBReduxIndexReducerChildOptions<
-    TIndexKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TIndexKey extends TOIMKey,
+    TPk extends TOIMKey,
     TState,
 > = {
     /**

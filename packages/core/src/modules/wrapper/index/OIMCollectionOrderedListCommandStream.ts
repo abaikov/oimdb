@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import {
     TOIMAnyEntitySlot,
@@ -15,8 +16,8 @@ import { OIMOrderedListCommandStream } from './OIMOrderedListCommandStream';
  * an unresolvable pk) before mutating the index and recording the command.
  */
 export class OIMCollectionOrderedListCommandStream<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMOrderedListCommandStream<TKey, TPk, TEntity> {
     public override readonly index: OIMCollectionIndexManualOrderedArrayBased<

@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
 import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
@@ -21,7 +22,7 @@ import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedList
  * consulted only on the cold reset-coalescing path, so it stays off the hot
  * append path.
  */
-export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMPk, TItem>
+export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
     implements IOIMOrderedListCommandSource<TKey, TItem>
 {
     public readonly commandsEventEmitter: OIMUpdateEventEmitter<TKey>;

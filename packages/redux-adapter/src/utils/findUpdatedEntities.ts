@@ -1,34 +1,23 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 
 /**
  * Result of finding updated entities between two records
  */
-export type TOIMDBReduxUpdatedEntitiesResult<TPk extends TOIMPk> = {
-    /**
-     * Set of primary keys that were added (present in newEntities but not in oldEntities)
-     */
-    added: Set<TPk>;
-
-    /**
-     * Set of primary keys that were updated (present in both but with different values)
-     */
-    updated: Set<TPk>;
-
-    /**
-     * Set of primary keys that were removed (present in oldEntities but not in newEntities)
-     */
-    removed: Set<TPk>;
-
-    /**
-     * Combined set of all changed keys (added + updated + removed)
-     */
-    all: Set<TPk>;
+export type TOIMDBReduxUpdatedEntitiesResult<TKey extends PropertyKey> = {
+    /** Keys added (present in newEntities but not in oldEntities). */
+    added: Set<TKey>;
+    /** Keys updated (present in both but with a different value reference). */
+    updated: Set<TKey>;
+    /** Keys removed (present in oldEntities but not in newEntities). */
+    removed: Set<TKey>;
+    /** Combined set of all changed keys. */
+    all: Set<TKey>;
 };
 
 /**
  * Result of finding updated items in arrays
  */
-export type TOIMDBReduxUpdatedArrayResult<TPk extends TOIMPk> = {
+export type TOIMDBReduxUpdatedArrayResult<TPk extends TOIMKey> = {
     /**
      * Array of primary keys that were added (present in newArray but not in oldArray)
      */
@@ -69,39 +58,40 @@ export type TOIMDBReduxUpdatedArrayResult<TPk extends TOIMPk> = {
  * // result.all = Set(['1', '2', '3'])
  * ```
  */
-export function findUpdatedInRecord<TEntity extends object, TPk extends TOIMPk>(
-    oldEntities: Record<TPk, TEntity>,
-    newEntities: Record<TPk, TEntity>
-): TOIMDBReduxUpdatedEntitiesResult<TPk> {
-    const added = new Set<TPk>();
-    const updated = new Set<TPk>();
-    const removed = new Set<TPk>();
+export function findUpdatedInRecord<
+    TEntity extends object,
+    TKey extends PropertyKey,
+>(
+    oldEntities: Record<TKey, TEntity>,
+    newEntities: Record<TKey, TEntity>
+): TOIMDBReduxUpdatedEntitiesResult<TKey> {
+    const added = new Set<TKey>();
+    const updated = new Set<TKey>();
+    const removed = new Set<TKey>();
 
-    // Find added and updated entities
+    // `for..in` yields the record's string keys.
     for (const pk in newEntities) {
         if (Object.prototype.hasOwnProperty.call(newEntities, pk)) {
-            if (!(pk in oldEntities)) {
-                // Entity was added
-                added.add(pk);
-            } else if (oldEntities[pk] !== newEntities[pk]) {
-                // Entity was updated (reference changed)
-                updated.add(pk);
+            const key = pk as TKey;
+            if (!(key in oldEntities)) {
+                added.add(key);
+            } else if (oldEntities[key] !== newEntities[key]) {
+                updated.add(key);
             }
         }
     }
 
-    // Find removed entities
     for (const pk in oldEntities) {
         if (Object.prototype.hasOwnProperty.call(oldEntities, pk)) {
-            if (!(pk in newEntities)) {
-                // Entity was removed
-                removed.add(pk);
+            const key = pk as TKey;
+            if (!(key in newEntities)) {
+                removed.add(key);
             }
         }
     }
 
     // Combine all changes
-    const all = new Set<TPk>();
+    const all = new Set<TKey>();
     const addedArray = Array.from(added);
     const updatedArray = Array.from(updated);
     const removedArray = Array.from(removed);
@@ -141,7 +131,7 @@ export function findUpdatedInRecord<TEntity extends object, TPk extends TOIMPk>(
  * // result.all = ['1', '2', '3', '4']
  * ```
  */
-export function findUpdatedInArray<TPk extends TOIMPk>(
+export function findUpdatedInArray<TPk extends TOIMKey>(
     oldArray: readonly TPk[],
     newArray: readonly TPk[]
 ): TOIMDBReduxUpdatedArrayResult<TPk> {

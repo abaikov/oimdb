@@ -1,7 +1,7 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPkSelector } from '../types/TOIMPkSelector';
-import { TOIMPk } from '../types/TOIMPk';
 
-export class OIMPkSelectorFactory<TEntity extends object, TPk extends TOIMPk> {
+export class OIMPkSelectorFactory<TEntity extends object, TPk extends TOIMKey> {
     createIdSelector(): TOIMPkSelector<TEntity & { id: TPk }, TPk> {
         return (entity: TEntity & { id: TPk }): TPk => entity.id;
     }

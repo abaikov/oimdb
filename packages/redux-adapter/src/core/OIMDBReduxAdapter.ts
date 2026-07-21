@@ -10,7 +10,8 @@ import {
     EOIMIndexEventType,
     TOIMCollectionUpdatePayload,
     TOIMIndexUpdatePayload,
-    TOIMPk,
+    TOIMKey,
+    IOIMPkCodec,
 } from '@oimdb/core';
 import { Store, Reducer, Action, Middleware } from 'redux';
 import { EOIMDBReduxReducerActionType } from '../enums/EOIMDBReduxReducerActionType';
@@ -26,6 +27,7 @@ import {
     defaultCollectionMapper,
     defaultIndexMapper,
     defaultGlobalIndexMapper,
+    createDefaultCollectionMapper,
 } from './OIMDBReduxDefaultMappers';
 import { OIMDBReduxReducerFactory } from './OIMDBReduxReducerFactory';
 
@@ -52,35 +54,35 @@ export class OIMDBReduxAdapter {
     private readonly instrumentedIndexes = new WeakSet<object>();
 
     // Track reducers and their updated keys
-    // Using object and TOIMPk as base types to allow storing different concrete types
+    // Using object and TOIMKey as base types to allow storing different concrete types
     private collectionReducers = new Map<
-        OIMReactiveCollection<object, TOIMPk>,
+        OIMReactiveCollection<object, TOIMKey>,
         {
-            updatedKeys: Set<TOIMPk> | null;
+            updatedKeys: Set<TOIMKey> | null;
             forceRecompute: boolean;
-            pendingKeys: Set<TOIMPk>;
+            pendingKeys: Set<TOIMKey>;
             pendingForceRecompute: boolean;
-            mapper?: TOIMDBReduxCollectionMapper<object, TOIMPk, unknown>;
+            mapper?: TOIMDBReduxCollectionMapper<object, TOIMKey, unknown>;
         }
     >();
 
     private indexReducers = new Map<
         | OIMReactiveIndexSetBased<
-              TOIMPk,
-              TOIMPk,
-              OIMIndexSetBased<TOIMPk, TOIMPk>
+              TOIMKey,
+              TOIMKey,
+              OIMIndexSetBased<TOIMKey, TOIMKey>
           >
         | OIMReactiveIndexArrayBased<
-              TOIMPk,
-              TOIMPk,
-              OIMIndexArrayBased<TOIMPk, TOIMPk>
+              TOIMKey,
+              TOIMKey,
+              OIMIndexArrayBased<TOIMKey, TOIMKey>
           >,
         {
-            updatedKeys: Set<TOIMPk> | null;
-            pendingKeys: Set<TOIMPk>;
+            updatedKeys: Set<TOIMKey> | null;
+            pendingKeys: Set<TOIMKey>;
             forceRecompute: boolean;
             pendingForceRecompute: boolean;
-            mapper?: TOIMDBReduxIndexMapper<TOIMPk, TOIMPk, unknown>;
+            mapper?: TOIMDBReduxIndexMapper<TOIMKey, TOIMKey, unknown>;
         }
     >();
 
@@ -254,21 +256,33 @@ export class OIMDBReduxAdapter {
      */
     public createCollectionReducer<
         TEntity extends object,
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
         TState,
     >(
         collection: OIMReactiveCollection<TEntity, TPk>,
         child?: TOIMDBReduxCollectionReducerChildOptions<TEntity, TPk, TState>,
-        mapper?: TOIMDBReduxCollectionMapper<TEntity, TPk, TState>
+        mapper?: TOIMDBReduxCollectionMapper<TEntity, TPk, TState>,
+        // Composite-PK collections: pass a codec (e.g. `new OIMPkCodecKeyPath()`).
+        // It drives both the default mapper (encode) and child write-back /
+        // linked-index sync (decode). Omit for primitive PKs.
+        pkCodec?: IOIMPkCodec<TPk>
     ): Reducer<TState | undefined, Action> {
         const actualMapper =
             mapper ??
             this.options.defaultCollectionMapper ??
-            (defaultCollectionMapper as TOIMDBReduxCollectionMapper<
-                TEntity,
-                TPk,
-                TState
-            >);
+            (pkCodec
+                ? (createDefaultCollectionMapper(
+                      pkCodec
+                  ) as unknown as TOIMDBReduxCollectionMapper<
+                      TEntity,
+                      TPk,
+                      TState
+                  >)
+                : (defaultCollectionMapper as TOIMDBReduxCollectionMapper<
+                      TEntity,
+                      TPk,
+                      TState
+                  >));
 
         // Track updated keys
         const reducerData = {
@@ -279,13 +293,13 @@ export class OIMDBReduxAdapter {
             mapper: actualMapper,
         };
         this.collectionReducers.set(
-            collection as unknown as OIMReactiveCollection<object, TOIMPk>,
+            collection as unknown as OIMReactiveCollection<object, TOIMKey>,
             reducerData as {
-                updatedKeys: Set<TOIMPk> | null;
+                updatedKeys: Set<TOIMKey> | null;
                 forceRecompute: boolean;
-                pendingKeys: Set<TOIMPk>;
+                pendingKeys: Set<TOIMKey>;
                 pendingForceRecompute: boolean;
-                mapper?: TOIMDBReduxCollectionMapper<object, TOIMPk, unknown>;
+                mapper?: TOIMDBReduxCollectionMapper<object, TOIMKey, unknown>;
             }
         );
 
@@ -295,7 +309,8 @@ export class OIMDBReduxAdapter {
         return this.reducerFactory.createCollectionReducer(
             collection,
             reducerData,
-            child
+            child,
+            pkCodec
         );
     }
 
@@ -306,8 +321,8 @@ export class OIMDBReduxAdapter {
      * @param mapper - Optional mapper for converting OIMDB state to Redux state
      */
     public createIndexReducer<
-        TIndexKey extends TOIMPk,
-        TPk extends TOIMPk,
+        TIndexKey extends TOIMKey,
+        TPk extends TOIMKey,
         TState,
     >(
         index:
@@ -344,21 +359,21 @@ export class OIMDBReduxAdapter {
         this.indexReducers.set(
             index as unknown as
                 | OIMReactiveIndexSetBased<
-                      TOIMPk,
-                      TOIMPk,
-                      OIMIndexSetBased<TOIMPk, TOIMPk>
+                      TOIMKey,
+                      TOIMKey,
+                      OIMIndexSetBased<TOIMKey, TOIMKey>
                   >
                 | OIMReactiveIndexArrayBased<
-                      TOIMPk,
-                      TOIMPk,
-                      OIMIndexArrayBased<TOIMPk, TOIMPk>
+                      TOIMKey,
+                      TOIMKey,
+                      OIMIndexArrayBased<TOIMKey, TOIMKey>
                   >,
             reducerData as {
-                updatedKeys: Set<TOIMPk> | null;
-                pendingKeys: Set<TOIMPk>;
+                updatedKeys: Set<TOIMKey> | null;
+                pendingKeys: Set<TOIMKey>;
                 forceRecompute: boolean;
                 pendingForceRecompute: boolean;
-                mapper?: TOIMDBReduxIndexMapper<TOIMPk, TOIMPk, unknown>;
+                mapper?: TOIMDBReduxIndexMapper<TOIMKey, TOIMKey, unknown>;
             }
         );
 
@@ -378,7 +393,7 @@ export class OIMDBReduxAdapter {
      * @param child - Optional child reducer for custom actions (+ sync-back)
      * @param mapper - Optional mapper; defaults to `{ ids }`
      */
-    public createGlobalIndexReducer<TPk extends TOIMPk, TState>(
+    public createGlobalIndexReducer<TPk extends TOIMKey, TState>(
         index: TOIMDBReduxGlobalIndex<TPk>,
         child?: TOIMDBReduxGlobalIndexReducerChildOptions<TPk, TState>,
         mapper?: TOIMDBReduxGlobalIndexMapper<TPk, TState>
@@ -406,7 +421,7 @@ export class OIMDBReduxAdapter {
         );
     }
 
-    private instrumentGlobalIndex<TPk extends TOIMPk>(
+    private instrumentGlobalIndex<TPk extends TOIMKey>(
         index: TOIMDBReduxGlobalIndex<TPk>,
         reducerData: { dirty: boolean }
     ): void {
@@ -421,7 +436,7 @@ export class OIMDBReduxAdapter {
         });
     }
 
-    private instrumentCollection<TEntity extends object, TPk extends TOIMPk>(
+    private instrumentCollection<TEntity extends object, TPk extends TOIMKey>(
         collection: OIMReactiveCollection<TEntity, TPk>
     ): void {
         if (this.instrumentedCollections.has(collection as object)) return;
@@ -430,7 +445,7 @@ export class OIMDBReduxAdapter {
         const colAny = collection as unknown as Record<string, unknown>;
         const getData = () =>
             this.collectionReducers.get(
-                collection as unknown as OIMReactiveCollection<object, TOIMPk>
+                collection as unknown as OIMReactiveCollection<object, TOIMKey>
             );
 
         const wrapPks = (pks: readonly TPk[]) => {
@@ -542,7 +557,7 @@ export class OIMDBReduxAdapter {
         });
     }
 
-    private instrumentIndex<TKey extends TOIMPk, TPk extends TOIMPk>(
+    private instrumentIndex<TKey extends TOIMKey, TPk extends TOIMKey>(
         index:
             | OIMReactiveIndexSetBased<TKey, TPk, OIMIndexSetBased<TKey, TPk>>
             | OIMReactiveIndexArrayBased<TKey, TPk, OIMIndexArrayBased<TKey, TPk>>
@@ -555,14 +570,14 @@ export class OIMDBReduxAdapter {
             this.indexReducers.get(
                 index as unknown as
                     | OIMReactiveIndexSetBased<
-                          TOIMPk,
-                          TOIMPk,
-                          OIMIndexSetBased<TOIMPk, TOIMPk>
+                          TOIMKey,
+                          TOIMKey,
+                          OIMIndexSetBased<TOIMKey, TOIMKey>
                       >
                     | OIMReactiveIndexArrayBased<
-                          TOIMPk,
-                          TOIMPk,
-                          OIMIndexArrayBased<TOIMPk, TOIMPk>
+                          TOIMKey,
+                          TOIMKey,
+                          OIMIndexArrayBased<TOIMKey, TOIMKey>
                       >
             );
 

@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedListCommand';
 
@@ -14,7 +15,7 @@ import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedList
  * payload, so `consumeCommands(key)` must be called inside the `handler`, before
  * the buffer for that key is cleared.
  */
-export interface IOIMOrderedListCommandSource<TKey extends TOIMPk, TItem> {
+export interface IOIMOrderedListCommandSource<TKey extends TOIMKey, TItem> {
     /**
      * Subscribe to per-key command notifications. The handler receives no
      * payload — pull the commands with {@link consumeCommands} synchronously.

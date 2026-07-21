@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import {
     TOIMDerivedCollectionIndexArrayBasedOptions,
@@ -19,8 +20,8 @@ import { OIMReactiveCollectionIndexManualArrayBased } from './OIMReactiveCollect
  * Use `orderBy` or `compareEntities` when list order matters.
  */
 export class OIMDerivedCollectionIndexArrayBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveCollectionIndexManualArrayBased<TKey, TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;

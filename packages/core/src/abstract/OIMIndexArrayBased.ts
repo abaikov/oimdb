@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { OIMIndexStoreArrayBased } from './OIMIndexStoreArrayBased';
@@ -6,19 +7,22 @@ import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMIndex } from './OIMIndex';
 
 export abstract class OIMIndexArrayBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > extends OIMIndex<TKey, TPk, TOIMAnyEntitySlot<TPk>[]> {
+    /** The same store as `store`, narrowed to expose the carrier-bucket lifecycle. */
+    protected readonly arrayStore: OIMIndexStoreArrayBased<TKey, TPk>;
+
     constructor(
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreArrayBased<TKey, TPk>;
         } = {}
     ) {
-        super(
-            options.store ?? new OIMIndexStoreMapDrivenArrayBased<TKey, TPk>(),
-            options.comparePks
-        );
+        const store =
+            options.store ?? new OIMIndexStoreMapDrivenArrayBased<TKey, TPk>();
+        super(store, options.comparePks);
+        this.arrayStore = store;
     }
 
     protected getBucketSize(bucket: TOIMAnyEntitySlot<TPk>[]): number {
@@ -40,13 +44,20 @@ export abstract class OIMIndexArrayBased<
     }
 
     public getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[] {
-        return this.store.getOneByKey(key) ?? [];
+        // Return a snapshot copy: the live bucket is a stable carrier mutated in
+        // place, so callers that hold or diff the result need their own array.
+        const bucket = this.store.getOneByKey(key);
+        return bucket ? bucket.slice() : [];
     }
 
     public getSlotsByKeys(
         keys: readonly TKey[]
     ): Map<TKey, readonly TOIMAnyEntitySlot<TPk>[]> {
-        return this.store.getManyByKeys(keys);
+        const result = new Map<TKey, readonly TOIMAnyEntitySlot<TPk>[]>();
+        for (const [key, bucket] of this.store.getManyByKeys(keys)) {
+            result.set(key, bucket.slice());
+        }
+        return result;
     }
 
     protected slotsToPks(
@@ -58,29 +69,20 @@ export abstract class OIMIndexArrayBased<
         return pks;
     }
 
-    protected setSlotsWithComparison(
-        key: TKey,
-        newSlots: TOIMAnyEntitySlot<TPk>[]
+    /**
+     * True if a comparator is set and considers `bucket`'s pks equal to
+     * `newSlots` — i.e. a `setSlots` would be a no-op and should not emit.
+     */
+    protected bucketMatchesComparator(
+        bucket: readonly TOIMAnyEntitySlot<TPk>[],
+        newSlots: readonly TOIMAnyEntitySlot<TPk>[]
     ): boolean {
-        if (this.comparePks) {
-            const existingSlotsArray = this.store.getOneByKey(key);
-            if (
-                existingSlotsArray &&
-                existingSlotsArray.length === newSlots.length
-            ) {
-                if (
-                    this.comparePks(
-                        this.slotsToPks(existingSlotsArray),
-                        this.slotsToPks(newSlots)
-                    )
-                ) {
-                    return false;
-                }
-            } else if (!existingSlotsArray && newSlots.length === 0) {
-                return false;
-            }
-        }
-        this.store.setOneByKey(key, newSlots);
-        return true;
+        if (!this.comparePks) return false;
+        if (bucket.length !== newSlots.length) return false;
+        if (bucket.length === 0) return true;
+        return this.comparePks(
+            this.slotsToPks(bucket),
+            this.slotsToPks(newSlots)
+        );
     }
 }

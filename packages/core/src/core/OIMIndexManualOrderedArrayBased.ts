@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
@@ -13,31 +14,35 @@ import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
  *
  * It emits UPDATE events per key on every successful mutation. It is a plain
  * data structure: it knows nothing about "commands" — turning its mutations
- * into position-addressed commands is the command stream's job.
+ * into position-addressed commands is the command stream's job. Mutations happen
+ * on the store's stable carrier bucket in place (via `arrayStore`).
  */
 export class OIMIndexManualOrderedArrayBased<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > extends OIMIndexArrayBased<TKey, TPk> {
     public clear(key?: TKey): void {
         if (key === undefined) {
             const keys = this.getKeys();
             if (keys.length > 0) {
-                this.store.clear();
+                this.arrayStore.clear();
                 this.emitUpdate(Array.from(keys));
             }
             return;
         }
-        if (this.store.getOneByKey(key) !== undefined) {
-            this.store.removeOneByKey(key);
+        const bucket = this.arrayStore.findBucket(key);
+        if (bucket && bucket.length > 0) {
+            bucket.length = 0;
+            this.arrayStore.releaseBucket(bucket);
             this.emitUpdate([key]);
         }
     }
 
     public pushSlot(key: TKey, slot: TOIMAnyEntitySlot<TPk>): number {
-        const list = this.getOrCreateList(key);
-        const index = list.length;
-        list.push(slot);
+        const bucket = this.arrayStore.getOrReserveBucket(key);
+        const index = bucket.length;
+        bucket.push(slot);
+        this.arrayStore.retainBucket(bucket);
         this.emitUpdate([key]);
         return index;
     }
@@ -47,9 +52,10 @@ export class OIMIndexManualOrderedArrayBased<
         index: number,
         slot: TOIMAnyEntitySlot<TPk>
     ): number {
-        const list = this.getOrCreateList(key);
-        const safeIndex = Math.max(0, Math.min(index, list.length));
-        list.splice(safeIndex, 0, slot);
+        const bucket = this.arrayStore.getOrReserveBucket(key);
+        const safeIndex = Math.max(0, Math.min(index, bucket.length));
+        bucket.splice(safeIndex, 0, slot);
+        this.arrayStore.retainBucket(bucket);
         this.emitUpdate([key]);
         return safeIndex;
     }
@@ -58,14 +64,12 @@ export class OIMIndexManualOrderedArrayBased<
         key: TKey,
         index: number
     ): TOIMAnyEntitySlot<TPk> | undefined {
-        const list = this.store.getOneByKey(key);
-        if (!list) return undefined;
-        if (index < 0 || index >= list.length) return undefined;
+        const bucket = this.arrayStore.findBucket(key);
+        if (!bucket) return undefined;
+        if (index < 0 || index >= bucket.length) return undefined;
 
-        const [removed] = list.splice(index, 1);
-        if (list.length === 0) {
-            this.store.removeOneByKey(key);
-        }
+        const [removed] = bucket.splice(index, 1);
+        if (bucket.length === 0) this.arrayStore.releaseBucket(bucket);
         this.emitUpdate([key]);
         return removed;
     }
@@ -75,14 +79,12 @@ export class OIMIndexManualOrderedArrayBased<
      * Returns the number actually removed (clamped to bounds; 0 if nothing).
      */
     public removeRange(key: TKey, index: number, count: number): number {
-        const list = this.store.getOneByKey(key);
-        if (!list) return 0;
-        if (index < 0 || index >= list.length || count <= 0) return 0;
-        const actual = Math.min(count, list.length - index);
-        list.splice(index, actual);
-        if (list.length === 0) {
-            this.store.removeOneByKey(key);
-        }
+        const bucket = this.arrayStore.findBucket(key);
+        if (!bucket) return 0;
+        if (index < 0 || index >= bucket.length || count <= 0) return 0;
+        const actual = Math.min(count, bucket.length - index);
+        bucket.splice(index, actual);
+        if (bucket.length === 0) this.arrayStore.releaseBucket(bucket);
         this.emitUpdate([key]);
         return actual;
     }
@@ -92,15 +94,15 @@ export class OIMIndexManualOrderedArrayBased<
         fromIndex: number,
         toIndex: number
     ): TOIMAnyEntitySlot<TPk> | undefined {
-        const list = this.store.getOneByKey(key);
-        if (!list) return undefined;
-        if (fromIndex < 0 || fromIndex >= list.length) return undefined;
-        if (toIndex < 0 || toIndex >= list.length) return undefined;
-        if (fromIndex === toIndex) return list[fromIndex];
+        const bucket = this.arrayStore.findBucket(key);
+        if (!bucket) return undefined;
+        if (fromIndex < 0 || fromIndex >= bucket.length) return undefined;
+        if (toIndex < 0 || toIndex >= bucket.length) return undefined;
+        if (fromIndex === toIndex) return bucket[fromIndex];
 
-        const [slot] = list.splice(fromIndex, 1);
+        const [slot] = bucket.splice(fromIndex, 1);
         if (slot === undefined) return undefined;
-        list.splice(toIndex, 0, slot);
+        bucket.splice(toIndex, 0, slot);
         this.emitUpdate([key]);
         return slot;
     }
@@ -111,10 +113,10 @@ export class OIMIndexManualOrderedArrayBased<
         index: number,
         slot: TOIMAnyEntitySlot<TPk>
     ): number {
-        const list = this.store.getOneByKey(key);
-        if (!list) return -1;
-        if (index < 0 || index >= list.length) return -1;
-        list[index] = slot;
+        const bucket = this.arrayStore.findBucket(key);
+        if (!bucket) return -1;
+        if (index < 0 || index >= bucket.length) return -1;
+        bucket[index] = slot;
         this.emitUpdate([key]);
         return index;
     }
@@ -130,14 +132,14 @@ export class OIMIndexManualOrderedArrayBased<
         to: number,
         count: number
     ): number {
-        const list = this.store.getOneByKey(key);
-        if (!list) return 0;
-        if (from < 0 || from >= list.length || count <= 0) return 0;
-        const actual = Math.min(count, list.length - from);
-        const insertAt = Math.max(0, Math.min(to, list.length - actual));
+        const bucket = this.arrayStore.findBucket(key);
+        if (!bucket) return 0;
+        if (from < 0 || from >= bucket.length || count <= 0) return 0;
+        const actual = Math.min(count, bucket.length - from);
+        const insertAt = Math.max(0, Math.min(to, bucket.length - actual));
         if (insertAt === from) return 0; // no-op
-        const block = list.splice(from, actual);
-        list.splice(insertAt, 0, ...block);
+        const block = bucket.splice(from, actual);
+        bucket.splice(insertAt, 0, ...block);
         this.emitUpdate([key]);
         return actual;
     }
@@ -147,22 +149,18 @@ export class OIMIndexManualOrderedArrayBased<
         slots: readonly TOIMAnyEntitySlot<TPk>[]
     ): void {
         if (slots.length === 0) {
-            if (this.store.getOneByKey(key) !== undefined) {
-                this.store.removeOneByKey(key);
+            const bucket = this.arrayStore.findBucket(key);
+            if (bucket && bucket.length > 0) {
+                bucket.length = 0;
+                this.arrayStore.releaseBucket(bucket);
                 this.emitUpdate([key]);
             }
             return;
         }
-        this.store.setOneByKey(key, slots.slice());
+        const bucket = this.arrayStore.getOrReserveBucket(key);
+        bucket.length = 0;
+        for (let i = 0; i < slots.length; i++) bucket.push(slots[i]);
+        this.arrayStore.retainBucket(bucket);
         this.emitUpdate([key]);
-    }
-
-    private getOrCreateList(key: TKey): TOIMAnyEntitySlot<TPk>[] {
-        let list = this.store.getOneByKey(key);
-        if (!list) {
-            list = [];
-            this.store.setOneByKey(key, list);
-        }
-        return list;
     }
 }

@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMReactiveIndexArrayBased } from '../abstract/OIMReactiveIndexArrayBased';
 import { OIMReactiveIndexSetBased } from '../abstract/OIMReactiveIndexSetBased';
 import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
@@ -20,10 +21,11 @@ import {
     TOIMCollectionEntitySelector,
 } from '../types/TOIMCollectionSelectors';
 import { TOIMPk } from '../types/TOIMPk';
+import { TOIMKeyPath } from '../types/TOIMKeyPath';
 
 export class OIMCollectionSelectors<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > {
     public readonly runtime: OIMComputeRuntime;
 
@@ -49,7 +51,7 @@ export class OIMCollectionSelectors<
     }
 
     public entitiesBySetIndexKey<
-        TKey extends TOIMPk,
+        TKey extends TOIMKey,
         TIndex extends OIMIndexSetBased<TKey, TPk>,
     >(
         index: OIMReactiveIndexSetBased<TKey, TPk, TIndex>,
@@ -64,11 +66,44 @@ export class OIMCollectionSelectors<
     }
 
     public entitiesByArrayIndexKey<
-        TKey extends TOIMPk,
+        TKey extends TOIMKey,
         TIndex extends OIMIndexArrayBased<TKey, TPk>,
     >(
         index: OIMReactiveIndexArrayBased<TKey, TPk, TIndex>,
         key: TKey
+    ): TOIMCollectionEntitiesSelector<TEntity> {
+        return new OIMEntitiesByIndexKeyArrayBasedSelector(
+            this.runtime,
+            this.collection,
+            index,
+            key
+        );
+    }
+
+    /**
+     * Entities of a composite (key-path) set-based index for one key path, e.g.
+     * `entitiesByCompositeSetIndexKey(index, [projectId, role])`.
+     */
+    public entitiesByCompositeSetIndexKey<
+        TIndex extends OIMIndexSetBased<TOIMKeyPath, TPk>,
+    >(
+        index: OIMReactiveIndexSetBased<TOIMKeyPath, TPk, TIndex>,
+        key: TOIMKeyPath
+    ): TOIMCollectionEntitiesSelector<TEntity> {
+        return new OIMEntitiesByIndexKeySetBasedSelector(
+            this.runtime,
+            this.collection,
+            index,
+            key
+        );
+    }
+
+    /** Entities of a composite (key-path) array-based index for one key path. */
+    public entitiesByCompositeArrayIndexKey<
+        TIndex extends OIMIndexArrayBased<TOIMKeyPath, TPk>,
+    >(
+        index: OIMReactiveIndexArrayBased<TOIMKeyPath, TPk, TIndex>,
+        key: TOIMKeyPath
     ): TOIMCollectionEntitiesSelector<TEntity> {
         return new OIMEntitiesByIndexKeyArrayBasedSelector(
             this.runtime,

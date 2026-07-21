@@ -118,6 +118,13 @@ function TeamUsers({ teamId }: { teamId: string }) {
 - `useSelectEntitiesByIndexKeyArrayBased(collection, index, key)` watches entities referenced by one index key.
 - `useSelectEntitiesByIndexKeysArrayBased(collection, index, keys)` watches entities referenced by several index keys.
 
+### Composite (Key-Path) Indexes
+
+For indexes keyed by a composite **key path** (an array, from `indexFactory.compositeSetIndex()` / `compositeArrayIndex()`). These stabilize the key path **by content**, so passing a freshly built `['p1', 'admin']` on every render does not re-subscribe.
+
+- `useSelectPksByCompositeIndexKeySetBased(index, path)` / `…ArrayBased(index, path)` watch PKs for one key path.
+- `useSelectEntitiesByCompositeIndexKeySetBased(collection, index, path)` / `…ArrayBased(collection, index, path)` watch entities for one key path.
+
 ### Reactive Objects
 
 - `useSelectValueByObjectKey(object, key)` watches one object key.

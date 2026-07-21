@@ -5,12 +5,14 @@ import {
     OIMReactiveIndexArrayBased,
     OIMIndexSetBased,
     OIMIndexArrayBased,
-    TOIMPk,
+    TOIMKey,
+    IOIMPkCodec,
 } from '@oimdb/core';
 import { EOIMDBReduxReducerActionType } from '../enums/EOIMDBReduxReducerActionType';
 import { TOIMDBReduxCollectionMapper } from '../types/TOIMDBReduxCollectionMapper';
 import { TOIMDBReduxIndexMapper } from '../types/TOIMDBReduxIndexMapper';
 import { TOIMDBReduxCollectionReducerChildOptions } from '../types/TOIMDBReduxCollectionReducerChildOptions';
+import { TOIMReduxKey } from '../types/TOIMReduxKey';
 import { TOIMDBReduxIndexReducerChildOptions } from '../types/TOIMDBReduxIndexReducerChildOptions';
 import { TOIMDBReduxGlobalIndex } from '../types/TOIMDBReduxGlobalIndex';
 import { TOIMDBReduxGlobalIndexMapper } from '../types/TOIMDBReduxGlobalIndexMapper';
@@ -35,7 +37,7 @@ export class OIMDBReduxReducerFactory {
      */
     public createCollectionReducer<
         TEntity extends object,
-        TPk extends TOIMPk,
+        TPk extends TOIMKey,
         TState,
     >(
         collection: OIMReactiveCollection<TEntity, TPk>,
@@ -44,9 +46,18 @@ export class OIMDBReduxReducerFactory {
             forceRecompute?: boolean;
             mapper: TOIMDBReduxCollectionMapper<TEntity, TPk, TState>;
         },
-        child?: TOIMDBReduxCollectionReducerChildOptions<TEntity, TPk, TState>
+        child?: TOIMDBReduxCollectionReducerChildOptions<TEntity, TPk, TState>,
+        // Recovers the raw PK from a Redux string key for a composite PK — needed
+        // by child write-back (Redux -> OIMDB) and linked-index sync.
+        pkCodec?: IOIMPkCodec<TPk>
     ): Reducer<TState | undefined, Action> {
         const actualMapper = reducerData.mapper;
+
+        // Recover the raw PK from a Redux string key (identity for a primitive PK).
+        const decodePk = (key: TOIMReduxKey<TPk>): TPk =>
+            pkCodec
+                ? pkCodec.decode(key as unknown as string)
+                : (key as unknown as TPk);
 
         // Track if we're syncing from child reducer to prevent loops
         let isSyncingFromChild = false;
@@ -154,7 +165,7 @@ export class OIMDBReduxReducerFactory {
                         const removedArray = Array.from(diff.removed);
 
                         // Combine arrays directly (added and updated don't overlap)
-                        const allUpdatedPksArray: TPk[] = [];
+                        const allUpdatedPksArray: TOIMReduxKey<TPk>[] = [];
                         allUpdatedPksArray.length =
                             addedArray.length + updatedArray.length;
                         let writeIndex = 0;
@@ -172,11 +183,13 @@ export class OIMDBReduxReducerFactory {
                             child.linkedIndexes,
                             allUpdatedPksArray,
                             oldState.entities,
-                            newStateTyped.entities
+                            newStateTyped.entities,
+                            pkCodec
                         );
                         linkedIndexesUpdater.removeLinkedIndexesForEntities(
                             child.linkedIndexes,
-                            removedArray
+                            removedArray,
+                            pkCodec
                         );
                     }
                 }
@@ -239,13 +252,24 @@ export class OIMDBReduxReducerFactory {
                         ) {
                             // Get current entities from OIMDB for comparison
                             const currentPks = collection.getAllPks();
-                            const oldEntities: Record<TPk, TEntity> =
-                                Object.create(null) as Record<TPk, TEntity>;
+                            // NOTE: keyed by the Redux string key. For a
+                            // composite PK, child write-back (Redux → OIMDB) needs
+                            // the codec's `decode` to recover the raw PK; the
+                            // supported composite path is the read-only mapper.
+                            const oldEntities: Record<
+                                TOIMReduxKey<TPk>,
+                                TEntity
+                            > = Object.create(null) as Record<
+                                TOIMReduxKey<TPk>,
+                                TEntity
+                            >;
                             for (let i = 0; i < currentPks.length; i++) {
                                 const pk = currentPks[i];
                                 const entity = collection.getOneByPk(pk);
                                 if (entity) {
-                                    oldEntities[pk] = entity;
+                                    oldEntities[
+                                        pk as unknown as TOIMReduxKey<TPk>
+                                    ] = entity;
                                 }
                             }
 
@@ -308,12 +332,20 @@ export class OIMDBReduxReducerFactory {
                                     for (let i = 0; i < addedLength; i++) {
                                         const pk = addedArray[i];
                                         const entity = defaultState.entities[pk];
-                                        if (entity) collection.upsertOneByPk(pk, entity);
+                                        if (entity)
+                                            collection.upsertOneByPk(
+                                                decodePk(pk),
+                                                entity
+                                            );
                                     }
                                     for (let i = 0; i < updatedLength; i++) {
                                         const pk = updatedArray[i];
                                         const entity = defaultState.entities[pk];
-                                        if (entity) collection.upsertOneByPk(pk, entity);
+                                        if (entity)
+                                            collection.upsertOneByPk(
+                                                decodePk(pk),
+                                                entity
+                                            );
                                     }
                                 }
                             }
@@ -342,7 +374,8 @@ export class OIMDBReduxReducerFactory {
                             ) {
                                 // Process updated entities (added + updated)
                                 // Combine arrays directly (avoid Set iteration)
-                                const allUpdatedPksArray: TPk[] = [];
+                                const allUpdatedPksArray: TOIMReduxKey<TPk>[] =
+                                    [];
                                 allUpdatedPksArray.length =
                                     addedArray.length + updatedArray.length;
                                 let writeIndex = 0;
@@ -365,11 +398,13 @@ export class OIMDBReduxReducerFactory {
                                     child.linkedIndexes,
                                     allUpdatedPksArray,
                                     oldEntities,
-                                    defaultState.entities
+                                    defaultState.entities,
+                                    pkCodec
                                 );
                                 linkedIndexesUpdater.removeLinkedIndexesForEntities(
                                     child.linkedIndexes,
-                                    removedArray
+                                    removedArray,
+                                    pkCodec
                                 );
                             }
                             isSyncingFromChild = false;
@@ -399,8 +434,8 @@ export class OIMDBReduxReducerFactory {
      * Create Redux reducer for an index
      */
     public createIndexReducer<
-        TIndexKey extends TOIMPk,
-        TPk extends TOIMPk,
+        TIndexKey extends TOIMKey,
+        TPk extends TOIMKey,
         TState,
     >(
         index:
@@ -514,11 +549,13 @@ export class OIMDBReduxReducerFactory {
                         ) {
                             // Get current state from OIMDB for comparison
                             const currentKeys = index.getKeys();
+                            // Keyed by the Redux string key (see collection note
+                            // above — composite index-key write-back needs decode).
                             const oldEntities: Record<
-                                TIndexKey,
+                                TOIMReduxKey<TIndexKey>,
                                 { id: TIndexKey; ids: TPk[] }
                             > = Object.create(null) as Record<
-                                TIndexKey,
+                                TOIMReduxKey<TIndexKey>,
                                 { id: TIndexKey; ids: TPk[] }
                             >;
                             for (let i = 0; i < currentKeys.length; i++) {
@@ -526,7 +563,9 @@ export class OIMDBReduxReducerFactory {
                                 const pks = index.getPksByKey(key);
                                 const ids =
                                     pks instanceof Set ? Array.from(pks) : pks;
-                                oldEntities[key] = { id: key, ids };
+                                oldEntities[
+                                    key as unknown as TOIMReduxKey<TIndexKey>
+                                ] = { id: key, ids };
                             }
 
                             // Find differences
@@ -554,8 +593,10 @@ export class OIMDBReduxReducerFactory {
                             const allKeysArray = Array.from(allKeys);
                             for (let i = 0; i < allKeysArray.length; i++) {
                                 const key = allKeysArray[i];
-                                const oldEntry = oldEntities[key];
-                                const newEntry = newEntities[key];
+                                const reduxKey =
+                                    key as unknown as TOIMReduxKey<TIndexKey>;
+                                const oldEntry = oldEntities[reduxKey];
+                                const newEntry = newEntities[reduxKey];
 
                                 if (!oldEntry && newEntry) {
                                     // Added: add all PKs for this key
@@ -659,7 +700,7 @@ export class OIMDBReduxReducerFactory {
      * State is the single pk list; dirtiness is tracked by the adapter via the
      * index's keyless `subscribe()` (works for manual and derived alike).
      */
-    public createGlobalIndexReducer<TPk extends TOIMPk, TState>(
+    public createGlobalIndexReducer<TPk extends TOIMKey, TState>(
         index: TOIMDBReduxGlobalIndex<TPk>,
         reducerData: {
             dirty: boolean;
@@ -724,7 +765,7 @@ export class OIMDBReduxReducerFactory {
     }
 
     /** Sync a pk list from Redux back into a manual Global index. */
-    private syncGlobalIndexIds<TPk extends TOIMPk>(
+    private syncGlobalIndexIds<TPk extends TOIMKey>(
         index: TOIMDBReduxGlobalIndex<TPk>,
         nextIds: readonly TPk[]
     ): void {

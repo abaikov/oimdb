@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollection } from './OIMCollection';
@@ -8,7 +9,7 @@ import { OIMCarrierKeyedEmitter } from './OIMCarrierKeyedEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
-export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
+export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     extends OIMCollection<TEntity, TPk>
     implements IOIMKeyedSubscription<TPk>
 {
@@ -23,7 +24,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
     private readonly anyUpdateHandlers = new Set<
         (pks: readonly TPk[]) => void
     >();
-    private pendingAnyUpdatePks = new Set<TPk>();
+    private readonly pendingAnyUpdatePks = this.store.keyDomain.createSet();
     private isAnyUpdateClearPending = false;
     private isAnyUpdateScheduled = false;
 
@@ -228,7 +229,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMPk>
 
         const pks = this.isAnyUpdateClearPending
             ? []
-            : Array.from(this.pendingAnyUpdatePks);
+            : Array.from(this.pendingAnyUpdatePks.values());
         this.pendingAnyUpdatePks.clear();
         this.isAnyUpdateClearPending = false;
 

@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { TOIMPk } from '../types/TOIMPk';
@@ -9,7 +10,7 @@ type TOIMUpdateEventEmitterDeliveryMode = 'queue' | 'after_flush' | 'immediate';
  * Universal event emitter that handles subscriptions and notifications for any key type.
  * Optimized for performance with adaptive algorithms and memory management.
  */
-export class OIMUpdateEventEmitter<TKey extends TOIMPk> {
+export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
     protected keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     protected queue: OIMEventQueue;
     private readonly deliveryMode: TOIMUpdateEventEmitterDeliveryMode;

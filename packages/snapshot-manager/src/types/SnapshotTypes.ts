@@ -2,7 +2,7 @@ import {
     EOIMCollectionEventType,
     TOIMCollectionUpdatePayload,
     TOIMEventHandler,
-    TOIMPk,
+    TOIMKey,
 } from '@oimdb/core';
 
 /**
@@ -12,7 +12,7 @@ import {
  */
 export type TOIMSnapshotCollection<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     emitter: {
         on(
@@ -31,13 +31,13 @@ export type TOIMSnapshotCollection<
  * Extract entity type from snapshot collection
  */
 export type GetEntityType<T> =
-    T extends TOIMSnapshotCollection<infer TEntity, TOIMPk> ? TEntity : never;
+    T extends TOIMSnapshotCollection<infer TEntity, TOIMKey> ? TEntity : never;
 
 /**
  * Extract primary key type from snapshot collection
  */
 export type GetPkType<T> =
-    T extends TOIMSnapshotCollection<object, infer TPk extends TOIMPk>
+    T extends TOIMSnapshotCollection<object, infer TPk extends TOIMKey>
         ? TPk
         : never;
 
@@ -45,7 +45,7 @@ export type GetPkType<T> =
  * Individual entity snapshot containing primary key and entity data
  * Entity is null if the entity was deleted
  */
-export type EntitySnapshot<TEntity extends object, TPk extends TOIMPk> = {
+export type EntitySnapshot<TEntity extends object, TPk extends TOIMKey> = {
     pk: TPk;
     entity: TEntity | null;
 };
@@ -55,7 +55,7 @@ export type EntitySnapshot<TEntity extends object, TPk extends TOIMPk> = {
  * Maps collection names to arrays of entity snapshots
  */
 export type SnapshotData<
-    TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMPk>>,
+    TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMKey>>,
 > = {
     [K in keyof TCollections]: Array<
         EntitySnapshot<

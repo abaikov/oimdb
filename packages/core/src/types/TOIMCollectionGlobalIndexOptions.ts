@@ -1,3 +1,4 @@
+import { TOIMKey } from './TOIMKey';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
 import type { TOIMEntitySlotResolver } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
@@ -17,7 +18,7 @@ export type TOIMGlobalIndexFilter<TEntity extends object> = (
 
 export type TOIMCollectionGlobalIndexArrayBasedOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 } & (
@@ -27,7 +28,7 @@ export type TOIMCollectionGlobalIndexArrayBasedOptions<
 
 export type TOIMCollectionGlobalIndexSetBasedOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 } & (
@@ -37,7 +38,7 @@ export type TOIMCollectionGlobalIndexSetBasedOptions<
 
 export type TOIMDerivedCollectionGlobalIndexArrayBasedOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     /** Build initial state from existing collection slots. Defaults to true. */
     buildInitial?: boolean;
@@ -52,7 +53,7 @@ export type TOIMDerivedCollectionGlobalIndexArrayBasedOptions<
 
 export type TOIMDerivedCollectionGlobalIndexSetBasedOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = {
     /** Build initial state from existing collection slots. Defaults to true. */
     buildInitial?: boolean;
@@ -63,20 +64,20 @@ export type TOIMDerivedCollectionGlobalIndexSetBasedOptions<
 
 // Factory-facing (relations) option bundles — the collection binding is supplied
 // by the factory, so these carry only the tuning knobs.
-export type TOIMRelationsGlobalArrayIndexOptions<TPk extends TOIMPk> = {
+export type TOIMRelationsGlobalArrayIndexOptions<TPk extends TOIMKey> = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 };
 
-export type TOIMRelationsGlobalSetIndexOptions<TPk extends TOIMPk> = {
+export type TOIMRelationsGlobalSetIndexOptions<TPk extends TOIMKey> = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 };
 
 export type TOIMRelationsDerivedGlobalArrayIndexOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = TOIMDerivedCollectionGlobalIndexArrayBasedOptions<TEntity, TPk>;
 
 export type TOIMRelationsDerivedGlobalSetIndexOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > = TOIMDerivedCollectionGlobalIndexSetBasedOptions<TEntity, TPk>;

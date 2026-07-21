@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveIndexSetBased } from '../../../abstract/OIMReactiveIndexSetBased';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexSetBased } from '../../../abstract/OIMIndexSetBased';
@@ -6,8 +7,8 @@ import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorS
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
 export class OIMIndexPksByKeySetBasedSelector<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TIndex extends OIMIndexSetBased<TKey, TPk>,
 > extends OIMSelector<Set<TPk>> {
     constructor(

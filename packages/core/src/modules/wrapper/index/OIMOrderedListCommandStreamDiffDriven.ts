@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
@@ -26,8 +27,8 @@ import { diffOrderedListByPk } from './diffOrderedListByPk';
  * and composes with `createOIMOrderedListMappedCommandStream`.
  */
 export class OIMOrderedListCommandStreamDiffDriven<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object = object,
     TIndex extends OIMIndexArrayBased<TKey, TPk> = OIMIndexArrayBased<
         TKey,
@@ -130,7 +131,7 @@ export class OIMOrderedListCommandStreamDiffDriven<
     }
 }
 
-function sameOrderByPk<TPk extends TOIMPk, TItem extends { pk: TPk }>(
+function sameOrderByPk<TPk extends TOIMKey, TItem extends { pk: TPk }>(
     a: readonly TItem[],
     b: readonly TItem[]
 ): boolean {
@@ -141,7 +142,7 @@ function sameOrderByPk<TPk extends TOIMPk, TItem extends { pk: TPk }>(
     return true;
 }
 
-function countCommonPks<TPk extends TOIMPk, TItem extends { pk: TPk }>(
+function countCommonPks<TPk extends TOIMKey, TItem extends { pk: TPk }>(
     prev: readonly TItem[],
     next: readonly TItem[]
 ): number {

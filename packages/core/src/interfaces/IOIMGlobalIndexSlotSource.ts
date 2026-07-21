@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { IOIMSubscription } from './IOIMSubscription';
@@ -11,7 +12,7 @@ import { IOIMSubscription } from './IOIMSubscription';
  * `OIMReactiveGlobalIndexArrayBased` (slots as a `readonly` array) satisfy it
  * structurally — a `Set` and an array are both `Iterable`.
  */
-export interface IOIMGlobalIndexSlotSource<TPk extends TOIMPk>
+export interface IOIMGlobalIndexSlotSource<TPk extends TOIMKey>
     extends IOIMSubscription {
     getSlots(): Iterable<TOIMAnyEntitySlot<TPk>>;
 }

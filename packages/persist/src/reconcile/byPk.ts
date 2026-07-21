@@ -1,4 +1,4 @@
-import { TOIMPk } from '@oimdb/core';
+import { TOIMKey } from '@oimdb/core';
 import { TOIMCollectionPersistSnapshot } from '../types/TOIMCollectionPersistSnapshot';
 import { TOIMPersistHydrateReconcile } from '../types/TOIMPersistHydrateReconcile';
 
@@ -19,7 +19,7 @@ import { TOIMPersistHydrateReconcile } from '../types/TOIMPersistHydrateReconcil
  * ))
  * ```
  */
-export function byPk<TEntity, TPk extends TOIMPk>(
+export function byPk<TEntity, TPk extends TOIMKey>(
     resolve: (
         current: TEntity | undefined,
         incoming: TEntity,

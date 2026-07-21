@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enums/EOIMIndexEventType';
 import { TOIMIndexUpdatePayload } from '../types/TOIMIndexUpdatePayload';
@@ -18,8 +19,8 @@ export interface IOIMIndexStore<TKey, TBucket> {
 }
 
 export abstract class OIMIndex<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TBucket extends Iterable<TOIMAnyEntitySlot<TPk>>,
 > {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;

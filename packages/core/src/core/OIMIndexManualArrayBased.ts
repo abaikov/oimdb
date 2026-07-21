@@ -1,16 +1,22 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexArrayBased } from '../abstract/OIMIndexArrayBased';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
+import { OIMKeyedBucketArrayBased } from './OIMKeyedBucketArrayBased';
 
 /**
- * Manual Array-based index that allows direct manipulation of key-to-primary-keys mappings.
- * Extends the abstract OIMIndexArrayBased with manual control methods and optional comparison.
+ * Manual Array-based (ordered) index with direct key→slots control.
+ *
+ * Buckets are stable carrier buckets owned by the store (`getOrReserveBucket`):
+ * a write mutates the SAME bucket in place and then calls `emitBucketChanged`,
+ * so the reactive subclass delivers straight off that bucket in O(1). Emptied
+ * buckets are released (kept only while subscribed).
  */
 export class OIMIndexManualArrayBased<
-    TIndexKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TIndexKey extends TOIMKey,
+    TPk extends TOIMKey,
 > extends OIMIndexArrayBased<TIndexKey, TPk> {
     constructor(
         options: {
@@ -25,49 +31,58 @@ export class OIMIndexManualArrayBased<
         key: TIndexKey,
         slots: TOIMAnyEntitySlot<TPk>[]
     ): void {
-        const hasChanges = this.setSlotsWithComparison(key, slots);
-
-        if (hasChanges) {
-            this.emitUpdateOne(key);
-        }
+        const bucket = this.arrayStore.getOrReserveBucket(key);
+        if (this.bucketMatchesComparator(bucket, slots)) return;
+        bucket.length = 0;
+        for (let i = 0; i < slots.length; i++) bucket.push(slots[i]);
+        if (bucket.length > 0) this.arrayStore.retainBucket(bucket);
+        else this.arrayStore.releaseBucket(bucket);
+        this.emitBucketChanged(bucket);
     }
 
     /**
-     * Appends pre-deduplicated slots to a key's bucket IN PLACE (no copy of the
-     * existing bucket) and emits once. Callers own dedup (so this stays O(added),
-     * not O(bucket)); used by collection-bound indexes for fast `addPks`.
+     * Appends pre-deduplicated slots to a key's bucket IN PLACE and emits once.
+     * O(added); callers own dedup.
      */
     public appendSlots(
         key: TIndexKey,
         slots: readonly TOIMAnyEntitySlot<TPk>[]
     ): void {
         if (slots.length === 0) return;
-        let bucket = this.store.getOneByKey(key);
-        if (!bucket) {
-            bucket = [];
-            this.store.setOneByKey(key, bucket);
-        }
+        const bucket = this.arrayStore.getOrReserveBucket(key);
         for (let i = 0; i < slots.length; i++) bucket.push(slots[i]);
-        this.emitUpdateOne(key);
+        this.arrayStore.retainBucket(bucket);
+        this.emitBucketChanged(bucket);
     }
 
     /**
-     * Clear all primary keys for a specific index key, or all keys if no key specified
+     * Clear all primary keys for a specific index key, or all keys if none given.
      */
     public clear(key?: TIndexKey): void {
         if (key === undefined) {
-            // Clear all buckets
-            const allKeys = this.store.getAllKeys();
+            const allKeys = this.arrayStore.getAllKeys();
             if (allKeys.length > 0) {
-                this.store.clear();
+                this.arrayStore.clear();
                 this.emitUpdate(allKeys);
             }
         } else {
-            // Clear specific bucket
-            if (this.store.getOneByKey(key) !== undefined) {
-                this.store.removeOneByKey(key);
-                this.emitUpdateOne(key);
+            const bucket = this.arrayStore.findBucket(key);
+            if (bucket && bucket.length > 0) {
+                bucket.length = 0;
+                this.arrayStore.releaseBucket(bucket);
+                this.emitBucketChanged(bucket);
             }
         }
+    }
+
+    /**
+     * Emit that a bucket changed. Base (non-reactive) path emits by key on the
+     * plain event emitter; the reactive subclass overrides this to mark the
+     * bucket carrier directly (O(1), no key→carrier lookup).
+     */
+    protected emitBucketChanged(
+        bucket: OIMKeyedBucketArrayBased<TIndexKey, TPk>
+    ): void {
+        this.emitUpdateOne(bucket.key);
     }
 }

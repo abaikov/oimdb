@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMCollection } from '../../../core/OIMCollection';
 import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
@@ -19,7 +20,7 @@ type TOIMFieldKey<TEntity extends object> = keyof TEntity & string;
  */
 export class OIMCollectionChangedFields<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > {
     public readonly collection: OIMCollection<TEntity, TPk>;
     private readonly selectPk: (entity: TEntity | Partial<TEntity>) => TPk;

@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
@@ -8,7 +9,7 @@ import { OIMGlobalIndexArrayBased } from '../abstract/OIMGlobalIndexArrayBased';
  * ordered bucket. Mirrors {@link OIMIndexManualArrayBased} minus the key.
  */
 export class OIMGlobalIndexManualArrayBased<
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > extends OIMGlobalIndexArrayBased<TPk> {
     constructor(options: { comparePks?: TOIMIndexComparator<TPk> } = {}) {
         super(options);

@@ -1,3 +1,4 @@
+import { TOIMKey } from './TOIMKey';
 import type { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 import type { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
@@ -5,11 +6,12 @@ import type { OIMCollectionIndexManualOrderedArrayBased } from '../core/OIMColle
 import type { TOIMEntitySlotResolver } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
 import type { TOIMPk } from './TOIMPk';
+import type { TOIMKeyPath } from './TOIMKeyPath';
 
 export type TOIMCollectionIndexSetBasedOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
@@ -28,8 +30,8 @@ export type TOIMCollectionIndexSetBasedOptions<
 
 export type TOIMCollectionIndexArrayBasedOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
@@ -48,7 +50,7 @@ export type TOIMCollectionIndexArrayBasedOptions<
 
 export type TOIMCollectionOrderedIndexOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 > =
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
@@ -60,8 +62,8 @@ export type TOIMCollectionOrderedIndexOptions<
       };
 
 export type TOIMCollectionOrderedListCommandStreamOptions<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object,
 > = {
     index?: OIMCollectionIndexManualOrderedArrayBased<TKey, TPk, TEntity>;
@@ -77,8 +79,8 @@ export type TOIMCollectionOrderedListCommandStreamOptions<
 );
 
 export type TOIMRelationsSetIndexOptions<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
@@ -87,8 +89,8 @@ export type TOIMRelationsSetIndexOptions<
 };
 
 export type TOIMRelationsArrayIndexOptions<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
@@ -96,9 +98,71 @@ export type TOIMRelationsArrayIndexOptions<
     };
 };
 
+/**
+ * Options for a composite (trie-backed) Set-based index. Its key is a
+ * `TOIMKeyPath` — an arbitrary-length tuple of primitive segments — looked up by
+ * content in O(arity). The store defaults to `OIMIndexStoreTrieDrivenSetBased`.
+ */
+export type TOIMCollectionIndexCompositeSetBasedOptions<
+    TEntity extends object,
+    TPk extends TOIMKey,
+> = {
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreSetBased<TOIMKeyPath, TPk>;
+    };
+} & (
+    | {
+          collection: OIMReactiveCollection<TEntity, TPk>;
+          resolveSlot?: never;
+      }
+    | {
+          collection?: never;
+          resolveSlot: TOIMEntitySlotResolver<TPk>;
+      }
+);
+
+export type TOIMRelationsCompositeSetIndexOptions<TPk extends TOIMKey> = {
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreSetBased<TOIMKeyPath, TPk>;
+    };
+};
+
+/**
+ * Options for a composite (trie-backed) Array-based (ordered) index. Its key is
+ * a `TOIMKeyPath`, looked up by content in O(arity). The store defaults to
+ * `OIMIndexStoreTrieDrivenArrayBased`.
+ */
+export type TOIMCollectionIndexCompositeArrayBasedOptions<
+    TEntity extends object,
+    TPk extends TOIMKey,
+> = {
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreArrayBased<TOIMKeyPath, TPk>;
+    };
+} & (
+    | {
+          collection: OIMReactiveCollection<TEntity, TPk>;
+          resolveSlot?: never;
+      }
+    | {
+          collection?: never;
+          resolveSlot: TOIMEntitySlotResolver<TPk>;
+      }
+);
+
+export type TOIMRelationsCompositeArrayIndexOptions<TPk extends TOIMKey> = {
+    indexOptions?: {
+        comparePks?: TOIMIndexComparator<TPk>;
+        store?: OIMIndexStoreArrayBased<TOIMKeyPath, TPk>;
+    };
+};
+
 export type TOIMRelationsOrderedListOptions<
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
     TEntity extends object,
 > = {
     index?: OIMCollectionIndexManualOrderedArrayBased<TKey, TPk, TEntity>;
@@ -106,13 +170,13 @@ export type TOIMRelationsOrderedListOptions<
 
 export type TOIMDerivedIndexKeySelector<
     TEntity extends object,
-    TKey extends TOIMPk,
+    TKey extends TOIMKey,
 > = (entity: TEntity) => TKey | readonly TKey[] | undefined | null;
 
 export type TOIMDerivedCollectionIndexSetBasedOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>;
     /**
@@ -129,8 +193,8 @@ export type TOIMDerivedCollectionIndexSetBasedOptions<
 
 export type TOIMRelationsDerivedSetIndexOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = Omit<
     TOIMDerivedCollectionIndexSetBasedOptions<TEntity, TKey, TPk>,
     'selectIndexKeys'
@@ -149,8 +213,8 @@ export type TOIMDerivedEntityComparator<TEntity extends object> = (
 
 export type TOIMDerivedCollectionIndexArrayBasedOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = {
     selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>;
     /**
@@ -175,8 +239,8 @@ export type TOIMDerivedCollectionIndexArrayBasedOptions<
 
 export type TOIMRelationsDerivedArrayIndexOptions<
     TEntity extends object,
-    TKey extends TOIMPk,
-    TPk extends TOIMPk,
+    TKey extends TOIMKey,
+    TPk extends TOIMKey,
 > = Omit<
     TOIMDerivedCollectionIndexArrayBasedOptions<TEntity, TKey, TPk>,
     'selectIndexKeys'

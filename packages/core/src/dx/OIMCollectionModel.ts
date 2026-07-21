@@ -1,3 +1,4 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMCollectionIndexFactory } from '../core/OIMCollectionIndexFactory';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMReactiveCollection } from '../core/OIMReactiveCollection';
@@ -10,7 +11,7 @@ import { TOIMPk } from '../types/TOIMPk';
 
 export function createOIMReactiveCollection<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 >(
     queue: OIMEventQueue,
     opts?: TOIMReactiveCollectionFactoryOptions<TEntity, TPk>
@@ -20,7 +21,7 @@ export function createOIMReactiveCollection<
 
 export function createOIMCollectionModel<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
 >(
     queue: OIMEventQueue,
     opts?: TOIMReactiveCollectionFactoryOptions<TEntity, TPk>

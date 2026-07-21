@@ -634,6 +634,24 @@ users.upsertOne({ id: 'user1', role: 'admin' });
 // This prevents unnecessary re-renders and improves performance
 ```
 
+### Disposing everything at once — `OIMDisposeScope`
+
+Teardown is LIFO: dispose dependents before what they depend on (indexes / streams / selectors → collection → queue). Instead of tracking that order by hand, register into an `OIMDisposeScope` as you build and tear it all down in one call:
+
+```typescript
+import { OIMDisposeScope, OIMEventQueue, OIMReactiveCollection } from '@oimdb/core';
+
+const scope = new OIMDisposeScope();
+const queue = scope.add(new OIMEventQueue());
+const users = scope.add(new OIMReactiveCollection(queue, { selectPk: u => u.id }));
+const byTeam = scope.add(usersIndexFactory.setBasedIndex());
+scope.add(selector.watch(render)); // bare unsubscribe fn works too
+
+scope.destroy(); // disposes byTeam → users → queue (reverse order), no bookkeeping
+```
+
+`add(x)` returns `x` for inline capture. Accepts both `{ destroy(): void }` objects and bare `() => void` unsubscribe functions (selectors, per-key subscriptions and scheduler tasks expose only the latter). Idempotent; every item is disposed even if one throws (first error rethrown after); `child()` nests a sub-scope. Factory: `createOIMDisposeScope()`. Related exports: `IOIMDisposable`, `TOIMDisposable`.
+
 ### Effects, Computed, and the Event Lifecycle
 
 OIMDB uses a single-pass flush boundary: `queue.flush()` executes the current batch of pending work.
@@ -1361,6 +1379,8 @@ createOIMCollectionIndexFactory(queue, collection)
 
 **Methods:**
 - `setBasedIndex<TKey>()` - Create `OIMReactiveCollectionIndexManualSetBased<TKey, TPk, TEntity>`
+- `compositeSetIndex()` - Create `OIMReactiveCollectionIndexCompositeTrieSetBased<TPk, TEntity>` — set-based index keyed by a composite **key path** (`TOIMKeyPath`, an arbitrary-length tuple of primitive segments, e.g. `setPks([projectId, role], pks)`). Matched by content in O(arity), no string concatenation. Primitive-keyed indexes keep their native-`Map` fast path.
+- `compositeArrayIndex()` - Create `OIMReactiveCollectionIndexCompositeTrieArrayBased<TPk, TEntity>` — ordered counterpart of `compositeSetIndex`, buckets are ordered slot arrays per key path.
 - `derivedSetIndex<TKey>(selectIndexKeys)` - Create `OIMDerivedCollectionIndexSetBased<TKey, TPk, TEntity>`
 - `arrayBasedIndex<TKey>()` - Create `OIMReactiveCollectionIndexManualArrayBased<TKey, TPk, TEntity>`
 - `derivedArrayIndex<TKey>(selectIndexKeys, { orderBy?, compareEntities? })` - Create `OIMDerivedCollectionIndexArrayBased<TKey, TPk, TEntity>`

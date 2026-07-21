@@ -1,6 +1,6 @@
+import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
-import { TOIMPk } from '../types/TOIMPk';
 import { IOIMSubscribable } from '../types/IOIMSubscribable';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 
@@ -13,7 +13,7 @@ import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
  * Collection carrier = the entity slot (by pk); index carrier = the bucket
  * (by index key).
  */
-export interface IOIMCarrierResolver<TKey extends TOIMPk, TCarrier> {
+export interface IOIMCarrierResolver<TKey extends TOIMKey, TCarrier> {
     getOrReserveCarrier(key: TKey): TCarrier;
     findCarrier(key: TKey): TCarrier | undefined;
     /**
@@ -37,7 +37,7 @@ export interface IOIMCarrierResolver<TKey extends TOIMPk, TCarrier> {
  * bucket (index).
  */
 export class OIMCarrierKeyedEmitter<
-    TKey extends TOIMPk,
+    TKey extends TOIMKey,
     TCarrier extends IOIMSubscribable,
 > implements IOIMKeyedUpdateEmitter<TKey> {
     private readonly queue: OIMEventQueue;
@@ -137,12 +137,23 @@ export class OIMCarrierKeyedEmitter<
     }
 
     public markUpdatedKey(key: TKey): void {
+        // Nothing is subscribed anywhere → no carrier can have handlers, so skip
+        // the resolver lookup entirely. For a composite (trie) resolver this
+        // avoids an O(arity) walk on every write to an unsubscribed key.
+        if (this.subscribedCarriers.size === 0) {
+            this.assertNotInFlush();
+            return;
+        }
         const carrier = this.resolver.findCarrier(key);
         if (carrier) this.markUpdatedCarrier(carrier);
         else this.assertNotInFlush();
     }
 
     public markUpdatedKeys(keys: readonly TKey[]): void {
+        if (this.subscribedCarriers.size === 0) {
+            this.assertNotInFlush();
+            return;
+        }
         for (let i = 0; i < keys.length; i++) this.markUpdatedKey(keys[i]);
     }
 

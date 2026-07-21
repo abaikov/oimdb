@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
 import { IOIMGlobalIndexSlotSource } from '../../../interfaces/IOIMGlobalIndexSlotSource';
@@ -17,7 +18,7 @@ import { OIMGlobalIndexSlotMap } from './OIMGlobalIndexSlotMap';
  * }
  * ```
  */
-export function createOIMGlobalIndexSlotMap<TPk extends TOIMPk, TMapped>(
+export function createOIMGlobalIndexSlotMap<TPk extends TOIMKey, TMapped>(
     index: IOIMGlobalIndexSlotSource<TPk>,
     create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped
 ): OIMGlobalIndexSlotMap<TPk, TMapped> {

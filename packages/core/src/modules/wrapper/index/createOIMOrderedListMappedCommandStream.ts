@@ -1,3 +1,4 @@
+import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMOrderedListCommandSource } from '../../../interfaces/IOIMOrderedListCommandSource';
 import { OIMOrderedListMappedCommandStream } from './OIMOrderedListMappedCommandStream';
@@ -18,7 +19,7 @@ import { OIMOrderedListMappedCommandStream } from './OIMOrderedListMappedCommand
  * ```
  */
 export function createOIMOrderedListMappedCommandStream<
-    TKey extends TOIMPk,
+    TKey extends TOIMKey,
     TIn,
     TOut,
 >(

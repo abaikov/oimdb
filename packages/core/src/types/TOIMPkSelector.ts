@@ -1,5 +1,5 @@
-import { TOIMPk } from './TOIMPk';
+import { TOIMKey } from './TOIMKey';
 
-export type TOIMPkSelector<TEntity extends object, TPk extends TOIMPk> = (
+export type TOIMPkSelector<TEntity extends object, TPk extends TOIMKey> = (
     entity: TEntity
 ) => TPk;

@@ -1,6 +1,6 @@
 import { Reducer, Action } from 'redux';
 import {
-    TOIMPk,
+    TOIMKey,
     OIMReactiveCollection,
     OIMReactiveIndexSetBased,
     OIMReactiveIndexArrayBased,
@@ -13,8 +13,8 @@ import {
  */
 export type TOIMDBReduxLinkedIndex<
     TEntity extends object,
-    TPk extends TOIMPk,
-    TIndexKey extends TOIMPk,
+    TPk extends TOIMKey,
+    TIndexKey extends TOIMKey,
 > = {
     /**
      * Reactive index to update automatically
@@ -45,7 +45,7 @@ export type TOIMDBReduxLinkedIndex<
  */
 export type TOIMDBReduxCollectionReducerChildOptions<
     TEntity extends object,
-    TPk extends TOIMPk,
+    TPk extends TOIMKey,
     TState,
 > = {
     /**
@@ -83,21 +83,21 @@ export type TOIMDBReduxCollectionReducerChildOptions<
      * When an entity's field (specified by fieldName) changes by reference,
      * the index will be updated: old key will be removed, new key will be added
      *
-     * Note: The index type accepts any TIndexKey that extends TOIMPk.
+     * Note: The index type accepts any TIndexKey that extends TOIMKey.
      * TypeScript will infer the specific key type (e.g., string) from the actual index instance,
      * allowing indexes with specific key types to be used even when TPk is a union type.
      */
     linkedIndexes?: Array<{
         index:
             | OIMReactiveIndexSetBased<
-                  TOIMPk,
+                  TOIMKey,
                   TPk,
-                  OIMIndexSetBased<TOIMPk, TPk>
+                  OIMIndexSetBased<TOIMKey, TPk>
               >
             | OIMReactiveIndexArrayBased<
-                  TOIMPk,
+                  TOIMKey,
                   TPk,
-                  OIMIndexArrayBased<TOIMPk, TPk>
+                  OIMIndexArrayBased<TOIMKey, TPk>
               >
             | OIMReactiveIndexSetBased<
                   string,

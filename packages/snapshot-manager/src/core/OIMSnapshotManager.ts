@@ -2,7 +2,7 @@ import {
     EOIMCollectionEventType,
     TOIMCollectionUpdatePayload,
     TOIMEventHandler,
-    TOIMPk,
+    TOIMKey,
 } from '@oimdb/core';
 import {
     SnapshotData,
@@ -21,7 +21,7 @@ import {
  * and tracks all primary keys that have been updated.
  */
 export class OIMSnapshotManager<
-    TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMPk>>,
+    TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMKey>>,
 > {
     private readonly collections: TCollections;
     private readonly options: Required<SnapshotManagerOptions>;
@@ -63,7 +63,7 @@ export class OIMSnapshotManager<
         for (const collectionName in this.collections) {
             const collection = this.collections[collectionName];
             const handler: TOIMEventHandler<
-                TOIMCollectionUpdatePayload<TOIMPk>
+                TOIMCollectionUpdatePayload<TOIMKey>
             > = payload => {
                 this.handleCollectionUpdate(
                     collectionName as keyof TCollections,
@@ -87,7 +87,7 @@ export class OIMSnapshotManager<
      */
     private handleCollectionUpdate(
         collectionName: keyof TCollections,
-        payload: TOIMCollectionUpdatePayload<TOIMPk>
+        payload: TOIMCollectionUpdatePayload<TOIMKey>
     ): void {
         const pkSet = this.updatedPks[collectionName];
 
@@ -112,7 +112,7 @@ export class OIMSnapshotManager<
 
             // Create snapshots for all updated entities
             const entitySnapshots: Array<
-                EntitySnapshot<object, string | number>
+                EntitySnapshot<object, TOIMKey>
             > = [];
 
             for (const pk of Array.from(updatedPkSet)) {
