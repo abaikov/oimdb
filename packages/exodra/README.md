@@ -4,7 +4,13 @@ Exodra integration for OIMDB. The counterpart of [`@oimdb/react`](../react): whe
 package turns an OIMDB source into a hook + re-render, this one turns it into a read-only
 [Exodra](https://exodra.org) **bindable** (`TExoBindable`). No React, no hooks, no re-renders.
 
-Peer dependencies: `@exodra/reactivity` and `@oimdb/core` only.
+```bash
+npm install @oimdb/exodra @oimdb/core
+```
+
+The bridge pulls only the **type-only** `@exodra/reactivity-types` (never the reactivity runtime),
+and its one peer dependency is `@oimdb/core`. Your Exodra app already provides `@exodra/reactivity`
+for the runtime bits (`bindable`, `derive`, `h`) used at the call sites below.
 
 ## Why
 

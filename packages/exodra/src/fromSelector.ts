@@ -1,4 +1,4 @@
-import type { TExoBindable } from '@exodra/reactivity';
+import type { TExoBindable } from '@exodra/reactivity-types';
 import type { OIMSelector } from '@oimdb/core';
 import type { TOIMExodraBindableOptions } from './types/TOIMExodraBindableOptions';
 import { fromOimdb } from './fromOimdb';

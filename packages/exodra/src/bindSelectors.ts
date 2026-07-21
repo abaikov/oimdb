@@ -1,4 +1,4 @@
-import type { TExoBindable } from '@exodra/reactivity';
+import type { TExoBindable } from '@exodra/reactivity-types';
 import type {
     OIMCollectionSelectors,
     OIMGlobalIndexArrayBased,

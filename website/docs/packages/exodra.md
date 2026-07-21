@@ -10,10 +10,12 @@ into a hook + re-render, this one turns it into a read-only Exodra **bindable** 
 No React, no hooks, no re-renders.
 
 ```bash
-npm install @oimdb/exodra @exodra/reactivity @oimdb/core
+npm install @oimdb/exodra @oimdb/core
 ```
 
-Peer dependencies are `@exodra/reactivity` and `@oimdb/core` only.
+The bridge pulls only the **type-only** `@exodra/reactivity-types` (never the reactivity runtime),
+and its single peer dependency is `@oimdb/core`. Your Exodra app already provides `@exodra/reactivity`
+for the runtime bits (`bindable`, `derive`, `h`) used at the call sites below.
 
 ## Why
 

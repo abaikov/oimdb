@@ -52,8 +52,10 @@ npm install @oimdb/react @oimdb/core
 [Exodra](https://exodra.org) reactivity adapter — the counterpart of `@oimdb/react`, turning OIMDB sources into read-only Exodra bindables (`TExoBindable`) instead of hooks + re-renders. No React.
 
 ```bash
-npm install @oimdb/exodra @exodra/reactivity @oimdb/core
+npm install @oimdb/exodra @oimdb/core
 ```
+
+Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime); your Exodra app brings `@exodra/reactivity` itself.
 
 **Includes:**
 

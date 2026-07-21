@@ -1,4 +1,4 @@
-import type { TExoBindableList, TExoListOp } from '@exodra/reactivity';
+import type { TExoBindableList, TExoListOp } from '@exodra/reactivity-types';
 import type {
     IOIMOrderedListCommandSource,
     TOIMKey,

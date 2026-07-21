@@ -3,8 +3,7 @@
 > **For AI assistants:** Adapter from OIMDB to [Exodra](https://exodra.org) reactivity. It is the
 > Exodra counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a
 > read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`).
-> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Peer deps:
-> `@exodra/reactivity` + `@oimdb/core` (no React).
+> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime); peer dep `@oimdb/core`.
 
 ## Model
 

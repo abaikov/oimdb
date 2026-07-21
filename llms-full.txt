@@ -139,7 +139,7 @@ queue.flush();
 - **Ordered variant:** `indexFactory.compositeArrayIndex()` — same key path, but buckets are ordered slot arrays (`getPksByKey` returns an array in write order). Use it when order matters per composite key (e.g. `[channelId, threadId]` messages).
 - **Selectors:** `select.entitiesByCompositeSetIndexKey(index, path)` / `select.entitiesByCompositeArrayIndexKey(index, path)` → `(TEntity | undefined)[]`, tracking both index and entity changes.
 - **React:** `useSelectEntitiesByCompositeIndexKey{Set,Array}Based(collection, index, path)` and `useSelectPksByCompositeIndexKey{Set,Array}Based(index, path)`. Unlike the primitive hooks (which stabilize the key by `===`), these stabilize the path **by content**, so a freshly built `['p1','admin']` on every render does not re-subscribe.
-- New exports: `OIMReactiveCollectionIndexCompositeTrie{Set,Array}Based`, `OIMIndexStoreTrieDriven{Set,Array}Based` (inject via `indexOptions.store` for a custom key path store), `OIMKeyPathCarrierResolver`, `OIMTrieMap` (the generic N-level trie util), types `TOIMKeyPath` / `TOIMKey`. The keyed-emitter / index generics accept `TKey extends TOIMKey` (= `TOIMPk | TOIMKeyPath`) — a pure widening; primitive keys are unaffected.
+- New exports: `OIMReactiveCollectionIndexCompositeTrie{Set,Array}Based`, `OIMIndexStoreTrieDriven{Set,Array}Based` (inject via `indexOptions.store` for a custom key path store), `OIMKeyPathCarrierProvider`, `OIMTrieMap` (the generic N-level trie util), types `TOIMKeyPath` / `TOIMKey`. The keyed-emitter / index generics accept `TKey extends TOIMKey` (= `TOIMPk | TOIMKeyPath`) — a pure widening; primitive keys are unaffected.
 
 ### Composite PRIMARY key (collection keyed by a tuple)
 
@@ -357,10 +357,10 @@ Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-s
 ## Exodra (`@oimdb/exodra`)
 
 ```bash
-npm install @oimdb/exodra @exodra/reactivity @oimdb/core
+npm install @oimdb/exodra @oimdb/core
 ```
 
-The [Exodra](https://exodra.org) counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Bindables are read-only, lazy (subscribe upstream only while they have a downstream subscriber → cost O(visible)) and SSR-safe (`getValue()` reads fresh, valid without an active subscription).
+Depends only on the type-only `@exodra/reactivity-types` (never the reactivity runtime); peer dep `@oimdb/core`. Your Exodra app already provides `@exodra/reactivity` for the runtime (`bindable`, `derive`, `h`). The [Exodra](https://exodra.org) counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Bindables are read-only, lazy (subscribe upstream only while they have a downstream subscriber → cost O(visible)) and SSR-safe (`getValue()` reads fresh, valid without an active subscription).
 
 ```ts
 import { fromSelector, bindSelectors, fromComputed, combine, entityRows } from '@oimdb/exodra';
@@ -641,6 +641,7 @@ OIMDB is a TypeScript in-memory reactive database. It stores entities in typed c
 | `@oimdb/core` | Collections, indexes, event queue, reactive primitives |
 | `@oimdb/persist` | Storage-agnostic persist/hydrate engine (source adapters, resources, versioned codec). Backends ship separately: `@oimdb/persist-memory`, `-localstorage`, `-idb`, `-async-kv`, `-json` |
 | `@oimdb/react` | React hooks for collections and selectors |
+| `@oimdb/exodra` | [Exodra](https://exodra.org) adapter: OIMDB selectors/computeds → read-only `TExoBindable` (no React) |
 | `@oimdb/async` | Async-aware reactive collection and index variants |
 | `@oimdb/devtools` | Debug registry: name collections/indexes/computeds, inspect runtime state |
 | `@oimdb/snapshot-manager` | Snapshot/restore collection state |
@@ -761,7 +762,7 @@ queue.flush();
 - **Ordered variant:** `indexFactory.compositeArrayIndex()` — same key path, but buckets are ordered slot arrays (`getPksByKey` returns an array in write order). Use it when order matters per composite key (e.g. `[channelId, threadId]` messages).
 - **Selectors:** `select.entitiesByCompositeSetIndexKey(index, path)` / `select.entitiesByCompositeArrayIndexKey(index, path)` → `(TEntity | undefined)[]`, tracking both index and entity changes.
 - **React:** `useSelectEntitiesByCompositeIndexKey{Set,Array}Based(collection, index, path)` and `useSelectPksByCompositeIndexKey{Set,Array}Based(index, path)`. Unlike the primitive hooks (which stabilize the key by `===`), these stabilize the path **by content**, so a freshly built `['p1','admin']` on every render does not re-subscribe.
-- New exports: `OIMReactiveCollectionIndexCompositeTrie{Set,Array}Based`, `OIMIndexStoreTrieDriven{Set,Array}Based` (inject via `indexOptions.store` for a custom key path store), `OIMKeyPathCarrierResolver`, `OIMTrieMap` (the generic N-level trie util), types `TOIMKeyPath` / `TOIMKey`. The keyed-emitter / index generics accept `TKey extends TOIMKey` (= `TOIMPk | TOIMKeyPath`) — a pure widening; primitive keys are unaffected.
+- New exports: `OIMReactiveCollectionIndexCompositeTrie{Set,Array}Based`, `OIMIndexStoreTrieDriven{Set,Array}Based` (inject via `indexOptions.store` for a custom key path store), `OIMKeyPathCarrierProvider`, `OIMTrieMap` (the generic N-level trie util), types `TOIMKeyPath` / `TOIMKey`. The keyed-emitter / index generics accept `TKey extends TOIMKey` (= `TOIMPk | TOIMKeyPath`) — a pure widening; primitive keys are unaffected.
 
 ### Composite PRIMARY key (collection keyed by a tuple)
 
@@ -884,6 +885,8 @@ const logEffect = new OIMEffect(runtime, {
 - `OIMEffectDependencyKeyedIndex(index, key)` — watch a key in an index
 - `OIMEffectDependencyComputed(computed)` — depend on another computed
 
+Each keyed dependency watches exactly **one** key — the key argument is the whole key, so a composite key/PK path `[a, b]` is one key (never split into `a`, `b`). For a composite-PK collection or composite index, pass the tuple: `new OIMEffectDependencyKeyedCollection(reqs, ['t1', 'open'])`. To depend on several keys, add several dependencies to the effect's `deps` array.
+
 ### Objects
 
 Key-value stores for singleton data (settings, flags, etc.).
@@ -973,6 +976,42 @@ const card = useSelectEntityByPkSignal(cards, id); // sees in-place mutations (u
 Signal hooks: `useSelectEntityByPkSignal(collection, pk)`, `useSelectPksByIndexKeyArrayBasedSignal(index, key)`, `useSelectPksByIndexKeySetBasedSignal(index, key)`. Use the fine-grained pattern (parent reads pks by index key; each row reads its own entity by pk).
 
 Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Default to the standard immutable hooks; reach for this only when a profile shows the data layer is the bottleneck.
+
+## Exodra (`@oimdb/exodra`)
+
+```bash
+npm install @oimdb/exodra @exodra/reactivity @oimdb/core
+```
+
+The [Exodra](https://exodra.org) counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Bindables are read-only, lazy (subscribe upstream only while they have a downstream subscriber → cost O(visible)) and SSR-safe (`getValue()` reads fresh, valid without an active subscription).
+
+```ts
+import { fromSelector, bindSelectors, fromComputed, combine, entityRows } from '@oimdb/exodra';
+import { bindable, derive } from '@exodra/reactivity';
+
+// wrap any OIMSelector
+const alice = fromSelector(kit.select.byPk('u1')); // TExoBindable<User | undefined>
+
+// mirror OIMCollectionSelectors → bindables; keys accept a bindable (reactive key re-points the sub)
+const bound = bindSelectors(kit.select);
+const selectedTeam = bindable('team-1');
+const members = bound.entitiesBySetIndexKey(usersByTeam, selectedTeam);
+// <ul bindable={{ children: entityRows(memberPks, pk => bound.byPk(pk), (u, pk) => renderRow(u)) }} />
+```
+
+| Export | Purpose |
+|---|---|
+| `fromSelector(selector, opts?)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
+| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair |
+| `fromSelectorFactory(key, makeSelector, opts?)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
+| `fromComputed(computed, opts?)` | `OIMComputed<T>` → `TExoBindable<T>` |
+| `combine(sources, fn)` | multi-source derive (Exodra's own `derive` is single-source) |
+| `bindSelectors(selectors, defaults?)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
+| `keyedChildren(source, { key, render })` / `entityRows(order, bindEntity, render)` | identity-stable list children (field edit = reconcile no-op, focus-safe) |
+| `listFromCommandStream(stream, key, render)` | O(delta) path: OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
+| `read*/subscribe*` (6 fns) | low-level pairs mirroring an inline app bridge 1:1 (find-replace migration) |
+
+Options `{ equals?, alwaysNotify? }`: `equals` defaults to `Object.is`; `alwaysNotify: true` for in-place entity updaters (stable ref, where `Object.is` would swallow the update). `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
 
 ## Persist (`@oimdb/persist`)
 
@@ -1676,8 +1715,7 @@ Prints full `inspect()` JSON to stdout. Use when MCP is not configured.
 > **For AI assistants:** Adapter from OIMDB to [Exodra](https://exodra.org) reactivity. It is the
 > Exodra counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a
 > read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`).
-> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Peer deps:
-> `@exodra/reactivity` + `@oimdb/core` (no React).
+> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime); peer dep `@oimdb/core`.
 
 ## Model
 

@@ -4,5 +4,5 @@ export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
     dts: { resolve: false },
-    external: ['@oimdb/core', '@exodra/reactivity'],
+    external: ['@oimdb/core', '@exodra/reactivity-types'],
 });

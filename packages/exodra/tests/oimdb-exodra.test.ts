@@ -1,5 +1,4 @@
-import { bindable } from '@exodra/reactivity';
-import type { TExoListOp } from '@exodra/reactivity';
+import type { TExoListOp } from '@exodra/reactivity-types';
 import {
     OIMComputed,
     OIMComputeRuntime,
@@ -9,6 +8,30 @@ import {
     createOIMCollectionKit,
     createOIMOrderedListCommandStreamDiffDriven,
 } from '@oimdb/core';
+
+/**
+ * Minimal writable bindable for tests. The bridge depends only on the type-only
+ * `@exodra/reactivity-types`, so tests avoid pulling the `@exodra/reactivity` runtime just to get a
+ * writable bindable for the reactive-key case.
+ */
+const testBindable = <T>(initial: T) => {
+    let value = initial;
+    const subscribers = new Set<() => void>();
+    return {
+        getValue: () => value,
+        subscribe(update: () => void) {
+            subscribers.add(update);
+            return () => subscribers.delete(update);
+        },
+        setValue(next: T) {
+            if (Object.is(next, value)) return;
+            value = next;
+            for (const subscriber of Array.from(subscribers)) {
+                if (subscribers.has(subscriber)) subscriber();
+            }
+        },
+    };
+};
 import {
     bindSelectors,
     combine,
@@ -179,7 +202,7 @@ describe('bindSelectors / fromSelector', () => {
         queue.flush();
 
         const bound = bindSelectors(kit.select);
-        const key = bindable('t1');
+        const key = testBindable('t1');
         const rows = bound.entitiesBySetIndexKey(byTeam, key);
         expect(rows.getValue()).toEqual([
             { id: 'u1', name: 'Alice', teamId: 't1' },
