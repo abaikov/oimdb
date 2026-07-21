@@ -89,5 +89,7 @@ function runCollectionBoundBench(): void {
     });
 }
 
-runRawSlotBench();
-runCollectionBoundBench();
+export function runAllIndexBenchmarks(): void {
+    runRawSlotBench();
+    runCollectionBoundBench();
+}

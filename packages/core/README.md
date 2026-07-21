@@ -1443,7 +1443,7 @@ new OIMReactiveCollectionIndexManualSetBased(queue: OIMEventQueue, opts: {
         store?: OIMIndexStoreSetBased<TKey, TPk>;
     };
 } | {
-    resolveSlot: TOIMEntitySlotResolver<TPk>;
+    getSlot: TOIMEntitySlotGetter<TPk>;
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
         store?: OIMIndexStoreSetBased<TKey, TPk>;
@@ -1451,7 +1451,7 @@ new OIMReactiveCollectionIndexManualSetBased(queue: OIMEventQueue, opts: {
 })
 ```
 
-Pass exactly one binding: `collection` for normal collection-bound indexes, or `resolveSlot` for custom slot resolution.
+Pass exactly one binding: `collection` for normal collection-bound indexes, or `getSlot` for custom slot lookup.
 
 **Methods:**
 - `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key
@@ -1541,7 +1541,7 @@ new OIMReactiveCollectionIndexManualArrayBased(queue: OIMEventQueue, opts: {
         store?: OIMIndexStoreArrayBased<TKey, TPk>;
     };
 } | {
-    resolveSlot: TOIMEntitySlotResolver<TPk>;
+    getSlot: TOIMEntitySlotGetter<TPk>;
     indexOptions?: {
         comparePks?: TOIMIndexComparator<TPk>;
         store?: OIMIndexStoreArrayBased<TKey, TPk>;
@@ -1549,7 +1549,7 @@ new OIMReactiveCollectionIndexManualArrayBased(queue: OIMEventQueue, opts: {
 })
 ```
 
-Pass exactly one binding: `collection` for normal collection-bound indexes, or `resolveSlot` for custom slot resolution.
+Pass exactly one binding: `collection` for normal collection-bound indexes, or `getSlot` for custom slot lookup.
 
 **Methods:**
 - `setPks(key: TKey, pks: readonly TPk[]): void` - Set primary keys for index key

@@ -6,7 +6,7 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 import { OIMIndexStoreMapDrivenArrayBased } from './OIMIndexStoreMapDrivenArrayBased';
-import { OIMBucketCarrierResolver } from './OIMBucketCarrierResolver';
+import { OIMBucketCarrierProvider } from './OIMBucketCarrierProvider';
 import { OIMKeyedBucketArrayBased } from './OIMKeyedBucketArrayBased';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
@@ -58,7 +58,7 @@ export class OIMReactiveIndexManualArrayBased<
             };
         }
     ) {
-        // Share ONE store between the keyed emitter's resolver (carriers =
+        // Share ONE store between the keyed emitter's provider (carriers =
         // buckets) and the index, so a write marks the bucket directly.
         const store =
             opts?.indexOptions?.store ??
@@ -71,7 +71,7 @@ export class OIMReactiveIndexManualArrayBased<
                     store,
                 }),
             () =>
-                new OIMBucketCarrierResolver<
+                new OIMBucketCarrierProvider<
                     TKey,
                     OIMKeyedBucketArrayBased<TKey, TPk>
                 >(store)

@@ -3,7 +3,7 @@ import { OIMReactiveGlobalIndexManualSetBased } from './OIMReactiveGlobalIndexMa
 import { OIMEventQueue } from './OIMEventQueue';
 import {
     TOIMAnyEntitySlot,
-    TOIMEntitySlotResolver,
+    TOIMEntitySlotGetter,
 } from '../types/TOIMEntitySlot';
 import { TOIMCollectionGlobalIndexSetBasedOptions } from '../types/TOIMCollectionGlobalIndexOptions';
 import { TOIMPk } from '../types/TOIMPk';
@@ -20,7 +20,7 @@ export class OIMReactiveCollectionGlobalIndexManualSetBased<
     TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveGlobalIndexManualSetBased<TPk> {
-    private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    private readonly getSlot: TOIMEntitySlotGetter<TPk>;
     private readonly membership = new Map<TPk, TOIMAnyEntitySlot<TPk>>();
     private membershipSeeded = false;
 
@@ -28,13 +28,13 @@ export class OIMReactiveCollectionGlobalIndexManualSetBased<
         queue: OIMEventQueue,
         opts: TOIMCollectionGlobalIndexSetBasedOptions<TEntity, TPk>
     ) {
-        const resolveSlot =
+        const getSlot =
             opts.collection !== undefined
                 ? (pk: TPk) => opts.collection.getOrReserveSlotByPk(pk)
-                : opts.resolveSlot;
+                : opts.getSlot;
 
         super(queue, { indexOptions: opts.indexOptions });
-        this.resolveSlot = resolveSlot;
+        this.getSlot = getSlot;
     }
 
     public setPks(pks: readonly TPk[]): void {
@@ -42,7 +42,7 @@ export class OIMReactiveCollectionGlobalIndexManualSetBased<
         const slots: TOIMAnyEntitySlot<TPk>[] = [];
         for (let i = 0; i < pks.length; i++) {
             const pk = pks[i];
-            const slot = this.resolveRequiredSlot(pk);
+            const slot = this.getSlotOrTransient(pk);
             if (!this.membership.has(pk)) this.membership.set(pk, slot);
             slots.push(slot);
         }
@@ -57,7 +57,7 @@ export class OIMReactiveCollectionGlobalIndexManualSetBased<
         const newSlots: TOIMAnyEntitySlot<TPk>[] = [];
         for (const pk of pks) {
             if (membership.has(pk)) continue;
-            const slot = this.resolveRequiredSlot(pk);
+            const slot = this.getSlotOrTransient(pk);
             membership.set(pk, slot);
             newSlots.push(slot);
         }
@@ -105,8 +105,8 @@ export class OIMReactiveCollectionGlobalIndexManualSetBased<
         return super.getEntities<TItem>();
     }
 
-    private resolveRequiredSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {
-        const slot = this.resolveSlot(pk);
+    private getSlotOrTransient(pk: TPk): TOIMAnyEntitySlot<TPk> {
+        const slot = this.getSlot(pk);
         if (!slot) return { pk, item: undefined };
         return slot;
     }

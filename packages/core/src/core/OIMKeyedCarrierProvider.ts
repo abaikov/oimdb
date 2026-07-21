@@ -1,5 +1,5 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { IOIMCarrierResolver } from './OIMCarrierKeyedEmitter';
+import { IOIMCarrierProvider } from './OIMCarrierKeyedEmitter';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 
 /**
@@ -9,8 +9,8 @@ import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
  * leaves (`onCarrierEmptied`) — mirroring the old per-key handler map, so a
  * churning key space does not leak carriers.
  */
-export class OIMKeyedCarrierResolver<TKey extends TOIMKey>
-    implements IOIMCarrierResolver<TKey, IOIMKeyCarrier<TKey>>
+export class OIMKeyedCarrierProvider<TKey extends TOIMKey>
+    implements IOIMCarrierProvider<TKey, IOIMKeyCarrier<TKey>>
 {
     private readonly carriers = new Map<TKey, IOIMKeyCarrier<TKey>>();
 

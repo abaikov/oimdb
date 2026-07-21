@@ -38,6 +38,7 @@
   },
   "scripts": {
     "build": "tsup --config tsup.config.ts",
+    "build:llms-full": "node scripts/build-llms-full.mjs",
     "build:core": "cd packages/core && npm run build",
     "build:react": "cd packages/react && npm run build",
     "build:async": "cd packages/async && npm run build",

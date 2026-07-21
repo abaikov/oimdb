@@ -2,8 +2,6 @@ import { TOIMKeyPath } from '../types/TOIMKeyPath';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
-import { OIMKeyDomainTrie } from './OIMKeyDomainTrie';
 import { OIMTrieMap } from './OIMTrieMap';
 
 /**
@@ -21,22 +19,14 @@ import { OIMTrieMap } from './OIMTrieMap';
 export class OIMCollectionStoreTrieDriven<
     TEntity extends object,
 > extends OIMCollectionStore<TEntity, TOIMKeyPath> {
-    public readonly keyDomain: IOIMKeyDomain<TOIMKeyPath>;
-    protected readonly slots: OIMTrieMap<
+    protected readonly slots = new OIMTrieMap<
         TOIMPk,
         TOIMEntitySlot<TEntity, TOIMKeyPath>
-    >;
-    protected readonly reservedSlots: OIMTrieMap<
+    >();
+    protected readonly reservedSlots = new OIMTrieMap<
         TOIMPk,
         TOIMEntitySlot<TEntity, TOIMKeyPath>
-    >;
-
-    constructor(keyDomain: OIMKeyDomainTrie = new OIMKeyDomainTrie()) {
-        super();
-        this.keyDomain = keyDomain;
-        this.slots = new OIMTrieMap();
-        this.reservedSlots = new OIMTrieMap();
-    }
+    >();
 
     setOneByPk(
         pk: TOIMKeyPath,
@@ -54,9 +44,11 @@ export class OIMCollectionStoreTrieDriven<
             this.slots.set(pk, reserved);
             return reserved;
         }
-        // Intern the PK so `slot.pk` is one canonical reference per logical key.
+        // `slot.pk` is the first pk array seen for this logical key. The trie
+        // returns this same slot for any content-equal key, so `slot.pk` stays
+        // one canonical reference per logical key — no separate interning pass.
         const nextSlot = {
-            pk: this.keyDomain.canonicalize(pk),
+            pk,
             item: entity,
         };
         this.slots.set(pk, nextSlot);
@@ -70,7 +62,7 @@ export class OIMCollectionStoreTrieDriven<
         if (slot) return slot;
         let reserved = this.reservedSlots.get(pk);
         if (!reserved) {
-            reserved = { pk: this.keyDomain.canonicalize(pk), item: undefined };
+            reserved = { pk, item: undefined };
             this.reservedSlots.set(pk, reserved);
         }
         return reserved;

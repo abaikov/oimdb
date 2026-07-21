@@ -5,9 +5,7 @@ import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMKeyedBucketSetBased } from './OIMKeyedBucketSetBased';
-import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
 import { IOIMKeyedMap } from '../interfaces/IOIMKeyedMap';
-import { OIMKeyDomainNative } from './OIMKeyDomainNative';
 
 /**
  * Manual Set-based index with direct key→slots control.
@@ -23,19 +21,13 @@ export class OIMIndexManualSetBased<
     TIndexKey extends TOIMKey,
     TPk extends TOIMKey,
 > extends OIMIndexSetBased<TIndexKey, TPk> {
-    // Keys the per-bucket pk → slot membership. Native for primitive PKs, trie
-    // for composite PK paths (passed down from the collection's key domain).
-    protected readonly pkDomain: IOIMKeyDomain<TPk>;
-
     constructor(
         options: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreSetBased<TIndexKey, TPk>;
-            pkDomain?: IOIMKeyDomain<TPk>;
         } = {}
     ) {
         super(options);
-        this.pkDomain = options.pkDomain ?? new OIMKeyDomainNative<TPk>();
     }
 
     public setSlots(
@@ -53,37 +45,40 @@ export class OIMIndexManualSetBased<
     public setPks(
         key: TIndexKey,
         pks: readonly TPk[],
-        resolveSlot: (pk: TPk) => TOIMAnyEntitySlot<TPk>
+        getSlot: (pk: TPk) => TOIMAnyEntitySlot<TPk>
     ): void {
         const bucket = this.setStore.getOrReserveBucket(key);
         const slots: TOIMAnyEntitySlot<TPk>[] = [];
-        for (let i = 0; i < pks.length; i++) slots.push(resolveSlot(pks[i]));
+        for (let i = 0; i < pks.length; i++) slots.push(getSlot(pks[i]));
         // Replace bucket contents first (this also clears membership via the
         // bucket's `clear()`), then rebuild membership from the resolved slots.
         this.replaceBucketContents(bucket, slots);
         const membership =
-            bucket.membership ??
-            (bucket.membership = this.pkDomain.createMap());
+            bucket.membership ?? (bucket.membership = new Map());
         membership.clear();
-        for (let i = 0; i < pks.length; i++) {
-            if (!membership.has(pks[i])) membership.set(pks[i], slots[i]);
+        // Keyed by the canonical `slot.pk` (one reference per logical key), so a
+        // native `Map` is correct for composite pks too — no content-addressing.
+        for (let i = 0; i < slots.length; i++) {
+            if (!membership.has(slots[i].pk)) {
+                membership.set(slots[i].pk, slots[i]);
+            }
         }
     }
 
     public addPks(
         key: TIndexKey,
         pks: readonly TPk[],
-        resolveSlot: (pk: TPk) => TOIMAnyEntitySlot<TPk>
+        getSlot: (pk: TPk) => TOIMAnyEntitySlot<TPk>
     ): void {
         if (pks.length === 0) return;
         const bucket = this.setStore.getOrReserveBucket(key);
         const membership = this.membershipOf(bucket);
         let changed = false;
         for (let i = 0; i < pks.length; i++) {
-            const pk = pks[i];
-            if (membership.has(pk)) continue;
-            const slot = resolveSlot(pk);
-            membership.set(pk, slot);
+            const slot = getSlot(pks[i]);
+            // Dedup by the canonical slot reference (works for composite pks).
+            if (membership.has(slot.pk)) continue;
+            membership.set(slot.pk, slot);
             if (!bucket.has(slot)) {
                 bucket.add(slot);
                 changed = true;
@@ -94,6 +89,11 @@ export class OIMIndexManualSetBased<
         this.emitBucketChanged(bucket);
     }
 
+    /**
+     * Removes by pk. `pks` must be canonical `slot.pk` references (membership is
+     * keyed by them): for primitive pks that is just the pk; a collection-bound
+     * composite index canonicalizes raw pks to `slot.pk` before calling this.
+     */
     public removePks(key: TIndexKey, pks: readonly TPk[]): void {
         if (pks.length === 0) return;
         const bucket = this.setStore.findBucket(key);
@@ -124,7 +124,7 @@ export class OIMIndexManualSetBased<
     ): IOIMKeyedMap<TPk, TOIMAnyEntitySlot<TPk>> {
         let membership = bucket.membership;
         if (!membership) {
-            membership = this.pkDomain.createMap();
+            membership = new Map();
             bucket.membership = membership;
         }
         if (membership.size === 0 && bucket.size > 0) {

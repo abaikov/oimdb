@@ -3,7 +3,7 @@ import { OIMReactiveGlobalIndexManualArrayBased } from './OIMReactiveGlobalIndex
 import { OIMEventQueue } from './OIMEventQueue';
 import {
     TOIMAnyEntitySlot,
-    TOIMEntitySlotResolver,
+    TOIMEntitySlotGetter,
 } from '../types/TOIMEntitySlot';
 import { TOIMCollectionGlobalIndexArrayBasedOptions } from '../types/TOIMCollectionGlobalIndexOptions';
 import { TOIMPk } from '../types/TOIMPk';
@@ -20,7 +20,7 @@ export class OIMReactiveCollectionGlobalIndexManualArrayBased<
     TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveGlobalIndexManualArrayBased<TPk> {
-    private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    private readonly getSlot: TOIMEntitySlotGetter<TPk>;
     // Single pk membership set for O(1) `addPks` dedup. Lazily seeded from the
     // bucket so it stays correct even after a raw `setSlots` (e.g. derived
     // rebuild), matching the keyed index's `membershipOf`.
@@ -31,20 +31,20 @@ export class OIMReactiveCollectionGlobalIndexManualArrayBased<
         queue: OIMEventQueue,
         opts: TOIMCollectionGlobalIndexArrayBasedOptions<TEntity, TPk>
     ) {
-        const resolveSlot =
+        const getSlot =
             opts.collection !== undefined
                 ? (pk: TPk) => opts.collection.getOrReserveSlotByPk(pk)
-                : opts.resolveSlot;
+                : opts.getSlot;
 
         super(queue, { indexOptions: opts.indexOptions });
-        this.resolveSlot = resolveSlot;
+        this.getSlot = getSlot;
     }
 
     public setPks(pks: readonly TPk[]): void {
         this.membership.clear();
         for (let i = 0; i < pks.length; i++) this.membership.add(pks[i]);
         this.membershipSeeded = true;
-        super.setSlots(this.resolveSlots(pks));
+        super.setSlots(this.getSlotsOrTransient(pks));
     }
 
     public addPks(pks: readonly TPk[]): void {
@@ -56,7 +56,7 @@ export class OIMReactiveCollectionGlobalIndexManualArrayBased<
         for (const pk of pks) {
             if (membership.has(pk)) continue;
             membership.add(pk);
-            newSlots.push(this.resolveRequiredSlot(pk));
+            newSlots.push(this.getSlotOrTransient(pk));
         }
         if (newSlots.length > 0) super.appendSlots(newSlots);
     }
@@ -104,18 +104,18 @@ export class OIMReactiveCollectionGlobalIndexManualArrayBased<
         return super.getEntities<TItem>();
     }
 
-    private resolveSlots(pks: readonly TPk[]): TOIMAnyEntitySlot<TPk>[] {
+    private getSlotsOrTransient(pks: readonly TPk[]): TOIMAnyEntitySlot<TPk>[] {
         const slots: TOIMAnyEntitySlot<TPk>[] = [];
         slots.length = pks.length;
         for (let i = 0; i < pks.length; i++) {
-            slots[i] = this.resolveRequiredSlot(pks[i]);
+            slots[i] = this.getSlotOrTransient(pks[i]);
         }
         return slots;
     }
 
-    private resolveRequiredSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {
-        const slot = this.resolveSlot(pk);
-        // A custom resolver may not have a slot for this pk yet — hold a
+    private getSlotOrTransient(pk: TPk): TOIMAnyEntitySlot<TPk> {
+        const slot = this.getSlot(pk);
+        // A custom getter may not have a slot for this pk yet — hold a
         // transient empty slot so the pk stays indexed and the entity simply
         // does not materialize until it exists.
         if (!slot) return { pk, item: undefined };

@@ -13,13 +13,13 @@ import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
  * Collection carrier = the entity slot (by pk); index carrier = the bucket
  * (by index key).
  */
-export interface IOIMCarrierResolver<TKey extends TOIMKey, TCarrier> {
+export interface IOIMCarrierProvider<TKey extends TOIMKey, TCarrier> {
     getOrReserveCarrier(key: TKey): TCarrier;
     findCarrier(key: TKey): TCarrier | undefined;
     /**
-     * Optional: called when a carrier loses its last subscriber, so a resolver
+     * Optional: called when a carrier loses its last subscriber, so a carrierProvider
      * that owns standalone carriers (e.g. the index's key→carrier map) can prune
-     * it and not leak the key space. Resolvers whose carriers are owned
+     * it and not leak the key space. Providers whose carriers are owned
      * elsewhere (e.g. the collection's slots) leave this unset.
      */
     onCarrierEmptied?(carrier: TCarrier): void;
@@ -41,7 +41,7 @@ export class OIMCarrierKeyedEmitter<
     TCarrier extends IOIMSubscribable,
 > implements IOIMKeyedUpdateEmitter<TKey> {
     private readonly queue: OIMEventQueue;
-    private readonly resolver: IOIMCarrierResolver<TKey, TCarrier>;
+    private readonly carrierProvider: IOIMCarrierProvider<TKey, TCarrier>;
     // Carriers with at least one subscriber — for markAllUpdated / metrics.
     private readonly subscribedCarriers = new Set<TCarrier>();
     // Pending flush batch. A plain array + a `carrier.dirty` flag for dedup —
@@ -53,14 +53,14 @@ export class OIMCarrierKeyedEmitter<
 
     constructor(
         queue: OIMEventQueue,
-        resolver: IOIMCarrierResolver<TKey, TCarrier>
+        carrierProvider: IOIMCarrierProvider<TKey, TCarrier>
     ) {
         this.queue = queue;
-        this.resolver = resolver;
+        this.carrierProvider = carrierProvider;
     }
 
     public subscribeOnKey(key: TKey, handler: TOIMEventHandler<void>): () => void {
-        const carrier = this.resolver.getOrReserveCarrier(key);
+        const carrier = this.carrierProvider.getOrReserveCarrier(key);
         this.addHandler(carrier, handler);
         return () => this.removeHandler(carrier, handler);
     }
@@ -71,7 +71,7 @@ export class OIMCarrierKeyedEmitter<
     ): () => void {
         const carriers: TCarrier[] = [];
         for (let i = 0; i < keys.length; i++) {
-            const carrier = this.resolver.getOrReserveCarrier(keys[i]);
+            const carrier = this.carrierProvider.getOrReserveCarrier(keys[i]);
             this.addHandler(carrier, handler);
             carriers.push(carrier);
         }
@@ -83,7 +83,7 @@ export class OIMCarrierKeyedEmitter<
     }
 
     public unsubscribeFromKey(key: TKey, handler: TOIMEventHandler<void>): void {
-        const carrier = this.resolver.findCarrier(key);
+        const carrier = this.carrierProvider.findCarrier(key);
         if (carrier) this.removeHandler(carrier, handler);
     }
 
@@ -118,10 +118,10 @@ export class OIMCarrierKeyedEmitter<
         subscribers.delete(handler);
         if (subscribers.size === 0) {
             this.subscribedCarriers.delete(carrier);
-            // Let a resolver that owns standalone carriers prune this one
+            // Let a carrierProvider that owns standalone carriers prune this one
             // (index key→carrier map). Carriers owned elsewhere (collection
             // slots) have no hook and are reclaimed on remove/clear instead.
-            this.resolver.onCarrierEmptied?.(carrier);
+            this.carrierProvider.onCarrierEmptied?.(carrier);
         }
     }
 
@@ -138,13 +138,13 @@ export class OIMCarrierKeyedEmitter<
 
     public markUpdatedKey(key: TKey): void {
         // Nothing is subscribed anywhere → no carrier can have handlers, so skip
-        // the resolver lookup entirely. For a composite (trie) resolver this
+        // the carrierProvider lookup entirely. For a composite (trie) carrierProvider this
         // avoids an O(arity) walk on every write to an unsubscribed key.
         if (this.subscribedCarriers.size === 0) {
             this.assertNotInFlush();
             return;
         }
-        const carrier = this.resolver.findCarrier(key);
+        const carrier = this.carrierProvider.findCarrier(key);
         if (carrier) this.markUpdatedCarrier(carrier);
         else this.assertNotInFlush();
     }
@@ -173,7 +173,7 @@ export class OIMCarrierKeyedEmitter<
     }
 
     public getHandlerCount(key: TKey): number {
-        return this.resolver.findCarrier(key)?.subscribers?.size ?? 0;
+        return this.carrierProvider.findCarrier(key)?.subscribers?.size ?? 0;
     }
 
     public getMetrics(): {

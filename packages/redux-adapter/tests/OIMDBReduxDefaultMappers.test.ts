@@ -140,7 +140,7 @@ describe('Default Mappers', () => {
         let index: OIMReactiveCollectionIndexManualSetBased<string, string>;
 
         beforeEach(() => {
-            index = new OIMReactiveCollectionIndexManualSetBased<string, string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+            index = new OIMReactiveCollectionIndexManualSetBased<string, string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
         });
 
         test('should initialize state with all keys when currentState is undefined', () => {

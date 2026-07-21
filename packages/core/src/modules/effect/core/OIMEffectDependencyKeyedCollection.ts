@@ -1,6 +1,5 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { OIMEffectDependencyKeyed } from './OIMEffectDependencyKeyed';
 
@@ -11,28 +10,15 @@ export class OIMEffectDependencyKeyedCollection<
 {
     private readonly dep: OIMEffectDependencyKeyed<TPk>;
 
-    constructor(collection: OIMReactiveCollection<TEntity, TPk>, pk: TPk);
-    constructor(
-        collection: OIMReactiveCollection<TEntity, TPk>,
-        pks: readonly TPk[]
-    );
-    constructor(
-        collection: OIMReactiveCollection<TEntity, TPk>,
-        pkOrPks: TPk | readonly TPk[]
-    ) {
-        this.dep = new OIMEffectDependencyKeyed<TPk>(
-            collection,
-            pkOrPks
-        );
+    constructor(collection: OIMReactiveCollection<TEntity, TPk>, pk: TPk) {
+        this.dep = new OIMEffectDependencyKeyed<TPk>(collection, pk);
     }
 
     public get source(): OIMReactiveCollection<TEntity, TPk> {
         return this.dep.source as OIMReactiveCollection<TEntity, TPk>;
     }
 
-    public subscribe(
-        onUpdate: () => void
-    ): () => void {
+    public subscribe(onUpdate: () => void): () => void {
         return this.dep.subscribe(onUpdate);
     }
 }

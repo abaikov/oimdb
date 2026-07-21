@@ -1,6 +1,6 @@
 import { TOIMKey } from './TOIMKey';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
-import type { TOIMEntitySlotResolver } from './TOIMEntitySlot';
+import type { TOIMEntitySlotGetter } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
 import type { TOIMPk } from './TOIMPk';
 import type {
@@ -22,8 +22,8 @@ export type TOIMCollectionGlobalIndexArrayBasedOptions<
 > = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 } & (
-    | { collection: OIMReactiveCollection<TEntity, TPk>; resolveSlot?: never }
-    | { collection?: never; resolveSlot: TOIMEntitySlotResolver<TPk> }
+    | { collection: OIMReactiveCollection<TEntity, TPk>; getSlot?: never }
+    | { collection?: never; getSlot: TOIMEntitySlotGetter<TPk> }
 );
 
 export type TOIMCollectionGlobalIndexSetBasedOptions<
@@ -32,8 +32,8 @@ export type TOIMCollectionGlobalIndexSetBasedOptions<
 > = {
     indexOptions?: { comparePks?: TOIMIndexComparator<TPk> };
 } & (
-    | { collection: OIMReactiveCollection<TEntity, TPk>; resolveSlot?: never }
-    | { collection?: never; resolveSlot: TOIMEntitySlotResolver<TPk> }
+    | { collection: OIMReactiveCollection<TEntity, TPk>; getSlot?: never }
+    | { collection?: never; getSlot: TOIMEntitySlotGetter<TPk> }
 );
 
 export type TOIMDerivedCollectionGlobalIndexArrayBasedOptions<

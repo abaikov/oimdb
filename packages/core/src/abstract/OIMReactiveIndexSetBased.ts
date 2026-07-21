@@ -3,7 +3,7 @@ import { OIMIndexSetBased } from './OIMIndexSetBased';
 import { TOIMPk } from '../types/TOIMPk';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import {
-    IOIMCarrierResolver,
+    IOIMCarrierProvider,
 } from '../core/OIMCarrierKeyedEmitter';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 import { OIMEventQueue } from '../core/OIMEventQueue';
@@ -18,9 +18,9 @@ export abstract class OIMReactiveIndexSetBased<
     constructor(
         queue: OIMEventQueue,
         createIndex: (updateEmitter: IOIMKeyedUpdateEmitter<TKey>) => TIndex,
-        createResolver?: () => IOIMCarrierResolver<TKey, IOIMKeyCarrier<TKey>>
+        createCarrierProvider?: () => IOIMCarrierProvider<TKey, IOIMKeyCarrier<TKey>>
     ) {
-        super(queue, createIndex, createResolver);
+        super(queue, createIndex, createCarrierProvider);
     }
 
     public getPksByKey(key: TKey): Set<TPk> {

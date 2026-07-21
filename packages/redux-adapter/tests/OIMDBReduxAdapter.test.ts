@@ -216,7 +216,7 @@ describe('OIMDBReduxAdapter', () => {
         let reducer: ReturnType<typeof adapter.createIndexReducer>;
 
         beforeEach(() => {
-            index = new OIMReactiveCollectionIndexManualSetBased<string, string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+            index = new OIMReactiveCollectionIndexManualSetBased<string, string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
             reducer = adapter.createIndexReducer(index);
         });
 
@@ -613,7 +613,7 @@ describe('OIMDBReduxAdapter', () => {
                 queue
             );
             const usersByDepartmentIndex = new OIMReactiveCollectionIndexManualSetBased<string,
-                string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+                string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
 
             const usersReducer =
                 adapter.createCollectionReducer(usersCollection);
@@ -2065,7 +2065,7 @@ describe('OIMDBReduxAdapter', () => {
             );
 
             const cardsByDeckIndex = new OIMReactiveCollectionIndexManualArrayBased<string,
-                string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+                string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
 
             // Setup initial data
             decksCollection.upsertMany([
@@ -3912,7 +3912,7 @@ describe('OIMDBReduxAdapter', () => {
                 }
             );
             const cardsByDeckIndex = new OIMReactiveCollectionIndexManualSetBased<string,
-                string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+                string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
 
             // Setup initial data
             decksCollection.upsertMany([
@@ -4026,7 +4026,7 @@ describe('OIMDBReduxAdapter', () => {
                 }
             );
             const cardsByDeckIndex = new OIMReactiveCollectionIndexManualSetBased<string,
-                string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+                string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
 
             // Setup initial data
             decksCollection.upsertMany([
@@ -4129,7 +4129,7 @@ describe('OIMDBReduxAdapter', () => {
                 }
             );
             const cardsByDeckIndex = new OIMReactiveCollectionIndexManualSetBased<string,
-                string, { id: string }>(queue, { resolveSlot: pk => ({ pk, item: { id: pk } }) });
+                string, { id: string }>(queue, { getSlot: pk => ({ pk, item: { id: pk } }) });
 
             // Add initial deck
             decksCollection.upsertOne({

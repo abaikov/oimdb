@@ -97,7 +97,7 @@ describe('@oimdb/persist-memory', () => {
         arrayIndex.setSlots('featured', [users.getSlotByPk('u2')!, users.getSlotByPk('u1')!]);
 
         const orderedIndex = new OIMCollectionIndexManualOrderedArrayBased<string, string, User>(
-            { resolveSlot: pk => users.getSlotByPk(pk) }
+            { getSlot: pk => users.getSlotByPk(pk) }
         );
         orderedIndex.reset('queue', ['u2', 'u1']);
 
@@ -112,7 +112,7 @@ describe('@oimdb/persist-memory', () => {
         const targetSetIndex = new OIMIndexManualSetBased<string, string>();
         const targetArrayIndex = new OIMIndexManualArrayBased<string, string>();
         const targetOrderedIndex = new OIMCollectionIndexManualOrderedArrayBased<string, string, User>(
-            { resolveSlot: pk => users.getSlotByPk(pk) }
+            { getSlot: pk => users.getSlotByPk(pk) }
         );
 
         targetPersistor.object(targetSettings).entry({ bucketName: 'settings' });

@@ -3,7 +3,7 @@ import type { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBase
 import type { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
 import type { OIMCollectionIndexManualOrderedArrayBased } from '../core/OIMCollectionIndexManualOrderedArrayBased';
-import type { TOIMEntitySlotResolver } from './TOIMEntitySlot';
+import type { TOIMEntitySlotGetter } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
 import type { TOIMPk } from './TOIMPk';
 import type { TOIMKeyPath } from './TOIMKeyPath';
@@ -20,11 +20,11 @@ export type TOIMCollectionIndexSetBasedOptions<
 } & (
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       }
 );
 
@@ -40,11 +40,11 @@ export type TOIMCollectionIndexArrayBasedOptions<
 } & (
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       }
 );
 
@@ -54,11 +54,11 @@ export type TOIMCollectionOrderedIndexOptions<
 > =
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       };
 
 export type TOIMCollectionOrderedListCommandStreamOptions<
@@ -70,11 +70,11 @@ export type TOIMCollectionOrderedListCommandStreamOptions<
 } & (
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       }
 );
 
@@ -114,11 +114,11 @@ export type TOIMCollectionIndexCompositeSetBasedOptions<
 } & (
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       }
 );
 
@@ -145,11 +145,11 @@ export type TOIMCollectionIndexCompositeArrayBasedOptions<
 } & (
     | {
           collection: OIMReactiveCollection<TEntity, TPk>;
-          resolveSlot?: never;
+          getSlot?: never;
       }
     | {
           collection?: never;
-          resolveSlot: TOIMEntitySlotResolver<TPk>;
+          getSlot: TOIMEntitySlotGetter<TPk>;
       }
 );
 

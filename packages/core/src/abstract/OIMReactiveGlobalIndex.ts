@@ -9,7 +9,7 @@ import { OIMGlobalIndex } from './OIMGlobalIndex';
 
 /**
  * Reactive wrapper around a keyless {@link OIMGlobalIndex}. Owns a single-carrier
- * emitter (no resolver, no key→carrier map), so `subscribe(handler)` is keyless
+ * emitter (no provider, no key→carrier map), so `subscribe(handler)` is keyless
  * and directly satisfies `IOIMSelectorSourceDependency`. Mirrors
  * {@link OIMReactiveIndex} minus the key.
  */

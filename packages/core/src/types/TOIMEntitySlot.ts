@@ -20,6 +20,6 @@ export type TOIMAnyEntitySlot<TPk extends TOIMKey> = TOIMEntitySlot<
     TPk
 >;
 
-export type TOIMEntitySlotResolver<TPk extends TOIMKey> = (
+export type TOIMEntitySlotGetter<TPk extends TOIMKey> = (
     pk: TPk
 ) => TOIMAnyEntitySlot<TPk> | undefined;

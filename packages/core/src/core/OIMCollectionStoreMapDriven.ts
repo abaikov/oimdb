@@ -2,21 +2,16 @@ import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
-import { OIMKeyDomainNative } from './OIMKeyDomainNative';
-
 /**
  * Native-`Map` collection store for primitive PKs. The hot path is a plain
  * `Map` — this class NEVER holds a trie, so its `.get`/`.set` call sites stay
  * monomorphic even in a process that also runs composite-PK collections (those
- * use `OIMCollectionStoreTrieDriven`). Byte-for-byte the pre-seam behavior; the
- * only addition is a shared native `keyDomain` object the indexes read.
+ * use `OIMCollectionStoreTrieDriven`). Byte-for-byte the pre-seam behavior.
  */
 export class OIMCollectionStoreMapDriven<
     TEntity extends object,
     TPk extends TOIMKey,
 > extends OIMCollectionStore<TEntity, TPk> {
-    public readonly keyDomain: IOIMKeyDomain<TPk> = new OIMKeyDomainNative<TPk>();
     protected readonly slots = new Map<TPk, TOIMEntitySlot<TEntity, TPk>>();
     // Slots reserved by indexes for PKs whose entity has not arrived yet.
     // They carry `item: undefined` and live apart from `slots` so they do not

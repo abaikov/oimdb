@@ -47,6 +47,25 @@ npm install @oimdb/react @oimdb/core
 
 [React Guide](/docs/packages/react) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/react) · [npm](https://www.npmjs.com/package/@oimdb/react)
 
+## @oimdb/exodra
+
+[Exodra](https://exodra.org) reactivity adapter — the counterpart of `@oimdb/react`, turning OIMDB sources into read-only Exodra bindables (`TExoBindable`) instead of hooks + re-renders. No React.
+
+```bash
+npm install @oimdb/exodra @exodra/reactivity @oimdb/core
+```
+
+**Includes:**
+
+- `fromSelector` / `fromOimdb` / `fromSelectorFactory` — adapt an `OIMSelector` (or raw read/subscribe pair, or reactive key) into a bindable
+- `bindSelectors` — mirror of `OIMCollectionSelectors`, each method returning a `TExoBindable`; keys accept a bindable
+- `fromComputed` — `OIMComputed` → bindable; `combine` — multi-source derive
+- `keyedChildren` / `entityRows` — identity-stable, focus-safe list children
+- `listFromCommandStream` — O(delta) path: an OIMDB ordered command stream → an Exodra `bindableList`
+- `read*` / `subscribe*` — low-level pairs for a 1:1 find-replace migration of an inline bridge
+
+[Exodra Guide](/docs/packages/exodra) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/exodra) · [npm](https://www.npmjs.com/package/@oimdb/exodra)
+
 ## @oimdb/redux-adapter
 
 Production-ready Redux adapter for gradual migration or hybrid usage.

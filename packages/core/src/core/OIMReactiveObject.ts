@@ -1,7 +1,7 @@
 import { OIMObject } from './OIMObject';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMCarrierKeyedEmitter } from './OIMCarrierKeyedEmitter';
-import { OIMKeyedCarrierResolver } from './OIMKeyedCarrierResolver';
+import { OIMKeyedCarrierProvider } from './OIMKeyedCarrierProvider';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import { TOIMObjectOptions } from '../types/TOIMObjectOptions';
@@ -21,7 +21,7 @@ export class OIMReactiveObject<TKey extends string, TValue>
         this.updateEmitter = new OIMCarrierKeyedEmitter<
             TKey,
             IOIMKeyCarrier<TKey>
-        >(queue, new OIMKeyedCarrierResolver<TKey>());
+        >(queue, new OIMKeyedCarrierProvider<TKey>());
     }
 
     /**

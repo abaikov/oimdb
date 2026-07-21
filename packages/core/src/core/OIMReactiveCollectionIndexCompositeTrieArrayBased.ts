@@ -3,7 +3,7 @@ import { OIMReactiveIndexManualArrayBased } from './OIMReactiveIndexManualArrayB
 import { OIMEventQueue } from './OIMEventQueue';
 import {
     TOIMAnyEntitySlot,
-    TOIMEntitySlotResolver,
+    TOIMEntitySlotGetter,
 } from '../types/TOIMEntitySlot';
 import { TOIMCollectionIndexCompositeArrayBasedOptions } from '../types/TOIMCollectionIndexOptions';
 import { TOIMPk } from '../types/TOIMPk';
@@ -25,7 +25,7 @@ export class OIMReactiveCollectionIndexCompositeTrieArrayBased<
     TPk extends TOIMKey,
     TEntity extends object = object,
 > extends OIMReactiveIndexManualArrayBased<TOIMKeyPath, TPk> {
-    private readonly resolveSlot: TOIMEntitySlotResolver<TPk>;
+    private readonly getSlot: TOIMEntitySlotGetter<TPk>;
     // Persistent per-key-path pk membership for O(1) `addPks` dedup. Trie-keyed
     // so a rebuilt key path matches by content.
     private readonly pksByKey = new OIMTrieMap<TOIMPk, Set<TPk>>();
@@ -34,10 +34,10 @@ export class OIMReactiveCollectionIndexCompositeTrieArrayBased<
         queue: OIMEventQueue,
         opts: TOIMCollectionIndexCompositeArrayBasedOptions<TEntity, TPk>
     ) {
-        const resolveSlot =
+        const getSlot =
             opts.collection !== undefined
                 ? (pk: TPk) => opts.collection.getOrReserveSlotByPk(pk)
-                : opts.resolveSlot;
+                : opts.getSlot;
 
         super(queue, {
             indexOptions: {
@@ -47,14 +47,14 @@ export class OIMReactiveCollectionIndexCompositeTrieArrayBased<
                     new OIMIndexStoreTrieDrivenArrayBased<TPk>(),
             },
         });
-        this.resolveSlot = resolveSlot;
+        this.getSlot = getSlot;
     }
 
     public setPks(key: TOIMKeyPath, pks: readonly TPk[]): void {
         const pkSet = new Set<TPk>();
         for (let i = 0; i < pks.length; i++) pkSet.add(pks[i]);
         this.pksByKey.set(key, pkSet);
-        super.setSlots(key, this.resolveSlots(pks));
+        super.setSlots(key, this.getSlotsOrTransient(pks));
     }
 
     public addPks(key: TOIMKeyPath, pks: readonly TPk[]): void {
@@ -65,7 +65,7 @@ export class OIMReactiveCollectionIndexCompositeTrieArrayBased<
         for (const pk of pks) {
             if (pkSet.has(pk)) continue;
             pkSet.add(pk);
-            newSlots.push(this.resolveRequiredSlot(pk));
+            newSlots.push(this.getSlotOrTransient(pk));
         }
         if (newSlots.length > 0) this.appendSlots(key, newSlots);
     }
@@ -123,20 +123,20 @@ export class OIMReactiveCollectionIndexCompositeTrieArrayBased<
         return super.getEntitiesByKeys<TItem>(keys);
     }
 
-    private resolveSlots(pks: readonly TPk[]): TOIMAnyEntitySlot<TPk>[] {
+    private getSlotsOrTransient(pks: readonly TPk[]): TOIMAnyEntitySlot<TPk>[] {
         const slots: TOIMAnyEntitySlot<TPk>[] = [];
         slots.length = pks.length;
         for (let i = 0; i < pks.length; i++) {
-            slots[i] = this.resolveRequiredSlot(pks[i]);
+            slots[i] = this.getSlotOrTransient(pks[i]);
         }
         return slots;
     }
 
-    private resolveRequiredSlot(pk: TPk): TOIMAnyEntitySlot<TPk> {
-        const slot = this.resolveSlot(pk);
-        // A custom resolver may not have a slot for this pk yet. Hold a transient
+    private getSlotOrTransient(pk: TPk): TOIMAnyEntitySlot<TPk> {
+        const slot = this.getSlot(pk);
+        // A custom getter may not have a slot for this pk yet. Hold a transient
         // empty slot so the pk stays indexed and the entity materializes once it
-        // exists (the collection-bound resolver returns a reserved slot).
+        // exists (the collection-bound getter returns a reserved slot).
         if (!slot) return { pk, item: undefined };
         return slot;
     }

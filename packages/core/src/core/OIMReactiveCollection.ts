@@ -24,7 +24,9 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     private readonly anyUpdateHandlers = new Set<
         (pks: readonly TPk[]) => void
     >();
-    private readonly pendingAnyUpdatePks = this.store.keyDomain.createSet();
+    // Only ever holds `slot.pk` (one canonical reference per logical key), so a
+    // native `Set` dedups correctly by reference even for composite pks.
+    private readonly pendingAnyUpdatePks = new Set<TPk>();
     private isAnyUpdateClearPending = false;
     private isAnyUpdateScheduled = false;
 

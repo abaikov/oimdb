@@ -1,38 +1,22 @@
 import { TOIMKey } from '../../../types/TOIMKey';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMEffectDependency } from '../interfaces/IOIMEffectDependency';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
-function isReadonlyArray<T>(value: unknown): value is readonly T[] {
-    return Array.isArray(value);
-}
-
+/**
+ * Depends on updates to ONE key of a keyed source. The key argument is the whole
+ * key — a composite key `[a, b]` is one key, never split — so there is no
+ * `key | key[]` ambiguity to guess at. To depend on several keys, use several
+ * dependencies (an effect already takes a `deps` array).
+ */
 export class OIMEffectDependencyKeyed<TKey extends TOIMKey>
     implements IOIMEffectDependency
 {
-    private readonly key: TKey | undefined;
-    private readonly keys: readonly TKey[] | undefined;
-
     constructor(
         public readonly source: IOIMKeyedSubscription<TKey>,
-        keyOrKeys: TKey | readonly TKey[]
-    ) {
-        if (isReadonlyArray<TKey>(keyOrKeys)) {
-            this.keys = keyOrKeys;
-        } else {
-            this.key = keyOrKeys;
-        }
-    }
+        private readonly key: TKey
+    ) {}
 
-    public subscribe(
-        onUpdate: () => void
-    ): () => void {
-        if (this.keys !== undefined) {
-            return this.source.subscribeOnKeys(this.keys, onUpdate);
-        }
-
-        if (this.key === undefined) return () => {};
-
+    public subscribe(onUpdate: () => void): () => void {
         return this.source.subscribeOnKey(this.key, onUpdate);
     }
 }

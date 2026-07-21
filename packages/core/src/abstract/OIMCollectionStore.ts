@@ -1,19 +1,11 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
 
 export abstract class OIMCollectionStore<
     TEntity extends object,
     TPk extends TOIMKey,
 > {
-    /**
-     * The keying strategy for this store's PKs. Every PK-keyed structure built
-     * off a collection (indexes, wrappers) reads it so the whole engine keys PKs
-     * the same way — native `Map` for primitives, trie for composite paths.
-     */
-    abstract get keyDomain(): IOIMKeyDomain<TPk>;
-
     abstract setOneByPk(
         pk: TPk,
         entity: TEntity

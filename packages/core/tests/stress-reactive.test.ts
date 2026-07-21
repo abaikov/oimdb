@@ -47,7 +47,8 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
             },
             deps: [
                 new OIMEffectDependencyKeyedCollection(collection, 1),
-                new OIMEffectDependencyKeyedObject(obj, ['add', 'mul']),
+                new OIMEffectDependencyKeyedObject(obj, 'add'),
+                new OIMEffectDependencyKeyedObject(obj, 'mul'),
             ],
         });
 

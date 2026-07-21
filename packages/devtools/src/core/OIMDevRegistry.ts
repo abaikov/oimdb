@@ -86,12 +86,12 @@ export class OIMDevRegistry {
         const computeds: TOIMDevInspectResult['computeds'] = {};
 
         for (const [name, comp] of this.computedEntries) {
-            const resolvedDeps = this.resolveComputedDeps(comp);
+            const collectedDeps = this.collectComputedDeps(comp);
             computeds[name] = {
                 isReady: comp.isReady,
                 needsRecompute: comp.needsRecompute,
                 currentValue: comp.getIfReady(),
-                deps: resolvedDeps,
+                deps: collectedDeps,
             };
         }
 
@@ -217,7 +217,7 @@ export class OIMDevRegistry {
         return () => ws.close();
     }
 
-    private resolveComputedDeps(
+    private collectComputedDeps(
         comp: IOIMDevComputedLike
     ): TOIMDevInspectResult['computeds'][string]['deps'] {
         if (!hasDeps(comp)) return [];

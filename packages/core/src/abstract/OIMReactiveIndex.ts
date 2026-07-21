@@ -3,9 +3,9 @@ import { TOIMPk } from '../types/TOIMPk';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import {
     OIMCarrierKeyedEmitter,
-    IOIMCarrierResolver,
+    IOIMCarrierProvider,
 } from '../core/OIMCarrierKeyedEmitter';
-import { OIMKeyedCarrierResolver } from '../core/OIMKeyedCarrierResolver';
+import { OIMKeyedCarrierProvider } from '../core/OIMKeyedCarrierProvider';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
@@ -25,24 +25,24 @@ export abstract class OIMReactiveIndex<
         queue: OIMEventQueue,
         createIndex: (updateEmitter: IOIMKeyedUpdateEmitter<TKey>) => TIndex,
         /**
-         * How to build the key→carrier resolver backing the keyed emitter.
-         * Defaults to the native-`Map` resolver used by every primitive-keyed
+         * How to build the key→carrier carrierProvider backing the keyed emitter.
+         * Defaults to the native-`Map` carrierProvider used by every primitive-keyed
          * index (its fast path is unchanged). A composite (trie-backed) index
-         * passes a resolver that keys carriers by key path instead. Called once
+         * passes a carrierProvider that keys carriers by key path instead. Called once
          * at construction — no per-operation cost.
          */
-        createResolver: () => IOIMCarrierResolver<
+        createCarrierProvider: () => IOIMCarrierProvider<
             TKey,
             IOIMKeyCarrier<TKey>
-        > = () => new OIMKeyedCarrierResolver<TKey>()
+        > = () => new OIMKeyedCarrierProvider<TKey>()
     ) {
         // Carrier-based keyed emitter: handlers live on a per-key carrier, so
         // marking dirty is an O(1) flag set and delivery needs no per-key map
-        // lookup. The resolver owns the key→carrier map and prunes empties.
+        // lookup. The carrierProvider owns the key→carrier map and prunes empties.
         this.updateEmitter = new OIMCarrierKeyedEmitter<
             TKey,
             IOIMKeyCarrier<TKey>
-        >(queue, createResolver());
+        >(queue, createCarrierProvider());
         this.index = createIndex(this.updateEmitter);
     }
 

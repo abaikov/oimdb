@@ -39,20 +39,20 @@ export class OIMCollectionOrderedListCommandStream<
             new OIMCollectionIndexManualOrderedArrayBased<TKey, TPk, TEntity>(
                 opts.collection !== undefined
                     ? { collection: opts.collection }
-                    : { resolveSlot: opts.resolveSlot }
+                    : { getSlot: opts.getSlot }
             );
         super(queue, index);
         this.index = index;
     }
 
     public push(key: TKey, pk: TPk): void {
-        const slot = this.resolvePk(pk);
+        const slot = this.getRequiredSlot(pk);
         const index = this.index.pushSlot(key, slot);
         this.appendCommand(key, { type: 'insert', index, item: slot });
     }
 
     public insertAt(key: TKey, index: number, pk: TPk): void {
-        const slot = this.resolvePk(pk);
+        const slot = this.getRequiredSlot(pk);
         const safeIndex = this.index.insertSlotAt(key, index, slot);
         this.appendCommand(key, {
             type: 'insert',
@@ -63,7 +63,7 @@ export class OIMCollectionOrderedListCommandStream<
 
     /** Replace the element at `index` with the slot for `pk`, in place. */
     public setAt(key: TKey, index: number, pk: TPk): void {
-        const slot = this.resolvePk(pk);
+        const slot = this.getRequiredSlot(pk);
         const safeIndex = this.index.setSlotAt(key, index, slot);
         if (safeIndex < 0) return;
         this.appendCommand(key, {
@@ -74,7 +74,7 @@ export class OIMCollectionOrderedListCommandStream<
     }
 
     public set(key: TKey, pks: readonly TPk[]): void {
-        const slots = pks.map(pk => this.resolvePk(pk));
+        const slots = pks.map(pk => this.getRequiredSlot(pk));
         this.index.resetSlots(key, slots);
         this.appendResetCommand(key, slots);
     }
@@ -91,8 +91,8 @@ export class OIMCollectionOrderedListCommandStream<
         return this.index.getEntitiesByKey(key);
     }
 
-    private resolvePk(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
-        return this.index.resolvePk(
+    private getRequiredSlot(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
+        return this.index.getRequiredSlot(
             pk
         ) as TOIMAnyEntitySlot<TPk> as TOIMEntitySlot<TEntity, TPk>;
     }

@@ -1,11 +1,11 @@
-import { IOIMCarrierResolver } from './OIMCarrierKeyedEmitter';
+import { IOIMCarrierProvider } from './OIMCarrierKeyedEmitter';
 import { IOIMKeyCarrier } from '../interfaces/IOIMKeyCarrier';
 import { TOIMPk } from '../types/TOIMPk';
 import { TOIMKeyPath } from '../types/TOIMKeyPath';
 import { OIMTrieMap } from './OIMTrieMap';
 
 /**
- * Composite-key counterpart of `OIMKeyedCarrierResolver`: backs the index keyed
+ * Composite-key counterpart of `OIMKeyedCarrierProvider`: backs the index keyed
  * emitter for key paths. Maps each key path to a carrier holding that path's
  * subscribers + dirty flag, via a trie (`OIMTrieMap`) so a freshly built
  * `[a, b, c]` resolves to the same carrier as the one subscribed earlier.
@@ -14,8 +14,8 @@ import { OIMTrieMap } from './OIMTrieMap';
  * when their last subscriber leaves (`onCarrierEmptied`) — the trie drops the
  * empty branch, so a churning key-path space does not leak carriers.
  */
-export class OIMKeyPathCarrierResolver
-    implements IOIMCarrierResolver<TOIMKeyPath, IOIMKeyCarrier<TOIMKeyPath>>
+export class OIMKeyPathCarrierProvider
+    implements IOIMCarrierProvider<TOIMKeyPath, IOIMKeyCarrier<TOIMKeyPath>>
 {
     private readonly carriers = new OIMTrieMap<
         TOIMPk,

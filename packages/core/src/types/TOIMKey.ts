@@ -3,7 +3,7 @@ import { TOIMKeyPath } from './TOIMKeyPath';
 
 /**
  * The key bound shared by every keyed node (index, keyed emitter, carrier
- * resolver): either a single primitive PK (`TOIMPk`) or a composite key path
+ * provider): either a single primitive PK (`TOIMPk`) or a composite key path
  * (`TOIMKeyPath`).
  *
  * It exists purely to widen the generic bound from `TOIMPk` to also admit

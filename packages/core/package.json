@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/core",
-  "version": "3.8.0",
+  "version": "3.9.0",
   "description": "Core in-memory data library with type-safe indices, reactive subscriptions, and event processing",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -29,6 +29,7 @@
     "build": "tsup src/index.ts --dts --format esm,cjs",
     "test": "jest",
     "type-check": "tsc --noEmit",
+    "bench": "tsx scripts/run-bench.ts",
     "clean": "rimraf dist",
     "prepack": "node -e \"require('fs').copyFileSync('../../llms.txt', 'llms.txt')\"",
     "prepublishOnly": "npm run type-check && npm test && npm run build"

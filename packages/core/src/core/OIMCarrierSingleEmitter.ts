@@ -5,7 +5,7 @@ import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
 /**
  * Keyless (single-carrier) pub/sub. The emitter IS the carrier: it holds one
  * subscriber set and one dirty flag, so the hot path — marking updated and
- * delivering — needs no resolver, no `Map`, no per-key hashing, and no
+ * delivering — needs no provider, no `Map`, no per-key hashing, and no
  * `dirtyCarriers[]` batch (there is only ever one carrier).
  *
  * This is the {@link OIMCarrierKeyedEmitter} analogue for a whole-collection

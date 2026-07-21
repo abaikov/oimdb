@@ -235,7 +235,7 @@ describe('OIMOrderedListCommandStream', () => {
         >(queue, { collection: users });
 
         expect(() => stream.push('doc', 'missing')).toThrow(
-            'Unable to resolve slot'
+            'no slot for PK'
         );
     });
 

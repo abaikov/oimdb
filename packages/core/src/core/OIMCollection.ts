@@ -11,7 +11,6 @@ import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { IOIMKeyDomain } from '../interfaces/IOIMKeyDomain';
 
 /** It's like a store - but with event emitter */
 export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
@@ -21,11 +20,6 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
     public readonly selectPk: TOIMPkSelector<TEntity, TPk>;
     protected readonly store: OIMCollectionStore<TEntity, TPk>;
     protected readonly updateEntity: TOIMEntityUpdater<TEntity>;
-
-    /** The collection's PK keying strategy — read by indexes and wrappers. */
-    public get keyDomain(): IOIMKeyDomain<TPk> {
-        return this.store.keyDomain;
-    }
 
     constructor(opts?: TOIMCollectionOptions<TEntity, TPk>) {
         this.selectPk = (opts?.selectPk ??
@@ -54,6 +48,15 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
 
     getOrReserveSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> {
         return this.store.getOrReserveSlotByPk(pk);
+    }
+
+    /**
+     * The existing slot for `pk` (live or reserved) WITHOUT creating one — used
+     * by indexes to resolve a pk to its canonical slot for removal (delete by
+     * reference), with no side effect for a pk that is not present.
+     */
+    findSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {
+        return this.store.findSlotByPk(pk);
     }
 
     getSlotsByPks(pks: readonly TPk[]): TOIMEntitySlot<TEntity, TPk>[] {
