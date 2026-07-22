@@ -3,14 +3,18 @@ import { TOIMEventQueueOptions } from '../types/TOIMEventQueueOptions';
 import { EOIMEventQueueSchedulerEventType } from '../enums/EOIMEventQueueSchedulerEventType';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
+import { TOIMFlushError } from '../types/TOIMFlushError';
 
 /**
  * Event queue that can optionally integrate with a scheduler for automatic flushing.
  */
 export class OIMEventQueue {
-    public readonly emitter = new OIMEventEmitter<
-        Record<EOIMEventQueueEventType, void>
-    >();
+    public readonly emitter = new OIMEventEmitter<{
+        [EOIMEventQueueEventType.BEFORE_FLUSH]: void;
+        [EOIMEventQueueEventType.AFTER_FLUSH]: void;
+        [EOIMEventQueueEventType.FLUSH_ERROR]: TOIMFlushError;
+    }>();
+    protected readonly onError?: (error: unknown) => void;
     protected tasks = new Set<() => void>();
     // Reused buffer swapped in during flush so the pending set is never copied
     // (no per-flush array snapshot) and new enqueues land in a fresh set.
@@ -24,6 +28,7 @@ export class OIMEventQueue {
 
     constructor(options: TOIMEventQueueOptions = {}) {
         this.scheduler = options.scheduler;
+        this.onError = options.onError;
 
         if (this.scheduler) {
             // Bind flush method once to avoid creating new functions on each subscription
@@ -76,14 +81,58 @@ export class OIMEventQueue {
         this.tasks = this.tasksSpare;
         this.flushing = flushing;
 
-        for (const task of flushing) task();
+        // Each task is isolated: one throwing task neither aborts the rest nor
+        // (via the finally) leaves the queue wedged. Errors are collected and
+        // dealt with AFTER state is restored.
+        let errors: unknown[] | undefined;
+        try {
+            for (const task of flushing) {
+                try {
+                    task();
+                } catch (error) {
+                    (errors ??= []).push(error);
+                    // Observation channel — emitted regardless of `onError` so
+                    // tooling (devtools / MCP) always sees the failure.
+                    this.emitter.emit(EOIMEventQueueEventType.FLUSH_ERROR, {
+                        error,
+                    });
+                    this.onError?.(error);
+                }
+            }
+        } finally {
+            // Runs even if the loop body itself throws (e.g. a throwing
+            // `onError`) — the queue never stays in a half-flushed state.
+            flushing.clear();
+            this.tasksSpare = flushing;
+            this.flushing = undefined;
+            this.isFlushing = false;
+        }
 
-        flushing.clear();
-        this.tasksSpare = flushing;
-        this.flushing = undefined;
-
-        this.isFlushing = false;
         this.emitter.emit(EOIMEventQueueEventType.AFTER_FLUSH, undefined);
+
+        // Loud by default: with no handler installed the error is NOT swallowed —
+        // it propagates (uncaught in async/scheduled mode, thrown to the caller
+        // of a manual `flush()`). A handler opts the app into handling it.
+        if (errors && this.onError === undefined) {
+            if (errors.length === 1) throw errors[0];
+            // Combine into an AggregateError when the runtime has it (all the
+            // individual errors were already surfaced via FLUSH_ERROR). Referenced
+            // via globalThis so consumers on an older `lib` still type-check.
+            const AggregateErrorCtor = (
+                globalThis as {
+                    AggregateError?: new (
+                        errors: Iterable<unknown>,
+                        message?: string
+                    ) => Error;
+                }
+            ).AggregateError;
+            throw AggregateErrorCtor
+                ? new AggregateErrorCtor(
+                      errors,
+                      'Errors thrown during queue flush'
+                  )
+                : errors[0];
+        }
     }
 
     /**

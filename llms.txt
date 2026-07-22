@@ -30,6 +30,7 @@ import { OIMEventQueue, OIMEventQueueSchedulerImmediate } from '@oimdb/core';
 
 const queue = new OIMEventQueue({
     scheduler: new OIMEventQueueSchedulerImmediate(), // macrotask: setImmediate (Node), fallback MessageChannel / setTimeout(0) (browser)
+    onError: (e) => reportToSentry(e),                // optional; see below
 });
 // or: OIMEventQueueSchedulerMicrotask (next microtask, before paint — lowest latency),
 //     OIMEventQueueSchedulerAnimationFrame, OIMEventQueueSchedulerTimeout
@@ -37,6 +38,8 @@ const queue = new OIMEventQueue({
 // OIMEventQueueSchedulerSync (createSync()) flushes synchronously per write, NO batching —
 //   debug/diagnostic only: swap in at the root to test if a bug is coalescing-related.
 ```
+
+**Errors during flush.** If a task (subscriber / effect / computed) throws while the queue is flushing, the other tasks in that flush still run (each is isolated) and the queue's internal state is always restored — one bad task never wedges the queue. By default the error is then **raised, not swallowed**: it propagates out of `flush()` (thrown to the caller of a manual flush, or uncaught in async/scheduled mode). Pass `onError` to handle it instead (then it is NOT re-raised). Regardless of `onError`, a `EOIMEventQueueEventType.FLUSH_ERROR` event (payload `TOIMFlushError = { error }`) is emitted per failing task — the channel `@oimdb/devtools` `trackFlushErrors` / MCP use to surface failed flushes.
 
 ### Collections
 

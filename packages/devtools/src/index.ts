@@ -9,6 +9,8 @@ export type {
     TOIMDevCollectionInfo,
     TOIMDevComputedDepInfo,
     TOIMDevComputedInfo,
+    TOIMDevFlushErrorRecord,
+    TOIMDevFlushRecord,
     TOIMDevIndexInfo,
     TOIMDevInspectResult,
 } from './types/TOIMDevInspectResult';

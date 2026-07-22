@@ -128,6 +128,7 @@ export * from './types/TOIMComparator';
 export * from './types/TOIMEntityUpdater';
 export * from './types/TOIMEventHandler';
 export * from './types/TOIMEventQueueOptions';
+export * from './types/TOIMFlushError';
 export * from './types/TOIMEntitySlot';
 export * from './types/TOIMCollectionIndexOptions';
 export * from './types/TOIMCollectionGlobalIndexOptions';

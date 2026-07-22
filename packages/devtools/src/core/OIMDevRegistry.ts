@@ -1,7 +1,11 @@
 import { IOIMDevCollectionLike } from '../interfaces/IOIMDevCollectionLike';
 import { IOIMDevComputedLike } from '../interfaces/IOIMDevComputedLike';
 import { TOIMDevCollectionOptions } from '../types/TOIMDevCollectionOptions';
-import { TOIMDevFlushRecord, TOIMDevInspectResult } from '../types/TOIMDevInspectResult';
+import {
+    TOIMDevFlushErrorRecord,
+    TOIMDevFlushRecord,
+    TOIMDevInspectResult,
+} from '../types/TOIMDevInspectResult';
 
 type TOIMDevRegistryEntry = {
     name: string;
@@ -30,6 +34,7 @@ export class OIMDevRegistry {
     private readonly computedEntries = new Map<string, IOIMDevComputedLike>();
     private readonly nameByInstance = new WeakMap<object, string>();
     private readonly flushHistory: TOIMDevFlushRecord[] = [];
+    private readonly flushErrors: TOIMDevFlushErrorRecord[] = [];
     private static readonly MAX_HISTORY = 50;
 
     public collection(
@@ -95,7 +100,12 @@ export class OIMDevRegistry {
             };
         }
 
-        return { collections, computeds, history: this.flushHistory.slice() };
+        return {
+            collections,
+            computeds,
+            history: this.flushHistory.slice(),
+            errors: this.flushErrors.slice(),
+        };
     }
 
     public dumpString(): string {
@@ -180,6 +190,32 @@ export class OIMDevRegistry {
             this.flushHistory.unshift({ time: Date.now(), counts });
             if (this.flushHistory.length > OIMDevRegistry.MAX_HISTORY) {
                 this.flushHistory.length = OIMDevRegistry.MAX_HISTORY;
+            }
+        });
+    }
+
+    /**
+     * Subscribe to flush errors and record them so `getState().errors` surfaces
+     * them (and the MCP bridge with them). Returns an unsubscribe function.
+     *
+     * Usage:
+     * ```ts
+     * registry.trackFlushErrors(handler =>
+     *   queue.emitter.on(EOIMEventQueueEventType.FLUSH_ERROR, handler)
+     * );
+     * ```
+     */
+    public trackFlushErrors(
+        subscribe: (
+            handler: (payload: { error: unknown }) => void
+        ) => () => void
+    ): () => void {
+        return subscribe(({ error }) => {
+            const message =
+                error instanceof Error ? error.message : String(error);
+            this.flushErrors.unshift({ time: Date.now(), message });
+            if (this.flushErrors.length > OIMDevRegistry.MAX_HISTORY) {
+                this.flushErrors.length = OIMDevRegistry.MAX_HISTORY;
             }
         });
     }

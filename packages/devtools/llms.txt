@@ -13,6 +13,7 @@ OIMDB is a TypeScript in-memory reactive database. It stores entities in typed c
 | `@oimdb/core` | Collections, indexes, event queue, reactive primitives |
 | `@oimdb/persist` | Storage-agnostic persist/hydrate engine (source adapters, resources, versioned codec). Backends ship separately: `@oimdb/persist-memory`, `-localstorage`, `-idb`, `-async-kv`, `-json` |
 | `@oimdb/react` | React hooks for collections and selectors |
+| `@oimdb/exodra` | [Exodra](https://exodra.org) adapter: OIMDB selectors/computeds → read-only `TExoBindable` (no React) |
 | `@oimdb/async` | Async-aware reactive collection and index variants |
 | `@oimdb/devtools` | Debug registry: name collections/indexes/computeds, inspect runtime state |
 | `@oimdb/snapshot-manager` | Snapshot/restore collection state |
@@ -28,10 +29,17 @@ All reactive updates are batched. Mutations accumulate, then `queue.flush()` del
 import { OIMEventQueue, OIMEventQueueSchedulerImmediate } from '@oimdb/core';
 
 const queue = new OIMEventQueue({
-    scheduler: new OIMEventQueueSchedulerImmediate(), // flush on next microtask
+    scheduler: new OIMEventQueueSchedulerImmediate(), // macrotask: setImmediate (Node), fallback MessageChannel / setTimeout(0) (browser)
+    onError: (e) => reportToSentry(e),                // optional; see below
 });
-// or: OIMEventQueueSchedulerAnimationFrame, OIMEventQueueSchedulerTimeout, OIMEventQueueSchedulerMicrotask
+// or: OIMEventQueueSchedulerMicrotask (next microtask, before paint — lowest latency),
+//     OIMEventQueueSchedulerAnimationFrame, OIMEventQueueSchedulerTimeout
+// Async schedulers coalesce; call queue.flush() directly for sync delivery (e.g. tests).
+// OIMEventQueueSchedulerSync (createSync()) flushes synchronously per write, NO batching —
+//   debug/diagnostic only: swap in at the root to test if a bug is coalescing-related.
 ```
+
+**Errors during flush.** If a task (subscriber / effect / computed) throws while the queue is flushing, the other tasks in that flush still run (each is isolated) and the queue's internal state is always restored — one bad task never wedges the queue. By default the error is then **raised, not swallowed**: it propagates out of `flush()` (thrown to the caller of a manual flush, or uncaught in async/scheduled mode). Pass `onError` to handle it instead (then it is NOT re-raised). Regardless of `onError`, a `EOIMEventQueueEventType.FLUSH_ERROR` event (payload `TOIMFlushError = { error }`) is emitted per failing task — the channel `@oimdb/devtools` `trackFlushErrors` / MCP use to surface failed flushes.
 
 ### Collections
 
@@ -83,6 +91,111 @@ Membership writes are incremental (touch only the changed pks):
 - For frequently changing membership (e.g. a **virtual/windowed list** indexing the on-screen rows, adding/removing on scroll) prefer **set-based**.
 - `setPks` / `addPks` resolve each pk → slot (O(1) lookup); if you already hold slots (`collection.upsertMany` returns them) use `setSlots` / `appendSlots` to skip the lookup.
 - `getEntitiesByKey(key)` returns `(TEntity | undefined)[]` — positional holes for not-yet-loaded pks, aligned with `getPksByKey` (not dropped), so you can render a loading state.
+
+### Global (keyless / whole-collection) indexes
+
+When you need ONE index/ordered list over the **whole collection** ("all") there is no meaningful key. Use a **Global** index instead of inventing a phantom key like `'all'`. Same two shapes (array-based ordered / set-based unordered) and two modes (manual / derived), but keyless: `getPks()` / `getSlots()` / `getEntities()` take no key, and `subscribe(handler)` replaces `subscribeOnKey`. Internally a Global index holds ONE bucket with a single-carrier emitter (no key→carrier map / hashing), so it is strictly cheaper than a keyed index with one key.
+
+Classes mirror the keyed ones with `Global` inserted: `OIMGlobalIndexManual{Array,Set}Based` (raw slots), `OIMReactiveGlobalIndexManual{Array,Set}Based`, `OIMReactiveCollectionGlobalIndexManual{Array,Set}Based` (pk writes), `OIMDerivedCollectionGlobalIndex{Array,Set}Based`.
+
+```ts
+// Manual, collection-bound (pk writes) — e.g. a server-provided page order
+const list = indexFactory.arrayBasedGlobalIndex();
+list.setPks(['u2', 'u1']);          // also addPks / removePks (no key)
+list.getPks();                       // ['u2', 'u1']
+list.subscribe(() => { /* one bucket changed */ });
+queue.flush();
+
+// Derived — auto-tracks the whole collection, ordered
+const recent = indexFactory.derivedArrayGlobalIndex({ orderBy: (u) => u.createdAt });
+recent.getEntities();                // (User | undefined)[] in order, kept in sync
+
+// Derived set — whole-collection membership; `filter` narrows it
+const active = indexFactory.derivedSetGlobalIndex({ filter: (u) => !u.archived });
+```
+
+- Derived options: `orderBy` / `compareEntities` (array only) for order, `filter: (e) => boolean` to include a subset (default: entity exists), `buildInitial` (default true).
+- Selectors: `select.entitiesByArrayGlobalIndex(list)` / `select.entitiesBySetGlobalIndex(set)` → `(TEntity | undefined)[]` (no key).
+- React: `useSelectEntitiesByGlobalIndex{Array,Set}Based(collection, index)`, `useSelectPksByGlobalIndex{Array,Set}Based(index)`, plus `…Signal` variants — all drop the `key` argument.
+
+### Composite (key-path) indexes
+
+When the key is a **combination of values** (e.g. `[userId, projectId, role]`) rather than one primitive, use a **composite** set-based index instead of concatenating a string key. Create it with `indexFactory.compositeSetIndex()`. The key is a `TOIMKeyPath` — an ordered, **arbitrary-length** tuple of primitive segments (`readonly (string | number)[]`). Every method that takes a `key` takes a path array instead; everything else (pk writes, slot resolution, reactivity, `getEntitiesByKey` holes) is identical to `setBasedIndex`.
+
+```ts
+const membersByScope = indexFactory.compositeSetIndex();
+membersByScope.setPks(['u1', 'p1', 'admin'], ['m1', 'm2']); // also addPks / removePks
+membersByScope.getPksByKey(['u1', 'p1', 'admin']);          // Set { 'm1', 'm2' }
+membersByScope.getEntitiesByKey(['u1', 'p1', 'admin']);     // (Member | undefined)[]
+membersByScope.subscribeOnKey(['u1', 'p1', 'admin'], () => {/* … */});
+queue.flush();
+```
+
+- **Matched by content, not reference / string.** A freshly built `['u1','p1','admin']` resolves to the same bucket as the one written earlier — no need to reuse the array instance. Segments keep their own type (`1` ≠ `'1'`) and no separator can collide (`['a|b','c']` ≠ `['a','b|c']`), unlike a `"a|b|c"` string key.
+- **Full path is the lookup unit.** O(arity) — effectively O(1) for a fixed arity — a lookup walks one native-`Map` level per segment. No partial/prefix queries (subscribe/lookup are by the whole path). Paths of different lengths coexist (`['a','b']` and `['a','b','c']` never collide).
+- **No perf cost to primitive indexes.** It is a distinct opt-in index: `setBasedIndex` and all others keep their native-`Map` fast path untouched. The trie cost is paid only where you use a composite index.
+- **Ordered variant:** `indexFactory.compositeArrayIndex()` — same key path, but buckets are ordered slot arrays (`getPksByKey` returns an array in write order). Use it when order matters per composite key (e.g. `[channelId, threadId]` messages).
+- **Selectors:** `select.entitiesByCompositeSetIndexKey(index, path)` / `select.entitiesByCompositeArrayIndexKey(index, path)` → `(TEntity | undefined)[]`, tracking both index and entity changes.
+- **React:** `useSelectEntitiesByCompositeIndexKey{Set,Array}Based(collection, index, path)` and `useSelectPksByCompositeIndexKey{Set,Array}Based(index, path)`. Unlike the primitive hooks (which stabilize the key by `===`), these stabilize the path **by content**, so a freshly built `['p1','admin']` on every render does not re-subscribe.
+- New exports: `OIMReactiveCollectionIndexCompositeTrie{Set,Array}Based`, `OIMIndexStoreTrieDriven{Set,Array}Based` (inject via `indexOptions.store` for a custom key path store), `OIMKeyPathCarrierProvider`, `OIMTrieMap` (the generic N-level trie util), types `TOIMKeyPath` / `TOIMKey`. The keyed-emitter / index generics accept `TKey extends TOIMKey` (= `TOIMPk | TOIMKeyPath`) — a pure widening; primitive keys are unaffected.
+
+### Composite PRIMARY key (collection keyed by a tuple)
+
+Beyond composite index *keys*, a **collection's PK itself** can be a composite path. Pass a trie store: `new OIMReactiveCollection(queue, { selectPk: e => [e.userId, e.projectId], store: new OIMCollectionStoreTrieDriven() })`. Then `getOneByPk([1,10])`, `subscribeOnKey([1,10])`, `removeOneByPk([1,10])` all match by content; the store interns each logical PK to one canonical `slot.pk` reference so downstream native `Set<pk>` stays correct. Primitive-PK collections keep `OIMCollectionStoreMapDriven` (native `Map`) untouched — no regression.
+
+- **Indexes work over a composite-PK collection.** `indexFactory.setBasedIndex()` (or `compositeSetIndex`) on such a collection indexes composite PKs: `byRole.setPks('admin', [[1,10],[2,10]])`, `getPksByKey`, `addPks`, `removePks([[2,10]])` all match PKs by content (the per-bucket pk→slot membership uses the collection's trie key domain).
+- **Serialization boundaries.** `@oimdb/persist` (stores entities as an array, re-derives the PK via `selectPk` on hydrate) and `@oimdb/snapshot-manager` (stores the PK as a value) round-trip a composite PK with **no codec** — just pass the composite-PK collection. **`@oimdb/redux-adapter`** keys Redux state by string (`Record<pk, entity>`), so a composite PK needs an `IOIMPkCodec`: pass it to `createCollectionReducer(collection, child?, mapper?, pkCodec)` — one codec drives both the default mapper (encode: `entities` keyed by JSON-encoded PK, `ids` keep the raw tuple) AND child write-back / linked-index sync (decode: Redux string key → raw PK). `OIMPkCodecKeyPath` is the ready codec. (Or pass `mapper: createDefaultCollectionMapper(codec)` directly for a read-only projection.)
+- New exports: `OIMCollectionStoreTrieDriven`, `OIMKeyDomainTrie` / `OIMKeyDomainNative` (`IOIMKeyDomain`), `OIMTrieSet`, `IOIMPkCodec` / `OIMPkCodecKeyPath`. The collection/index PK generics accept `TPk extends TOIMKey`.
+
+### Ordered list command stream
+
+For an ordered per-key list that emits **position-addressed commands** (insert / remove / move / set / reset) instead of a new array to diff — for imperative renderers that apply edits in place. `OIMCollectionOrderedListCommandStream` (pk writes, via `indexFactory.orderedList()`) or `OIMOrderedListCommandStream` (slot writes). Commands are not in the event payload — subscribe, then pull synchronously.
+
+```ts
+import { createOIMOrderedListMappedCommandStream } from '@oimdb/core';
+
+stream.push('main', 'u1');           // append by pk; also insertAt/setAt/removeAt/removeRange/moveRange/set
+stream.subscribeCommands('main', () => {
+    for (const cmd of stream.consumeCommands('main')) {
+        // { type:'insert', index, item } | { type:'remove', index, count? }
+        // | { type:'move', from, to, count? } | { type:'set', index, item }
+        // | { type:'reset', items }   — item is the entity slot; entity is item.item
+    }
+});
+stream.getEntitiesByKey('main'); // (TEntity | undefined)[] — holes preserved
+```
+
+`count` defaults to 1 (read `count ?? 1`). A whole-list change collapses to a single `reset`. Reads: `getPksByKey` / `getSlotsByKey` / `getEntitiesByKey`.
+
+**Mapping the list to your own elements** — `createOIMOrderedListMappedCommandStream(source, create)` projects element-wise: the same commands with `item` replaced by `create(slot)`'s result (a DOM node, view model, …). `create` is a plain function (no options object). Identity is positional — a `move` reuses the **same** mapped instance (never recreated); `create` runs on insert/set/reset/initial build. No teardown callback: the leaving element IS the `remove`/`set`/`reset` command the consumer applies against its own mirror, so cleanup belongs there. It needs no queue (rides the source's batching) and is itself an `IOIMOrderedListCommandSource`, so it consumes like the raw stream and chains via `.map(create)`. New exports: `IOIMOrderedListCommandSource`, `OIMOrderedListMappedCommandStream`, `createOIMOrderedListMappedCommandStream`.
+
+```ts
+const nodes = createOIMOrderedListMappedCommandStream(stream, (slot) => engine.makeNode(slot.item));
+nodes.subscribeCommands('main', () => {
+    for (const cmd of nodes.consumeCommands('main')) {
+        // cmd.item is your node; tear it down on remove/set/reset from your own mirror
+    }
+});
+nodes.getItemsByKey('main'); // current mapped elements — initial render
+```
+
+> Content updates (entity fields changed) are not list commands — they arrive via the collection's per-pk subscription. The stream carries structure only.
+
+**Deriving commands from an index** — the stream above is written imperatively. To instead get commands from an index whose order is maintained automatically (`derivedArrayIndex`, or any reactive array-based index replaced via `setPks`), use `createOIMOrderedListCommandStreamDiffDriven(queue, index, opts?)` / `OIMOrderedListCommandStreamDiffDriven`. On each per-key index change it diffs the previous order against the new one and emits the `insert`/`move`/`remove` that transforms it — identity by pk (a reorder is a `move` of the same slot, never a recreate), delivered on `AFTER_FLUSH`. An order-preserving change emits nothing. `opts.resetThreshold` (default `0` = always diff): below that fraction of shared pks it emits one `reset` instead of many edits. Output is an `IOIMOrderedListCommandSource`, so `createOIMOrderedListMappedCommandStream` composes on top to carry your own nodes. New exports: `OIMOrderedListCommandStreamDiffDriven`, `createOIMOrderedListCommandStreamDiffDriven`, `TOIMOrderedListDiffOptions`, `diffOrderedListByPk` (pure diff), `OIMOrderedListCommandBuffer` (shared abstract base of both streams).
+
+```ts
+const cardsByDeck = cards.indexFactory.derivedArrayIndex((c) => c.deckId, { orderBy: (c) => c.position });
+const stream = createOIMOrderedListCommandStreamDiffDriven(queue, cardsByDeck);
+stream.subscribeCommands('deck1', () => engine.apply(stream.consumeCommands('deck1'))); // insert/move/remove
+```
+
+**Mapping a plain index to stable objects** — for an ordinary set/array index (no commands), `createOIMIndexSlotMap(index, create)` / `OIMIndexSlotMap` memoizes `create(slot)` by slot identity (a `WeakMap`): the same slot returns the same object reference on every read, so `React.memo` / `Object.is` diffing works and view-models are reused. Same plain-function shape as the ordered mapper, no `destroy` (plain values, GC reclaims). `getByKey(key)` → mapped objects; `.map(create)` chains; `subscribeOnKey`/`subscribeOnKeys` passthrough to the index. For a keyless global index use `createOIMGlobalIndexSlotMap(index, create)` / `OIMGlobalIndexSlotMap` — same memo with `getAll()` and `subscribe()` instead of the keyed variants. New exports: `OIMIndexSlotMap`, `createOIMIndexSlotMap`, `IOIMIndexSlotSource`, `OIMGlobalIndexSlotMap`, `createOIMGlobalIndexSlotMap`, `IOIMGlobalIndexSlotSource`.
+
+```ts
+const usersByTeam = users.indexFactory.derivedSetIndex((u) => u.teamId);
+const rows = createOIMIndexSlotMap(usersByTeam, (slot) => makeRow(slot.item));
+rows.subscribeOnKey('team1', () => { for (const row of rows.getByKey('team1')) { /* stable per slot */ } });
+```
 
 ### DX Layer — Collection Model
 
@@ -146,6 +259,8 @@ const logEffect = new OIMEffect(runtime, {
 - `OIMEffectDependencyKeyedObject(object, key)` — watch a key in a reactive object
 - `OIMEffectDependencyKeyedIndex(index, key)` — watch a key in an index
 - `OIMEffectDependencyComputed(computed)` — depend on another computed
+
+Each keyed dependency watches exactly **one** key — the key argument is the whole key, so a composite key/PK path `[a, b]` is one key (never split into `a`, `b`). For a composite-PK collection or composite index, pass the tuple: `new OIMEffectDependencyKeyedCollection(reqs, ['t1', 'open'])`. To depend on several keys, add several dependencies to the effect's `deps` array.
 
 ### Objects
 
@@ -236,6 +351,42 @@ const card = useSelectEntityByPkSignal(cards, id); // sees in-place mutations (u
 Signal hooks: `useSelectEntityByPkSignal(collection, pk)`, `useSelectPksByIndexKeyArrayBasedSignal(index, key)`, `useSelectPksByIndexKeySetBasedSignal(index, key)`. Use the fine-grained pattern (parent reads pks by index key; each row reads its own entity by pk).
 
 Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Default to the standard immutable hooks; reach for this only when a profile shows the data layer is the bottleneck.
+
+## Exodra (`@oimdb/exodra`)
+
+```bash
+npm install @oimdb/exodra @oimdb/core
+```
+
+Depends only on the type-only `@exodra/reactivity-types` (never the reactivity runtime); peer dep `@oimdb/core`. Your Exodra app already provides `@exodra/reactivity` for the runtime (`bindable`, `derive`, `h`). The [Exodra](https://exodra.org) counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Bindables are read-only, lazy (subscribe upstream only while they have a downstream subscriber → cost O(visible)) and SSR-safe (`getValue()` reads fresh, valid without an active subscription).
+
+```ts
+import { fromSelector, bindSelectors, fromComputed, combine, entityRows } from '@oimdb/exodra';
+import { bindable, derive } from '@exodra/reactivity';
+
+// wrap any OIMSelector
+const alice = fromSelector(kit.select.byPk('u1')); // TExoBindable<User | undefined>
+
+// mirror OIMCollectionSelectors → bindables; keys accept a bindable (reactive key re-points the sub)
+const bound = bindSelectors(kit.select);
+const selectedTeam = bindable('team-1');
+const members = bound.entitiesBySetIndexKey(usersByTeam, selectedTeam);
+// <ul bindable={{ children: entityRows(memberPks, pk => bound.byPk(pk), (u, pk) => renderRow(u)) }} />
+```
+
+| Export | Purpose |
+|---|---|
+| `fromSelector(selector, opts?)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
+| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair |
+| `fromSelectorFactory(key, makeSelector, opts?)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
+| `fromComputed(computed, opts?)` | `OIMComputed<T>` → `TExoBindable<T>` |
+| `combine(sources, fn)` | multi-source derive (Exodra's own `derive` is single-source) |
+| `bindSelectors(selectors, defaults?)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
+| `keyedChildren(source, { key, render })` / `entityRows(order, bindEntity, render)` | identity-stable list children (field edit = reconcile no-op, focus-safe) |
+| `listFromCommandStream(stream, key, render)` | O(delta) path: OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
+| `read*/subscribe*` (6 fns) | low-level pairs mirroring an inline app bridge 1:1 (find-replace migration) |
+
+Options `{ equals?, alwaysNotify? }`: `equals` defaults to `Object.is`; `alwaysNotify: true` for in-place entity updaters (stable ref, where `Object.is` would swallow the update). `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
 
 ## Persist (`@oimdb/persist`)
 
@@ -382,12 +533,26 @@ unsubscribe();
 
 ### Destroy lifecycle (always call destroy in reverse order)
 
+Teardown is LIFO: dispose dependents before what they depend on — indexes / streams / selectors before the collection, the collection before the queue. By hand:
+
 ```ts
 logEffect.destroy();
 openCount.destroy();
 byStatus.destroy();
 tasks.destroy();
 queue.destroy();
+```
+
+**`OIMDisposeScope`** does this for you — register as you build, tear everything down in one LIFO call. It accepts both `{ destroy(): void }` objects AND bare `() => void` unsubscribe functions (selectors' `watch`, per-key `subscribeOnKey`, `emitter.on`, scheduler tasks expose only the function form). `add(x)` returns `x` for inline capture; idempotent; every item is disposed even if one throws (first error rethrown after); `child()` nests a sub-scope. `createOIMDisposeScope()` factory. New exports: `OIMDisposeScope`, `createOIMDisposeScope`, `IOIMDisposable` (`{ destroy(): void }`), `TOIMDisposable` (`IOIMDisposable | (() => void)`).
+
+```ts
+const scope = new OIMDisposeScope();
+const queue = scope.add(new OIMEventQueue());
+const tasks = scope.add(new OIMReactiveCollection(queue, { selectPk: t => t.id }));
+const byStatus = scope.add(tasks.indexFactory.setBasedIndex());
+scope.add(select.entitiesBySetIndexKey(byStatus, 'open').watch(render));
+// …later — one call, correct LIFO order, no manual bookkeeping:
+scope.destroy();
 ```
 
 ## DevTools UI (`@oimdb/mcp devtools`)

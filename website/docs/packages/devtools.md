@@ -123,6 +123,16 @@ registry.trackFlushes(handler =>
 );
 ```
 
+## Flush errors
+
+Call `trackFlushErrors` to record errors thrown by tasks during a flush. They appear as `errors` in `inspect()` (most recent first), so a failed flush is visible to you, an AI assistant, or the MCP bridge — even though the error is still raised as usual (see the queue's `onError` option).
+
+```ts
+registry.trackFlushErrors(handler =>
+    queue.emitter.on(EOIMEventQueueEventType.FLUSH_ERROR, handler)
+);
+```
+
 ## Computed values
 
 Register `OIMComputed` instances to see their status in `inspect()` and `dump()`:

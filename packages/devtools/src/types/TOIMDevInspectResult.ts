@@ -31,8 +31,16 @@ export type TOIMDevFlushRecord = {
     counts: Record<string, number>;
 };
 
+export type TOIMDevFlushErrorRecord = {
+    time: number;
+    /** String form of the value a queue task threw during flush. */
+    message: string;
+};
+
 export type TOIMDevInspectResult = {
     collections: Record<string, TOIMDevCollectionInfo>;
     computeds: Record<string, TOIMDevComputedInfo>;
     history: TOIMDevFlushRecord[];
+    /** Errors thrown by tasks during flush, most recent first. */
+    errors: TOIMDevFlushErrorRecord[];
 };
