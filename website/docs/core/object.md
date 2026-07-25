@@ -44,6 +44,11 @@ const off = settings.subscribeOnKey('theme', () => {
 
 // Subscribe to multiple keys at once. Coalesced: the handler fires at most once
 // per flush, however many of the subscribed keys changed.
+//
+// Coalescing is scoped to THIS subscription. The same function registered
+// through several independent `subscribeOnKey` calls still gets one delivery
+// per changed key — a multi-key subscription elsewhere never changes that.
+// `unsubscribeFromKeys(keys, handler)` releases the coalescing just like `off2`.
 const off2 = settings.subscribeOnKeys(['theme', 'lang'], () => {
   console.log('theme or lang changed');
 });

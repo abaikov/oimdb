@@ -50,13 +50,19 @@ export class OIMCarrierKeyedEmitter<
     // doubles as membership: a carrier is in this array iff `carrier.dirty`.
     private dirtyCarriers: TCarrier[] = [];
     private isFlushEnqueued = false;
-    // Number of live subscriptions whose single handler spans 2+ distinct
-    // carriers (a `subscribeOnKeys` over distinct keys). While this is > 0 a
-    // flush coalesces delivery so such a handler fires at most ONCE per flush,
-    // not once per changed carrier — the callback carries no key, so extra
-    // fires are pure waste. At 0 the hot single-subscriber path pays nothing:
-    // no per-flush Set, no membership checks.
-    private multiCarrierSubscriptions = 0;
+    // Handlers registered through a `subscribeOnKeys` that spans 2+ carriers,
+    // refcounted (the same handler may hold several such subscriptions). Their
+    // delivery is coalesced to at most ONCE per flush — the callback carries no
+    // key, so firing per changed carrier is pure waste.
+    //
+    // Membership matters, not just the count: coalescing must apply ONLY to
+    // these handlers. A handler that took two independent `subscribeOnKey`
+    // subscriptions owes two deliveries, and that must not change just because
+    // some unrelated multi-key subscription happens to exist on this emitter.
+    //
+    // Lazily created: an emitter that never sees a multi-carrier subscription
+    // allocates nothing and pays nothing on the hot path.
+    private multiCarrierHandlers?: Map<TOIMEventHandler<void>, number>;
     // Reused across flushes (created lazily the first time a multi-carrier
     // subscription actually delivers) and `.clear()`ed after each flush rather
     // than re-allocated — same discipline as `dirtyCarriers`. Emitters that
@@ -96,12 +102,14 @@ export class OIMCarrierKeyedEmitter<
         // gate for a single real carrier — harmless (the dedup just runs and the
         // lone handler still fires once).
         const spansMultipleCarriers = carriers.length > 1;
-        if (spansMultipleCarriers) this.multiCarrierSubscriptions++;
+        if (spansMultipleCarriers) this.retainMultiCarrierHandler(handler);
         let unsubscribed = false;
         return () => {
             if (unsubscribed) return;
             unsubscribed = true;
-            if (spansMultipleCarriers) this.multiCarrierSubscriptions--;
+            if (spansMultipleCarriers) {
+                this.releaseMultiCarrierHandler(handler);
+            }
             for (let i = 0; i < carriers.length; i++) {
                 this.removeHandler(carriers[i], handler);
             }
@@ -117,9 +125,31 @@ export class OIMCarrierKeyedEmitter<
         keys: readonly TKey[],
         handler: TOIMEventHandler<void>
     ): void {
+        // The documented alternative to the closure `subscribeOnKeys` returns,
+        // so it has to release the coalescing refcount too — otherwise the gate
+        // stays latched for the emitter's whole life and every later flush pays
+        // for a dedup nothing needs. Once per call, not once per key: it undoes
+        // ONE subscription.
+        if (keys.length > 1) this.releaseMultiCarrierHandler(handler);
         for (let i = 0; i < keys.length; i++) {
             this.unsubscribeFromKey(keys[i], handler);
         }
+    }
+
+    /** Take a reference for a handler whose subscription spans several carriers. */
+    private retainMultiCarrierHandler(handler: TOIMEventHandler<void>): void {
+        const handlers = (this.multiCarrierHandlers ??= new Map());
+        handlers.set(handler, (handlers.get(handler) ?? 0) + 1);
+    }
+
+    /** Drop one reference; the handler leaves the set when none are left. */
+    private releaseMultiCarrierHandler(handler: TOIMEventHandler<void>): void {
+        const handlers = this.multiCarrierHandlers;
+        if (handlers === undefined) return;
+        const count = handlers.get(handler);
+        if (count === undefined) return;
+        if (count > 1) handlers.set(handler, count - 1);
+        else handlers.delete(handler);
     }
 
     private addHandler(
@@ -236,6 +266,11 @@ export class OIMCarrierKeyedEmitter<
         }
         this.dirtyCarriers = [];
         this.isFlushEnqueued = false;
+        // Every subscription is gone, so no handler is multi-carrier any more.
+        // Leaving these behind would latch the coalescing gate for a reused
+        // emitter and keep the pooled Set alive for nothing.
+        this.multiCarrierHandlers?.clear();
+        this.deliveredPool?.clear();
     }
 
     private assertNotInFlush(): void {
@@ -263,8 +298,9 @@ export class OIMCarrierKeyedEmitter<
         // Only when some handler spans multiple carriers do we need to dedup
         // delivery across this flush; otherwise every handler is unique to its
         // carrier and the Set would be pure overhead on the hot path.
+        const multiCarrierHandlers = this.multiCarrierHandlers;
         const delivered =
-            this.multiCarrierSubscriptions > 0
+            multiCarrierHandlers !== undefined && multiCarrierHandlers.size > 0
                 ? (this.deliveredPool ??= new Set<TOIMEventHandler<void>>())
                 : undefined;
         let i = 0;
@@ -291,18 +327,19 @@ export class OIMCarrierKeyedEmitter<
     ): void {
         const subscribers = carrier.subscribers;
         if (!subscribers || subscribers.size === 0) return;
+        // Coalescing is scoped to handlers that actually hold a multi-carrier
+        // subscription. A handler with several independent single-key
+        // subscriptions owes one delivery per carrier, and must keep getting
+        // them no matter what else is subscribed to this emitter.
+        const multiCarrierHandlers = delivered
+            ? this.multiCarrierHandlers
+            : undefined;
         // One subscriber per key is the common case — no snapshot allocation.
         if (subscribers.size === 1) {
             const only = subscribers.values().next().value;
             if (!only) return;
-            // `delivered` present ⇒ a multi-carrier handler exists this flush;
-            // fire each handler at most once across the whole flush. Detect
-            // "already fired" via the size delta of a single `add` — one hash
-            // probe instead of `has` + `add`.
-            if (delivered) {
-                const size = delivered.size;
-                delivered.add(only);
-                if (delivered.size === size) return;
+            if (this.isAlreadyDelivered(only, delivered, multiCarrierHandlers)) {
+                return;
             }
             only();
             return;
@@ -313,12 +350,32 @@ export class OIMCarrierKeyedEmitter<
         for (let i = 0; i < snapshot.length; i++) {
             const handler = snapshot[i];
             if (!subscribers.has(handler)) continue;
-            if (delivered) {
-                const size = delivered.size;
-                delivered.add(handler);
-                if (delivered.size === size) continue;
+            if (
+                this.isAlreadyDelivered(handler, delivered, multiCarrierHandlers)
+            ) {
+                continue;
             }
             handler();
         }
+    }
+
+    /**
+     * Whether this handler already fired in the current flush and must be
+     * skipped. Only multi-carrier handlers are tracked; everything else always
+     * delivers. Membership is recorded via the size delta of a single `add` —
+     * one hash probe instead of `has` + `add`.
+     */
+    private isAlreadyDelivered(
+        handler: TOIMEventHandler<void>,
+        delivered: Set<TOIMEventHandler<void>> | undefined,
+        multiCarrierHandlers:
+            | Map<TOIMEventHandler<void>, number>
+            | undefined
+    ): boolean {
+        if (delivered === undefined) return false;
+        if (multiCarrierHandlers?.has(handler) !== true) return false;
+        const size = delivered.size;
+        delivered.add(handler);
+        return delivered.size === size;
     }
 }

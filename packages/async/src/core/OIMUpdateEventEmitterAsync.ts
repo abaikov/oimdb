@@ -11,12 +11,17 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
     private readonly keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     private updatedKeys = new Set<TKey>();
     private isFlushEnqueued = false;
-    // Number of live `subscribeOnKeys` subscriptions spanning 2+ keys. While > 0
-    // a flush coalesces delivery so such a handler fires at most ONCE per flush,
-    // not once per changed key. At 0 the hot single-handler path pays nothing.
-    private multiKeySubscriptions = 0;
+    // Handlers registered through a `subscribeOnKeys` spanning 2+ keys,
+    // refcounted. Their delivery is coalesced to at most ONCE per flush (the
+    // callback carries no key, so firing per changed key is pure waste).
+    //
+    // Membership matters, not just the count: coalescing must apply ONLY to
+    // these handlers. A handler holding several independent `subscribeOnKey`
+    // subscriptions owes one delivery per key, and that must not change because
+    // some unrelated multi-key subscription exists on this emitter.
+    private multiKeyHandlers?: Map<TOIMEventHandler<void>, number>;
     // Reused across flushes (lazily created) and cleared per flush rather than
-    // re-allocated — only touched while `multiKeySubscriptions > 0`.
+    // re-allocated — only touched while a multi-key handler is registered.
     private deliveredPool?: Set<TOIMEventHandler<void>>;
 
     constructor(private readonly queue: OIMEventQueue) {}
@@ -54,12 +59,12 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         // callback carries no key). Counts input keys — a degenerate duplicate
         // key may over-count, harmlessly tripping the dedup for a single key.
         const spansMultipleKeys = keys.length > 1;
-        if (spansMultipleKeys) this.multiKeySubscriptions++;
+        if (spansMultipleKeys) this.retainMultiKeyHandler(handler);
         let unsubscribed = false;
         return () => {
             if (unsubscribed) return;
             unsubscribed = true;
-            if (spansMultipleKeys) this.multiKeySubscriptions--;
+            if (spansMultipleKeys) this.releaseMultiKeyHandler(handler);
             for (const key of subscribedKeys) this.unsubscribeFromKey(key, handler);
         };
     }
@@ -88,7 +93,28 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         keys: readonly TKey[],
         handler: TOIMEventHandler<void>
     ): void {
+        // The documented alternative to the closure `subscribeOnKeys` returns,
+        // so it must release the coalescing refcount too — otherwise the gate
+        // stays latched for the emitter's whole life. Once per call, not once
+        // per key: it undoes ONE subscription.
+        if (keys.length > 1) this.releaseMultiKeyHandler(handler);
         for (const key of keys) this.unsubscribeFromKey(key, handler);
+    }
+
+    /** Take a reference for a handler whose subscription spans several keys. */
+    private retainMultiKeyHandler(handler: TOIMEventHandler<void>): void {
+        const handlers = (this.multiKeyHandlers ??= new Map());
+        handlers.set(handler, (handlers.get(handler) ?? 0) + 1);
+    }
+
+    /** Drop one reference; the handler leaves the set when none are left. */
+    private releaseMultiKeyHandler(handler: TOIMEventHandler<void>): void {
+        const handlers = this.multiKeyHandlers;
+        if (handlers === undefined) return;
+        const count = handlers.get(handler);
+        if (count === undefined) return;
+        if (count > 1) handlers.set(handler, count - 1);
+        else handlers.delete(handler);
     }
 
     public markUpdatedKeys(keys: readonly TKey[]): void {
@@ -143,8 +169,9 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         // Dedup delivery across the flush only when some handler spans multiple
         // keys; otherwise every handler is unique to its key and the Set is pure
         // overhead. Pooled + cleared per flush, not re-allocated.
+        const multiKeyHandlers = this.multiKeyHandlers;
         const delivered =
-            this.multiKeySubscriptions > 0
+            multiKeyHandlers !== undefined && multiKeyHandlers.size > 0
                 ? (this.deliveredPool ??= new Set<TOIMEventHandler<void>>())
                 : undefined;
         try {
@@ -168,11 +195,7 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         if (handlers.size === 1) {
             const only = handlers.values().next().value;
             if (!only) return;
-            if (delivered) {
-                const size = delivered.size;
-                delivered.add(only);
-                if (delivered.size === size) return; // already fired this flush
-            }
+            if (this.isAlreadyDelivered(only, delivered)) return;
             only();
             return;
         }
@@ -181,13 +204,26 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         for (let i = 0; i < snapshot.length; i++) {
             const handler = snapshot[i];
             if (!handlers.has(handler)) continue;
-            if (delivered) {
-                const size = delivered.size;
-                delivered.add(handler);
-                if (delivered.size === size) continue;
-            }
+            if (this.isAlreadyDelivered(handler, delivered)) continue;
             handler();
         }
+    }
+
+    /**
+     * Whether this handler already fired in the current flush and must be
+     * skipped. Only multi-key handlers are tracked; everything else always
+     * delivers. Membership is recorded via the size delta of a single `add` —
+     * one hash probe instead of `has` + `add`.
+     */
+    private isAlreadyDelivered(
+        handler: TOIMEventHandler<void>,
+        delivered: Set<TOIMEventHandler<void>> | undefined
+    ): boolean {
+        if (delivered === undefined) return false;
+        if (this.multiKeyHandlers?.has(handler) !== true) return false;
+        const size = delivered.size;
+        delivered.add(handler);
+        return delivered.size === size;
     }
 
     public destroy(): void {
@@ -199,6 +235,9 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         this.keyHandlers.clear();
         this.updatedKeys.clear();
         this.isFlushEnqueued = false;
+        // Every subscription is gone, so no handler is multi-key any more.
+        this.multiKeyHandlers?.clear();
+        this.deliveredPool?.clear();
     }
 }
 

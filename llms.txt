@@ -86,7 +86,9 @@ byRole.subscribeOnKey('admin', () => {
 queue.flush(); // delivers subscription
 ```
 
-**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription.
+**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription — and releases the coalescing exactly like the returned unsubscribe closure does.
+
+**Coalescing is scoped to the subscription, not to the handler.** It applies only to handlers registered through a multi-key `subscribeOnKeys`. If the same function holds several *independent* `subscribeOnKey` subscriptions, it still gets one delivery per changed key — an unrelated multi-key subscription elsewhere on the same collection/index never changes that.
 
 Membership writes are incremental (touch only the changed pks):
 - `addPks(key, pks)` / `removePks(key, pks)` — **set-based**: O(1) per pk for both. **array-based**: `addPks` O(1), `removePks` O(bucket) (ordered, must scan).
