@@ -115,7 +115,9 @@ export class OIMSnapshotManager<
                 EntitySnapshot<object, TOIMKey>
             > = [];
 
-            for (const pk of Array.from(updatedPkSet)) {
+            // Iterate the Set directly — it is not mutated here (cleared only
+            // afterwards), so no defensive copy is needed.
+            for (const pk of updatedPkSet) {
                 const entity = collection.getOneByPk(pk);
                 entitySnapshots.push({
                     pk,

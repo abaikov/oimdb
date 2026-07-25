@@ -2,7 +2,6 @@ import { TOIMKey } from './TOIMKey';
 import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
 import type { TOIMEntitySlotGetter } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
-import type { TOIMPk } from './TOIMPk';
 import type {
     TOIMDerivedEntityComparator,
     TOIMDerivedEntityOrderSelector,

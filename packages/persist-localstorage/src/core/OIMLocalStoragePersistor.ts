@@ -9,6 +9,7 @@ import {
     TOIMCollectionPersistSource,
     TOIMObjectPersistSource,
     TOIMOrderedArrayIndexPersistSource,
+    TOIMPersistBatchItem,
     TOIMPersistStrategy,
     TOIMSetIndexPersistSource,
 } from '@oimdb/persist';
@@ -77,8 +78,12 @@ export class OIMLocalStoragePersistor extends OIMPersistor<TOIMLocalStorageRunti
     }
 
     protected override async batchPersist(
-        resources: readonly IOIMAnyPersistResource<this>[]
+        items: readonly TOIMPersistBatchItem<this>[]
     ): Promise<void> {
+        // localStorage is whole-blob per key (entry/path strategies): a changed
+        // key rewrites its whole root, so the `dirty` key set can't be applied
+        // incrementally. Persist the full snapshot of every dirty resource.
+        const resources = items.map(item => item.resource);
         const batchItems: Array<{
             strategy: TOIMLocalStorageBatchStrategy<unknown>;
             snapshot: unknown;

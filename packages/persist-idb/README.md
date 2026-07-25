@@ -45,7 +45,7 @@ bumping the database version, so you never have to declare your schema upfront.
 | Builder call | Layout in IndexedDB |
 |---|---|
 | `.collection(c).entry({ tableName, primaryKey })` | whole snapshot under one key in `tableName` |
-| `.collection(c).records({ tableName })` | one row per entity in `tableName` |
+| `.collection(c).records({ tableName })` | one row per entity in `tableName` — on autosave from a reactive collection, only the changed rows are written (delta), not the whole table |
 | `.collection(c).using(strategy)` | custom strategy |
 | `.object(o).entry({ tableName, primaryKey })` | object snapshot under one key |
 | `.setIndex(i) / .arrayIndex(i) / .orderedArrayIndex(i)` `.entry({ tableName, primaryKey })` | index snapshot under one key |

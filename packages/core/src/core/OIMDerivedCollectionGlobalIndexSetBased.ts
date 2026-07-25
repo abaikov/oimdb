@@ -5,7 +5,6 @@ import {
     TOIMGlobalIndexFilter,
 } from '../types/TOIMCollectionGlobalIndexOptions';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMReactiveCollectionGlobalIndexManualSetBased } from './OIMReactiveCollectionGlobalIndexManualSetBased';
@@ -71,11 +70,8 @@ export class OIMDerivedCollectionGlobalIndexSetBased<
     }
 
     private readonly onCollectionUpdate = (pks: readonly TPk[]): void => {
-        if (pks.length === 0) {
-            this.rebuildFromCollection();
-            return;
-        }
-
+        // `pks` always enumerates exactly the changed keys (clear() lists every
+        // removed key), so removals flow through the normal per-key path below.
         for (const pk of pks) {
             const prev = this.presentPks.has(pk);
             const slot = this.collection.getSlotByPk(pk);

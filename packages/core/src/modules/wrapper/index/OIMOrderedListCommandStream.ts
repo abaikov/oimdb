@@ -1,6 +1,5 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
 import { OIMOrderedListCommandBuffer } from '../../../abstract/OIMOrderedListCommandBuffer';
 import { OIMIndexManualOrderedArrayBased } from '../../../core/OIMIndexManualOrderedArrayBased';

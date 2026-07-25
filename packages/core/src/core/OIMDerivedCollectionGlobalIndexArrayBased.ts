@@ -10,7 +10,6 @@ import {
     TOIMGlobalIndexFilter,
 } from '../types/TOIMCollectionGlobalIndexOptions';
 import { TOIMAnyEntitySlot, TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollection } from './OIMReactiveCollection';
 import { OIMReactiveCollectionGlobalIndexManualArrayBased } from './OIMReactiveCollectionGlobalIndexManualArrayBased';
@@ -93,11 +92,8 @@ export class OIMDerivedCollectionGlobalIndexArrayBased<
     }
 
     private readonly onCollectionUpdate = (pks: readonly TPk[]): void => {
-        if (pks.length === 0) {
-            this.rebuildFromCollection();
-            return;
-        }
-
+        // `pks` always enumerates exactly the changed keys (clear() lists every
+        // removed key), so removals flow through the normal per-key path below.
         const ordered = !!(this.compareEntities || this.orderBy);
         let needsSort = false;
 

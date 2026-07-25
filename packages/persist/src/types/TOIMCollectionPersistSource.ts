@@ -16,10 +16,20 @@ export type TOIMCollectionPersistSource<
     clear(): void;
     upsertMany(entities: NoInfer<TEntity>[]): unknown;
     /**
+     * Read a single entity by PK. Optional here (a bare persist source need not
+     * provide it), but required — together with `removeManyByPks` and
+     * `subscribeOnAnyUpdate` — for the adapter to expose its keyed/delta
+     * capability. `OIMCollection`/`OIMReactiveCollection` both provide it.
+     */
+    getOneByPk?: (pk: TPk) => TEntity | undefined;
+    /** Remove entities by PK. Needed for the keyed capability's `applyDelta`. */
+    removeManyByPks?: (pks: readonly TPk[]) => void;
+    /**
      * Queue-integrated subscription: fires once per queue flush with the
      * changed PKs. Used by OIMReactiveCollection. Preferred over `emitter`
      * when available — no need for a separate dirty flag since the reactive
-     * collection already accumulates changes internally.
+     * collection already accumulates changes internally. Also the source of the
+     * changed keys that drive delta persistence.
      */
     subscribeOnAnyUpdate?: (
         handler: (pks: readonly TPk[]) => void

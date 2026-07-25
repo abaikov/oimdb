@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 /**

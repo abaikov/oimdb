@@ -13,7 +13,9 @@ type TOIMComputedLike = {
 };
 
 /**
- * Effect dependency on a computed.
+ * Effect dependency on a computed. Carries the computed itself (`source`) so the
+ * runtime can look up its topological depth — the level lives in the runtime,
+ * not on this dependency.
  */
 export class OIMEffectDependencyComputed implements IOIMEffectDependency {
     constructor(public readonly source: TOIMComputedLike) {}

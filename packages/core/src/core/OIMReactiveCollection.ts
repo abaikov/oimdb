@@ -1,6 +1,5 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMCollection } from './OIMCollection';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
@@ -27,7 +26,6 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     // Only ever holds `slot.pk` (one canonical reference per logical key), so a
     // native `Set` dedups correctly by reference even for composite pks.
     private readonly pendingAnyUpdatePks = new Set<TPk>();
-    private isAnyUpdateClearPending = false;
     private isAnyUpdateScheduled = false;
 
     constructor(
@@ -97,17 +95,30 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         };
     }
 
-    // The legacy `emitter` (EOIMCollectionEventType.UPDATE) coexists with the
-    // keyed `updateEmitter`. Build its payload only when something is actually
-    // subscribed — otherwise every upsert/remove allocates a throwaway
-    // `{ pks }` object (and array) that nobody reads.
-    private notifyLegacy(pk: TPk): void {
+    // Two notification channels coexist on a reactive collection; they serve
+    // different audiences and NEITHER is obsolete:
+    //   • the keyed `updateEmitter` — per-key/per-carrier pings ("did MY key
+    //     change?", payload-less `void`), for leaf subscribers like React hooks
+    //     that declare the keys they care about up front;
+    //   • this `emitter` UPDATE event — the aggregate/batch channel that carries
+    //     the full list of changed pks in one SYNCHRONOUS callback, for
+    //     consumers that do NOT know their keys ahead of time and must re-derive
+    //     over the batch: derived indexes/collections, changed-fields, persist,
+    //     snapshot-manager. `pks` always enumerates exactly what changed — even
+    //     clear() lists every removed key, so an empty array never occurs.
+    // It is not a per-key emitter with fewer features — it is the opposite
+    // shape (enumerated batch, not "my key"), which is why it stays.
+    //
+    // Emit on the batch channel only when something is actually subscribed —
+    // otherwise every upsert/remove allocates a throwaway `{ pks }` object (and
+    // array) that nobody reads.
+    private notifyBatch(pk: TPk): void {
         if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
             this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         }
     }
 
-    private notifyLegacyMany(pks: readonly TPk[]): void {
+    private notifyBatchMany(pks: readonly TPk[]): void {
         if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
             this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         }
@@ -118,7 +129,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         entity: Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
-        this.notifyLegacy(pk);
+        this.notifyBatch(pk);
         this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(pk);
         return slot;
@@ -128,7 +139,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         entity: TEntity | Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotifications(entity);
-        this.notifyLegacy(slot.pk);
+        this.notifyBatch(slot.pk);
         this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(slot.pk);
         return slot;
@@ -143,7 +154,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
             this.upsertOneWithoutNotifications(entity)
         );
         const pks = slots.map(slot => slot.pk);
-        this.notifyLegacyMany(pks);
+        this.notifyBatchMany(pks);
         for (let i = 0; i < slots.length; i++) {
             this.updateEmitter.markUpdatedCarrier(slots[i]);
         }
@@ -154,7 +165,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     public override removeOne(entity: TEntity): void {
         const pk = this.selectPk(entity);
         this.store.removeOneByPk(pk);
-        this.notifyLegacy(pk);
+        this.notifyBatch(pk);
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -164,14 +175,14 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
 
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
-        this.notifyLegacyMany(pks);
+        this.notifyBatchMany(pks);
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override removeOneByPk(pk: TPk): void {
         this.store.removeOneByPk(pk);
-        this.notifyLegacy(pk);
+        this.notifyBatch(pk);
         this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
@@ -180,23 +191,28 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         if (pks.length === 0) return;
 
         this.store.removeManyByPks(pks);
-        this.notifyLegacyMany(pks);
+        this.notifyBatchMany(pks);
         this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override clear(): void {
+        // clear() removes every present key. Capture those keys BEFORE clearing
+        // so the batch + anyUpdate channels report exactly which keys changed —
+        // an empty `pks` never means "reset", it means "nothing changed". Build
+        // the key array only when a channel that needs it is subscribed.
+        const needsPks =
+            this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE) ||
+            this.anyUpdateHandlers.size > 0;
+        const pks = needsPks ? this.store.getAllPks() : undefined;
         this.store.clear();
-        // clear() removes every key, so the individually-changed keys are
-        // unknown. On the legacy UPDATE event an empty `pks` is the agreed
-        // "rebuild from scratch" signal (derived indexes act on
-        // `pks.length === 0`). Emit it only if something is subscribed.
-        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
-            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
+        if (pks && pks.length > 0) {
+            this.notifyBatchMany(pks);
+            this.trackAnyUpdatePks(pks);
         }
-        // Keyed subscribers are notified separately across all known keys.
+        // Keyed subscribers are notified across all subscribed carriers; this is
+        // carrier-based and needs no pk list, so it works after the store clear.
         this.updateEmitter.markAllUpdated();
-        this.trackAnyUpdateClear();
     }
 
     private trackAnyUpdatePk(pk: TPk): void {
@@ -208,14 +224,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     private trackAnyUpdatePks(pks: readonly TPk[]): void {
         if (this.anyUpdateHandlers.size === 0) return;
         for (let i = 0; i < pks.length; i++)
-            this.pendingAnyUpdatePks.add(pks[i]);
-        this.ensureAnyUpdateEnqueued();
-    }
-
-    private trackAnyUpdateClear(): void {
-        if (this.anyUpdateHandlers.size === 0) return;
-        this.isAnyUpdateClearPending = true;
-        this.pendingAnyUpdatePks.clear();
+            {this.pendingAnyUpdatePks.add(pks[i]);}
         this.ensureAnyUpdateEnqueued();
     }
 
@@ -229,11 +238,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         if (!this.isAnyUpdateScheduled) return;
         this.isAnyUpdateScheduled = false;
 
-        const pks = this.isAnyUpdateClearPending
-            ? []
-            : Array.from(this.pendingAnyUpdatePks.values());
+        const pks = Array.from(this.pendingAnyUpdatePks.values());
         this.pendingAnyUpdatePks.clear();
-        this.isAnyUpdateClearPending = false;
 
         const snapshot = Array.from(this.anyUpdateHandlers);
         for (let i = 0; i < snapshot.length; i++) snapshot[i](pks);

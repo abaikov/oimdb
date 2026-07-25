@@ -1,6 +1,5 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorSourceDependencyUpdateEventEmitterKey';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';

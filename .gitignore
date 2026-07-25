@@ -75,6 +75,8 @@ Thumbs.db
 .cursor/
 CLAUDE.md
 website/static/llms.txt
+.claude/
+.husky/
 
 # Local drafts / scratch (not for publishing)
 docs-draft/

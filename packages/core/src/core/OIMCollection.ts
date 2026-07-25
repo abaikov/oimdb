@@ -1,6 +1,5 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMPkSelector } from '../types/TOIMPkSelector';
 import { OIMPkSelectorFactory } from './OIMPkSelectorFactory';
 import { OIMCollectionStoreMapDriven } from './OIMCollectionStoreMapDriven';
@@ -122,8 +121,17 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
     }
 
     clear(): void {
+        // Capture the present keys BEFORE clearing so the UPDATE event reports
+        // exactly which keys changed (they all get removed). The event never
+        // carries an empty `pks` to mean "reset" — an empty array would mean
+        // "nothing changed", which is indistinguishable to consumers that need
+        // to know what was removed (snapshot/persist/derived). Clearing an
+        // already-empty collection is a no-op and emits nothing.
+        const pks = this.store.getAllPks();
         this.store.clear();
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
+        if (pks.length > 0) {
+            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        }
     }
 
     countAll(): number {

@@ -333,19 +333,19 @@ export class OIMDBReduxReducerFactory {
                                         const pk = addedArray[i];
                                         const entity = defaultState.entities[pk];
                                         if (entity)
-                                            collection.upsertOneByPk(
+                                            {collection.upsertOneByPk(
                                                 decodePk(pk),
                                                 entity
-                                            );
+                                            );}
                                     }
                                     for (let i = 0; i < updatedLength; i++) {
                                         const pk = updatedArray[i];
                                         const entity = defaultState.entities[pk];
                                         if (entity)
-                                            collection.upsertOneByPk(
+                                            {collection.upsertOneByPk(
                                                 decodePk(pk),
                                                 entity
-                                            );
+                                            );}
                                     }
                                 }
                             }

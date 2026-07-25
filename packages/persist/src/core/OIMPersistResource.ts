@@ -1,5 +1,6 @@
 import { IOIMAnyPersistResource } from '../interfaces/IOIMAnyPersistResource';
 import { TOIMPersistCodec } from '../types/TOIMPersistCodec';
+import { TOIMPersistDelta } from '../types/TOIMPersistDelta';
 import { TOIMPersistHydrateReconcile } from '../types/TOIMPersistHydrateReconcile';
 import { TOIMPersistResourceOptions } from '../types/TOIMPersistResourceOptions';
 import { TOIMPersistSourceAdapter } from '../types/TOIMPersistSourceAdapter';
@@ -10,9 +11,20 @@ export class OIMPersistResource<
     TPersistor,
     TSourceSnapshot,
     TPersistedSnapshot = TSourceSnapshot,
+    TKey = unknown,
+    TValue = unknown,
 > implements IOIMAnyPersistResource<TPersistor> {
-    public readonly source: TOIMPersistSourceAdapter<TSourceSnapshot>;
-    public readonly strategy: TOIMPersistStrategy<TPersistor, TPersistedSnapshot>;
+    public readonly source: TOIMPersistSourceAdapter<
+        TSourceSnapshot,
+        TKey,
+        TValue
+    >;
+    public readonly strategy: TOIMPersistStrategy<
+        TPersistor,
+        TPersistedSnapshot,
+        TKey,
+        TValue
+    >;
     public readonly codec?: TOIMPersistCodec<TSourceSnapshot, TPersistedSnapshot>;
 
     private unsubscribe?: TOIMPersistUnsubscribe;
@@ -23,7 +35,9 @@ export class OIMPersistResource<
         options: TOIMPersistResourceOptions<
             TPersistor,
             TSourceSnapshot,
-            TPersistedSnapshot
+            TPersistedSnapshot,
+            TKey,
+            TValue
         >
     ) {
         this.source = options.source;
@@ -49,6 +63,25 @@ export class OIMPersistResource<
             : (this.source.read() as unknown as TPersistedSnapshot);
     }
 
+    /**
+     * Whether changes can be persisted key-by-key: the source exposes a keyed
+     * capability AND the strategy knows how to write a delta. When either is
+     * missing the engine falls back to a full-snapshot write.
+     */
+    public supportsDelta(): boolean {
+        return (
+            this.source.keyed !== undefined &&
+            typeof this.strategy.writeDelta === 'function'
+        );
+    }
+
+    public takeDelta(keys: readonly TKey[]): TOIMPersistDelta<TKey, TValue> {
+        // Guarded by supportsDelta() at the call sites; the keyed capability is
+        // therefore present. The whole-snapshot codec deliberately does not
+        // apply here — a delta strategy owns its per-key storage format.
+        return this.source.keyed!.readDelta(keys);
+    }
+
     public applySnapshot(snapshot: TPersistedSnapshot): void {
         const incoming = this.codec
             ? this.codec.decode(snapshot)
@@ -67,12 +100,22 @@ export class OIMPersistResource<
         }
     }
 
-    public start(onDirty: () => void): void {
+    public start(onDirty: (keys?: readonly TKey[]) => void): void {
         if (this.unsubscribe) return;
-        this.unsubscribe = this.source.subscribe(() => {
-            if (this.isHydrating) return;
-            onDirty();
-        });
+        // Only subscribe at key granularity when a delta can actually be
+        // written — otherwise a whole-snapshot resource would pay to build and
+        // carry key arrays it never uses.
+        if (this.supportsDelta()) {
+            this.unsubscribe = this.source.keyed!.subscribeKeys(keys => {
+                if (this.isHydrating) return;
+                onDirty(keys);
+            });
+        } else {
+            this.unsubscribe = this.source.subscribe(() => {
+                if (this.isHydrating) return;
+                onDirty();
+            });
+        }
     }
 
     public stop(): void {

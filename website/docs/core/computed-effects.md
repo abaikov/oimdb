@@ -93,12 +93,69 @@ adminCount.destroy();
 
 | Class | Watches |
 |---|---|
-| `OIMEffectDependencyKeyedCollection(collection, pk \| pk[])` | Specific PKs in a `OIMReactiveCollection` |
-| `OIMEffectDependencyKeyedIndex(index, key \| key[])` | Specific keys in any reactive index |
-| `OIMEffectDependencyKeyedObject(obj, key \| key[])` | Specific keys in a `OIMReactiveObject` |
+| `OIMEffectDependencyKeyedCollection(collection, pk)` | One PK in a `OIMReactiveCollection` |
+| `OIMEffectDependencyKeyedIndex(index, key)` | One key in any reactive index |
+| `OIMEffectDependencyKeyedObject(obj, key)` | One key in a `OIMReactiveObject` |
 | `OIMEffectDependencyComputed(computed)` | Another `OIMComputed` |
 
-All accept a single key or an array of keys.
+Each dependency watches exactly **one** key — the argument is the whole key, so a composite key `[a, b]` is one key, not two. To depend on several keys, add several dependencies to the `deps` array.
+
+## Ergonomic facade — `kit.computed` / `kit.effect` / `on`
+
+You rarely need the classes above directly. A collection kit fronts the compute system: `on.*` builds the dependencies and `kit.computed` / `kit.effect` create nodes on the queue's **shared** runtime (so a computed can depend on selectors and on other collections that share the queue) and register them in `kit.scope` for teardown.
+
+```ts
+import { createOIMCollectionKit, on } from '@oimdb/core';
+
+const users = createOIMCollectionKit<User, string>(queue, { selectPk: (u) => u.id });
+const orders = createOIMCollectionKit<Order, string>(queue, { selectPk: (o) => o.id });
+
+const summary = users.computed(
+    [on.collection(users.collection, 'u1'), on.collection(orders.collection, 'o1')],
+    () => `${users.collection.getOneByPk('u1')?.name}: ${orders.collection.getOneByPk('o1')?.total}`,
+);
+
+users.effect([on.computed(summary)], () => console.log(summary.get()));
+```
+
+`on` builders: `on.collection(collection, pk)`, `on.index(index, key)`, `on.object(object, key)`, `on.computed(computed)`. Outside a kit, `getOIMComputeRuntime(queue)` returns the one shared runtime for a queue.
+
+## The runtime registry
+
+Every computed, effect and selector sharing a queue must share **one** runtime: they form a single dependency graph, and topological levels only mean anything within one runtime. Two runtimes on the same queue drain in two separate passes, and the glitch-freedom guarantee between their nodes is lost.
+
+The mapping is keyed by queue — there is no global instance, so two queues get two independent runtimes and tests need nothing reset between them.
+
+```typescript
+import {
+    getOIMComputeRuntime,
+    peekOIMComputeRuntime,
+    setOIMComputeRuntime,
+} from '@oimdb/core';
+
+const runtime = getOIMComputeRuntime(queue);   // created on first use
+
+peekOIMComputeRuntime(queue);                  // the runtime, or undefined — never creates
+```
+
+| Function | Use |
+|---|---|
+| `getOIMComputeRuntime(queue)` | The runtime for a queue, created on first use. A destroyed runtime is replaced, never handed back. |
+| `peekOIMComputeRuntime(queue)` | Read without creating — devtools asking whether a queue has a compute graph at all, teardown checking whether there is anything to destroy, assertions in tests. A destroyed runtime reads as `undefined`. |
+| `setOIMComputeRuntime(queue, runtime)` | Install your own — an instrumented subclass that records levels and drain order, a profiling runtime, a test double. |
+
+`setOIMComputeRuntime` throws if `runtime.queue !== queue` (a runtime drains on its own queue's flush, so a mismatched pair would never run). Install it **before** anything builds the graph: nodes capture their runtime at construction, so swapping afterwards leaves existing nodes on the old instance and splits the graph in two — exactly the problem the one-runtime-per-queue rule prevents. Replacing does not destroy the previous runtime; whoever installs a replacement decides whether the old one still has live nodes.
+
+### Destroying a runtime
+
+```typescript
+runtime.destroy();
+runtime.isDestroyed; // true
+```
+
+`destroy()` detaches the runtime from the queue's `AFTER_FLUSH` and drops all pending work. It is idempotent, and it does **not** destroy the computeds and effects scheduled on it — destroy those first, then the runtime.
+
+Without it the `AFTER_FLUSH` subscription lives as long as the queue does, even once every node is gone. That is harmless in itself (the handler early-returns when nothing is scheduled), but it cannot be unwound, which matters for a long-lived queue whose compute graph is torn down and rebuilt.
 
 ## Computed chains
 

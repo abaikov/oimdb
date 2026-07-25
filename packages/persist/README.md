@@ -94,6 +94,55 @@ persistor.collection(users).using({
 });
 ```
 
+## Delta writes (persist only changed keys)
+
+By default a change persists the **whole** snapshot: `takeSnapshot()` reads the
+entire collection, and the strategy's `write` rewrites everything. For a large
+collection with frequent small edits that is `O(N)` serialization per flush.
+
+A strategy can opt into **key-granular** writes by implementing the optional
+`writeDelta`. When it does *and* the source is key-aware (any
+`OIMReactiveCollection` — its `subscribeOnAnyUpdate` reports the changed PKs),
+the engine hands it only what changed in the flush:
+
+```ts
+import { TOIMPersistDelta } from '@oimdb/persist';
+
+persistor.collection(users).using<Snapshot>({
+    async read(p) {
+        /* assemble the full snapshot from your per-key store */
+    },
+    async write(p, snapshot) {
+        /* full rewrite — initial write / fallback */
+    },
+    async writeDelta(p, delta: TOIMPersistDelta<string, User>) {
+        for (const { key, value } of delta.upserts) p.storage.put(key, value);
+        for (const key of delta.deletedKeys) p.storage.delete(key);
+    },
+    async clear(p) {
+        /* ... */
+    },
+});
+```
+
+- **`writeDelta` is optional and opt-in.** A backend that can only rewrite a
+  single blob (one localStorage key, one KV entry) simply omits it, and the
+  engine always uses the full-snapshot `write` — a single-key change still
+  rewrites the whole collection, by design.
+- A `writeDelta` strategy **owns its per-key storage format** end to end (its
+  `read` assembles the snapshot; `write`/`writeDelta` agree on the layout). The
+  resource-level whole-snapshot **codec is not applied** on the delta path.
+- Manual `persistor.persist()` always writes full snapshots; deltas apply to the
+  autosave path (`start()` + change + flush), where the changed keys are known.
+- Among the built-in backends, the `records` strategies of `@oimdb/persist-memory`
+  and `@oimdb/persist-idb` implement `writeDelta` (IndexedDB batches the changed
+  rows into the shared transaction instead of clearing and rewriting the table).
+  The whole-blob `entry`/`path` strategies (localStorage, async-kv) do not.
+
+The relevant types — `TOIMPersistDelta`, `TOIMPersistKeyedCapability` (the source
+side) and `TOIMPersistBatchItem` (for backends that override `batchPersist`) —
+are exported from `@oimdb/persist`.
+
 ## Codec
 
 Transform the on-the-wire/at-rest shape without touching the live collection:

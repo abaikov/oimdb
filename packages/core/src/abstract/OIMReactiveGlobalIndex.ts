@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMCarrierSingleEmitter } from '../core/OIMCarrierSingleEmitter';
 import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';

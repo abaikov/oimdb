@@ -1,5 +1,4 @@
 import { TOIMKey } from './TOIMKey';
-import { TOIMPk } from './TOIMPk';
 
 /**
  * Comparator function for index primary key arrays.

@@ -11,7 +11,6 @@ import {
     TOIMRelationsOrderedListOptions,
     TOIMRelationsSetIndexOptions,
 } from '../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { OIMReactiveCollectionIndexManualArrayBased } from './OIMReactiveCollectionIndexManualArrayBased';
 import { OIMReactiveCollectionIndexManualSetBased } from './OIMReactiveCollectionIndexManualSetBased';

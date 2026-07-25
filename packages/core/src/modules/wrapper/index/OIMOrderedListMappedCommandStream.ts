@@ -1,5 +1,4 @@
 import { TOIMKey } from '../../../types/TOIMKey';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMOrderedListCommandSource } from '../../../interfaces/IOIMOrderedListCommandSource';
 import { TOIMOrderedListCommand } from './TOIMOrderedListCommand';
 
@@ -176,10 +175,17 @@ export class OIMOrderedListMappedCommandStream<
         try {
             const subs = this.subscribers.get(key);
             if (subs && subs.size > 0) {
-                const snapshot = Array.from(subs);
-                for (let s = 0; s < snapshot.length; s++) {
-                    const handler = snapshot[s];
-                    if (subs.has(handler)) handler();
+                // One subscriber is the common case — deliver without snapshot.
+                if (subs.size === 1) {
+                    const only = subs.values().next().value;
+                    if (only) only();
+                } else {
+                    // Snapshot so a handler may (un)subscribe mid-delivery.
+                    const snapshot = Array.from(subs);
+                    for (let s = 0; s < snapshot.length; s++) {
+                        const handler = snapshot[s];
+                        if (subs.has(handler)) handler();
+                    }
                 }
             }
         } finally {

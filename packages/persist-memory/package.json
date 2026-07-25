@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-memory",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "In-memory persistence backend for @oimdb/persist (SSR, tests, server-side fill)",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -1,6 +1,5 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMIndexSetBased } from './OIMIndexSetBased';
-import { TOIMPk } from '../types/TOIMPk';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 import {
     IOIMCarrierProvider,

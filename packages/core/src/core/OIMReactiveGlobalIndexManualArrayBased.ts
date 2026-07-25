@@ -1,7 +1,6 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMReactiveGlobalIndexArrayBased } from '../abstract/OIMReactiveGlobalIndexArrayBased';
 import { OIMGlobalIndexManualArrayBased } from './OIMGlobalIndexManualArrayBased';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMEventQueue } from './OIMEventQueue';
 import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';

@@ -6,7 +6,6 @@ import {
     TOIMEntitySlotGetter,
 } from '../types/TOIMEntitySlot';
 import { TOIMCollectionIndexCompositeSetBasedOptions } from '../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMKeyPath } from '../types/TOIMKeyPath';
 import { OIMIndexStoreTrieDrivenSetBased } from './OIMIndexStoreTrieDrivenSetBased';
 

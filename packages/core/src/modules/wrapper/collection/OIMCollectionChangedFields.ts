@@ -6,7 +6,6 @@ import { EOIMEventQueueEventType } from '../../../enums/EOIMEventQueueEventType'
 import { EOIMCollectionEventType } from '../../../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../../../types/TOIMCollectionUpdatePayload';
 import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
-import { TOIMPk } from '../../../types/TOIMPk';
 
 type TOIMFieldKey<TEntity extends object> = keyof TEntity & string;
 
@@ -274,7 +273,7 @@ export class OIMCollectionChangedFields<
         const changed: TOIMFieldKey<TEntity>[] = [];
         keys.forEach(k => {
             if (prevObj[k] !== nextObj[k])
-                changed.push(k as TOIMFieldKey<TEntity>);
+                {changed.push(k as TOIMFieldKey<TEntity>);}
         });
         return changed;
     }

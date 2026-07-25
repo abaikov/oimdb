@@ -120,6 +120,49 @@ persistor.collection(users).using({
 });
 ```
 
+## Delta Writes (persist only changed keys)
+
+By default any change rewrites the **whole** snapshot: the source's `read()` returns
+the entire collection and the strategy's `write` stores all of it. For a large
+collection with frequent small edits that is `O(N)` serialization per flush.
+
+A strategy can opt into **key-granular** writes by implementing the optional
+`writeDelta`. When it does *and* the source is key-aware (an `OIMReactiveCollection`,
+whose `subscribeOnAnyUpdate` reports the changed PKs), the engine sends only what
+changed in the flush:
+
+```ts
+import { TOIMPersistDelta } from '@oimdb/persist';
+
+persistor.collection(users).using({
+  async read(p) {
+    /* assemble the full snapshot from your per-key store */
+  },
+  async write(p, snapshot) {
+    /* full rewrite — initial write / fallback */
+  },
+  async writeDelta(p, delta: TOIMPersistDelta<string, User>) {
+    for (const { key, value } of delta.upserts) p.storage.put(key, value);
+    for (const key of delta.deletedKeys) p.storage.delete(key);
+  },
+  async clear(p) {
+    /* ... */
+  },
+});
+```
+
+- **Opt-in and optional.** A whole-blob backend (one localStorage key, one KV entry)
+  omits `writeDelta`, so the engine always full-rewrites — a single-key change still
+  rewrites the whole collection, by design.
+- A `writeDelta` strategy owns its per-key storage format; the resource-level
+  whole-snapshot `codec` is **not** applied on the delta path.
+- Manual `persist()` always writes full snapshots; deltas apply to the autosave path
+  (`start()` + change + flush).
+- The built-in `records` strategies of `@oimdb/persist-memory` and
+  `@oimdb/persist-idb` use `writeDelta` (IndexedDB batches the changed rows into the
+  shared transaction instead of clearing and rewriting the table). The `entry`/`path`
+  strategies (localStorage, async-kv) do not.
+
 ## Codec
 
 ```ts

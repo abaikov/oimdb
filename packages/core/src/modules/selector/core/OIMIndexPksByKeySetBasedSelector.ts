@@ -1,6 +1,5 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveIndexSetBased } from '../../../abstract/OIMReactiveIndexSetBased';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexSetBased } from '../../../abstract/OIMIndexSetBased';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorSourceDependencyUpdateEventEmitterKey';

@@ -155,7 +155,8 @@ users.updateEventEmitter.subscribeOnKey('user1', () => {
     console.log('User1 changed!');
 });
 
-// Subscribe to multiple keys
+// Subscribe to multiple keys. The handler is coalesced: it fires at most ONCE
+// per flush, no matter how many of the subscribed keys changed in that flush.
 users.updateEventEmitter.subscribeOnKeys(['user1', 'user2'], () => {
     console.log('Users changed!');
 });
@@ -1478,6 +1479,22 @@ new OIMDerivedCollectionIndexSetBased(queue, collection, {
 **Methods:**
 - `rebuildFromCollection(): void` - Rebuild all derived membership from current collection slots
 - all read/subscription methods from `OIMReactiveCollectionIndexManualSetBased`
+
+#### `OIMDerivedCollection<TSource, TDerived, TPk>`
+A reactive collection whose entities are derived one-to-one from a source collection (`derived[pk] = derive(source[pk], pk)`, keyed by the source pk), kept in sync automatically. It *is* a first-class `OIMReactiveCollection`, so it can be indexed, selected, and derived-from again (join → join); maintenance runs on the source's synchronous update channel, so chains stay consistent within a flush. Needs no compute runtime.
+
+**Constructor:**
+```typescript
+new OIMDerivedCollection(queue, source, (entity: TSource, pk: TPk) => TDerived, {
+    compare?: (a: TDerived, b: TDerived) => boolean; // default Object.is; skip update when unchanged
+    store?: OIMCollectionStore<TDerived, TPk>;        // trie-driven for a composite source PK
+    buildInitial?: boolean;                            // defaults to true
+})
+```
+
+**Methods:**
+- `rebuildFromSource(): void` - Re-derive all entities from the current source
+- all read/write/subscription methods from `OIMReactiveCollection`
 
 #### `OIMReactiveIndexManualArrayBased<TKey, TPk>`
 Reactive Array-based index with manual slot writes and change notifications. Use this as a raw slot-first primitive; use `OIMReactiveCollectionIndexManualArrayBased` for PK-oriented writes.

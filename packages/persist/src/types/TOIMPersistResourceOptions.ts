@@ -7,9 +7,11 @@ export type TOIMPersistResourceOptions<
     TPersistor,
     TSourceSnapshot,
     TPersistedSnapshot,
+    TKey = unknown,
+    TValue = unknown,
 > = {
-    source: TOIMPersistSourceAdapter<TSourceSnapshot>;
-    strategy: TOIMPersistStrategy<TPersistor, TPersistedSnapshot>;
+    source: TOIMPersistSourceAdapter<TSourceSnapshot, TKey, TValue>;
+    strategy: TOIMPersistStrategy<TPersistor, TPersistedSnapshot, TKey, TValue>;
     codec?: TOIMPersistCodec<TSourceSnapshot, TPersistedSnapshot>;
     /**
      * Optional hydration reconciler. When set, `hydrate()` combines the loaded

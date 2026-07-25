@@ -5,7 +5,6 @@ import type { OIMReactiveCollection } from '../core/OIMReactiveCollection';
 import type { OIMCollectionIndexManualOrderedArrayBased } from '../core/OIMCollectionIndexManualOrderedArrayBased';
 import type { TOIMEntitySlotGetter } from './TOIMEntitySlot';
 import type { TOIMIndexComparator } from './TOIMIndexComparator';
-import type { TOIMPk } from './TOIMPk';
 import type { TOIMKeyPath } from './TOIMKeyPath';
 
 export type TOIMCollectionIndexSetBasedOptions<

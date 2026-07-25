@@ -134,6 +134,22 @@ index.hasKey('key');               // boolean
 index.getKeys();                   // all known keys
 ```
 
+## Derived collections
+
+A derived **index** maps a collection to key→pk membership. A derived **collection** maps it to new *entities*: `OIMDerivedCollection(queue, source, derive, opts?)` produces a reactive collection where `derived[pk] = derive(source[pk], pk)`, keyed by the source pk, kept in sync (add/update/remove) automatically.
+
+```typescript
+const nameView = new OIMDerivedCollection(queue, users,   // (queue, source, derive)
+    (u) => ({ id: u.id, full: `${u.first} ${u.last}` }));
+nameView.getOneByPk('u1');   // { id, full } — tracks `users`
+```
+
+Because it *is* a first-class `OIMReactiveCollection`, you can index it, select over it, and derive from it again (`join → join`). Maintenance runs on the source's synchronous update channel, so a chain of derivations stays consistent within one flush; delivery to keyed subscribers is batched on flush as usual. It parallels the derived indexes and needs no compute runtime.
+
+- `opts.compare` (default `Object.is`) — skips a downstream update when a source change leaves the re-derived entity equal. The default builds a fresh object each time, so it propagates every source change; pass a field/shallow compare to memoize finer.
+- `opts.store` — a trie-driven store when the source PK is composite.
+- `opts.buildInitial` (default `true`).
+
 ## Global (keyless) indexes
 
 Sometimes you want **one** index or ordered list over the *whole* collection —

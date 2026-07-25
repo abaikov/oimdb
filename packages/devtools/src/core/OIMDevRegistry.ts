@@ -167,6 +167,7 @@ export class OIMDevRegistry {
     }
 
     public dump(): void {
+        // eslint-disable-next-line no-console -- printing IS this method's purpose: an explicit developer-invoked dump.
         console.log(this.dumpString());
     }
 

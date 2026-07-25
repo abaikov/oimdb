@@ -53,11 +53,12 @@
     "build:devtools": "cd packages/devtools && npm run build",
     "build:mcp": "cd packages/mcp && npm run build",
     "bench": "tsx packages/core/scripts/run-bench.ts",
-    "prepublishOnly": "npm test && npm run build",
+    "prepublishOnly": "npm run lint && npm test && npm run build",
+    "prepare": "husky",
     "test": "jest",
     "test:watch": "jest --watch",
-    "lint": "eslint src --ext .ts && eslint packages/core/src --ext .ts && eslint packages/react/src --ext .ts",
-    "lint:fix": "eslint src --ext .ts --fix && eslint packages/core/src --ext .ts --fix && eslint packages/react/src --ext .ts --fix",
+    "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"packages/*/tests/**/*.{ts,tsx}\" \"packages/*/bench/**/*.ts\" \"packages/*/scripts/**/*.ts\" --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
     "format": "prettier --write \"src/**/*.ts\" \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
     "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist packages/persist/dist packages/persist-memory/dist packages/persist-localstorage/dist packages/persist-idb/dist packages/persist-async-kv/dist packages/persist-json/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
     "docs:dev": "npm run start --workspace website",
@@ -84,6 +85,11 @@
   "files": [
     "dist"
   ],
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --max-warnings 0"
+    ]
+  },
   "dependencies": {
     "@oimdb/core": "^2.0.0"
   },
@@ -96,7 +102,9 @@
     "@typescript-eslint/eslint-plugin": "^6.9.1",
     "@typescript-eslint/parser": "^6.9.1",
     "eslint": "^8.53.0",
+    "husky": "^9.1.7",
     "jest": "^29.7.0",
+    "lint-staged": "^17.2.0",
     "prettier": "^3.0.3",
     "react": "^19.1.1",
     "rimraf": "^5.0.5",

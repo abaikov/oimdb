@@ -81,6 +81,7 @@ users.collection.updateEventEmitter.subscribeOnKey('user1', () => {
   console.log('user1 changed');
 });
 
+// Coalesced: fires at most once per flush, however many subscribed keys changed.
 users.collection.updateEventEmitter.subscribeOnKeys(['user1', 'user2'], () => {
   console.log('user1 or user2 changed');
 });

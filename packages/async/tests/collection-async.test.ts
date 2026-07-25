@@ -217,13 +217,19 @@ describe('OIMCollectionAsync', () => {
 
             await collection.clear();
 
+            // clear() enumerates every removed key — never an empty `pks`.
             expect(eventSpy).toHaveBeenCalledTimes(1);
-            expect(eventSpy).toHaveBeenCalledWith({
-                pks: [],
-            });
+            const payload = eventSpy.mock.calls[0][0] as { pks: string[] };
+            expect([...payload.pks].sort()).toEqual(['user1', 'user2']);
 
             const count = await collection.countAll();
             expect(count).toBe(0);
+        });
+
+        test('should emit nothing when clearing an empty collection', async () => {
+            eventSpy.mockClear();
+            await collection.clear();
+            expect(eventSpy).not.toHaveBeenCalled();
         });
 
         test('should count all entities', async () => {

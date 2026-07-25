@@ -177,9 +177,30 @@ describe('OIMSnapshotManager', () => {
             userCollection.removeOne(user);
             
             expect(snapshotManager.hasChanges()).toBe(true);
-            
+
             const changeCounts = snapshotManager.getChangeCount();
             expect(changeCounts.users).toBe(1);
+        });
+
+        it('should track collection.clear() as deletion of every present key', () => {
+            userCollection.upsertMany([
+                { id: 1, name: 'John', email: 'john@example.com' },
+                { id: 2, name: 'Jane', email: 'jane@example.com' },
+            ]);
+            snapshotManager.clearChanges(); // drop the initial creation
+
+            userCollection.clear();
+
+            // clear() now enumerates every removed key, so the manager sees them.
+            expect(snapshotManager.getChangeCount().users).toBe(2);
+            const snapshot = snapshotManager.takeSnapshot();
+            const users = snapshot.users
+                .slice()
+                .sort((a, b) => a.pk - b.pk);
+            expect(users).toEqual([
+                { pk: 1, entity: null },
+                { pk: 2, entity: null },
+            ]);
         });
     });
 

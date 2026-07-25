@@ -40,7 +40,7 @@ await persistor.hydrate();
 | Builder call | Layout in storage |
 |---|---|
 | `.collection(c).entry({ bucketName })` | whole snapshot under one `entries` key |
-| `.collection(c).records({ bucketName })` | one `recordBuckets` Map, one row per entity |
+| `.collection(c).records({ bucketName })` | one `recordBuckets` Map, one row per entity — on autosave from a reactive collection, only the changed rows are written (delta), not the whole bucket |
 | `.collection(c).using(strategy, codec?)` | custom strategy |
 | `.object(o).entry({ bucketName })` | object snapshot under one key |
 | `.setIndex(i) / .arrayIndex(i) / .orderedArrayIndex(i)` `.entry()` | index snapshot under one key |

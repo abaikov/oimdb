@@ -11,7 +11,7 @@ export class OIMEventQueueSchedulerTimeout extends OIMEventQueueScheduler {
     /**
      * @param delay - Delay in milliseconds before executing the flush (default: 0)
      */
-    constructor(delay: number = 0) {
+    constructor(delay = 0) {
         super();
         this.delay = Math.max(0, delay);
     }
@@ -19,10 +19,12 @@ export class OIMEventQueueSchedulerTimeout extends OIMEventQueueScheduler {
     schedule(): void {
         if (this.timeoutId !== undefined) return;
 
-        this.timeoutId = setTimeout(() => {
-            this.timeoutId = undefined;
-            this.flush();
-        }, this.delay) as unknown as number;
+        this.timeoutId = this.unref(
+            setTimeout(() => {
+                this.timeoutId = undefined;
+                this.flush();
+            }, this.delay)
+        ) as unknown as number;
     }
 
     cancel(): void {

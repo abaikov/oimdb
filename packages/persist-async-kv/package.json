@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-async-kv",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "Async key-value persistence backend for @oimdb/persist — React Native AsyncStorage, Cordova, any async KV",
   "type": "module",
   "main": "./dist/index.cjs",

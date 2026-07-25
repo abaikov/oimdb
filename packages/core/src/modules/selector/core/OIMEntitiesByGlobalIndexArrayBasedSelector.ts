@@ -2,7 +2,6 @@ import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveGlobalIndexArrayBased } from '../../../abstract/OIMReactiveGlobalIndexArrayBased';
 import { OIMGlobalIndexArrayBased } from '../../../abstract/OIMGlobalIndexArrayBased';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyEntitiesByGlobalIndexArrayBased } from './OIMSelectorSourceDependencyEntitiesByGlobalIndexArrayBased';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
@@ -46,7 +45,7 @@ export class OIMEntitiesByGlobalIndexArrayBasedSelector<
         if (prev === next) return true;
         if (prev.length !== next.length) return false;
         for (let i = 0; i < prev.length; i++)
-            if (prev[i] !== next[i]) return false;
+            {if (prev[i] !== next[i]) return false;}
         return true;
     }
 }

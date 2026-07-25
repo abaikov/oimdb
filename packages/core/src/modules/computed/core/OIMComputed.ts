@@ -39,15 +39,24 @@ export class OIMComputed<TValue> {
             'immediate'
         );
 
-        this.effect = new OIMEffect(this.runtime, {
-            deps: this._deps,
-            onUpdate: () => {
-                this.isDirty = true;
+        // The runtime owns depth: derive it from our deps and register it so our
+        // dependents can look it up, then hand it to the effect for scheduling.
+        const level = this.runtime.computeLevel(this._deps);
+        this.runtime.registerLevel(this, level);
+
+        this.effect = new OIMEffect(
+            this.runtime,
+            {
+                deps: this._deps,
+                onUpdate: () => {
+                    this.isDirty = true;
+                },
+                run: () => {
+                    this.recomputeAndEmitIfChanged();
+                },
             },
-            run: () => {
-                this.recomputeAndEmitIfChanged();
-            },
-        });
+            level
+        );
     }
 
     public get needsRecompute(): boolean { return this.isDirty; }

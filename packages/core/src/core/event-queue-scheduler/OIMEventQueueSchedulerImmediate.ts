@@ -47,7 +47,7 @@ export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
         };
 
         if (this.useSetImmediate) {
-            this.immediateId = setImmediate(callback);
+            this.immediateId = this.unref(setImmediate(callback));
         } else if (this.useMessageChannel && this.messageChannel) {
             // Use MessageChannel for better performance in browsers
             this.immediateId = 1; // Just a flag to indicate pending
@@ -55,7 +55,7 @@ export class OIMEventQueueSchedulerImmediate extends OIMEventQueueScheduler {
             this.messageChannel.port1.postMessage(null);
         } else {
             // Fallback to setTimeout(0)
-            this.immediateId = setTimeout(callback, 0);
+            this.immediateId = this.unref(setTimeout(callback, 0));
         }
     }
 

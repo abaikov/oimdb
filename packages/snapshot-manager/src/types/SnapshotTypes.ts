@@ -30,12 +30,14 @@ export type TOIMSnapshotCollection<
 /**
  * Extract entity type from snapshot collection
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type GetEntityType<T> =
     T extends TOIMSnapshotCollection<infer TEntity, TOIMKey> ? TEntity : never;
 
 /**
  * Extract primary key type from snapshot collection
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type GetPkType<T> =
     T extends TOIMSnapshotCollection<object, infer TPk extends TOIMKey>
         ? TPk
@@ -45,6 +47,7 @@ export type GetPkType<T> =
  * Individual entity snapshot containing primary key and entity data
  * Entity is null if the entity was deleted
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type EntitySnapshot<TEntity extends object, TPk extends TOIMKey> = {
     pk: TPk;
     entity: TEntity | null;
@@ -54,6 +57,7 @@ export type EntitySnapshot<TEntity extends object, TPk extends TOIMKey> = {
  * Snapshot data for a collection of collections
  * Maps collection names to arrays of entity snapshots
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type SnapshotData<
     TCollections extends Record<string, TOIMSnapshotCollection<object, TOIMKey>>,
 > = {
@@ -68,6 +72,7 @@ export type SnapshotData<
 /**
  * Options for snapshot manager configuration
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type SnapshotManagerOptions = {
     /**
      * Whether to include empty collections in snapshot results

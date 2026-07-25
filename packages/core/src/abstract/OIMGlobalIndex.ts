@@ -1,7 +1,6 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventEmitter } from '../core/OIMEventEmitter';
 import { EOIMIndexEventType } from '../enums/EOIMIndexEventType';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 

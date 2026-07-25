@@ -15,9 +15,11 @@ describe('OIMObject', () => {
 
         obj.setProperty('a', 1);
         obj.delete('a');
-        obj.clear();
+        obj.setProperty('b', 2);
+        obj.clear(); // enumerates present keys → ['b']
+        obj.clear(); // already empty → emits nothing
 
-        expect(updates).toEqual([['a'], ['a'], []]);
+        expect(updates).toEqual([['a'], ['a'], ['b'], ['b']]);
 
         obj.destroy();
     });
@@ -78,7 +80,7 @@ describe('OIMReactiveObject', () => {
         queue.destroy();
     });
 
-    test('should call handler once per updated key when subscribed on multiple keys', () => {
+    test('should call handler once per flush when subscribed on multiple keys', () => {
         const queue = new OIMEventQueue();
         const obj = new OIMReactiveObject<string, number>(queue);
 
@@ -88,7 +90,31 @@ describe('OIMReactiveObject', () => {
         obj.merge({ a: 1, c: 3 });
         queue.flush();
 
-        expect(handler).toHaveBeenCalledTimes(2);
+        // Two subscribed keys changed in one flush → the key-less handler is
+        // coalesced to a single call.
+        expect(handler).toHaveBeenCalledTimes(1);
+
+        obj.destroy();
+        queue.destroy();
+    });
+
+    test('should notify a keyed subscriber when clear() removes its key', () => {
+        const queue = new OIMEventQueue();
+        const obj = new OIMReactiveObject<string, number>(queue);
+
+        obj.setProperty('theme', 1);
+        queue.flush();
+
+        const handler = jest.fn();
+        obj.subscribeOnKey('theme', handler);
+
+        // clear() enumerates the removed keys, so the keyed subscriber on
+        // 'theme' must be notified — an empty-keys signal would notify nobody.
+        obj.clear();
+        queue.flush();
+
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(obj.get('theme')).toBeUndefined();
 
         obj.destroy();
         queue.destroy();

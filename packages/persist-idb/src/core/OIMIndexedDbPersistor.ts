@@ -9,7 +9,8 @@ import {
     TOIMCollectionPersistSource,
     TOIMObjectPersistSource,
     TOIMOrderedArrayIndexPersistSource,
-    TOIMPersistStrategy,
+    TOIMPersistBatchItem,
+    TOIMPersistDelta,
     TOIMSetIndexPersistSource,
 } from '@oimdb/persist';
 import { OIMIndexedDbCollectionResourceBuilder } from '../builders/OIMIndexedDbCollectionResourceBuilder';
@@ -79,53 +80,85 @@ export class OIMIndexedDbPersistor extends OIMPersistor<TOIMIndexedDbRuntime> {
      * Writes all resources in a single IndexedDB transaction. All table names
      * are collected upfront, one connection is opened, and all writes execute
      * within the same transaction — fully atomic.
+     *
+     * Each batchable resource writes either a full snapshot (`writeInTx`) or,
+     * when only some keys changed and its strategy supports it, just those keys
+     * (`writeDeltaInTx`) — so a single-record change no longer clears and
+     * rewrites the whole table.
      */
     protected override async batchPersist(
-        resources: readonly IOIMAnyPersistResource<this>[]
+        items: readonly TOIMPersistBatchItem<this>[]
     ): Promise<void> {
-        const batchItems: Array<{
+        const batchFull: Array<{
             strategy: TOIMIndexedDbBatchStrategy<unknown>;
             snapshot: unknown;
             resource: IOIMAnyPersistResource<OIMIndexedDbPersistor>;
         }> = [];
-        const fallbackItems: Array<{
-            strategy: TOIMPersistStrategy<OIMIndexedDbPersistor, unknown>;
-            snapshot: unknown;
+        const batchDelta: Array<{
+            strategy: TOIMIndexedDbBatchStrategy<unknown>;
+            delta: TOIMPersistDelta<unknown, unknown>;
             resource: IOIMAnyPersistResource<OIMIndexedDbPersistor>;
         }> = [];
+        const fallbackItems: Array<{
+            resource: IOIMAnyPersistResource<OIMIndexedDbPersistor>;
+            dirty: 'all' | readonly unknown[];
+        }> = [];
 
-        for (const resource of resources) {
-            const snapshot = resource.takeSnapshot();
+        for (const { resource, dirty } of items) {
             const strategy =
                 resource.strategy as TOIMIndexedDbBatchStrategy<unknown>;
-            if (typeof strategy.tableNames !== 'undefined') {
-                batchItems.push({ strategy, snapshot, resource });
+            if (typeof strategy.tableNames === 'undefined') {
+                fallbackItems.push({ resource, dirty });
+                continue;
+            }
+            if (
+                dirty !== 'all' &&
+                resource.supportsDelta() &&
+                typeof strategy.writeDeltaInTx === 'function'
+            ) {
+                batchDelta.push({
+                    strategy,
+                    delta: resource.takeDelta(dirty) as TOIMPersistDelta<
+                        unknown,
+                        unknown
+                    >,
+                    resource,
+                });
             } else {
-                fallbackItems.push({
-                    strategy: resource.strategy,
-                    snapshot,
+                batchFull.push({
+                    strategy,
+                    snapshot: resource.takeSnapshot(),
                     resource,
                 });
             }
         }
 
-        if (batchItems.length > 0) {
+        if (batchFull.length > 0 || batchDelta.length > 0) {
             const allTables = new Set<string>();
-            for (const { strategy } of batchItems) {
+            for (const { strategy } of batchFull) {
+                for (const t of strategy.tableNames) allTables.add(t);
+            }
+            for (const { strategy } of batchDelta) {
                 for (const t of strategy.tableNames) allTables.add(t);
             }
             try {
                 await this.storage.batchWrite(
                     Array.from(allTables),
                     stores => {
-                        for (const { strategy, snapshot } of batchItems) {
+                        for (const { strategy, snapshot } of batchFull) {
                             strategy.writeInTx(stores, snapshot);
+                        }
+                        for (const { strategy, delta } of batchDelta) {
+                            strategy.writeDeltaInTx!(stores, delta);
                         }
                     }
                 );
             } catch (error) {
                 if (this.onError) {
-                    for (const { resource } of batchItems) {
+                    for (const { resource } of batchFull) {
+                        this.onError(error, { resource, operation: 'persist' });
+                    }
+                    for (const { resource } of batchDelta) {
                         this.onError(error, { resource, operation: 'persist' });
                     }
                 } else {
@@ -134,9 +167,11 @@ export class OIMIndexedDbPersistor extends OIMPersistor<TOIMIndexedDbRuntime> {
             }
         }
 
-        for (const { strategy, snapshot, resource } of fallbackItems) {
+        // Custom `.using()` strategies without the batch interface: reuse the
+        // base per-resource write (delta when supported, else full snapshot).
+        for (const { resource, dirty } of fallbackItems) {
             try {
-                await strategy.write(this, snapshot);
+                await this.writeResource(resource, dirty);
             } catch (error) {
                 if (this.onError) {
                     this.onError(error, { resource, operation: 'persist' });

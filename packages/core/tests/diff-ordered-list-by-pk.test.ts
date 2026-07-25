@@ -176,7 +176,7 @@ describe('diffOrderedListByPk', () => {
             state = (state * 1103515245 + 12345) & 0x7fffffff;
             return state / 0x7fffffff;
         };
-        const pick = <T>(arr: T[]): T => arr[Math.floor(rnd() * arr.length)];
+        const _pick = <T>(arr: T[]): T => arr[Math.floor(rnd() * arr.length)];
         const shuffle = <T>(arr: T[]): T[] => {
             const a = arr.slice();
             for (let i = a.length - 1; i > 0; i--) {

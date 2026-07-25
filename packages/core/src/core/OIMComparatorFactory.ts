@@ -16,7 +16,7 @@ export class OIMComparatorFactory<TEntity extends object> {
                     (b as unknown as Record<string, unknown>)[k as string] !==
                     (a as unknown as Record<string, unknown>)[k as string]
                 )
-                    return true;
+                    {return true;}
             }
 
             return false;

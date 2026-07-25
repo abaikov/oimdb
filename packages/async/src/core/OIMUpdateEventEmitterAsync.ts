@@ -11,6 +11,13 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
     private readonly keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     private updatedKeys = new Set<TKey>();
     private isFlushEnqueued = false;
+    // Number of live `subscribeOnKeys` subscriptions spanning 2+ keys. While > 0
+    // a flush coalesces delivery so such a handler fires at most ONCE per flush,
+    // not once per changed key. At 0 the hot single-handler path pays nothing.
+    private multiKeySubscriptions = 0;
+    // Reused across flushes (lazily created) and cleared per flush rather than
+    // re-allocated — only touched while `multiKeySubscriptions > 0`.
+    private deliveredPool?: Set<TOIMEventHandler<void>>;
 
     constructor(private readonly queue: OIMEventQueue) {}
 
@@ -43,7 +50,16 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
                 subscribedKeys.push(key);
             }
         }
+        // A handler over 2+ keys must be coalesced to one call per flush (the
+        // callback carries no key). Counts input keys — a degenerate duplicate
+        // key may over-count, harmlessly tripping the dedup for a single key.
+        const spansMultipleKeys = keys.length > 1;
+        if (spansMultipleKeys) this.multiKeySubscriptions++;
+        let unsubscribed = false;
         return () => {
+            if (unsubscribed) return;
+            unsubscribed = true;
+            if (spansMultipleKeys) this.multiKeySubscriptions--;
             for (const key of subscribedKeys) this.unsubscribeFromKey(key, handler);
         };
     }
@@ -124,16 +140,55 @@ export class OIMUpdateEventEmitterAsync<TKey extends TOIMPk> {
         const flushingKeys = this.updatedKeys;
         this.updatedKeys = new Set<TKey>();
 
-        flushingKeys.forEach(key => {
-            const handlers = this.keyHandlers.get(key);
-            if (!handlers || handlers.size === 0) return;
-            const snapshot = Array.from(handlers);
-            for (let i = 0; i < snapshot.length; i++) {
-                const handler = snapshot[i];
-                if (handlers.has(handler)) handler();
-            }
-        });
+        // Dedup delivery across the flush only when some handler spans multiple
+        // keys; otherwise every handler is unique to its key and the Set is pure
+        // overhead. Pooled + cleared per flush, not re-allocated.
+        const delivered =
+            this.multiKeySubscriptions > 0
+                ? (this.deliveredPool ??= new Set<TOIMEventHandler<void>>())
+                : undefined;
+        try {
+            flushingKeys.forEach(key => {
+                const handlers = this.keyHandlers.get(key);
+                if (!handlers || handlers.size === 0) return;
+                this.notifyHandlers(handlers, delivered);
+            });
+        } finally {
+            // Must clear even on a thrown handler, else stale entries would
+            // suppress those handlers on the next flush.
+            delivered?.clear();
+        }
     };
+
+    private notifyHandlers(
+        handlers: Set<TOIMEventHandler<void>>,
+        delivered?: Set<TOIMEventHandler<void>>
+    ): void {
+        // One subscriber per key is the common case — no snapshot allocation.
+        if (handlers.size === 1) {
+            const only = handlers.values().next().value;
+            if (!only) return;
+            if (delivered) {
+                const size = delivered.size;
+                delivered.add(only);
+                if (delivered.size === size) return; // already fired this flush
+            }
+            only();
+            return;
+        }
+        // Snapshot so a handler may (un)subscribe during iteration safely.
+        const snapshot = Array.from(handlers);
+        for (let i = 0; i < snapshot.length; i++) {
+            const handler = snapshot[i];
+            if (!handlers.has(handler)) continue;
+            if (delivered) {
+                const size = delivered.size;
+                delivered.add(handler);
+                if (delivered.size === size) continue;
+            }
+            handler();
+        }
+    }
 
     public destroy(): void {
         if (this.isFlushEnqueued) {

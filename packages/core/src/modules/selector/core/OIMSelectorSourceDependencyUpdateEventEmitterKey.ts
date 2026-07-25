@@ -1,5 +1,4 @@
 import { TOIMKey } from '../../../types/TOIMKey';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 

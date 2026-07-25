@@ -2,10 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # The default branch here is `master`; `main` is kept so a rename does not
+    # silently stop running CI.
+    branches: [master, main]
   pull_request:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Install
+        run: npm ci
+      # Runs on one Node version only: lint results cannot differ across them,
+      # and this is the job that should fail first and fastest.
+      - name: Lint
+        run: npm run lint
+
   test:
     runs-on: ubuntu-latest
     strategy:
@@ -24,7 +41,3 @@ jobs:
         run: npm --workspaces --if-present run test
       - name: Build
         run: npm --workspaces --if-present run build
-
-
-
-

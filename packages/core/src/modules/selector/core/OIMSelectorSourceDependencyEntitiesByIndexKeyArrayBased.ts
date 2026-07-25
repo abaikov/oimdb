@@ -2,7 +2,6 @@ import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 
 export class OIMSelectorSourceDependencyEntitiesByIndexKeyArrayBased<

@@ -34,11 +34,8 @@ export class OIMReactiveCollectionAsync<
     private readonly onCollectionUpdate = (
         payload: TOIMCollectionUpdatePayload<TPk>
     ) => {
-        if (payload.pks.length === 0) {
-            // Unknown keys changed (e.g. clear): notify all subscribed keys.
-            this.updateEmitter.markAllUpdated();
-            return;
-        }
+        // `pks` always enumerates exactly the changed keys (clear() lists every
+        // removed key), so keyed subscribers are notified across precisely those.
         this.updateEmitter.markUpdatedKeys(payload.pks);
     };
 

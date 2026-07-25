@@ -42,7 +42,8 @@ const off = settings.subscribeOnKey('theme', () => {
   console.log('theme changed:', settings.get('theme'));
 });
 
-// Subscribe to multiple keys at once
+// Subscribe to multiple keys at once. Coalesced: the handler fires at most once
+// per flush, however many of the subscribed keys changed.
 const off2 = settings.subscribeOnKeys(['theme', 'lang'], () => {
   console.log('theme or lang changed');
 });

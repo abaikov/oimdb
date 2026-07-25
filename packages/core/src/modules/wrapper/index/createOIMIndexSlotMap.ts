@@ -1,5 +1,4 @@
 import { TOIMKey } from '../../../types/TOIMKey';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
 import { IOIMIndexSlotSource } from '../../../interfaces/IOIMIndexSlotSource';
 import { OIMIndexSlotMap } from './OIMIndexSlotMap';

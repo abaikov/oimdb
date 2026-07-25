@@ -6,7 +6,6 @@ import {
     TOIMEntitySlotGetter,
 } from '../types/TOIMEntitySlot';
 import { TOIMCollectionGlobalIndexSetBasedOptions } from '../types/TOIMCollectionGlobalIndexOptions';
-import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Collection-bound reactive set-based keyless index.

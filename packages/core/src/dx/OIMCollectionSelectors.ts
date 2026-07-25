@@ -10,6 +10,7 @@ import { OIMGlobalIndexSetBased } from '../abstract/OIMGlobalIndexSetBased';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMReactiveCollection } from '../core/OIMReactiveCollection';
 import { OIMComputeRuntime } from '../modules/compute/core/OIMComputeRuntime';
+import { getOIMComputeRuntime } from './getOIMComputeRuntime';
 import { OIMCollectionByPkSelector } from '../modules/selector/core/OIMCollectionByPkSelector';
 import { OIMCollectionByPksSelector } from '../modules/selector/core/OIMCollectionByPksSelector';
 import { OIMEntitiesByIndexKeyArrayBasedSelector } from '../modules/selector/core/OIMEntitiesByIndexKeyArrayBasedSelector';
@@ -20,7 +21,6 @@ import {
     TOIMCollectionEntitiesSelector,
     TOIMCollectionEntitySelector,
 } from '../types/TOIMCollectionSelectors';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMKeyPath } from '../types/TOIMKeyPath';
 
 export class OIMCollectionSelectors<
@@ -33,7 +33,9 @@ export class OIMCollectionSelectors<
         queue: OIMEventQueue,
         private readonly collection: OIMReactiveCollection<TEntity, TPk>
     ) {
-        this.runtime = new OIMComputeRuntime(queue);
+        // Shared per queue: selectors, computeds and effects on the same queue
+        // form ONE dependency graph.
+        this.runtime = getOIMComputeRuntime(queue);
     }
 
     public byPk(pk: TPk): TOIMCollectionEntitySelector<TEntity> {

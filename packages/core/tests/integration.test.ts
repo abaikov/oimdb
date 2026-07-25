@@ -151,8 +151,9 @@ describe('Integration Tests', () => {
             collection.upsertMany(users);
             queue.flush();
 
-            // Should receive notifications for all subscribed users
-            expect(notifications.length).toBe(3); // One for each user
+            // One subscribeOnKeys handler, coalesced to a single call per flush
+            // even though all three subscribed users changed.
+            expect(notifications.length).toBe(1);
 
             notifications.length = 0; // Clear notifications
 
@@ -174,8 +175,9 @@ describe('Integration Tests', () => {
 
             queue.flush();
 
-            // Should receive notifications for updated users
-            expect(notifications.length).toBe(2);
+            // Two subscribed users changed in one flush → still a single
+            // coalesced notification.
+            expect(notifications.length).toBe(1);
         });
 
         test('should coalesce multiple rapid updates', () => {
@@ -446,8 +448,9 @@ describe('Integration Tests', () => {
             // All updates should be processed in a single flush
             queue.flush();
 
-            // Should receive notifications for all updated entities
-            expect(allNotifications.length).toBe(4); // 2 users + 2 projects
+            // Each subscribeOnKeys handler is coalesced to one call per flush:
+            // one 'user updated' + one 'project updated', not one per changed key.
+            expect(allNotifications.length).toBe(2);
         });
     });
 

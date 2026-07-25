@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexSetBased } from '../abstract/OIMIndexSetBased';
 import { OIMIndexStoreSetBased } from '../abstract/OIMIndexStoreSetBased';
 import { TOIMIndexComparator } from '../types/TOIMIndexComparator';

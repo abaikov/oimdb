@@ -8,7 +8,6 @@ import {
 } from '../types/TOIMCollectionIndexOptions';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Collection-bound Set-based index derived from entity data.
@@ -96,11 +95,8 @@ export class OIMDerivedCollectionIndexSetBased<
     }
 
     private readonly onCollectionUpdate = (pks: readonly TPk[]): void => {
-        if (pks.length === 0) {
-            this.rebuildFromCollection();
-            return;
-        }
-
+        // `pks` always enumerates exactly the changed keys (clear() lists every
+        // removed key), so each is synced individually — including removals.
         for (const pk of pks) {
             this.syncPk(pk);
         }

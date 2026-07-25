@@ -5,6 +5,7 @@ import {
     OIMIndexManualArrayBased,
     OIMIndexManualSetBased,
     OIMObject,
+    OIMReactiveCollection,
 } from '@oimdb/core';
 import { createVersionedCodec } from '@oimdb/persist';
 import { createMemoryPersistor } from '../src';
@@ -13,6 +14,8 @@ type User = {
     id: string;
     name: string;
 };
+
+const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
 describe('@oimdb/persist-memory', () => {
     test('persists and hydrates a collection through the records strategy', async () => {
@@ -35,6 +38,63 @@ describe('@oimdb/persist-memory', () => {
             { id: 'u1', name: 'Ada' },
             { id: 'u2', name: 'Grace' },
         ]);
+    });
+
+    test('records strategy autosaves only the changed record (delta), not the whole bucket', async () => {
+        const queue = new OIMEventQueue();
+        const users = new OIMReactiveCollection<User, string>(queue);
+        const persistor = createMemoryPersistor({ queue });
+        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.start();
+
+        users.upsertMany([
+            { id: 'u1', name: 'Ada' },
+            { id: 'u2', name: 'Grace' },
+        ]);
+        queue.flush();
+        await tick();
+
+        const bucket = persistor.storage.recordBuckets.get('users')!;
+        expect(bucket.get('u1')).toEqual({ id: 'u1', name: 'Ada' });
+
+        // A marker a clear()+rewrite would erase. The delta path reuses the
+        // existing bucket and touches only the changed key, so it must survive.
+        bucket.set('__marker__', { id: '__marker__', name: 'x' });
+
+        users.upsertOne({ id: 'u2', name: 'Grace Hopper' });
+        queue.flush();
+        await tick();
+
+        // Same Map instance reused, marker intact → only u2 was written.
+        expect(persistor.storage.recordBuckets.get('users')).toBe(bucket);
+        expect(bucket.has('__marker__')).toBe(true);
+        expect(bucket.get('u2')).toEqual({ id: 'u2', name: 'Grace Hopper' });
+        expect(bucket.get('u1')).toEqual({ id: 'u1', name: 'Ada' });
+        persistor.destroy();
+    });
+
+    test('records strategy delta removes a deleted record', async () => {
+        const queue = new OIMEventQueue();
+        const users = new OIMReactiveCollection<User, string>(queue);
+        const persistor = createMemoryPersistor({ queue });
+        persistor.collection(users).records({ bucketName: 'users' });
+        persistor.start();
+
+        users.upsertMany([
+            { id: 'u1', name: 'Ada' },
+            { id: 'u2', name: 'Grace' },
+        ]);
+        queue.flush();
+        await tick();
+
+        users.removeOneByPk('u1');
+        queue.flush();
+        await tick();
+
+        const bucket = persistor.storage.recordBuckets.get('users')!;
+        expect(bucket.has('u1')).toBe(false);
+        expect(bucket.get('u2')).toEqual({ id: 'u2', name: 'Grace' });
+        persistor.destroy();
     });
 
     test('custom strategy can write to an arbitrary storage shape', async () => {

@@ -35,4 +35,24 @@ export abstract class OIMEventQueueScheduler {
     protected flush(): void {
         this.emitter.emit(EOIMEventQueueSchedulerEventType.FLUSH, undefined);
     }
+
+    /**
+     * Detach a Node timer handle from the event loop, returning it unchanged.
+     *
+     * A pending flush must never be a reason for a process to stay alive: if
+     * nothing else is running there is no UI left to update, and the flush is
+     * moot. Without this a scheduled-but-not-yet-run flush keeps Node awake —
+     * which is why a test suite that leaves a queue scheduled reports
+     * "a worker process has failed to exit gracefully".
+     *
+     * In the browser `setTimeout` returns a number, which has no `unref`, so the
+     * call is guarded and the handle passes straight through.
+     */
+    protected unref<THandle>(handle: THandle): THandle {
+        const maybeUnrefable = handle as { unref?: () => void };
+        if (typeof maybeUnrefable?.unref === 'function') {
+            maybeUnrefable.unref();
+        }
+        return handle;
+    }
 }

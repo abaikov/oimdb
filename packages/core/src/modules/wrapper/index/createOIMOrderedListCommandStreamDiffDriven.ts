@@ -3,7 +3,6 @@ import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { TOIMOrderedListDiffOptions } from '../../../types/TOIMOrderedListDiffOptions';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMOrderedListCommandStreamDiffDriven } from './OIMOrderedListCommandStreamDiffDriven';
 
 /**

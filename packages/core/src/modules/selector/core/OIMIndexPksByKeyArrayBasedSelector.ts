@@ -1,6 +1,5 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorSourceDependencyUpdateEventEmitterKey';
@@ -36,7 +35,7 @@ export class OIMIndexPksByKeyArrayBasedSelector<
         if (prev === next) return true;
         if (prev.length !== next.length) return false;
         for (let i = 0; i < prev.length; i++)
-            if (prev[i] !== next[i]) return false;
+            {if (prev[i] !== next[i]) return false;}
         return true;
     }
 }

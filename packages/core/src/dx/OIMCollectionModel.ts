@@ -7,7 +7,6 @@ import {
     TOIMCollectionModel,
     TOIMReactiveCollectionFactoryOptions,
 } from '../types/TOIMCollectionModel';
-import { TOIMPk } from '../types/TOIMPk';
 
 export function createOIMReactiveCollection<
     TEntity extends object,

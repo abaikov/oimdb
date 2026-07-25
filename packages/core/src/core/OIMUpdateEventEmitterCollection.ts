@@ -4,7 +4,6 @@ import { OIMEventQueue } from './OIMEventQueue';
 import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
-import { TOIMPk } from '../types/TOIMPk';
 
 type TOIMCollectionEmitter<TPk extends TOIMKey> = OIMEventEmitter<{
     [EOIMCollectionEventType.UPDATE]: TOIMCollectionUpdatePayload<TPk>;

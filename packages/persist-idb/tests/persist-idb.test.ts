@@ -4,6 +4,7 @@ import {
     OIMEventQueue,
     OIMIndexManualSetBased,
     OIMObject,
+    OIMReactiveCollection,
 } from '@oimdb/core';
 import { createIndexedDbPersistor } from '../src';
 
@@ -210,6 +211,54 @@ describe('@oimdb/persist-idb', () => {
             { id: 'u1', name: 'Ada' },
             { id: 'u2', name: 'Grace' },
         ]);
+        persistor.destroy();
+    });
+
+    test('records autosave writes only the changed row (delta), leaving the rest of the table untouched', async () => {
+        const indexedDb = new IDBFactory();
+        const databaseName = 'records-delta-db';
+        const queue = new OIMEventQueue();
+
+        const persistor = createIndexedDbPersistor({
+            databaseName,
+            indexedDb,
+            queue,
+        });
+        const users = new OIMReactiveCollection<User, string>(queue);
+        persistor.collection(users).records({ tableName: 'users' });
+
+        persistor.start();
+        users.upsertOne({ id: 'u1', name: 'Ada' });
+        users.upsertOne({ id: 'u2', name: 'Grace' });
+        queue.flush();
+        for (let i = 0; i < 50; i++) {
+            await tick();
+            if ((await persistor.storage.getAll('users')).length === 2) break;
+        }
+
+        // A marker row that a table-wide clear+rewrite would erase. The delta
+        // path only touches changed keys, so it must survive.
+        await persistor.storage.put('users', '__marker__', {
+            id: '__marker__',
+            name: 'x',
+        });
+
+        users.upsertOne({ id: 'u2', name: 'Grace Hopper' });
+        queue.flush();
+        for (let i = 0; i < 50; i++) {
+            await tick();
+            const u2 = (await persistor.storage.getAll('users')).find(
+                row => row.primaryKey === 'u2'
+            );
+            if ((u2?.value as User | undefined)?.name === 'Grace Hopper') break;
+        }
+
+        const rows = await persistor.storage.getAll('users');
+        const byPk = new Map(rows.map(row => [row.primaryKey, row.value]));
+        // Marker survived → the table was not cleared and rewritten.
+        expect(byPk.get('__marker__')).toEqual({ id: '__marker__', name: 'x' });
+        expect(byPk.get('u2')).toEqual({ id: 'u2', name: 'Grace Hopper' });
+        expect(byPk.get('u1')).toEqual({ id: 'u1', name: 'Ada' });
         persistor.destroy();
     });
 

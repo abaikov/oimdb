@@ -6,10 +6,6 @@ import {
     OIMIndexArrayBased,
     OIMEventQueue,
     EOIMEventQueueEventType,
-    EOIMCollectionEventType,
-    EOIMIndexEventType,
-    TOIMCollectionUpdatePayload,
-    TOIMIndexUpdatePayload,
     TOIMKey,
     IOIMPkCodec,
 } from '@oimdb/core';
@@ -34,6 +30,7 @@ import { OIMDBReduxReducerFactory } from './OIMDBReduxReducerFactory';
 /**
  * OIMDB Redux Update Action
  */
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type OIMDBReduxUpdateAction = {
     type: EOIMDBReduxReducerActionType.UPDATE;
 };

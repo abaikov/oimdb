@@ -132,7 +132,7 @@ describe('combine', () => {
             });
 
         let x = 1;
-        let y = 2;
+        const y = 2;
         const sum = combine([mk(() => x), mk(() => y)], () => x + y);
         expect(subs).toBe(0);
         expect(sum.getValue()).toBe(3);

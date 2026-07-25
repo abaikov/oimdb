@@ -62,10 +62,14 @@ export class OIMEventQueue {
     }
 
     /**
-     * Execute all pending tasks.
+     * Execute the tasks pending at the moment the flush starts — a single pass,
+     * not a drain-to-empty.
      *
-     * This flush drains until the queue is empty. If tasks enqueue more tasks, they will be
-     * executed within the same flush.
+     * The pending set is swapped out for an empty spare up front and the flush
+     * iterates that captured set. Tasks enqueued during the flush land in the
+     * fresh set and run on the NEXT flush, not this one. (Contrast
+     * `OIMComputeRuntime.flush()`, which re-reads its bucket per level and so
+     * does drain same-level tasks scheduled mid-flush.)
      */
     public flush(): void {
         // If a flush was scheduled, manual flush supersedes it.

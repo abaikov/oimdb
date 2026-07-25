@@ -9,6 +9,7 @@ import {
     TOIMCollectionPersistSource,
     TOIMObjectPersistSource,
     TOIMOrderedArrayIndexPersistSource,
+    TOIMPersistBatchItem,
     TOIMPersistStrategy,
     TOIMSetIndexPersistSource,
 } from '@oimdb/persist';
@@ -77,8 +78,13 @@ export class OIMAsyncKVPersistor extends OIMPersistor<TOIMAsyncKVRuntime> {
     }
 
     protected override async batchPersist(
-        resources: readonly IOIMAnyPersistResource<this>[]
+        items: readonly TOIMPersistBatchItem<this>[]
     ): Promise<void> {
+        // Key-value storage is whole-blob per key (entry/path strategies), so a
+        // changed key still rewrites its whole root — the `dirty` key set can't
+        // be applied incrementally here. Persist the full snapshot of every
+        // dirty resource.
+        const resources = items.map(item => item.resource);
         const batchItems: Array<{
             strategy: TOIMAsyncKVBatchStrategy<unknown>;
             snapshot: unknown;

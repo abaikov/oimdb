@@ -13,6 +13,9 @@ export type { TOIMPersistStrategy } from './types/TOIMPersistStrategy';
 export type { TOIMPersistResourceOptions } from './types/TOIMPersistResourceOptions';
 export type { TOIMPersistorOptions } from './types/TOIMPersistorOptions';
 export type { TOIMPersistErrorContext } from './types/TOIMPersistErrorContext';
+export type { TOIMPersistDelta } from './types/TOIMPersistDelta';
+export type { TOIMPersistKeyedCapability } from './types/TOIMPersistKeyedCapability';
+export type { TOIMPersistBatchItem } from './types/TOIMPersistBatchItem';
 export type { TOIMPersistHydrateReconcile } from './types/TOIMPersistHydrateReconcile';
 export type { TOIMEmitter } from './types/TOIMEmitter';
 

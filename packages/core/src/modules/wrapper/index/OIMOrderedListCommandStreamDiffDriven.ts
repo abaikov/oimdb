@@ -5,7 +5,6 @@ import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexAr
 import { OIMOrderedListCommandBuffer } from '../../../abstract/OIMOrderedListCommandBuffer';
 import { TOIMEntitySlot } from '../../../types/TOIMEntitySlot';
 import { TOIMOrderedListDiffOptions } from '../../../types/TOIMOrderedListDiffOptions';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { diffOrderedListByPk } from './diffOrderedListByPk';
 
 /**

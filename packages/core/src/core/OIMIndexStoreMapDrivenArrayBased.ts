@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexStoreArrayBased } from '../abstract/OIMIndexStoreArrayBased';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMKeyedBucketArrayBased } from './OIMKeyedBucketArrayBased';

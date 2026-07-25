@@ -1,5 +1,5 @@
 /**
  * Payload for index update events containing the keys that were modified */
-export interface TOIMIndexUpdatePayload<TKey> {
+export type TOIMIndexUpdatePayload<TKey> = {
     keys: readonly TKey[];
-}
+};

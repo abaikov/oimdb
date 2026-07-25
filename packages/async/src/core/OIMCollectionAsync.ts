@@ -71,8 +71,14 @@ export class OIMCollectionAsync<
     }
 
     async clear(): Promise<void> {
+        // Capture present keys before clearing so the UPDATE event enumerates
+        // exactly what was removed. An empty `pks` never means "reset"; clearing
+        // an already-empty collection is a no-op and emits nothing.
+        const pks = await this.store.getAllPks();
         await this.store.clear();
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [] });
+        if (pks.length > 0) {
+            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        }
     }
 
     async countAll(): Promise<number> {

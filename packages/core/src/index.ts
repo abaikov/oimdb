@@ -1,4 +1,3 @@
-import { TOIMKey } from './types/TOIMKey';
 // Core OIMDB exports
 export * from './abstract/OIMCollectionStore';
 export * from './abstract/OIMIndex';
@@ -23,6 +22,7 @@ export * from './abstract/OIMReactiveGlobalIndexArrayBased';
 export * from './core/OIMCollection';
 export * from './core/OIMReactiveCollection';
 export * from './core/OIMCollectionIndexFactory';
+export * from './core/OIMDerivedCollection';
 export * from './core/OIMDerivedCollectionIndexSetBased';
 export * from './core/OIMDerivedCollectionIndexArrayBased';
 export * from './core/OIMObject';
@@ -86,6 +86,12 @@ export * from './core/OIMPkSelectorFactory';
 // DX factories/facades
 export * from './dx/OIMCollectionKit';
 export * from './dx/OIMCollectionSelectors';
+export * from './dx/on';
+export * from './dx/getOIMComputeRuntime';
+export * from './dx/peekOIMComputeRuntime';
+export * from './dx/setOIMComputeRuntime';
+// NOTE: `oimComputeRuntimeByQueue` is intentionally NOT exported — the registry
+// is reached only through the three functions above.
 
 // Wrappers (DX utilities built on top of core primitives)
 export * from './modules/wrapper/collection/OIMCollectionChangedFields';

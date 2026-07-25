@@ -5,6 +5,7 @@ import {
     createVersionedCodec,
     OIMPersistor,
     OIMPersistResource,
+    TOIMPersistDelta,
     TOIMPersistErrorContext,
     TOIMPersistStrategy,
 } from '../src';
@@ -367,6 +368,281 @@ describe('createVersionedCodec', () => {
 
         const decoded = codec.decode(legacySnapshot);
         expect(decoded.records[0].value).toEqual({ id: 'u1', name: 'Ada Lovelace' });
+    });
+});
+
+describe('delta persistence (keyed source + writeDelta)', () => {
+    const tick = () => new Promise(resolve => setTimeout(resolve, 0));
+
+    /**
+     * A hand-rolled keyed collection source backed by a Map, with a manual
+     * `fire()` to emit the changed PKs (standing in for a reactive collection's
+     * queue-driven `subscribeOnAnyUpdate`). Deterministic — no queue timing.
+     */
+    function keyedSource() {
+        const map = new Map<string, User>();
+        const handlers = new Set<(pks: readonly string[]) => void>();
+        const source = {
+            selectPk: (u: User) => u.id,
+            getAll: () => Array.from(map.values()),
+            getOneByPk: (pk: string) => map.get(pk),
+            clear: () => map.clear(),
+            upsertMany: (users: User[]) => {
+                for (const u of users) map.set(u.id, u);
+            },
+            removeManyByPks: (pks: readonly string[]) => {
+                for (const pk of pks) map.delete(pk);
+            },
+            subscribeOnAnyUpdate: (h: (pks: readonly string[]) => void) => {
+                handlers.add(h);
+                return () => handlers.delete(h);
+            },
+        };
+        return {
+            source,
+            map,
+            set: (u: User) => map.set(u.id, u),
+            remove: (pk: string) => map.delete(pk),
+            fire: (pks: string[]) => {
+                for (const h of handlers) h(pks);
+            },
+        };
+    }
+
+    /** A per-key in-memory strategy that records how it was written to. */
+    function deltaStrategy() {
+        const store = new Map<string, User>();
+        const deltaCalls: TOIMPersistDelta<string, User>[] = [];
+        let fullWrites = 0;
+        const strategy: TOIMPersistStrategy<
+            OIMPersistor<TStorage>,
+            { records: Array<{ pk: string; value: User }> },
+            string,
+            User
+        > = {
+            async read() {
+                return {
+                    records: Array.from(store, ([pk, value]) => ({ pk, value })),
+                };
+            },
+            async write(_persistor, snapshot) {
+                fullWrites++;
+                store.clear();
+                for (const record of snapshot.records) {
+                    store.set(record.pk, record.value);
+                }
+            },
+            async writeDelta(_persistor, delta) {
+                deltaCalls.push(delta);
+                for (const upsert of delta.upserts) {
+                    store.set(upsert.key, upsert.value);
+                }
+                for (const key of delta.deletedKeys) store.delete(key);
+            },
+            async clear() {
+                store.clear();
+            },
+        };
+        return {
+            strategy,
+            store,
+            deltaCalls,
+            get fullWrites() {
+                return fullWrites;
+            },
+        };
+    }
+
+    test('a single-key change writes just that key via writeDelta, not a full snapshot', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        const strat = deltaStrategy();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: strat.strategy,
+            })
+        );
+        persistor.start();
+
+        // Seed both, then change only u2.
+        src.set({ id: 'u1', name: 'Ada' });
+        src.set({ id: 'u2', name: 'Grace' });
+        src.fire(['u1', 'u2']);
+        await tick();
+
+        expect(strat.fullWrites).toBe(0);
+        expect(strat.deltaCalls).toHaveLength(1);
+        const first = strat.store.get('u1');
+
+        src.set({ id: 'u2', name: 'Grace Hopper' });
+        src.fire(['u2']);
+        await tick();
+
+        expect(strat.deltaCalls).toHaveLength(2);
+        expect(strat.deltaCalls[1]).toEqual({
+            upserts: [{ key: 'u2', value: { id: 'u2', name: 'Grace Hopper' } }],
+            deletedKeys: [],
+        });
+        // u1 was never rewritten — same object identity in the store.
+        expect(strat.store.get('u1')).toBe(first);
+        persistor.destroy();
+    });
+
+    test('clear() enumerates removed keys → delta deletes them from storage', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        const strat = deltaStrategy();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: strat.strategy,
+            })
+        );
+        persistor.start();
+
+        src.set({ id: 'u1', name: 'Ada' });
+        src.set({ id: 'u2', name: 'Grace' });
+        src.fire(['u1', 'u2']);
+        await tick();
+        expect(strat.store.size).toBe(2);
+
+        // clear() empties the source and — per the fixed contract — fires the
+        // full list of removed keys (never an empty array). The delta path must
+        // turn those into deletions, not silently leave stale rows on disk.
+        src.source.clear();
+        src.fire(['u1', 'u2']);
+        await tick();
+
+        expect(strat.store.size).toBe(0);
+        expect(strat.fullWrites).toBe(0);
+        expect(strat.deltaCalls[strat.deltaCalls.length - 1]).toEqual({
+            upserts: [],
+            deletedKeys: ['u1', 'u2'],
+        });
+        persistor.destroy();
+    });
+
+    test('batches all keys changed within one flush into one delta', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        const strat = deltaStrategy();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: strat.strategy,
+            })
+        );
+        persistor.start();
+
+        src.set({ id: 'u1', name: 'Ada' });
+        src.set({ id: 'u2', name: 'Grace' });
+        src.fire(['u1', 'u2']);
+        await tick();
+
+        expect(strat.deltaCalls).toHaveLength(1);
+        expect(strat.deltaCalls[0].upserts.map(u => u.key).sort()).toEqual([
+            'u1',
+            'u2',
+        ]);
+        persistor.destroy();
+    });
+
+    test('a removed key becomes a deletion in the delta', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        const strat = deltaStrategy();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: strat.strategy,
+            })
+        );
+        persistor.start();
+
+        src.set({ id: 'u1', name: 'Ada' });
+        src.fire(['u1']);
+        await tick();
+        expect(strat.store.has('u1')).toBe(true);
+
+        src.remove('u1');
+        src.fire(['u1']);
+        await tick();
+
+        expect(strat.deltaCalls[1]).toEqual({
+            upserts: [],
+            deletedKeys: ['u1'],
+        });
+        expect(strat.store.has('u1')).toBe(false);
+        persistor.destroy();
+    });
+
+    test('caveat: a keyed source with a strategy lacking writeDelta rewrites the full snapshot', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        // mapStrategy has no writeDelta → supportsDelta() is false.
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: mapStrategy('users'),
+            })
+        );
+        persistor.start();
+
+        src.set({ id: 'u1', name: 'Ada' });
+        src.set({ id: 'u2', name: 'Grace' });
+        src.fire(['u2']); // only u2 signalled...
+        await tick();
+
+        // ...yet the whole collection is written (full snapshot), because the
+        // strategy can only rewrite everything.
+        expect(persistor.storage.get('users')).toEqual({
+            records: [
+                { pk: 'u1', value: { id: 'u1', name: 'Ada' } },
+                { pk: 'u2', value: { id: 'u2', name: 'Grace' } },
+            ],
+        });
+        persistor.destroy();
+    });
+
+    test('manual persist() always writes a full snapshot even for a delta strategy', async () => {
+        const persistor = createEnginePersistor();
+        const src = keyedSource();
+        const strat = deltaStrategy();
+        persistor.addResource(
+            new OIMPersistResource({
+                source: createCollectionSourceAdapter(src.source),
+                strategy: strat.strategy,
+            })
+        );
+
+        src.set({ id: 'u1', name: 'Ada' });
+        await persistor.persist();
+
+        expect(strat.fullWrites).toBe(1);
+        expect(strat.deltaCalls).toHaveLength(0);
+        expect(strat.store.get('u1')).toEqual({ id: 'u1', name: 'Ada' });
+    });
+
+    test('adapter.keyed.applyDelta upserts and deletes on the source', () => {
+        const src = keyedSource();
+        src.set({ id: 'u1', name: 'Ada' });
+        const adapter = createCollectionSourceAdapter(src.source);
+
+        expect(adapter.keyed).toBeDefined();
+        adapter.keyed!.applyDelta({
+            upserts: [{ key: 'u2', value: { id: 'u2', name: 'Grace' } }],
+            deletedKeys: ['u1'],
+        });
+
+        expect(src.map.get('u2')).toEqual({ id: 'u2', name: 'Grace' });
+        expect(src.map.has('u1')).toBe(false);
+    });
+
+    test('no keyed capability when the source cannot support it', () => {
+        const plain = new OIMCollection<User, string>();
+        // OIMCollection has no subscribeOnAnyUpdate → adapter stays whole-blob.
+        expect(createCollectionSourceAdapter(plain).keyed).toBeUndefined();
     });
 });
 

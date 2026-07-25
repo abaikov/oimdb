@@ -5,7 +5,6 @@ import {
     TOIMEntitySlot,
 } from '../../../types/TOIMEntitySlot';
 import { TOIMCollectionOrderedListCommandStreamOptions } from '../../../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMCollectionIndexManualOrderedArrayBased } from '../../../core/OIMCollectionIndexManualOrderedArrayBased';
 import { OIMOrderedListCommandStream } from './OIMOrderedListCommandStream';
 

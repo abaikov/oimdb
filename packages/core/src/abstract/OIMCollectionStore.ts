@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
 export abstract class OIMCollectionStore<

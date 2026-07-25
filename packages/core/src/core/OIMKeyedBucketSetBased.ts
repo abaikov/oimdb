@@ -1,5 +1,4 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { TOIMPk } from '../types/TOIMPk';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { IOIMSubscribable } from '../types/IOIMSubscribable';
 import { IOIMKeyedMap } from '../interfaces/IOIMKeyedMap';

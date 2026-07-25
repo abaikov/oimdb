@@ -1,7 +1,6 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexSetBased } from '../../../abstract/OIMReactiveIndexSetBased';
-import { TOIMPk } from '../../../types/TOIMPk';
 import { OIMIndexSetBased } from '../../../abstract/OIMIndexSetBased';
 import { OIMSelector } from './OIMSelector';
 import { OIMSelectorSourceDependencyEntitiesByIndexKeySetBased } from './OIMSelectorSourceDependencyEntitiesByIndexKeySetBased';
@@ -51,7 +50,7 @@ export class OIMEntitiesByIndexKeySetBasedSelector<
         if (prev === next) return true;
         if (prev.length !== next.length) return false;
         for (let i = 0; i < prev.length; i++)
-            if (prev[i] !== next[i]) return false;
+            {if (prev[i] !== next[i]) return false;}
         return true;
     }
 }

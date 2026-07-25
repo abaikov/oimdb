@@ -26,10 +26,12 @@ export class OIMEventQueueSchedulerAnimationFrame extends OIMEventQueueScheduler
             });
         } else {
             // Fallback for non-browser environments
-            this.frameId = setTimeout(() => {
-                this.frameId = undefined;
-                this.flush();
-            }, 16) as unknown as number; // ~60fps
+            this.frameId = this.unref(
+                setTimeout(() => {
+                    this.frameId = undefined;
+                    this.flush();
+                }, 16) // ~60fps
+            ) as unknown as number;
         }
     }
 

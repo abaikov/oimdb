@@ -9,6 +9,14 @@ export class OIMEffect {
     private readonly run: () => void;
     private readonly deps: readonly IOIMEffectDependency[];
 
+    /**
+     * Topological depth, owned by the runtime — one above the deepest computed
+     * dependency (source-only effects are `0`). Passed to `runtime.schedule` so
+     * this node runs only after everything it depends on. Internal: nodes never
+     * expose their own level.
+     */
+    private readonly level: number;
+
     private readonly sourceDeps: Array<IOIMEffectDependency> = [];
     private readonly computedDeps: Array<IOIMEffectDependency> = [];
     private sourceUnsubscribers: Array<() => void> = [];
@@ -26,7 +34,13 @@ export class OIMEffect {
         this.runOnce();
     };
 
-    constructor(runtime: OIMComputeRuntime, opts: TOIMEffectOptions) {
+    constructor(
+        runtime: OIMComputeRuntime,
+        opts: TOIMEffectOptions,
+        // A computed passes its already-computed level; standalone effects let
+        // the runtime derive it from their dependencies.
+        level?: number
+    ) {
         this.runtime = runtime;
         this.onUpdate = opts.onUpdate;
         this.run = opts.run;
@@ -39,6 +53,7 @@ export class OIMEffect {
                 this.sourceDeps.push(dep);
             }
         }
+        this.level = level ?? this.runtime.computeLevel(this.deps);
 
         this.subscribeToDeps();
     }
@@ -70,14 +85,14 @@ export class OIMEffect {
 
         if (this.isScheduled) return;
         this.isScheduled = true;
-        this.dequeueScheduled = this.runtime.schedule(this.runTask);
+        this.dequeueScheduled = this.runtime.schedule(this.runTask, this.level);
     };
 
     private onComputedInvalidate = () => {
         this.onUpdate?.();
         if (this.isScheduled) return;
         this.isScheduled = true;
-        this.dequeueScheduled = this.runtime.schedule(this.runTask);
+        this.dequeueScheduled = this.runtime.schedule(this.runTask, this.level);
     };
 
     private runOnce(): void {

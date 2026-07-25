@@ -4,12 +4,14 @@ import { OIMReactiveCollection } from '@oimdb/core';
 
 // Simplified type that accepts any reactive collection.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type CollectionsDictionary = Record<
     string,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     OIMReactiveCollection<any, any>
 >;
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export type OIMContextValue<
     T extends CollectionsDictionary = CollectionsDictionary,
 > = T;
@@ -24,6 +26,7 @@ export function createOIMCollectionsContext<
     return createContext<OIMContextValue<T>>({} as T);
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention -- pre-existing public export; the CLAUDE.md prefix rename is a breaking change, deferred to the next major.
 export interface OIMCollectionsProviderProps<
     T extends CollectionsDictionary = CollectionsDictionary,
 > {

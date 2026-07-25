@@ -1,7 +1,6 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { TOIMAnyEntitySlot, TOIMEntitySlotGetter } from '../types/TOIMEntitySlot';
 import { TOIMCollectionOrderedIndexOptions } from '../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../types/TOIMPk';
 import { OIMIndexManualOrderedArrayBased } from './OIMIndexManualOrderedArrayBased';
 
 /**

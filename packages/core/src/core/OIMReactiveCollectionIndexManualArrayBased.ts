@@ -3,7 +3,6 @@ import { OIMReactiveIndexManualArrayBased } from './OIMReactiveIndexManualArrayB
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMAnyEntitySlot, TOIMEntitySlotGetter } from '../types/TOIMEntitySlot';
 import { TOIMCollectionIndexArrayBasedOptions } from '../types/TOIMCollectionIndexOptions';
-import { TOIMPk } from '../types/TOIMPk';
 
 /**
  * Collection-bound reactive Array-based index.

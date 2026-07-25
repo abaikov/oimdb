@@ -9,7 +9,11 @@ export function createIndexedDbCollectionRecordsStrategy<
     TEntity,
 >(
     options: TOIMIndexedDbRecordsStrategyOptions
-): TOIMIndexedDbBatchStrategy<TOIMCollectionPersistSnapshot<TPk, TEntity>> {
+): TOIMIndexedDbBatchStrategy<
+    TOIMCollectionPersistSnapshot<TPk, TEntity>,
+    TPk,
+    TEntity
+> {
     const { tableName } = options;
     return {
         tableNames: [tableName],
@@ -32,6 +36,23 @@ export function createIndexedDbCollectionRecordsStrategy<
                 await persistor.storage.put(tableName, record.pk, record.value);
             }
         },
+        async writeDelta(persistor, delta) {
+            // Non-transactional fallback (base engine path). The IndexedDB
+            // persistor routes this strategy through `writeDeltaInTx` instead,
+            // batching every changed record into one transaction.
+            for (let i = 0; i < delta.upserts.length; i++) {
+                const upsert = delta.upserts[i];
+                await persistor.storage.put(tableName, upsert.key, upsert.value);
+            }
+            for (let i = 0; i < delta.deletedKeys.length; i++) {
+                // `put(..., undefined)` deletes the record.
+                await persistor.storage.put(
+                    tableName,
+                    delta.deletedKeys[i],
+                    undefined
+                );
+            }
+        },
         async clear(persistor) {
             await persistor.storage.clear(tableName);
         },
@@ -42,6 +63,17 @@ export function createIndexedDbCollectionRecordsStrategy<
             for (let i = 0; i < snapshot.records.length; i++) {
                 const record = snapshot.records[i];
                 store.put(record.value, normalizePrimaryKey(record.pk));
+            }
+        },
+        writeDeltaInTx(stores, delta) {
+            // Only the changed records are touched — no table-wide clear.
+            const store = stores[tableName];
+            for (let i = 0; i < delta.upserts.length; i++) {
+                const upsert = delta.upserts[i];
+                store.put(upsert.value, normalizePrimaryKey(upsert.key));
+            }
+            for (let i = 0; i < delta.deletedKeys.length; i++) {
+                store.delete(normalizePrimaryKey(delta.deletedKeys[i]));
             }
         },
         clearInTx(stores) {

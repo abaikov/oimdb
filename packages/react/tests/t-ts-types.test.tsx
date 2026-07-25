@@ -395,13 +395,13 @@ describe('Context and Hooks Type Safety with exact t.ts Collections', () => {
             );
 
             // Test index access
-            const cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
+            const _cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cards,
                 indexes.cards.byDeck,
                 'deck1'
             );
 
-            const commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
+            const _commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.comments,
                 indexes.comments.byCard,
                 'card1'
@@ -554,27 +554,27 @@ describe('Context and Hooks Type Safety with exact t.ts Collections', () => {
             );
 
             // Test indexes
-            const cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
+            const _cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cards,
                 indexes.cards.byDeck,
                 'deck1'
             );
-            const commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
+            const _commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.comments,
                 indexes.comments.byCard,
                 'card1'
             );
-            const assignmentsByCard = useSelectEntitiesByIndexKeyArrayBased(
+            const _assignmentsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cardAssignments,
                 indexes.cardAssignments.byCard,
                 'card1'
             );
-            const tagsByCard = useSelectEntitiesByIndexKeyArrayBased(
+            const _tagsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cardTags,
                 indexes.cardTags.byCard,
                 'card1'
             );
-            const usersByAssignedCard = useSelectEntitiesByIndexKeyArrayBased(
+            const _usersByAssignedCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.users,
                 indexes.users.assignedCardId,
                 'card1'

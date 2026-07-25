@@ -42,8 +42,16 @@ export class OIMObject<TKey extends string, TValue> {
     }
 
     public clear(): void {
+        // Capture the present keys BEFORE clearing so the update fan-out reports
+        // exactly which keys changed. An empty `keys` would mean "nothing
+        // changed" — and on a reactive object it would mark zero keys, leaving
+        // keyed subscribers (e.g. a React property subscription) un-notified.
+        // Clearing an already-empty object is a no-op and fires nothing.
+        const keys = this.store.keys();
         this.store.clear();
-        this.onUpdatedKeys([]);
+        if (keys.length > 0) {
+            this.onUpdatedKeys(keys);
+        }
     }
 
     /**

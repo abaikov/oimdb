@@ -1,5 +1,4 @@
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
-import { OIMCollection } from '../src/core/OIMCollection';
 import { OIMCollectionStoreMapDriven } from '../src/core/OIMCollectionStoreMapDriven';
 import { OIMPkSelectorFactory } from '../src/core/OIMPkSelectorFactory';
 import { OIMEntityUpdaterFactory } from '../src/core/OIMEntityUpdaterFactory';
@@ -218,7 +217,7 @@ describe('Event System', () => {
             expect(handler).not.toHaveBeenCalled();
         });
 
-        test('should subscribe to multiple PKs at once', () => {
+        test('should call the handler once per flush regardless of how many subscribed PKs changed', () => {
             const handler = jest.fn();
             const unsubscribe = emitter.subscribeOnKeys(
                 ['test1', 'test2', 'test3'],
@@ -233,10 +232,26 @@ describe('Event System', () => {
             collection.upsertMany(entities);
             queue.flush();
 
-            // Handler should be called twice (once for each updated PK)
-            expect(handler).toHaveBeenCalledTimes(2);
+            // A subscribeOnKeys handler is coalesced: two of its keys changed in
+            // one flush, but the (key-less) callback fires exactly once.
+            expect(handler).toHaveBeenCalledTimes(1);
 
             unsubscribe();
+        });
+
+        test('unsubscribeFromKeys still removes a subscribeOnKeys handler (identity preserved)', () => {
+            const handler = jest.fn();
+            emitter.subscribeOnKeys(['test1', 'test2'], handler);
+
+            emitter.unsubscribeFromKeys(['test1', 'test2'], handler);
+
+            collection.upsertMany([
+                { id: 'test1', name: 'Test 1', value: 10 },
+                { id: 'test2', name: 'Test 2', value: 20 },
+            ]);
+            queue.flush();
+
+            expect(handler).not.toHaveBeenCalled();
         });
 
         test('should handle duplicate subscriptions gracefully', () => {
