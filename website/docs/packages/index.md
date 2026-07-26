@@ -59,12 +59,14 @@ Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime)
 
 **Includes:**
 
-- `fromSelector` / `fromOimdb` / `fromSelectorFactory` — adapt an `OIMSelector` (or raw read/subscribe pair, or reactive key) into a bindable
-- `bindSelectors` — mirror of `OIMCollectionSelectors`, each method returning a `TExoBindable`; keys accept a bindable
-- `fromComputed` — `OIMComputed` → bindable; `combine` — multi-source derive
-- `keyedChildren` / `entityRows` — identity-stable, focus-safe list children
-- `listFromCommandStream` — O(delta) path: an OIMDB ordered command stream → an Exodra `bindableList`
-- `read*` / `subscribe*` — low-level pairs for a 1:1 find-replace migration of an inline bridge
+- `exoDb` — the whole system at once: a record of kits in, a record of typed Exodra views out
+- `exoCollection` — one collection's view; each named index becomes a callable member carrying
+  `pks`, `rows`, `subscribe` (and `list` on ordered ones), with the index kind inferred from the index
+- `exoBindable` — the primitive: an `OIMSelector`, an `OIMComputed`, a raw read/subscribe pair, or a
+  reactive key
+- `exoCombine` — multi-source derive (Exodra's own `derive` is single-source)
+- `exoChildren` — identity-stable, focus-safe list children for any items
+- `exoList` — O(delta) path: an OIMDB ordered command stream → an Exodra `bindableList`
 
 [Exodra Guide](/docs/packages/exodra) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/exodra) · [npm](https://www.npmjs.com/package/@oimdb/exodra)
 

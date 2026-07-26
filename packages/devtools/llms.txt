@@ -401,35 +401,43 @@ Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-s
 npm install @oimdb/exodra @oimdb/core
 ```
 
-Depends only on the type-only `@exodra/reactivity-types` (never the reactivity runtime); peer dep `@oimdb/core`. Your Exodra app already provides `@exodra/reactivity` for the runtime (`bindable`, `derive`, `h`). The [Exodra](https://exodra.org) counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Bindables are read-only, lazy (subscribe upstream only while they have a downstream subscriber → cost O(visible)) and SSR-safe (`getValue()` reads fresh, valid without an active subscription).
+The Exodra counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB read becomes a read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`). No React. Built on `@oimdb/core`'s `OIMSelector` (`{ getValue, watch }`) — the fine-grained subscription already lives there, so this is a thin adapter. Depends only on the type-only `@exodra/reactivity-types` (never the reactivity runtime); peer dep `@oimdb/core`. Everything produced is read-only, lazy + ref-counted (upstream subscribed only while a downstream subscriber exists → O(visible)) and SSR-safe (`getValue()` reads through, valid with no subscription — a reactive key resolves on every read, never stale).
 
 ```ts
-import { fromSelector, bindSelectors, fromComputed, combine, entityRows } from '@oimdb/exodra';
-import { bindable, derive } from '@exodra/reactivity';
+import { exoDb } from '@oimdb/exodra';
+import { bindable, derive, h } from '@exodra/reactivity';
 
-// wrap any OIMSelector
-const alice = fromSelector(kit.select.byPk('u1')); // TExoBindable<User | undefined>
+const byTeam        = usersKit.indexFactory.derivedSetIndex<string>(u => u.teamId);
+const byTeamOrdered = usersKit.indexFactory.derivedArrayIndex<string>(u => u.teamId, { orderBy: u => u.name });
+const online        = usersKit.indexFactory.derivedSetGlobalIndex({ filter: u => u.online });
 
-// mirror OIMCollectionSelectors → bindables; keys accept a bindable (reactive key re-points the sub)
-const bound = bindSelectors(kit.select);
-const selectedTeam = bindable('team-1');
-const members = bound.entitiesBySetIndexKey(usersByTeam, selectedTeam);
-// <ul bindable={{ children: entityRows(memberPks, pk => bound.byPk(pk), (u, pk) => renderRow(u)) }} />
+const db = exoDb({
+    users: { kit: usersKit, indexes: { byTeam, byTeamOrdered, online } },
+    tags:  { kit: tagsKit },                                 // no indexes → byPk / byPks only
+});
+
+const team = bindable('t1');
+db.users.byPk('u1');                            // TExoBindable<User | undefined>
+db.users.byTeam(team);                          // set index — the kind is inferred from the index
+db.users.online();                              // global index — no key, and none is asked for
+db.users.byTeamOrdered.rows(team, render);      // → bindables.children      (identity-stable)
+db.users.byTeamOrdered.list(team, render);      // → bindableLists.children  (O(delta))
 ```
 
 | Export | Purpose |
 |---|---|
-| `fromSelector(selector)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
-| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair (the only fn taking options) |
-| `fromSelectorFactory(key, makeSelector)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
-| `fromComputed(computed)` | `OIMComputed<T>` → `TExoBindable<T>` |
-| `combine(sources, fn, opts?)` | multi-source derive (Exodra's own `derive` is single-source) |
-| `bindSelectors(selectors)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
-| `keyedChildren(source, { key, render })` / `entityRows(order, bindEntity, render)` | identity-stable list children (field edit = reconcile no-op, focus-safe) |
-| `listFromCommandStream(stream, key, render)` | O(delta) path: OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
-| `read*/subscribe*` (6 fns) | low-level pairs mirroring an inline app bridge 1:1 (find-replace migration) |
+| `exoDb(spec)` | whole system at once: `{ name: { kit, indexes? } }` → record of typed views |
+| `exoCollection(kit, indexes?)` | one collection's Exodra view; `kit` stays reachable for writes |
+| `exoBindable(...)` | primitive, 4 overloads: `OIMSelector` / `OIMComputed` / `(read, subscribe)` / `(reactiveKey, makeSelector)` |
+| `exoCombine(sources, fn)` | multi-source derive (Exodra's own `derive` is single-source) |
+| `exoChildren(source, { key, render })` | identity-stable children for any items |
+| `exoList(stream, key, render)` | OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
+| `isExoReadable(value)` | narrow `TKey \| bindable` |
 
-Options `{ equals? }` are accepted by `fromOimdb` ONLY and are opt-in: with none, every upstream emit is forwarded (so in-place entity updaters, whose entity ref is stable, are seen without configuration). Pass `equals` for a bare emitter that fires on writes which may not change the value you read — a content compare when `read` allocates a fresh set/array. The selector/computed adapters take no options: `OIMSelector.areEqual` and `OIMComputed`'s `compare` dedup one layer BELOW the bridge, so an option here could only reject what core passed, never resurrect what core dropped — override `areEqual` / pass `compare` instead. `combine` is the exception: it owns the value it computes, so it dedups by default (`equals`, `Object.is`, overridable), which also collapses the N notifications that N sources produce for one logical change — it is not glitch-free though, so put real fan-in in ONE `OIMComputed` + `fromComputed`. A reactive-key bindable resolves its key on every read, so an unsubscribed `getValue()` answers for the current key. `keyedChildren` reads are idempotent (same array reference back, no render, no eviction, until the key sequence actually changes). `readEntitiesByIndexKey` is compact (missing dropped) while the selector path is length-aligned with holes — deliberate, do not mix in one list. `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
+Each named index becomes a CALLABLE member of that name carrying `pks`, `rows`, `subscribe` (and `list` on ordered ones), so the caller never picks a method to match the index kind and never passes the index object again. Any key accepts `TKey | TOIMExodraReadable<TKey>`. Dispatch is structural: array-based `getPksByKey` returns `TPk[]`, set-based returns `Set<TPk>`, keyless ones have none; composite indexes are the same classes with an array key, resolved per call via `Array.isArray(key)`. **`list` exists only on array-based indexes** — a stream is derived by diffing an order and a set has none; enforced in the types, and it builds/memoizes the stream itself. `indexes` is a second argument because a kit does not own its indexes (`kit.indexFactory` creates them, the app keeps them); if core ever lets a kit hold named indexes this becomes optional without a break.
+
+**No function in this package takes an equality option, and there is no options type.** Equality belongs to whoever owns the value: `OIMSelector.areEqual` for selectors (override it), `OIMComputed`'s `compare` for computeds (pass at construction), your own `fn` for `exoCombine` (return a stable reference when content is unchanged), your own `subscribe` callback for `exoBindable(read, subscribe)` (compare there and don't call `onChange` — that callback IS the extension point). Those owners run BELOW the bridge, so a filter here could only reject what they passed, never resurrect what they dropped; in-place entity updaters need no configuration anywhere. `exoCombine` drops recomputes landing on the same value, collapsing the N notifications N sources produce for one logical change — not glitch-free though, so put real fan-in in ONE `OIMComputed` forwarded via `exoBindable`. `exoChildren` reads are idempotent (same array reference back, no render, no eviction, until the key sequence changes) and require UNIQUE keys — a duplicate throws rather than placing one schema object twice. `exoList` memoizes `render` per item, so repeated `snapshot()` calls return the same row objects (identity is what Exodra reconciles on); the memo is pruned against the live order on snapshot and amortized past 2x the live row count. Multi-entity reads are length-aligned WITH HOLES, matching `@oimdb/react`. Pure aliases of a single core call (`getOneByPk`, `subscribeOnKey`, `getPksByKey`) are NOT exported — call core directly. Pair `exoDb` with Exodra's own DI: `createContextKey<typeof db>('db')`, created by the app since this package pulls types only. Exodra bucket bindings subscribe at *build* (not `onExoMount`); `<index>.subscribe(key, onChange)` covers `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
+
 
 ## Persist (`@oimdb/persist`)
 

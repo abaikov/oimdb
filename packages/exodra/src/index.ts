@@ -1,29 +1,22 @@
-// Core adapter
-export { fromOimdb } from './fromOimdb';
-export { fromSelector } from './fromSelector';
-export { fromSelectorFactory } from './fromSelectorFactory';
-export { fromComputed } from './fromComputed';
-export { combine } from './combine';
-export { isExoBindable } from './isExoBindable';
+// The whole system at once, and one collection at a time.
+export { exoDb } from './exoDb';
+export { exoCollection } from './exoCollection';
 
-// Hook-mirror selectors → bindables
-export { bindSelectors } from './bindSelectors';
+// Primitives — reach for these directly, or build your own on top of them.
+export { exoBindable } from './exoBindable';
+export { exoCombine } from './exoCombine';
+export { exoChildren } from './exoChildren';
+export { exoList } from './exoList';
+export { isExoReadable } from './isExoReadable';
 
-// Low-level read/subscribe pairs (drop-in for an app's inline oimdb bridge)
-export { readEntityByPk } from './readEntityByPk';
-export { subscribeEntityByPk } from './subscribeEntityByPk';
-export { readPksByIndexKey } from './readPksByIndexKey';
-export { subscribePksByIndexKey } from './subscribePksByIndexKey';
-export { readEntitiesByIndexKey } from './readEntitiesByIndexKey';
-export { subscribeEntitiesByIndexKey } from './subscribeEntitiesByIndexKey';
-
-// Identity-stable list children (snapshot path) + O(delta) command-stream path
-export { keyedChildren } from './keyedChildren';
-export { entityRows } from './entityRows';
-export { listFromCommandStream } from './listFromCommandStream';
-
-// Types & interfaces
-export type { TOIMExodraBindableOptions } from './types/TOIMExodraBindableOptions';
+// Types
 export type { TOIMExodraReadable } from './types/TOIMExodraReadable';
-export type { IOIMExodraReadableCollection } from './interfaces/IOIMExodraReadableCollection';
-export type { IOIMExodraSetBasedIndex } from './interfaces/IOIMExodraSetBasedIndex';
+export type { TOIMExodraCollection } from './types/TOIMExodraCollection';
+export type { TOIMExodraDbViews } from './types/TOIMExodraDbViews';
+export type {
+    TOIMExodraIndexFacade,
+    TOIMExodraKeyArg,
+    TOIMExodraKeyedIndexFacade,
+    TOIMExodraOrderedIndexFacade,
+    TOIMExodraGlobalIndexFacade,
+} from './types/TOIMExodraIndexFacade';

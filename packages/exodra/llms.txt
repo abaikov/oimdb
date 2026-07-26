@@ -1,131 +1,115 @@
 # @oimdb/exodra
 
-> **For AI assistants:** Adapter from OIMDB to [Exodra](https://exodra.org) reactivity. It is the
-> Exodra counterpart of `@oimdb/react`: instead of a hook + re-render, every OIMDB source becomes a
-> read-only Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`).
-> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime); peer dep `@oimdb/core`.
+> **For AI assistants:** Adapter from OIMDB to [Exodra](https://exodra.org) reactivity — the Exodra
+> counterpart of `@oimdb/react`. Instead of a hook + re-render, every OIMDB read becomes a read-only
+> Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`).
+> Read `@oimdb/core`'s reference first — this package only adapts its selector layer. Depends on the
+> type-only `@exodra/reactivity-types` (no reactivity runtime); peer dep `@oimdb/core`.
 
 ## Model
 
-- OIMDB `OIMSelector<T>` is `{ getValue(): T, watch(onValue): () => void }`; Exodra `TExoBindable<T>`
-  is `{ getValue(): T, subscribe(update): () => void }`. Same shape → this package is a thin adapter.
+- OIMDB `OIMSelector<T>` is `{ getValue(), watch(onValue) }`; Exodra `TExoBindable<T>` is
+  `{ getValue(), subscribe(update) }`. Same shape → this package is a thin adapter.
 - Fine-grained subscription (index key for membership + each pk in the set, re-subscribing when the
   set changes) already lives in the `@oimdb/core` selectors. This package does NOT re-implement it.
-- All produced bindables are **read-only**, **lazy** (subscribe upstream only while they have a
-  downstream subscriber → cost O(visible)) and **SSR-safe** (`getValue()` reads fresh from the store,
-  valid without an active subscription).
-- OIMDB delivers on `queue.flush()`. Dedup lives at the source (`OIMSelector.areEqual`,
-  `OIMComputed.compare`), not in this bridge; the initial synchronous emit that OIMDB's `watch` fires
-  on subscribe is swallowed (getValue already carries the value).
-- A bindable with a reactive key (`fromSelectorFactory` / any `bindSelectors` method) resolves the
-  key on every read, so an unsubscribed `getValue()` answers for the CURRENT key, not the one that
-  was current at construction.
+- Everything produced is **read-only**, **lazy + ref-counted** (upstream subscribed only while a
+  downstream subscriber exists → O(visible)) and **SSR-safe** (`getValue()` reads through, valid with
+  no subscription; a reactive key is resolved on every read, never stale).
+- Exodra buckets: `h(type, { static, bindables, bindableLists, handlers, bindableHandlers })`. Flat
+  props are a compile error there. `rows` feeds `bindables.children`; `list` feeds `bindableLists`.
+- **No equality options exist in this package, and no options type.** Equality belongs to the value's
+  owner: `OIMSelector.areEqual`, `OIMComputed.compare`, your `fn` in `exoCombine` (return a stable
+  reference), your `subscribe` callback in `exoBindable(read, subscribe)`. Those run BELOW the bridge,
+  so a filter here could only reject what they passed, never resurrect what they dropped. In-place
+  entity updaters therefore need no configuration anywhere.
 
-## Adapter (core)
-
-```ts
-fromSelector<T>(selector: OIMSelector<T>): TExoBindable<T>
-fromOimdb<T>(read: () => T, subscribe: (onChange: () => void) => () => void, opts?: TOIMExodraBindableOptions<T>): TExoBindable<T>
-fromSelectorFactory<TKey, T>(key: TKey | TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
-fromComputed<T>(computed: OIMComputed<T>): TExoBindable<T>
-combine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T, opts?: TOIMExodraBindableOptions<T>): TExoBindable<T>
-```
-
-`TOIMExodraBindableOptions<T> = { equals?: (a: T, b: T) => boolean }` — accepted by `fromOimdb`
-ONLY, and opt-in: with no options every upstream emit is forwarded. The bridge is a transport and
-owns no equality policy. `equals` is for a bare emitter that fires on writes which may not alter the
-value you read; pass a content compare when `read` allocates a fresh container (set/array).
-
-The selector/computed adapters take NO options, by design. `OIMSelector.areEqual` (overridden with an
-element compare by every collection-returning selector) and `OIMComputed`'s `compare` already dedup,
-and they run BELOW the bridge — whatever they swallow never reaches it, so an option here could only
-reject what core passed, never resurrect what core dropped. In particular there is nothing to set for
-in-place entity updaters on the selector path: the stable reference is swallowed by `areEqual` in
-core. Change the policy at its owner — override `areEqual` on the selector, or pass `compare` to the
-computed.
-
-`combine` is the multi-source escape hatch — Exodra's own `derive` is single-source. It is the one
-function here that DOES dedup by default (`equals`, `Object.is`, overridable): it is not a transport,
-it owns the value it computes. That default is also the only glitch control available at this layer —
-N sources reacting to one logical change notify N times, and recomputes landing on the same value
-collapse to one downstream notification. It is not glitch-free and cannot be (no queue to coalesce
-on): for real fan-in put the join in ONE `OIMComputed` and wrap it with `fromComputed`; use `combine`
-when the sources move independently. Ref-counted like the rest: sources are subscribed once, not once
-per downstream subscriber.
-
-`fromComputed`: read via `computed.get()`, subscribe via `computed.updateEventEmitter.subscribeOnKey('value', …)`.
-An `OIMComputed` is one scalar cell; keep any fan-in inside it and forward the final value — do not
-chain several Exodra `derive`s (Exodra has no glitch-batching).
-
-## Selector mirror
+## The two doors
 
 ```ts
-bindSelectors<TEntity, TPk>(selectors: OIMCollectionSelectors<TEntity, TPk>)
+exoDb<TSpec>(spec: TSpec): TOIMExodraDbViews<TSpec>
+exoCollection<TEntity, TPk, TIndexes>(kit: TOIMCollectionKit<TEntity, TPk>, indexes?: TIndexes): TOIMExodraCollection<TEntity, TPk, TIndexes>
 ```
-
-Returns an object mirroring `OIMCollectionSelectors`, each method returning a `TExoBindable` and
-accepting its key as `TKey | TOIMExodraReadable<TKey>` (a plain value OR a bindable — a bindable key
-re-points the subscription on change without recreating the view). The collection's queue is private,
-so the entry point is the `OIMCollectionSelectors` instance (which owns a queue-bound compute
-runtime), not a bare collection.
-
-Methods: `byPk`, `byPks`, `entitiesBySetIndexKey`, `entitiesByArrayIndexKey`,
-`entitiesByCompositeSetIndexKey`, `entitiesByCompositeArrayIndexKey`, `entitiesByArrayGlobalIndex`,
-`entitiesBySetGlobalIndex`. Entity readers return `TEntity | undefined`; multi readers return
-`readonly (TEntity | undefined)[]` (length-aligned with holes, matching `@oimdb/react`).
-
-## Lists (identity-stable children)
-
-Exodra `list()` is op-based with no key function; identity comes from caching a row schema by a
-stable key (a field edit that doesn't change the key set is a reconcile no-op — the row's own inner
-bindable updates in place, focus survives).
 
 ```ts
-keyedChildren<TItem, TSchema>(source: TExoBindable<readonly TItem[]>, opts: { key: (i: TItem) => TOIMKey; render: (i: TItem) => TSchema }): TExoBindable<readonly TSchema[]>
-entityRows<TEntity, TPk, TSchema>(order: TExoBindable<readonly TPk[]>, bindEntity: (pk: TPk) => TExoBindable<TEntity | undefined>, render: (entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema): TExoBindable<readonly TSchema[]>
+const db = exoDb({
+    users: { kit: usersKit, indexes: { byTeam, byTeamOrdered, online } },  
+    tags:  { kit: tagsKit },                                // no indexes → byPk / byPks only
+});
 ```
 
-`entityRows` keys by pk and gives each row its own entity bindable (self-updating, focus-safe),
-subscriptions O(visible).
+Fixed members: `kit` (escape hatch back to OIMDB — writes, effects, computeds), `byPk(pk)`,
+`byPks(pks)`. Every named index becomes a member of that name.
 
-`keyedChildren` reads are idempotent: the key sequence is compared to the previous one, and only a
-genuine change rebuilds the array, renders the new keys or evicts the departed ones. Repeated
-`getValue()` calls return the SAME array reference and never touch the cache — `render` mints a
-per-row bindable, so a bare read must not be able to churn row identity.
+`indexes` is a second argument because a kit does NOT own its indexes — `kit.indexFactory` creates
+them and the app keeps them. If core ever lets a kit hold named indexes, this argument becomes
+optional without a break.
 
-For large ordered lists, the O(delta) path bridges an OIMDB ordered-list command stream (whose
-commands are shape-identical to `TExoListOp`) to an Exodra `bindableList`:
+## Index facade — the kind is inferred from the index
+
+Each named index is a CALLABLE object carrying everything you can do with it, so the caller never
+picks a method to match the index kind and never passes the index object again:
 
 ```ts
-listFromCommandStream<TKey, TItem, TSchema>(stream: IOIMOrderedListCommandSource<TKey, TItem>, key: TKey, render: (item: TItem) => TSchema): TExoBindableList<TSchema>
+users.byTeam(key)                     // TExoBindable<readonly (TEntity | undefined)[]>
+users.byTeam.pks(key)                 // TExoBindable<readonly TPk[]>
+users.byTeam.rows(key, render)        // TExoBindable<readonly TSchema[]>  → bindables.children
+users.byTeamOrdered.list(key, render) // TExoBindableList<TSchema>         → bindableLists.children
+users.byTeam.subscribe(key, onChange): () => void   // manual, onExoMount scope
 ```
 
-Feed it `createOIMOrderedListCommandStreamDiffDriven(queue, derivedArrayIndex)` (or a writer/
-collection stream). Lazy (subscribes the stream only while the list has an ops subscriber);
-`snapshot()` reads the current order synchronously (SSR-safe). A diff-driven stream emits `move` (not
-remove+insert) on reorder, so the DOM node is relocated; the carried item is an entity slot
-(`{ pk, item }`).
+`render` is `(entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema` — each row gets its OWN
+entity bindable, so a field edit updates in place (array unchanged → reconcile no-op, focus safe).
 
-## Low-level (find-replace migration)
+Any key argument accepts `TKey | TOIMExodraReadable<TKey>`; a bindable key repoints the subscription
+without recreating the view. A **global** (keyless) index takes no key at all: `users.online()`,
+`users.online.rows(render)`.
 
-Mirror a typical inline app bridge 1:1 (same names/signatures) — migrating is only an import-path
-change. Also for `onExoMount`-scoped subscriptions (bucket bindings subscribe at *build*, not mount).
+**`list` exists ONLY on array-based (ordered) indexes** — a command stream is derived by diffing an
+order, and a set has none. Enforced in the types (`TOIMExodraIndexFacade`) and absent at runtime.
+It builds and memoizes the diff-driven stream itself; do not construct one by hand.
+
+Dispatch is STRUCTURAL, not by class: array-based `getPksByKey` returns `TPk[]`, set-based returns
+`Set<TPk>`, keyless ones have no `getPksByKey`. Composite (key-path) indexes are the same classes with
+an array key, so the composite selector is chosen per call from `Array.isArray(key)`.
+
+## Primitives
 
 ```ts
-readEntityByPk(collection, pk): TEntity | undefined
-subscribeEntityByPk(collection, pk, onChange): () => void
-readPksByIndexKey(index, key): TPk[]
-subscribePksByIndexKey(index, key, onChange): () => void
-readEntitiesByIndexKey(collection, index, key): TEntity[]           // compact (missing dropped)
-subscribeEntitiesByIndexKey(collection, index, key, onChange): () => void  // fine-grained, not a firehose
+exoBindable<T>(selector: OIMSelector<T>): TExoBindable<T>
+exoBindable<T>(computed: OIMComputed<T>): TExoBindable<T>
+exoBindable<T>(read: () => T, subscribe: (onChange: () => void) => () => void): TExoBindable<T>
+exoBindable<TKey, T>(key: TKey | TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
+exoCombine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T): TExoBindable<T>
+exoChildren<TItem, TSchema>(source: TExoBindable<readonly TItem[]>, opts: { key: (i: TItem) => TOIMKey; render: (i: TItem) => TSchema }): TExoBindable<readonly TSchema[]>
+exoList<TKey, TItem, TSchema>(stream: IOIMOrderedListCommandSource<TKey, TItem>, key: TKey, render: (item: TItem) => TSchema): TExoBindableList<TSchema>
+isExoReadable<T>(value: unknown): value is TOIMExodraReadable<T>
 ```
 
-Note the deliberate asymmetry: `readEntitiesByIndexKey` is **compact** (missing entities dropped,
-matching the inline bridge it replaces), while the selector path is **length-aligned with holes**
-(`(TEntity | undefined)[]`, matching `@oimdb/react`). Do not mix the two in one list — index-based
-row lookups differ.
+The 4 `exoBindable` overloads dispatch on arity and shape: one arg → `instanceof OIMSelector` /
+`OIMComputed` (anything else throws); two args → first is a function ⇒ read/subscribe, otherwise
+key/makeSelector.
 
-Structural input interfaces: `IOIMExodraReadableCollection`, `IOIMExodraSetBasedIndex`
-(satisfied by `OIMReactiveCollection` / `OIMReactiveIndexSetBased`).
-Exported types: `TOIMExodraBindableOptions<T>`, `TOIMExodraReadable<T>` (the minimal
-`{ getValue, subscribe }` shape every reactive-key argument accepts).
+`exoCombine` exists because Exodra's `derive` is single-source. It drops recomputes landing on the
+same value, which collapses the N notifications N sources emit for one logical change; for content
+dedup return a stable reference from `fn`. It is NOT glitch-free (no queue to coalesce on) — put real
+fan-in in ONE `OIMComputed` and forward it with `exoBindable`.
+
+`exoChildren` reads are idempotent: the key sequence is compared to the previous one, so repeated
+`getValue()` returns the SAME array reference and never renders or evicts. Keys must be UNIQUE — a
+duplicate throws (one schema object cannot occupy two positions under identity reconciliation).
+
+`exoList` memoizes `render` per item, so a row keeps one schema while it stays in the list and
+repeated `snapshot()` calls return the same objects. Slots are stable carriers (reorder = `move` of
+the same object). The memo is pruned against the live order — exactly on `snapshot()`, amortized past
+2× the live row count — so position-addressed `remove` needs no bookkeeping.
+
+## Types
+
+`TOIMExodraCollection`, `TOIMExodraDbViews`, `TOIMExodraIndexFacade`, `TOIMExodraKeyedIndexFacade`,
+`TOIMExodraOrderedIndexFacade`, `TOIMExodraGlobalIndexFacade`, `TOIMExodraKeyArg`,
+`TOIMExodraReadable`.
+
+Multi-entity reads are length-aligned WITH HOLES (`(TEntity | undefined)[]`), matching `@oimdb/react`.
+Pair `exoDb` with Exodra's own DI: `createContextKey<typeof db>('db')` (created by the app — this
+package pulls types only, never the runtime).
+Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
