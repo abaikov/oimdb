@@ -27,7 +27,12 @@ export type TOIMDerivedCollectionOptions<
  * listens to the source and keeps itself in sync — add / update / remove.
  *
  * It is a first-class `OIMReactiveCollection`, so it can be indexed, selected,
- * and derived-from again (join → join). Maintenance runs on the source's
+ * and derived-from again — a CHAIN of one-to-one projections, not a join. There
+ * is deliberately no multi-source variant: a joined row would need a primary key
+ * nobody references, and an identity nobody uses is not an identity. Combine
+ * across collections with one `OIMComputed`, or, if something really does
+ * reference the combined thing, give it its own collection and write to it.
+ * Maintenance runs on the source's
  * synchronous UPDATE channel, so a chain of derivations stays consistent within
  * the same flush; delivery to keyed subscribers is batched on flush as usual.
  *

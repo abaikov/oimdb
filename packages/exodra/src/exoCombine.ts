@@ -31,6 +31,8 @@ export function exoCombine<T>(
     fn: () => T
 ): TExoBindable<T> {
     const subscribers = new Set<() => void>();
+    // Mirrors the sole member while `subscribers.size === 1` — see the fast path in the notifier.
+    let onlySubscriber: (() => void) | undefined;
     let stops: (() => void)[] = [];
     let last: T;
     let hasLast = false;
@@ -40,6 +42,16 @@ export function exoCombine<T>(
         if (hasLast && Object.is(last, next)) return;
         last = next;
         hasLast = true;
+        // One subscriber is the overwhelmingly common case — a bindable feeds a single binding — and
+        // snapshotting a one-element Set on every emit is pure allocation. The snapshot below only
+        // exists so a subscriber may (un)subscribe DURING notification; with exactly one there is
+        // nothing to skip or revisit, and `only` is captured before the call so a subscriber added
+        // from inside it is not run this round.
+        if (subscribers.size === 1) {
+            const only = onlySubscriber;
+            if (only) only();
+            return;
+        }
         // Snapshot so a subscriber may (un)subscribe during notification without skipping/looping.
         for (const subscriber of Array.from(subscribers)) {
             if (subscribers.has(subscriber)) subscriber();
@@ -50,6 +62,7 @@ export function exoCombine<T>(
         getValue: fn,
         subscribe(update) {
             subscribers.add(update);
+            onlySubscriber = subscribers.size === 1 ? update : undefined;
             if (subscribers.size === 1) {
                 // No baseline is taken before subscribing: with `hasLast` false, the synchronous
                 // emit a source fires on subscribe reaches the view instead of being swallowed.
@@ -58,6 +71,10 @@ export function exoCombine<T>(
             }
             return () => {
                 subscribers.delete(update);
+                onlySubscriber =
+                    subscribers.size === 1
+                        ? (subscribers.values().next().value as () => void)
+                        : undefined;
                 if (subscribers.size === 0) {
                     for (const stop of stops) stop();
                     stops = [];

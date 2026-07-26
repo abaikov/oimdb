@@ -1,8 +1,7 @@
 import { OIMEventQueue, createOIMCollectionKit } from '@oimdb/core';
 import {
-    exoChildren,
+    exoRows,
     exoCollection,
-    exoCombine,
     exoDb,
     exoKeyed,
 } from '../src';
@@ -236,7 +235,7 @@ describe('exoCollection', () => {
         expect(everyone.getValue().map(u => u.name)).toContain('Ally');
     });
 
-    test('all() as the change signal when a row key depends on another collection', () => {
+    test('a key is identity: related data belongs in a per-row bindable, not the key', () => {
         const queue = new OIMEventQueue();
         const usersKit = createOIMCollectionKit<User, string>(queue, {
             selectPk: u => u.id,
@@ -260,69 +259,29 @@ describe('exoCollection', () => {
             users: { kit: usersKit },
             notes: { kit: notesKit, indexes: { notesByUser } },
         });
-        const noteCount = (id: string) => notesByUser.getPksByKey(id).size;
 
-        // The key depends on notes, so the source must invalidate on notes too — that is what
-        // `all()` is for. No hand-rolled "read fn + array of sources" helper needed.
-        const renders: string[] = [];
-        const rows = exoChildren(
-            exoCombine([db.users.all(), db.notes.all()], () =>
-                db.users.all().getValue()
-            ),
-            {
-                key: u => `${u.id}:${noteCount(u.id)}`,
-                render: u => {
-                    renders.push(`${u.id}:${noteCount(u.id)}`);
-                    return { id: u.id };
-                },
-            }
-        );
+        let renders = 0;
+        let noteCountUpdates = 0;
+        const rows = exoRows(db.users.allPks(), pk => {
+            renders++;
+            const notes = db.notes.notesByUser.pks(pk);
+            notes.subscribe(() => noteCountUpdates++);
+            return { id: pk, notes };
+        });
 
         rows.subscribe(() => undefined);
-        expect(rows.getValue()).toHaveLength(1);
-        expect(renders).toEqual(['u1:0']);
+        const first = rows.getValue();
+        expect(renders).toBe(1);
 
-        // Adding a note changes no user, but it DOES change the row key → the row rebuilds.
+        // A note is added: the ROW is untouched — same array, same schema object, no re-render —
+        // while the row's own bindable reports the change.
         notesKit.collection.upsertOne({ id: 'n1', userId: 'u1' });
         queue.flush();
-        expect(rows.getValue()).toHaveLength(1);
-        expect(renders).toEqual(['u1:0', 'u1:1']);
-    });
 
-    test('default read keeps holes; compact drops them; unsafeDense only retypes', () => {
-        const { queue, kit, users } = setup();
-
-        // A manual index holds pks written by hand, so removing the entity leaves a dangling pk.
-        // On a DERIVED index this cannot happen — it is dense, and compaction removes nothing.
-        kit.collection.removeOneByPk('u1');
-        queue.flush();
-
-        // DEFAULT: holes are kept. A missing entity is a real state of the store, so the read shows
-        // it rather than deciding for the caller.
-        const aligned: readonly (User | undefined)[] = users
-            .byPathOrdered(['t1', 'x'])
-            .getValue();
-        expect(aligned).toHaveLength(2);
-        expect(aligned.map(u => u?.name)).toEqual(['Bob', undefined]);
-
-        // OPT-IN: `compact` filters, and therefore SHORTENS — on manual pks that hides the tear.
-        const compact: readonly User[] = users.byPathOrdered
-            .compact(['t1', 'x'])
-            .getValue();
-        expect(compact.map(u => u.name)).toEqual(['Bob']);
-
-        // UNSAFE: no filtering, no check — the same array, retyped. The `undefined` is still there
-        // at runtime, which is exactly why the name says the guarantee is the caller's.
-        const dense: readonly User[] = users.byPathOrdered
-            .unsafeDense(['t1', 'x'])
-            .getValue();
-        expect(dense).toHaveLength(2);
-        expect(dense[1] as User | undefined).toBeUndefined();
-
-        // Global indexes and pinned facades carry the same three reads.
-        expect(users.online().getValue().length).toBeGreaterThan(0);
-        expect(users.online.compact().getValue().length).toBeGreaterThan(0);
-        expect(users.online.unsafeDense().getValue().length).toBeGreaterThan(0);
+        expect(rows.getValue()).toBe(first);
+        expect(renders).toBe(1);
+        expect(noteCountUpdates).toBe(1);
+        expect(first[0].notes.getValue()).toEqual(['n1']);
     });
 
     test('an index name colliding with a built-in member fails loudly', () => {

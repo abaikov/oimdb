@@ -8,7 +8,7 @@ export { exoSelector } from './exoSelector';
 export { exoComputed } from './exoComputed';
 export { exoKeyed } from './exoKeyed';
 export { exoCombine } from './exoCombine';
-export { exoChildren } from './exoChildren';
+export { exoRows } from './exoRows';
 export { exoList } from './exoList';
 
 // Types

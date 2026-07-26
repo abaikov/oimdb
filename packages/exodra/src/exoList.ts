@@ -13,7 +13,7 @@ const PRUNE_FLOOR = 64;
  * The stream's position-addressed commands (insert / remove / move / set / reset) map 1:1 onto
  * Exodra `TExoListOp`, so this forwards them with `render` applied to the carried items.
  *
- * Prefer this over `exoChildren` / `entityRows` for large ordered lists: only the genuinely moved,
+ * Prefer this over `exoRows` for large ordered lists: only the genuinely moved,
  * inserted or removed rows touch the DOM. A diff-driven stream
  * (`createOIMOrderedListCommandStreamDiffDriven` over a `derivedArrayIndex`) emits move — not
  * remove+insert — on reorders, so Exodra relocates the existing DOM node and the row keeps its
@@ -50,7 +50,8 @@ export function exoList<TKey extends TOIMKey, TItem, TSchema>(
 
     const pruneAgainst = (live: readonly TItem[]): void => {
         const liveItems = new Set(live);
-        for (const item of Array.from(schemas.keys())) {
+        // Deleting the current entry while iterating a Map is well-defined, so no key snapshot.
+        for (const item of schemas.keys()) {
             if (!liveItems.has(item)) schemas.delete(item);
         }
         pruneAt = Math.max(PRUNE_FLOOR, schemas.size * 2);

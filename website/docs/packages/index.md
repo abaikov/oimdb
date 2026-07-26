@@ -62,10 +62,10 @@ Depends only on the type-only `@exodra/reactivity-types` (no reactivity runtime)
 - `exoDb` — the whole system at once: a record of kits in, a record of typed Exodra views out
 - `exoCollection` — one collection's view; each named index becomes a callable member carrying
   `pks`, `rows`, `subscribe` (and `list` on ordered ones), with the index kind inferred from the index
-- `exoBindable` — the primitive: an `OIMSelector`, an `OIMComputed`, a raw read/subscribe pair, or a
-  reactive key
+- `exoSource` / `exoSelector` / `exoComputed` / `exoKeyed` — the primitives, one signature each: a raw
+  read/subscribe pair, an `OIMSelector`, an `OIMComputed`, and a selector driven by a moving key
 - `exoCombine` — multi-source derive (Exodra's own `derive` is single-source)
-- `exoChildren` — identity-stable, focus-safe list children for any items
+- `exoRows` — identity-stable, focus-safe list children; the keys you pass ARE the identity, there is no key function
 - `exoList` — O(delta) path: an OIMDB ordered command stream → an Exodra `bindableList`
 
 [Exodra Guide](/docs/packages/exodra) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/exodra) · [npm](https://www.npmjs.com/package/@oimdb/exodra)

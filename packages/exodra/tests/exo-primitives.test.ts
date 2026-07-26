@@ -10,7 +10,7 @@ import {
 } from '@oimdb/core';
 import type { TExoListOp } from '@exodra/reactivity-types';
 import {
-    exoChildren,
+    exoRows,
     exoCombine,
     exoComputed,
     exoKeyed,
@@ -169,6 +169,50 @@ describe('primitives', () => {
 
 });
 
+    test('notification is safe when subscribers change during it', () => {
+        let notify: () => void = () => undefined;
+        const src = exoSource(
+            () => 0,
+            on => {
+                notify = on;
+                return () => undefined;
+            }
+        );
+
+        // One subscriber takes the allocation-free fast path; it must still be correct when that
+        // subscriber unsubscribes itself mid-notification.
+        let soloHits = 0;
+        const stopSolo = src.subscribe(() => {
+            soloHits++;
+            stopSolo();
+        });
+        notify();
+        expect(soloHits).toBe(1);
+        notify();
+        expect(soloHits).toBe(1); // it really did unsubscribe
+
+        // Several subscribers take the snapshot path.
+        const seen: string[] = [];
+        const stopA = src.subscribe(() => seen.push('a'));
+        const stopB = src.subscribe(() => {
+            seen.push('b');
+            stopC(); // remove a peer during the round — it must not be called
+        });
+        const stopC = src.subscribe(() => seen.push('c'));
+        notify();
+        expect(seen).toEqual(['a', 'b']);
+
+        // Dropping back to one subscriber must re-arm the fast path with the RIGHT subscriber.
+        seen.length = 0;
+        stopA();
+        notify();
+        expect(seen).toEqual(['b']);
+
+        stopB();
+        notify();
+        expect(seen).toEqual(['b']); // nobody left
+    });
+
 describe('exoCombine', () => {
     test('ref-counted, and collapses N source emits for one logical change', () => {
         let notifyA: () => void = () => undefined;
@@ -230,7 +274,7 @@ describe('exoCombine', () => {
 
 });
 
-describe('exoChildren', () => {
+describe('exoRows', () => {
     test('idempotent read, cached rows, duplicate key throws', () => {
         let order: readonly string[] = ['a', 'b'];
         const source = {
@@ -239,12 +283,9 @@ describe('exoChildren', () => {
         };
 
         let renders = 0;
-        const rows = exoChildren<string, { k: string }>(source, {
-            key: k => k,
-            render: k => {
-                renders++;
-                return { k };
-            },
+        const rows = exoRows<string, { k: string }>(source, k => {
+            renders++;
+            return { k };
         });
 
         const first = rows.getValue();

@@ -26,23 +26,19 @@ export type TOIMExodraCollection<
         pks: readonly TPk[]
     ): TExoBindable<readonly (TEntity | undefined)[]>;
     /**
-     * Every entity in the collection, reactively.
-     *
-     * Use it for whole-collection reads that would otherwise go stale — the `<option>` list of a
-     * form is the usual one — and as the change signal to hand `exoCombine` when a row key depends
-     * on a second collection:
-     *
-     * ```ts
-     * const rows = exoChildren(
-     *     exoCombine([db.tasks.all(), db.comments.all()], () => orderedTasks()),
-     *     { key: t => `${t.id}:${commentCount(t.id)}`, render: taskRow },
-     * );
-     * ```
+     * Every entity in the collection, reactively. Use it for whole-collection reads that would
+     * otherwise go stale — the `<option>` list of a form is the usual one — and as a change signal
+     * for `exoCombine`.
      *
      * Repeated reads are O(1) while subscribed: the array is cached behind the collection's own
-     * change signal, so `exoChildren` on top short-circuits instead of re-deriving the key sequence.
+     * change signal.
      */
     all(): TExoBindable<readonly TEntity[]>;
+    /**
+     * Every primary key, reactively — the identity sequence for `exoRows` when a list covers the
+     * whole collection rather than an index.
+     */
+    allPks(): TExoBindable<readonly TPk[]>;
 } & {
     [TName in keyof TIndexes]: TOIMExodraIndexFacade<
         TEntity,

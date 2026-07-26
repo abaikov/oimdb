@@ -86,7 +86,7 @@ exoSelector<T>(selector: OIMSelector<T>): TExoBindable<T>
 exoComputed<T>(computed: OIMComputed<T>): TExoBindable<T>
 exoKeyed<TKey, T>(key: TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
 exoCombine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T): TExoBindable<T>
-exoChildren<TItem, TSchema>(source: TExoBindable<readonly TItem[]>, opts: { key: (i: TItem) => TOIMKey; render: (i: TItem) => TSchema }): TExoBindable<readonly TSchema[]>
+exoRows<TKey, TSchema>(keys: TExoBindable<readonly TKey[]>, render: (key: TKey) => TSchema): TExoBindable<readonly TSchema[]>
 exoList<TKey, TItem, TSchema>(stream: IOIMOrderedListCommandSource<TKey, TItem>, key: TKey, render: (item: TItem) => TSchema): TExoBindableList<TSchema>
 ```
 
@@ -95,10 +95,10 @@ key is `exoSelector(makeSelector(key))`.
 
 **The primitives are the load-bearing API.** The facade covers "one index → its rows". Screens that
 sort or filter beyond an index, key rows off related data, or fan in across collections are built
-from `exoChildren` over a computed source, and that is the intended path, not a fallback.
+from `exoRows` over a computed source, and that is the intended path, not a fallback.
 
 **Aggregation belongs in `OIMComputed`, forwarded with `exoComputed`.** Joins, counts and roll-ups go
-in one computed (leveled at AFTER_FLUSH, coherent) whose value the view reads; `exoChildren` then
+in one computed (leveled at AFTER_FLUSH, coherent) whose value the view reads; `exoRows` then
 takes an arbitrary `key`, so a row key derived from related data is expressible there.
 
 `exoCombine` is for ordinary multi-source view values (an entity plus its author, an entity plus
@@ -108,7 +108,7 @@ later, so suppressing that emit as redundant leaves the region frozen at its bui
 emits are deduped; for content dedup return a stable reference from `fn`. It is not glitch-free — a
 reason to keep heavy fan-in in one `OIMComputed`, NOT a reason to avoid it for two-source values.
 
-`exoChildren` reads are idempotent: the key sequence is compared to the previous one, so repeated
+`exoRows` reads are idempotent: the key sequence is compared to the previous one, so repeated
 `getValue()` returns the SAME array reference and never renders or evicts. Keys must be UNIQUE — a
 duplicate throws (one schema object cannot occupy two positions under identity reconciliation).
 
@@ -143,8 +143,23 @@ kit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]))
 - **Filtered list** — filter in the index by emitting no key: `derivedSetIndex(t => t.archived ? [] : [t.statusId])`.
 - **Row follows another collection** — bind INSIDE the row: `derive(exoSelector(members.select.byPk(id)), m => m?.name)`.
   The row is not rebuilt; one text node updates.
-- **Row KEY depends on another collection** — the source must invalidate on it too:
-  `exoChildren(exoCombine([db.tasks.all(), db.comments.all()], read), { key, render })`.
+- **Canonical shape — a post, its comment list, and each comment.** Three independent subscriptions:
+  the post is `db.posts.byPk(id)`; membership is `db.comments.byPost.pks(id)` (or `.rows(id, render)`);
+  each comment is its own `byPk` inside the row. Post edited → only the post's binding fires. One
+  comment edited → only that row's binding; the list array comes back IDENTICAL, no reconcile. Comment
+  added/removed → the list rebuilds and only the new row renders, survivors keep identity. No composite
+  key, no combine, no extra invalidation.
+- **Nested lists (posts, each with its comments)** — `exoRows` inside `exoRows`. The post row is built
+  once and cached, so the comment list created inside it is cached with it. A comment added to post A
+  rebuilds ONLY A's inner list; the post list and post B are untouched. A post added rebuilds the outer
+  list, renders only the new post, and existing rows keep their identity AND their already-built
+  comment lists. Through the facade it is ONE top-level call — `db.posts.postsByDate.rows((post, pk) => … db.comments.byPost.rows(pk, …) …)` — the inner list being an expression inside the row's markup. Two lists = two identity sequences = two children buckets; that is the floor. A literally single map means flattening to one prefixed key sequence, which costs containment (it must be recomputed when ANY post's comments change). Asserted in `exo-post-list.test.ts`.
+- **A key is IDENTITY, never invalidation.** `key: t => t.id` and nothing else. A composite key like
+  `` `${t.id}:${commentCount(t.id)}` `` forces every read to re-derive the whole key sequence and then
+  rebuilds a row whose markup did not change — measured on 2000 rows, one added comment: 2.44ms and 1
+  wasted rebuild, versus 0.73ms and zero rebuilds when the count is bound inside the row. Cost scales
+  with list length, not with the change. Bind what varies WITHIN a row:
+  `derive(db.comments.byTask.pks(pk), c => c.length)`.
 - **`<select>` options that must not go stale** — `db.members.all()`, never `collection.getAll()` once at build.
 - **Aggregate (join/count/roll-up)** — ONE `OIMComputed` forwarded by `exoComputed`. Do not chain Exodra derives.
 - **Moving selection** — `db.tasks.byStatus.for(selectedStatus)`, then nothing below takes a key.

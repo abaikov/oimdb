@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/exodra",
-  "version": "0.6.0",
+  "version": "0.7.1",
   "description": "Exodra integration for OIMDB - adapt selectors, computeds and ordered-list command streams into read-only Exodra bindables",
   "type": "module",
   "main": "./dist/index.cjs",

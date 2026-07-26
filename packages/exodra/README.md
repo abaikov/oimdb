@@ -89,7 +89,7 @@ once and driven by ops, so following a moving key would mean resetting the whole
 The facade is built out of these, and they are exported for everything it does not cover:
 
 ```ts
-import { exoSource, exoSelector, exoComputed, exoKeyed, exoCombine, exoChildren, exoList } from '@oimdb/exodra';
+import { exoSource, exoSelector, exoComputed, exoKeyed, exoCombine, exoRows, exoList } from '@oimdb/exodra';
 
 exoSelector(kit.select.byPk('u1'))              // an OIMSelector
 exoComputed(myComputed)                         // an OIMComputed — the aggregation bridge
@@ -97,7 +97,7 @@ exoSource(read, subscribe)                      // a raw pair — the escape hat
 exoKeyed(team, k => kit.select.byPks(k))        // a MOVING key
 
 exoCombine([a, b], () => `${a.getValue()} / ${b.getValue()}`)   // Exodra's derive is single-source
-exoChildren(tags, { key: t => t.slug, render: renderTag })      // identity-stable, any items
+exoRows(tagSlugs, renderTag)                                    // identity-stable rows
 exoList(stream, 'deck-1', renderCard)                           // any command stream
 ```
 
@@ -107,101 +107,180 @@ store and is valid with no subscription at all — including a reactive key, whi
 
 ## Patterns
 
-The recipes below cover what real screens actually need. Reach for them before inventing glue.
+Three situations cover essentially every screen. Find yours before inventing glue.
 
-### An ordered column — order lives in the index, never in the view
+### 1. Render entities of a collection or an index
+
+Identity already exists — it is the primary key. Feed the pks in; there is no key function anywhere.
 
 ```ts
-// The index maintains order incrementally; a per-render sort would be O(n log n) on every flush.
-const byStatus = tasksKit.indexFactory.derivedArrayIndex(t => t.statusId, {
-    orderBy: t => t.createdAt,
+// From an index (ordered, filtered — see below):
+const rows = db.tasks.byStatus.rows('in-progress', (task, pk) =>
+    h('li', { bindable: { textContent: derive(task, t => t?.title ?? '') } }),
+);
+// <ul bindable={{ children: rows }} />
+
+// Or straight from the primitive, over any pk sequence:
+const rows = exoRows(db.tasks.byStatus.pks('in-progress'), pk => renderCard(pk));
+
+// Whole collection rather than an index:
+const rows = exoRows(db.tasks.allPks(), pk => renderCard(pk));
+```
+
+The row is built once per pk. A field edit updates that row's own bindables in place — the array is
+unchanged, the reconcile is a no-op, focus survives.
+
+**Never put state in the key.** `` `${t.id}:${commentCount(t.id)}` `` turns "which row is this" into
+"which row and in what condition": the row is rebuilt every time the condition changes, and its
+focus goes with it. Measured on 2000 rows, one added comment cost 2.44 ms and a wasted rebuild that
+way, versus 0.73 ms and zero rebuilds with the count bound inside the row.
+
+### The canonical shape: a post, its comments, and the comments themselves
+
+Three independent sources of change, three independent subscriptions — each reaching exactly the node
+that depends on it:
+
+```ts
+const postView = (postId: string) => {
+    const post = db.posts.byPk(postId);                       // 1. the post itself
+
+    const comments = db.comments.byPost.rows(postId, (comment, pk) =>
+        h('li', {                                              // 3. each comment, its own bindable
+            bindable: { textContent: derive(comment, c => c?.body ?? '') },
+        }),
+    );                                                         // 2. membership, from the index
+
+    return h('article', {
+        bindable: {
+            textContent: derive(post, p => p?.title ?? ''),
+        },
+    }, h('ul', { bindable: { children: comments } }));
+};
+```
+
+What happens on each change:
+
+| Change | What fires |
+| --- | --- |
+| the post is edited | the post's binding only — the comment list is not touched |
+| one comment is edited | that row's binding only — the list array comes back **identical**, no reconcile, no rebuild |
+| a comment is added or removed | the list rebuilds, and only the genuinely new row is rendered; surviving rows keep their identity |
+
+No composite key, no combining, no extra invalidation wiring: the index gives membership, `byPk` gives
+each row its own value, and the post is its own binding. `exo-post-comments.test.ts` asserts every
+line of that table with counters.
+
+Spelled out with the primitive instead of the facade, it is the same thing:
+
+```ts
+const comments = exoRows(db.comments.byPost.pks(postId), pk =>
+    h('li', { bindable: { textContent: derive(db.comments.byPk(pk), c => c?.body ?? '') } }),
+);
+```
+
+### A LIST of posts, each with its own comments (nested rows)
+
+`exoRows` inside `exoRows`. The post row is built once and cached, so the comment list created inside
+it is cached with it — adding a post does not rebuild anybody else's comments.
+
+```ts
+const posts = exoRows(db.posts.postsByDate.pks(), postPk => {
+    const post = db.posts.byPk(postPk);
+
+    const comments = exoRows(db.comments.byPost.pks(postPk), commentPk =>
+        h('li', {
+            bindable: {
+                textContent: derive(db.comments.byPk(commentPk), c => c?.body ?? ''),
+            },
+        }),
+    );
+
+    return h('article', {
+        bindable: { textContent: derive(post, p => p?.title ?? '') },
+    }, h('ul', { bindable: { children: comments } }));
 });
-
-db.tasks.byStatus.rows('in-progress', renderCard)   // ordered, identity-stable
-db.tasks.byStatus.list('in-progress', renderCard)   // same, O(delta) — ordered indexes only
+// <section bindable={{ children: posts }} />
 ```
 
-### Reading an index — three members, three different promises
+Containment, asserted in `exo-post-list.test.ts`:
+
+| Change | What happens |
+| --- | --- |
+| a post's title | that post's binding only — neither list moves |
+| a comment's body | that comment's binding only — its list returns the identical array |
+| a comment added to post A | **only A's** comment list rebuilds, and only the new comment renders; post B and the post list are untouched |
+| a post added | the post list rebuilds and only the new post renders; existing rows keep their identity **and their already-built comment lists** |
+| a post removed | its row and nested list are dropped; nothing else re-renders |
+
+That last row is the point of caching by identity: the nested list is part of the cached row, so it
+survives changes to the outer list instead of being rebuilt with it.
+
+Through the facade it collapses to a single top-level call — the inner list is just an expression
+inside the row's markup, the way `.map()` is inside JSX:
 
 ```ts
-db.tasks.byStatus('s1')                // readonly (Task | undefined)[]  — DEFAULT, holes kept
-db.tasks.byStatus.compact('s1')        // readonly Task[]                — filtered, may be SHORTER
-db.tasks.byStatus.unsafeDense('s1')    // readonly Task[]                — retyped, nothing checked
+const posts = db.posts.postsByDate.rows((post, postPk) =>
+    h('article', {
+        bindable: { textContent: derive(post, p => p?.title ?? '') },
+    },
+        h('ul', {
+            bindable: {
+                children: db.comments.byPost.rows(postPk, comment =>
+                    h('li', { bindable: { textContent: derive(comment, c => c?.body ?? '') } }),
+                ),
+            },
+        }),
+    ),
+);
 ```
 
-The default keeps holes because a missing entity is a real state of the store, and hiding it is not
-this layer's decision.
+Two lists means two identity sequences and therefore two children buckets — that is the floor, not a
+limitation of this package. The only way to a literally single map is flattening to one key sequence
+(`['p:p1','c:c1','p:p2',…]`), which buys a flat DOM at the price of prefixed keys and, more
+importantly, of containment: the sequence then has to be recomputed whenever ANY post's comments
+change.
 
-`compact` filters them out. Convenient, and it shortens the list — on **manual** pks (`setPks`,
-composite indexes) that silently swallows a torn state, which is why it is opt-in.
 
-`unsafeDense` does no filtering and no checking at all: the same array, typed as if there were no
-holes. It is correct for a **derived** index, which is dense by construction — every pk in it came
-from an entity that exists. It is `unsafe` because that guarantee is yours, not the library's: assert
-it wrongly and an `undefined` shows up behind a type that says it cannot.
+### 2. A row needs data from another table
 
-```ts
-// Derived index → dense → assert it once and let the rest of the code be non-null.
-const rows = exoChildren(db.tasks.byStatus.unsafeDense('s1'), { key: t => t.id, render: renderCard });
-```
-
-### A filtered list — filter in the index by emitting no key
+Bind it inside the row. Do not join, do not widen the key.
 
 ```ts
-// Archived tasks never enter the index, so nothing downstream has to skip them.
-tasksKit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]));
-```
-
-### A row that follows a value from ANOTHER collection
-
-Bind it inside the row: the row is not rebuilt, only that one text node updates.
-
-```ts
-const commentRow = (c: Comment) =>
+const commentRow = (pk: string) =>
     h('li', {
         bindable: {
-            textContent: derive(
-                exoSelector(members.select.byPk(c.authorId)),
-                m => m?.name ?? '?',
-            ),
+            // the author's name follows the members collection…
+            textContent: derive(exoSelector(members.select.byPk(authorOf(pk))), m => m?.name ?? '?'),
+            // …and a count follows the comments index
+            title: derive(db.comments.byTask.pks(pk), c => `${c.length} comments`),
         },
     });
 ```
 
-### A row KEY that depends on another collection
+Need a genuine aggregate — a roll-up, a total, something that is one value rather than a per-row
+one? That is one `OIMComputed` (leveled at `AFTER_FLUSH`, coherent) forwarded with `exoComputed`.
 
-When the key itself is derived — a count, a related status — the source must invalidate on that
-collection too. `all()` is that change signal.
+There is deliberately **no multi-source derived table**. A joined row would need a primary key
+nobody references, and an identity nobody uses is not an identity. If something *does* reference the
+combined thing, it is a real entity — give it its own collection and fill it yourself.
+
+### 3. Items that are not entities
+
+Tags, groups, buckets — anything without a collection. They still have something stable to be keyed
+by, so pass those keys:
 
 ```ts
-const rows = exoChildren(
-    exoCombine([db.tasks.all(), db.comments.all()], orderedTasks),
-    {
-        key: t => `${t.id}:${t.pending ? 1 : 0}:${commentCount(t.id)}`,
-        render: renderTaskRow,
-    },
-);
+const rows = exoRows(tagSlugs, slug => renderTag(slug));
 ```
 
-### A `<select>` whose options must not go stale
+### Ordering and filtering live in the index
 
 ```ts
-const options = derive(db.members.all(), ms =>
-    ms.map(m => h('option', { static: { value: m.id } })),
-);
-```
+// order is maintained incrementally; a per-render sort would be O(n log n) every flush
+kit.indexFactory.derivedArrayIndex(t => t.statusId, { orderBy: t => t.createdAt });
 
-Reading `collection.getAll()` once at build is the classic staleness bug: rename a member and the
-list keeps the old name forever.
-
-### An aggregate — join, count, roll-up
-
-Put the fan-in in ONE `OIMComputed` (leveled at `AFTER_FLUSH`, coherent) and forward it. Do not chain
-Exodra `derive`s off each other; Exodra has no glitch batching.
-
-```ts
-const openPerAssignee = kit.computed(deps, () => /* … */);
-const summary = exoComputed(openPerAssignee);
+// filtered: emit no key and the entity never enters the index
+kit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]));
 ```
 
 ### A selection that moves
@@ -213,9 +292,17 @@ const live = db.tasks.byStatus.for(selectedStatus);
 live.rows(renderCard);
 ```
 
-### A subscription scoped to `onExoMount`
+### A `<select>` whose options must not go stale
 
-Bucket bindings subscribe at *build*. When you need mount scope, subscribe manually.
+```ts
+const options = derive(db.members.all(), ms =>
+    ms.map(m => h('option', { static: { value: m.id } })),
+);
+```
+
+Reading `collection.getAll()` once at build is the classic staleness bug.
+
+### A subscription scoped to `onExoMount`
 
 ```ts
 onExoMount: () => { stop = db.tasks.byStatus.subscribe('done', refresh); },

@@ -9,7 +9,7 @@ import {
 import type { TOIMCollectionKit, TOIMKey } from '@oimdb/core';
 import type { TOIMExodraCollection } from './types/TOIMExodraCollection';
 import type { TOIMExodraReadable } from './types/TOIMExodraReadable';
-import { exoChildren } from './exoChildren';
+import { exoRows } from './exoRows';
 import { exoKeyed } from './exoKeyed';
 import { exoList } from './exoList';
 import { exoSelector } from './exoSelector';
@@ -80,6 +80,12 @@ export function exoCollection<
                 () => kit.collection.getAll(),
                 onChange => kit.collection.subscribeOnAnyUpdate(() => onChange())
             ),
+        /** Every pk, reactively — the identity sequence to hand `exoRows`. */
+        allPks: () =>
+            cachedArray<TPk>(
+                () => kit.collection.getAllPks(),
+                onChange => kit.collection.subscribeOnAnyUpdate(() => onChange())
+            ),
     };
 
     for (const [name, index] of Object.entries(indexes ?? {})) {
@@ -119,10 +125,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
         pks: TExoBindable<readonly TPk[]>,
         render: (entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
     ) =>
-        exoChildren(pks, {
-            key: (pk: TPk) => pk,
-            render: (pk: TPk) => render(byPk(pk), pk),
-        });
+        exoRows(pks, (pk: TPk) => render(byPk(pk), pk));
 
     if (isGlobalArray || isGlobalSet) {
         const selector = () =>
@@ -231,7 +234,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
  * The underlying selectors are length-aligned with `undefined` where an entity is missing — a
  * defensive shape that only makes sense when the CALLER supplied the positions (that is `byPks`).
  * For an index read nothing depends on position, so the hole is pure friction: it stops the result
- * feeding `exoChildren<TEntity>` without narrowing, and pushed people into hand-rolled
+ * feeding `exoRows` without narrowing, and pushed people into hand-rolled
  * read/subscribe glue. Compaction happens once per change and is cached behind the selector's own
  * signal, so repeated reads are O(1) and hand back the same array.
  *
