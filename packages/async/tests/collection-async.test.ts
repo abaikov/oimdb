@@ -139,7 +139,17 @@ describe('OIMCollectionAsync', () => {
 
             const retrieved = await collection.getManyByPks(['user1', 'user3']);
             expect(retrieved).toHaveLength(2);
-            expect(retrieved.map(u => u.id)).toEqual(expect.arrayContaining(['user1', 'user3']));
+            expect(retrieved.map(u => u?.id)).toEqual(
+                expect.arrayContaining(['user1', 'user3'])
+            );
+
+            // Length-aligned: a pk with no entity keeps its position as `undefined`…
+            const withHole = await collection.getManyByPks(['user1', 'missing']);
+            expect(withHole).toEqual([expect.objectContaining({ id: 'user1' }), undefined]);
+
+            // …and dropping it is an explicit, separately named call.
+            const compact = await collection.getManyByPksCompact(['user1', 'missing']);
+            expect(compact).toHaveLength(1);
         });
 
         test('should remove single entity and emit update event', async () => {

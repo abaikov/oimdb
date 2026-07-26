@@ -1,5 +1,11 @@
 import { OIMEventQueue, createOIMCollectionKit } from '@oimdb/core';
-import { exoCollection, exoDb, exoKeyed } from '../src';
+import {
+    exoChildren,
+    exoCollection,
+    exoCombine,
+    exoDb,
+    exoKeyed,
+} from '../src';
 
 type User = { id: string; name: string; teamId: string; online: boolean };
 
@@ -205,6 +211,118 @@ describe('exoCollection', () => {
         const { users } = setup();
         const rows = users.byPath.rows(['t1', 'x'], (_entity, pk) => ({ pk }));
         expect(rows.getValue().map(r => r.pk)).toEqual(['u1']);
+    });
+
+    test('all(): reactive whole-collection read, O(1) while subscribed', () => {
+        const { queue, kit, users } = setup();
+
+        const everyone = users.all();
+        expect(everyone.getValue().map(u => u.name).sort()).toEqual([
+            'Alice',
+            'Bob',
+            'Cara',
+        ]);
+
+        let hits = 0;
+        everyone.subscribe(() => hits++);
+        const first = everyone.getValue();
+        expect(everyone.getValue()).toBe(first); // cached behind the collection's own signal
+
+        // A rename must reach an option list built from this — the staleness `all()` exists to fix.
+        kit.collection.upsertOneByPk('u1', { name: 'Ally' });
+        queue.flush();
+        expect(hits).toBe(1);
+        expect(everyone.getValue()).not.toBe(first);
+        expect(everyone.getValue().map(u => u.name)).toContain('Ally');
+    });
+
+    test('all() as the change signal when a row key depends on another collection', () => {
+        const queue = new OIMEventQueue();
+        const usersKit = createOIMCollectionKit<User, string>(queue, {
+            selectPk: u => u.id,
+        });
+        type Note = { id: string; userId: string };
+        const notesKit = createOIMCollectionKit<Note, string>(queue, {
+            selectPk: n => n.id,
+        });
+        const notesByUser = notesKit.indexFactory.derivedSetIndex<string>(
+            n => n.userId
+        );
+        usersKit.collection.upsertOne({
+            id: 'u1',
+            name: 'Alice',
+            teamId: 't1',
+            online: true,
+        });
+        queue.flush();
+
+        const db = exoDb({
+            users: { kit: usersKit },
+            notes: { kit: notesKit, indexes: { notesByUser } },
+        });
+        const noteCount = (id: string) => notesByUser.getPksByKey(id).size;
+
+        // The key depends on notes, so the source must invalidate on notes too — that is what
+        // `all()` is for. No hand-rolled "read fn + array of sources" helper needed.
+        const renders: string[] = [];
+        const rows = exoChildren(
+            exoCombine([db.users.all(), db.notes.all()], () =>
+                db.users.all().getValue()
+            ),
+            {
+                key: u => `${u.id}:${noteCount(u.id)}`,
+                render: u => {
+                    renders.push(`${u.id}:${noteCount(u.id)}`);
+                    return { id: u.id };
+                },
+            }
+        );
+
+        rows.subscribe(() => undefined);
+        expect(rows.getValue()).toHaveLength(1);
+        expect(renders).toEqual(['u1:0']);
+
+        // Adding a note changes no user, but it DOES change the row key → the row rebuilds.
+        notesKit.collection.upsertOne({ id: 'n1', userId: 'u1' });
+        queue.flush();
+        expect(rows.getValue()).toHaveLength(1);
+        expect(renders).toEqual(['u1:0', 'u1:1']);
+    });
+
+    test('default read keeps holes; compact drops them; unsafeDense only retypes', () => {
+        const { queue, kit, users } = setup();
+
+        // A manual index holds pks written by hand, so removing the entity leaves a dangling pk.
+        // On a DERIVED index this cannot happen — it is dense, and compaction removes nothing.
+        kit.collection.removeOneByPk('u1');
+        queue.flush();
+
+        // DEFAULT: holes are kept. A missing entity is a real state of the store, so the read shows
+        // it rather than deciding for the caller.
+        const aligned: readonly (User | undefined)[] = users
+            .byPathOrdered(['t1', 'x'])
+            .getValue();
+        expect(aligned).toHaveLength(2);
+        expect(aligned.map(u => u?.name)).toEqual(['Bob', undefined]);
+
+        // OPT-IN: `compact` filters, and therefore SHORTENS — on manual pks that hides the tear.
+        const compact: readonly User[] = users.byPathOrdered
+            .compact(['t1', 'x'])
+            .getValue();
+        expect(compact.map(u => u.name)).toEqual(['Bob']);
+
+        // UNSAFE: no filtering, no check — the same array, retyped. The `undefined` is still there
+        // at runtime, which is exactly why the name says the guarantee is the caller's.
+        const dense: readonly User[] = users.byPathOrdered
+            .unsafeDense(['t1', 'x'])
+            .getValue();
+        expect(dense).toHaveLength(2);
+        expect(dense[1] as User | undefined).toBeUndefined();
+
+        // Global indexes and pinned facades carry the same three reads.
+        expect(users.online().getValue().length).toBeGreaterThan(0);
+        expect(users.online.compact().getValue().length).toBeGreaterThan(0);
+        expect(users.online.unsafeDense().getValue().length).toBeGreaterThan(0);
     });
 
     test('an index name colliding with a built-in member fails loudly', () => {

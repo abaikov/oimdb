@@ -45,7 +45,19 @@ export abstract class OIMCollectionStore<
 
     abstract getOneByPk(pk: TPk): TEntity | undefined;
 
-    abstract getManyByPks(pks: readonly TPk[]): TEntity[];
+    /**
+     * Length-aligned with `pks`: `undefined` wherever a pk has no entity. A missing entity is a real
+     * state of the store, so the read surfaces it instead of deciding for the caller — the same
+     * contract as {@link OIMIndex.getEntitiesByKey} and every selector.
+     */
+    abstract getManyByPks(pks: readonly TPk[]): (TEntity | undefined)[];
+
+    /**
+     * The same read with holes filtered out, so the result may be SHORTER than `pks`. Deliberate and
+     * separately named: silently swallowing a missing entity is exactly what makes torn state hard to
+     * find. Safe when the pks come from a derived index (dense by construction).
+     */
+    abstract getManyByPksCompact(pks: readonly TPk[]): TEntity[];
 
     abstract getAll(): TEntity[];
 

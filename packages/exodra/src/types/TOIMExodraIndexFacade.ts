@@ -2,16 +2,33 @@ import type { TExoBindable, TExoBindableList } from '@exodra/reactivity-types';
 import type { TOIMKey } from '@oimdb/core';
 import type { TOIMExodraReadable } from './TOIMExodraReadable';
 
+/*
+ * Three ways to read the entities of an index, as three separate members. Nothing is a flag and
+ * nothing is inferred from an argument, because the three differ in what they PROMISE:
+ *
+ *   `(key)`             length-aligned, `undefined` where a pk has no entity. The honest default:
+ *                       a hole is a real state of the store, and hiding it is not this layer's call.
+ *   `compact(key)`      holes filtered out. Convenient, and it SHORTENS the list — on manual pks that
+ *                       silently swallows a torn state, so it is opt-in and deliberate.
+ *   `unsafeDense(key)`  the very same array, typed `readonly TEntity[]`. Nothing is checked and
+ *                       nothing is filtered: you are asserting this index cannot have holes. True
+ *                       for a derived index (every pk came from an entity that exists), false the
+ *                       moment someone writes pks by hand. `unsafe` because the guarantee is YOURS,
+ *                       not the library's — a wrong assertion surfaces as `undefined` behind a type
+ *                       that says it cannot be.
+ */
+
 /**
  * A facade with NO key argument anywhere: either a keyless (global) index, or a keyed one already
  * pinned to a key via `.for(keyBindable)`.
- *
- * Every member takes exactly the arguments it needs and nothing else — no function here inspects an
- * argument to work out which call you meant.
  */
 export type TOIMExodraPinnedIndexFacade<TEntity, TPk extends TOIMKey> = {
-    /** Entities, length-aligned with holes (matching `@oimdb/react`). */
+    /** Entities, length-aligned with the index's pks; `undefined` where an entity is missing. */
     (): TExoBindable<readonly (TEntity | undefined)[]>;
+    /** Holes filtered out — may be shorter than the pk list. Deliberate; see the note above. */
+    compact(): TExoBindable<readonly TEntity[]>;
+    /** Unchecked: the same array, typed as if there were no holes. You carry the guarantee. */
+    unsafeDense(): TExoBindable<readonly TEntity[]>;
     /** Just the membership, when a row binds its own entity by pk. */
     pks(): TExoBindable<readonly TPk[]>;
     /** Identity-stable children for the `bindables` bucket. */
@@ -23,12 +40,13 @@ export type TOIMExodraPinnedIndexFacade<TEntity, TPk extends TOIMKey> = {
 };
 
 /** A keyed index: every member takes the key explicitly. */
-export type TOIMExodraKeyedIndexFacade<
-    TEntity,
-    TPk extends TOIMKey,
-    TKey,
-> = {
+export type TOIMExodraKeyedIndexFacade<TEntity, TPk extends TOIMKey, TKey> = {
+    /** Entities, length-aligned with the index's pks; `undefined` where an entity is missing. */
     (key: TKey): TExoBindable<readonly (TEntity | undefined)[]>;
+    /** Holes filtered out — may be shorter than the pk list. Deliberate; see the note above. */
+    compact(key: TKey): TExoBindable<readonly TEntity[]>;
+    /** Unchecked: the same array, typed as if there were no holes. You carry the guarantee. */
+    unsafeDense(key: TKey): TExoBindable<readonly TEntity[]>;
     pks(key: TKey): TExoBindable<readonly TPk[]>;
     rows<TSchema>(
         key: TKey,

@@ -70,6 +70,16 @@ export function exoCollection<
         kit,
         byPk,
         byPks: (pks: readonly TPk[]) => exoSelector(kit.select.byPks(pks)),
+        /*
+         * Every entity, reactively. Two jobs, both of which used to need hand-rolled glue:
+         * it keeps whole-collection reads (the `<option>` lists of a form) from going stale, and it
+         * is the change signal to hand `exoCombine` when a row KEY depends on another collection.
+         */
+        all: () =>
+            cachedArray<TEntity>(
+                () => kit.collection.getAll(),
+                onChange => kit.collection.subscribeOnAnyUpdate(() => onChange())
+            ),
     };
 
     for (const [name, index] of Object.entries(indexes ?? {})) {
@@ -119,10 +129,13 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
             isGlobalArray
                 ? select.entitiesByArrayGlobalIndex(index)
                 : select.entitiesBySetGlobalIndex(index);
-        const pks = () => cachedPks(() => Array.from(index.getPks()), on => index.subscribe(on));
+        const pks = () => cachedArray(() => Array.from(index.getPks()), on => index.subscribe(on));
         const entities = () => exoSelector(selector());
         return Object.assign(entities, {
             pks,
+            compact: () => compacted(selector()),
+            unsafeDense: () =>
+                entities() as unknown as TExoBindable<readonly TEntity[]>,
             rows: <TSchema>(
                 render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
             ) => rowsFrom(pks(), render),
@@ -145,7 +158,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
     };
 
     const pksFor = (key: TAny) =>
-        cachedPks(
+        cachedArray(
             () => Array.from(index.getPksByKey(key)),
             on => index.subscribeOnKey(key, on)
         );
@@ -168,7 +181,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
     const forKey = (key: TOIMExodraReadable<TAny>): TAny => {
         const entities = () => exoKeyed(key, (k: TAny) => selectorFor(k));
         const pks = () =>
-            cachedPks(
+            cachedArray(
                 () => Array.from(index.getPksByKey(key.getValue())),
                 on => {
                     let stopIndex = index.subscribeOnKey(key.getValue(), on);
@@ -185,6 +198,9 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
             );
         return Object.assign(entities, {
             pks,
+            compact: () => compactedKeyed(key, (k: TAny) => selectorFor(k)),
+            unsafeDense: () =>
+                entities() as unknown as TExoBindable<readonly TEntity[]>,
             rows: <TSchema>(
                 render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
             ) => rowsFrom(pks(), render),
@@ -195,6 +211,9 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
     const entities = (key: TAny) => entitiesFor(key);
     return Object.assign(entities, {
         pks: pksFor,
+        compact: (key: TAny) => compacted(selectorFor(key)),
+        unsafeDense: (key: TAny) =>
+            entitiesFor(key) as unknown as TExoBindable<readonly TEntity[]>,
         rows: <TSchema>(
             key: TAny,
             render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
@@ -207,16 +226,56 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
 }
 
 /**
- * Membership behind the index's own change signal: repeated reads are O(1) and hand back the SAME
+ * Entities of an index, in index order, WITHOUT holes.
+ *
+ * The underlying selectors are length-aligned with `undefined` where an entity is missing — a
+ * defensive shape that only makes sense when the CALLER supplied the positions (that is `byPks`).
+ * For an index read nothing depends on position, so the hole is pure friction: it stops the result
+ * feeding `exoChildren<TEntity>` without narrowing, and pushed people into hand-rolled
+ * read/subscribe glue. Compaction happens once per change and is cached behind the selector's own
+ * signal, so repeated reads are O(1) and hand back the same array.
+ *
+ * KNOW WHAT THIS COSTS. A DERIVED index is dense — every pk in it came from an entity that exists —
+ * so compaction removes nothing and the `| undefined` it erases was spurious. A MANUAL index
+ * (`arrayBasedIndex`, `composite*Index`, anything written with `setPks`) can hold a pk whose entity
+ * was never upserted or has since been removed, and compaction will drop it SILENTLY, shortening the
+ * list. That inconsistency is an application bug, and hiding it is not this function's call to make:
+ * on a manual index read through `aligned(key)`, where the hole shows up as `undefined` instead of
+ * vanishing.
+ */
+function compacted<TEntity>(selector: TAny): TExoBindable<readonly TEntity[]> {
+    return cachedArray<TEntity>(
+        () => (selector.getValue() as (TEntity | undefined)[]).filter(isPresent),
+        onChange => selector.watch(() => onChange())
+    );
+}
+
+/** The same, for a selector that is rebuilt whenever a bindable key moves. */
+function compactedKeyed<TEntity>(
+    key: TOIMExodraReadable<TAny>,
+    makeSelector: (key: TAny) => TAny
+): TExoBindable<readonly TEntity[]> {
+    const live = exoKeyed(key, makeSelector);
+    return cachedArray<TEntity>(
+        () => (live.getValue() as (TEntity | undefined)[]).filter(isPresent),
+        onChange => live.subscribe(onChange)
+    );
+}
+
+const isPresent = <TEntity>(entity: TEntity | undefined): entity is TEntity =>
+    entity !== undefined;
+
+/**
+ * An array behind its source's own change signal: repeated reads are O(1) and hand back the SAME
  * array, so `rows` on top of it can short-circuit instead of re-deriving the key sequence. The cache
  * is trusted only while subscribed — with nothing listening there is no invalidation signal, so an
  * unsubscribed read goes to the index and stays correct (the SSR path).
  */
-function cachedPks<TPk>(
-    read: () => readonly TPk[],
+function cachedArray<TItem>(
+    read: () => readonly TItem[],
     subscribe: (onChange: () => void) => () => void
-): TExoBindable<readonly TPk[]> {
-    let cached: readonly TPk[] | undefined;
+): TExoBindable<readonly TItem[]> {
+    let cached: readonly TItem[] | undefined;
     let subscribed = false;
     return exoSource(
         () => {

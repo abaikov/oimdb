@@ -37,8 +37,14 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
         return this.store.getOneByPk(pk);
     }
 
-    getManyByPks(pks: readonly TPk[]): TEntity[] {
+    /** Length-aligned with `pks`; `undefined` wherever a pk has no entity. */
+    getManyByPks(pks: readonly TPk[]): (TEntity | undefined)[] {
         return this.store.getManyByPks(pks);
+    }
+
+    /** Holes filtered out — may be SHORTER than `pks`. Deliberate; see the store's docs. */
+    getManyByPksCompact(pks: readonly TPk[]): TEntity[] {
+        return this.store.getManyByPksCompact(pks);
     }
 
     getSlotByPk(pk: TPk): TOIMEntitySlot<TEntity, TPk> | undefined {

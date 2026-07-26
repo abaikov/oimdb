@@ -371,6 +371,11 @@ stream.subscribeCommands('deck1', () => {
 
 ## Selectors
 
+:::note
+Every list-returning selector is **length-aligned with holes** (`readonly (TEntity | undefined)[]`).
+That is the library-wide contract — see [the holes policy](/docs/core/model#missing-entities-the-holes-policy).
+:::
+
 The `select` facade on `createOIMCollectionKit` covers the most common patterns:
 
 ```typescript

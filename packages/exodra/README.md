@@ -105,6 +105,123 @@ Everything is **lazy and ref-counted** (upstream is subscribed only while someth
 listening, so cost is O(visible), not O(total)) and **SSR-safe** (`getValue()` reads through to the
 store and is valid with no subscription at all — including a reactive key, which resolves on read).
 
+## Patterns
+
+The recipes below cover what real screens actually need. Reach for them before inventing glue.
+
+### An ordered column — order lives in the index, never in the view
+
+```ts
+// The index maintains order incrementally; a per-render sort would be O(n log n) on every flush.
+const byStatus = tasksKit.indexFactory.derivedArrayIndex(t => t.statusId, {
+    orderBy: t => t.createdAt,
+});
+
+db.tasks.byStatus.rows('in-progress', renderCard)   // ordered, identity-stable
+db.tasks.byStatus.list('in-progress', renderCard)   // same, O(delta) — ordered indexes only
+```
+
+### Reading an index — three members, three different promises
+
+```ts
+db.tasks.byStatus('s1')                // readonly (Task | undefined)[]  — DEFAULT, holes kept
+db.tasks.byStatus.compact('s1')        // readonly Task[]                — filtered, may be SHORTER
+db.tasks.byStatus.unsafeDense('s1')    // readonly Task[]                — retyped, nothing checked
+```
+
+The default keeps holes because a missing entity is a real state of the store, and hiding it is not
+this layer's decision.
+
+`compact` filters them out. Convenient, and it shortens the list — on **manual** pks (`setPks`,
+composite indexes) that silently swallows a torn state, which is why it is opt-in.
+
+`unsafeDense` does no filtering and no checking at all: the same array, typed as if there were no
+holes. It is correct for a **derived** index, which is dense by construction — every pk in it came
+from an entity that exists. It is `unsafe` because that guarantee is yours, not the library's: assert
+it wrongly and an `undefined` shows up behind a type that says it cannot.
+
+```ts
+// Derived index → dense → assert it once and let the rest of the code be non-null.
+const rows = exoChildren(db.tasks.byStatus.unsafeDense('s1'), { key: t => t.id, render: renderCard });
+```
+
+### A filtered list — filter in the index by emitting no key
+
+```ts
+// Archived tasks never enter the index, so nothing downstream has to skip them.
+tasksKit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]));
+```
+
+### A row that follows a value from ANOTHER collection
+
+Bind it inside the row: the row is not rebuilt, only that one text node updates.
+
+```ts
+const commentRow = (c: Comment) =>
+    h('li', {
+        bindable: {
+            textContent: derive(
+                exoSelector(members.select.byPk(c.authorId)),
+                m => m?.name ?? '?',
+            ),
+        },
+    });
+```
+
+### A row KEY that depends on another collection
+
+When the key itself is derived — a count, a related status — the source must invalidate on that
+collection too. `all()` is that change signal.
+
+```ts
+const rows = exoChildren(
+    exoCombine([db.tasks.all(), db.comments.all()], orderedTasks),
+    {
+        key: t => `${t.id}:${t.pending ? 1 : 0}:${commentCount(t.id)}`,
+        render: renderTaskRow,
+    },
+);
+```
+
+### A `<select>` whose options must not go stale
+
+```ts
+const options = derive(db.members.all(), ms =>
+    ms.map(m => h('option', { static: { value: m.id } })),
+);
+```
+
+Reading `collection.getAll()` once at build is the classic staleness bug: rename a member and the
+list keeps the old name forever.
+
+### An aggregate — join, count, roll-up
+
+Put the fan-in in ONE `OIMComputed` (leveled at `AFTER_FLUSH`, coherent) and forward it. Do not chain
+Exodra `derive`s off each other; Exodra has no glitch batching.
+
+```ts
+const openPerAssignee = kit.computed(deps, () => /* … */);
+const summary = exoComputed(openPerAssignee);
+```
+
+### A selection that moves
+
+Pin the index once; nothing below takes a key again.
+
+```ts
+const live = db.tasks.byStatus.for(selectedStatus);
+live.rows(renderCard);
+```
+
+### A subscription scoped to `onExoMount`
+
+Bucket bindings subscribe at *build*. When you need mount scope, subscribe manually.
+
+```ts
+onExoMount: () => { stop = db.tasks.byStatus.subscribe('done', refresh); },
+onExoUnmount: () => stop?.(),
+```
+
 ## No equality options. Anywhere.
 
 There is no options type in this package. Whoever owns the value owns the comparison:

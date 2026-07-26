@@ -125,7 +125,15 @@ export class OIMCollectionStoreMapDriven<
         return this.slots.get(pk)?.item;
     }
 
-    getManyByPks(pks: readonly TPk[]): TEntity[] {
+    getManyByPks(pks: readonly TPk[]): (TEntity | undefined)[] {
+        const result: (TEntity | undefined)[] = new Array(pks.length);
+        for (let i = 0; i < pks.length; i++) {
+            result[i] = this.getOneByPk(pks[i]);
+        }
+        return result;
+    }
+
+    getManyByPksCompact(pks: readonly TPk[]): TEntity[] {
         // Single pass instead of map + filter to avoid intermediate arrays
         const result: TEntity[] = [];
         result.length = pks.length; // Pre-size for better performance

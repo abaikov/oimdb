@@ -129,13 +129,34 @@ kit.indexFactory.derivedArrayIndex(t => t.statusId, { orderBy: t => t.createdAt 
 kit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]))
 ```
 
+## Patterns (what real screens need)
+
+- **Ordered column** — order in the index: `derivedArrayIndex(t => t.statusId, { orderBy: t => t.createdAt })`,
+  then `db.tasks.byStatus.rows(key, render)` / `.list(key, render)`. Never sort in the view.
+- **Reading an index — three members, three promises.** `<index>(key)` is the DEFAULT and keeps holes
+  (`readonly (T | undefined)[]`) because a missing entity is a real state of the store.
+  `<index>.compact(key)` filters them out and may be SHORTER — opt-in, and on MANUAL pks (`setPks`)
+  it silently swallows a torn state. `<index>.unsafeDense(key)` filters and checks NOTHING: the same
+  array retyped `readonly T[]`. Correct for a DERIVED index (dense by construction); `unsafe` because
+  the guarantee is the caller's — a wrong assertion surfaces as `undefined` behind a non-null type.
+  Never a flag: three separate members.
+- **Filtered list** — filter in the index by emitting no key: `derivedSetIndex(t => t.archived ? [] : [t.statusId])`.
+- **Row follows another collection** — bind INSIDE the row: `derive(exoSelector(members.select.byPk(id)), m => m?.name)`.
+  The row is not rebuilt; one text node updates.
+- **Row KEY depends on another collection** — the source must invalidate on it too:
+  `exoChildren(exoCombine([db.tasks.all(), db.comments.all()], read), { key, render })`.
+- **`<select>` options that must not go stale** — `db.members.all()`, never `collection.getAll()` once at build.
+- **Aggregate (join/count/roll-up)** — ONE `OIMComputed` forwarded by `exoComputed`. Do not chain Exodra derives.
+- **Moving selection** — `db.tasks.byStatus.for(selectedStatus)`, then nothing below takes a key.
+- **`onExoMount` scope** — `db.tasks.byStatus.subscribe(key, onChange)` returns unsubscribe.
+
 ## Types
 
 `TOIMExodraCollection`, `TOIMExodraDbViews`, `TOIMExodraIndexFacade`, `TOIMExodraKeyedIndexFacade`,
 `TOIMExodraOrderedIndexFacade`, `TOIMExodraGlobalIndexFacade`, `TOIMExodraKeyArg`,
 `TOIMExodraReadable`.
 
-Multi-entity reads are length-aligned WITH HOLES (`(TEntity | undefined)[]`), matching `@oimdb/react`.
+Everything is length-aligned WITH HOLES by default, matching `@oimdb/react` — `byPks` and index reads alike. Dropping holes is an explicit `compact` / `unsafeDense` call.
 Pair `exoDb` with Exodra's own DI: `createContextKey<typeof db>('db')` (created by the app — this
 package pulls types only, never the runtime).
 Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).

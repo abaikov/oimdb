@@ -78,6 +78,51 @@ This is what lets collection-bound indexes store stable slot references while st
 
 **Key-scoped subscriptions** — there is no "subscribe to everything". Delivery cost is proportional to the subscriber sets for changed keys only.
 
+## Missing entities: the holes policy
+
+A pk can point at nothing — an entity was never upserted, or was removed while some index or caller
+still holds its pk. OIMDB has one rule for that across the whole library:
+
+> **Reads are length-aligned and surface the gap as `undefined`. Dropping it is always a separate,
+> explicitly named call.**
+
+A missing entity is a real state of the store, not noise. Hiding it turns a torn state into a list
+that is quietly one item short — the kind of bug that shows up far from its cause.
+
+```ts
+collection.getManyByPks(['u1', 'gone', 'u2']);
+// → [User, undefined, User]     length-aligned, the gap is visible
+
+collection.getManyByPksCompact(['u1', 'gone', 'u2']);
+// → [User, User]                filtered, SHORTER than the input — deliberate
+```
+
+The same contract holds everywhere entities come back as a list:
+
+| Read | Shape |
+| --- | --- |
+| `collection.getManyByPks(pks)` | `(TEntity \| undefined)[]` |
+| `collection.getManyByPksCompact(pks)` | `TEntity[]`, may be shorter |
+| `index.getEntitiesByKey(key)` | `(TEntity \| undefined)[]` |
+| `globalIndex.getEntities()` | `(TEntity \| undefined)[]` |
+| every selector returning a list | `readonly (TEntity \| undefined)[]` |
+| `stream.getEntitiesByKey(key)` | `(TEntity \| undefined)[]` |
+
+### When holes cannot happen
+
+A **derived** index is dense by construction: every pk in it was put there by an entity that exists,
+and removal maintains it. Reading through one, the `| undefined` is spurious — but it is still the
+honest type, because the store cannot know where your pks came from.
+
+A **manual** index (`arrayBasedIndex`, `composite*Index`, anything written with `setPks`) holds pks
+you wrote by hand. There a gap is entirely possible, and compacting it away is how a torn state
+becomes invisible.
+
+So: compact when the pks are dense and you know it; otherwise keep the alignment and handle the gap.
+`@oimdb/exodra` mirrors this exactly — the default index read keeps holes, `.compact(key)` filters,
+and `.unsafeDense(key)` only changes the type while checking nothing, named so the assertion is
+visibly yours.
+
 ## Composite primary key
 
 A collection's PK is usually a primitive (`string`/`number`). It can instead be a **composite key path** — an arbitrary-length tuple of primitive segments, e.g. `[userId, projectId]`. Pass a trie-backed store:

@@ -188,6 +188,45 @@ describe('OIMCollection', () => {
         });
     });
 
+    describe('Missing entities (holes)', () => {
+        let collection: OIMCollection<TOIMUser, string>;
+
+        beforeEach(() => {
+            collection = new OIMCollection<TOIMUser, string>({
+                selectPk: new OIMPkSelectorFactory<
+                    TOIMUser,
+                    string
+                >().createIdSelector(),
+                store: new OIMCollectionStoreMapDriven<TOIMUser, string>(),
+                updateEntity:
+                    new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
+            });
+            collection.upsertOne({ id: 'u1', name: 'Alice', email: 'a@x' });
+        });
+
+        test('getManyByPks is length-aligned: a missing pk keeps its position', () => {
+            const result = collection.getManyByPks(['u1', 'missing', 'u1']);
+            expect(result).toHaveLength(3);
+            expect(result[0]?.id).toBe('u1');
+            expect(result[1]).toBeUndefined();
+            expect(result[2]?.id).toBe('u1');
+        });
+
+        test('getManyByPksCompact drops holes and may be shorter', () => {
+            const result = collection.getManyByPksCompact(['u1', 'missing']);
+            expect(result).toHaveLength(1);
+            expect(result[0].id).toBe('u1');
+        });
+
+        test('an all-missing read stays aligned rather than collapsing to empty', () => {
+            expect(collection.getManyByPks(['a', 'b'])).toEqual([
+                undefined,
+                undefined,
+            ]);
+            expect(collection.getManyByPksCompact(['a', 'b'])).toEqual([]);
+        });
+    });
+
     describe('Custom PK Selector', () => {
         test('should work with custom PK selector', () => {
             const collection = new OIMCollection<TOIMProduct, number>({

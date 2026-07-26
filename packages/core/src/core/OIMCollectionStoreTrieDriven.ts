@@ -143,7 +143,15 @@ export class OIMCollectionStoreTrieDriven<
         return this.slots.get(pk)?.item;
     }
 
-    getManyByPks(pks: readonly TOIMKeyPath[]): TEntity[] {
+    getManyByPks(pks: readonly TOIMKeyPath[]): (TEntity | undefined)[] {
+        const result: (TEntity | undefined)[] = new Array(pks.length);
+        for (let i = 0; i < pks.length; i++) {
+            result[i] = this.getOneByPk(pks[i]);
+        }
+        return result;
+    }
+
+    getManyByPksCompact(pks: readonly TOIMKeyPath[]): TEntity[] {
         const result: TEntity[] = [];
         result.length = pks.length;
         let writeIndex = 0;

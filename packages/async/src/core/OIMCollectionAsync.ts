@@ -42,8 +42,12 @@ export class OIMCollectionAsync<
         return await this.store.getOneByPk(pk);
     }
 
-    async getManyByPks(pks: readonly TPk[]): Promise<TEntity[]> {
+    async getManyByPks(pks: readonly TPk[]): Promise<(TEntity | undefined)[]> {
         return await this.store.getManyByPks(pks);
+    }
+
+    async getManyByPksCompact(pks: readonly TPk[]): Promise<TEntity[]> {
+        return await this.store.getManyByPksCompact(pks);
     }
 
     async upsertOne(entity: TEntity): Promise<void> {

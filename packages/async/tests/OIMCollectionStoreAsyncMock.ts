@@ -35,11 +35,15 @@ export class OIMCollectionStoreAsyncMock<
         return this.entities.get(pk);
     }
 
-    async getManyByPks(pks: readonly TPk[]): Promise<TEntity[]> {
+    async getManyByPksCompact(pks: readonly TPk[]): Promise<TEntity[]> {
+        return (await this.getManyByPks(pks)).filter(
+            (e): e is TEntity => e !== undefined
+        );
+    }
+
+    async getManyByPks(pks: readonly TPk[]): Promise<(TEntity | undefined)[]> {
         await Promise.resolve();
-        return pks
-            .map(pk => this.entities.get(pk))
-            .filter((entity): entity is TEntity => entity !== undefined);
+        return pks.map(pk => this.entities.get(pk));
     }
 
     async getAll(): Promise<TEntity[]> {

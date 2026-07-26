@@ -16,7 +16,11 @@ export interface IOIMCollectionStoreAsync<
 
     getOneByPk(pk: TPk): Promise<TEntity | undefined>;
 
-    getManyByPks(pks: readonly TPk[]): Promise<TEntity[]>;
+    /** Length-aligned with `pks`; `undefined` wherever a pk has no entity (mirrors the sync store). */
+    getManyByPks(pks: readonly TPk[]): Promise<(TEntity | undefined)[]>;
+
+    /** Holes filtered out — may be SHORTER than `pks`. Deliberate; see `@oimdb/core`. */
+    getManyByPksCompact(pks: readonly TPk[]): Promise<TEntity[]>;
 
     getAll(): Promise<TEntity[]>;
 

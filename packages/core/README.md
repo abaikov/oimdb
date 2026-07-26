@@ -1331,6 +1331,24 @@ const unsubscribe = users.updateEventEmitter.subscribeOnKey('user1', () => {
 unsubscribe();
 ```
 
+## 🕳️ Missing entities: the holes policy
+
+A pk can point at nothing — never upserted, or removed while an index still holds it. One rule
+applies everywhere:
+
+> **Reads are length-aligned and surface the gap as `undefined`. Dropping it is always a separate,
+> explicitly named call.**
+
+```ts
+collection.getManyByPks(['u1', 'gone', 'u2']);        // [User, undefined, User]
+collection.getManyByPksCompact(['u1', 'gone', 'u2']); // [User, User] — SHORTER, deliberate
+```
+
+`index.getEntitiesByKey`, `globalIndex.getEntities`, `stream.getEntitiesByKey` and every
+list-returning selector follow the same shape. A **derived** index is dense by construction, so the
+`| undefined` there is spurious; a **manual** index (`setPks`, composite) can hold a dangling pk, and
+compacting it away is how a torn state becomes invisible.
+
 ## 📚 API Reference
 
 ### DX Factories
