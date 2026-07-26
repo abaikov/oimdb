@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/exodra",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Exodra integration for OIMDB - adapt reactive collections, indexes, objects and computeds into Exodra bindables",
   "type": "module",
   "main": "./dist/index.cjs",

@@ -14,23 +14,44 @@
 - All produced bindables are **read-only**, **lazy** (subscribe upstream only while they have a
   downstream subscriber → cost O(visible)) and **SSR-safe** (`getValue()` reads fresh from the store,
   valid without an active subscription).
-- OIMDB delivers on `queue.flush()`. Emits are deduped; the initial synchronous emit that OIMDB's
-  `watch` fires on subscribe is swallowed (getValue already carries the value).
+- OIMDB delivers on `queue.flush()`. Dedup lives at the source (`OIMSelector.areEqual`,
+  `OIMComputed.compare`), not in this bridge; the initial synchronous emit that OIMDB's `watch` fires
+  on subscribe is swallowed (getValue already carries the value).
+- A bindable with a reactive key (`fromSelectorFactory` / any `bindSelectors` method) resolves the
+  key on every read, so an unsubscribed `getValue()` answers for the CURRENT key, not the one that
+  was current at construction.
 
 ## Adapter (core)
 
 ```ts
-fromSelector<T>(selector: OIMSelector<T>, opts?: TOIMExodraBindableOptions<T>): TExoBindable<T>
-fromOimdb<T>(read: () => T, subscribe: (onChange: () => void) => () => void, opts?): TExoBindable<T>
-fromSelectorFactory<TKey, T>(key: TKey | TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>, opts?): TExoBindable<T>
-fromComputed<T>(computed: OIMComputed<T>, opts?): TExoBindable<T>
-combine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T): TExoBindable<T>
+fromSelector<T>(selector: OIMSelector<T>): TExoBindable<T>
+fromOimdb<T>(read: () => T, subscribe: (onChange: () => void) => () => void, opts?: TOIMExodraBindableOptions<T>): TExoBindable<T>
+fromSelectorFactory<TKey, T>(key: TKey | TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
+fromComputed<T>(computed: OIMComputed<T>): TExoBindable<T>
+combine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T, opts?: TOIMExodraBindableOptions<T>): TExoBindable<T>
 ```
 
-`TOIMExodraBindableOptions<T> = { equals?: (a: T, b: T) => boolean; alwaysNotify?: boolean }`.
-`equals` defaults to `Object.is`. Use `alwaysNotify: true` with in-place entity updaters (stable
-entity reference, where `Object.is` would swallow the update). `combine` is the multi-source escape
-hatch — Exodra's own `derive` is single-source.
+`TOIMExodraBindableOptions<T> = { equals?: (a: T, b: T) => boolean }` — accepted by `fromOimdb`
+ONLY, and opt-in: with no options every upstream emit is forwarded. The bridge is a transport and
+owns no equality policy. `equals` is for a bare emitter that fires on writes which may not alter the
+value you read; pass a content compare when `read` allocates a fresh container (set/array).
+
+The selector/computed adapters take NO options, by design. `OIMSelector.areEqual` (overridden with an
+element compare by every collection-returning selector) and `OIMComputed`'s `compare` already dedup,
+and they run BELOW the bridge — whatever they swallow never reaches it, so an option here could only
+reject what core passed, never resurrect what core dropped. In particular there is nothing to set for
+in-place entity updaters on the selector path: the stable reference is swallowed by `areEqual` in
+core. Change the policy at its owner — override `areEqual` on the selector, or pass `compare` to the
+computed.
+
+`combine` is the multi-source escape hatch — Exodra's own `derive` is single-source. It is the one
+function here that DOES dedup by default (`equals`, `Object.is`, overridable): it is not a transport,
+it owns the value it computes. That default is also the only glitch control available at this layer —
+N sources reacting to one logical change notify N times, and recomputes landing on the same value
+collapse to one downstream notification. It is not glitch-free and cannot be (no queue to coalesce
+on): for real fan-in put the join in ONE `OIMComputed` and wrap it with `fromComputed`; use `combine`
+when the sources move independently. Ref-counted like the rest: sources are subscribed once, not once
+per downstream subscriber.
 
 `fromComputed`: read via `computed.get()`, subscribe via `computed.updateEventEmitter.subscribeOnKey('value', …)`.
 An `OIMComputed` is one scalar cell; keep any fan-in inside it and forward the final value — do not
@@ -39,7 +60,7 @@ chain several Exodra `derive`s (Exodra has no glitch-batching).
 ## Selector mirror
 
 ```ts
-bindSelectors<TEntity, TPk>(selectors: OIMCollectionSelectors<TEntity, TPk>, defaults?)
+bindSelectors<TEntity, TPk>(selectors: OIMCollectionSelectors<TEntity, TPk>)
 ```
 
 Returns an object mirroring `OIMCollectionSelectors`, each method returning a `TExoBindable` and
@@ -66,6 +87,11 @@ entityRows<TEntity, TPk, TSchema>(order: TExoBindable<readonly TPk[]>, bindEntit
 
 `entityRows` keys by pk and gives each row its own entity bindable (self-updating, focus-safe),
 subscriptions O(visible).
+
+`keyedChildren` reads are idempotent: the key sequence is compared to the previous one, and only a
+genuine change rebuilds the array, renders the new keys or evicts the departed ones. Repeated
+`getValue()` calls return the SAME array reference and never touch the cache — `render` mints a
+per-row bindable, so a bare read must not be able to churn row identity.
 
 For large ordered lists, the O(delta) path bridges an OIMDB ordered-list command stream (whose
 commands are shape-identical to `TExoListOp`) to an Exodra `bindableList`:
@@ -94,5 +120,12 @@ readEntitiesByIndexKey(collection, index, key): TEntity[]           // compact (
 subscribeEntitiesByIndexKey(collection, index, key, onChange): () => void  // fine-grained, not a firehose
 ```
 
+Note the deliberate asymmetry: `readEntitiesByIndexKey` is **compact** (missing entities dropped,
+matching the inline bridge it replaces), while the selector path is **length-aligned with holes**
+(`(TEntity | undefined)[]`, matching `@oimdb/react`). Do not mix the two in one list — index-based
+row lookups differ.
+
 Structural input interfaces: `IOIMExodraReadableCollection`, `IOIMExodraSetBasedIndex`
 (satisfied by `OIMReactiveCollection` / `OIMReactiveIndexSetBased`).
+Exported types: `TOIMExodraBindableOptions<T>`, `TOIMExodraReadable<T>` (the minimal
+`{ getValue, subscribe }` shape every reactive-key argument accepts).

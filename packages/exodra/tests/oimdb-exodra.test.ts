@@ -5,6 +5,7 @@ import {
     OIMEffectDependencyKeyedObject,
     OIMEventQueue,
     OIMReactiveObject,
+    createInPlaceEntityUpdater,
     createOIMCollectionKit,
     createOIMOrderedListCommandStreamDiffDriven,
 } from '@oimdb/core';
@@ -96,7 +97,7 @@ describe('fromOimdb (core adapter)', () => {
         expect(notify).toBeUndefined();
     });
 
-    test('equals suppresses no-op emits; alwaysNotify forwards every change', () => {
+    test('forwards every emit by default; opt-in equals suppresses no-op ones', () => {
         let value = 1;
         let notify: () => void = () => undefined;
         const subscribe = (onChange: () => void) => {
@@ -104,21 +105,47 @@ describe('fromOimdb (core adapter)', () => {
             return () => undefined;
         };
 
-        const deduped = fromOimdb(() => value, subscribe);
+        // No options: a transport does not second-guess its source. This is also what an in-place
+        // entity updater needs — the reference is stable, and nothing here swallows the update.
+        const forwarding = fromOimdb(() => value, subscribe);
+        let count = 0;
+        forwarding.subscribe(() => count++);
+        notify();
+        notify();
+        expect(count).toBe(2); // identical value, still forwarded
+
+        value = 1;
+        const deduped = fromOimdb(() => value, subscribe, { equals: Object.is });
         const seenDeduped: number[] = [];
         deduped.subscribe(() => seenDeduped.push(value));
         notify(); // same value → suppressed
         value = 2;
         notify();
         expect(seenDeduped).toEqual([2]);
+    });
 
-        value = 5;
-        const always = fromOimdb(() => value, subscribe, { alwaysNotify: true });
-        let count = 0;
-        always.subscribe(() => count++);
-        notify();
-        notify();
-        expect(count).toBe(2); // identical value, still forwarded
+    test('an in-place entity update reaches the subscriber (stable ref, no options)', () => {
+        const queue = new OIMEventQueue();
+        const kit = createOIMCollectionKit<User, string>(queue, {
+            selectPk: user => user.id,
+            updateEntity: createInPlaceEntityUpdater(),
+        });
+        kit.collection.upsertOne({ id: 'u1', name: 'a', teamId: 't1' });
+        queue.flush();
+
+        const user = fromOimdb(
+            () => kit.collection.getOneByPk('u1'),
+            onChange => kit.collection.subscribeOnKey('u1', onChange)
+        );
+
+        let hits = 0;
+        user.subscribe(() => hits++);
+
+        kit.collection.upsertOne({ id: 'u1', name: 'b', teamId: 't1' });
+        queue.flush();
+
+        expect(hits).toBe(1);
+        expect(user.getValue()?.name).toBe('b');
     });
 });
 
@@ -145,6 +172,61 @@ describe('combine', () => {
         stop();
         expect(subs).toBe(0);
         expect(hits).toBe(0); // sources here never call their onChange; wiring is what we assert
+    });
+
+    test('is ref-counted: N subscribers subscribe each source once', () => {
+        let subs = 0;
+        const mk = () =>
+            fromOimdb(
+                () => 1,
+                () => {
+                    subs++;
+                    return () => subs--;
+                }
+            );
+
+        const sum = combine([mk(), mk()], () => 2);
+        const stopA = sum.subscribe(() => undefined);
+        const stopB = sum.subscribe(() => undefined);
+        expect(subs).toBe(2); // two sources, NOT two per subscriber
+
+        stopA();
+        expect(subs).toBe(2); // one subscriber left → sources stay
+        stopB();
+        expect(subs).toBe(0);
+    });
+
+    test('collapses N source emits for one logical change into one notification', () => {
+        let notifyA: () => void = () => undefined;
+        let notifyB: () => void = () => undefined;
+        let value = 0;
+        const a = fromOimdb(
+            () => value,
+            on => {
+                notifyA = on;
+                return () => undefined;
+            }
+        );
+        const b = fromOimdb(
+            () => value,
+            on => {
+                notifyB = on;
+                return () => undefined;
+            }
+        );
+
+        const sum = combine([a, b], () => value);
+        let hits = 0;
+        sum.subscribe(() => hits++);
+
+        value = 1;
+        notifyA();
+        notifyB(); // same logical change reaching the combine through both sources
+        expect(hits).toBe(1); // second recompute lands on the same value → suppressed
+
+        value = 2;
+        notifyA();
+        expect(hits).toBe(2); // a genuine change still gets through
     });
 });
 
@@ -213,6 +295,32 @@ describe('bindSelectors / fromSelector', () => {
         key.setValue('t2');
         expect(hits).toBe(1); // re-pointed synchronously
         expect(rows.getValue()).toEqual([{ id: 'u2', name: 'Bob', teamId: 't2' }]);
+
+        kit.destroy();
+        queue.destroy();
+    });
+
+    test('reactive key: an UNSUBSCRIBED getValue() follows the current key (SSR path)', () => {
+        const { queue, kit } = makeUsers();
+        kit.collection.upsertMany([
+            { id: 'u1', name: 'Alice', teamId: 't1' },
+            { id: 'u2', name: 'Bob', teamId: 't1' },
+        ]);
+        queue.flush();
+
+        const pk = testBindable('u1');
+        const user = bindSelectors(kit.select).byPk(pk);
+
+        expect(user.getValue()?.name).toBe('Alice');
+
+        // Nobody is subscribed, so nothing is tracking the key — the read must still resolve it.
+        pk.setValue('u2');
+        expect(user.getValue()?.name).toBe('Bob');
+
+        // And it keeps working once a subscription takes over the repointing.
+        user.subscribe(() => undefined);
+        pk.setValue('u1');
+        expect(user.getValue()?.name).toBe('Alice');
 
         kit.destroy();
         queue.destroy();
@@ -303,6 +411,49 @@ describe('keyedChildren / entityRows identity', () => {
 
         void entityRows; // exported sugar exercised below
         void bound;
+        kit.destroy();
+        queue.destroy();
+    });
+
+    test('a read is idempotent: stable array reference, no render, no eviction', () => {
+        const { queue, kit, byTeam } = makeUsers();
+        kit.collection.upsertMany([
+            { id: 'u1', name: 'Alice', teamId: 't1' },
+            { id: 'u2', name: 'Bea', teamId: 't1' },
+        ]);
+        queue.flush();
+
+        const order = fromSelector(
+            kit.select.entitiesBySetIndexKey(byTeam, 't1')
+        );
+
+        let renderCount = 0;
+        const rows = keyedChildren<User | undefined, { id: string }>(order, {
+            key: user => user?.id ?? '∅',
+            render: user => {
+                renderCount++;
+                return { id: user?.id ?? '∅' };
+            },
+        });
+
+        const first = rows.getValue();
+        expect(renderCount).toBe(2);
+
+        // Repeated reads must not re-render, re-allocate or evict — `render` mints row bindables,
+        // so a bare read that churned the cache would churn row identity.
+        expect(rows.getValue()).toBe(first);
+        expect(rows.getValue()).toBe(first);
+        expect(renderCount).toBe(2);
+
+        // A genuine membership change still rebuilds, reusing the cached rows.
+        kit.collection.upsertOne({ id: 'u3', name: 'Cy', teamId: 't1' });
+        queue.flush();
+        const grown = rows.getValue();
+        expect(grown).not.toBe(first);
+        expect(grown).toHaveLength(3);
+        expect(grown[0]).toBe(first[0]); // survivors keep identity
+        expect(renderCount).toBe(3); // only the new key rendered
+
         kit.destroy();
         queue.destroy();
     });

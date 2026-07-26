@@ -43,8 +43,13 @@ const custom = fromOimdb(
 );
 ```
 
-`equals` suppresses empty emits; `alwaysNotify: true` forwards every change (use with in-place entity
-updaters, where the entity reference is stable and the default `Object.is` would swallow the update).
+`fromOimdb` forwards every upstream emit — it is a transport, and the source decides what counts as a
+change (so an in-place entity updater, whose reference is stable, works with no configuration). Its
+optional `{ equals }` is opt-in dedup for a bare emitter that fires on writes which may not alter the
+value you read; pass a content compare when `read` allocates a fresh container.
+
+The selector and computed adapters take no options: `OIMSelector.areEqual` and `OIMComputed`'s
+`compare` already dedup one layer below, so change the policy there, not here.
 
 ## Hook-mirror selectors → bindables
 
@@ -71,7 +76,14 @@ const label = combine([neuron, neurons], () => `${neuron.getValue()?.name} (${ne
 
 Available methods mirror the selectors: `byPk`, `byPks`, `entitiesBySetIndexKey`,
 `entitiesByArrayIndexKey`, `entitiesByCompositeSetIndexKey`, `entitiesByCompositeArrayIndexKey`,
-`entitiesByArrayGlobalIndex`, `entitiesBySetGlobalIndex`.
+`entitiesByArrayGlobalIndex`, `entitiesBySetGlobalIndex`. A bindable key is resolved on every read,
+so an unsubscribed `getValue()` answers for the key that is current now — the SSR guarantee holds
+even with a moving selection.
+
+`combine` takes an optional `{ equals }` and, unlike the adapters, dedups by default (`Object.is`) —
+it owns the value it computes. That also collapses the N notifications N sources emit for one logical
+change. It is not glitch-free (no queue here to coalesce on): put genuine fan-in inside one
+`OIMComputed` + `fromComputed`, and use `combine` for sources that move independently.
 
 ## Computed
 
@@ -90,6 +102,9 @@ Exodra's `list()` is op-based with no key function; identity comes from caching 
 stable key. `keyedChildren` / `entityRows` do exactly that: a field edit that doesn't change the key
 set is a reconcile no-op (the row's own inner bindable updates in place, focus survives), while
 membership/order changes rebuild the array.
+
+Reads are idempotent — repeated `getValue()` calls return the same array reference and never render
+or evict, since `render` mints a per-row bindable and a bare read must not churn row identity.
 
 ```ts
 import { entityRows } from '@oimdb/exodra';

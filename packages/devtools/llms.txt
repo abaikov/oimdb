@@ -86,6 +86,10 @@ byRole.subscribeOnKey('admin', () => {
 queue.flush(); // delivers subscription
 ```
 
+**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription — and releases the coalescing exactly like the returned unsubscribe closure does.
+
+**Coalescing is scoped to the subscription, not to the handler.** It applies only to handlers registered through a multi-key `subscribeOnKeys`. If the same function holds several *independent* `subscribeOnKey` subscriptions, it still gets one delivery per changed key — an unrelated multi-key subscription elsewhere on the same collection/index never changes that.
+
 Membership writes are incremental (touch only the changed pks):
 - `addPks(key, pks)` / `removePks(key, pks)` — **set-based**: O(1) per pk for both. **array-based**: `addPks` O(1), `removePks` O(bucket) (ordered, must scan).
 - For frequently changing membership (e.g. a **virtual/windowed list** indexing the on-screen rows, adding/removing on scroll) prefer **set-based**.
@@ -197,6 +201,20 @@ const rows = createOIMIndexSlotMap(usersByTeam, (slot) => makeRow(slot.item));
 rows.subscribeOnKey('team1', () => { for (const row of rows.getByKey('team1')) { /* stable per slot */ } });
 ```
 
+### Derived collections
+
+`OIMDerivedCollection(queue, source, derive, opts?)` is a reactive collection whose entities are derived **one-to-one** from a source collection — `derived[pk] = derive(source[pk], pk)`, keyed by the SOURCE pk — kept in sync (add / update / remove) automatically. It is itself a first-class `OIMReactiveCollection`, so it can be indexed, selected, and derived-from again (join → join); maintenance runs on the source's **synchronous** update channel, so a chain of derivations stays consistent within a flush (delivery to keyed subscribers is batched on flush as usual). It parallels `OIMDerivedCollectionIndex*` and needs no compute runtime.
+
+```ts
+const nameView = new OIMDerivedCollection(queue, users,
+    (u) => ({ id: u.id, full: `${u.first} ${u.last}` }));
+nameView.getOneByPk('u1'); // { id, full } — stays in sync with `users`
+```
+
+- `opts.compare` (default `Object.is`) — skip a downstream update when a source change leaves the re-derived entity equal (pass a field/shallow compare to memoize finer; the default recomputes a fresh object each time, so it propagates every source change).
+- `opts.store` — pass a trie-driven store when the source PK is composite (`TOIMKeyPath`).
+- `opts.buildInitial` (default true).
+
 ### DX Layer — Collection Model
 
 `createOIMCollectionKit` wires queue + collection + index factory + selectors together.
@@ -218,6 +236,31 @@ adminUsers.watch((users) => { /* called on queue.flush() when value changes */ }
 const u1 = select.byPk('u1');
 u1.getValue(); // → User | undefined
 ```
+
+The kit also fronts the compute system, so you don't hand-write dependency wrappers or manage a runtime. `on.*` builds dependencies; `kit.computed` / `kit.effect` create nodes on the queue's **shared** runtime (all computeds/effects/selectors on one queue form ONE dependency graph — so a computed can depend on selectors and on other collections) and register them in `kit.scope` for teardown:
+
+```ts
+const { collection, computed, effect, on } =
+    createOIMCollectionKit<User, string>(queue, { selectPk: (u) => u.id });
+
+const isAdmin = computed(
+    [on.collection(collection, 'u1'), on.index(byRole, 'admin'), on.computed(orderCount)],
+    () => collection.getOneByPk('u1')?.role === 'admin',
+);
+effect([on.computed(isAdmin)], () => console.log(isAdmin.get()));
+```
+
+`on` builders: `on.collection(collection, pk)`, `on.index(index, key)`, `on.object(object, key)`, `on.computed(computed)`. Need the runtime directly (e.g. outside a kit)? `getOIMComputeRuntime(queue)` returns the one shared runtime for a queue. The low-level primitives below are what these wrap.
+
+**Runtime registry.** Every computed / effect / selector on a queue MUST share one runtime — they form one dependency graph, and topological levels only mean anything within a single runtime. Three functions manage that, all keyed by queue (there is no global instance; two queues get two runtimes, so tests need no reset):
+
+| Function | Use |
+|---|---|
+| `getOIMComputeRuntime(queue)` | The runtime for a queue, created on first use. A destroyed one is replaced, never handed back. |
+| `peekOIMComputeRuntime(queue)` | The runtime **if one exists**, else `undefined` — never creates. For devtools/teardown/assertions that must not change what they observe. A destroyed runtime reads as `undefined`. |
+| `setOIMComputeRuntime(queue, runtime)` | Install your own (instrumented subclass, test double). Throws if `runtime.queue !== queue`. Call BEFORE anything builds the graph — nodes capture their runtime at construction, so a late swap splits the graph in two. Does not destroy the previous runtime. |
+
+`runtime.destroy()` detaches it from the queue's `AFTER_FLUSH` and drops everything pending; `runtime.isDestroyed` reports it. Destroy the nodes first, then the runtime — destroying the runtime does not destroy the computeds/effects scheduled on it. Idempotent. Without it the subscription lives as long as the queue, which is harmless (the handler early-returns) but cannot be unwound.
 
 ### Computed Values
 
@@ -376,17 +419,17 @@ const members = bound.entitiesBySetIndexKey(usersByTeam, selectedTeam);
 
 | Export | Purpose |
 |---|---|
-| `fromSelector(selector, opts?)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
-| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair |
-| `fromSelectorFactory(key, makeSelector, opts?)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
-| `fromComputed(computed, opts?)` | `OIMComputed<T>` → `TExoBindable<T>` |
-| `combine(sources, fn)` | multi-source derive (Exodra's own `derive` is single-source) |
-| `bindSelectors(selectors, defaults?)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
+| `fromSelector(selector)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
+| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair (the only fn taking options) |
+| `fromSelectorFactory(key, makeSelector)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
+| `fromComputed(computed)` | `OIMComputed<T>` → `TExoBindable<T>` |
+| `combine(sources, fn, opts?)` | multi-source derive (Exodra's own `derive` is single-source) |
+| `bindSelectors(selectors)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
 | `keyedChildren(source, { key, render })` / `entityRows(order, bindEntity, render)` | identity-stable list children (field edit = reconcile no-op, focus-safe) |
 | `listFromCommandStream(stream, key, render)` | O(delta) path: OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
 | `read*/subscribe*` (6 fns) | low-level pairs mirroring an inline app bridge 1:1 (find-replace migration) |
 
-Options `{ equals?, alwaysNotify? }`: `equals` defaults to `Object.is`; `alwaysNotify: true` for in-place entity updaters (stable ref, where `Object.is` would swallow the update). `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
+Options `{ equals? }` are accepted by `fromOimdb` ONLY and are opt-in: with none, every upstream emit is forwarded (so in-place entity updaters, whose entity ref is stable, are seen without configuration). Pass `equals` for a bare emitter that fires on writes which may not change the value you read — a content compare when `read` allocates a fresh set/array. The selector/computed adapters take no options: `OIMSelector.areEqual` and `OIMComputed`'s `compare` dedup one layer BELOW the bridge, so an option here could only reject what core passed, never resurrect what core dropped — override `areEqual` / pass `compare` instead. `combine` is the exception: it owns the value it computes, so it dedups by default (`equals`, `Object.is`, overridable), which also collapses the N notifications that N sources produce for one logical change — it is not glitch-free though, so put real fan-in in ONE `OIMComputed` + `fromComputed`. A reactive-key bindable resolves its key on every read, so an unsubscribed `getValue()` answers for the current key. `keyedChildren` reads are idempotent (same array reference back, no render, no eviction, until the key sequence actually changes). `readEntitiesByIndexKey` is compact (missing dropped) while the selector path is length-aligned with holes — deliberate, do not mix in one list. `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
 
 ## Persist (`@oimdb/persist`)
 
@@ -409,6 +452,42 @@ persistor.collection(users).records({ bucketName: 'users' }); // memory/indexedD
 await persistor.hydrate(); // load from storage into collections
 persistor.start();          // autosave on every queue.flush()
 ```
+
+### Delta writes (persist only changed keys)
+
+Default: any change writes the WHOLE snapshot (`takeSnapshot()` reads the whole
+collection; `strategy.write` rewrites all of it) — `O(N)` per flush. A strategy can
+opt into key-granular writes by implementing the optional
+`writeDelta(persistor, delta)`. When it does AND the source is key-aware (an
+`OIMReactiveCollection`, whose `subscribeOnAnyUpdate` reports changed PKs), the
+engine sends only what changed in the flush instead of the full snapshot:
+
+```ts
+import { TOIMPersistDelta } from '@oimdb/persist';
+// delta: { upserts: Array<{ key, value }>; deletedKeys: key[] }
+async writeDelta(p, delta: TOIMPersistDelta<string, User>) {
+    for (const { key, value } of delta.upserts) p.storage.put(key, value);
+    for (const key of delta.deletedKeys) p.storage.delete(key);
+}
+```
+
+- Opt-in and optional. A whole-blob backend (one localStorage key, one KV entry) OMITS
+  `writeDelta` → engine always full-rewrites (a single-key change still rewrites the
+  whole collection — by design / unavoidable there).
+- A `writeDelta` strategy owns its per-key storage format; the resource-level
+  whole-snapshot `codec` is NOT applied on the delta path.
+- Manual `persist()` always writes full snapshots; deltas apply to the autosave path
+  (`start()` + change + `flush`), where the changed keys are known.
+- `collection.clear()` enumerates every removed key in its UPDATE / `subscribeOnAnyUpdate`
+  payload — it is NOT an empty-`pks` "reset" signal. So the delta path deletes the cleared
+  rows (they arrive as `deletedKeys`), snapshot-manager records them as deletions, and
+  keyed subscribers on any cleared key are notified. Clearing an empty collection emits
+  nothing. Same for `OIMObject.clear()` (enumerates removed keys).
+- Built-in: the `records` strategies of `-memory` and `-idb` implement `writeDelta`
+  (IndexedDB batches changed rows into the shared tx instead of clearing+rewriting the
+  table). `entry`/`path` (localStorage, async-kv) do not.
+- Exported types: `TOIMPersistDelta`, `TOIMPersistKeyedCapability` (source side),
+  `TOIMPersistBatchItem` (for backends overriding `batchPersist`).
 
 ### Error handling
 

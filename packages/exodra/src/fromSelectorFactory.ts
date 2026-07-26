@@ -1,6 +1,5 @@
 import type { TExoBindable } from '@exodra/reactivity-types';
 import type { OIMSelector } from '@oimdb/core';
-import type { TOIMExodraBindableOptions } from './types/TOIMExodraBindableOptions';
 import type { TOIMExodraReadable } from './types/TOIMExodraReadable';
 import { fromSelector } from './fromSelector';
 import { isExoBindable } from './isExoBindable';
@@ -9,41 +8,43 @@ import { isExoBindable } from './isExoBindable';
  * Reactive-key variant. When `key` is a bindable, the selector is rebuilt whenever the key changes,
  * so a view can follow a moving selection (e.g. the currently selected app) without being recreated.
  * When `key` is a plain value, this is exactly `fromSelector(makeSelector(key))`.
+ *
+ * Like `fromSelector`, it takes no equality options: the selector currently pointed at owns the
+ * dedup (`areEqual`), and this only forwards what that selector delivers, plus one emit per repoint.
+ *
+ * The pointed-at selector exists only while subscribed, because repointing is driven by the key
+ * subscription. `getValue()` therefore builds a throwaway selector from the CURRENT key whenever
+ * there is no subscriber — otherwise an unsubscribed read would answer for whatever key was current
+ * when this bindable was created, silently breaking the SSR / string-render guarantee. A selector
+ * that is never `watch`ed holds no subscriptions, so the throwaway is plain garbage; the cost is one
+ * allocation per unsubscribed read, which is the one-shot path, not the hot one.
  */
 export function fromSelectorFactory<TKey, T>(
     key: TKey | TOIMExodraReadable<TKey>,
-    makeSelector: (key: TKey) => OIMSelector<T>,
-    opts?: TOIMExodraBindableOptions<T>
+    makeSelector: (key: TKey) => OIMSelector<T>
 ): TExoBindable<T> {
     if (!isExoBindable<TKey>(key)) {
-        return fromSelector(makeSelector(key), opts);
+        return fromSelector(makeSelector(key));
     }
 
     const keyBindable = key;
-    const equals = opts?.alwaysNotify
-        ? () => false
-        : (opts?.equals ?? Object.is);
 
     const subscribers = new Set<() => void>();
-    let selector = makeSelector(keyBindable.getValue());
+    // Live only while subscribed — see the note above on unsubscribed reads.
+    let selector: OIMSelector<T> | undefined;
     let selectorUnsub: (() => void) | undefined;
     let keyUnsub: (() => void) | undefined;
-    let lastValue: T;
-    let hasLast = false;
     let priming = false;
 
     const notify = () => {
-        const next = selector.getValue();
-        if (hasLast && equals(lastValue, next)) return;
-        if (priming) return; // swallow the selector's immediate emit; keep the primed baseline
-        lastValue = next;
-        hasLast = true;
+        if (priming) return; // swallow the emit `watch` fires synchronously on (re)subscribe
         for (const subscriber of Array.from(subscribers)) {
             if (subscribers.has(subscriber)) subscriber();
         }
     };
 
-    const watchCurrent = () => {
+    const pointAtCurrentKey = () => {
+        selector = makeSelector(keyBindable.getValue());
         priming = true;
         selectorUnsub = selector.watch(() => notify());
         priming = false;
@@ -51,19 +52,19 @@ export function fromSelectorFactory<TKey, T>(
 
     const repoint = () => {
         selectorUnsub?.();
-        selector = makeSelector(keyBindable.getValue());
-        watchCurrent();
+        pointAtCurrentKey();
         notify(); // emit once for the newly pointed-at value
     };
 
     return {
-        getValue: () => selector.getValue(),
+        // Subscribed: read the selector the key subscription keeps repointed. Unsubscribed: nothing
+        // is tracking the key, so resolve it now instead of answering for a stale one.
+        getValue: () =>
+            (selector ?? makeSelector(keyBindable.getValue())).getValue(),
         subscribe(update) {
             subscribers.add(update);
             if (subscribers.size === 1) {
-                lastValue = selector.getValue();
-                hasLast = true;
-                watchCurrent();
+                pointAtCurrentKey();
                 keyUnsub = keyBindable.subscribe(() => repoint());
             }
             return () => {
@@ -71,9 +72,9 @@ export function fromSelectorFactory<TKey, T>(
                 if (subscribers.size === 0) {
                     selectorUnsub?.();
                     selectorUnsub = undefined;
+                    selector = undefined;
                     keyUnsub?.();
                     keyUnsub = undefined;
-                    hasLast = false;
                 }
             };
         },

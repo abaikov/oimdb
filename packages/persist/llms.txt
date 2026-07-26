@@ -86,7 +86,9 @@ byRole.subscribeOnKey('admin', () => {
 queue.flush(); // delivers subscription
 ```
 
-**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription.
+**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription — and releases the coalescing exactly like the returned unsubscribe closure does.
+
+**Coalescing is scoped to the subscription, not to the handler.** It applies only to handlers registered through a multi-key `subscribeOnKeys`. If the same function holds several *independent* `subscribeOnKey` subscriptions, it still gets one delivery per changed key — an unrelated multi-key subscription elsewhere on the same collection/index never changes that.
 
 Membership writes are incremental (touch only the changed pks):
 - `addPks(key, pks)` / `removePks(key, pks)` — **set-based**: O(1) per pk for both. **array-based**: `addPks` O(1), `removePks` O(bucket) (ordered, must scan).
@@ -417,17 +419,17 @@ const members = bound.entitiesBySetIndexKey(usersByTeam, selectedTeam);
 
 | Export | Purpose |
 |---|---|
-| `fromSelector(selector, opts?)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
-| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair |
-| `fromSelectorFactory(key, makeSelector, opts?)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
-| `fromComputed(computed, opts?)` | `OIMComputed<T>` → `TExoBindable<T>` |
-| `combine(sources, fn)` | multi-source derive (Exodra's own `derive` is single-source) |
-| `bindSelectors(selectors, defaults?)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
+| `fromSelector(selector)` | primary adapter: `OIMSelector<T>` → `TExoBindable<T>` |
+| `fromOimdb(read, subscribe, opts?)` | escape hatch for a raw read/subscribe pair (the only fn taking options) |
+| `fromSelectorFactory(key, makeSelector)` | reactive key (`TKey \| bindable`) → rebuilds the selector on change |
+| `fromComputed(computed)` | `OIMComputed<T>` → `TExoBindable<T>` |
+| `combine(sources, fn, opts?)` | multi-source derive (Exodra's own `derive` is single-source) |
+| `bindSelectors(selectors)` | mirror of `OIMCollectionSelectors`, each method returning a bindable |
 | `keyedChildren(source, { key, render })` / `entityRows(order, bindEntity, render)` | identity-stable list children (field edit = reconcile no-op, focus-safe) |
 | `listFromCommandStream(stream, key, render)` | O(delta) path: OIMDB ordered command stream → Exodra `bindableList` (commands map 1:1 to `TExoListOp`) |
 | `read*/subscribe*` (6 fns) | low-level pairs mirroring an inline app bridge 1:1 (find-replace migration) |
 
-Options `{ equals?, alwaysNotify? }`: `equals` defaults to `Object.is`; `alwaysNotify: true` for in-place entity updaters (stable ref, where `Object.is` would swallow the update). `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
+Options `{ equals? }` are accepted by `fromOimdb` ONLY and are opt-in: with none, every upstream emit is forwarded (so in-place entity updaters, whose entity ref is stable, are seen without configuration). Pass `equals` for a bare emitter that fires on writes which may not change the value you read — a content compare when `read` allocates a fresh set/array. The selector/computed adapters take no options: `OIMSelector.areEqual` and `OIMComputed`'s `compare` dedup one layer BELOW the bridge, so an option here could only reject what core passed, never resurrect what core dropped — override `areEqual` / pass `compare` instead. `combine` is the exception: it owns the value it computes, so it dedups by default (`equals`, `Object.is`, overridable), which also collapses the N notifications that N sources produce for one logical change — it is not glitch-free though, so put real fan-in in ONE `OIMComputed` + `fromComputed`. A reactive-key bindable resolves its key on every read, so an unsubscribed `getValue()` answers for the current key. `keyedChildren` reads are idempotent (same array reference back, no render, no eviction, until the key sequence actually changes). `readEntitiesByIndexKey` is compact (missing dropped) while the selector path is length-aligned with holes — deliberate, do not mix in one list. `bindSelectors` takes `kit.select` (not a bare collection) because the collection's queue is private and the selectors own a queue-bound compute runtime. Exodra bucket bindings subscribe at *build* (not `onExoMount`); the low-level `subscribe*` fns cover `onExoMount`-scoped needs. Write-side is intentionally omitted (apps write via orchestration, e.g. cnstra, not from views).
 
 ## Persist (`@oimdb/persist`)
 

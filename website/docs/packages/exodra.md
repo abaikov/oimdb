@@ -51,9 +51,17 @@ const theme = fromOimdb(
 );
 ```
 
-Options (`{ equals?, alwaysNotify? }`): `equals` suppresses empty emits (defaults to `Object.is`);
-`alwaysNotify: true` forwards every change — use it with in-place entity updaters, where the entity
-reference is stable and `Object.is` would otherwise swallow the update.
+`fromOimdb` forwards every upstream emit. It is a transport: the source decides what counts as a
+change, so an in-place entity updater — whose entity reference is stable — needs no configuration to
+be seen. Its optional `{ equals }` is opt-in dedup for the one case the transport can't infer: a bare
+emitter that fires on writes which may not alter the value you read. Pass a content compare when
+`read` allocates a fresh container (set/array), since a reference compare would never match.
+
+`fromSelector`, `fromSelectorFactory`, `fromComputed` and `bindSelectors` take **no** options.
+`OIMSelector.areEqual` (an element compare in every collection-returning selector) and `OIMComputed`'s
+`compare` already dedup, and they run *below* the bridge — what they swallow never reaches it. An
+option here could only reject what core passed, never resurrect what core dropped. Need a different
+policy? Override `areEqual` on the selector, or pass `compare` to the computed.
 
 ## Selectors → bindables
 
@@ -87,10 +95,20 @@ Methods mirror the selectors: `byPk`, `byPks`, `entitiesBySetIndexKey`, `entitie
 `entitiesBySetGlobalIndex`. Single-entity readers yield `TEntity | undefined`; multi readers yield
 `readonly (TEntity | undefined)[]` (length-aligned with holes, matching `@oimdb/react`).
 
+A bindable key is resolved on **every** read, so an unsubscribed `getValue()` answers for the key
+that is current now — not the one that was current when the bindable was built. The SSR guarantee
+holds with a moving selection.
+
 :::note
 `bindSelectors` takes the `OIMCollectionSelectors` instance (`kit.select`), not a bare collection,
 because a collection's event queue is private and the selectors own a queue-bound compute runtime.
 :::
+
+`combine` accepts an optional `{ equals }` and, unlike the adapters, **dedups by default**
+(`Object.is`): it owns the value it computes, so the policy belongs to it. That also collapses the N
+notifications that N sources emit for one logical change. It is not glitch-free and cannot be —
+Exodra has no batching and there is no queue here to coalesce on — so put genuine fan-in inside one
+`OIMComputed` and wrap it with `fromComputed`; use `combine` when the sources move independently.
 
 ## Computed
 
@@ -125,6 +143,11 @@ const rows = entityRows(
 );
 // <ul bindable={{ children: rows }} />
 ```
+
+Reads here are idempotent: the key sequence is compared against the previous one, and only a real
+change rebuilds the array, renders the new keys or drops the departed ones. Repeated `getValue()`
+calls hand back the very same array reference and never touch the row cache — `render` mints a
+per-row bindable, so a bare read must not be able to churn row identity.
 
 ### O(delta) command-stream path
 
@@ -162,6 +185,12 @@ import {
   readEntitiesByIndexKey, subscribeEntitiesByIndexKey, // fine-grained, not a firehose
 } from '@oimdb/exodra';
 ```
+
+:::caution
+`readEntitiesByIndexKey` is **compact** — missing entities are dropped, matching the inline bridge it
+replaces. The selector path is **length-aligned with holes** (`(TEntity | undefined)[]`). Both are
+intentional, but don't mix them for one list: positional row lookups won't line up.
+:::
 
 ## See also
 

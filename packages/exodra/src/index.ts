@@ -24,5 +24,6 @@ export { listFromCommandStream } from './listFromCommandStream';
 
 // Types & interfaces
 export type { TOIMExodraBindableOptions } from './types/TOIMExodraBindableOptions';
+export type { TOIMExodraReadable } from './types/TOIMExodraReadable';
 export type { IOIMExodraReadableCollection } from './interfaces/IOIMExodraReadableCollection';
 export type { IOIMExodraSetBasedIndex } from './interfaces/IOIMExodraSetBasedIndex';
