@@ -19,7 +19,7 @@
   props are a compile error there. `rows` feeds `bindables.children`; `list` feeds `bindableLists`.
 - **No equality options exist in this package, and no options type.** Equality belongs to the value's
   owner: `OIMSelector.areEqual`, `OIMComputed.compare`, your `fn` in `exoCombine` (return a stable
-  reference), your `subscribe` callback in `exoBindable(read, subscribe)`. Those run BELOW the bridge,
+  reference), your `subscribe` callback in `exoSource(read, subscribe)`. Those run BELOW the bridge,
   so a filter here could only reject what they passed, never resurrect what they dropped. In-place
   entity updaters therefore need no configuration anywhere.
 
@@ -53,6 +53,7 @@ picks a method to match the index kind and never passes the index object again:
 users.byTeam(key)                     // TExoBindable<readonly (TEntity | undefined)[]>
 users.byTeam.pks(key)                 // TExoBindable<readonly TPk[]>
 users.byTeam.rows(key, render)        // TExoBindable<readonly TSchema[]>  → bindables.children
+users.byTeam.for(keyBindable)         // pin to a MOVING key → a facade taking no key at all
 users.byTeamOrdered.list(key, render) // TExoBindableList<TSchema>         → bindableLists.children
 users.byTeam.subscribe(key, onChange): () => void   // manual, onExoMount scope
 ```
@@ -60,8 +61,10 @@ users.byTeam.subscribe(key, onChange): () => void   // manual, onExoMount scope
 `render` is `(entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema` — each row gets its OWN
 entity bindable, so a field edit updates in place (array unchanged → reconcile no-op, focus safe).
 
-Any key argument accepts `TKey | TOIMExodraReadable<TKey>`; a bindable key repoints the subscription
-without recreating the view. A **global** (keyless) index takes no key at all: `users.online()`,
+Every key argument EXCEPT `list`'s accepts `TKey | TOIMExodraReadable<TKey>`; a bindable key repoints
+the subscription without recreating the view. `list` takes a plain key only — a `TExoBindableList` is
+bound once and driven by ops, so following a moving key would mean resetting the whole list on every
+change, which is what `rows` already does better. Passing a bindable there is a compile error. A **global** (keyless) index takes no key at all: `users.online()`,
 `users.online.rows(render)`.
 
 **`list` exists ONLY on array-based (ordered) indexes** — a command stream is derived by diffing an
@@ -74,25 +77,36 @@ an array key, so the composite selector is chosen per call from `Array.isArray(k
 
 ## Primitives
 
+One signature each. Nothing here inspects an argument to work out which call you meant — a fixed key
+and a moving key are different functions, not one function that sniffs.
+
 ```ts
-exoBindable<T>(selector: OIMSelector<T>): TExoBindable<T>
-exoBindable<T>(computed: OIMComputed<T>): TExoBindable<T>
-exoBindable<T>(read: () => T, subscribe: (onChange: () => void) => () => void): TExoBindable<T>
-exoBindable<TKey, T>(key: TKey | TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
+exoSource<T>(read: () => T, subscribe: (onChange: () => void) => () => void): TExoBindable<T>
+exoSelector<T>(selector: OIMSelector<T>): TExoBindable<T>
+exoComputed<T>(computed: OIMComputed<T>): TExoBindable<T>
+exoKeyed<TKey, T>(key: TOIMExodraReadable<TKey>, makeSelector: (key: TKey) => OIMSelector<T>): TExoBindable<T>
 exoCombine<T>(sources: readonly TOIMExodraReadable<unknown>[], fn: () => T): TExoBindable<T>
 exoChildren<TItem, TSchema>(source: TExoBindable<readonly TItem[]>, opts: { key: (i: TItem) => TOIMKey; render: (i: TItem) => TSchema }): TExoBindable<readonly TSchema[]>
 exoList<TKey, TItem, TSchema>(stream: IOIMOrderedListCommandSource<TKey, TItem>, key: TKey, render: (item: TItem) => TSchema): TExoBindableList<TSchema>
-isExoReadable<T>(value: unknown): value is TOIMExodraReadable<T>
 ```
 
-The 4 `exoBindable` overloads dispatch on arity and shape: one arg → `instanceof OIMSelector` /
-`OIMComputed` (anything else throws); two args → first is a function ⇒ read/subscribe, otherwise
-key/makeSelector.
+`exoSource` is the base; the others are built on it. `exoKeyed` always takes a BINDABLE key — a fixed
+key is `exoSelector(makeSelector(key))`.
 
-`exoCombine` exists because Exodra's `derive` is single-source. It drops recomputes landing on the
-same value, which collapses the N notifications N sources emit for one logical change; for content
-dedup return a stable reference from `fn`. It is NOT glitch-free (no queue to coalesce on) — put real
-fan-in in ONE `OIMComputed` and forward it with `exoBindable`.
+**The primitives are the load-bearing API.** The facade covers "one index → its rows". Screens that
+sort or filter beyond an index, key rows off related data, or fan in across collections are built
+from `exoChildren` over a computed source, and that is the intended path, not a fallback.
+
+**Aggregation belongs in `OIMComputed`, forwarded with `exoComputed`.** Joins, counts and roll-ups go
+in one computed (leveled at AFTER_FLUSH, coherent) whose value the view reads; `exoChildren` then
+takes an arbitrary `key`, so a row key derived from related data is expressible there.
+
+`exoCombine` is for ordinary multi-source view values (an entity plus its author, an entity plus
+local UI state). **Its first emit after subscribing always propagates**: OIMDB sources fire
+synchronously on subscribe and a binding is normally built from `getValue()` and wired a moment
+later, so suppressing that emit as redundant leaves the region frozen at its build-time value. Later
+emits are deduped; for content dedup return a stable reference from `fn`. It is not glitch-free — a
+reason to keep heavy fan-in in one `OIMComputed`, NOT a reason to avoid it for two-source values.
 
 `exoChildren` reads are idempotent: the key sequence is compared to the previous one, so repeated
 `getValue()` returns the SAME array reference and never renders or evicts. Keys must be UNIQUE — a
@@ -102,6 +116,18 @@ duplicate throws (one schema object cannot occupy two positions under identity r
 repeated `snapshot()` calls return the same objects. Slots are stable carriers (reorder = `move` of
 the same object). The memo is pruned against the live order — exactly on `snapshot()`, amortized past
 2× the live row count — so position-addressed `remove` needs no bookkeeping.
+
+### Sorting and filtering belong in the index, not in `rows`
+
+`rows` deliberately has no sort/filter hook. Both are expressible where they are maintained
+incrementally instead of recomputed per read:
+
+```ts
+// ordered column: order lives in the index, and `.list` (O(delta)) becomes available too
+kit.indexFactory.derivedArrayIndex(t => t.statusId, { orderBy: t => t.createdAt })
+// filtered index: emit no key for what you want excluded
+kit.indexFactory.derivedSetIndex(t => (t.archived ? [] : [t.statusId]))
+```
 
 ## Types
 

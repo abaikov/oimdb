@@ -53,11 +53,14 @@ export const dbKey = createContextKey<typeof db>('db');   // from @exodra/reacti
 ```ts
 const team = bindable('t1');         // a bindable key — the view follows a moving selection
 
-db.users.byTeam(team)                        // entities
-db.users.byTeam.pks(team)                     // just the membership
-db.users.byTeam.rows(team, render)            // → bindables.children      (identity-stable)
-db.users.byTeamOrdered.list(team, render)     // → bindableLists.children  (O(delta))
+db.users.byTeam('t1')                         // entities
+db.users.byTeam.pks('t1')                     // just the membership
+db.users.byTeam.rows('t1', render)            // → bindables.children      (identity-stable)
+db.users.byTeamOrdered.list('t1', render)     // → bindableLists.children  (O(delta), fixed key)
 db.users.byTeam.subscribe('t1', onChange)     // manual, for onExoMount scope
+
+const live = db.users.byTeam.for(selectedTeam) // pin to a MOVING key…
+live.rows(render)                             // …and nothing below takes a key again
 ```
 
 `rows` and `list` are exactly Exodra's two children buckets:
@@ -75,6 +78,10 @@ from the ordered index, so a reorder emits `move` and the DOM node is relocated 
 It exists **only on ordered indexes**, because a set has no order to diff — that is enforced in the
 types, not just documented.
 
+`list` takes a plain key only (a bindable there is a compile error): a `TExoBindableList` is bound
+once and driven by ops, so following a moving key would mean resetting the whole list on every change
+— which is exactly what `rows` already does, better. Use `rows` for a moving selection.
+
 `db.users.kit` stays reachable, so writes and the rest of OIMDB are always one hop away.
 
 ## Primitives
@@ -82,12 +89,12 @@ types, not just documented.
 The facade is built out of these, and they are exported for everything it does not cover:
 
 ```ts
-import { exoBindable, exoCombine, exoChildren, exoList } from '@oimdb/exodra';
+import { exoSource, exoSelector, exoComputed, exoKeyed, exoCombine, exoChildren, exoList } from '@oimdb/exodra';
 
-exoBindable(kit.select.byPk('u1'))              // an OIMSelector
-exoBindable(myComputed)                         // an OIMComputed
-exoBindable(read, subscribe)                    // a raw pair — the escape hatch
-exoBindable(team, k => kit.select.byPks(k))     // a reactive key
+exoSelector(kit.select.byPk('u1'))              // an OIMSelector
+exoComputed(myComputed)                         // an OIMComputed — the aggregation bridge
+exoSource(read, subscribe)                      // a raw pair — the escape hatch
+exoKeyed(team, k => kit.select.byPks(k))        // a MOVING key
 
 exoCombine([a, b], () => `${a.getValue()} / ${b.getValue()}`)   // Exodra's derive is single-source
 exoChildren(tags, { key: t => t.slug, render: renderTag })      // identity-stable, any items
@@ -107,14 +114,14 @@ There is no options type in this package. Whoever owns the value owns the compar
 | selectors | `OIMSelector.areEqual` — an element compare in every collection-returning selector |
 | computeds | `OIMComputed`'s `compare`, passed at construction |
 | `exoCombine` | your own `fn` — return a stable reference when the content is unchanged |
-| `exoBindable(read, subscribe)` | your own `subscribe` callback — compare there, don't call `onChange` |
+| `exoSource(read, subscribe)` | your own `subscribe` callback — compare there, don't call `onChange` |
 
 Those owners all run *below* the bridge, so a filter here could only reject what they passed, never
 resurrect what they dropped. Everything else is forwarded, which is why an in-place entity updater —
 whose entity reference is stable — is seen with no configuration at all.
 
 ```ts
-const theme = exoBindable(read, onChange => {
+const theme = exoSource(read, onChange => {
     let last = read();
     return settings.subscribeOnKey('theme', () => {
         const next = read();
@@ -132,7 +139,7 @@ const theme = exoBindable(read, onChange => {
 - Row keys must be unique; a duplicate throws rather than silently corrupting an identity-reconciled
   list.
 - Fan-in belongs in ONE `OIMComputed` (leveled at `AFTER_FLUSH`, coherent) forwarded via
-  `exoBindable` — Exodra has no glitch batching, so chaining derives off each other does not.
+  `exoSource` — Exodra has no glitch batching, so chaining derives off each other does not.
 - The write side is intentionally absent: apps write through orchestration, not from views.
 
 ## License

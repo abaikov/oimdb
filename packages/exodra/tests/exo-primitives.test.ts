@@ -9,7 +9,15 @@ import {
     createOIMCollectionKit,
 } from '@oimdb/core';
 import type { TExoListOp } from '@exodra/reactivity-types';
-import { exoBindable, exoChildren, exoCombine, exoList } from '../src';
+import {
+    exoChildren,
+    exoCombine,
+    exoComputed,
+    exoKeyed,
+    exoList,
+    exoSelector,
+    exoSource,
+} from '../src';
 
 type User = { id: string; name: string; teamId: string };
 type Card = { id: string; deckId: string; position: number };
@@ -40,14 +48,14 @@ const makeUsers = () => {
     return { queue, kit };
 };
 
-describe('exoBindable', () => {
-    test('raw pair: lazy, ref-counted, forwards every emit', () => {
+describe('primitives', () => {
+    test('exoSource: lazy, ref-counted, forwards every emit', () => {
         const value = 1;
         let subscribeCount = 0;
         let active = 0;
         let notify: () => void = () => undefined;
 
-        const source = exoBindable(
+        const source = exoSource(
             () => value,
             onChange => {
                 subscribeCount++;
@@ -75,7 +83,7 @@ describe('exoBindable', () => {
         expect(active).toBe(0); // last subscriber gone → upstream torn down
     });
 
-    test('raw pair: an in-place entity update reaches the subscriber (stable ref)', () => {
+    test('exoSource: an in-place entity update reaches the subscriber (stable ref)', () => {
         const queue = new OIMEventQueue();
         const kit = createOIMCollectionKit<User, string>(queue, {
             selectPk: u => u.id,
@@ -84,7 +92,7 @@ describe('exoBindable', () => {
         kit.collection.upsertOne({ id: 'u1', name: 'a', teamId: 't1' });
         queue.flush();
 
-        const user = exoBindable(
+        const user = exoSource(
             () => kit.collection.getOneByPk('u1'),
             onChange => kit.collection.subscribeOnKey('u1', onChange)
         );
@@ -98,12 +106,12 @@ describe('exoBindable', () => {
         expect(user.getValue()?.name).toBe('b');
     });
 
-    test('selector overload', () => {
+    test('exoSelector', () => {
         const { queue, kit } = makeUsers();
         kit.collection.upsertOne({ id: 'u1', name: 'Alice', teamId: 't1' });
         queue.flush();
 
-        const user = exoBindable(kit.select.byPk('u1'));
+        const user = exoSelector(kit.select.byPk('u1'));
         expect(user.getValue()?.name).toBe('Alice');
 
         let hits = 0;
@@ -114,7 +122,7 @@ describe('exoBindable', () => {
         expect(user.getValue()?.name).toBe('Ally');
     });
 
-    test('computed overload', () => {
+    test('exoComputed', () => {
         const queue = new OIMEventQueue();
         const runtime = new OIMComputeRuntime(queue);
         const obj = new OIMReactiveObject<'a', number>(queue);
@@ -125,7 +133,7 @@ describe('exoBindable', () => {
             compute: () => (obj.get('a') ?? 0) * 10,
             deps: [new OIMEffectDependencyKeyedObject(obj, 'a')],
         });
-        const doubled = exoBindable(computed);
+        const doubled = exoComputed(computed);
         expect(doubled.getValue()).toBe(20);
 
         let hits = 0;
@@ -136,7 +144,7 @@ describe('exoBindable', () => {
         expect(doubled.getValue()).toBe(30);
     });
 
-    test('reactive key: repoints, and an unsubscribed read follows the CURRENT key', () => {
+    test('exoKeyed: repoints, and an unsubscribed read follows the CURRENT key', () => {
         const { queue, kit } = makeUsers();
         kit.collection.upsertMany([
             { id: 'u1', name: 'Alice', teamId: 't1' },
@@ -145,7 +153,7 @@ describe('exoBindable', () => {
         queue.flush();
 
         const pk = testBindable<string>('u1');
-        const user = exoBindable(pk, (k: string) => kit.select.byPk(k));
+        const user = exoKeyed(pk, (k: string) => kit.select.byPk(k));
 
         // Nobody subscribed → nothing tracks the key, but the read must still resolve it.
         expect(user.getValue()?.name).toBe('Alice');
@@ -159,9 +167,6 @@ describe('exoBindable', () => {
         expect(user.getValue()?.name).toBe('Alice');
     });
 
-    test('rejects a single argument that is neither selector nor computed', () => {
-        expect(() => exoBindable({} as never)).toThrow(/OIMSelector or an OIMComputed/);
-    });
 });
 
 describe('exoCombine', () => {
@@ -172,7 +177,7 @@ describe('exoCombine', () => {
         let value = 0;
 
         const mk = (assign: (fn: () => void) => void) =>
-            exoBindable(
+            exoSource(
                 () => value,
                 on => {
                     subs++;
@@ -198,6 +203,31 @@ describe('exoCombine', () => {
         stopA();
         stopB();
     });
+
+    test('the first emit after subscribing always propagates (no stale region)', () => {
+        let v = 'empty';
+        // Mimics an OIMDB selector: `watch` invokes its callback synchronously on subscribe.
+        const src = {
+            getValue: () => v,
+            subscribe: (on: () => void) => {
+                on();
+                return () => undefined;
+            },
+        };
+        const combined = exoCombine([src], () => v);
+
+        const atBuild = combined.getValue(); // the region is rendered from this
+        v = 'loaded'; // data arrives before the binding is wired
+
+        let hits = 0;
+        combined.subscribe(() => hits++);
+
+        expect(atBuild).toBe('empty');
+        // Without this the region would keep showing 'empty' until some later, unrelated change.
+        expect(hits).toBe(1);
+        expect(combined.getValue()).toBe('loaded');
+    });
+
 });
 
 describe('exoChildren', () => {

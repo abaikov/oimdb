@@ -1,6 +1,5 @@
 import type { TExoBindable } from '@exodra/reactivity-types';
 import type { TOIMExodraReadable } from './types/TOIMExodraReadable';
-import { exoBindable } from './exoBindable';
 
 /**
  * Combine several bindables into one derived read-only bindable — Exodra's `derive` is single-source
@@ -8,37 +7,63 @@ import { exoBindable } from './exoBindable';
  * on. Lazy and ref-counted: the sources are subscribed once while at least one downstream subscriber
  * exists, not once per subscriber.
  *
- * Recomputes that land on the same value are dropped, which is the only glitch control available at
- * this layer: N sources reacting to one logical change notify N times, and the redundant ones
- * collapse into a single downstream notification.
+ * Reach for it whenever a view needs more than one source — a task plus its assignee, an entity plus
+ * some local UI state. That is its job, and it does it.
  *
- * Comparison is `Object.is`, with no option to change it — because `fn` is yours. If you want
- * content-level dedup, return a STABLE REFERENCE from `fn` when the content is unchanged (memoize
- * inside it, exactly as `exoChildren` does); then identity comparison suppresses correctly. One
- * concept instead of two, and it also keeps the value itself stable for whoever reads it.
+ * **The first emit after subscribing always propagates**, deliberately. OIMDB sources fire
+ * synchronously when subscribed (a selector's `watch` calls back immediately), and a binding is
+ * normally built from `getValue()` first and wired a moment later. Anything that changed in between
+ * is only recoverable through that first emit — suppressing it as "redundant" leaves the region
+ * showing whatever was there at build time, forever. A redundant repaint is the cheap failure mode;
+ * a permanently stale region is not.
  *
- * It is NOT glitch-free, and cannot be: Exodra has no batching, and this sees bare bindables with no
- * queue to coalesce on. Sources that change together still produce an intermediate recompute, which
- * is visible whenever the combined value genuinely differs at each step. For real fan-in, do the
- * join inside ONE `OIMComputed` (leveled at AFTER_FLUSH, coherent by construction) and wrap it with
- * `fromComputed`; reach for `exoCombine` when the sources move independently.
+ * Later emits are deduped: recomputes landing on the same value collapse, which absorbs the N
+ * notifications N sources produce for one logical change. For content-level dedup, return a stable
+ * reference from `fn`.
+ *
+ * It is not glitch-free — Exodra has no batching and there is no queue here to coalesce on, so
+ * sources changing together produce an intermediate recompute. That is a reason to keep heavy fan-in
+ * inside one `OIMComputed` and forward it with `exoComputed`, NOT a reason to avoid this function
+ * for ordinary two-source view values.
  */
 export function exoCombine<T>(
     sources: readonly TOIMExodraReadable<unknown>[],
     fn: () => T
 ): TExoBindable<T> {
-    return exoBindable(fn, onChange => {
-        let last = fn();
-        const stops = sources.map(source =>
-            source.subscribe(() => {
-                const next = fn();
-                if (Object.is(last, next)) return;
-                last = next;
-                onChange();
-            })
-        );
-        return () => {
-            for (const stop of stops) stop();
-        };
-    });
+    const subscribers = new Set<() => void>();
+    let stops: (() => void)[] = [];
+    let last: T;
+    let hasLast = false;
+
+    const onSourceChange = () => {
+        const next = fn();
+        if (hasLast && Object.is(last, next)) return;
+        last = next;
+        hasLast = true;
+        // Snapshot so a subscriber may (un)subscribe during notification without skipping/looping.
+        for (const subscriber of Array.from(subscribers)) {
+            if (subscribers.has(subscriber)) subscriber();
+        }
+    };
+
+    return {
+        getValue: fn,
+        subscribe(update) {
+            subscribers.add(update);
+            if (subscribers.size === 1) {
+                // No baseline is taken before subscribing: with `hasLast` false, the synchronous
+                // emit a source fires on subscribe reaches the view instead of being swallowed.
+                hasLast = false;
+                stops = sources.map(source => source.subscribe(onSourceChange));
+            }
+            return () => {
+                subscribers.delete(update);
+                if (subscribers.size === 0) {
+                    for (const stop of stops) stop();
+                    stops = [];
+                    hasLast = false;
+                }
+            };
+        },
+    };
 }

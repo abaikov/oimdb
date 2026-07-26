@@ -1,5 +1,5 @@
 import { OIMEventQueue, createOIMCollectionKit } from '@oimdb/core';
-import { exoCollection, exoDb } from '../src';
+import { exoCollection, exoDb, exoKeyed } from '../src';
 
 type User = { id: string; name: string; teamId: string; online: boolean };
 
@@ -69,8 +69,9 @@ describe('exoCollection', () => {
         expect(users.byPk('u1').getValue()?.name).toBe('Alice');
         expect(names(users.byPks(['u1', 'u3']))).toEqual(['Alice', 'Cara']);
 
+        // A moving primary key is the primitive, not an overload of byPk.
         const pk = testBindable<string>('u1');
-        const moving = users.byPk(pk);
+        const moving = exoKeyed(pk, (k: string) => users.kit.select.byPk(k));
         expect(moving.getValue()?.name).toBe('Alice');
         let hits = 0;
         moving.subscribe(() => hits++);
@@ -96,13 +97,16 @@ describe('exoCollection', () => {
         expect([...users.byTeam.pks('t1').getValue()].sort()).toEqual(['u1', 'u2']);
         expect([...users.online.pks().getValue()].sort()).toEqual(['u1', 'u3']);
 
+        // A moving index key is pinned once with `.for`, so nothing below takes a key.
         const team = testBindable<string>('t1');
-        const rows = users.byTeam(team);
+        const live = users.byTeam.for(team);
+        const rows = live();
         let hits = 0;
         rows.subscribe(() => hits++);
         team.setValue('t2');
         expect(hits).toBe(1);
         expect(names(rows)).toEqual(['Cara']);
+        expect([...live.pks().getValue()]).toEqual(['u3']);
     });
 
     test('rows: identity-stable children, each row bound to its own entity', () => {
@@ -181,6 +185,54 @@ describe('exoCollection', () => {
         });
         queue.flush();
         expect(users.byPk('u9').getValue()?.name).toBe('Zed');
+    });
+
+    test('global index: the one-argument forms of rows and subscribe', () => {
+        const { queue, kit, users } = setup();
+
+        const rows = users.online.rows((_entity, pk) => ({ pk }));
+        expect(rows.getValue().map(r => r.pk).sort()).toEqual(['u1', 'u3']);
+
+        let hits = 0;
+        const stop = users.online.subscribe(() => hits++);
+        kit.collection.upsertOneByPk('u2', { online: true });
+        queue.flush();
+        expect(hits).toBe(1);
+        stop();
+    });
+
+    test('composite index: rows keyed by a path', () => {
+        const { users } = setup();
+        const rows = users.byPath.rows(['t1', 'x'], (_entity, pk) => ({ pk }));
+        expect(rows.getValue().map(r => r.pk)).toEqual(['u1']);
+    });
+
+    test('an index name colliding with a built-in member fails loudly', () => {
+        const queue = new OIMEventQueue();
+        const kit = createOIMCollectionKit<User, string>(queue, {
+            selectPk: u => u.id,
+        });
+        const byTeam = kit.indexFactory.derivedSetIndex<string>(u => u.teamId);
+        // Silently replacing `byPk` would make `users.byPk('u1')` read entities by TEAM instead.
+        expect(() => exoCollection(kit, { byPk: byTeam } as never)).toThrow(
+            /collides with a built-in member/
+        );
+        expect(() => exoCollection(kit, { kit: byTeam } as never)).toThrow(
+            /collides with a built-in member/
+        );
+    });
+
+    test('a first argument that is not a kit fails loudly', () => {
+        const queue = new OIMEventQueue();
+        const kit = createOIMCollectionKit<User, string>(queue, {
+            selectPk: u => u.id,
+        });
+        expect(() =>
+            exoCollection(kit.select as never, undefined)
+        ).toThrow(/must be a collection kit/);
+        expect(() =>
+            exoCollection(kit.collection as never, undefined)
+        ).toThrow(/must be a collection kit/);
     });
 
     test('a non-index argument fails loudly', () => {

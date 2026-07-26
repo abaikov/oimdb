@@ -69,7 +69,7 @@ const team = bindable('t1'); // a bindable key — the view follows a moving sel
 db.users.byTeam(team); // entities
 db.users.byTeam.pks(team); // just the membership
 db.users.byTeam.rows(team, render); // → bindables.children      (identity-stable)
-db.users.byTeamOrdered.list(team, render); // → bindableLists.children  (O(delta))
+db.users.byTeamOrdered.list('t1', render); // → bindableLists.children  (O(delta), fixed key)
 db.users.byTeam.subscribe('t1', onChange); // manual, for onExoMount scope
 ```
 
@@ -93,6 +93,10 @@ diffing an order and a set has none. That is enforced in the types, not merely d
 builds and memoizes the stream itself — you never construct one by hand.
 :::
 
+`list` takes a plain key only (a bindable there is a compile error): a `TExoBindableList` is bound
+once and driven by ops, so following a moving key would mean resetting the whole list on every change
+— which is exactly what `rows` already does, better. Use `rows` for a moving selection.
+
 `db.users.kit` stays reachable, so writes and the rest of OIMDB are always one hop away.
 
 ## Primitives
@@ -100,12 +104,12 @@ builds and memoizes the stream itself — you never construct one by hand.
 The facade is built from these, and they are exported for everything it does not cover:
 
 ```typescript
-import { exoBindable, exoCombine, exoChildren, exoList } from '@oimdb/exodra';
+import { exoSource, exoSelector, exoComputed, exoKeyed, exoCombine, exoChildren, exoList } from '@oimdb/exodra';
 
-exoBindable(kit.select.byPk('u1')); // an OIMSelector
-exoBindable(myComputed); // an OIMComputed
-exoBindable(read, subscribe); // a raw pair — the escape hatch
-exoBindable(team, (k) => kit.select.byPks(k)); // a reactive key
+exoSource(kit.select.byPk('u1')); // an OIMSelector
+exoSource(myComputed); // an OIMComputed
+exoSource(read, subscribe); // a raw pair — the escape hatch
+exoSource(team, (k) => kit.select.byPks(k)); // a reactive key
 
 exoCombine([a, b], () => `${a.getValue()} / ${b.getValue()}`); // derive is single-source
 exoChildren(tags, { key: (t) => t.slug, render: renderTag }); // any items, not just entities
@@ -125,14 +129,14 @@ There is no options type in this package. Whoever owns the value owns the compar
 | selectors | `OIMSelector.areEqual` — an element compare in every collection-returning selector |
 | computeds | `OIMComputed`'s `compare`, passed at construction |
 | `exoCombine` | your own `fn` — return a stable reference when the content is unchanged |
-| `exoBindable(read, subscribe)` | your own `subscribe` callback — compare there, don't call `onChange` |
+| `exoSource(read, subscribe)` | your own `subscribe` callback — compare there, don't call `onChange` |
 
 Those owners all run *below* the bridge, so a filter here could only reject what they passed, never
 resurrect what they dropped. Everything else is forwarded, which is why an in-place entity updater —
 whose entity reference is stable — is seen with no configuration at all.
 
 ```typescript
-const theme = exoBindable(read, (onChange) => {
+const theme = exoSource(read, (onChange) => {
   let last = read();
   return settings.subscribeOnKey('theme', () => {
     const next = read();
@@ -150,7 +154,7 @@ const theme = exoBindable(read, (onChange) => {
 - Row keys must be unique; a duplicate throws rather than silently corrupting an identity-reconciled
   list.
 - Fan-in belongs in one `OIMComputed` (leveled at `AFTER_FLUSH`, coherent) forwarded via
-  `exoBindable` — Exodra has no glitch batching, so chaining derives off each other does not.
+  `exoSource` — Exodra has no glitch batching, so chaining derives off each other does not.
 - The write side is intentionally absent: apps write through orchestration, not from views.
 
 ## See also

@@ -1,6 +1,6 @@
 import type { TExoBindable } from '@exodra/reactivity-types';
 import type { TOIMKey } from '@oimdb/core';
-import { exoBindable } from './exoBindable';
+import { exoSource } from './exoSource';
 
 const keysEqual = (a: readonly TOIMKey[], b: readonly TOIMKey[]): boolean => {
     if (a.length !== b.length) return false;
@@ -84,7 +84,7 @@ export function exoChildren<TItem, TSchema>(
 
     // `read` returns a stable reference while the key sequence is unchanged, so identity is all the
     // dedup this needs — a field edit re-reads to the same array and never reaches Exodra.
-    return exoBindable(read, onChange => {
+    return exoSource(read, onChange => {
         let lastEmitted = read();
         return source.subscribe(() => {
             const next = read();

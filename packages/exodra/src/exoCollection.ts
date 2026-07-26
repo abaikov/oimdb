@@ -6,27 +6,24 @@ import {
     OIMReactiveIndexSetBased,
     createOIMOrderedListCommandStreamDiffDriven,
 } from '@oimdb/core';
-import type {
-    IOIMOrderedListCommandSource,
-    TOIMCollectionKit,
-    TOIMEntitySlot,
-    TOIMKey,
-} from '@oimdb/core';
+import type { TOIMCollectionKit, TOIMKey } from '@oimdb/core';
 import type { TOIMExodraCollection } from './types/TOIMExodraCollection';
-import type { TOIMExodraKeyArg } from './types/TOIMExodraIndexFacade';
-import { exoBindable } from './exoBindable';
+import type { TOIMExodraReadable } from './types/TOIMExodraReadable';
 import { exoChildren } from './exoChildren';
+import { exoKeyed } from './exoKeyed';
 import { exoList } from './exoList';
+import { exoSelector } from './exoSelector';
+import { exoSource } from './exoSource';
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- see note below */
 /*
- * Index kinds are dispatched at RUNTIME by `instanceof` against four distinct base classes, while the
- * public types resolve the same fork statically (`TOIMExodraIndexFacade`). TypeScript cannot follow a
- * value across that fork, so the bodies below are written against loose shapes and the exported
- * signature — which is what every caller sees — carries the precision. The `any`s are confined to
- * this dispatch table and never reach the API surface.
+ * Index kinds are dispatched ONCE, at facade construction, by `instanceof` against four distinct base
+ * classes; the public types resolve the same fork statically (`TOIMExodraIndexFacade`). TypeScript
+ * cannot follow a value across that fork, so the bodies below are written against loose shapes while
+ * the exported signature — which is what every caller sees — carries the precision. These `any`s are
+ * confined to construction and never reach the API surface or a read.
  */
-type TAnyIndex = any;
+type TAny = any;
 
 /**
  * Turn an OIMDB collection kit into its Exodra-side view: the exoskeleton over the collection.
@@ -35,18 +32,21 @@ type TAnyIndex = any;
  * const users = exoCollection(usersKit, { byTeam, byTeamOrdered, online });
  *
  * users.byPk('u1')                          // TExoBindable<User | undefined>
- * users.byTeam(selectedTeam)                // entities for a key — set/array/composite/global,
- * users.byTeamOrdered.rows(team, render)    //   the kind is inferred from the index itself
- * users.byTeamOrdered.list(team, render)    // O(delta), ordered indexes only
+ * users.byTeam('t1')                        // entities for a key — the index kind is inferred
+ * users.byTeamOrdered.rows('t1', render)    // → bindables.children
+ * users.byTeamOrdered.list('t1', render)    // → bindableLists.children, ordered indexes only
+ *
+ * const live = users.byTeam.for(selectedTeam);   // pin to a MOVING key…
+ * live.rows(render)                              // …and nothing downstream takes a key again
  * ```
  *
- * Every index you name becomes ONE callable member carrying everything you can do with it, so the
- * caller never picks a method to match the index kind and never passes the index object again.
- * Keys accept a bindable, so a view follows a moving selection without being rebuilt.
+ * Every index you name becomes ONE member carrying everything you can do with it, so the caller never
+ * picks a method to match the index kind and never passes the index object again. No function here
+ * accepts more than one shape of argument: a fixed key and a moving one are different members, not
+ * one member that inspects what it was given.
  *
  * `indexes` is a separate argument because a kit does not own its indexes — `kit.indexFactory`
- * creates them and the app keeps them. Should core ever let a kit hold named indexes, this argument
- * becomes optional without breaking anything here.
+ * creates them and the app keeps them.
  */
 export function exoCollection<
     TEntity extends object,
@@ -56,20 +56,32 @@ export function exoCollection<
     kit: TOIMCollectionKit<TEntity, TPk>,
     indexes?: TIndexes
 ): TOIMExodraCollection<TEntity, TPk, TIndexes> {
-    const select = kit.select;
+    if (!kit || typeof kit !== 'object' || !('select' in kit) || !('queue' in kit)) {
+        throw new Error(
+            'exoCollection: first argument must be a collection kit from `createOIMCollectionKit`, ' +
+                'not a collection or `kit.select`.'
+        );
+    }
 
-    const byPk = (pk: TOIMExodraKeyArg<TPk>): TExoBindable<TEntity | undefined> =>
-        exoBindable(pk, (k: TPk) => select.byPk(k));
+    const byPk = (pk: TPk): TExoBindable<TEntity | undefined> =>
+        exoSelector(kit.select.byPk(pk));
 
     const facade: Record<string, unknown> = {
         kit,
         byPk,
-        byPks: (pks: TOIMExodraKeyArg<readonly TPk[]>) =>
-            exoBindable(pks, (k: readonly TPk[]) => select.byPks(k)),
+        byPks: (pks: readonly TPk[]) => exoSelector(kit.select.byPks(pks)),
     };
 
     for (const [name, index] of Object.entries(indexes ?? {})) {
-        facade[name] = createIndexFacade(kit, byPk, index as TAnyIndex);
+        // Without this an index named `byPk` would quietly take the entity reader's place, and one
+        // named `kit` would remove the way back to OIMDB — both failing much later and elsewhere.
+        if (name in facade) {
+            throw new Error(
+                `exoCollection: index name "${name}" collides with a built-in member ` +
+                    `(${Object.keys(facade).join(', ')}). Rename the index.`
+            );
+        }
+        facade[name] = createIndexFacade(kit, byPk, index as TAny);
     }
 
     return facade as TOIMExodraCollection<TEntity, TPk, TIndexes>;
@@ -77,31 +89,50 @@ export function exoCollection<
 
 function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
     kit: TOIMCollectionKit<TEntity, TPk>,
-    byPk: (pk: TOIMExodraKeyArg<TPk>) => TExoBindable<TEntity | undefined>,
-    index: TAnyIndex
-): TAnyIndex {
-    const select = kit.select as TAnyIndex;
+    byPk: (pk: TPk) => TExoBindable<TEntity | undefined>,
+    index: TAny
+): TAny {
+    const select = kit.select as TAny;
     const isOrdered = index instanceof OIMReactiveIndexArrayBased;
     const isKeyedSet = index instanceof OIMReactiveIndexSetBased;
-    const isGlobal =
-        index instanceof OIMReactiveGlobalIndexArrayBased ||
-        index instanceof OIMReactiveGlobalIndexSetBased;
+    const isGlobalArray = index instanceof OIMReactiveGlobalIndexArrayBased;
+    const isGlobalSet = index instanceof OIMReactiveGlobalIndexSetBased;
 
-    if (!isOrdered && !isKeyedSet && !isGlobal) {
+    if (!isOrdered && !isKeyedSet && !isGlobalArray && !isGlobalSet) {
         throw new Error(
             'exoCollection: not a reactive index. Pass instances created by `kit.indexFactory.*` ' +
                 '(derivedSetIndex / derivedArrayIndex / composite* / *GlobalIndex).'
         );
     }
 
-    // Composite indexes ARE set/array indexes whose key is a path, so the selector to use is chosen
-    // per call from the key's shape rather than from the index's class.
-    const entitiesSelector = (key: TAnyIndex) => {
-        if (isGlobal) {
-            return index instanceof OIMReactiveGlobalIndexArrayBased
+    const rowsFrom = <TSchema>(
+        pks: TExoBindable<readonly TPk[]>,
+        render: (entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
+    ) =>
+        exoChildren(pks, {
+            key: (pk: TPk) => pk,
+            render: (pk: TPk) => render(byPk(pk), pk),
+        });
+
+    if (isGlobalArray || isGlobalSet) {
+        const selector = () =>
+            isGlobalArray
                 ? select.entitiesByArrayGlobalIndex(index)
                 : select.entitiesBySetGlobalIndex(index);
-        }
+        const pks = () => cachedPks(() => Array.from(index.getPks()), on => index.subscribe(on));
+        const entities = () => exoSelector(selector());
+        return Object.assign(entities, {
+            pks,
+            rows: <TSchema>(
+                render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
+            ) => rowsFrom(pks(), render),
+            subscribe: (onChange: () => void) => entities().subscribe(onChange),
+        });
+    }
+
+    // Composite indexes ARE set/array indexes whose key is a path, so the selector is chosen per call
+    // from the key's shape rather than from the index's class.
+    const selectorFor = (key: TAny) => {
         const composite = Array.isArray(key);
         if (isOrdered) {
             return composite
@@ -113,103 +144,99 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
             : select.entitiesBySetIndexKey(index, key);
     };
 
-    const entities = (key?: TAnyIndex) =>
-        isGlobal
-            ? exoBindable(entitiesSelector(undefined))
-            : exoBindable(key, (k: TAnyIndex) => entitiesSelector(k));
-
-    const readPks = (key?: TAnyIndex): readonly TPk[] =>
-        isGlobal
-            ? Array.from(index.getPks())
-            : Array.from(index.getPksByKey(key));
-
-    const subscribeToIndex = (key: TAnyIndex, onChange: () => void) =>
-        isGlobal
-            ? index.subscribe(onChange)
-            : index.subscribeOnKey(key, onChange);
-
-    /*
-     * Membership is cached behind the index's own change signal, so repeated reads are O(1) and hand
-     * back the SAME array — without it every `getValue()` copied the whole set, and `rows` on top of
-     * it then re-derived the key sequence, making a no-op read O(n) twice over.
-     * The cache is only trusted while subscribed: with nothing listening there is no invalidation
-     * signal, so an unsubscribed read goes to the index and stays correct (the SSR path).
-     */
-    const pks = (key?: TAnyIndex): TExoBindable<readonly TPk[]> => {
-        let cached: readonly TPk[] | undefined;
-        let subscribed = false;
-        return exoBindable(
-            () => {
-                if (subscribed && cached) return cached;
-                const next = readPks(key);
-                if (subscribed) cached = next;
-                return next;
-            },
-            onChange => {
-                subscribed = true;
-                cached = undefined;
-                const stop = subscribeToIndex(key, () => {
-                    cached = undefined;
-                    onChange();
-                });
-                return () => {
-                    subscribed = false;
-                    cached = undefined;
-                    stop();
-                };
-            }
+    const pksFor = (key: TAny) =>
+        cachedPks(
+            () => Array.from(index.getPksByKey(key)),
+            on => index.subscribeOnKey(key, on)
         );
-    };
 
-    const rows = <TSchema>(
-        keyOrRender: TAnyIndex,
-        maybeRender?: (
-            entity: TExoBindable<TEntity | undefined>,
-            pk: TPk
-        ) => TSchema
-    ): TExoBindable<readonly TSchema[]> => {
-        const render = (maybeRender ?? keyOrRender) as (
-            entity: TExoBindable<TEntity | undefined>,
-            pk: TPk
-        ) => TSchema;
-        const key = maybeRender ? keyOrRender : undefined;
-        return exoChildren(pks(key), {
-            key: (pk: TPk) => pk,
-            render: (pk: TPk) => render(byPk(pk), pk),
-        });
-    };
+    const entitiesFor = (key: TAny) => exoSelector(selectorFor(key));
 
-    // One stream per ordered index, shared by every key — it buffers per key internally.
-    let stream: IOIMOrderedListCommandSource<TOIMKey, TOIMEntitySlot<TEntity, TPk>> | undefined;
+    // One stream per ordered index, shared across keys — it buffers per key internally.
+    let stream: TAny;
     const list = <TSchema>(
         key: TOIMKey,
-        render: (entity: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
+        render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
     ): TExoBindableList<TSchema> => {
-        // Narrowed by `isOrdered` above; the union here is an artefact of the loose dispatch type.
-        stream ??= createOIMOrderedListCommandStreamDiffDriven(
-            kit.queue,
-            index as TAnyIndex
-        );
-        return exoList(stream as TAnyIndex, key, (slot: TAnyIndex) =>
+        stream ??= createOIMOrderedListCommandStreamDiffDriven(kit.queue, index as TAny);
+        return exoList(stream, key, (slot: TAny) =>
             render(byPk(slot.pk as TPk), slot.pk as TPk)
         );
     };
 
-    const call = isGlobal
-        ? () => entities()
-        : (key: TAnyIndex) => entities(key);
+    /** Pin to a moving key: everything below takes no key, and repoints when the bindable moves. */
+    const forKey = (key: TOIMExodraReadable<TAny>): TAny => {
+        const entities = () => exoKeyed(key, (k: TAny) => selectorFor(k));
+        const pks = () =>
+            cachedPks(
+                () => Array.from(index.getPksByKey(key.getValue())),
+                on => {
+                    let stopIndex = index.subscribeOnKey(key.getValue(), on);
+                    const stopKey = key.subscribe(() => {
+                        stopIndex();
+                        stopIndex = index.subscribeOnKey(key.getValue(), on);
+                        on();
+                    });
+                    return () => {
+                        stopKey();
+                        stopIndex();
+                    };
+                }
+            );
+        return Object.assign(entities, {
+            pks,
+            rows: <TSchema>(
+                render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
+            ) => rowsFrom(pks(), render),
+            subscribe: (onChange: () => void) => entities().subscribe(onChange),
+        });
+    };
 
-    return Object.assign(call, {
-        pks,
-        rows,
-        // `subscribe(onChange)` on a global index, `subscribe(key, onChange)` on a keyed one.
-        subscribe: (keyOrHandler: TAnyIndex, maybeHandler?: () => void) => {
-            const onChange = (maybeHandler ?? keyOrHandler) as () => void;
-            const key = maybeHandler ? keyOrHandler : undefined;
-            // The bindable already swallows the emit its selector fires while subscribing, so the
-            // handler sees genuine changes only — no guard needed here.
-            return entities(key).subscribe(onChange);
-        },
+    const entities = (key: TAny) => entitiesFor(key);
+    return Object.assign(entities, {
+        pks: pksFor,
+        rows: <TSchema>(
+            key: TAny,
+            render: (e: TExoBindable<TEntity | undefined>, pk: TPk) => TSchema
+        ) => rowsFrom(pksFor(key), render),
+        subscribe: (key: TAny, onChange: () => void) =>
+            entitiesFor(key).subscribe(onChange),
+        for: forKey,
         ...(isOrdered ? { list } : {}),
     });
+}
+
+/**
+ * Membership behind the index's own change signal: repeated reads are O(1) and hand back the SAME
+ * array, so `rows` on top of it can short-circuit instead of re-deriving the key sequence. The cache
+ * is trusted only while subscribed — with nothing listening there is no invalidation signal, so an
+ * unsubscribed read goes to the index and stays correct (the SSR path).
+ */
+function cachedPks<TPk>(
+    read: () => readonly TPk[],
+    subscribe: (onChange: () => void) => () => void
+): TExoBindable<readonly TPk[]> {
+    let cached: readonly TPk[] | undefined;
+    let subscribed = false;
+    return exoSource(
+        () => {
+            if (subscribed && cached) return cached;
+            const next = read();
+            if (subscribed) cached = next;
+            return next;
+        },
+        onChange => {
+            subscribed = true;
+            cached = undefined;
+            const stop = subscribe(() => {
+                cached = undefined;
+                onChange();
+            });
+            return () => {
+                subscribed = false;
+                cached = undefined;
+                stop();
+            };
+        }
+    );
 }
