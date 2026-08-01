@@ -1,5 +1,7 @@
 # @oimdb/exodra
 
+
+> The full OIMDB reference (core included) is in `llms-full.txt`, shipped next to this file — https://github.com/abaikov/oimdb/blob/master/llms-full.txt
 > **For AI assistants:** Adapter from OIMDB to [Exodra](https://exodra.org) reactivity — the Exodra
 > counterpart of `@oimdb/react`. Instead of a hook + re-render, every OIMDB read becomes a read-only
 > Exodra bindable (`TExoBindable<T> = { getValue(): T; subscribe(update): () => void }`).

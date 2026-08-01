@@ -1,18 +1,30 @@
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
+import { OIMEffect } from '../../effect/core/OIMEffect';
 import { IOIMSelectorComputedDependency } from '../interfaces/IOIMSelectorComputedDependency';
 import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
 
+/**
+ * A watchable value derived from reactive sources, delivered on flush and only
+ * when it actually changed.
+ *
+ * The graph work — holding dependencies, subscribing, collapsing several
+ * invalidations in one frame into one run, scheduling by topological level — is
+ * an {@link OIMEffect}. This class owns only what is selector-specific: the
+ * listeners, the last delivered value, and the equality that decides whether a
+ * new value is worth delivering.
+ *
+ * It used to reimplement the effect rather than compose it, and the copies
+ * drifted: a fix to how invalidations are deduplicated within a flush landed in
+ * the effect and silently did not land here. One node type, one place to fix.
+ */
 export abstract class OIMSelector<TValue> {
     private readonly listeners = new Set<(value: TValue) => void>();
-    private sourceUnsubscribers: Array<() => void> = [];
-    private computedUnsubscribers: Array<() => void> = [];
-    private dequeueResubscribe?: () => void;
-    private isResubscribeEnqueued = false;
-    private isTemporarilyUnsubscribedForFlush = false;
-
-    private isDeliveryEnqueued = false;
-    private dequeueDelivery?: () => void;
+    /**
+     * Built once, then activated and deactivated as watchers come and go — a
+     * selector nobody watches holds no subscriptions and cannot fire.
+     */
+    private readonly effect: OIMEffect;
 
     private hasLastValue = false;
     private lastValue!: TValue;
@@ -25,20 +37,24 @@ export abstract class OIMSelector<TValue> {
         protected readonly runtime: OIMComputeRuntime,
         protected readonly sourceDeps: readonly IOIMSelectorSourceDependency[],
         protected readonly computedDeps: readonly IOIMSelectorComputedDependency[] = []
-    ) {}
+    ) {
+        this.effect = new OIMEffect(runtime, {
+            deps: [...sourceDeps, ...computedDeps],
+            run: this.deliver,
+            startActive: false,
+        });
+    }
 
     public abstract getValue(): TValue;
 
     /**
-     * Start watching this selector. The callback is called immediately with the current value,
-     * then coalesced and delivered on `queue.flush()` when the selector invalidates.
+     * Start watching this selector. The callback is called immediately with the
+     * current value, then coalesced and delivered on `queue.flush()` whenever the
+     * value changes.
      */
     public watch(onValue: (value: TValue) => void): () => void {
         this.listeners.add(onValue);
-
-        if (this.listeners.size === 1) {
-            this.subscribeToDeps();
-        }
+        if (this.listeners.size === 1) this.effect.activate();
 
         const current = this.getValue();
         this.setLastValue(current);
@@ -47,21 +63,10 @@ export abstract class OIMSelector<TValue> {
         return () => {
             this.listeners.delete(onValue);
             if (this.listeners.size > 0) return;
-
-            this.unsubscribeFromAllDeps();
-
-            if (this.dequeueResubscribe) {
-                this.dequeueResubscribe();
-                this.dequeueResubscribe = undefined;
-            }
-            this.isResubscribeEnqueued = false;
-            this.isTemporarilyUnsubscribedForFlush = false;
-
-            if (this.dequeueDelivery) {
-                this.dequeueDelivery();
-                this.dequeueDelivery = undefined;
-            }
-            this.isDeliveryEnqueued = false;
+            // Last watcher gone: stop listening, and forget the delivered value
+            // so the next watcher is greeted with a fresh read rather than a
+            // comparison against something nobody has seen for a while.
+            this.effect.deactivate();
             this.hasLastValue = false;
         };
     }
@@ -70,37 +75,12 @@ export abstract class OIMSelector<TValue> {
         return Object.is(prev, next);
     }
 
-    private readonly onSourceInvalidate = () => {
-        if (this.listeners.size === 0) return;
-
-        // If any source dependency fired during the current flush, unsubscribe from everything
-        // and re-subscribe at AFTER_FLUSH to avoid multiple invalidations within the same flush.
-        if (!this.isTemporarilyUnsubscribedForFlush) {
-            this.isTemporarilyUnsubscribedForFlush = true;
-            this.unsubscribeFromSourceDeps();
-            this.ensureResubscribeAfterFlush();
-        }
-
-        if (this.isDeliveryEnqueued) return;
-        this.isDeliveryEnqueued = true;
-        this.dequeueDelivery = this.runtime.schedule(this.deliver);
-    };
-
-    private readonly onComputedInvalidate = () => {
-        if (this.listeners.size === 0) return;
-        if (this.isDeliveryEnqueued) return;
-        this.isDeliveryEnqueued = true;
-        this.dequeueDelivery = this.runtime.schedule(this.deliver);
-    };
-
-    private readonly deliver = () => {
-        this.isDeliveryEnqueued = false;
-        this.dequeueDelivery = undefined;
-
+    private readonly deliver = (): void => {
         if (this.listeners.size === 0) return;
 
         const next = this.getValue();
-
+        // Equality belongs to the selector: the sources report that something
+        // moved, this decides whether that means anything to a watcher.
         if (this.hasLastValue && this.areEqual(this.lastValue, next)) return;
 
         this.setLastValue(next);
@@ -116,61 +96,4 @@ export abstract class OIMSelector<TValue> {
         this.lastValue = value;
         this.hasLastValue = true;
     }
-
-    private subscribeToDeps(): void {
-        if (
-            this.sourceUnsubscribers.length > 0 ||
-            this.computedUnsubscribers.length > 0
-        )
-            return;
-        for (const dep of this.sourceDeps) {
-            this.sourceUnsubscribers.push(
-                dep.subscribe(this.onSourceInvalidate)
-            );
-        }
-        for (const dep of this.computedDeps) {
-            this.computedUnsubscribers.push(
-                dep.subscribe(this.onComputedInvalidate)
-            );
-        }
-    }
-
-    private unsubscribeFromSourceDeps(): void {
-        if (this.sourceUnsubscribers.length === 0) return;
-        for (const unsub of this.sourceUnsubscribers) unsub();
-        this.sourceUnsubscribers = [];
-    }
-
-    private unsubscribeFromAllDeps(): void {
-        this.unsubscribeFromSourceDeps();
-        if (this.computedUnsubscribers.length === 0) return;
-        for (const unsub of this.computedUnsubscribers) unsub();
-        this.computedUnsubscribers = [];
-    }
-
-    private ensureResubscribeAfterFlush(): void {
-        if (this.isResubscribeEnqueued) return;
-        this.isResubscribeEnqueued = true;
-
-        this.dequeueResubscribe = this.runtime.scheduleAfterFlush(
-            this.onAfterFlush
-        );
-    }
-
-    private readonly onAfterFlush = () => {
-        if (!this.isResubscribeEnqueued) return;
-        this.isResubscribeEnqueued = false;
-        this.dequeueResubscribe = undefined;
-
-        if (this.listeners.size === 0) return;
-        this.isTemporarilyUnsubscribedForFlush = false;
-        // Re-subscribe ONLY to source deps; computed deps remain subscribed.
-        if (this.sourceUnsubscribers.length === 0) {
-            for (const dep of this.sourceDeps) {
-                this.sourceUnsubscribers.push(
-                    dep.subscribe(this.onSourceInvalidate)
-                );
-            }
-        }
-    };
 }

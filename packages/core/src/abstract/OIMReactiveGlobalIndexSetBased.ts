@@ -1,26 +1,18 @@
 import { TOIMKey } from '../types/TOIMKey';
-import { OIMEventQueue } from '../core/OIMEventQueue';
-import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMGlobalIndexSetBased } from './OIMGlobalIndexSetBased';
 import { OIMReactiveGlobalIndex } from './OIMReactiveGlobalIndex';
 
+/**
+ * Reactive wrapper over a set-based keyless index. Bodiless on purpose — it
+ * only names the read shapes; see {@link OIMReactiveIndexSetBased}.
+ */
 export abstract class OIMReactiveGlobalIndexSetBased<
     TPk extends TOIMKey,
     TIndex extends OIMGlobalIndexSetBased<TPk>,
-> extends OIMReactiveGlobalIndex<TPk, TIndex> {
-    constructor(
-        queue: OIMEventQueue,
-        createIndex: (updateEmitter: IOIMSingleUpdateEmitter) => TIndex
-    ) {
-        super(queue, createIndex);
-    }
-
-    public getPks(): Set<TPk> {
-        return this.index.getPks();
-    }
-
-    public getSlots(): ReadonlySet<TOIMAnyEntitySlot<TPk>> {
-        return this.index.getSlots();
-    }
-}
+> extends OIMReactiveGlobalIndex<
+    TPk,
+    TIndex,
+    Set<TPk>,
+    ReadonlySet<TOIMAnyEntitySlot<TPk>>
+> {}

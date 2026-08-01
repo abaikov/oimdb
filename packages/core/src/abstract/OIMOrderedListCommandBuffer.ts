@@ -1,6 +1,6 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from '../core/OIMEventQueue';
-import { OIMUpdateEventEmitter } from '../core/OIMUpdateEventEmitter';
+import { OIMUpdateEventEmitterAfterFlush } from '../core/OIMUpdateEventEmitterAfterFlush';
 import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
 import { IOIMOrderedListCommandSource } from '../interfaces/IOIMOrderedListCommandSource';
 import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedListCommand';
@@ -10,7 +10,7 @@ import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedList
  *
  * Holds the machinery that is independent of what *produces* the commands:
  * per-key command buffering with reset-coalescing, `after_flush` delivery via
- * {@link commandsEventEmitter}, and the pull-based consume/subscribe surface
+ * {@link commandsEmitter}, and the pull-based consume/subscribe surface
  * ({@link IOIMOrderedListCommandSource}). The driver lives in the subclass:
  * `OIMOrderedListCommandStream` appends commands from imperative writers;
  * `OIMOrderedListCommandStreamDiffDriven` appends them by diffing a reactive
@@ -24,7 +24,7 @@ import { TOIMOrderedListCommand } from '../modules/wrapper/index/TOIMOrderedList
 export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
     implements IOIMOrderedListCommandSource<TKey, TItem>
 {
-    public readonly commandsEventEmitter: OIMUpdateEventEmitter<TKey>;
+    public readonly commandsEmitter: OIMUpdateEventEmitterAfterFlush<TKey>;
     private readonly unsubscribeAfterFlush: () => void;
 
     protected readonly commandsByKey = new Map<
@@ -37,13 +37,12 @@ export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
     private readonly staleResetKeys = new Set<TKey>();
 
     constructor(queue: OIMEventQueue) {
-        // Delivery is `after_flush`: writers/diffs buffer during the flush, the
-        // whole batch is delivered once the queue settles. The emitter registers
-        // its AFTER_FLUSH listener here, before `onAfterFlush` below, so delivery
-        // runs before the buffer is cleared.
-        this.commandsEventEmitter = new OIMUpdateEventEmitter<TKey>(
-            queue,
-            'after_flush'
+// Commands buffer during the flush and are delivered as one batch once
+        // the queue settles — a half-drained command stream is not a list. The
+        // emitter registers its AFTER_FLUSH listener here, before `onAfterFlush`
+        // below, so delivery runs before the buffer is cleared.
+        this.commandsEmitter = new OIMUpdateEventEmitterAfterFlush<TKey>(
+            queue
         );
         this.unsubscribeAfterFlush = queue.emitter.on(
             EOIMEventQueueEventType.AFTER_FLUSH,
@@ -55,7 +54,7 @@ export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
     public abstract getItemsByKey(key: TKey): readonly TItem[];
 
     public subscribeCommands(key: TKey, handler: () => void): () => void {
-        return this.commandsEventEmitter.subscribeOnKey(key, handler);
+        return this.commandsEmitter.subscribeOnKey(key, handler);
     }
 
     public getBufferedCommands(
@@ -73,7 +72,7 @@ export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
     }
 
     public destroy(): void {
-        this.commandsEventEmitter.destroy();
+        this.commandsEmitter.destroy();
         this.unsubscribeAfterFlush();
         this.commandsByKey.clear();
         this.staleResetKeys.clear();
@@ -123,7 +122,7 @@ export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
             cmds.push(cmd);
         }
 
-        this.commandsEventEmitter.markUpdatedKeys([key]);
+        this.commandsEmitter.markUpdatedKeys([key]);
     }
 
     protected appendResetCommand(
@@ -133,9 +132,18 @@ export abstract class OIMOrderedListCommandBuffer<TKey extends TOIMKey, TItem>
         this.appendCommand(key, this.createResetCommand(items));
     }
 
+    /**
+     * The one place where a slot array escapes into something that OUTLIVES the
+     * read that produced it: a buffered `reset` is handed to consumers later, at
+     * `after_flush`. Index buckets are live carriers mutated in place, so the
+     * copy has to happen here — this is the boundary, and the only one.
+     *
+     * Every other path either walks its slots once or builds its own array, so
+     * `getSlotsByKey` stays copy-free for them.
+     */
     protected createResetCommand(
         items: readonly TItem[]
     ): TOIMOrderedListCommand<TItem> {
-        return { type: 'reset', items };
+        return { type: 'reset', items: items.slice() };
     }
 }

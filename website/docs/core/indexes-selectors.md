@@ -46,6 +46,20 @@ ranked.setSlots('byScore', slots);                // no per-pk lookup
 
 Reads are slot-native too: `getSlotsByKey(key)` returns the slots directly, and `getEntitiesByKey(key)` reads `slot.item` with no secondary lookup.
 
+:::caution `getSlotsByKey` hands back a live view
+A bucket is a stable carrier — it is also the subscription target, so a write **edits it in place** instead of replacing it. `getSlotsByKey(key)` therefore returns that live bucket, with no defensive copy: it is **valid until the next write to that key**, and changes underneath you afterwards.
+
+Read it and drop it, or take your own snapshot if you intend to keep or diff it:
+
+```typescript
+for (const slot of ranked.getSlotsByKey('byScore')) { /* fine — read once */ }
+
+const before = ranked.getSlotsByKey('byScore').slice(); // keep it? copy it
+```
+
+This is deliberate: the copy used to happen on every read, for the sake of the one caller in a thousand that actually retains the array. Now it happens where it is needed. Set-based and array-based indexes follow the same rule, as does `getSlots()` on a global index.
+:::
+
 ### Order & sorting
 
 An **array-based** index keeps **the order you give it** — there is no automatic field sort (that's a derived index's `orderBy`). You own the order:
@@ -263,10 +277,10 @@ type Command<Slot> =
   | { type: 'reset';  items: readonly Slot[] };          // replace whole list
 ```
 
-Subscribe to command delivery via `commandsEventEmitter`, then read buffered commands inside the callback. The buffer clears automatically after each flush.
+Subscribe to command delivery via `commandsEmitter`, then read buffered commands inside the callback. The buffer clears automatically after each flush.
 
 ```typescript
-const off = queue.commandsEventEmitter.subscribeOnKey('main', () => {
+const off = queue.commandsEmitter.subscribeOnKey('main', () => {
   const commands = queue.getBufferedCommands('main');
 
   for (const cmd of commands) {
@@ -335,6 +349,20 @@ function render() {
 - Same plain-function shape as the ordered mapper — no options object, no `destroy` (these are plain values; nothing to tear down). If your mapped objects hold resources, use the ordered command stream, which has an explicit removal signal.
 - `subscribeOnKey` / `subscribeOnKeys` are passthroughs to the index; `getByKey(key)` returns the mapped objects (array order for array-based, unspecified for set-based).
 - `.map(create)` chains another projection with the same per-slot stability at each level.
+
+:::danger Never map a slot to its entity
+```typescript
+createOIMIndexSlotMap(index, (slot) => slot.item);  // WRONG — silently stale
+```
+
+The memo is keyed by **slot identity**, and a slot deliberately *outlives* the entity inside it: an upsert does `slot.item = entity` and keeps the same slot object, because that object is the canonical anchor for the pk. So `create` runs once, pins whichever entity was there first, and keeps returning it after every later write — no error, just a stale read.
+
+You don't need a memo for entities anyway: `index.getEntitiesByKey(key)` reads `slot.item` directly, which is cheaper than any cache lookup, and its reference already changes exactly when the entity changes — which is precisely what `Object.is` / `React.memo` want.
+
+For a value **derived** from entity data, the cache key must be the entity, not the slot: that's `OIMComputed` or a selector, which invalidate on write.
+
+Map here only what is bound to the slot's *identity* and must **survive** entity updates — a view-model, a row object, a DOM node.
+:::
 
 For a [global (keyless) index](#global-keyless-indexes) use `createOIMGlobalIndexSlotMap(index, create)` — the same memo without keys: `getAll()` instead of `getByKey`, `subscribe` instead of `subscribeOnKey`.
 
@@ -414,14 +442,14 @@ const tracker = new OIMCollectionChangedFields(queue, users.collection, {
 // Write through the tracker instead of the collection directly
 tracker.upsertOneByPk('u1', { name: 'Alice', role: 'admin' });
 
-// changedPksEventEmitter fires per PK that changed
-tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+// changedPksEmitter fires per PK that changed
+tracker.changedPksEmitter.subscribeOnKey('u1', () => {
   const fields = tracker.getChangedFieldsByPk('u1');
   console.log('changed fields:', fields); // Set {'name', 'role'}
 });
 
-// changedFieldsEventEmitter fires per field name that changed
-tracker.changedFieldsEventEmitter.subscribeOnKey('role', () => {
+// changedFieldsEmitter fires per field name that changed
+tracker.changedFieldsEmitter.subscribeOnKey('role', () => {
   const pks = tracker.getChangedPksByField('role');
   console.log('PKs with changed role:', pks);
 });
@@ -446,7 +474,7 @@ const tracker = new OIMCollectionChangedFields(queue, users.collection, {
 socket.on('user:patch', (patch) => users.collection.upsertOneByPk(patch.id, patch));
 
 // The tracker still reports the changed fields, so the UI can highlight them:
-tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+tracker.changedPksEmitter.subscribeOnKey('u1', () => {
   highlight(tracker.getChangedFieldsByPk('u1')); // works even though the write bypassed the tracker
 });
 ```
@@ -465,7 +493,7 @@ tracker.upsertOneByPk('u1', { role: 'admin' }); // returns the canonical slot
 tracker.upsertOne({ id: 'u2', name: 'Ann' });   // needs selectPk
 tracker.upsertMany([{ id: 'u3' }, { id: 'u4' }]);
 
-tracker.changedPksEventEmitter.subscribeOnKey('u1', () => {
+tracker.changedPksEmitter.subscribeOnKey('u1', () => {
   highlight(tracker.getChangedFieldsByPk('u1')); // {'role'}
 });
 

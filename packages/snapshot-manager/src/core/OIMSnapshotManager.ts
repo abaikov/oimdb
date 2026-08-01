@@ -72,11 +72,11 @@ export class OIMSnapshotManager<
             };
 
             // Subscribe to collection emitter directly
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, handler);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, handler);
 
             // Store unsubscribe function
             const unsubscribe = () => {
-                collection.emitter.off(EOIMCollectionEventType.UPDATE, handler);
+                collection.batchEmitter.off(EOIMCollectionEventType.UPDATE, handler);
             };
             this.unsubscribeFunctions.push(unsubscribe);
         }

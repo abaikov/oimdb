@@ -24,7 +24,7 @@ export const useSelectPksByGlobalIndexArrayBased = <
     const subscribe = useMemo(() => {
         snapshotValueRef.current = reactiveIndex.getPks();
         return (onStoreChange: () => void) => {
-            return reactiveIndex.subscribe(() => {
+            return reactiveIndex.emitter.subscribe(() => {
                 snapshotValueRef.current = reactiveIndex.getPks();
                 onStoreChange();
             });
@@ -45,7 +45,7 @@ export const useSelectPksByGlobalIndexSetBased = <
     const subscribe = useMemo(() => {
         snapshotValueRef.current = reactiveIndex.getPks();
         return (onStoreChange: () => void) => {
-            return reactiveIndex.subscribe(() => {
+            return reactiveIndex.emitter.subscribe(() => {
                 snapshotValueRef.current = reactiveIndex.getPks();
                 onStoreChange();
             });
@@ -72,7 +72,7 @@ export const useSelectEntitiesByGlobalIndexArrayBased = <
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
-            let unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+            let unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                 readPks(),
                 () => {
                     snapshotRef.current = readSnapshot();
@@ -82,7 +82,7 @@ export const useSelectEntitiesByGlobalIndexArrayBased = <
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -91,7 +91,7 @@ export const useSelectEntitiesByGlobalIndexArrayBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribe(() => {
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribe(() => {
                 resubscribeCollection();
                 snapshotRef.current = readSnapshot();
                 onStoreChange();
@@ -124,7 +124,7 @@ export const useSelectEntitiesByGlobalIndexSetBased = <
 
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
-            let unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+            let unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                 readPks(),
                 () => {
                     snapshotRef.current = readSnapshot();
@@ -134,7 +134,7 @@ export const useSelectEntitiesByGlobalIndexSetBased = <
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -143,7 +143,7 @@ export const useSelectEntitiesByGlobalIndexSetBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribe(() => {
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribe(() => {
                 resubscribeCollection();
                 snapshotRef.current = readSnapshot();
                 onStoreChange();

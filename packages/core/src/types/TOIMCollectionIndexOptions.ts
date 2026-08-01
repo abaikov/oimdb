@@ -179,6 +179,21 @@ export type TOIMDerivedCollectionIndexSetBasedOptions<
 > = {
     selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>;
     /**
+     * Entity fields this index depends on — the ones its key selector reads, plus
+     * anything an `orderBy` / `compareEntities` consults.
+     *
+     * Declaring them lets the index skip a write entirely when none of them was
+     * touched: no selector call, no key normalisation, no set allocation. On a
+     * write to an unrelated field that turns ~86 ns of working out that nothing
+     * changed into ~7 ns of "not my business".
+     *
+     * Requires a collection whose writer tracks fields
+     * (`OIMSlotWriterFieldMasked`); asking for deps without one throws at
+     * construction rather than silently doing nothing.
+     */
+    deps?: readonly (keyof TEntity & string)[];
+
+    /**
      * Build initial index state from existing collection slots.
      * Defaults to true.
      */
@@ -216,6 +231,21 @@ export type TOIMDerivedCollectionIndexArrayBasedOptions<
     TPk extends TOIMKey,
 > = {
     selectIndexKeys: TOIMDerivedIndexKeySelector<TEntity, TKey>;
+    /**
+     * Entity fields this index depends on — the ones its key selector reads, plus
+     * anything an `orderBy` / `compareEntities` consults.
+     *
+     * Declaring them lets the index skip a write entirely when none of them was
+     * touched: no selector call, no key normalisation, no set allocation. On a
+     * write to an unrelated field that turns ~86 ns of working out that nothing
+     * changed into ~7 ns of "not my business".
+     *
+     * Requires a collection whose writer tracks fields
+     * (`OIMSlotWriterFieldMasked`); asking for deps without one throws at
+     * construction rather than silently doing nothing.
+     */
+    deps?: readonly (keyof TEntity & string)[];
+
     /**
      * Build initial index state from existing collection slots.
      * Defaults to true.

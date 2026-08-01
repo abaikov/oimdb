@@ -19,10 +19,16 @@ export * from './abstract/OIMReactiveGlobalIndex';
 export * from './abstract/OIMReactiveGlobalIndexSetBased';
 export * from './abstract/OIMReactiveGlobalIndexArrayBased';
 
+export * from './core/OIMCarrierKeyedFieldEmitter';
+export * from './core/OIMFieldMaskRegistry';
+export * from './core/OIMSlotWriter';
+export * from './core/OIMSlotWriterFieldMasked';
 export * from './core/OIMCollection';
 export * from './core/OIMReactiveCollection';
 export * from './core/OIMCollectionIndexFactory';
 export * from './core/OIMDerivedCollection';
+export * from './core/OIMCompositeKeyTupleFactory';
+export * from './dx/ctk';
 export * from './core/OIMDerivedCollectionIndexSetBased';
 export * from './core/OIMDerivedCollectionIndexArrayBased';
 export * from './core/OIMObject';

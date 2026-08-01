@@ -16,7 +16,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
         users.upsertOne({ id: 'u1', name: 'Alice' });
 
         let calls = 0;
-        users.subscribeOnKey('u1', () => calls++);
+        users.emitter.subscribeOnKey('u1', () => calls++);
 
         users.upsertOneByPk('u1', { name: 'Alice 2' });
         queue.flush();
@@ -32,7 +32,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
         users.upsertOne({ id: 'u1', name: 'Alice' });
 
         const seen: (string | undefined)[] = [];
-        users.subscribeOnKey('u1', () => seen.push(users.getOneByPk('u1')?.name));
+        users.emitter.subscribeOnKey('u1', () => seen.push(users.getOneByPk('u1')?.name));
 
         // remove → subscriber notified, entity gone
         users.removeOneByPk('u1');
@@ -43,7 +43,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
         expect(users.getAllPks()).toEqual([]);
         expect(users.countAll()).toBe(0);
         // ...but the subscription is still registered
-        expect(users.getHandlerCount('u1')).toBe(1);
+        expect(users.emitter.getHandlerCount('u1')).toBe(1);
 
         // re-add → same subscription fires with the new entity
         users.upsertOne({ id: 'u1', name: 'Alice reborn' });
@@ -57,7 +57,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
     test('subscribe before the entity exists, then it arrives', () => {
         const { queue, users } = setup();
         let calls = 0;
-        users.subscribeOnKey('ghost', () => calls++);
+        users.emitter.subscribeOnKey('ghost', () => calls++);
         // a reserved slot must not show up as an entity
         expect(users.getAllPks()).toEqual([]);
         expect(users.countAll()).toBe(0);
@@ -78,13 +78,13 @@ describe('slot-based keyed delivery — lifecycle', () => {
             { id: 'u2', name: 'B' },
         ]);
         let u1 = 0;
-        users.subscribeOnKey('u1', () => u1++);
+        users.emitter.subscribeOnKey('u1', () => u1++);
 
         users.clear();
         queue.flush();
         expect(u1).toBe(1); // notified of the clear
         expect(users.getOneByPk('u1')).toBeUndefined();
-        expect(users.getHandlerCount('u1')).toBe(1); // still subscribed
+        expect(users.emitter.getHandlerCount('u1')).toBe(1); // still subscribed
 
         users.upsertOne({ id: 'u1', name: 'A2' });
         queue.flush();
@@ -99,9 +99,9 @@ describe('slot-based keyed delivery — lifecycle', () => {
         users.upsertOne({ id: 'u1', name: 'Alice' });
         let a = 0;
         let b = 0;
-        const unsubA = users.subscribeOnKey('u1', () => a++);
-        users.subscribeOnKey('u1', () => b++);
-        expect(users.getHandlerCount('u1')).toBe(2);
+        const unsubA = users.emitter.subscribeOnKey('u1', () => a++);
+        users.emitter.subscribeOnKey('u1', () => b++);
+        expect(users.emitter.getHandlerCount('u1')).toBe(2);
 
         users.upsertOneByPk('u1', { name: 'x' });
         queue.flush();
@@ -110,7 +110,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
 
         // unsubscribing one stops only that one
         unsubA();
-        expect(users.getHandlerCount('u1')).toBe(1);
+        expect(users.emitter.getHandlerCount('u1')).toBe(1);
         users.upsertOneByPk('u1', { name: 'y' });
         queue.flush();
         expect(a).toBe(1);
@@ -124,12 +124,12 @@ describe('slot-based keyed delivery — lifecycle', () => {
         const { queue, users } = setup();
         users.upsertOne({ id: 'u1', name: 'Alice' });
         let calls = 0;
-        const unsub = users.subscribeOnKey('u1', () => calls++);
-        expect(users.hasSubscriptions()).toBe(true);
+        const unsub = users.emitter.subscribeOnKey('u1', () => calls++);
+        expect(users.emitter.hasSubscriptions()).toBe(true);
 
         unsub();
-        expect(users.getHandlerCount('u1')).toBe(0);
-        expect(users.hasSubscriptions()).toBe(false);
+        expect(users.emitter.getHandlerCount('u1')).toBe(0);
+        expect(users.emitter.hasSubscriptions()).toBe(false);
 
         users.upsertOneByPk('u1', { name: 'x' });
         queue.flush();
@@ -146,7 +146,7 @@ describe('slot-based keyed delivery — lifecycle', () => {
             { id: 'u2', name: 'B' },
         ]);
         let u1 = 0;
-        users.subscribeOnKey('u1', () => u1++);
+        users.emitter.subscribeOnKey('u1', () => u1++);
 
         users.upsertOneByPk('u2', { name: 'B2' });
         queue.flush();

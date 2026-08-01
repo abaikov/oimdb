@@ -33,7 +33,7 @@ export class OIMDerivedCollectionGlobalIndexSetBased<
         super(queue, { collection, indexOptions: opts.indexOptions });
         this.collection = collection;
         this.filter = opts.filter;
-        this.unsubscribeFromCollection = collection.emitter.on(
+        this.unsubscribeFromCollection = collection.batchEmitter.on(
             EOIMCollectionEventType.UPDATE,
             payload => this.onCollectionUpdate(payload.pks)
         );

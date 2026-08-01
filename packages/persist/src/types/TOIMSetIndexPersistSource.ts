@@ -12,5 +12,5 @@ export type TOIMSetIndexPersistSource<
     getPksByKey(key: TKey): ReadonlySet<TPk>;
     clear(key?: TKey): void;
     setSlots(key: TKey, slots: Iterable<TOIMAnyEntitySlot<NoInfer<TPk>>>): void;
-    emitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
+    batchEmitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
 };

@@ -49,7 +49,7 @@ export class OIMDerivedCollectionGlobalIndexArrayBased<
         this.compareEntities = opts.compareEntities;
         this.orderBy = opts.orderBy;
         this.filter = opts.filter;
-        this.unsubscribeFromCollection = collection.emitter.on(
+        this.unsubscribeFromCollection = collection.batchEmitter.on(
             EOIMCollectionEventType.UPDATE,
             payload => this.onCollectionUpdate(payload.pks)
         );
@@ -94,7 +94,7 @@ export class OIMDerivedCollectionGlobalIndexArrayBased<
     private readonly onCollectionUpdate = (pks: readonly TPk[]): void => {
         // `pks` always enumerates exactly the changed keys (clear() lists every
         // removed key), so removals flow through the normal per-key path below.
-        const ordered = !!(this.compareEntities || this.orderBy);
+        const ordered = Boolean(this.compareEntities || this.orderBy);
         let needsSort = false;
 
         for (const pk of pks) {

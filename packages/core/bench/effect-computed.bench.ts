@@ -62,8 +62,8 @@ function setupComputedChain(
             compute: () => prevComputed.get() + i,
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: prevComputed.batchEmitter,
                     emitter: prevComputed.emitter,
-                    updateEventEmitter: prevComputed.updateEventEmitter,
                 }),
             ],
         });
@@ -88,8 +88,8 @@ function setupComputedDiamond(
         compute: () => A.get() + (obj.get('b') ?? 0),
         deps: [
             new OIMEffectDependencyComputed({
+                batchEmitter: A.batchEmitter,
                 emitter: A.emitter,
-                updateEventEmitter: A.updateEventEmitter,
             }),
             new OIMEffectDependencyKeyedObject(obj, 'b'),
         ],
@@ -99,8 +99,8 @@ function setupComputedDiamond(
         compute: () => B.get() * 3,
         deps: [
             new OIMEffectDependencyComputed({
+                batchEmitter: B.batchEmitter,
                 emitter: B.emitter,
-                updateEventEmitter: B.updateEventEmitter,
             }),
         ],
     });
@@ -109,12 +109,12 @@ function setupComputedDiamond(
         compute: () => A.get() + C.get(),
         deps: [
             new OIMEffectDependencyComputed({
+                batchEmitter: A.batchEmitter,
                 emitter: A.emitter,
-                updateEventEmitter: A.updateEventEmitter,
             }),
             new OIMEffectDependencyComputed({
+                batchEmitter: C.batchEmitter,
                 emitter: C.emitter,
-                updateEventEmitter: C.updateEventEmitter,
             }),
         ],
     });
@@ -124,7 +124,7 @@ function setupComputedDiamond(
 
 export async function runEffectComputedBenchmarks(): Promise<void> {
     console.log('📊 EFFECTS/COMPUTED BENCHMARKS\n');
-    console.log('='.repeat(50) + '\n');
+    console.log(`${'='.repeat(50)}\n`);
 
     // 1) Computed recompute throughput (single computed)
     {
@@ -170,7 +170,7 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         });
 
         let calls = 0;
-        computed.updateEventEmitter.subscribeOnKey('value', () => {
+        computed.emitter.subscribeOnKey('value', () => {
             calls++;
         });
 
@@ -210,8 +210,8 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: leaf.batchEmitter,
                     emitter: leaf.emitter,
-                    updateEventEmitter: leaf.updateEventEmitter,
                 }),
             ],
             run: () => {
@@ -254,8 +254,8 @@ export async function runEffectComputedBenchmarks(): Promise<void> {
         const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: D.batchEmitter,
                     emitter: D.emitter,
-                    updateEventEmitter: D.updateEventEmitter,
                 }),
             ],
             run: () => {

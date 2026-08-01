@@ -1,4 +1,4 @@
-import { OIMUpdateEventEmitter } from '../src/core/OIMUpdateEventEmitter';
+import { OIMUpdateEventEmitterQueued } from '../src/core/OIMUpdateEventEmitterQueued';
 import { OIMEventQueue } from '../src/core/OIMEventQueue';
 
 interface TOIMSubscriptionDispatchBenchResult {
@@ -28,7 +28,7 @@ interface TOIMSubscriptionDispatchScenario {
 
 class OIMSubscriptionDispatchBenchmark {
     private readonly queue = new OIMEventQueue();
-    private readonly emitter = new OIMUpdateEventEmitter<string>(this.queue);
+    private readonly emitter = new OIMUpdateEventEmitterQueued<string>(this.queue);
 
     private readonly keys: string[] = [];
     private readonly handlers: Array<() => void> = [];
@@ -42,6 +42,7 @@ class OIMSubscriptionDispatchBenchmark {
         for (let i = 0; i < keysCount; i++) this.keys.push(`k${i}`);
 
         this.handlers.length = 0;
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the benchmark times dispatch itself; any body would be charged to the emitter.
         for (let i = 0; i < handlersPerKey; i++) this.handlers.push(() => {});
 
         const hotKey = opts?.hotKey;
@@ -75,6 +76,7 @@ class OIMSubscriptionDispatchBenchmark {
         keysCount: number
     ): TOIMSubscriptionDispatchBenchResult {
         const bench = new OIMSubscriptionDispatchBenchmark();
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the benchmark times dispatch itself; any body would be charged to the emitter.
         const handler = () => {};
         const keys = Array.from({ length: keysCount }, (_, i) => `k${i}`);
 
@@ -97,6 +99,7 @@ class OIMSubscriptionDispatchBenchmark {
         keysCount: number
     ): TOIMSubscriptionDispatchBenchResult {
         const bench = new OIMSubscriptionDispatchBenchmark();
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the benchmark times dispatch itself; any body would be charged to the emitter.
         const handler = () => {};
         const keys = Array.from({ length: keysCount }, (_, i) => `k${i}`);
 
@@ -117,6 +120,7 @@ class OIMSubscriptionDispatchBenchmark {
         keysCount: number
     ): TOIMSubscriptionDispatchBenchResult {
         const bench = new OIMSubscriptionDispatchBenchmark();
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the benchmark times dispatch itself; any body would be charged to the emitter.
         const handler = () => {};
         const unsubscribes: Array<() => void> = [];
 
@@ -227,7 +231,7 @@ const DISPATCH_SCENARIOS: TOIMSubscriptionDispatchScenario[] = [
 
 export async function runSubscriptionDispatchBenchmarks(): Promise<void> {
     console.log('📊 SUBSCRIPTION/DISPATCH BENCHMARKS\n');
-    console.log('='.repeat(50) + '\n');
+    console.log(`${'='.repeat(50)}\n`);
 
     const bench = new OIMSubscriptionDispatchBenchmark();
 

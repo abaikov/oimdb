@@ -140,7 +140,7 @@ describe('compute graph: exactly one recompute per node', () => {
         ]).toEqual([0, 1, 2, 3, 4]);
 
         const emitted: number[] = [];
-        E.emitter.on(EOIMComputedEventType.UPDATE, () =>
+        E.batchEmitter.on(EOIMComputedEventType.UPDATE, () =>
             emitted.push(E.get())
         );
 

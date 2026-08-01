@@ -17,14 +17,25 @@ export interface IOIMIndexStore<TKey, TBucket> {
     clear(): void;
 }
 
+/**
+ * Keyed base index over buckets of entity slots.
+ *
+ * `TPks` / `TSlots` name the two READ shapes a concrete index hands back — a
+ * `Set` for the unordered flavour, an array for the ordered one. They are
+ * declared here, on the four abstract accessors below, so the reactive wrapper
+ * can delegate ONCE against the shape instead of every Set/Array pair
+ * re-declaring the same four methods just to narrow their return types.
+ */
 export abstract class OIMIndex<
     TKey extends TOIMKey,
     TPk extends TOIMKey,
     TBucket extends Iterable<TOIMAnyEntitySlot<TPk>>,
+    TPks = unknown,
+    TSlots = unknown,
 > {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
     protected readonly store: IOIMIndexStore<TKey, TBucket>;
-    public readonly emitter = new OIMEventEmitter<{
+    public readonly batchEmitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: TOIMIndexUpdatePayload<TKey>;
     }>();
 
@@ -37,6 +48,13 @@ export abstract class OIMIndex<
     }
 
     protected abstract getBucketSize(bucket: TBucket): number;
+
+    /** The pks under a key, in this index's own read shape. */
+    public abstract getPksByKey(key: TKey): TPks;
+    public abstract getPksByKeys(keys: readonly TKey[]): Map<TKey, TPks>;
+    /** The slots under a key, in this index's own read shape. */
+    public abstract getSlotsByKey(key: TKey): TSlots;
+    public abstract getSlotsByKeys(keys: readonly TKey[]): Map<TKey, TSlots>;
 
     public hasKey(key: TKey): boolean {
         return this.store.getOneByKey(key) !== undefined;
@@ -100,12 +118,12 @@ export abstract class OIMIndex<
     }
 
     public destroy(): void {
-        this.emitter.offAll();
+        this.batchEmitter.offAll();
         this.store.clear();
     }
 
     protected emitUpdate(keys: TKey[]): void {
-        this.emitter.emit(EOIMIndexEventType.UPDATE, { keys });
+        this.batchEmitter.emit(EOIMIndexEventType.UPDATE, { keys });
     }
 
     protected emitUpdateOne(key: TKey): void {

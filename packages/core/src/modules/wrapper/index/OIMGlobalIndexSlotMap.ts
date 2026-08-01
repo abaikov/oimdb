@@ -1,7 +1,7 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
-import { TOIMEventHandler } from '../../../types/TOIMEventHandler';
 import { IOIMGlobalIndexSlotSource } from '../../../interfaces/IOIMGlobalIndexSlotSource';
+import { IOIMSubscription } from '../../../interfaces/IOIMSubscription';
 
 /**
  * Stable slot→object memo over a keyless (whole-collection) set/array index —
@@ -18,11 +18,24 @@ import { IOIMGlobalIndexSlotSource } from '../../../interfaces/IOIMGlobalIndexSl
  * explicit cleanup, drive an ordered command stream (whose `remove` / `set` /
  * `reset` commands are the exact removal signal) instead.
  *
- * Thin wrapper: no queue, no standing subscription of its own — `subscribe` is a
- * passthrough to the index.
+ * Thin wrapper: no queue, no standing subscription of its own. Subscribe through
+ * `slotMap.emitter`, which IS the index's emitter — the wrapper adds
+ * mapping, not a second subscription surface.
+ *
+ * ## Do NOT map a slot to its entity
+ *
+ * `createOIMGlobalIndexSlotMap(index, slot => slot.item)` reads correctly once
+ * and is stale forever after: the cache is keyed by slot identity, and a slot
+ * survives entity updates on purpose (`slot.item = entity`, same slot object).
+ * Use `index.getEntities()` for entities — a field read, no cache needed — and
+ * `OIMComputed` / selectors for values derived from entity data, which key on
+ * the entity and invalidate on write. See {@link OIMIndexSlotMap} for the full
+ * explanation.
  */
 export class OIMGlobalIndexSlotMap<TPk extends TOIMKey, TMapped> {
     private readonly index: IOIMGlobalIndexSlotSource<TPk>;
+    /** The index's own emitter — not a copy, not a wrapper. */
+    public readonly emitter: IOIMSubscription;
     private readonly create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped;
     private readonly cache = new WeakMap<
         TOIMAnyEntitySlot<TPk>,
@@ -34,6 +47,7 @@ export class OIMGlobalIndexSlotMap<TPk extends TOIMKey, TMapped> {
         create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped
     ) {
         this.index = index;
+        this.emitter = index.emitter;
         this.create = create;
     }
 
@@ -73,8 +87,4 @@ export class OIMGlobalIndexSlotMap<TPk extends TOIMKey, TMapped> {
         );
     }
 
-    /** Subscribe to the index's changes — passthrough to the index. */
-    public subscribe(handler: TOIMEventHandler<void>): () => void {
-        return this.index.subscribe(handler);
-    }
 }

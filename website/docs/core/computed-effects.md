@@ -21,6 +21,16 @@ const runtime = new OIMComputeRuntime(queue);
 
 Effects and computeds run on `AFTER_FLUSH` — after the queue has delivered all subscription notifications for that tick. This means by the time `run()` or `compute()` executes, all collection/index state is already settled.
 
+:::caution An effect reads; a computed derives
+The effect phase is part of the frame, and the frame is closed to writes: `upsert…` / `setPks` / `setProperty` from inside `run()` throws `updates during queue.flush() are not allowed`.
+
+If an effect needs to write, the value it is writing is almost always a *derivation*, and `OIMComputed` is the tool for it — it is ordered topologically, resolves in the same frame, and notifies only when the value actually changed. An effect that stores a derived value in a collection instead gets none of that: the value lands a frame late, and if the effect writes to its own dependency it reschedules itself every frame forever.
+
+Reserve effects for leaving the graph — network calls, logging, imperative DOM work. If the write is genuinely new input rather than a derivation, do it after `flush()` returns.
+
+A computed publishing its own value is not a store write and is unaffected.
+:::
+
 ## OIMEffect
 
 Subscribes to dependencies and calls `run()` when any of them change. Multiple invalidations within the same flush coalesce into a single run.

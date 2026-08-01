@@ -60,7 +60,7 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
                 return size + add;
             },
             deps: [
-                new OIMEffectDependencyKeyedIndex(index, 'bucket'),
+                new OIMEffectDependencyKeyedIndex(index.emitter, 'bucket'),
                 new OIMEffectDependencyKeyedObject(obj, 'add'),
             ],
         });
@@ -70,18 +70,18 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
             compute: () => C1.get() + C2.get(),
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: C1.batchEmitter,
                     emitter: C1.emitter,
-                    updateEventEmitter: C1.updateEventEmitter,
                 }),
                 new OIMEffectDependencyComputed({
+                    batchEmitter: C2.batchEmitter,
                     emitter: C2.emitter,
-                    updateEventEmitter: C2.updateEventEmitter,
                 }),
             ],
         });
 
         const uiCalls: number[] = [];
-        C3.updateEventEmitter.subscribeOnKey('value', () => {
+        C3.emitter.subscribeOnKey('value', () => {
             // UI reads only the final computed.
             uiCalls.push(C3.get());
         });
@@ -139,8 +139,8 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
             const effect = new OIMEffect(runtime, {
                 deps: [
                     new OIMEffectDependencyComputed({
+                        batchEmitter: computed.batchEmitter,
                         emitter: computed.emitter,
-                        updateEventEmitter: computed.updateEventEmitter,
                     }),
                 ],
                 run: () => {
@@ -157,8 +157,8 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
         }
 
         // After all destroys, the reactive object should have no remaining subscriptions.
-        expect(obj.hasSubscriptions()).toBe(false);
-        expect(obj.getHandlerCount('a')).toBe(0);
+        expect(obj.emitter.hasSubscriptions()).toBe(false);
+        expect(obj.emitter.getHandlerCount('a')).toBe(0);
 
         obj.destroy();
         queue.destroy();
@@ -196,13 +196,13 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
             deps: [
                 new OIMEffectDependencyKeyedCollection(collection, 1),
                 new OIMEffectDependencyKeyedObject(obj, 'add'),
-                new OIMEffectDependencyKeyedIndex(index, 'bucket'),
+                new OIMEffectDependencyKeyedIndex(index.emitter, 'bucket'),
             ],
         });
 
         let uiCalls = 0;
         let subscribed = true;
-        let unsubscribeUi = C.updateEventEmitter.subscribeOnKey('value', () => {
+        let unsubscribeUi = C.emitter.subscribeOnKey('value', () => {
             uiCalls++;
             // If UI is subscribed, C should be consistent when delivered.
             expect(C.get()).toBe(
@@ -242,7 +242,7 @@ describe('Stress / production-ish reactive behavior (no infinite loop tests)', (
                     unsubscribeUi();
                     subscribed = false;
                 } else {
-                    unsubscribeUi = C.updateEventEmitter.subscribeOnKey(
+                    unsubscribeUi = C.emitter.subscribeOnKey(
                         'value',
                         () => {
                             uiCalls++;

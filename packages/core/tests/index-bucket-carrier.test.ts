@@ -28,7 +28,7 @@ describe('bucket-as-carrier subscription semantics', () => {
         const { queue, users, index } = setup();
         let calls = 0;
         // Subscribe to a key with no bucket yet — reserves an empty carrier bucket.
-        index.subscribeOnKey('t1', () => calls++);
+        index.emitter.subscribeOnKey('t1', () => calls++);
 
         index.setPks('t1', ['u1', 'u2']);
         queue.flush();
@@ -43,7 +43,7 @@ describe('bucket-as-carrier subscription semantics', () => {
         const { queue, users, index } = setup();
         index.setPks('t1', ['u1', 'u2']);
         let calls = 0;
-        index.subscribeOnKey('t1', () => calls++);
+        index.emitter.subscribeOnKey('t1', () => calls++);
 
         // Empty the key entirely — the bucket must be retained (subscribed).
         index.removePks('t1', ['u1', 'u2']);
@@ -64,11 +64,12 @@ describe('bucket-as-carrier subscription semantics', () => {
 
     test('unsubscribing the last handler prunes an empty key', () => {
         const { queue, users, index } = setup();
-        const unsub = index.subscribeOnKey('t1', () => {});
-        expect(index.hasSubscriptions()).toBe(true);
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- only the subscription's existence matters here, never its callback.
+        const unsub = index.emitter.subscribeOnKey('t1', () => {});
+        expect(index.emitter.hasSubscriptions()).toBe(true);
         // Key never got data → empty reserved bucket, dropped on last unsub.
         unsub();
-        expect(index.hasSubscriptions()).toBe(false);
+        expect(index.emitter.hasSubscriptions()).toBe(false);
         expect(index.getKeys()).toEqual([]);
 
         index.destroy();
@@ -113,7 +114,7 @@ describe('array-based bucket-as-carrier subscription semantics', () => {
     test('subscription before data fires, and survives the key emptying', () => {
         const { queue, users, index } = setupArray();
         let calls = 0;
-        index.subscribeOnKey('t1', () => calls++);
+        index.emitter.subscribeOnKey('t1', () => calls++);
 
         index.setPks('t1', ['u2', 'u1']); // ordered
         queue.flush();

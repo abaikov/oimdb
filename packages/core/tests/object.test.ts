@@ -9,7 +9,7 @@ describe('OIMObject', () => {
         const obj = new OIMObject<string, number>();
         const updates: string[][] = [];
 
-        obj.emitter.on(EOIMObjectEventType.UPDATE, payload => {
+        obj.batchEmitter.on(EOIMObjectEventType.UPDATE, payload => {
             updates.push([...payload.keys]);
         });
 
@@ -28,7 +28,7 @@ describe('OIMObject', () => {
         const obj = new OIMObject<string, number>();
         const handler = jest.fn();
 
-        obj.emitter.on(EOIMObjectEventType.UPDATE, payload => {
+        obj.batchEmitter.on(EOIMObjectEventType.UPDATE, payload => {
             handler(payload.keys);
         });
 
@@ -49,8 +49,8 @@ describe('OIMReactiveObject', () => {
         const handlerA = jest.fn();
         const handlerB = jest.fn();
 
-        obj.subscribeOnKey('a', handlerA);
-        obj.subscribeOnKey('b', handlerB);
+        obj.emitter.subscribeOnKey('a', handlerA);
+        obj.emitter.subscribeOnKey('b', handlerB);
 
         obj.setProperty('a', 1);
         queue.flush();
@@ -67,7 +67,7 @@ describe('OIMReactiveObject', () => {
         const obj = new OIMReactiveObject<string, number>(queue);
 
         const handler = jest.fn();
-        obj.subscribeOnKey('a', handler);
+        obj.emitter.subscribeOnKey('a', handler);
 
         obj.setProperty('a', 1);
         obj.setProperty('a', 2);
@@ -85,7 +85,7 @@ describe('OIMReactiveObject', () => {
         const obj = new OIMReactiveObject<string, number>(queue);
 
         const handler = jest.fn();
-        obj.subscribeOnKeys(['a', 'b', 'c'], handler);
+        obj.emitter.subscribeOnKeys(['a', 'b', 'c'], handler);
 
         obj.merge({ a: 1, c: 3 });
         queue.flush();
@@ -106,7 +106,7 @@ describe('OIMReactiveObject', () => {
         queue.flush();
 
         const handler = jest.fn();
-        obj.subscribeOnKey('theme', handler);
+        obj.emitter.subscribeOnKey('theme', handler);
 
         // clear() enumerates the removed keys, so the keyed subscriber on
         // 'theme' must be notified — an empty-keys signal would notify nobody.

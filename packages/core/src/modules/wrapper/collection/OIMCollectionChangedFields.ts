@@ -1,7 +1,7 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMEventQueue } from '../../../core/OIMEventQueue';
 import { OIMCollection } from '../../../core/OIMCollection';
-import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
+import { OIMUpdateEventEmitterAfterFlush } from '../../../core/OIMUpdateEventEmitterAfterFlush';
 import { EOIMEventQueueEventType } from '../../../enums/EOIMEventQueueEventType';
 import { EOIMCollectionEventType } from '../../../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../../../types/TOIMCollectionUpdatePayload';
@@ -37,13 +37,13 @@ export class OIMCollectionChangedFields<
      * Emits updates scoped by PK. Subscribe, then read state via `getChangedFieldsByPk(...)`
      * or drain via `consumeChangedFieldsByPk(...)`.
      */
-    public readonly changedPksEventEmitter: OIMUpdateEventEmitter<TPk>;
+    public readonly changedPksEmitter: OIMUpdateEventEmitterAfterFlush<TPk>;
 
     /**
      * Emits updates scoped by field name. Subscribe, then read state via
      * `getChangedPksByField(...)` or drain via `consumeChangedPksByField(...)`.
      */
-    public readonly changedFieldsEventEmitter: OIMUpdateEventEmitter<
+    public readonly changedFieldsEmitter: OIMUpdateEventEmitterAfterFlush<
         TOIMFieldKey<TEntity>
     >;
 
@@ -89,14 +89,13 @@ export class OIMCollectionChangedFields<
                 );
             });
 
-        this.changedPksEventEmitter = new OIMUpdateEventEmitter<TPk>(
-            queue,
-            'after_flush'
+        this.changedPksEmitter = new OIMUpdateEventEmitterAfterFlush<TPk>(
+            queue
         );
 
-        this.changedFieldsEventEmitter = new OIMUpdateEventEmitter<
+        this.changedFieldsEmitter = new OIMUpdateEventEmitterAfterFlush<
             TOIMFieldKey<TEntity>
-        >(queue, 'after_flush');
+        >(queue);
 
         // Flush-scoped buffers: consumers are expected to read within the same queue.flush().
         // We clear buffered diffs at the end of each flush to avoid unbounded growth.
@@ -122,7 +121,7 @@ export class OIMCollectionChangedFields<
                               pks,
                           } as TOIMCollectionUpdatePayload<TPk>);
                       })
-                    : collection.emitter.on(
+                    : collection.batchEmitter.on(
                           EOIMCollectionEventType.UPDATE,
                           this.onCollectionUpdate
                       );
@@ -199,8 +198,8 @@ export class OIMCollectionChangedFields<
     }
 
     public destroy(): void {
-        this.changedPksEventEmitter.destroy();
-        this.changedFieldsEventEmitter.destroy();
+        this.changedPksEmitter.destroy();
+        this.changedFieldsEmitter.destroy();
         this.unsubscribeAfterFlush();
         this.unsubscribeFromCollectionEmitter?.();
         this.clear();
@@ -252,7 +251,7 @@ export class OIMCollectionChangedFields<
             this.trackChangedKeys(pk, changedKeys);
         } else {
             // Still notify by PK so consumers can re-read entity state if needed.
-            this.changedPksEventEmitter.markUpdatedKeys([pk]);
+            this.changedPksEmitter.markUpdatedKeys([pk]);
         }
     }
 
@@ -315,8 +314,8 @@ export class OIMCollectionChangedFields<
             fieldPks.add(pk);
         }
 
-        this.changedPksEventEmitter.markUpdatedKeys([pk]);
-        this.changedFieldsEventEmitter.markUpdatedKeys(keys);
+        this.changedPksEmitter.markUpdatedKeys([pk]);
+        this.changedFieldsEmitter.markUpdatedKeys(keys);
     }
 
     private trackPatch(pk: TPk, patch: Partial<TEntity>): void {

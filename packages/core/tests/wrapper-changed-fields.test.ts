@@ -18,10 +18,10 @@ describe('OIMCollectionChangedFields', () => {
         const fieldEvents: string[] = [];
         let fieldsSnapshot: string[] = [];
         let pksForASnapshot: string[] = [];
-        wrapper.changedPksEventEmitter.subscribeOnKey('u1', () =>
+        wrapper.changedPksEmitter.subscribeOnKey('u1', () =>
             pkEvents.push('u1')
         );
-        wrapper.changedFieldsEventEmitter.subscribeOnKey('a', () => {
+        wrapper.changedFieldsEmitter.subscribeOnKey('a', () => {
             fieldEvents.push('a');
             fieldsSnapshot = Array.from(
                 wrapper.getChangedFieldsByPk('u1')
@@ -54,7 +54,7 @@ describe('OIMCollectionChangedFields', () => {
         );
 
         const snapshots: string[][] = [];
-        wrapper.changedPksEventEmitter.subscribeOnKey('u1', () => {
+        wrapper.changedPksEmitter.subscribeOnKey('u1', () => {
             const fieldsSnapshot = Array.from(
                 wrapper.getChangedFieldsByPk('u1')
             ).sort();
@@ -84,7 +84,7 @@ describe('OIMCollectionChangedFields', () => {
         );
 
         const seen: string[][] = [];
-        wrapper.changedPksEventEmitter.subscribeOnKey('u1', () => {
+        wrapper.changedPksEmitter.subscribeOnKey('u1', () => {
             seen.push(Array.from(wrapper.getChangedFieldsByPk('u1')).sort());
         });
 

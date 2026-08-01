@@ -49,6 +49,7 @@ describe('React SSR hydration of dehydrated persist state', () => {
 
         const errorSpy = jest
             .spyOn(console, 'error')
+            // eslint-disable-next-line @typescript-eslint/no-empty-function -- keeps the expected hydration warning out of the test output.
             .mockImplementation(() => {});
 
         await act(async () => {
@@ -130,6 +131,7 @@ describe('React SSR hydration of dehydrated persist state', () => {
 
         const errorSpy = jest
             .spyOn(console, 'error')
+            // eslint-disable-next-line @typescript-eslint/no-empty-function -- keeps the expected hydration warning out of the test output.
             .mockImplementation(() => {});
 
         await act(async () => {

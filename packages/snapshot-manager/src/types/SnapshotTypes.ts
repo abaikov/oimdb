@@ -14,7 +14,7 @@ export type TOIMSnapshotCollection<
     TEntity extends object,
     TPk extends TOIMKey,
 > = {
-    emitter: {
+    batchEmitter: {
         on(
             event: EOIMCollectionEventType.UPDATE,
             handler: TOIMEventHandler<TOIMCollectionUpdatePayload<TPk>>

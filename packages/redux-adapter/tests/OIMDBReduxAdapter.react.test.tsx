@@ -1,3 +1,6 @@
+/**
+ * @jest-environment jsdom
+ */
 import * as React from 'react';
 import { useEffect } from 'react';
 import { render, act } from '@testing-library/react';

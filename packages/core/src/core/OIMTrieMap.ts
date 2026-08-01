@@ -60,7 +60,7 @@ export class OIMTrieMap<TSegment, TValue> {
 
     public has(path: readonly TSegment[]): boolean {
         const node = this.findNode(path);
-        return !!node && node.hasValue;
+        return node !== undefined && node.hasValue;
     }
 
     public delete(path: readonly TSegment[]): boolean {

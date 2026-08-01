@@ -552,18 +552,18 @@ export async function runStressBenchmark(): Promise<void> {
 // Main benchmark runner
 export async function runAllBenchmarks(): Promise<void> {
     console.log('🎯 OIM Database Performance Benchmarks\n');
-    console.log('='.repeat(50) + '\n');
+    console.log(`${'='.repeat(50)}\n`);
 
     try {
         console.log('📊 COLLECTION BENCHMARKS\n');
         await runBenchmarkSuite();
-        console.log('='.repeat(50) + '\n');
+        console.log(`${'='.repeat(50)}\n`);
 
         await runMemoryLeakTest();
-        console.log('='.repeat(50) + '\n');
+        console.log(`${'='.repeat(50)}\n`);
 
         await runStressBenchmark();
-        console.log('='.repeat(50) + '\n');
+        console.log(`${'='.repeat(50)}\n`);
 
         console.log('🎉 All benchmarks completed successfully!');
     } catch (error) {

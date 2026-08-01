@@ -3,6 +3,7 @@
 // `llms.txt` (overview + concepts + per-package summaries) followed by every package's own detailed
 // `llms.txt`. Regenerate after touching any llms.txt: `node scripts/build-llms-full.mjs`.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -10,14 +11,43 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 const read = p => readFileSync(join(root, p), 'utf8').trimEnd();
 
-// Master reference first.
-const parts = [read('llms.txt')];
+const master = read('llms.txt');
 
-// Then each package's detailed reference. Core leads; the rest follow alphabetically so the output
-// is deterministic and new packages are picked up automatically.
+// Master reference first.
+const parts = [master];
+
+// Then each package's OWN reference. Core leads; the rest follow alphabetically so the output is
+// deterministic and new packages are picked up automatically.
+//
+// Packages that ship the master reference rather than writing their own get their `llms.txt` from
+// `prepack` (`copyFileSync('../../llms.txt', …)`). Concatenating those repeats the master once per
+// package — which is what used to happen: 71% of the generated output was the same 47 KB, four
+// times over.
+//
+// The test is "is this file tracked by git": a package's OWN reference is committed, a prepack copy
+// is gitignored. Comparing content against the master instead looks equivalent but is not — the
+// moment the root file is edited, yesterday's copies stop matching and silently come back.
+const isTracked = path => {
+    try {
+        execFileSync('git', ['ls-files', '--error-unmatch', path], {
+            cwd: root,
+            stdio: 'ignore',
+        });
+        return true;
+    } catch {
+        return false;
+    }
+};
+
 const pkgDir = join(root, 'packages');
+const skipped = [];
 const withLlms = readdirSync(pkgDir)
     .filter(name => existsSync(join(pkgDir, name, 'llms.txt')))
+    .filter(name => {
+        if (isTracked(`packages/${name}/llms.txt`)) return true;
+        skipped.push(name);
+        return false;
+    })
     .sort((a, b) => (a === 'core' ? -1 : b === 'core' ? 1 : a.localeCompare(b)));
 
 for (const name of withLlms) {
@@ -38,5 +68,8 @@ const header = [
 
 writeFileSync(join(root, 'llms-full.txt'), `${header}${parts.join('\n')}\n`);
 console.log(
-    `llms-full.txt written: master + ${withLlms.length} package refs (${withLlms.join(', ')}).`
+    `llms-full.txt written: master + ${withLlms.length} package refs (${withLlms.join(', ') || 'none'}).` +
+        (skipped.length
+            ? ` Skipped ${skipped.length} untracked prepack ${skipped.length === 1 ? 'copy' : 'copies'}: ${skipped.join(', ')}.`
+            : '')
 );

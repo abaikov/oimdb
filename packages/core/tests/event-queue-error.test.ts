@@ -42,6 +42,7 @@ describe('OIMEventQueue flush error handling', () => {
     });
 
     test('one throwing task does not starve the others (isolation)', () => {
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the test asserts the queue keeps draining; swallowing the error is the point.
         const queue = new OIMEventQueue({ onError: () => {} });
         const ran: string[] = [];
         queue.enqueue(() => ran.push('a'));
@@ -55,6 +56,7 @@ describe('OIMEventQueue flush error handling', () => {
 
     test('FLUSH_ERROR is emitted for tooling, regardless of onError', () => {
         const errors: TOIMFlushError[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the test asserts the queue keeps draining; swallowing the error is the point.
         const queue = new OIMEventQueue({ onError: () => {} });
         queue.emitter.on(EOIMEventQueueEventType.FLUSH_ERROR, p =>
             errors.push(p)

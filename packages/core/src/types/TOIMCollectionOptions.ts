@@ -2,6 +2,7 @@ import { TOIMKey } from './TOIMKey';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 import { TOIMPkSelector } from './TOIMPkSelector';
 import { TOIMEntityUpdater } from './TOIMEntityUpdater';
+import { OIMSlotWriter } from '../core/OIMSlotWriter';
 
 export type TOIMCollectionOptions<
     TEntity extends object,
@@ -15,4 +16,11 @@ export type TOIMCollectionOptions<
      */
     store?: OIMCollectionStore<TEntity, TPk>;
     updateEntity?: TOIMEntityUpdater<TEntity>;
+    /**
+     * How a write lands on a slot, and whether it is worth publishing. Omit for
+     * the plain writer (merge, always publish). Supply
+     * `OIMSlotWriterFieldMasked` to suppress writes that change nothing and to
+     * record which fields did change — see that class for the trade.
+     */
+    slotWriter?: OIMSlotWriter<TEntity, TPk>;
 };

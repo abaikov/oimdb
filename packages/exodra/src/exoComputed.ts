@@ -4,7 +4,7 @@ import { exoSource } from './exoSource';
 
 /**
  * An `OIMComputed` as an Exodra bindable. A computed is a single scalar cell (its key is always
- * `'value'`) whose `updateEventEmitter` delivers immediately, so a change reaches Exodra
+ * `'value'`) whose `emitter` delivers immediately, so a change reaches Exodra
  * synchronously.
  *
  * No equality options: `OIMComputed` only emits when its own `compare` (passed at construction,
@@ -19,6 +19,6 @@ import { exoSource } from './exoSource';
 export function exoComputed<T>(computed: OIMComputed<T>): TExoBindable<T> {
     return exoSource(
         () => computed.get(),
-        onChange => computed.updateEventEmitter.subscribeOnKey('value', onChange)
+        onChange => computed.emitter.subscribeOnKey('value', onChange)
     );
 }

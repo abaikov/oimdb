@@ -3,6 +3,7 @@
 > **For AI assistants:** You are reading the OIMDB API reference. Read this file fully before writing any OIMDB code — the API has specific patterns that are easy to get wrong without context.
 > After reading, look for `debug.ts` or `*.debug.ts` files in the project — they describe the specific data model (collections, indexes, relations, computeds) of the app you are working on.
 > If `@oimdb/mcp` is in the project's MCP config, call `oimdb_inspect` for live runtime state from the browser.
+> Need every package in one file? `llms-full.txt` sits next to this one (same directory here and inside the published package) and contains this reference plus each package's own — https://github.com/abaikov/oimdb/blob/master/llms-full.txt
 
 OIMDB is a TypeScript in-memory reactive database. It stores entities in typed collections, maintains indexes, and propagates changes through a reactive graph (computed values, effects, selectors) controlled by an explicit event queue. All change delivery is batched: subscriptions fire on `queue.flush()`, never mid-mutation.
 
@@ -14,7 +15,6 @@ OIMDB is a TypeScript in-memory reactive database. It stores entities in typed c
 | `@oimdb/persist` | Storage-agnostic persist/hydrate engine (source adapters, resources, versioned codec). Backends ship separately: `@oimdb/persist-memory`, `-localstorage`, `-idb`, `-async-kv`, `-json` |
 | `@oimdb/react` | React hooks for collections and selectors |
 | `@oimdb/exodra` | [Exodra](https://exodra.org) adapter: OIMDB selectors/computeds → read-only `TExoBindable` (no React) |
-| `@oimdb/async` | Async-aware reactive collection and index variants |
 | `@oimdb/devtools` | Debug registry: name collections/indexes/computeds, inspect runtime state |
 | `@oimdb/snapshot-manager` | Snapshot/restore collection state |
 | `@oimdb/redux-adapter` | Bridge OIMDB collections into a Redux store |
@@ -41,6 +41,21 @@ const queue = new OIMEventQueue({
 
 **Errors during flush.** If a task (subscriber / effect / computed) throws while the queue is flushing, the other tasks in that flush still run (each is isolated) and the queue's internal state is always restored — one bad task never wedges the queue. By default the error is then **raised, not swallowed**: it propagates out of `flush()` (thrown to the caller of a manual flush, or uncaught in async/scheduled mode). Pass `onError` to handle it instead (then it is NOT re-raised). Regardless of `onError`, a `EOIMEventQueueEventType.FLUSH_ERROR` event (payload `TOIMFlushError = { error }`) is emitted per failing task — the channel `@oimdb/devtools` `trackFlushErrors` / MCP use to surface failed flushes.
 
+**The frame is closed to writes.** A *frame* is one indivisible reporting cycle: `queue.flush()` drains its tasks, then effects and computeds run. Writing to any store inside it throws `updates during queue.flush() are not allowed` — from a subscription callback during the drain and from an effect's `run()` alike.
+
+This is a statement about meaning, not a scheduling limit. A store write means NEW INPUT (server response, user action, timer). A value computed from what the store already holds is a DERIVATION and belongs in `OIMComputed`, which is ordered topologically and resolves in the same frame. **Writing during a frame is the signal that a collection is being used where a computed was the right tool** — that code is wrong whether or not the engine tolerates it, and tolerating it is worse: the derived value lands a frame late, loses its ordering guarantee, and an effect writing to its own dependency reschedules itself forever. Effects READ; they leave the graph (network, logging, DOM). Genuine new input goes after `flush()` returns.
+
+Because nothing mutates during a frame, the frame can also REPORT what changed: each carrier (entity slot, index bucket) keeps its change record for the whole frame, so a subscriber can ask which fields/keys moved, and the record is cleared when the frame ends — frame-scoped by design, not an accumulating log.
+
+That is also why **notifications carry no payload** (a keyed handler is `() => void`): nothing is allocated per delivery, per subscriber or per changed key — no diff object, no key array. The write marks its carrier; interested subscribers read the carrier during the frame. A computed publishing its own value is not a store write and is unaffected.
+
+**Update emitters — three delivery modes, three classes.** Keyed pub/sub is split by WHEN it delivers; pick by what the consumer is:
+- `OIMUpdateEventEmitterQueued` — delivers in the next `flush()`. The default: a reaction to changed data, coalesced per frame. The mid-frame write guard above lives here and only here, because only here is "mid-frame" a contradiction.
+- `OIMUpdateEventEmitterAfterFlush` — delivers once the frame is over. For consumers that ACCUMULATE a description of the frame (ordered-list command streams, changed-field tracking) and can only publish it complete.
+- `OIMUpdateEventEmitterImmediate` — delivers synchronously, in the marking call. For advancing a graph (`OIMComputed`), where queueing would stretch a three-link chain across three frames. Not subject to the frame guard.
+
+`OIMUpdateEventEmitter` itself is abstract — it owns who is subscribed and which keys changed; the subclass owns when. There is no `deliveryMode` argument: timing is fixed at construction, so it is a type, not a runtime branch.
+
 ### Collections
 
 `OIMCollection` — base CRUD store. `OIMReactiveCollection` — same + emits events on flush.
@@ -66,6 +81,43 @@ users.getAll();            // → TEntity[]
 users.getAllPks();          // → TPk[]
 ```
 
+### Field-level change tracking (opt-in)
+
+By default a collection tracks change per ENTITY: any write to `u1` wakes every subscriber of `u1`. Opt into per-FIELD tracking by swapping the slot writer:
+
+```ts
+import { OIMReactiveCollection, OIMSlotWriterFieldMasked, createMergeEntityUpdater } from '@oimdb/core';
+
+const users = new OIMReactiveCollection<User, string>(queue, {
+    selectPk: (u) => u.id,
+    slotWriter: new OIMSlotWriterFieldMasked<User, string>(queue, createMergeEntityUpdater<User>()),
+});
+```
+
+What it buys:
+- **A write that changes nothing is not published** — patch values compared against current, no wake, no index work.
+- **Changed-and-changed-back within one frame ends clear** — comparison is against the entity as it stood at the frame's FIRST write, not the previous write. (The entity subscriber still wakes for that frame; the field's bit is clear.)
+- **Derived indexes can declare `deps`** — `indexFactory.derivedSetIndex(u => u.teamId, { deps: ['teamId'] })`. A write touching none of the declared fields skips the key selector, the membership diff and the bucket notification entirely. Without `deps` the index behaves exactly as before. `deps` on a collection WITHOUT field tracking throws at construction (a declaration that cannot be honoured is a bug, not a no-op).
+- **The mask is readable during the frame** — `collection.fields!.maskOf(['name'])` builds a mask, `slot.dirtyFields` holds what changed:
+
+```ts
+const nameMask = users.fields!.maskOf(['name', 'avatarUrl']);
+const slot = users.getSlotByPk('u1')!;
+users.subscribeOnKey('u1', () => {
+    if (((slot.dirtyFields ?? -1) & nameMask) === 0) return;   // nothing this view renders
+    rerender();
+});
+```
+
+`slot.dirtyFields` is valid ONLY while `slot.dirty` — i.e. inside the notification. It is not cleared at frame end, it goes stale: the flag drops and the mask is overwritten by the next frame's first write, so a later read returns the previous frame's mask and looks valid.
+
+Cost & constraints:
+- Per write: one comparison per patched field. Per dirty slot per frame: one int mask + one reference to the frame's base entity. Nothing allocated per notification.
+- **A merging updater is REQUIRED.** The base entity is held by reference, never copied, so an in-place updater makes the base equal the new value and every field compares as unchanged — silence, not slowness. `OIMSlotWriterFieldMasked` throws at construction if given one. In-place updaters remain fully supported on the default writer.
+- **32 fields max.** The 33rd distinct field saturates the registry: it reports "all changed" and the collection degrades to entity granularity (correct, just coarse). `registry.isSaturated` reports it.
+
+Use it where writes are frequent and narrow relative to what subscribers read (heartbeats, presence, partial payloads, wide entities with a list sorted on one field). The plain writer is strictly cheaper where every write already matters to everyone.
+
 ### Indexes
 
 Indexes map keys to sets or arrays of PKs. Two storage shapes:
@@ -86,7 +138,7 @@ byRole.subscribeOnKey('admin', () => {
 queue.flush(); // delivers subscription
 ```
 
-**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) and the `@oimdb/async` nodes (via `OIMUpdateEventEmitterAsync`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription — and releases the coalescing exactly like the returned unsubscribe closure does.
+**`subscribeOnKeys(keys, handler)` delivery is coalesced per flush:** the handler fires at most ONCE per flush no matter how many of the subscribed keys changed in it (the callback gets no key, so per-key fan-out would be pure waste). This holds across all reactive primitives — sync (collection / index / object, via `OIMCarrierKeyedEmitter`) alike. `subscribeOnKey` (single key) is unchanged. Handler identity is preserved, so `unsubscribeFromKeys(keys, handler)` still removes a `subscribeOnKeys` subscription — and releases the coalescing exactly like the returned unsubscribe closure does.
 
 **Coalescing is scoped to the subscription, not to the handler.** It applies only to handlers registered through a multi-key `subscribeOnKeys`. If the same function holds several *independent* `subscribeOnKey` subscriptions, it still gets one delivery per changed key — an unrelated multi-key subscription elsewhere on the same collection/index never changes that.
 
@@ -95,6 +147,7 @@ Membership writes are incremental (touch only the changed pks):
 - For frequently changing membership (e.g. a **virtual/windowed list** indexing the on-screen rows, adding/removing on scroll) prefer **set-based**.
 - `setPks` / `addPks` resolve each pk → slot (O(1) lookup); if you already hold slots (`collection.upsertMany` returns them) use `setSlots` / `appendSlots` to skip the lookup.
 - `getEntitiesByKey(key)` returns `(TEntity | undefined)[]` — positional holes for not-yet-loaded pks, aligned with `getPksByKey` (not dropped), so you can render a loading state.
+- `getSlotsByKey(key)` (and `getSlots()` on a global index) returns a **LIVE view of the bucket, never a copy** — for both set-based and array-based indexes. A bucket is a stable carrier (it is also the subscription target), so a write edits it IN PLACE rather than replacing it: what you were handed is **valid until the next write to that key** and mutates afterwards. Read it and drop it, or snapshot it yourself (`.slice()` / `new Set(...)`) if you keep or diff it. `getPksByKey` is different — pks are a derived projection, so it always builds a fresh `TPk[]` / `Set<TPk>` and is safe to retain.
 
 ### Global (keyless / whole-collection) indexes
 
@@ -193,7 +246,7 @@ const stream = createOIMOrderedListCommandStreamDiffDriven(queue, cardsByDeck);
 stream.subscribeCommands('deck1', () => engine.apply(stream.consumeCommands('deck1'))); // insert/move/remove
 ```
 
-**Mapping a plain index to stable objects** — for an ordinary set/array index (no commands), `createOIMIndexSlotMap(index, create)` / `OIMIndexSlotMap` memoizes `create(slot)` by slot identity (a `WeakMap`): the same slot returns the same object reference on every read, so `React.memo` / `Object.is` diffing works and view-models are reused. Same plain-function shape as the ordered mapper, no `destroy` (plain values, GC reclaims). `getByKey(key)` → mapped objects; `.map(create)` chains; `subscribeOnKey`/`subscribeOnKeys` passthrough to the index. For a keyless global index use `createOIMGlobalIndexSlotMap(index, create)` / `OIMGlobalIndexSlotMap` — same memo with `getAll()` and `subscribe()` instead of the keyed variants. New exports: `OIMIndexSlotMap`, `createOIMIndexSlotMap`, `IOIMIndexSlotSource`, `OIMGlobalIndexSlotMap`, `createOIMGlobalIndexSlotMap`, `IOIMGlobalIndexSlotSource`.
+**Mapping a plain index to stable objects** — for an ordinary set/array index (no commands), `createOIMIndexSlotMap(index, create)` / `OIMIndexSlotMap` memoizes `create(slot)` by slot identity (a `WeakMap`): the same slot returns the same object reference on every read, so `React.memo` / `Object.is` diffing works and view-models are reused. Same plain-function shape as the ordered mapper, no `destroy` (plain values, GC reclaims). `getByKey(key)` → mapped objects; `.map(create)` chains; `subscribeOnKey`/`subscribeOnKeys` passthrough to the index. For a keyless global index use `createOIMGlobalIndexSlotMap(index, create)` / `OIMGlobalIndexSlotMap` — same memo with `getAll()` and `subscribe()` instead of the keyed variants. New exports: `OIMIndexSlotMap`, `createOIMIndexSlotMap`, `IOIMIndexSlotSource`, `OIMGlobalIndexSlotMap`, `createOIMGlobalIndexSlotMap`, `IOIMGlobalIndexSlotSource`. **Never map a slot to its entity** (`slot => slot.item`): the memo is keyed by SLOT IDENTITY and a slot deliberately outlives the entity in it (an upsert does `slot.item = entity` and keeps the same slot object, the canonical anchor for the pk), so `create` would run once, pin the first entity seen and go silently stale on every later write. Entities need no memo — `getEntitiesByKey(key)` reads `slot.item` directly (cheaper than a cache lookup, and its reference already changes exactly when the entity changes). For a value DERIVED from entity data the cache key must be the entity, not the slot: use `OIMComputed` / a selector, which invalidate on write. Map here only what is bound to the slot's identity and must SURVIVE entity updates — a view-model, a row object, a DOM node.
 
 ```ts
 const usersByTeam = users.indexFactory.derivedSetIndex((u) => u.teamId);
@@ -284,7 +337,7 @@ adminCount.needsRecompute; // → boolean
 
 ### Effects
 
-Side effects that run when dependencies change, on `queue.flush()`.
+Side effects that run when dependencies change, on `queue.flush()`. **An effect reads; writing a store from `run()` throws** — see the frame rule under Event Queue.
 
 ```ts
 import { OIMEffect, OIMEffectDependencyComputed } from '@oimdb/core';
@@ -394,6 +447,10 @@ const card = useSelectEntityByPkSignal(cards, id); // sees in-place mutations (u
 Signal hooks: `useSelectEntityByPkSignal(collection, pk)`, `useSelectPksByIndexKeyArrayBasedSignal(index, key)`, `useSelectPksByIndexKeySetBasedSignal(index, key)`. Use the fine-grained pattern (parent reads pks by index key; each row reads its own entity by pk).
 
 Trade-offs (use only when every reader is subscription-driven): NOT Concurrent-safe; the entity reference is stable across changes, so `React.memo` on entities, prev/next diffing, time-travel, and the default uSES hooks on the same collection won't see updates. Default to the standard immutable hooks; reach for this only when a profile shows the data layer is the bottleneck.
+
+### Composite key tuples
+
+`ctk<TKeys>()(['a','b'])` (`ctk` = create tuple key) → an `OIMCompositeKeyTupleFactory` → a plain builder function `(source) => TOIMKeyPath` that projects named fields into the positional path (the class stays under the hood; `ctk` hands back its builder, so a key is one call). Declares the segment ORDER once so `selectPk` and every lookup derive from it instead of restating it — with same-typed segments a swapped pair is otherwise caught by nothing. Parameterised by the KEY type (every value already `TOIMPk`), so the projection needs no type assertion; an entity satisfies the shape structurally, which is why the same factory serves `selectPk` and reads. Curried because TS infers all type arguments or none, and names cannot come from `TKeys` (a type's property order is not a value). It allocates one small array — call it where the fields change, not per read. It builds ONE key from several segments; an index selector returning several keys files one entity under each, the opposite relation. No caching, no invalidation.
 
 ### Missing entities: the holes policy
 

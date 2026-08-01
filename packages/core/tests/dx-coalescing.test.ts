@@ -58,8 +58,8 @@ describe('Cross-Collection Coalescing', () => {
             }
         );
 
-        userEmitter = userCollection;
-        orderEmitter = orderCollection;
+        userEmitter = userCollection.emitter;
+        orderEmitter = orderCollection.emitter;
     });
 
     afterEach(() => {
@@ -172,7 +172,9 @@ describe('Cross-Collection Coalescing', () => {
         expect(sharedQueue.length).toBe(0);
 
         // Ensure there are subscriptions so updates actually schedule work.
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- only the subscription's existence schedules work; the callback is irrelevant.
         userEmitter.subscribeOnKey('user123', () => {});
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- only the subscription's existence schedules work; the callback is irrelevant.
         orderEmitter.subscribeOnKey('order456', () => {});
 
         // Update user collection
@@ -207,7 +209,7 @@ describe('Cross-Collection Coalescing', () => {
         };
 
         userEmitter.subscribeOnKey('user123', globalHandler);
-        indexEmitter.subscribeOnKey('category:users', globalHandler);
+        indexEmitter.emitter.subscribeOnKey('category:users', globalHandler);
 
         // Update both collection and index
         userCollection.upsertOne({ id: 'user123', name: 'John' });

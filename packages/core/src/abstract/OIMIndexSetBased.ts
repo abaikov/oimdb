@@ -8,7 +8,13 @@ import { OIMIndex } from './OIMIndex';
 export abstract class OIMIndexSetBased<
     TKey extends TOIMKey,
     TPk extends TOIMKey,
-> extends OIMIndex<TKey, TPk, Set<TOIMAnyEntitySlot<TPk>>> {
+> extends OIMIndex<
+    TKey,
+    TPk,
+    Set<TOIMAnyEntitySlot<TPk>>,
+    Set<TPk>,
+    ReadonlySet<TOIMAnyEntitySlot<TPk>>
+> {
     /**
      * The same store as the base `store`, narrowed to the set-based contract so
      * the carrier-bucket lifecycle methods (`getOrReserveBucket`, …) are visible.

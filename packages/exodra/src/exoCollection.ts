@@ -132,7 +132,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
             isGlobalArray
                 ? select.entitiesByArrayGlobalIndex(index)
                 : select.entitiesBySetGlobalIndex(index);
-        const pks = () => cachedArray(() => Array.from(index.getPks()), on => index.subscribe(on));
+        const pks = () => cachedArray(() => Array.from(index.getPks()), on => index.emitter.subscribe(on));
         const entities = () => exoSelector(selector());
         return Object.assign(entities, {
             pks,
@@ -163,7 +163,7 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
     const pksFor = (key: TAny) =>
         cachedArray(
             () => Array.from(index.getPksByKey(key)),
-            on => index.subscribeOnKey(key, on)
+            on => index.emitter.subscribeOnKey(key, on)
         );
 
     const entitiesFor = (key: TAny) => exoSelector(selectorFor(key));
@@ -187,10 +187,10 @@ function createIndexFacade<TEntity extends object, TPk extends TOIMKey>(
             cachedArray(
                 () => Array.from(index.getPksByKey(key.getValue())),
                 on => {
-                    let stopIndex = index.subscribeOnKey(key.getValue(), on);
+                    let stopIndex = index.emitter.subscribeOnKey(key.getValue(), on);
                     const stopKey = key.subscribe(() => {
                         stopIndex();
-                        stopIndex = index.subscribeOnKey(key.getValue(), on);
+                        stopIndex = index.emitter.subscribeOnKey(key.getValue(), on);
                         on();
                     });
                     return () => {

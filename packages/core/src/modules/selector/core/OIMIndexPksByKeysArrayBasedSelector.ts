@@ -1,7 +1,7 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
-import { OIMSelector } from './OIMSelector';
+import { OIMSelectorArrayValued } from './OIMSelectorArrayValued';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKeys } from './OIMSelectorSourceDependencyUpdateEventEmitterKeys';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
@@ -9,7 +9,7 @@ export class OIMIndexPksByKeysArrayBasedSelector<
     TKey extends TOIMKey,
     TPk extends TOIMKey,
     TIndex extends OIMIndexArrayBased<TKey, TPk>,
-> extends OIMSelector<readonly TPk[]> {
+> extends OIMSelectorArrayValued<TPk> {
     private readonly keys: readonly TKey[];
 
     constructor(
@@ -23,7 +23,7 @@ export class OIMIndexPksByKeysArrayBasedSelector<
     ) {
         super(runtime, [
             new OIMSelectorSourceDependencyUpdateEventEmitterKeys<TKey>(
-                reactiveIndex,
+                reactiveIndex.emitter,
                 keys
             ),
         ]);
@@ -31,14 +31,15 @@ export class OIMIndexPksByKeysArrayBasedSelector<
     }
 
     public getValue(): readonly TPk[] {
-        return this.keys.map(key => this.reactiveIndex.getPksByKey(key)).flat();
-    }
-
-    protected areEqual(prev: readonly TPk[], next: readonly TPk[]): boolean {
-        if (prev === next) return true;
-        if (prev.length !== next.length) return false;
-        for (let i = 0; i < prev.length; i++)
-            {if (prev[i] !== next[i]) return false;}
-        return true;
+        // `keys.map(...).flat()` allocated the per-key arrays plus a `map`
+        // result plus a `flat` result; concatenating in place drops the last
+        // two. The per-key arrays stay: an ordered index hands back a defensive
+        // copy of its bucket, which is the point of it being ordered.
+        const pks: TPk[] = [];
+        for (const key of this.keys) {
+            const keyPks = this.reactiveIndex.getPksByKey(key);
+            for (let i = 0; i < keyPks.length; i++) pks.push(keyPks[i]);
+        }
+        return pks;
     }
 }

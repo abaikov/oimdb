@@ -17,5 +17,5 @@ export type TOIMOrderedArrayIndexPersistSource<
         slots: readonly TOIMAnyEntitySlot<NoInfer<TPk>>[]
     ) => void;
     setSlots?: (key: TKey, slots: TOIMAnyEntitySlot<NoInfer<TPk>>[]) => void;
-    emitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
+    batchEmitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
 };

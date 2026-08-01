@@ -86,7 +86,7 @@ describe('composite (trie-backed) collection index', () => {
         const index = indexFactory.compositeSetIndex();
         let calls = 0;
 
-        const unsub = index.subscribeOnKey(['u1', 'p1'], () => {
+        const unsub = index.emitter.subscribeOnKey(['u1', 'p1'], () => {
             calls++;
         });
 
@@ -178,7 +178,7 @@ describe('composite (trie-backed) array-based collection index', () => {
         const ordered = indexFactory.compositeArrayIndex();
         let calls = 0;
 
-        const unsub = ordered.subscribeOnKey(['c1', 't1'], () => {
+        const unsub = ordered.emitter.subscribeOnKey(['c1', 't1'], () => {
             calls++;
         });
         ordered.setPks(['c1', 't1'], ['m1']);

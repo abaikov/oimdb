@@ -87,7 +87,7 @@ export class OIMOrderedListCommandStreamDiffDriven<
     private ensureWired(key: TKey): void {
         if (this.indexUnsubscribeByKey.has(key)) return;
         this.prevByKey.set(key, this.currentSlots(key).slice());
-        const unsubscribe = this.index.subscribeOnKey(key, () =>
+        const unsubscribe = this.index.emitter.subscribeOnKey(key, () =>
             this.onIndexChange(key)
         );
         this.indexUnsubscribeByKey.set(key, unsubscribe);

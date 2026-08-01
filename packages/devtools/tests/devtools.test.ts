@@ -159,6 +159,7 @@ describe('OIMDevRegistry', () => {
 
     test('dump() calls console.log without throwing', () => {
         const reg = new OIMDevRegistry();
+        // eslint-disable-next-line @typescript-eslint/no-empty-function -- the spy must stay silent; the test only counts the calls.
         const consoleSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
         const users = makeCollection<User, string>(

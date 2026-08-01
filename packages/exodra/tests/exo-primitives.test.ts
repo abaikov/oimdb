@@ -94,7 +94,7 @@ describe('primitives', () => {
 
         const user = exoSource(
             () => kit.collection.getOneByPk('u1'),
-            onChange => kit.collection.subscribeOnKey('u1', onChange)
+            onChange => kit.collection.emitter.subscribeOnKey('u1', onChange)
         );
         let hits = 0;
         user.subscribe(() => hits++);

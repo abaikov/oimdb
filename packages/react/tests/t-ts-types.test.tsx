@@ -395,13 +395,13 @@ describe('Context and Hooks Type Safety with exact t.ts Collections', () => {
             );
 
             // Test index access
-            const _cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
+            const cardsByDeck = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.cards,
                 indexes.cards.byDeck,
                 'deck1'
             );
 
-            const _commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
+            const commentsByCard = useSelectEntitiesByIndexKeyArrayBased(
                 typedCollections.comments,
                 indexes.comments.byCard,
                 'card1'

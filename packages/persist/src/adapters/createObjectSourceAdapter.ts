@@ -16,8 +16,8 @@ export function createObjectSourceAdapter<TKey extends string, TValue>(
             object.merge(snapshot);
         },
         subscribe(onChange) {
-            return object.emitter
-                ? object.emitter.on(EOIMObjectEventType.UPDATE, onChange)
+            return object.batchEmitter
+                ? object.batchEmitter.on(EOIMObjectEventType.UPDATE, onChange)
                 : noop;
         },
     };

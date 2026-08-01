@@ -86,7 +86,7 @@ describe('index incremental membership (O(1) addPks/removePks)', () => {
                 idx.setPks('g', ['u1']);
 
                 let calls = 0;
-                idx.subscribeOnKey('g', () => calls++);
+                idx.emitter.subscribeOnKey('g', () => calls++);
 
                 idx.addPks('g', ['u2']);
                 queue.flush();

@@ -21,6 +21,48 @@ export class OIMDerivedCollectionIndexSetBased<
     TEntity extends object = object,
 > extends OIMReactiveCollectionIndexManualSetBased<TKey, TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;
+    /**
+     * Bits of the fields this index depends on, or `undefined` when it depends on
+     * everything. Resolved once at construction against the collection's registry
+     * so the hot path is a single AND.
+     */
+    protected readonly depsMask?: number;
+
+    /**
+     * True when this write cannot possibly concern us: we declared our fields,
+     * the collection recorded which ones a write touched, and they do not
+     * overlap. Skipping here avoids the selector call and the set allocations
+     * that would otherwise be spent proving the membership is unchanged.
+     */
+    protected isIrrelevantWrite(slot: TOIMEntitySlot<TEntity, TPk> | undefined): boolean {
+        const deps = this.depsMask;
+        if (deps === undefined || slot === undefined) return false;
+        const written = slot.dirtyFields;
+        // No record for this slot means "unknown" — never skip on a guess.
+        if (written === undefined) return false;
+        return (written & deps) === 0;
+    }
+
+    /** Resolve declared field names into a mask, refusing a collection that cannot track them. */
+    protected static resolveDepsMask(
+        collection: { fields?: { maskOf(fields: Iterable<string>): number } },
+        deps: readonly string[] | undefined,
+        indexName: string
+    ): number | undefined {
+        if (deps === undefined || deps.length === 0) return undefined;
+        const registry = collection.fields;
+        if (!registry) {
+            throw new Error(
+                `[${indexName}]: \`deps\` was declared (${deps.join(', ')}) but this collection ` +
+                    'does not track fields, so the declaration could never be honoured. Build the ' +
+                    'collection with `slotWriter: new OIMSlotWriterFieldMasked(queue, updater)`, or ' +
+                    'drop `deps`.'
+            );
+        }
+        return registry.maskOf(deps);
+    }
+
+
     private readonly selectIndexKeys: TOIMDerivedIndexKeySelector<
         TEntity,
         TKey
@@ -38,8 +80,13 @@ export class OIMDerivedCollectionIndexSetBased<
             indexOptions: opts.indexOptions,
         });
         this.collection = collection;
+        this.depsMask = OIMDerivedCollectionIndexSetBased.resolveDepsMask(
+            collection,
+            opts.deps,
+            'OIMDerivedCollectionIndexSetBased'
+        );
         this.selectIndexKeys = opts.selectIndexKeys;
-        this.unsubscribeFromCollection = collection.emitter.on(
+        this.unsubscribeFromCollection = collection.batchEmitter.on(
             EOIMCollectionEventType.UPDATE,
             payload => this.onCollectionUpdate(payload.pks)
         );
@@ -103,8 +150,11 @@ export class OIMDerivedCollectionIndexSetBased<
     };
 
     private syncPk(pk: TPk): void {
-        const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
         const slot = this.collection.getSlotByPk(pk);
+        // Declared deps and none of them written → this write cannot move a pk
+        // between buckets, so there is nothing to recompute.
+        if (this.isIrrelevantWrite(slot)) return;
+        const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
         const entity = slot?.item;
         const nextKeys =
             entity === undefined

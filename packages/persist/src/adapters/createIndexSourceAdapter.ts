@@ -14,7 +14,7 @@ export function createIndexSourceAdapter<TKey extends TOIMKey, TPk extends TOIMK
         getKeys(): readonly TKey[];
         getPksByKey(key: TKey): Iterable<TPk>;
         clear(key?: TKey): void;
-        emitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
+        batchEmitter?: TOIMEmitter<typeof EOIMIndexEventType.UPDATE>;
     },
     writeBucket: (key: TKey, pks: TPk[]) => void
 ): TOIMPersistSourceAdapter<TOIMIndexPersistSnapshot<TKey, TPk>> {
@@ -35,8 +35,8 @@ export function createIndexSourceAdapter<TKey extends TOIMKey, TPk extends TOIMK
             }
         },
         subscribe(onChange) {
-            return index.emitter
-                ? index.emitter.on(EOIMIndexEventType.UPDATE, onChange)
+            return index.batchEmitter
+                ? index.batchEmitter.on(EOIMIndexEventType.UPDATE, onChange)
                 : noop;
         },
     };

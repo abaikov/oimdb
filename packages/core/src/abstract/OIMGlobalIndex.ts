@@ -11,9 +11,13 @@ import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
  * anywhere on its surface. Concrete shape (ordered array vs unordered set) is
  * added by {@link OIMGlobalIndexArrayBased} / {@link OIMGlobalIndexSetBased}.
  */
-export abstract class OIMGlobalIndex<TPk extends TOIMKey> {
+export abstract class OIMGlobalIndex<
+    TPk extends TOIMKey,
+    TPks = unknown,
+    TSlots = unknown,
+> {
     protected readonly comparePks?: TOIMIndexComparator<TPk>;
-    public readonly emitter = new OIMEventEmitter<{
+    public readonly batchEmitter = new OIMEventEmitter<{
         [EOIMIndexEventType.UPDATE]: void;
     }>();
 
@@ -24,6 +28,10 @@ export abstract class OIMGlobalIndex<TPk extends TOIMKey> {
     protected abstract iterateSlots(): Iterable<TOIMAnyEntitySlot<TPk>>;
     protected abstract clearBucket(): void;
     public abstract get size(): number;
+
+    /** The bucket's pks / slots, in this index's own read shape. */
+    public abstract getPks(): TPks;
+    public abstract getSlots(): TSlots;
 
     public get isEmpty(): boolean {
         return this.size === 0;
@@ -50,11 +58,11 @@ export abstract class OIMGlobalIndex<TPk extends TOIMKey> {
     }
 
     public destroy(): void {
-        this.emitter.offAll();
+        this.batchEmitter.offAll();
         this.clearBucket();
     }
 
     protected emitUpdate(): void {
-        this.emitter.emit(EOIMIndexEventType.UPDATE, undefined);
+        this.batchEmitter.emit(EOIMIndexEventType.UPDATE, undefined);
     }
 }

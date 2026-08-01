@@ -140,14 +140,12 @@ export class OIMDBReduxLinkedIndexesUpdater<
                     if (indexManual.removePks) {
                         // Remove all PKs - this will clean up empty buckets
                         indexManual.removePks(indexKey, existingPks);
-                    } else {
+                    } else if (indexManual.clear) {
                         // Use clear to remove the key entirely
-                        if (indexManual.clear) {
-                            indexManual.clear(indexKey);
-                        } else if (indexManual.setPks) {
-                            // Fallback: set empty array
-                            indexManual.setPks(indexKey, []);
-                        }
+                        indexManual.clear(indexKey);
+                    } else if (indexManual.setPks) {
+                        // Fallback: set empty array
+                        indexManual.setPks(indexKey, []);
                     }
                 }
             }

@@ -2,7 +2,7 @@ import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveGlobalIndexArrayBased } from '../../../abstract/OIMReactiveGlobalIndexArrayBased';
 import { OIMGlobalIndexArrayBased } from '../../../abstract/OIMGlobalIndexArrayBased';
-import { OIMSelector } from './OIMSelector';
+import { OIMSelectorArrayValued } from './OIMSelectorArrayValued';
 import { OIMSelectorSourceDependencyEntitiesByGlobalIndexArrayBased } from './OIMSelectorSourceDependencyEntitiesByGlobalIndexArrayBased';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
@@ -10,7 +10,7 @@ export class OIMEntitiesByGlobalIndexArrayBasedSelector<
     TEntity extends object,
     TPk extends TOIMKey,
     TIndex extends OIMGlobalIndexArrayBased<TPk>,
-> extends OIMSelector<readonly (TEntity | undefined)[]> {
+> extends OIMSelectorArrayValued<TEntity | undefined> {
     constructor(
         runtime: OIMComputeRuntime,
         private readonly collection: OIMReactiveCollection<TEntity, TPk>,
@@ -36,16 +36,5 @@ export class OIMEntitiesByGlobalIndexArrayBasedSelector<
             entities[i] = this.collection.getOneByPk(pks[i]);
         }
         return entities;
-    }
-
-    protected areEqual(
-        prev: readonly (TEntity | undefined)[],
-        next: readonly (TEntity | undefined)[]
-    ): boolean {
-        if (prev === next) return true;
-        if (prev.length !== next.length) return false;
-        for (let i = 0; i < prev.length; i++)
-            {if (prev[i] !== next[i]) return false;}
-        return true;
     }
 }

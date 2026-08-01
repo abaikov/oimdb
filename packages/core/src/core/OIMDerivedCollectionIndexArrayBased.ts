@@ -24,6 +24,48 @@ export class OIMDerivedCollectionIndexArrayBased<
     TEntity extends object = object,
 > extends OIMReactiveCollectionIndexManualArrayBased<TKey, TPk, TEntity> {
     private readonly collection: OIMReactiveCollection<TEntity, TPk>;
+    /**
+     * Bits of the fields this index depends on, or `undefined` when it depends on
+     * everything. Resolved once at construction against the collection's registry
+     * so the hot path is a single AND.
+     */
+    protected readonly depsMask?: number;
+
+    /**
+     * True when this write cannot possibly concern us: we declared our fields,
+     * the collection recorded which ones a write touched, and they do not
+     * overlap. Skipping here avoids the selector call and the set allocations
+     * that would otherwise be spent proving the membership is unchanged.
+     */
+    protected isIrrelevantWrite(slot: TOIMAnyEntitySlot<TPk> | undefined): boolean {
+        const deps = this.depsMask;
+        if (deps === undefined || slot === undefined) return false;
+        const written = slot.dirtyFields;
+        // No record for this slot means "unknown" — never skip on a guess.
+        if (written === undefined) return false;
+        return (written & deps) === 0;
+    }
+
+    /** Resolve declared field names into a mask, refusing a collection that cannot track them. */
+    protected static resolveDepsMask(
+        collection: { fields?: { maskOf(fields: Iterable<string>): number } },
+        deps: readonly string[] | undefined,
+        indexName: string
+    ): number | undefined {
+        if (deps === undefined || deps.length === 0) return undefined;
+        const registry = collection.fields;
+        if (!registry) {
+            throw new Error(
+                `[${indexName}]: \`deps\` was declared (${deps.join(', ')}) but this collection ` +
+                    'does not track fields, so the declaration could never be honoured. Build the ' +
+                    'collection with `slotWriter: new OIMSlotWriterFieldMasked(queue, updater)`, or ' +
+                    'drop `deps`.'
+            );
+        }
+        return registry.maskOf(deps);
+    }
+
+
     private readonly selectIndexKeys: TOIMDerivedIndexKeySelector<
         TEntity,
         TKey
@@ -46,10 +88,15 @@ export class OIMDerivedCollectionIndexArrayBased<
             indexOptions: opts.indexOptions,
         });
         this.collection = collection;
+        this.depsMask = OIMDerivedCollectionIndexArrayBased.resolveDepsMask(
+            collection,
+            opts.deps,
+            'OIMDerivedCollectionIndexArrayBased'
+        );
         this.selectIndexKeys = opts.selectIndexKeys;
         this.compareEntities = opts.compareEntities;
         this.orderBy = opts.orderBy;
-        this.unsubscribeFromCollection = collection.emitter.on(
+        this.unsubscribeFromCollection = collection.batchEmitter.on(
             EOIMCollectionEventType.UPDATE,
             payload => this.onCollectionUpdate(payload.pks)
         );
@@ -113,14 +160,30 @@ export class OIMDerivedCollectionIndexArrayBased<
     private readonly onCollectionUpdate = (pks: readonly TPk[]): void => {
         // `pks` always enumerates exactly the changed keys (clear() lists every
         // removed key), so removals flow through the normal per-key path below.
-        const ordered = !!(this.compareEntities || this.orderBy);
-        // Keys whose bucket order must be recomputed (membership add or a moved
-        // sort position). Removal-only keys keep their order, so they are not here.
-        const keysToSort = ordered ? new Set<TKey>() : null;
+        const ordered = Boolean(this.compareEntities || this.orderBy);
+        // Keys whose bucket order must be recomputed, and why. A key that only
+        // gained members keeps its existing slots in order, so the newcomers can
+        // be merged into an already-sorted array instead of re-sorting it; a key
+        // whose member MOVED has no such invariant and needs a real sort.
+        // Removal-only keys keep their order and are not listed at all.
+        const keysToSort = ordered
+            ? new Map<TKey, { added: TPk[]; moved: boolean }>()
+            : null;
+        const touch = (key: TKey): { added: TPk[]; moved: boolean } => {
+            let entry = keysToSort!.get(key);
+            if (!entry) {
+                entry = { added: [], moved: false };
+                keysToSort!.set(key, entry);
+            }
+            return entry;
+        };
 
         for (const pk of pks) {
-            const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
             const slot = this.collection.getSlotByPk(pk);
+            // Declared deps and none of them written → neither membership nor
+            // order can have moved, so skip the whole per-pk sync.
+            if (this.isIrrelevantWrite(slot)) continue;
+            const prevKeys = this.keysByPk.get(pk) ?? new Set<TKey>();
             const entity = slot?.item;
             const nextKeys =
                 entity === undefined
@@ -154,9 +217,11 @@ export class OIMDerivedCollectionIndexArrayBased<
                 for (const key of nextKeys) {
                     if (!prevKeys.has(key)) {
                         this.addPks(key, [pk]); // new member needs ordering
-                        keysToSort?.add(key);
+                        if (keysToSort) touch(key).added.push(pk);
                     } else if (orderChanged) {
-                        keysToSort?.add(key); // same member, position moved
+                        // Same member, position moved: the bucket is no longer
+                        // sorted anywhere, so a merge cannot rescue it.
+                        if (keysToSort) touch(key).moved = true;
                     }
                 }
             }
@@ -165,37 +230,85 @@ export class OIMDerivedCollectionIndexArrayBased<
             else this.keysByPk.set(pk, nextKeys);
         }
 
-        // Re-sort only the touched buckets, reading each bucket's own slots
+        // Reorder only the touched buckets, reading each bucket's own slots
         // (O(bucket)) rather than scanning the whole collection per key.
         if (keysToSort) {
-            for (const key of keysToSort) {
+            for (const [key, { added, moved }] of keysToSort) {
+                const slots = this.index.getSlotsByKey(key);
                 this.setSlots(
                     key,
-                    this.sortSlots(this.index.getSlotsByKey(key))
+                    moved
+                        ? this.sortSlots(slots)
+                        : this.mergeAddedSlots(slots, added)
                 );
             }
         }
     };
 
+    /**
+     * Insert the newly added slots into a bucket whose other members are already
+     * in order. `addPks` appends, so the bucket is "sorted prefix + newcomers";
+     * pulling the newcomers out and binary-searching each back in costs
+     * O(bucket + added·log bucket) instead of a full O(bucket·log bucket) sort
+     * with a comparator call per comparison.
+     */
+    private mergeAddedSlots(
+        slots: readonly TOIMAnyEntitySlot<TPk>[],
+        added: readonly TPk[]
+    ): TOIMAnyEntitySlot<TPk>[] {
+        if (!this.compareEntities && !this.orderBy) return slots.slice();
+        // One newcomer into an empty or single-element bucket is already sorted;
+        // anything larger still beats sorting, but only once there is a prefix.
+        if (added.length === 0) return slots.slice();
+
+        const addedPks = new Set(added);
+        const sorted: TOIMAnyEntitySlot<TPk>[] = [];
+        const newcomers: TOIMAnyEntitySlot<TPk>[] = [];
+        for (const slot of slots) {
+            if (addedPks.has(slot.pk)) newcomers.push(slot);
+            else sorted.push(slot);
+        }
+
+        for (const slot of newcomers) {
+            let low = 0;
+            let high = sorted.length;
+            while (low < high) {
+                const mid = (low + high) >>> 1;
+                if (this.compareSlots(sorted[mid], slot) <= 0) low = mid + 1;
+                else high = mid;
+            }
+            sorted.splice(low, 0, slot);
+        }
+        return sorted;
+    }
+
+    /**
+     * Order two slots. With `orderBy` the sort value is read from the cache kept
+     * on every write, so a comparison costs a Map lookup rather than two calls
+     * into user code.
+     */
+    private compareSlots(
+        a: TOIMAnyEntitySlot<TPk>,
+        b: TOIMAnyEntitySlot<TPk>
+    ): number {
+        const aItem = a.item as TEntity | undefined;
+        const bItem = b.item as TEntity | undefined;
+        if (aItem === undefined || bItem === undefined) return 0;
+        if (this.compareEntities) return this.compareEntities(aItem, bItem);
+
+        const cached = this.orderValueByPk;
+        const aValue = cached.has(a.pk) ? cached.get(a.pk)! : this.orderBy!(aItem);
+        const bValue = cached.has(b.pk) ? cached.get(b.pk)! : this.orderBy!(bItem);
+        if (aValue < bValue) return -1;
+        if (aValue > bValue) return 1;
+        return 0;
+    }
+
     private sortSlots(
         slots: readonly TOIMAnyEntitySlot<TPk>[]
     ): TOIMAnyEntitySlot<TPk>[] {
         if (!this.compareEntities && !this.orderBy) return slots.slice();
-
-        return slots.slice().sort((a, b) => {
-            const aItem = a.item as TEntity | undefined;
-            const bItem = b.item as TEntity | undefined;
-            if (aItem === undefined || bItem === undefined) return 0;
-            if (this.compareEntities) {
-                return this.compareEntities(aItem, bItem);
-            }
-
-            const aValue = this.orderBy!(aItem);
-            const bValue = this.orderBy!(bItem);
-            if (aValue < bValue) return -1;
-            if (aValue > bValue) return 1;
-            return 0;
-        });
+        return slots.slice().sort((a, b) => this.compareSlots(a, b));
     }
 
     private normalizeKeys(

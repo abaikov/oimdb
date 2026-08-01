@@ -72,7 +72,19 @@ This is what lets collection-bound indexes store stable slot references while st
 
 **Batching & coalescing** — multiple writes to the same key coalesce into a single notification per `queue.flush()`. Delivery is driven by updated key sets, not by every write.
 
-**Reentrancy** — writing to a store from a subscription callback *during* `queue.flush()` throws (`updates during queue.flush() are not allowed`). Effects and computeds run at `AFTER_FLUSH`, when the queue is no longer flushing; writes made there are allowed and batched into the **next** flush.
+**Reentrancy — the frame is closed to writes.** A *frame* is one indivisible reporting cycle: `queue.flush()` drains its tasks, then effects and computeds run. Writing to a store anywhere inside it throws `updates during queue.flush() are not allowed` — from a subscription callback during the drain and from an effect's `run()` alike.
+
+The rule is not a scheduling limitation. It is a statement about what a store write *means*. A write says **new input arrived**: a server response, a user action, a timer. Data computed *from* what the store already holds is not input, it is derivation — and derivation belongs to `OIMComputed`, which the queue orders topologically and resolves within the same frame. Code that writes during a frame is deriving with the wrong tool: it is using a collection as a place to stash a value that a computed should have produced. That code has a defect regardless of whether the engine tolerates it, and the tolerant version is the worse one — a derivation laundered through a store loses its ordering guarantees, lands a frame late, and an effect that writes to its own dependency simply reschedules itself forever. OIMDB refuses the write instead, at the first attempt, with the store named in the message.
+
+Because nothing can mutate while a frame runs, the frame has a second property: **it can report what changed.** Each carrier — an entity slot, an index bucket — holds its change record for as long as the frame lasts, so a subscriber can ask *which* fields or keys moved rather than only that something did, at the moment it is told that something did.
+
+The record is deliberately frame-scoped. It describes one cycle; keeping it beyond that cycle would mean an ever-growing log that every writer pays for and almost no reader wants. Concretely, the carrier's dirty flag is cleared once the frame ends, and the detail behind it is overwritten by the next frame's first write — so it is valid to read during delivery and meaningless afterwards.
+
+That is also why **notifications carry no payload**. A keyed handler is `() => void`. Nothing is allocated per delivery, per subscriber, or per changed key — no diff object, no key array, no event record. A write marks its carrier; whoever is interested reads the carrier during the frame. The alternative — handing every subscriber a description of what changed — allocates on the hottest path in the library, on behalf of the many subscribers that only want to re-read and re-render.
+
+Effects read; they do not write. To act on a frame, do it after `flush()` returns.
+
+A computed publishing its own value during the effect phase is not a store write and is unaffected — that is how a chain of computeds resolves inside a single frame.
 
 **Single-pass flush** — `queue.flush()` runs each currently-pending task once (buffer swap, no re-drain loop). Tasks enqueued *during* a flush land in a fresh buffer and run on the next flush (scheduled tick or next manual `flush()`), not within the same call.
 
@@ -142,6 +154,29 @@ memberships.getOneByPk([1, 10]);       // matched by content — a fresh array i
 memberships.subscribeOnKey([1, 10], render);
 memberships.removeOneByPk([1, 10]);
 ```
+
+Declaring the segment order twice — once in `selectPk`, once at every lookup — is a convention the
+compiler cannot check: with same-typed segments a swapped pair reads a different bucket in silence.
+`ctk` (create tuple key) pins the order in one place and both sides derive from it:
+
+```typescript
+import { ctk } from '@oimdb/core'; // ctk — create tuple key
+
+type TMembershipKeys = { userId: number; projectId: number };
+const membershipKey = ctk<TMembershipKeys>()(['userId', 'projectId']);
+
+const memberships = new OIMReactiveCollection<Membership, TOIMKeyPath>(queue, {
+  selectPk: (m) => membershipKey(m),   // the entity carries those fields
+  store: new OIMCollectionStoreTrieDriven<Membership>(),
+});
+
+memberships.getOneByPk(membershipKey({ userId: 1, projectId: 10 }));
+```
+
+A renamed or missing segment is now a compile error, and the order at the call site is irrelevant. It
+is parameterised by the KEY type rather than the entity, so every segment is already a `TOIMPk` and
+the projection needs no type assertion; an entity satisfies that shape structurally. `create`
+allocates one small array — call it where the fields change, not on every read.
 
 Key paths are matched **by content** (a freshly built `[1, 10]` resolves to the same entity as one stored earlier); the store interns each logical PK to one canonical `slot.pk` reference. Primitive-PK collections keep the native-`Map` store (`OIMCollectionStoreMapDriven`) untouched — no cost.
 

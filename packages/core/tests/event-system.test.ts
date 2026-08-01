@@ -142,7 +142,7 @@ describe('Event System', () => {
 
         test('should subscribe to PK updates and receive notifications', () => {
             const handler = jest.fn();
-            const unsubscribe = emitter.subscribeOnKey('test1', handler);
+            const unsubscribe = emitter.emitter.subscribeOnKey('test1', handler);
 
             const entity: TOIMTestEntity = {
                 id: 'test1',
@@ -163,8 +163,8 @@ describe('Event System', () => {
             const handler1 = jest.fn();
             const handler2 = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler1);
-            emitter.subscribeOnKey('test2', handler2);
+            emitter.emitter.subscribeOnKey('test1', handler1);
+            emitter.emitter.subscribeOnKey('test2', handler2);
 
             const entity: TOIMTestEntity = {
                 id: 'test1',
@@ -183,8 +183,8 @@ describe('Event System', () => {
             const handler1 = jest.fn();
             const handler2 = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler1);
-            emitter.subscribeOnKey('test1', handler2);
+            emitter.emitter.subscribeOnKey('test1', handler1);
+            emitter.emitter.subscribeOnKey('test1', handler2);
 
             const entity: TOIMTestEntity = {
                 id: 'test1',
@@ -202,7 +202,7 @@ describe('Event System', () => {
         test('should unsubscribe properly', () => {
             const handler = jest.fn();
 
-            const unsub = emitter.subscribeOnKey('test1', handler);
+            const unsub = emitter.emitter.subscribeOnKey('test1', handler);
             unsub();
 
             const entity: TOIMTestEntity = {
@@ -219,7 +219,7 @@ describe('Event System', () => {
 
         test('should call the handler once per flush regardless of how many subscribed PKs changed', () => {
             const handler = jest.fn();
-            const unsubscribe = emitter.subscribeOnKeys(
+            const unsubscribe = emitter.emitter.subscribeOnKeys(
                 ['test1', 'test2', 'test3'],
                 handler
             );
@@ -241,9 +241,9 @@ describe('Event System', () => {
 
         test('unsubscribeFromKeys still removes a subscribeOnKeys handler (identity preserved)', () => {
             const handler = jest.fn();
-            emitter.subscribeOnKeys(['test1', 'test2'], handler);
+            emitter.emitter.subscribeOnKeys(['test1', 'test2'], handler);
 
-            emitter.unsubscribeFromKeys(['test1', 'test2'], handler);
+            emitter.emitter.unsubscribeFromKeys(['test1', 'test2'], handler);
 
             collection.upsertMany([
                 { id: 'test1', name: 'Test 1', value: 10 },
@@ -258,7 +258,7 @@ describe('Event System', () => {
             const handler = jest.fn();
 
             // Subscribe to same PK multiple times
-            const unsubscribe = emitter.subscribeOnKeys(
+            const unsubscribe = emitter.emitter.subscribeOnKeys(
                 ['test1', 'test1', 'test1'],
                 handler
             );
@@ -282,11 +282,11 @@ describe('Event System', () => {
             const handler1 = jest.fn();
             const handler2 = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler1);
-            emitter.subscribeOnKey('test1', handler2);
-            emitter.subscribeOnKey('test2', handler1);
+            emitter.emitter.subscribeOnKey('test1', handler1);
+            emitter.emitter.subscribeOnKey('test1', handler2);
+            emitter.emitter.subscribeOnKey('test2', handler1);
 
-            const metrics = emitter.getMetrics();
+            const metrics = emitter.emitter.getMetrics();
 
             expect(metrics.totalKeys).toBe(2);
             expect(metrics.totalHandlers).toBe(3);
@@ -295,32 +295,32 @@ describe('Event System', () => {
         });
 
         test('should check for active subscriptions', () => {
-            expect(emitter.hasSubscriptions()).toBe(false);
+            expect(emitter.emitter.hasSubscriptions()).toBe(false);
 
             const handler = jest.fn();
-            const unsub = emitter.subscribeOnKey('test1', handler);
+            const unsub = emitter.emitter.subscribeOnKey('test1', handler);
 
-            expect(emitter.hasSubscriptions()).toBe(true);
+            expect(emitter.emitter.hasSubscriptions()).toBe(true);
 
             unsub();
 
-            expect(emitter.hasSubscriptions()).toBe(false);
+            expect(emitter.emitter.hasSubscriptions()).toBe(false);
         });
 
         test('should get handler count for specific PK', () => {
             const handler1 = jest.fn();
             const handler2 = jest.fn();
 
-            expect(emitter.getHandlerCount('test1')).toBe(0);
+            expect(emitter.emitter.getHandlerCount('test1')).toBe(0);
 
-            emitter.subscribeOnKey('test1', handler1);
-            expect(emitter.getHandlerCount('test1')).toBe(1);
+            emitter.emitter.subscribeOnKey('test1', handler1);
+            expect(emitter.emitter.getHandlerCount('test1')).toBe(1);
 
-            emitter.subscribeOnKey('test1', handler2);
-            expect(emitter.getHandlerCount('test1')).toBe(2);
+            emitter.emitter.subscribeOnKey('test1', handler2);
+            expect(emitter.emitter.getHandlerCount('test1')).toBe(2);
 
-            emitter.unsubscribeFromKey('test1', handler1);
-            expect(emitter.getHandlerCount('test1')).toBe(1);
+            emitter.emitter.unsubscribeFromKey('test1', handler1);
+            expect(emitter.emitter.getHandlerCount('test1')).toBe(1);
         });
 
         test('should optimize for small number of updated PKs', () => {
@@ -329,7 +329,7 @@ describe('Event System', () => {
             for (let i = 0; i < 100; i++) {
                 const handler = jest.fn();
                 handlers.push(handler);
-                emitter.subscribeOnKey(`test${i}`, handler);
+                emitter.emitter.subscribeOnKey(`test${i}`, handler);
             }
 
             // Update only one entity
@@ -358,8 +358,8 @@ describe('Event System', () => {
             const handler1 = jest.fn();
             const handler2 = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler1);
-            emitter.subscribeOnKey('test2', handler2);
+            emitter.emitter.subscribeOnKey('test1', handler1);
+            emitter.emitter.subscribeOnKey('test2', handler2);
 
             // Update many entities (more than half of subscribed PKs)
             const entities: TOIMTestEntity[] = [];
@@ -382,8 +382,8 @@ describe('Event System', () => {
         test('should handle empty handler sets gracefully', () => {
             const handler = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler);
-            emitter.unsubscribeFromKey('test1', handler);
+            emitter.emitter.subscribeOnKey('test1', handler);
+            emitter.emitter.unsubscribeFromKey('test1', handler);
 
             // This should not cause any issues
             const entity: TOIMTestEntity = {
@@ -411,7 +411,7 @@ describe('Event System', () => {
 
         test('should not notify the same key more than once per flush batch', () => {
             const handler = jest.fn();
-            emitter.subscribeOnKey('test1', handler);
+            emitter.emitter.subscribeOnKey('test1', handler);
 
             // Multiple updates to the same key before flushing should coalesce into one notification
             for (let i = 0; i < 10; i++) {
@@ -438,10 +438,10 @@ describe('Event System', () => {
         test('should not call handlers subscribed during dispatch until the next batch', () => {
             const lateHandler = jest.fn();
             const earlyHandler = jest.fn(() => {
-                emitter.subscribeOnKey('test1', lateHandler);
+                emitter.emitter.subscribeOnKey('test1', lateHandler);
             });
 
-            emitter.subscribeOnKey('test1', earlyHandler);
+            emitter.emitter.subscribeOnKey('test1', earlyHandler);
 
             collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
             queue.flush();
@@ -459,12 +459,12 @@ describe('Event System', () => {
         test('should allow unsubscribe during dispatch to prevent later calls in the same batch', () => {
             const handlerB = jest.fn();
             const handlerA = jest.fn(() => {
-                emitter.unsubscribeFromKey('test1', handlerB);
+                emitter.emitter.unsubscribeFromKey('test1', handlerB);
             });
 
             // Subscribe A first so it runs before B (Set preserves insertion order)
-            emitter.subscribeOnKey('test1', handlerA);
-            emitter.subscribeOnKey('test1', handlerB);
+            emitter.emitter.subscribeOnKey('test1', handlerA);
+            emitter.emitter.subscribeOnKey('test1', handlerB);
 
             collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
             queue.flush();
@@ -480,8 +480,8 @@ describe('Event System', () => {
             });
 
             // Subscribe A first so it runs before B (and destroys the emitter)
-            emitter.subscribeOnKey('test1', handlerA);
-            emitter.subscribeOnKey('test1', handlerB);
+            emitter.emitter.subscribeOnKey('test1', handlerA);
+            emitter.emitter.subscribeOnKey('test1', handlerB);
 
             collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });
             expect(() => queue.flush()).not.toThrow();
@@ -512,8 +512,8 @@ describe('Event System', () => {
             });
             const observer = jest.fn();
 
-            emitter.subscribeOnKey('test1', handler);
-            emitter.subscribeOnKey('test1', observer);
+            emitter.emitter.subscribeOnKey('test1', handler);
+            emitter.emitter.subscribeOnKey('test1', observer);
 
             // First update
             collection.upsertOne({ id: 'test1', name: 'Test 1', value: 1 });

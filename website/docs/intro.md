@@ -15,7 +15,6 @@ OIMDB is organized as a monorepo with separate npm packages:
 | [`@oimdb/core`](/docs/packages/#oimdbcore) | Reactive collections, indexes, event queue, selectors |
 | [`@oimdb/react`](/docs/packages/react) | React hooks and context provider |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Redux reducers backed by OIMDB, two-way sync |
-| [`@oimdb/async`](/docs/packages/#oimdbasync) | Async collections and indexes |
 | [`@oimdb/persist`](/docs/packages/persist) | Storage-agnostic persistence engine for collections, objects, indexes; `onHydrate`/`byPk` hydration-merge |
 | [`@oimdb/persist-memory`](/docs/packages/persist) | Persist backend: in-memory `Map` (tests, SSR) |
 | [`@oimdb/persist-localstorage`](/docs/packages/persist) | Persist backend: `localStorage` |

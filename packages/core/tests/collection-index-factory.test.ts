@@ -55,7 +55,7 @@ describe('OIMCollectionIndexFactory', () => {
         const orderedList = indexFactory.orderedList<'list'>({ index: orderedIndex });
         const seen: unknown[] = [];
 
-        orderedList.commandsEventEmitter.subscribeOnKey('list', () => {
+        orderedList.commandsEmitter.subscribeOnKey('list', () => {
             seen.push(...orderedList.consumeCommands('list'));
         });
 

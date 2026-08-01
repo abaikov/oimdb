@@ -1,5 +1,12 @@
 export enum EOIMEventQueueEventType {
     AFTER_FLUSH,
+    /**
+     * The frame is over: tasks drained AND effects finished. Carriers hold their
+     * change records right up to here, so anything that clears per-frame state
+     * hangs off this rather than AFTER_FLUSH — which fires BEFORE the effects
+     * that still need to read it.
+     */
+    FRAME_END,
     BEFORE_FLUSH,
     /**
      * A task threw during flush. Emitted once per failing task, ALWAYS (whether

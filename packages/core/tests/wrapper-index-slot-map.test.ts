@@ -106,7 +106,7 @@ describe('OIMIndexSlotMap', () => {
         const rows = createOIMIndexSlotMap(byTeam, () => ({}));
 
         let fired = 0;
-        const off = rows.subscribeOnKey('t1', () => {
+        const off = rows.emitter.subscribeOnKey('t1', () => {
             fired++;
         });
 

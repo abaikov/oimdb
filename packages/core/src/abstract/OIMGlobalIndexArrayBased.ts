@@ -9,7 +9,11 @@ import { OIMGlobalIndex } from './OIMGlobalIndex';
  */
 export abstract class OIMGlobalIndexArrayBased<
     TPk extends TOIMKey,
-> extends OIMGlobalIndex<TPk> {
+> extends OIMGlobalIndex<
+    TPk,
+    TPk[],
+    readonly TOIMAnyEntitySlot<TPk>[]
+> {
     protected slots: TOIMAnyEntitySlot<TPk>[] = [];
 
     constructor(options: { comparePks?: TOIMIndexComparator<TPk> } = {}) {

@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/async",
   "version": "2.3.0",
-  "description": "Async stores support for OIMDB - async collections and indexes",
+  "description": "DEPRECATED \u2014 do not use. Async collections/indexes; use @oimdb/core (plus @oimdb/persist for I/O) instead.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -27,10 +27,9 @@
   },
   "scripts": {
     "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
-    "test": "jest",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
-    "prepublishOnly": "npm run type-check && npm test && npm run build"
+    "prepublishOnly": "npm run type-check && npm run build"
   },
   "files": [
     "dist"
@@ -48,14 +47,9 @@
   },
   "keywords": [
     "oimdb",
-    "async",
-    "asynchronous",
-    "collections",
-    "indexes",
-    "typescript",
-    "reactive",
-    "database"
+    "deprecated"
   ],
   "author": "Andrei Baikov",
-  "license": "MIT"
+  "license": "MIT",
+  "deprecated": "@oimdb/async is deprecated and exports nothing. Keep asynchrony outside the store: await your I/O, then write into a normal @oimdb/core collection. For load/save use @oimdb/persist."
 }

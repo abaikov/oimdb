@@ -6,10 +6,10 @@ import type { TOIMComputedUpdatePayload } from '../../computed/types/TOIMCompute
 type TOIMComputedKey = 'value';
 
 type TOIMComputedLike = {
-    emitter: OIMEventEmitter<{
+    batchEmitter: OIMEventEmitter<{
         update: TOIMComputedUpdatePayload<TOIMComputedKey>;
     }>;
-    updateEventEmitter: OIMUpdateEventEmitter<TOIMComputedKey>;
+    emitter: OIMUpdateEventEmitter<TOIMComputedKey>;
 };
 
 /**
@@ -21,6 +21,6 @@ export class OIMEffectDependencyComputed implements IOIMEffectDependency {
     constructor(public readonly source: TOIMComputedLike) {}
 
     public subscribe(onUpdate: () => void): () => void {
-        return this.source.emitter.on('update', onUpdate);
+        return this.source.batchEmitter.on('update', onUpdate);
     }
 }

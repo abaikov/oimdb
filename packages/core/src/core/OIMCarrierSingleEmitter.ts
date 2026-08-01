@@ -45,7 +45,7 @@ export class OIMCarrierSingleEmitter implements IOIMSingleUpdateEmitter {
     }
 
     public hasSubscriptions(): boolean {
-        return !!this.subscribers && this.subscribers.size > 0;
+        return this.subscribers !== undefined && this.subscribers.size > 0;
     }
 
     public getMetrics(): { totalHandlers: number; queueLength: number } {

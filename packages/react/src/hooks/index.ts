@@ -40,7 +40,7 @@ export const useSelectPksByIndexKeysSetBased = <
                     .flat();
                 onStoreChange();
             };
-            const unsubscribe = reactiveIndex.subscribeOnKeys(
+            const unsubscribe = reactiveIndex.emitter.subscribeOnKeys(
                 stableKeys,
                 updateSnapshot
             );
@@ -74,7 +74,7 @@ export const useSelectPksByIndexKeySetBased = <
                 snapshotValueRef.current = reactiveIndex.getPksByKey(key);
                 onStoreChange();
             };
-            return reactiveIndex.subscribeOnKey(key, updateSnapshot);
+            return reactiveIndex.emitter.subscribeOnKey(key, updateSnapshot);
         };
     }, [key, reactiveIndex]);
     const getSnapshot = useMemo(() => {
@@ -113,7 +113,7 @@ export const useSelectPksByIndexKeysArrayBased = <
                     .flat();
                 onStoreChange();
             };
-            const unsubscribe = reactiveIndex.subscribeOnKeys(
+            const unsubscribe = reactiveIndex.emitter.subscribeOnKeys(
                 stableKeys,
                 updateSnapshot
             );
@@ -150,13 +150,14 @@ export const useSelectPksByIndexKeyArrayBased = <
         return (onStoreChange: () => void) => {
             const prevKey = prevKeyRef.current;
             if (!prevKey) {
+                // eslint-disable-next-line @typescript-eslint/no-empty-function -- no key means nothing was subscribed, so the teardown has nothing to undo.
                 return () => {};
             }
             const updateSnapshot = () => {
                 snapshotValueRef.current = reactiveIndex.getPksByKey(prevKey);
                 onStoreChange();
             };
-            const unsubscribe = reactiveIndex.subscribeOnKey(
+            const unsubscribe = reactiveIndex.emitter.subscribeOnKey(
                 prevKey,
                 updateSnapshot
             );
@@ -185,7 +186,7 @@ export const useSelectEntityByPk = <TEntity extends object, TPk extends TOIMPk>(
     );
     const subscribe = useMemo(() => {
         return (onStoreChange: () => void) => {
-            return reactiveCollection.subscribeOnKey(pk, onStoreChange);
+            return reactiveCollection.emitter.subscribeOnKey(pk, onStoreChange);
         };
     }, [pk, reactiveCollection]);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -203,7 +204,7 @@ export const useSelectValueByObjectKey = <TKey extends string, TValue>(
     );
     const subscribe = useMemo(() => {
         return (onStoreChange: () => void) => {
-            return reactiveObject.subscribeOnKey(key, onStoreChange);
+            return reactiveObject.emitter.subscribeOnKey(key, onStoreChange);
         };
     }, [key, reactiveObject]);
     const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
@@ -230,7 +231,7 @@ export const useSelectValuesByObjectKeys = <TKey extends string, TValue>(
                 );
                 onStoreChange();
             };
-            const unsubscribe = reactiveObject.subscribeOnKeys(
+            const unsubscribe = reactiveObject.emitter.subscribeOnKeys(
                 stableKeys,
                 updateSnapshot
             );
@@ -283,7 +284,7 @@ export const useSelectEntitiesByPks = <
                 );
                 onStoreChange();
             };
-            const unsubscribe = reactiveCollection.subscribeOnKeys(
+            const unsubscribe = reactiveCollection.emitter.subscribeOnKeys(
                 stablePks,
                 updateSnapshot
             );
@@ -322,14 +323,14 @@ export const useSelectEntitiesByIndexKeySetBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -338,7 +339,7 @@ export const useSelectEntitiesByIndexKeySetBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(key, () => {
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKey(key, () => {
                 resubscribeCollection();
                 snapshotRef.current = readSnapshot();
                 onStoreChange();
@@ -382,14 +383,14 @@ export const useSelectEntitiesByIndexKeysSetBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -398,7 +399,7 @@ export const useSelectEntitiesByIndexKeysSetBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKeys(
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKeys(
                 stableKeys,
                 () => {
                     resubscribeCollection();
@@ -439,14 +440,14 @@ export const useSelectEntitiesByIndexKeyArrayBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -455,7 +456,7 @@ export const useSelectEntitiesByIndexKeyArrayBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(key, () => {
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKey(key, () => {
                 resubscribeCollection();
                 snapshotRef.current = readSnapshot();
                 onStoreChange();
@@ -497,14 +498,14 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -513,7 +514,7 @@ export const useSelectEntitiesByIndexKeysArrayBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKeys(
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKeys(
                 stableKeys,
                 () => {
                     resubscribeCollection();
@@ -566,7 +567,7 @@ export const useSelectPksByCompositeIndexKeySetBased = <
                     reactiveIndex.getPksByKey(stableKey);
                 onStoreChange();
             };
-            return reactiveIndex.subscribeOnKey(stableKey, updateSnapshot);
+            return reactiveIndex.emitter.subscribeOnKey(stableKey, updateSnapshot);
         };
     }, [stableKey, reactiveIndex]);
     const getSnapshot = useMemo(() => () => snapshotValueRef.current, []);
@@ -590,7 +591,7 @@ export const useSelectPksByCompositeIndexKeyArrayBased = <
                     reactiveIndex.getPksByKey(stableKey);
                 onStoreChange();
             };
-            return reactiveIndex.subscribeOnKey(stableKey, updateSnapshot);
+            return reactiveIndex.emitter.subscribeOnKey(stableKey, updateSnapshot);
         };
     }, [stableKey, reactiveIndex]);
     const getSnapshot = useMemo(() => () => snapshotValueRef.current, []);
@@ -618,14 +619,14 @@ export const useSelectEntitiesByCompositeIndexKeySetBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -634,7 +635,7 @@ export const useSelectEntitiesByCompositeIndexKeySetBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKey(
                 stableKey,
                 () => {
                     resubscribeCollection();
@@ -674,14 +675,14 @@ export const useSelectEntitiesByCompositeIndexKeyArrayBased = <
         snapshotRef.current = readSnapshot();
         return (onStoreChange: () => void) => {
             let unsubscribeFromCollection =
-                reactiveCollection.subscribeOnKeys(readPks(), () => {
+                reactiveCollection.emitter.subscribeOnKeys(readPks(), () => {
                     snapshotRef.current = readSnapshot();
                     onStoreChange();
                 });
 
             const resubscribeCollection = () => {
                 unsubscribeFromCollection();
-                unsubscribeFromCollection = reactiveCollection.subscribeOnKeys(
+                unsubscribeFromCollection = reactiveCollection.emitter.subscribeOnKeys(
                     readPks(),
                     () => {
                         snapshotRef.current = readSnapshot();
@@ -690,7 +691,7 @@ export const useSelectEntitiesByCompositeIndexKeyArrayBased = <
                 );
             };
 
-            const unsubscribeFromIndex = reactiveIndex.subscribeOnKey(
+            const unsubscribeFromIndex = reactiveIndex.emitter.subscribeOnKey(
                 stableKey,
                 () => {
                     resubscribeCollection();

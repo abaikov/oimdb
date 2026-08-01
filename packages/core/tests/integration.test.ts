@@ -55,7 +55,7 @@ describe('Integration Tests', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
-            emitter = collection;
+            emitter = collection.emitter;
         });
 
         afterEach(() => {
@@ -232,7 +232,7 @@ describe('Integration Tests', () => {
 
             const notifications: string[] = [];
 
-            emitter.subscribeOnKey('user1', () => {
+            emitter.emitter.subscribeOnKey('user1', () => {
                 notifications.push('immediate notification');
 
                 // Verify notification was received immediately
@@ -268,7 +268,7 @@ describe('Integration Tests', () => {
 
             const notifications: string[] = [];
 
-            emitter.subscribeOnKey('user1', () => {
+            emitter.emitter.subscribeOnKey('user1', () => {
                 notifications.push('timeout notification');
 
                 expect(notifications.length).toBe(1);
@@ -306,7 +306,7 @@ describe('Integration Tests', () => {
 
             const notifications: string[] = [];
 
-            emitter.subscribeOnKey('user1', () => {
+            emitter.emitter.subscribeOnKey('user1', () => {
                 notifications.push('microtask notification');
 
                 expect(notifications.length).toBe(1);
@@ -362,8 +362,8 @@ describe('Integration Tests', () => {
                     new OIMEntityUpdaterFactory<TOIMProject>().createMergeEntityUpdater(),
             });
 
-            userEmitter = userCollection;
-            projectEmitter = projectCollection;
+            userEmitter = userCollection.emitter;
+            projectEmitter = projectCollection.emitter;
         });
 
         afterEach(() => {
@@ -472,7 +472,7 @@ describe('Integration Tests', () => {
                 updateEntity:
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
-            emitter = collection;
+            emitter = collection.emitter;
         });
 
         afterEach(() => {

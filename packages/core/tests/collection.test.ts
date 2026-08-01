@@ -58,11 +58,11 @@ describe('OIMCollection', () => {
                     new OIMEntityUpdaterFactory<TOIMUser>().createMergeEntityUpdater(),
             });
             eventSpy = jest.fn();
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
         });
 
         afterEach(() => {
-            collection.emitter.offAll();
+            collection.batchEmitter.offAll();
         });
 
         test('should insert single entity and emit update event', () => {
@@ -237,7 +237,7 @@ describe('OIMCollection', () => {
             });
 
             const eventSpy = jest.fn();
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
 
             const product: TOIMProduct = {
                 productId: 123,
@@ -252,7 +252,7 @@ describe('OIMCollection', () => {
                 pks: [123],
             });
 
-            collection.emitter.offAll();
+            collection.batchEmitter.offAll();
         });
     });
 
@@ -317,15 +317,15 @@ describe('OIMCollection', () => {
         });
 
         afterEach(() => {
-            collection.emitter.offAll();
+            collection.batchEmitter.offAll();
         });
 
         test('should support multiple event listeners', () => {
             const listener1 = jest.fn();
             const listener2 = jest.fn();
 
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, listener1);
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, listener2);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, listener1);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, listener2);
 
             const user: TOIMUser = {
                 id: 'user1',
@@ -343,8 +343,8 @@ describe('OIMCollection', () => {
         test('should allow removing event listeners', () => {
             const listener = jest.fn();
 
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, listener);
-            collection.emitter.off(EOIMCollectionEventType.UPDATE, listener);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, listener);
+            collection.batchEmitter.off(EOIMCollectionEventType.UPDATE, listener);
 
             const user: TOIMUser = {
                 id: 'user1',
@@ -362,9 +362,9 @@ describe('OIMCollection', () => {
             const listener1 = jest.fn();
             const listener2 = jest.fn();
 
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, listener1);
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, listener2);
-            collection.emitter.offAll();
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, listener1);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, listener2);
+            collection.batchEmitter.offAll();
 
             const user: TOIMUser = {
                 id: 'user1',
@@ -396,12 +396,12 @@ describe('OIMCollection', () => {
         });
 
         afterEach(() => {
-            collection.emitter.offAll();
+            collection.batchEmitter.offAll();
         });
 
         test('should handle empty arrays gracefully', () => {
             const eventSpy = jest.fn();
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
 
             collection.upsertMany([]);
             collection.removeMany([]);
@@ -411,7 +411,7 @@ describe('OIMCollection', () => {
 
         test('should handle removing non-existent entity', () => {
             const eventSpy = jest.fn();
-            collection.emitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
+            collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, eventSpy);
 
             const user: TOIMUser = {
                 id: 'nonexistent',

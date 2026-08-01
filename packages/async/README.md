@@ -1,144 +1,32 @@
-# @oimdb/async
+# @oimdb/async — deprecated
 
-Async stores support for OIMDB - async collections and indexes.
+**This package is deprecated and exports nothing. Do not use it in new code.**
 
-📖 **[Full documentation](https://oimdb.org/)**
+It provided async variants of the collection and index, built on the assumption
+that the store itself should be asynchronous. That was the wrong seam: a reactive
+store holds what the application already has and reports changes synchronously,
+while waiting on I/O belongs to whatever fetches or persists. Making reads return
+promises bought nothing and cost a parallel set of primitives that had to track
+the synchronous ones release for release.
 
-## Installation
+## What to use instead
 
-```bash
-npm install @oimdb/async @oimdb/core
+Keep the asynchrony outside the store — `await` your I/O, then write the result
+into an ordinary collection:
+
+```ts
+import { createOIMCollectionKit, OIMEventQueue } from '@oimdb/core';
+
+const queue = new OIMEventQueue();
+const users = createOIMCollectionKit<User, string>(queue, { selectPk: u => u.id });
+
+const rows = await fetchUsers();   // the await lives here, not in the store
+users.collection.upsertMany(rows);
+queue.flush();
 ```
 
-## Overview
+For loading and saving state, use [`@oimdb/persist`](https://www.npmjs.com/package/@oimdb/persist),
+which is built for that boundary.
 
-This package provides async versions of collections and indexes that work with asynchronous stores (IndexedDB, async localStorage, remote databases, etc.). All operations return Promises and go directly to the async store without caching.
-
-## Features
-
-- **Async Collections** - `OIMCollectionAsync` and `OIMReactiveCollectionAsync`
-- **Async PK Indexes** - `OIMPkIndexManualAsync` and `OIMReactivePkIndexManualAsync`
-- **No cache** - data is not cached in memory, all operations go directly to the store
-- **Type-safe** - full TypeScript support
-- **Reactive** - supports event system from core package
-
-## Usage
-
-### Async Collection
-
-```typescript
-import { OIMCollectionAsync } from '@oimdb/async';
-import { IOIMCollectionStoreAsync } from '@oimdb/async';
-
-// Implement your async store
-class MyAsyncStore<TEntity, TPk> implements IOIMCollectionStoreAsync<TEntity, TPk> {
-    async getOneByPk(pk: TPk): Promise<TEntity | undefined> {
-        // Your async implementation
-    }
-    // ... other methods
-}
-
-// Create async collection
-const store = new MyAsyncStore<User, string>();
-const users = new OIMCollectionAsync<User, string>({ store });
-
-// All operations are async
-const user = await users.getOneByPk('user1');
-await users.upsertOne({ id: 'user1', name: 'John' });
-const allUsers = await users.getAll();
-```
-
-### Reactive Async Collection
-
-```typescript
-import { OIMReactiveCollectionAsync } from '@oimdb/async';
-import { OIMEventQueue, OIMEventQueueSchedulerFactory } from '@oimdb/core';
-
-const queue = new OIMEventQueue({
-    scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
-});
-
-const users = new OIMReactiveCollectionAsync<User, string>(queue, {
-    store: myAsyncStore
-});
-
-// Subscribe to updates
-users.subscribeOnKey('user1', () => {
-    console.log('User1 updated');
-});
-
-// Async operations
-await users.upsertOne({ id: 'user1', name: 'John' });
-```
-
-### Async Index
-
-```typescript
-import { OIMPkIndexManualAsync } from '@oimdb/async';
-
-const index = new OIMPkIndexManualAsync<string, string>();
-
-// All operations are async
-await index.setPks('admin', ['user1', 'user2']);
-await index.addPks('admin', ['user3']);
-const adminUsers = await index.getPksByKey('admin'); // async → Promise<Set<string>>
-```
-
-### Reactive Async Index
-
-```typescript
-import { OIMReactivePkIndexManualAsync } from '@oimdb/async';
-import { OIMEventQueue, OIMEventQueueSchedulerFactory } from '@oimdb/core';
-
-const queue = new OIMEventQueue({
-    scheduler: OIMEventQueueSchedulerFactory.createMicrotask()
-});
-
-const index = new OIMReactivePkIndexManualAsync<string, string>(queue);
-
-// Subscribe to updates
-index.subscribeOnKey('admin', () => {
-    console.log('Admin users changed');
-});
-
-// Async operations
-await index.setPks('admin', ['user1', 'user2']);
-```
-
-## API
-
-### Collections
-
-- `OIMCollectionAsync<TEntity, TPk>` - Basic async collection
-- `OIMReactiveCollectionAsync<TEntity, TPk>` - Reactive async collection with events
-
-### Indexes
-
-- `OIMPkIndexManualAsync<TIndexKey, TPk>` - Manual async PK index
-- `OIMReactivePkIndexManualAsync<TIndexKey, TPk>` - Reactive manual async PK index
-
-### Interfaces
-
-- `IOIMCollectionStoreAsync<TEntity, TPk>` - Interface for async collection stores
-- `IOIMIndexStoreAsync<TIndexKey, TPk, TIndex>` - Interface for async index stores
-
-### Types
-
-- `TOIMCollectionOptionsAsync<TEntity, TPk>` - Options for async collections
-- `TOIMIndexOptionsAsync<TIndexKey, TPk, TIndex>` - Options for async indexes
-
-## Differences from Core Package
-
-- **All operations are async** - methods return `Promise`
-- **No cache** - data is not cached in memory
-- **Direct store operations** - all operations go directly to the async store
-- **Separate classes** - `OIMCollectionAsync` vs `OIMCollection`, etc.
-
-## Requirements
-
-- `@oimdb/core` ^3.3.0 (peer dependency)
-
-## License
-
-MIT
-
+The package stays published so existing installs keep resolving. It will not
+receive further releases.

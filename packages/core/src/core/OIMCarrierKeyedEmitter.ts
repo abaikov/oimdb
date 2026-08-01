@@ -1,7 +1,9 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from './OIMEventQueue';
+import { NO_FIELDS } from './OIMFieldMaskRegistry';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { IOIMSubscribable } from '../types/IOIMSubscribable';
+import { IOIMFrameParticipant } from '../interfaces/IOIMFrameParticipant';
 import { IOIMKeyedUpdateEmitter } from '../interfaces/IOIMKeyedUpdateEmitter';
 
 /**
@@ -39,9 +41,12 @@ export interface IOIMCarrierProvider<TKey extends TOIMKey, TCarrier> {
 export class OIMCarrierKeyedEmitter<
     TKey extends TOIMKey,
     TCarrier extends IOIMSubscribable,
-> implements IOIMKeyedUpdateEmitter<TKey> {
+> implements IOIMKeyedUpdateEmitter<TKey>, IOIMFrameParticipant {
     private readonly queue: OIMEventQueue;
-    private readonly carrierProvider: IOIMCarrierProvider<TKey, TCarrier>;
+    // `protected`, not private: a subclass that records per-write state has to reach
+    // the carrier before marking it. Two wrapper methods would say the same thing
+    // with more code.
+    protected readonly carrierProvider: IOIMCarrierProvider<TKey, TCarrier>;
     // Carriers with at least one subscriber — for markAllUpdated / metrics.
     private readonly subscribedCarriers = new Set<TCarrier>();
     // Pending flush batch. A plain array + a `carrier.dirty` flag for dedup —
@@ -50,6 +55,10 @@ export class OIMCarrierKeyedEmitter<
     // doubles as membership: a carrier is in this array iff `carrier.dirty`.
     private dirtyCarriers: TCarrier[] = [];
     private isFlushEnqueued = false;
+    // Carriers whose change record outlives delivery: cleared at FRAME_END, once
+    // the effects that may want to read it have run.
+    private pendingClear: TCarrier[] = [];
+    private isFrameEndClearScheduled = false;
     // Handlers registered through a `subscribeOnKeys` that spans 2+ carriers,
     // refcounted (the same handler may hold several such subscriptions). Their
     // delivery is coalesced to at most ONCE per flush — the callback carries no
@@ -181,8 +190,19 @@ export class OIMCarrierKeyedEmitter<
         }
     }
 
-    /** Fast path: the writer already holds the carrier. */
-    public markUpdatedCarrier(carrier: TCarrier): void {
+    /**
+     * Fast path: the writer already holds the carrier.
+     *
+     * `patch` is what the write actually set. This emitter has no use for it —
+     * a subscriber of a key wants every write to that key — but the parameter is
+     * here so the WRITER never has to know which emitter it is talking to. A
+     * field-tracking emitter reads it; passing it costs a register.
+     *
+     * Its absence means "everything changed" (a removal, or a writer that does
+     * not track fields), which is the conservative reading: never fewer wakeups
+     * than correctness requires.
+     */
+    public markUpdatedCarrier(carrier: TCarrier, _patch?: object): void {
         this.assertNotInFlush();
         const subscribers = carrier.subscribers;
         if (!subscribers || subscribers.size === 0) return;
@@ -192,7 +212,7 @@ export class OIMCarrierKeyedEmitter<
         this.scheduleFlush();
     }
 
-    public markUpdatedKey(key: TKey): void {
+    public markUpdatedKey(key: TKey, _patch?: object): void {
         // Nothing is subscribed anywhere → no carrier can have handlers, so skip
         // the carrierProvider lookup entirely. For a composite (trie) carrierProvider this
         // avoids an O(arity) walk on every write to an unsubscribed key.
@@ -282,6 +302,45 @@ export class OIMCarrierKeyedEmitter<
         }
     }
 
+    /**
+     * Take part in the end of the frame, so the delivered carriers are settled
+     * before anything is told the frame is over.
+     *
+     * Registered lazily and only while something is actually pending, so an
+     * emitter that never delivers costs the queue nothing.
+     */
+    private scheduleFrameEndClear(): void {
+        if (this.isFrameEndClearScheduled) return;
+        this.isFrameEndClearScheduled = true;
+        this.queue.registerFrameParticipant(this);
+    }
+
+    /**
+     * Put away the change records this frame accumulated.
+     *
+     * `dirtyFields` is cleared alongside `dirty` rather than left to be
+     * overwritten by the next frame's first write. Leaving it would mean a read
+     * taken outside a frame returns the PREVIOUS frame's mask — a stale value
+     * that is indistinguishable from a live one. Zero says what is true: nothing
+     * changed in the frame you are asking about.
+     *
+     * The property is only written when it already exists, so slots in a
+     * collection that does not track fields never grow it.
+     */
+    public endFrame(): void {
+        const clearing = this.pendingClear;
+        for (let i = 0; i < clearing.length; i++) {
+            const carrier = clearing[i];
+            carrier.dirty = false;
+            if (carrier.dirtyFields !== undefined) {
+                carrier.dirtyFields = NO_FIELDS;
+            }
+        }
+        clearing.length = 0;
+        this.isFrameEndClearScheduled = false;
+        this.queue.unregisterFrameParticipant(this);
+    }
+
     private scheduleFlush(): void {
         if (this.isFlushEnqueued) return;
         this.isFlushEnqueued = true;
@@ -306,16 +365,20 @@ export class OIMCarrierKeyedEmitter<
         let i = 0;
         try {
             for (; i < flushing.length; i++) {
-                // Clear before notifying: even if a handler throws, the carrier
-                // is left re-markable rather than stuck dirty.
-                flushing[i].dirty = false;
                 this.notify(flushing[i], delivered);
             }
         } finally {
-            // On a thrown handler, clear flags of the carriers we never reached
-            // so they can be re-marked (they drop from this batch, as the old
-            // Set-based flush also dropped its remaining carriers).
-            for (; i < flushing.length; i++) flushing[i].dirty = false;
+            // `dirty` used to be cleared right before notifying, so a handler
+            // that wrote could re-mark the carrier. Writes are now refused for
+            // the whole frame — effects included — so the flag can instead stay
+            // up until the frame really ends, which is what lets an effect look
+            // at its dependency and see WHAT changed rather than only that
+            // something did. Carriers we never reached (a handler threw) are
+            // cleared here so they are not stuck.
+            for (let j = 0; j < flushing.length; j++) {
+                this.pendingClear.push(flushing[j]);
+            }
+            this.scheduleFrameEndClear();
             // Empty the pool for the next flush while keeping its capacity.
             delivered?.clear();
         }

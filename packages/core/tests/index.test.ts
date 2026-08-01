@@ -41,7 +41,7 @@ describe('raw slot indexes', () => {
         index.setSlots('team1', slots);
 
         expect(index.getPksByKey('team1')).toEqual(['u1', 'u2']);
-        expect(index.getSlotsByKey('team1')).toEqual(slots);
+        expect([...index.getSlotsByKey('team1')]).toEqual(slots);
         expect(index.getKeySize('team1')).toBe(2);
     });
 
@@ -55,8 +55,8 @@ describe('raw slot indexes', () => {
         );
         const calls: string[] = [];
 
-        setIndex.subscribeOnKey('team1', () => calls.push('set'));
-        arrayIndex.subscribeOnKey('team1', () => calls.push('array'));
+        setIndex.emitter.subscribeOnKey('team1', () => calls.push('set'));
+        arrayIndex.emitter.subscribeOnKey('team1', () => calls.push('array'));
 
         setIndex.setSlots('team1', new Set([slot('u1')]));
         arrayIndex.setSlots('team1', [slot('u1')]);

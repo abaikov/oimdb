@@ -21,7 +21,7 @@ describe('carrier emitter: multi-key subscription bookkeeping', () => {
         const collection = makeCollection(queue);
 
         let calls = 0;
-        collection.subscribeOnKeys(['a', 'b', 'c'], () => {
+        collection.emitter.subscribeOnKeys(['a', 'b', 'c'], () => {
             calls++;
         });
 
@@ -41,8 +41,8 @@ describe('carrier emitter: multi-key subscription bookkeeping', () => {
         const handler = () => {
             calls++;
         };
-        collection.subscribeOnKey('a', handler);
-        collection.subscribeOnKey('b', handler);
+        collection.emitter.subscribeOnKey('a', handler);
+        collection.emitter.subscribeOnKey('b', handler);
 
         collection.upsertOne({ id: 'a', n: 1 });
         collection.upsertOne({ id: 'b', n: 1 });
@@ -59,11 +59,11 @@ describe('carrier emitter: multi-key subscription bookkeeping', () => {
         const sharedHandler = () => {
             shared++;
         };
-        collection.subscribeOnKey('a', sharedHandler);
-        collection.subscribeOnKey('b', sharedHandler);
+        collection.emitter.subscribeOnKey('a', sharedHandler);
+        collection.emitter.subscribeOnKey('b', sharedHandler);
 
         // Unrelated subscription, different handler, different keys.
-        collection.subscribeOnKeys(['x', 'y'], () => {
+        collection.emitter.subscribeOnKeys(['x', 'y'], () => {
             /* noop */
         });
 
@@ -83,16 +83,16 @@ describe('carrier emitter: multi-key subscription bookkeeping', () => {
         const multi = () => {
             /* noop */
         };
-        collection.subscribeOnKeys(['x', 'y'], multi);
+        collection.emitter.subscribeOnKeys(['x', 'y'], multi);
         // The documented alternative to calling the returned unsubscribe.
-        collection.unsubscribeFromKeys(['x', 'y'], multi);
+        collection.emitter.unsubscribeFromKeys(['x', 'y'], multi);
 
         let shared = 0;
         const sharedHandler = () => {
             shared++;
         };
-        collection.subscribeOnKey('a', sharedHandler);
-        collection.subscribeOnKey('b', sharedHandler);
+        collection.emitter.subscribeOnKey('a', sharedHandler);
+        collection.emitter.subscribeOnKey('b', sharedHandler);
 
         collection.upsertOne({ id: 'a', n: 1 });
         collection.upsertOne({ id: 'b', n: 1 });

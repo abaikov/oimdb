@@ -98,7 +98,7 @@ describe('OIMGlobalIndexSlotMap', () => {
         const rows = createOIMGlobalIndexSlotMap(list, () => ({}));
 
         let fired = 0;
-        const off = rows.subscribe(() => {
+        const off = rows.emitter.subscribe(() => {
             fired++;
         });
 

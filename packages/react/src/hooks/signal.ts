@@ -50,7 +50,7 @@ export const useSelectEntityByPkSignal = <
 ): TEntity | undefined => {
     const force = useForceUpdate();
     useIsomorphicLayoutEffect(
-        () => reactiveCollection.subscribeOnKey(pk, force),
+        () => reactiveCollection.emitter.subscribeOnKey(pk, force),
         [reactiveCollection, pk]
     );
     return reactiveCollection.getOneByPk(pk);
@@ -66,7 +66,7 @@ export const useSelectPksByIndexKeyArrayBasedSignal = <
 ): readonly TPk[] => {
     const force = useForceUpdate();
     useIsomorphicLayoutEffect(
-        () => reactiveIndex.subscribeOnKey(key, force),
+        () => reactiveIndex.emitter.subscribeOnKey(key, force),
         [reactiveIndex, key]
     );
     return reactiveIndex.getPksByKey(key);
@@ -82,7 +82,7 @@ export const useSelectPksByIndexKeySetBasedSignal = <
 ): ReadonlySet<TPk> => {
     const force = useForceUpdate();
     useIsomorphicLayoutEffect(
-        () => reactiveIndex.subscribeOnKey(key, force),
+        () => reactiveIndex.emitter.subscribeOnKey(key, force),
         [reactiveIndex, key]
     );
     return reactiveIndex.getPksByKey(key);
@@ -97,7 +97,7 @@ export const useSelectPksByGlobalIndexArrayBasedSignal = <
 ): readonly TPk[] => {
     const force = useForceUpdate();
     useIsomorphicLayoutEffect(
-        () => reactiveIndex.subscribe(force),
+        () => reactiveIndex.emitter.subscribe(force),
         [reactiveIndex]
     );
     return reactiveIndex.getPks();
@@ -111,7 +111,7 @@ export const useSelectPksByGlobalIndexSetBasedSignal = <
 ): ReadonlySet<TPk> => {
     const force = useForceUpdate();
     useIsomorphicLayoutEffect(
-        () => reactiveIndex.subscribe(force),
+        () => reactiveIndex.emitter.subscribe(force),
         [reactiveIndex]
     );
     return reactiveIndex.getPks();

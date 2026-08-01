@@ -7,7 +7,7 @@ import { TOIMObjectOptions } from '../types/TOIMObjectOptions';
 
 /** It's like a store - but with event emitter */
 export class OIMObject<TKey extends string, TValue> {
-    public readonly emitter = new OIMEventEmitter<{
+    public readonly batchEmitter = new OIMEventEmitter<{
         [EOIMObjectEventType.UPDATE]: TOIMUpdatePayload<TKey>;
     }>();
 
@@ -62,14 +62,14 @@ export class OIMObject<TKey extends string, TValue> {
      * unobserved write skips the payload allocation entirely.
      */
     protected onUpdatedKey(key: TKey): void {
-        if (this.emitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
-            this.emitter.emit(EOIMObjectEventType.UPDATE, { keys: [key] });
+        if (this.batchEmitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
+            this.batchEmitter.emit(EOIMObjectEventType.UPDATE, { keys: [key] });
         }
     }
 
     protected onUpdatedKeys(keys: TKey[]): void {
-        if (this.emitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
-            this.emitter.emit(EOIMObjectEventType.UPDATE, { keys });
+        if (this.batchEmitter.hasHandlers(EOIMObjectEventType.UPDATE)) {
+            this.batchEmitter.emit(EOIMObjectEventType.UPDATE, { keys });
         }
     }
 
@@ -91,6 +91,6 @@ export class OIMObject<TKey extends string, TValue> {
 
     public destroy(): void {
         this.store.destroy();
-        this.emitter.offAll();
+        this.batchEmitter.offAll();
     }
 }

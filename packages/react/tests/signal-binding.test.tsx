@@ -104,9 +104,9 @@ describe('signal binding + in-place (mutable) collections', () => {
         }
 
         const { unmount } = render(<View />);
-        expect(users.getHandlerCount('u1')).toBe(1);
+        expect(users.emitter.getHandlerCount('u1')).toBe(1);
         unmount();
-        expect(users.getHandlerCount('u1')).toBe(0);
+        expect(users.emitter.getHandlerCount('u1')).toBe(0);
         queue.destroy();
     });
 
@@ -126,11 +126,11 @@ describe('signal binding + in-place (mutable) collections', () => {
 
         const { rerender, unmount } = render(<View pk="u1" />);
         expect(value).toBe('Alice');
-        expect(users.getHandlerCount('u1')).toBe(1);
+        expect(users.emitter.getHandlerCount('u1')).toBe(1);
 
         rerender(<View pk="u2" />);
-        expect(users.getHandlerCount('u1')).toBe(0);
-        expect(users.getHandlerCount('u2')).toBe(1);
+        expect(users.emitter.getHandlerCount('u1')).toBe(0);
+        expect(users.emitter.getHandlerCount('u2')).toBe(1);
 
         act(() => {
             users.upsertOneByPk('u2', { name: 'Bob 2' });

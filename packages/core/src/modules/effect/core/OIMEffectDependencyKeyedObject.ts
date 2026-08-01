@@ -8,12 +8,9 @@ export class OIMEffectDependencyKeyedObject<TKey extends string, TValue>
     private readonly dep: OIMEffectDependencyKeyed<TKey>;
 
     constructor(object: OIMReactiveObject<TKey, TValue>, key: TKey) {
-        this.dep = new OIMEffectDependencyKeyed<TKey>(object, key);
+        this.dep = new OIMEffectDependencyKeyed<TKey>(object.emitter, key);
     }
 
-    public get source(): OIMReactiveObject<TKey, TValue> {
-        return this.dep.source as OIMReactiveObject<TKey, TValue>;
-    }
 
     public subscribe(
         onUpdate: () => void

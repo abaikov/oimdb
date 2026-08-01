@@ -61,7 +61,7 @@ describe('composite-PK collection', () => {
     test('notifies a subscriber keyed by an equal-content PK path', () => {
         const { queue, memberships } = makeCollection();
         let calls = 0;
-        const unsub = memberships.subscribeOnKey([3, 30], () => {
+        const unsub = memberships.emitter.subscribeOnKey([3, 30], () => {
             calls++;
         });
 

@@ -30,13 +30,11 @@ npm install @oimdb/redux-adapter @oimdb/core redux
 
 → [Redux Adapter guide](/docs/packages/redux-adapter)
 
-## Async
+## Async backends
 
-For IndexedDB, remote stores, or other async backends:
-
-```bash
-npm install @oimdb/async @oimdb/core
-```
+There is no async collection, and `@oimdb/async` is deprecated. Do the waiting
+outside the store: `await` your IndexedDB or network read, then write the result
+into a normal collection. For loading and saving, use `@oimdb/persist`.
 
 ## Persist
 

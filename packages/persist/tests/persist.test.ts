@@ -209,6 +209,7 @@ describe('persist engine', () => {
                     async write() {
                         writes++;
                     },
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async clear() {},
                 },
             })
@@ -239,7 +240,9 @@ describe('error handling', () => {
                     async read() {
                         throw new Error('corrupt');
                     },
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async write() {},
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async clear() {},
                 },
             })
@@ -261,7 +264,9 @@ describe('error handling', () => {
                     async read() {
                         throw new Error('corrupt');
                     },
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async write() {},
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async clear() {},
                 },
             })
@@ -288,6 +293,7 @@ describe('error handling', () => {
                     async write() {
                         throw new Error('write failure');
                     },
+                    // eslint-disable-next-line @typescript-eslint/no-empty-function -- inert stub: the test drives only the other strategy method, this one must do nothing.
                     async clear() {},
                 },
             })

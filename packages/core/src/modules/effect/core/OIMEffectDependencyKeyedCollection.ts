@@ -11,12 +11,9 @@ export class OIMEffectDependencyKeyedCollection<
     private readonly dep: OIMEffectDependencyKeyed<TPk>;
 
     constructor(collection: OIMReactiveCollection<TEntity, TPk>, pk: TPk) {
-        this.dep = new OIMEffectDependencyKeyed<TPk>(collection, pk);
+        this.dep = new OIMEffectDependencyKeyed<TPk>(collection.emitter, pk);
     }
 
-    public get source(): OIMReactiveCollection<TEntity, TPk> {
-        return this.dep.source as OIMReactiveCollection<TEntity, TPk>;
-    }
 
     public subscribe(onUpdate: () => void): () => void {
         return this.dep.subscribe(onUpdate);

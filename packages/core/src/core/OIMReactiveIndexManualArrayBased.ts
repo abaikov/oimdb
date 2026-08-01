@@ -15,7 +15,7 @@ class OIMIndexManualArrayBasedReactive<
     TPk extends TOIMKey,
 > extends OIMIndexManualArrayBased<TKey, TPk> {
     constructor(
-        private readonly updateEmitter: IOIMKeyedUpdateEmitter<TKey>,
+        private readonly emitter: IOIMKeyedUpdateEmitter<TKey>,
         opts?: {
             comparePks?: TOIMIndexComparator<TPk>;
             store?: OIMIndexStoreArrayBased<TKey, TPk>;
@@ -28,15 +28,15 @@ class OIMIndexManualArrayBasedReactive<
     protected override emitBucketChanged(
         bucket: OIMKeyedBucketArrayBased<TKey, TPk>
     ): void {
-        this.updateEmitter.markUpdatedCarrier(bucket);
+        this.emitter.markUpdatedCarrier(bucket);
     }
 
     protected override emitUpdate(keys: TKey[]): void {
-        this.updateEmitter.markUpdatedKeys(keys);
+        this.emitter.markUpdatedKeys(keys);
     }
 
     protected override emitUpdateOne(key: TKey): void {
-        this.updateEmitter.markUpdatedKey(key);
+        this.emitter.markUpdatedKey(key);
     }
 }
 
@@ -64,8 +64,8 @@ export class OIMReactiveIndexManualArrayBased<
             new OIMIndexStoreMapDrivenArrayBased<TKey, TPk>();
         super(
             queue,
-            updateEmitter =>
-                new OIMIndexManualArrayBasedReactive<TKey, TPk>(updateEmitter, {
+            emitter =>
+                new OIMIndexManualArrayBasedReactive<TKey, TPk>(emitter, {
                     comparePks: opts?.indexOptions?.comparePks,
                     store,
                 }),

@@ -332,7 +332,7 @@ cards.upsertMany([
     { id: 'card3', title: 'Summary' },
 ]);
 
-cardsByDeck.commandsEventEmitter.subscribeOnKey('deck1', () => {
+cardsByDeck.commandsEmitter.subscribeOnKey('deck1', () => {
     const commands = cardsByDeck.consumeCommands('deck1');
 
     for (const command of commands) {
@@ -1349,6 +1349,24 @@ list-returning selector follow the same shape. A **derived** index is dense by c
 `| undefined` there is spurious; a **manual** index (`setPks`, composite) can hold a dangling pk, and
 compacting it away is how a torn state becomes invisible.
 
+## 🔑 Composite key tuples
+
+A composite key's segment order is otherwise restated at every call site, and with same-typed
+segments a swapped pair silently reads a different bucket. Declare it once:
+
+```ts
+import { ctk } from '@oimdb/core'; // ctk — create tuple key
+
+type TCardKeys = { boardId: string; cardId: number };
+const cardKey = ctk<TCardKeys>()(['boardId', 'cardId']);
+
+selectPk: (card) => cardKey(card);              // the entity carries those fields
+cards.getOneByPk(cardKey({ boardId: 'b1', cardId: 9 }));
+```
+
+Parameterised by the key type, so no segment needs a type assertion. It builds the tuple and nothing
+else — no caching, no invalidation.
+
 ## 📚 API Reference
 
 ### DX Factories
@@ -1448,7 +1466,7 @@ new OIMReactiveIndexManualSetBased(queue: OIMEventQueue, opts?: {
 
 **Query:**
 - `index.getPksByKey(key: TKey): Set<TPk>` - Returns Set projection of primary keys
-- `index.getSlotsByKey(key: TKey): ReadonlySet<TOIMAnyEntitySlot<TPk>>` - Returns stored slots for fast entity reads
+- `index.getSlotsByKey(key: TKey): ReadonlySet<TOIMAnyEntitySlot<TPk>>` - A **live view** of the stored slots, not a copy. Valid until the next write to that key; `new Set(...)` it yourself if you need to keep or diff it.
 
 #### `OIMReactiveCollectionIndexManualSetBased<TKey, TPk, TEntity>`
 Collection-bound Set-based index. Use this when `setPks`/`addPks`/`removePks` should resolve PKs to canonical slots from a collection.
@@ -1537,7 +1555,7 @@ new OIMReactiveIndexManualArrayBased(queue: OIMEventQueue, opts?: {
 
 **Query:**
 - `index.getPksByKey(key: TKey): TPk[]` - Returns Array projection of primary keys
-- `index.getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - Returns stored slots for fast entity reads
+- `index.getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - A **live view** of the stored slots, not a copy. Valid until the next write to that key; `.slice()` it yourself if you need to keep or diff it.
 
 **Note**: While `addPks`/`removePks` are available, they require array operations (Set creation, filtering) making them O(n) compared to O(1) for SetBased indexes. For ArrayBased indexes, prefer `setPks` for better performance when replacing the entire array.
 
@@ -1611,7 +1629,7 @@ new OIMIndexManualOrderedArrayBased<TKey, TPk>()
 
 **Query:**
 - `getPksByKey(key: TKey): TPk[]` - Returns the ordered primary-key array
-- `getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - Returns the stored ordered slots
+- `getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[]` - A **live view** of the stored ordered slots, not a copy. Valid until the next write to that key; `.slice()` it yourself if you need to keep or diff it.
 - `getEntitiesByKey<TEntity>(key: TKey): (TEntity | undefined)[]` - Returns entities from stored slots, aligned 1:1 with the pks (holes are `undefined`)
 
 #### `OIMCollectionIndexManualOrderedArrayBased<TKey, TPk, TEntity>`
@@ -1624,7 +1642,7 @@ Collection-bound ordered Array-based index. Use this when ordered PK writes shou
 - `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Returns entities from canonical slots (holes are `undefined`)
 
 #### `OIMOrderedListCommandStream<TKey, TPk, TEntity>`
-Slot-first ordered per-key list with a command stream for imperative consumers. It stores data in an `OIMIndexManualOrderedArrayBased` and emits position-addressed `TOIMOrderedListCommand<Slot>` batches through `commandsEventEmitter`. Each command's `item` is the entity slot (read the entity via `item.item`):
+Slot-first ordered per-key list with a command stream for imperative consumers. It stores data in an `OIMIndexManualOrderedArrayBased` and emits position-addressed `TOIMOrderedListCommand<Slot>` batches through `commandsEmitter`. Each command's `item` is the entity slot (read the entity via `item.item`):
 
 ```typescript
 type TOIMOrderedListCommand<TItem> =
@@ -1645,7 +1663,7 @@ new OIMOrderedListCommandStream(
 
 **Properties:**
 - `index: OIMIndexManualOrderedArrayBased<TKey, TPk>` - Underlying ordered index and source of truth
-- `commandsEventEmitter: OIMUpdateEventEmitter<TKey>` - Key-specific command notifications delivered after queue flush
+- `commandsEmitter: OIMUpdateEventEmitter<TKey>` - Key-specific command notifications delivered after queue flush
 
 **Methods:** (`Slot` = `TOIMEntitySlot<TEntity, TPk>`)
 - `setSlots(key: TKey, slots: readonly Slot[]): void` - Replace the whole ordered list and emit a `reset` command
@@ -1659,7 +1677,7 @@ new OIMOrderedListCommandStream(
 - `consumeCommands(key: TKey): TOIMOrderedListCommand<Slot>[]` - Read buffered commands for a key inside the notification handler
 - `getBufferedCommands(key: TKey): readonly TOIMOrderedListCommand<Slot>[]` - Peek at buffered commands without clearing them
 - `getPksByKey(key: TKey): readonly TPk[]` - Read the current ordered list
-- `getSlotsByKey(key: TKey): readonly TOIMEntitySlot<TEntity, TPk>[]` - Read current ordered slots
+- `getSlotsByKey(key: TKey): readonly TOIMEntitySlot<TEntity, TPk>[]` - Read current ordered slots as a **live view**, not a copy (valid until the next write; `.slice()` to keep it)
 - `getEntitiesByKey(key: TKey): (TEntity | undefined)[]` - Read current ordered entities (holes are `undefined`)
 - `clear(key?: TKey): void` - Clear all keys or a specific key
 - `destroy(): void` - Dispose subscriptions and clear state

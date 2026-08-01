@@ -47,6 +47,9 @@ export class OIMDBReduxAdapter {
     private queueFlushHandler?: () => void;
     private queueBeforeFlushHandler?: () => void;
     private isFlushingSilently = false;
+    // Set while a dispatch is armed for the current frame's FRAME_END.
+    private isFrameEndDispatchArmed = false;
+    private unsubscribeFrameEnd?: () => void;
     private readonly instrumentedCollections = new WeakSet<object>();
     private readonly instrumentedIndexes = new WeakSet<object>();
 
@@ -84,11 +87,30 @@ export class OIMDBReduxAdapter {
     >();
 
     // Keyless "Global" index reducers. Dirtiness is a single boolean flipped by
-    // the index's keyless `subscribe()` (fires during flush, before AFTER_FLUSH
-    // dispatch), so there are no keys to accumulate.
+    // the index's keyless `subscribe()` (fires during the task phase, before the
+    // frame-end dispatch), so there are no keys to accumulate.
     private readonly globalIndexReducers = new Set<{ dirty: boolean }>();
 
     private readonly reducerFactory: OIMDBReduxReducerFactory;
+
+    /**
+     * Runs the deferred OIMDB_UPDATE dispatch once the frame is closed.
+     * A class field so the same reference is used to subscribe and unsubscribe.
+     */
+    private readonly frameEndDispatchHandler = (): void => {
+        // Disarm before dispatching. The dispatch re-enters the queue — the
+        // middleware flushes it, and the reducers' write-back schedules the next
+        // frame — and that nested frame must not run this dispatch again.
+        this.isFrameEndDispatchArmed = false;
+        this.unsubscribeFrameEnd?.();
+        this.unsubscribeFrameEnd = undefined;
+        if (!this.store) {
+            return;
+        }
+        this.store.dispatch({
+            type: EOIMDBReduxReducerActionType.UPDATE,
+        });
+    };
 
     constructor(queue: OIMEventQueue, options?: TOIMDBReduxAdapterOptions) {
         this.queue = queue;
@@ -145,17 +167,42 @@ export class OIMDBReduxAdapter {
             });
         };
 
-        // Subscribe to queue flush to dispatch action
+        // Arm the OIMDB_UPDATE dispatch for the end of the current frame.
+        //
+        // The dispatch cannot happen here, in AFTER_FLUSH: that is the effect
+        // phase, which the queue counts as part of the frame, and OIMDB refuses
+        // every write until the frame is over. Our reducers do write — a
+        // collection reducer with `linkedIndexes` syncs the entity's id array
+        // back into an OIMDB index — so dispatching from the effect phase
+        // throws. FRAME_END is emitted once the frame is closed and writes are
+        // legal again, still inside the same synchronous `flush()` call, so
+        // callers see the Redux state and the linked indexes updated the moment
+        // `flush()` returns, exactly as before.
         this.queueFlushHandler = () => {
             // Don't dispatch if we're in silent flush mode
             if (this.isFlushingSilently) {
                 return;
             }
-            if (this.store) {
-                this.store.dispatch({
-                    type: EOIMDBReduxReducerActionType.UPDATE,
-                });
+            if (!this.store) {
+                return;
             }
+            if (this.isFrameEndDispatchArmed) {
+                return;
+            }
+            this.isFrameEndDispatchArmed = true;
+            // Subscribed per frame from inside the frame, not once in the
+            // constructor, and that is load-bearing. OIMDB's keyed emitters
+            // subscribe to FRAME_END during the task phase to clear the `dirty`
+            // flag their carriers carry for the whole frame, and FRAME_END
+            // listeners run in subscription order. Subscribing later than they
+            // did puts this dispatch after every carrier has been cleared; a
+            // write from an earlier position would hit a carrier that is still
+            // flagged dirty, be treated as already batched, and never be
+            // delivered.
+            this.unsubscribeFrameEnd = this.queue.emitter.on(
+                EOIMEventQueueEventType.FRAME_END,
+                this.frameEndDispatchHandler
+            );
         };
         this.queue.emitter.on(
             EOIMEventQueueEventType.BEFORE_FLUSH,
@@ -428,7 +475,7 @@ export class OIMDBReduxAdapter {
         // The keyless single-carrier emitter fires during the flush task phase
         // (before AFTER_FLUSH), so the flag is set in time for the dispatch.
         // Works for manual and derived indexes alike — no method instrumentation.
-        index.subscribe(() => {
+        index.emitter.subscribe(() => {
             reducerData.dirty = true;
         });
     }

@@ -85,8 +85,8 @@ describe('OIMEffect', () => {
         const effect = new OIMEffect(runtime, {
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: A.batchEmitter,
                     emitter: A.emitter,
-                    updateEventEmitter: A.updateEventEmitter,
                 }),
             ],
             run: () => {

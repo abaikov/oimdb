@@ -87,21 +87,18 @@ npm install @oimdb/redux-adapter @oimdb/core redux
 
 [Redux Adapter Guide](/docs/packages/redux-adapter) · [Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/redux-adapter) · [npm](https://www.npmjs.com/package/@oimdb/redux-adapter)
 
-## @oimdb/async
+## @oimdb/async — deprecated
 
-Async collections and indexes for IndexedDB, remote APIs, and other async stores.
+**Deprecated and empty. Do not use.** It provided async variants of the collection
+and index, on the assumption that the store itself should be asynchronous. That
+was the wrong seam: a reactive store holds what the application already has and
+reports changes synchronously, while waiting on I/O belongs to whatever fetches or
+persists. Returning promises from reads bought nothing and cost a parallel set of
+primitives that had to track the synchronous ones release for release.
 
-```bash
-npm install @oimdb/async @oimdb/core
-```
-
-**Includes:**
-
-- `OIMCollectionAsync` / `OIMReactiveCollectionAsync`
-- `OIMPkIndexManualAsync` / `OIMReactivePkIndexManualAsync`
-- No in-memory cache — operations go directly to the async store
-
-[Source on GitHub](https://github.com/abaikov/oimdb/tree/main/packages/async) · [npm](https://www.npmjs.com/package/@oimdb/async)
+Keep the asynchrony outside the store — `await` your I/O, then write the result
+into an ordinary `@oimdb/core` collection. For loading and saving, use
+[`@oimdb/persist`](#oimdbpersist), which is built for that boundary.
 
 ## @oimdb/persist
 

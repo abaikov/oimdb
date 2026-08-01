@@ -1,7 +1,7 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveIndexArrayBased } from '../../../abstract/OIMReactiveIndexArrayBased';
 import { OIMIndexArrayBased } from '../../../abstract/OIMIndexArrayBased';
-import { OIMSelector } from './OIMSelector';
+import { OIMSelectorArrayValued } from './OIMSelectorArrayValued';
 import { OIMSelectorSourceDependencyUpdateEventEmitterKey } from './OIMSelectorSourceDependencyUpdateEventEmitterKey';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
@@ -9,7 +9,7 @@ export class OIMIndexPksByKeyArrayBasedSelector<
     TKey extends TOIMKey,
     TPk extends TOIMKey,
     TIndex extends OIMIndexArrayBased<TKey, TPk>,
-> extends OIMSelector<readonly TPk[]> {
+> extends OIMSelectorArrayValued<TPk> {
     constructor(
         runtime: OIMComputeRuntime,
         private readonly reactiveIndex: OIMReactiveIndexArrayBased<
@@ -21,7 +21,7 @@ export class OIMIndexPksByKeyArrayBasedSelector<
     ) {
         super(runtime, [
             new OIMSelectorSourceDependencyUpdateEventEmitterKey<TKey>(
-                reactiveIndex,
+                reactiveIndex.emitter,
                 key
             ),
         ]);
@@ -29,13 +29,5 @@ export class OIMIndexPksByKeyArrayBasedSelector<
 
     public getValue(): readonly TPk[] {
         return this.reactiveIndex.getPksByKey(this.key);
-    }
-
-    protected areEqual(prev: readonly TPk[], next: readonly TPk[]): boolean {
-        if (prev === next) return true;
-        if (prev.length !== next.length) return false;
-        for (let i = 0; i < prev.length; i++)
-            {if (prev[i] !== next[i]) return false;}
-        return true;
     }
 }

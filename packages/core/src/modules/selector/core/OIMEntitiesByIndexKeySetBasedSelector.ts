@@ -2,7 +2,7 @@ import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveIndexSetBased } from '../../../abstract/OIMReactiveIndexSetBased';
 import { OIMIndexSetBased } from '../../../abstract/OIMIndexSetBased';
-import { OIMSelector } from './OIMSelector';
+import { OIMSelectorArrayValued } from './OIMSelectorArrayValued';
 import { OIMSelectorSourceDependencyEntitiesByIndexKeySetBased } from './OIMSelectorSourceDependencyEntitiesByIndexKeySetBased';
 import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 
@@ -11,7 +11,7 @@ export class OIMEntitiesByIndexKeySetBasedSelector<
     TPk extends TOIMKey,
     TKey extends TOIMKey,
     TIndex extends OIMIndexSetBased<TKey, TPk>,
-> extends OIMSelector<readonly (TEntity | undefined)[]> {
+> extends OIMSelectorArrayValued<TEntity | undefined> {
     constructor(
         runtime: OIMComputeRuntime,
         private readonly collection: OIMReactiveCollection<TEntity, TPk>,
@@ -33,24 +33,16 @@ export class OIMEntitiesByIndexKeySetBasedSelector<
     }
 
     public getValue(): readonly (TEntity | undefined)[] {
-        const pks = this.reactiveIndex.getPksByKey(this.key);
+        // Slots, not `getPksByKey`: the bucket comes back live and uncopied,
+        // while `getPksByKey` would allocate a `Set<TPk>` (plus a hash per pk)
+        // that this loop only walks once and throws away.
+        const slots = this.reactiveIndex.getSlotsByKey(this.key);
         const entities: Array<TEntity | undefined> = [];
-        entities.length = pks.size;
+        entities.length = slots.size;
         let writeIndex = 0;
-        for (const pk of pks) {
-            entities[writeIndex++] = this.collection.getOneByPk(pk);
+        for (const slot of slots) {
+            entities[writeIndex++] = this.collection.getOneByPk(slot.pk);
         }
         return entities;
-    }
-
-    protected areEqual(
-        prev: readonly (TEntity | undefined)[],
-        next: readonly (TEntity | undefined)[]
-    ): boolean {
-        if (prev === next) return true;
-        if (prev.length !== next.length) return false;
-        for (let i = 0; i < prev.length; i++)
-            {if (prev[i] !== next[i]) return false;}
-        return true;
     }
 }

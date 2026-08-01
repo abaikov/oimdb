@@ -2,8 +2,6 @@ import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from '../core/OIMEventQueue';
 import { OIMCarrierSingleEmitter } from '../core/OIMCarrierSingleEmitter';
 import { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
-import { IOIMSubscription } from '../interfaces/IOIMSubscription';
-import { TOIMEventHandler } from '../types/TOIMEventHandler';
 import { OIMGlobalIndex } from './OIMGlobalIndex';
 
 /**
@@ -14,18 +12,19 @@ import { OIMGlobalIndex } from './OIMGlobalIndex';
  */
 export abstract class OIMReactiveGlobalIndex<
     TPk extends TOIMKey,
-    TIndex extends OIMGlobalIndex<TPk>,
-> implements IOIMSubscription
-{
+    TIndex extends OIMGlobalIndex<TPk, TPks, TSlots>,
+    TPks = unknown,
+    TSlots = unknown,
+> {
     public readonly index: TIndex;
-    protected readonly updateEmitter: IOIMSingleUpdateEmitter;
+    public readonly emitter: IOIMSingleUpdateEmitter;
 
     constructor(
         queue: OIMEventQueue,
-        createIndex: (updateEmitter: IOIMSingleUpdateEmitter) => TIndex
+        createIndex: (emitter: IOIMSingleUpdateEmitter) => TIndex
     ) {
-        this.updateEmitter = new OIMCarrierSingleEmitter(queue);
-        this.index = createIndex(this.updateEmitter);
+        this.emitter = new OIMCarrierSingleEmitter(queue);
+        this.index = createIndex(this.emitter);
     }
 
     public getEntities<TEntity extends object = object>(): (
@@ -33,6 +32,18 @@ export abstract class OIMReactiveGlobalIndex<
         | undefined
     )[] {
         return this.index.getEntities<TEntity>();
+    }
+
+    /**
+     * The two shape-carrying reads, delegated against `TPks`/`TSlots` so the
+     * Set- and Array-based wrappers need no bodies of their own.
+     */
+    public getPks(): TPks {
+        return this.index.getPks();
+    }
+
+    public getSlots(): TSlots {
+        return this.index.getSlots();
     }
 
     public get size(): number {
@@ -43,20 +54,14 @@ export abstract class OIMReactiveGlobalIndex<
         return this.index.isEmpty;
     }
 
-    public subscribe(handler: TOIMEventHandler<void>): () => void {
-        return this.updateEmitter.subscribe(handler);
-    }
 
-    public hasSubscriptions(): boolean {
-        return this.updateEmitter.hasSubscriptions();
-    }
 
     public getMetrics(): { totalPks: number } {
         return this.index.getMetrics();
     }
 
     public destroy(): void {
-        this.updateEmitter.destroy();
+        this.emitter.destroy();
         this.index.destroy();
     }
 }

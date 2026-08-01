@@ -112,50 +112,72 @@ describe('OIMIndexComparatorFactory', () => {
         });
     });
 
-    describe('Performance Characteristics', () => {
-        test('element-wise comparator should be fast for small arrays', () => {
-            const comparator =
-                OIMIndexComparatorFactory.createElementWiseComparator<number>();
-            const arr1 = [1, 2, 3, 4, 5];
-            const arr2 = [1, 2, 3, 4, 5];
+    describe('Cost characteristics', () => {
+        // Asserted by BEHAVIOUR, not by the clock. Wall-clock thresholds here were
+        // environment-dependent by construction — they failed outright under coverage
+        // instrumentation and would fail at random on a loaded CI machine.
 
-            const start = performance.now();
-            // NOTE: Performance tests are inherently environment-dependent.
-            // Keep iterations modest and thresholds generous to avoid flakiness on slow CI machines.
-            for (let i = 0; i < 2000; i++) {
-                comparator(arr1, arr2);
-            }
-            const end = performance.now();
+        /** Counts how many elements a comparator actually reads. */
+        const counting = <T>(items: readonly T[]) => {
+            let reads = 0;
+            const proxy = new Proxy(items, {
+                get(target, prop, receiver) {
+                    if (typeof prop === 'string' && /^\d+$/.test(prop)) reads++;
+                    return Reflect.get(target, prop, receiver);
+                },
+            });
+            return { proxy: proxy as readonly T[], reads: () => reads };
+        };
 
-            expect(end - start).toBeLessThan(250);
-        });
-
-        test('set-based comparator should handle larger arrays efficiently', () => {
-            const comparator =
-                OIMIndexComparatorFactory.createSetBasedComparator<number>();
-            const arr1 = Array.from({ length: 1000 }, (_, i) => i);
-            const arr2 = Array.from({ length: 1000 }, (_, i) => 999 - i); // Reverse order
-
-            const start = performance.now();
-            const result = comparator(arr1, arr2);
-            const end = performance.now();
-
-            expect(result).toBe(true); // Same elements
-            expect(end - start).toBeLessThan(500);
-        });
-
-        test('shallow comparator should be fastest', () => {
+        test('shallow compares by reference and reads no elements at all', () => {
             const comparator =
                 OIMIndexComparatorFactory.createShallowComparator<number>();
-            const arr1 = Array.from({ length: 10000 }, (_, i) => i);
+            const { proxy, reads } = counting(
+                Array.from({ length: 10_000 }, (_, i) => i)
+            );
 
-            const start = performance.now();
-            for (let i = 0; i < 20000; i++) {
-                comparator(arr1, arr1);
-            }
-            const end = performance.now();
+            expect(comparator(proxy, proxy)).toBe(true);
+            expect(reads()).toBe(0); // this is what makes it the cheap one
 
-            expect(end - start).toBeLessThan(250);
+            const other = Array.from({ length: 10_000 }, (_, i) => i);
+            expect(comparator(proxy, other)).toBe(false); // equal content, different identity
+            expect(reads()).toBe(0);
+        });
+
+        test('element-wise stops at the first difference instead of scanning on', () => {
+            const comparator =
+                OIMIndexComparatorFactory.createElementWiseComparator<number>();
+            const a = Array.from({ length: 1000 }, (_, i) => i);
+            const b = [...a];
+            b[1] = -1;
+            const { proxy, reads } = counting(a);
+
+            expect(comparator(proxy, b)).toBe(false);
+            expect(reads()).toBeLessThan(10); // bailed early, did not walk 1000 elements
+        });
+
+        test('a length mismatch short-circuits before any element is read', () => {
+            const elementWise =
+                OIMIndexComparatorFactory.createElementWiseComparator<number>();
+            const setBased =
+                OIMIndexComparatorFactory.createSetBasedComparator<number>();
+            const { proxy, reads } = counting([1, 2, 3]);
+
+            expect(elementWise(proxy, [1, 2])).toBe(false);
+            expect(setBased(proxy, [1, 2])).toBe(false);
+            expect(reads()).toBe(0);
+        });
+
+        test('set-based ignores order where element-wise does not', () => {
+            const setBased =
+                OIMIndexComparatorFactory.createSetBasedComparator<number>();
+            const elementWise =
+                OIMIndexComparatorFactory.createElementWiseComparator<number>();
+            const ascending = Array.from({ length: 1000 }, (_, i) => i);
+            const descending = [...ascending].reverse();
+
+            expect(setBased(ascending, descending)).toBe(true);
+            expect(elementWise(ascending, descending)).toBe(false);
         });
     });
 });

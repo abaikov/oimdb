@@ -24,7 +24,7 @@ describe('OIMComputed', () => {
         });
 
         let calls = 0;
-        computed.updateEventEmitter.subscribeOnKey('value', () => {
+        computed.emitter.subscribeOnKey('value', () => {
             calls++;
         });
 
@@ -68,12 +68,12 @@ describe('OIMComputed', () => {
             deps: [
                 new OIMEffectDependencyKeyedObject(obj, 'a'),
                 new OIMEffectDependencyKeyedCollection(collection, 1),
-                new OIMEffectDependencyKeyedIndex(index, 'g'),
+                new OIMEffectDependencyKeyedIndex(index.emitter, 'g'),
             ],
         });
 
         let calls = 0;
-        computed.updateEventEmitter.subscribeOnKey('value', () => {
+        computed.emitter.subscribeOnKey('value', () => {
             calls++;
         });
 
@@ -124,8 +124,8 @@ describe('OIMComputed', () => {
             },
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: A.batchEmitter,
                     emitter: A.emitter,
-                    updateEventEmitter: A.updateEventEmitter,
                 }),
                 new OIMEffectDependencyKeyedObject(obj, 'b'),
             ],
@@ -138,8 +138,8 @@ describe('OIMComputed', () => {
             },
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: B.batchEmitter,
                     emitter: B.emitter,
-                    updateEventEmitter: B.updateEventEmitter,
                 }),
             ],
         });
@@ -151,12 +151,12 @@ describe('OIMComputed', () => {
             },
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: A.batchEmitter,
                     emitter: A.emitter,
-                    updateEventEmitter: A.updateEventEmitter,
                 }),
                 new OIMEffectDependencyComputed({
+                    batchEmitter: C.batchEmitter,
                     emitter: C.emitter,
-                    updateEventEmitter: C.updateEventEmitter,
                 }),
             ],
         });
@@ -168,12 +168,12 @@ describe('OIMComputed', () => {
             },
             deps: [
                 new OIMEffectDependencyComputed({
+                    batchEmitter: D.batchEmitter,
                     emitter: D.emitter,
-                    updateEventEmitter: D.updateEventEmitter,
                 }),
                 new OIMEffectDependencyComputed({
+                    batchEmitter: B.batchEmitter,
                     emitter: B.emitter,
-                    updateEventEmitter: B.updateEventEmitter,
                 }),
             ],
         });

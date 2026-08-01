@@ -17,7 +17,7 @@ export class OIMCollectionByPksSelector<
     ) {
         super(runtime, [
             new OIMSelectorSourceDependencyUpdateEventEmitterKeys<TPk>(
-                collection,
+                collection.emitter,
                 pks
             ),
         ]);

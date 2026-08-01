@@ -1,5 +1,5 @@
 import { OIMEventEmitter } from '../../../core/OIMEventEmitter';
-import { OIMUpdateEventEmitter } from '../../../core/OIMUpdateEventEmitter';
+import { OIMUpdateEventEmitterImmediate } from '../../../core/OIMUpdateEventEmitterImmediate';
 import { OIMEffect } from '../../effect/core/OIMEffect';
 import { IOIMEffectDependency } from '../../effect/interfaces/IOIMEffectDependency';
 import { EOIMComputedEventType } from '../enums/EOIMComputedEventType';
@@ -10,10 +10,10 @@ import { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
 type TOIMComputedKey = 'value';
 
 export class OIMComputed<TValue> {
-    public readonly emitter = new OIMEventEmitter<{
+    public readonly batchEmitter = new OIMEventEmitter<{
         [EOIMComputedEventType.UPDATE]: TOIMComputedUpdatePayload<TOIMComputedKey>;
     }>();
-    public readonly updateEventEmitter: OIMUpdateEventEmitter<TOIMComputedKey>;
+    public readonly emitter: OIMUpdateEventEmitterImmediate<TOIMComputedKey>;
 
     private readonly runtime: OIMComputeRuntime;
     private readonly compute: () => TValue;
@@ -34,10 +34,10 @@ export class OIMComputed<TValue> {
         this.compare = opts.compare ?? Object.is;
         this._deps = opts.deps ?? [];
 
-        this.updateEventEmitter = new OIMUpdateEventEmitter<TOIMComputedKey>(
-            this.runtime.queue,
-            'immediate'
-        );
+        this.emitter =
+            new OIMUpdateEventEmitterImmediate<TOIMComputedKey>(
+                this.runtime.queue
+            );
 
         // The runtime owns depth: derive it from our deps and register it so our
         // dependents can look it up, then hand it to the effect for scheduling.
@@ -76,8 +76,8 @@ export class OIMComputed<TValue> {
     public destroy(): void {
         this.effect.destroy();
 
-        this.updateEventEmitter.destroy();
-        this.emitter.offAll();
+        this.emitter.destroy();
+        this.batchEmitter.offAll();
     }
 
     private recomputeAndEmitIfChanged(): void {
@@ -94,9 +94,9 @@ export class OIMComputed<TValue> {
         const changed = !hadPrev || !this.compare(prev, next);
         if (!changed) return;
 
-        this.emitter.emit(EOIMComputedEventType.UPDATE, {
+        this.batchEmitter.emit(EOIMComputedEventType.UPDATE, {
             keys: ['value'],
         });
-        this.updateEventEmitter.markUpdatedKey('value');
+        this.emitter.markUpdatedKey('value');
     }
 }

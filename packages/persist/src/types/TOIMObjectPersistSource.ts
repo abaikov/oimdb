@@ -8,5 +8,5 @@ export type TOIMObjectPersistSource<TKey extends string, TValue> = {
     getAll(): Record<TKey, TValue>;
     clear(): void;
     merge(draft: NoInfer<Partial<Record<TKey, TValue>>>): void;
-    emitter?: TOIMEmitter<typeof EOIMObjectEventType.UPDATE>;
+    batchEmitter?: TOIMEmitter<typeof EOIMObjectEventType.UPDATE>;
 };

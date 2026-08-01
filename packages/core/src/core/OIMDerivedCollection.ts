@@ -64,7 +64,7 @@ export class OIMDerivedCollection<
         this.source = source;
         this.derive = derive;
         this.compareDerived = opts?.compare ?? Object.is;
-        this.unsubscribeFromSource = source.emitter.on(
+        this.unsubscribeFromSource = source.batchEmitter.on(
             EOIMCollectionEventType.UPDATE,
             payload => this.onSourceUpdate(payload.pks)
         );

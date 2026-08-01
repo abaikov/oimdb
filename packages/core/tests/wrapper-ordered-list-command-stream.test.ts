@@ -24,7 +24,7 @@ describe('OIMOrderedListCommandStream', () => {
         };
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -36,7 +36,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         expect(stream.getPksByKey('doc')).toEqual(['u2']);
-        expect(stream.getSlotsByKey('doc')).toEqual([u2]);
+        expect([...stream.getSlotsByKey('doc')]).toEqual([u2]);
         expect(stream.getEntitiesByKey('doc')).toEqual([
             { id: 'u2', name: 'Bob' },
         ]);
@@ -67,7 +67,7 @@ describe('OIMOrderedListCommandStream', () => {
         >(queue, { collection: users });
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -112,7 +112,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -147,14 +147,14 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
         stream.setSlotAt('doc', 1, u3); // replace u2 at index 1
         queue.flush();
 
-        expect(stream.getSlotsByKey('doc')).toEqual([u1, u3]);
+        expect([...stream.getSlotsByKey('doc')]).toEqual([u1, u3]);
         expect(seen).toEqual([{ type: 'set', index: 1, item: u3 }]);
 
         // out-of-range is a no-op (no command)
@@ -176,7 +176,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -211,7 +211,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -255,7 +255,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -283,7 +283,7 @@ describe('OIMOrderedListCommandStream', () => {
         };
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 
@@ -312,7 +312,7 @@ describe('OIMOrderedListCommandStream', () => {
         queue.flush();
 
         const seen: unknown[] = [];
-        stream.commandsEventEmitter.subscribeOnKey('doc', () => {
+        stream.commandsEmitter.subscribeOnKey('doc', () => {
             seen.push(...stream.consumeCommands('doc'));
         });
 

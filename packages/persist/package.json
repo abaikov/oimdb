@@ -30,12 +30,13 @@
     "test": "jest",
     "type-check": "tsc --noEmit",
     "clean": "rimraf dist",
-    "prepack": "node -e \"require('fs').copyFileSync('../../llms.txt', 'llms.txt')\"",
+    "prepack": "node -e \"const {copyFileSync}=require('fs');copyFileSync('../../llms.txt','llms.txt');copyFileSync('../../llms-full.txt','llms-full.txt')\"",
     "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
   "files": [
     "dist",
-    "llms.txt"
+    "llms.txt",
+    "llms-full.txt"
   ],
   "peerDependencies": {
     "@oimdb/core": "^3.8.0"

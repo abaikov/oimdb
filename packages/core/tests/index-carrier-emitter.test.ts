@@ -21,8 +21,8 @@ describe('index carrier emitter', () => {
         const index = new OIMReactiveIndexManualSetBased<string, string>(queue);
         const calls: string[] = [];
 
-        index.subscribeOnKey('team1', () => calls.push('team1'));
-        index.subscribeOnKey('team2', () => calls.push('team2'));
+        index.emitter.subscribeOnKey('team1', () => calls.push('team1'));
+        index.emitter.subscribeOnKey('team2', () => calls.push('team2'));
 
         // Two writes to team1 in one batch must coalesce to a single delivery.
         index.setSlots('team1', new Set([slot('u1')]));
@@ -37,7 +37,7 @@ describe('index carrier emitter', () => {
         const index = new OIMReactiveIndexManualSetBased<string, string>(queue);
         const calls: string[] = [];
 
-        const unsubscribe = index.subscribeOnKey('team1', () =>
+        const unsubscribe = index.emitter.subscribeOnKey('team1', () =>
             calls.push('hit')
         );
         index.setSlots('team1', new Set([slot('u1')]));
@@ -56,14 +56,14 @@ describe('index carrier emitter', () => {
         const calls: string[] = [];
 
         // Subscribe then fully unsubscribe — the key's carrier is pruned.
-        const unsubscribe = index.subscribeOnKey('team1', () =>
+        const unsubscribe = index.emitter.subscribeOnKey('team1', () =>
             calls.push('first')
         );
         unsubscribe();
-        expect(index.hasSubscriptions()).toBe(false);
+        expect(index.emitter.hasSubscriptions()).toBe(false);
 
         // A fresh subscription on the same key must get a working carrier.
-        index.subscribeOnKey('team1', () => calls.push('second'));
+        index.emitter.subscribeOnKey('team1', () => calls.push('second'));
         index.setSlots('team1', new Set([slot('u1')]));
         queue.flush();
 

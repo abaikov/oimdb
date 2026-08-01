@@ -108,6 +108,7 @@ export class OIMCollectionIndexFactory<
             this.collection,
             {
                 selectIndexKeys,
+                deps: opts.deps,
                 buildInitial: opts.buildInitial,
                 indexOptions: opts.indexOptions,
             }
@@ -140,6 +141,7 @@ export class OIMCollectionIndexFactory<
             this.collection,
             {
                 selectIndexKeys,
+                deps: opts.deps,
                 buildInitial: opts.buildInitial,
                 compareEntities: opts.compareEntities,
                 orderBy: opts.orderBy,

@@ -115,7 +115,7 @@ export class OIMDevUIServer {
                     .then((data) => {
                         res.writeHead(200, { 'Content-Type': 'application/json' });
                         res.end(JSON.stringify({
-                            connected: !!this.latestBrowser,
+                            connected: Boolean(this.latestBrowser),
                             tab: this.latestBrowser
                                 ? { url: this.latestBrowser.url, title: this.latestBrowser.title }
                                 : null,

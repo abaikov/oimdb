@@ -35,5 +35,5 @@ export type TOIMCollectionPersistSource<
         handler: (pks: readonly TPk[]) => void
     ) => () => void;
     /** Raw synchronous emitter — fallback for non-reactive OIMCollection. */
-    emitter?: TOIMEmitter<typeof EOIMCollectionEventType.UPDATE>;
+    batchEmitter?: TOIMEmitter<typeof EOIMCollectionEventType.UPDATE>;
 };

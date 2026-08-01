@@ -10,14 +10,14 @@ class OIMGlobalIndexManualSetBasedReactive<
     TPk extends TOIMKey,
 > extends OIMGlobalIndexManualSetBased<TPk> {
     constructor(
-        private readonly updateEmitter: IOIMSingleUpdateEmitter,
+        private readonly emitter: IOIMSingleUpdateEmitter,
         opts?: { comparePks?: TOIMIndexComparator<TPk> }
     ) {
         super(opts);
     }
 
     protected override emitUpdate(): void {
-        this.updateEmitter.markUpdated();
+        this.emitter.markUpdated();
     }
 }
 
@@ -37,9 +37,9 @@ export class OIMReactiveGlobalIndexManualSetBased<
     ) {
         super(
             queue,
-            updateEmitter =>
+            emitter =>
                 new OIMGlobalIndexManualSetBasedReactive<TPk>(
-                    updateEmitter,
+                    emitter,
                     opts?.indexOptions
                 )
         );

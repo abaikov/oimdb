@@ -1,0 +1,30 @@
+{
+  "name": "@oimdb/bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Comparative benchmarks: OIMDB against in-memory stores, reactive state managers and atomic libraries",
+  "type": "module",
+  "scripts": {
+    "bench": "node --import tsx src/run.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@legendapp/state": "^2.1.15",
+    "@preact/signals-core": "^1.14.4",
+    "@reduxjs/toolkit": "^2.2.7",
+    "@signaldb/core": "^1.8.1",
+    "@tanstack/db": "^0.6.17",
+    "@tanstack/table-core": "^8.20.5",
+    "alien-signals": "^3.2.1",
+    "effector": "^23.2.2",
+    "jotai": "^2.10.0",
+    "jotai-family": "^1.0.2",
+    "lokijs": "^1.5.12",
+    "mobx": "^6.13.2",
+    "nanostores": "^0.11.3",
+    "reselect": "^5.1.1",
+    "tinybase": "^9.3.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.2.2"
+  }
+}

@@ -1,37 +1,45 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventQueue } from './OIMEventQueue';
 import { TOIMEventHandler } from '../types/TOIMEventHandler';
-import { EOIMEventQueueEventType } from '../enums/EOIMEventQueueEventType';
-
-type TOIMUpdateEventEmitterDeliveryMode = 'queue' | 'after_flush' | 'immediate';
 
 /**
- * Universal event emitter that handles subscriptions and notifications for any key type.
- * Optimized for performance with adaptive algorithms and memory management.
+ * Keyed pub/sub: who is subscribed, which keys changed, and how to notify them.
+ *
+ * WHEN the notification happens is the one thing this class does not decide —
+ * that is the subclass's whole job, and there are exactly three answers:
+ *
+ * - {@link OIMUpdateEventEmitterQueued} — inside the next `queue.flush()`. The
+ *   default: a reaction to changed data, coalesced per frame. Only this one
+ *   refuses writes mid-frame, because only for this one is "mid-frame" a
+ *   contradiction.
+ * - {@link OIMUpdateEventEmitterAfterFlush} — once the frame is over. For
+ *   consumers that ACCUMULATE a description of the frame (ordered-list command
+ *   streams, changed-field tracking) and can only publish it complete.
+ * - {@link OIMUpdateEventEmitterImmediate} — right now, no queue. For advancing
+ *   a graph: a computed publishing its new value inside the effect phase, where
+ *   queueing would stretch a three-link chain across three frames.
+ *
+ * This used to be one class with a `deliveryMode` string, tested twelve times at
+ * runtime — three times in each of the three mark methods, on the hot path, to
+ * re-derive something fixed at construction. Worse, the mid-frame guard applied
+ * to one mode only, which no signature said: you had to read the body to learn
+ * that an immediate emitter is exempt.
  */
-export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
+export abstract class OIMUpdateEventEmitter<TKey extends TOIMKey> {
     protected keyHandlers = new Map<TKey, Set<TOIMEventHandler<void>>>();
     protected queue: OIMEventQueue;
-    private readonly deliveryMode: TOIMUpdateEventEmitterDeliveryMode;
-    private isFlushEnqueued = false;
+    protected isFlushEnqueued = false;
     private updatedKeys = new Set<TKey>();
-    private isAfterFlushDeliveryScheduled = false;
-    private unsubscribeAfterFlushDelivery?: () => void;
 
-    constructor(
-        queue: OIMEventQueue,
-        deliveryMode: TOIMUpdateEventEmitterDeliveryMode = 'queue'
-    ) {
+    constructor(queue: OIMEventQueue) {
         this.queue = queue;
-        this.deliveryMode = deliveryMode;
-
-        if (this.deliveryMode === 'after_flush') {
-            this.unsubscribeAfterFlushDelivery = this.queue.emitter.on(
-                EOIMEventQueueEventType.AFTER_FLUSH,
-                this.onAfterFlush
-            );
-        }
     }
+
+    /**
+     * Publish the keys collected so far — the subclass decides when that is.
+     * Called only when something was actually collected.
+     */
+    protected abstract scheduleDelivery(): void;
 
     /**
      * Mark keys as updated and schedule delivery.
@@ -40,12 +48,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
      */
     public markUpdatedKeys(keys: readonly TKey[]): void {
         if (keys.length === 0) return;
-        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
-            throw new Error(
-                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
-                    'Finish all writes before calling queue.flush().'
-            );
-        }
         if (this.keyHandlers.size === 0) return;
 
         let didAddAny = false;
@@ -59,73 +61,26 @@ export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
         }
 
         if (!didAddAny) return;
-        if (this.deliveryMode === 'immediate') {
-            this.deliverImmediate();
-            return;
-        }
-        if (this.deliveryMode === 'after_flush') {
-            this.isAfterFlushDeliveryScheduled = true;
-            return;
-        }
-
-        if (this.isFlushEnqueued) return;
-        this.isFlushEnqueued = true;
-        this.queue.enqueue(this.onFlush);
+        this.scheduleDelivery();
     }
 
     public markUpdatedKey(key: TKey): void {
-        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
-            throw new Error(
-                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
-                    'Finish all writes before calling queue.flush().'
-            );
-        }
         if (this.keyHandlers.size === 0) return;
 
         const handlers = this.keyHandlers.get(key);
         if (!handlers || handlers.size === 0) return;
 
         this.updatedKeys.add(key);
-
-        if (this.deliveryMode === 'immediate') {
-            this.deliverImmediate();
-            return;
-        }
-        if (this.deliveryMode === 'after_flush') {
-            this.isAfterFlushDeliveryScheduled = true;
-            return;
-        }
-
-        if (this.isFlushEnqueued) return;
-        this.isFlushEnqueued = true;
-        this.queue.enqueue(this.onFlush);
+        this.scheduleDelivery();
     }
 
     public markAllUpdated(): void {
-        if (this.deliveryMode === 'queue' && this.queue.isInFlush) {
-            throw new Error(
-                'OIMUpdateEventEmitter: updates during queue.flush() are not allowed. ' +
-                    'Finish all writes before calling queue.flush().'
-            );
-        }
         if (this.keyHandlers.size === 0) return;
 
         this.keyHandlers.forEach((_handlers, key) => {
             this.updatedKeys.add(key);
         });
-
-        if (this.deliveryMode === 'immediate') {
-            this.deliverImmediate();
-            return;
-        }
-        if (this.deliveryMode === 'after_flush') {
-            this.isAfterFlushDeliveryScheduled = true;
-            return;
-        }
-
-        if (this.isFlushEnqueued) return;
-        this.isFlushEnqueued = true;
-        this.queue.enqueue(this.onFlush);
+        this.scheduleDelivery();
     }
 
     // Stable handler reference to avoid allocating a new closure on every HAS_CHANGES.
@@ -140,10 +95,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
 
         this.runSinglePass();
     };
-
-    private deliverImmediate(): void {
-        this.runSinglePass();
-    }
 
     /**
      * Notifies all handlers for a key. The overwhelmingly common case is a
@@ -165,12 +116,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
             if (handlers.has(handler)) handler();
         }
     }
-
-    private readonly onAfterFlush = () => {
-        if (!this.isAfterFlushDeliveryScheduled) return;
-        this.isAfterFlushDeliveryScheduled = false;
-        this.deliverImmediate();
-    };
 
     /**
      * Deliver updated keys and notify handlers once.
@@ -208,15 +153,6 @@ export class OIMUpdateEventEmitter<TKey extends TOIMKey> {
     }
 
     public destroy() {
-        if (this.isFlushEnqueued) {
-            this.queue.cancel(this.onFlush);
-            this.isFlushEnqueued = false;
-        }
-        if (this.unsubscribeAfterFlushDelivery) {
-            this.unsubscribeAfterFlushDelivery();
-            this.unsubscribeAfterFlushDelivery = undefined;
-        }
-
         // Clear all handlers to free memory
         this.keyHandlers.forEach(handlers => handlers.clear());
         this.keyHandlers.clear();

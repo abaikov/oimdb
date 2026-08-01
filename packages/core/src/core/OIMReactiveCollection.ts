@@ -2,23 +2,48 @@ import { TOIMKey } from '../types/TOIMKey';
 import { TOIMCollectionOptions } from '../types/TOIMCollectionOptions';
 import { OIMCollection } from './OIMCollection';
 import { OIMEventQueue } from './OIMEventQueue';
-import { TOIMEventHandler } from '../types/TOIMEventHandler';
-import { IOIMKeyedSubscription } from '../interfaces/IOIMKeyedSubscription';
-import { OIMCarrierKeyedEmitter } from './OIMCarrierKeyedEmitter';
+import {
+    IOIMCarrierProvider,
+    OIMCarrierKeyedEmitter,
+} from './OIMCarrierKeyedEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
-export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
-    extends OIMCollection<TEntity, TPk>
-    implements IOIMKeyedSubscription<TPk>
-{
+/**
+ * `TEmitter` is what decides how much this collection knows about its own writes.
+ *
+ * The default is the plain keyed emitter and every existing usage keeps that,
+ * unchanged. Passing `OIMCarrierKeyedFieldEmitter` instead gets a collection
+ * whose subscribers can name the fields they care about.
+ *
+ * The collection does not mirror its emitter's methods — subscribe through
+ * `collection.emitter`. That is what makes the capability honest: the
+ * emitter's type IS the type parameter, so `subscribeOnKeyFields` is present
+ * exactly when a field emitter was installed and absent otherwise, decided by the
+ * compiler. A forwarding method on the collection could not do that; it would
+ * have to exist unconditionally and refuse at runtime, which is an error for
+ * being built wrong rather than a design that cannot be built wrong.
+ *
+ * Field tracking has two halves and both are opt-in. The slot writer
+ * (`OIMSlotWriterFieldMasked`) RECORDS which fields a write touched and owns the
+ * only field registry, reachable as `collection.fields`; the field emitter READS
+ * that record to filter deliveries. Install the emitter without the writer and
+ * there is nothing to read — masks are absent, which every field-scoped
+ * subscriber reads as "everything changed", so it wakes on every write.
+ */
+export class OIMReactiveCollection<
+        TEntity extends object,
+        TPk extends TOIMKey,
+        TEmitter extends OIMCarrierKeyedEmitter<
+            TPk,
+            TOIMEntitySlot<TEntity, TPk>
+        > = OIMCarrierKeyedEmitter<TPk, TOIMEntitySlot<TEntity, TPk>>,
+    >
+    extends OIMCollection<TEntity, TPk> {
     private readonly queue: OIMEventQueue;
     // Slot-based keyed delivery: handlers live on the entity slot, so marking
     // and notifying need no per-key map lookup on the hot path.
-    protected readonly updateEmitter: OIMCarrierKeyedEmitter<
-        TPk,
-        TOIMEntitySlot<TEntity, TPk>
-    >;
+    public readonly emitter: TEmitter;
 
     private readonly anyUpdateHandlers = new Set<
         (pks: readonly TPk[]) => void
@@ -30,61 +55,47 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
 
     constructor(
         queue: OIMEventQueue,
-        opts?: TOIMCollectionOptions<TEntity, TPk>
+        opts?: TOIMCollectionOptions<TEntity, TPk> & {
+            /**
+             * Build the keyed emitter this collection delivers through. Omit for
+             * the plain one; supply `OIMCarrierKeyedFieldEmitter` to opt into
+             * field-level tracking. The provider is handed in rather than built
+             * by the caller so the slot store stays private.
+             */
+            createUpdateEmitter?: (
+                queue: OIMEventQueue,
+                carrierProvider: IOIMCarrierProvider<
+                    TPk,
+                    TOIMEntitySlot<TEntity, TPk>
+                >
+            ) => TEmitter;
+        }
     ) {
         super(opts);
         this.queue = queue;
-        this.updateEmitter = new OIMCarrierKeyedEmitter(queue, {
+        const carrierProvider: IOIMCarrierProvider<
+            TPk,
+            TOIMEntitySlot<TEntity, TPk>
+        > = {
             getOrReserveCarrier: (pk: TPk) => this.store.getOrReserveSlotByPk(pk),
             findCarrier: (pk: TPk) => this.store.findSlotByPk(pk),
-        });
+        };
+        this.emitter = opts?.createUpdateEmitter
+            ? opts.createUpdateEmitter(queue, carrierProvider)
+            : (new OIMCarrierKeyedEmitter(queue, carrierProvider) as TEmitter);
     }
 
-    public subscribeOnKey(
-        pk: TPk,
-        handler: TOIMEventHandler<void>
-    ): () => void {
-        return this.updateEmitter.subscribeOnKey(pk, handler);
-    }
 
-    public subscribeOnKeys(
-        pks: readonly TPk[],
-        handler: TOIMEventHandler<void>
-    ): () => void {
-        return this.updateEmitter.subscribeOnKeys(pks, handler);
-    }
 
-    public unsubscribeFromKey(pk: TPk, handler: TOIMEventHandler<void>): void {
-        this.updateEmitter.unsubscribeFromKey(pk, handler);
-    }
 
-    public unsubscribeFromKeys(
-        pks: readonly TPk[],
-        handler: TOIMEventHandler<void>
-    ): void {
-        this.updateEmitter.unsubscribeFromKeys(pks, handler);
-    }
+
 
     public destroySubscriptions(): void {
-        this.updateEmitter.destroy();
+        this.emitter.destroy();
     }
 
-    public hasSubscriptions(): boolean {
-        return this.updateEmitter.hasSubscriptions();
-    }
 
-    public getHandlerCount(pk: TPk): number {
-        return this.updateEmitter.getHandlerCount(pk);
-    }
 
-    public getMetrics(): {
-        totalKeys: number;
-        totalHandlers: number;
-        averageHandlersPerKey: number;
-        queueLength: number;
-    } {
-        return this.updateEmitter.getMetrics();
-    }
 
     public subscribeOnAnyUpdate(
         handler: (pks: readonly TPk[]) => void
@@ -97,7 +108,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
 
     // Two notification channels coexist on a reactive collection; they serve
     // different audiences and NEITHER is obsolete:
-    //   • the keyed `updateEmitter` — per-key/per-carrier pings ("did MY key
+    //   • the keyed `emitter` — per-key/per-carrier pings ("did MY key
     //     change?", payload-less `void`), for leaf subscribers like React hooks
     //     that declare the keys they care about up front;
     //   • this `emitter` UPDATE event — the aggregate/batch channel that carries
@@ -113,14 +124,14 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     // otherwise every upsert/remove allocates a throwaway `{ pks }` object (and
     // array) that nobody reads.
     private notifyBatch(pk: TPk): void {
-        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
-            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        if (this.batchEmitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
+            this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         }
     }
 
     private notifyBatchMany(pks: readonly TPk[]): void {
-        if (this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
-            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        if (this.batchEmitter.hasHandlers(EOIMCollectionEventType.UPDATE)) {
+            this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         }
     }
 
@@ -129,8 +140,17 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         entity: Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
+        // A writer that compares values reports `false` when the write changed
+        // nothing: no carrier marked, no batch event, no index resync. A plain
+        // writer always reports `true`, so this path is unchanged for it.
+        if (slot.published === false) return slot;
+        // Carrier BEFORE batch: the batch channel is synchronous and a derived
+        // index reads the slot inside that call, so anything the writer attached
+        // to the slot has to be there already. Marking only queues the carrier —
+        // nothing is delivered until the flush — so the swap changes no
+        // observable ordering.
+        this.emitter.markUpdatedCarrier(slot, entity);
         this.notifyBatch(pk);
-        this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(pk);
         return slot;
     }
@@ -139,8 +159,9 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         entity: TEntity | Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotifications(entity);
+        if (slot.published === false) return slot;
+        this.emitter.markUpdatedCarrier(slot, entity);
         this.notifyBatch(slot.pk);
-        this.updateEmitter.markUpdatedCarrier(slot);
         this.trackAnyUpdatePk(slot.pk);
         return slot;
     }
@@ -153,11 +174,18 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         const slots = entities.map(entity =>
             this.upsertOneWithoutNotifications(entity)
         );
-        const pks = slots.map(slot => slot.pk);
-        this.notifyBatchMany(pks);
+        // Only the slots the writer actually published take part in the batch —
+        // a push that rewrites 1,000 rows to the values they already held ends
+        // up notifying nobody.
+        const changed: TOIMEntitySlot<TEntity, TPk>[] = [];
         for (let i = 0; i < slots.length; i++) {
-            this.updateEmitter.markUpdatedCarrier(slots[i]);
+            if (slots[i].published === false) continue;
+            this.emitter.markUpdatedCarrier(slots[i], entities[i]);
+            changed.push(slots[i]);
         }
+        if (changed.length === 0) return slots;
+        const pks = changed.map(slot => slot.pk);
+        this.notifyBatchMany(pks);
         this.trackAnyUpdatePks(pks);
         return slots;
     }
@@ -165,8 +193,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     public override removeOne(entity: TEntity): void {
         const pk = this.selectPk(entity);
         this.store.removeOneByPk(pk);
+        this.emitter.markUpdatedKey(pk);
         this.notifyBatch(pk);
-        this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
 
@@ -175,15 +203,15 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
 
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
+        this.emitter.markUpdatedKeys(pks);
         this.notifyBatchMany(pks);
-        this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
     public override removeOneByPk(pk: TPk): void {
         this.store.removeOneByPk(pk);
+        this.emitter.markUpdatedKey(pk);
         this.notifyBatch(pk);
-        this.updateEmitter.markUpdatedKey(pk);
         this.trackAnyUpdatePk(pk);
     }
 
@@ -191,8 +219,8 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         if (pks.length === 0) return;
 
         this.store.removeManyByPks(pks);
+        this.emitter.markUpdatedKeys(pks);
         this.notifyBatchMany(pks);
-        this.updateEmitter.markUpdatedKeys(pks);
         this.trackAnyUpdatePks(pks);
     }
 
@@ -202,7 +230,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         // an empty `pks` never means "reset", it means "nothing changed". Build
         // the key array only when a channel that needs it is subscribed.
         const needsPks =
-            this.emitter.hasHandlers(EOIMCollectionEventType.UPDATE) ||
+            this.batchEmitter.hasHandlers(EOIMCollectionEventType.UPDATE) ||
             this.anyUpdateHandlers.size > 0;
         const pks = needsPks ? this.store.getAllPks() : undefined;
         this.store.clear();
@@ -212,7 +240,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
         }
         // Keyed subscribers are notified across all subscribed carriers; this is
         // carrier-based and needs no pk list, so it works after the store clear.
-        this.updateEmitter.markAllUpdated();
+        this.emitter.markAllUpdated();
     }
 
     private trackAnyUpdatePk(pk: TPk): void {
@@ -246,7 +274,7 @@ export class OIMReactiveCollection<TEntity extends object, TPk extends TOIMKey>
     };
 
     public override destroy(): void {
-        this.updateEmitter.destroy();
+        this.emitter.destroy();
         if (this.isAnyUpdateScheduled) {
             this.queue.cancel(this.runAnyUpdate);
             this.isAnyUpdateScheduled = false;

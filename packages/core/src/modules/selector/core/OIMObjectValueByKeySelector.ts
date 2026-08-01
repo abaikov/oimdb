@@ -14,7 +14,7 @@ export class OIMObjectValueByKeySelector<
     ) {
         super(runtime, [
             new OIMSelectorSourceDependencyUpdateEventEmitterKey<TKey>(
-                obj,
+                obj.emitter,
                 key
             ),
         ]);

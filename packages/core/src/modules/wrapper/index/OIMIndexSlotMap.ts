@@ -1,7 +1,7 @@
 import { TOIMKey } from '../../../types/TOIMKey';
 import { TOIMAnyEntitySlot } from '../../../types/TOIMEntitySlot';
-import { TOIMEventHandler } from '../../../types/TOIMEventHandler';
 import { IOIMIndexSlotSource } from '../../../interfaces/IOIMIndexSlotSource';
+import { IOIMKeyedSubscription } from '../../../interfaces/IOIMKeyedSubscription';
 
 /**
  * Stable slot→object memo over a keyed set/array index.
@@ -20,7 +20,30 @@ import { IOIMIndexSlotSource } from '../../../interfaces/IOIMIndexSlotSource';
  * the exact removal signal you tear down on.
  *
  * This is a thin wrapper: it holds no queue and no standing subscription of its
- * own — `subscribeOnKey` is a passthrough to the index.
+ * own. Subscribe through `slotMap.emitter`, which IS the index's emitter —
+ * the wrapper adds mapping, not a second subscription surface.
+ *
+ * ## Do NOT map a slot to its entity
+ *
+ * ```ts
+ * createOIMIndexSlotMap(index, slot => slot.item);   // WRONG — silently stale
+ * ```
+ *
+ * The cache is keyed by SLOT IDENTITY, and a slot deliberately OUTLIVES the
+ * entity in it: an upsert assigns `slot.item = entity` and keeps the same slot
+ * object, because that object is the canonical anchor for the pk. So `create`
+ * would run once, pin whichever entity happened to be there first, and keep
+ * returning it after every later write — no error, just a stale read.
+ *
+ * Entities already have their mapper, and it is cheaper than any cache:
+ * `index.getEntitiesByKey(key)` reads `slot.item` directly (a field load, and
+ * its reference already changes exactly when the entity changes, which is what
+ * `Object.is` / `React.memo` want). For a value DERIVED from an entity, the
+ * cache key must be the entity, not the slot — that is what `OIMComputed` and
+ * the selectors are for, and they invalidate on write.
+ *
+ * Map here only what is bound to the slot's IDENTITY and must SURVIVE entity
+ * updates: a view-model, a row object, a DOM node.
  */
 export class OIMIndexSlotMap<
     TKey extends TOIMKey,
@@ -28,6 +51,8 @@ export class OIMIndexSlotMap<
     TMapped,
 > {
     private readonly index: IOIMIndexSlotSource<TKey, TPk>;
+    /** The index's own emitter — not a copy, not a wrapper. */
+    public readonly emitter: IOIMKeyedSubscription<TKey>;
     private readonly create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped;
     private readonly cache = new WeakMap<
         TOIMAnyEntitySlot<TPk>,
@@ -39,6 +64,7 @@ export class OIMIndexSlotMap<
         create: (slot: TOIMAnyEntitySlot<TPk>) => TMapped
     ) {
         this.index = index;
+        this.emitter = index.emitter;
         this.create = create;
     }
 
@@ -79,19 +105,4 @@ export class OIMIndexSlotMap<
         );
     }
 
-    /** Subscribe to a key's changes — passthrough to the index. */
-    public subscribeOnKey(
-        key: TKey,
-        handler: TOIMEventHandler<void>
-    ): () => void {
-        return this.index.subscribeOnKey(key, handler);
-    }
-
-    /** Subscribe to several keys — passthrough to the index. */
-    public subscribeOnKeys(
-        keys: readonly TKey[],
-        handler: TOIMEventHandler<void>
-    ): () => void {
-        return this.index.subscribeOnKeys(keys, handler);
-    }
 }

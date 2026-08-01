@@ -2,61 +2,37 @@ import { TOIMKey } from '../../../types/TOIMKey';
 import { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
 import { OIMReactiveGlobalIndexSetBased } from '../../../abstract/OIMReactiveGlobalIndexSetBased';
 import { OIMGlobalIndexSetBased } from '../../../abstract/OIMGlobalIndexSetBased';
-import { IOIMSelectorSourceDependency } from '../interfaces/IOIMSelectorSourceDependency';
+import { OIMSelectorSourceDependencyEntitiesByPks } from './OIMSelectorSourceDependencyEntitiesByPks';
 
+/** Entities of a set-based keyless (whole-collection) index. */
 export class OIMSelectorSourceDependencyEntitiesByGlobalIndexSetBased<
     TEntity extends object,
     TPk extends TOIMKey,
     TIndex extends OIMGlobalIndexSetBased<TPk>,
-> implements IOIMSelectorSourceDependency
-{
-    private unsubscribeFromCollectionKeys?: () => void;
-    private currentPks: readonly TPk[] = [];
-
+> extends OIMSelectorSourceDependencyEntitiesByPks<TEntity, TPk> {
     constructor(
-        private readonly collection: OIMReactiveCollection<TEntity, TPk>,
+        collection: OIMReactiveCollection<TEntity, TPk>,
         private readonly reactiveIndex: OIMReactiveGlobalIndexSetBased<
             TPk,
             TIndex
         >
-    ) {}
-
-    public subscribe(onUpdate: () => void): () => void {
-        const resubscribeCollection = () => {
-            const nextPks = Array.from(this.reactiveIndex.getPks());
-            if (this.sameArray(this.currentPks, nextPks)) return;
-
-            this.unsubscribeFromCollectionKeys?.();
-            this.unsubscribeFromCollectionKeys = undefined;
-            this.currentPks = nextPks;
-
-            if (this.currentPks.length === 0) return;
-            this.unsubscribeFromCollectionKeys =
-                this.collection.subscribeOnKeys(this.currentPks, onUpdate);
-        };
-
-        const onIndexUpdate = () => {
-            resubscribeCollection();
-            onUpdate();
-        };
-
-        // initial subscription to collection keys
-        resubscribeCollection();
-
-        const unsubscribeFromIndex = this.reactiveIndex.subscribe(onIndexUpdate);
-
-        return () => {
-            unsubscribeFromIndex();
-            this.unsubscribeFromCollectionKeys?.();
-            this.unsubscribeFromCollectionKeys = undefined;
-            this.currentPks = [];
-        };
+    ) {
+        super(collection);
     }
 
-    private sameArray(a: readonly TPk[], b: readonly TPk[]): boolean {
-        if (a === b) return true;
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
-        return true;
+    protected readPks(): readonly TPk[] {
+        // Slots, not `getPks()` — see the keyed counterpart: the bucket is live,
+        // its pks are already unique, and `getPks()` would allocate a throwaway
+        // `Set<TPk>` just to be flattened here.
+        const slots = this.reactiveIndex.getSlots();
+        const pks: TPk[] = [];
+        pks.length = slots.size;
+        let writeIndex = 0;
+        for (const slot of slots) pks[writeIndex++] = slot.pk;
+        return pks;
+    }
+
+    protected subscribeToIndex(onUpdate: () => void): () => void {
+        return this.reactiveIndex.emitter.subscribe(onUpdate);
     }
 }

@@ -5,6 +5,8 @@ import { OIMPkSelectorFactory } from './OIMPkSelectorFactory';
 import { OIMCollectionStoreMapDriven } from './OIMCollectionStoreMapDriven';
 import { OIMCollectionStore } from '../abstract/OIMCollectionStore';
 import { TOIMEntityUpdater } from '../types/TOIMEntityUpdater';
+import { OIMSlotWriter } from './OIMSlotWriter';
+import { OIMFieldMaskRegistry } from './OIMFieldMaskRegistry';
 import { OIMEntityUpdaterFactory } from './OIMEntityUpdaterFactory';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
@@ -13,12 +15,28 @@ import { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 
 /** It's like a store - but with event emitter */
 export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
-    public readonly emitter = new OIMEventEmitter<{
+    public readonly batchEmitter = new OIMEventEmitter<{
         [EOIMCollectionEventType.UPDATE]: TOIMCollectionUpdatePayload<TPk>;
     }>();
     public readonly selectPk: TOIMPkSelector<TEntity, TPk>;
     protected readonly store: OIMCollectionStore<TEntity, TPk>;
     protected readonly updateEntity: TOIMEntityUpdater<TEntity>;
+    /**
+     * How a write lands on a slot. The default merges and reports every write as
+     * publishable — exactly the historical behaviour. `OIMSlotWriterFieldMasked`
+     * additionally compares values, so a write that changes nothing is not
+     * published at all.
+     */
+    protected readonly slotWriter: OIMSlotWriter<TEntity, TPk>;
+    /**
+     * Field identity, present only when this collection's writer tracks fields.
+     * Indexes and subscribers read it to turn field NAMES into the same bits the
+     * writer records, so declarations on both sides cannot drift apart. Absent on
+     * a plain collection, which is what makes "you asked for field deps on a
+     * collection that does not track fields" a detectable mistake rather than a
+     * silent no-op.
+     */
+    public readonly fields?: OIMFieldMaskRegistry;
 
     constructor(opts?: TOIMCollectionOptions<TEntity, TPk>) {
         this.selectPk = (opts?.selectPk ??
@@ -31,6 +49,10 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
         this.updateEntity =
             opts?.updateEntity ??
             new OIMEntityUpdaterFactory<TEntity>().createMergeEntityUpdater();
+        this.slotWriter =
+            opts?.slotWriter ??
+            new OIMSlotWriter<TEntity, TPk>(this.updateEntity);
+        this.fields = this.slotWriter.fields;
     }
 
     getOneByPk(pk: TPk): TEntity | undefined {
@@ -77,13 +99,13 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
         entity: Partial<TEntity>
     ): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotificationsByPk(pk, entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
         return slot;
     }
 
     upsertOne(entity: TEntity | Partial<TEntity>): TOIMEntitySlot<TEntity, TPk> {
         const slot = this.upsertOneWithoutNotifications(entity);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [slot.pk] });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks: [slot.pk] });
         return slot;
     }
 
@@ -96,14 +118,14 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
             this.upsertOneWithoutNotifications(entity)
         );
         const pks = slots.map(slot => slot.pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         return slots;
     }
 
     removeOne(entity: TEntity): void {
         const pk = this.selectPk(entity);
         this.store.removeOneByPk(pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
     }
 
     removeMany(entities: TEntity[]): void {
@@ -111,19 +133,19 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
 
         const pks = entities.map(this.selectPk);
         this.store.removeManyByPks(pks);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks });
     }
 
     removeOneByPk(pk: TPk): void {
         this.store.removeOneByPk(pk);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks: [pk] });
     }
 
     removeManyByPks(pks: readonly TPk[]): void {
         if (pks.length === 0) return;
 
         this.store.removeManyByPks(pks);
-        this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+        this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks });
     }
 
     clear(): void {
@@ -136,7 +158,7 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
         const pks = this.store.getAllPks();
         this.store.clear();
         if (pks.length > 0) {
-            this.emitter.emit(EOIMCollectionEventType.UPDATE, { pks });
+            this.batchEmitter.emit(EOIMCollectionEventType.UPDATE, { pks });
         }
     }
 
@@ -175,7 +197,10 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
         // which promotes a reserved slot as before.
         const slot = this.store.getSlotByPk(pk);
         if (slot !== undefined && slot.item !== undefined) {
-            slot.item = this.updateEntity(entity, slot.item);
+            // The writer both merges and decides whether this write is worth
+            // publishing; `false` means it changed nothing, and the reactive
+            // subclass skips notification entirely.
+            slot.published = this.slotWriter.write(slot, entity);
             return slot;
         }
         return this.store.setOneByPk(pk, entity as TEntity);
@@ -183,6 +208,6 @@ export class OIMCollection<TEntity extends object, TPk extends TOIMKey> {
 
     public destroy(): void {
         this.store.destroy();
-        this.emitter.offAll();
+        this.batchEmitter.offAll();
     }
 }

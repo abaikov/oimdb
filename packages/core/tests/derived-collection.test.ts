@@ -60,7 +60,7 @@ describe('OIMDerivedCollection', () => {
         );
 
         let notifications = 0;
-        view.subscribeOnKey('u1', () => {
+        view.emitter.subscribeOnKey('u1', () => {
             notifications++;
         });
         queue.flush();

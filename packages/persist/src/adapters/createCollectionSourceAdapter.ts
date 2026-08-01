@@ -76,8 +76,8 @@ export function createCollectionSourceAdapter<
             if (collection.subscribeOnAnyUpdate) {
                 return collection.subscribeOnAnyUpdate(() => onChange());
             }
-            return collection.emitter
-                ? collection.emitter.on(EOIMCollectionEventType.UPDATE, onChange)
+            return collection.batchEmitter
+                ? collection.batchEmitter.on(EOIMCollectionEventType.UPDATE, onChange)
                 : noop;
         },
         keyed,

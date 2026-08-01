@@ -13,6 +13,16 @@
  *   @typescript-eslint/consistent-type-imports        782  (fully `--fix`-able)
  *   @typescript-eslint/explicit-member-accessibility  217
  *   @typescript-eslint/no-non-null-assertion           16  (each needs a real guard, not a mechanical edit)
+ *
+ *   @typescript-eslint/consistent-type-definitions    192  — and it should stay off.
+ *     It rewrites `type X = {…}` to `interface X {…}`, which this repo cannot do
+ *     mechanically: CLAUDE.md gives types and interfaces DIFFERENT prefixes
+ *     (`TOIM…` vs `IOIM…`), and `naming-convention` above enforces both on the
+ *     exported surface. So every autofix turns a legal `TOIMFooOptions` into an
+ *     interface that then violates the interface rule, and honouring it means
+ *     renaming the export — a breaking change to the public API for a purely
+ *     cosmetic gain. The two rules are in direct conflict; the naming convention
+ *     wins.
  */
 module.exports = {
     root: true,
@@ -42,6 +52,18 @@ module.exports = {
         '*.js',
     ],
     rules: {
+        // A duplicated key in an object literal is silent: the last one wins and the earlier
+        // implementation is dead code that still reads as live. The TS preset switches this off
+        // (the compiler flags it in some positions, not all), and a benchmark adapter assembled by
+        // editing blocks hit exactly the gap — several scenarios ran a stale shadowed version.
+        'no-dupe-keys': 'error',
+
+        // A private field or method nobody reads is dead weight that still reads
+        // as live — and `@typescript-eslint/no-unused-vars` does not look inside
+        // classes, so nothing else catches it. Refactors that move logic between
+        // classes leave exactly this behind.
+        'no-unused-private-class-members': 'error',
+
         // --- correctness / no dead weight ---
         'no-unused-vars': 'off',
         '@typescript-eslint/no-unused-vars': [
@@ -59,6 +81,36 @@ module.exports = {
         eqeqeq: ['error', 'smart'],
         'prefer-const': 'error',
         'no-var': 'error',
+        // Reassigning a parameter gives one name two meanings — the argument the
+        // caller passed and the local working value — and the original is then
+        // unrecoverable further down. `props: true` is deliberately NOT set: the
+        // redux adapter and the persist strategies build their result by writing
+        // into a draft/accumulator handed in as a parameter, which is the whole
+        // point of those functions.
+        'no-param-reassign': 'error',
+        // `else` after a `return` adds a nesting level that carries no
+        // information — the early return already ended that branch.
+        'no-else-return': ['error', { allowElseIf: false }],
+        // A lone `if` inside an `else` is an `else if` written with extra
+        // braces: same control flow, one more level of indentation.
+        'no-lonely-if': 'error',
+        // `{ a: a }` in a destructuring pattern reads as a rename until you
+        // compare both halves; it renames nothing.
+        'no-useless-rename': 'error',
+        // `!!x` / `+x` / `'' + x` hide a type conversion in punctuation. Spell
+        // the conversion out — `Boolean(x)`, `Number(x)`, `String(x)` — so the
+        // reader sees which coercion is intended. Note `Boolean(x) && x.y` does
+        // NOT narrow `x` the way `!!x && x.y` does; at those sites write the
+        // explicit `x !== undefined` instead of reaching for `Boolean`.
+        'no-implicit-coercion': 'error',
+        // String concatenation buries the literal text in `+` operators and
+        // quote-juggling; a template shows the final string's shape as written.
+        'prefer-template': 'error',
+        // An empty body is either an unfinished stub or a deliberate no-op, and
+        // the two look identical. A real no-op keeps its body and takes an
+        // `eslint-disable-next-line` naming why doing nothing is correct.
+        'no-empty-function': 'off',
+        '@typescript-eslint/no-empty-function': 'error',
 
         // --- a published library must not print ---
         // `console.warn` / `console.error` stay allowed for genuine diagnostics.
@@ -66,6 +118,10 @@ module.exports = {
 
         // --- house style ---
         '@typescript-eslint/no-inferrable-types': 'error',
+        // `{ key: key }` and `foo: function () {}` restate what shorthand says
+        // once; the long form only ever hides whether the value is really the
+        // same binding.
+        'object-shorthand': ['error', 'always'],
         // `curly` is deliberately NOT enabled. The codebase uses brace-less
         // `if (cond) return;` throughout, and with a condition wrapped across
         // lines the rule's fixer emits `{return;}` on its own line — worse than

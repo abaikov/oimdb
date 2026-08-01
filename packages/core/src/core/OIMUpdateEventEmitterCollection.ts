@@ -1,7 +1,7 @@
 import { TOIMKey } from '../types/TOIMKey';
 import { OIMEventEmitter } from './OIMEventEmitter';
 import { OIMEventQueue } from './OIMEventQueue';
-import { OIMUpdateEventEmitter } from './OIMUpdateEventEmitter';
+import { OIMUpdateEventEmitterQueued } from './OIMUpdateEventEmitterQueued';
 import { EOIMCollectionEventType } from '../enums/EOIMCollectionEventType';
 import { TOIMCollectionUpdatePayload } from '../types/TOIMCollectionUpdatePayload';
 
@@ -11,7 +11,7 @@ type TOIMCollectionEmitter<TPk extends TOIMKey> = OIMEventEmitter<{
 
 export class OIMUpdateEventEmitterCollection<
     TPk extends TOIMKey,
-> extends OIMUpdateEventEmitter<TPk> {
+> extends OIMUpdateEventEmitterQueued<TPk> {
     private unsubscribe?: () => void;
 
     constructor(

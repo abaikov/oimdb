@@ -94,7 +94,7 @@ describe('OIMDisposeScope', () => {
         kit.destroy();
         // Index + collection disposed; queue is NOT owned by the kit.
         expect(kit.scope.isDisposed).toBe(true);
-        expect(byX.hasSubscriptions()).toBe(false);
+        expect(byX.emitter.hasSubscriptions()).toBe(false);
         // Queue still usable (caller owns it).
         expect(() => queue.flush()).not.toThrow();
         queue.destroy();
@@ -118,13 +118,13 @@ describe('OIMDisposeScope', () => {
         ]);
         byTeam.setPks('t1', ['u1', 'u2']);
         let calls = 0;
-        scope.add(byTeam.subscribeOnKey('t1', () => calls++));
+        scope.add(byTeam.emitter.subscribeOnKey('t1', () => calls++));
         byTeam.setPks('t1', ['u1']);
         queue.flush();
         expect(calls).toBe(1);
 
         // One call tears everything down without manual ordering.
         expect(() => scope.destroy()).not.toThrow();
-        expect(byTeam.hasSubscriptions()).toBe(false);
+        expect(byTeam.emitter.hasSubscriptions()).toBe(false);
     });
 });

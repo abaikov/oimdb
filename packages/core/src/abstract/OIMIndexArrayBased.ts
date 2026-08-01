@@ -5,10 +5,19 @@ import { OIMIndexStoreMapDrivenArrayBased } from '../core/OIMIndexStoreMapDriven
 import { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMIndex } from './OIMIndex';
 
+/** Shared empty result for a missing key — never handed out mutable. */
+const EMPTY_SLOTS: readonly never[] = Object.freeze([]);
+
 export abstract class OIMIndexArrayBased<
     TKey extends TOIMKey,
     TPk extends TOIMKey,
-> extends OIMIndex<TKey, TPk, TOIMAnyEntitySlot<TPk>[]> {
+> extends OIMIndex<
+    TKey,
+    TPk,
+    TOIMAnyEntitySlot<TPk>[],
+    TPk[],
+    readonly TOIMAnyEntitySlot<TPk>[]
+> {
     /** The same store as `store`, narrowed to expose the carrier-bucket lifecycle. */
     protected readonly arrayStore: OIMIndexStoreArrayBased<TKey, TPk>;
 
@@ -42,21 +51,33 @@ export abstract class OIMIndexArrayBased<
         return result;
     }
 
+    /**
+     * A LIVE view of the bucket — no defensive copy.
+     *
+     * The bucket is a stable carrier (it is also the subscription target), so a
+     * write edits it in place rather than replacing it: whatever you hold here
+     * changes under you at the next write. **Valid until the next write.** Read
+     * it, or copy it yourself if you intend to keep or diff it.
+     *
+     * It used to slice on every call. Nothing needed that: every caller either
+     * walks the result once and drops it, or immediately builds its own array
+     * anyway — the diff-driven stream sliced the slice, and the derived index
+     * sorted a copy of the copy. The one place where an array genuinely
+     * outlives the read is a `reset` command, and that copies at its own
+     * boundary (`OIMOrderedListCommandBuffer.createResetCommand`).
+     *
+     * This also aligns the contract with {@link OIMIndexSetBased.getSlotsByKey},
+     * which has always handed back its live bucket.
+     */
     public getSlotsByKey(key: TKey): readonly TOIMAnyEntitySlot<TPk>[] {
-        // Return a snapshot copy: the live bucket is a stable carrier mutated in
-        // place, so callers that hold or diff the result need their own array.
-        const bucket = this.store.getOneByKey(key);
-        return bucket ? bucket.slice() : [];
+        return this.store.getOneByKey(key) ?? EMPTY_SLOTS;
     }
 
+    /** Live views, one per key — same ownership rules as {@link getSlotsByKey}. */
     public getSlotsByKeys(
         keys: readonly TKey[]
     ): Map<TKey, readonly TOIMAnyEntitySlot<TPk>[]> {
-        const result = new Map<TKey, readonly TOIMAnyEntitySlot<TPk>[]>();
-        for (const [key, bucket] of this.store.getManyByKeys(keys)) {
-            result.set(key, bucket.slice());
-        }
-        return result;
+        return this.store.getManyByKeys(keys);
     }
 
     protected slotsToPks(

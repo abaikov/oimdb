@@ -53,8 +53,8 @@ describe('raw global (keyless) indexes', () => {
         );
         const calls: string[] = [];
 
-        setIndex.subscribe(() => calls.push('set'));
-        arrayIndex.subscribe(() => calls.push('array'));
+        setIndex.emitter.subscribe(() => calls.push('set'));
+        arrayIndex.emitter.subscribe(() => calls.push('array'));
 
         setIndex.setSlots(new Set([slot('u1')]));
         setIndex.addSlots([slot('u2')]); // second write, same tick
@@ -151,7 +151,7 @@ describe('collection-bound global (keyless) PK indexes', () => {
         >(queue, { collection: users });
 
         let count = 0;
-        index.subscribe(() => count++);
+        index.emitter.subscribe(() => count++);
 
         index.setPks(['u1']);
         queue.flush();
