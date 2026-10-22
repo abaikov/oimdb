@@ -18,8 +18,7 @@
     }
   },
   "oimdbRelease": {
-    "publish": false,
-    "why": "Replaces the published @oimdb/redux-adapter only once the @oimdb/core replacement lands."
+    "publish": true
   },
   "scripts": {
     "build": "tsup src/index.ts --dts --format esm,cjs --clean",

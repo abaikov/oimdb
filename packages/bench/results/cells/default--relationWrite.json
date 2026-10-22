@@ -25,7 +25,7 @@
         "warmup": 145
       },
       "batch": {
-        "id": "default--relationWrite--2026-10-22T17:34:20.914Z",
+        "id": "default--relationWrite--2026-10-22T20:17:31.011Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -38,56 +38,51 @@
           "control-heavy",
           "control-write",
           "baseline-array",
-          "oimdb",
-          "mobx",
-          "preact-signals",
-          "alien-signals",
-          "vue-reactivity",
-          "solid-js"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:34:20.914Z",
-        "seconds": 42.311,
+        "startedAt": "2026-10-22T20:17:31.011Z",
+        "seconds": 23.115,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.06787109375,
-          "peak": 4.39404296875,
-          "readings": 38,
-          "foreignPeak": 1.39404296875,
+          "start": 3.0517578125,
+          "peak": 3.19384765625,
+          "readings": 18,
+          "foreignPeak": 0.19384765625,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.015303140625,
-          "heavyMin": 0.03038875390625,
-          "gap": 0.9857854443685478,
-          "drift": 0.01715774017449151,
+          "leanMin": 0.01535164453125,
+          "heavyMin": 0.030619384765625,
+          "gap": 0.9945345075764227,
+          "drift": 0.014090255497362527,
           "resolved": true,
           "fine": {
-            "writeMin": 0.015415607421875,
-            "gap": 0.0073492624573591615,
-            "drift": 0.025587780038772035,
+            "writeMin": 0.0154794921875,
+            "gap": 0.008327945321411828,
+            "drift": 0.014090255497362527,
             "resolved": false
           }
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.015199951171875,
-          "drift": 0.0013223469699159454
+          "min": 0.015208171875,
+          "drift": 0.002188507823199475
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.015199951171875,
+        "min": 0.015208171875,
         "processMins": [
-          0.015199951171875,
-          0.01521354296875,
-          0.01522005078125
+          0.015208171875,
+          0.015226806640625,
+          0.015241455078125
         ],
-        "drift": 0.0013223469699159454,
+        "drift": 0.002188507823199475,
         "lost": 0,
-        "spread": 0.045246470389823046,
+        "spread": 0.007143568989944743,
         "repeat": 512,
         "samples": 5,
         "warmed": 145,
@@ -103,7 +98,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T17:35:03.225Z"
+      "measuredAt": "2026-10-22T20:17:54.126Z"
     },
     "oimdb": {
       "format": 2,
@@ -115,7 +110,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "64ba88b80021654a",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -129,7 +124,7 @@
         "warmup": 145
       },
       "batch": {
-        "id": "default--relationWrite--2026-10-22T17:34:20.914Z",
+        "id": "default--relationWrite--2026-10-22T20:17:31.011Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -142,56 +137,51 @@
           "control-heavy",
           "control-write",
           "baseline-array",
-          "oimdb",
-          "mobx",
-          "preact-signals",
-          "alien-signals",
-          "vue-reactivity",
-          "solid-js"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:34:20.914Z",
-        "seconds": 42.311,
+        "startedAt": "2026-10-22T20:17:31.011Z",
+        "seconds": 23.115,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.06787109375,
-          "peak": 4.39404296875,
-          "readings": 38,
-          "foreignPeak": 1.39404296875,
+          "start": 3.0517578125,
+          "peak": 3.19384765625,
+          "readings": 18,
+          "foreignPeak": 0.19384765625,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.015303140625,
-          "heavyMin": 0.03038875390625,
-          "gap": 0.9857854443685478,
-          "drift": 0.01715774017449151,
+          "leanMin": 0.01535164453125,
+          "heavyMin": 0.030619384765625,
+          "gap": 0.9945345075764227,
+          "drift": 0.014090255497362527,
           "resolved": true,
           "fine": {
-            "writeMin": 0.015415607421875,
-            "gap": 0.0073492624573591615,
-            "drift": 0.025587780038772035,
+            "writeMin": 0.0154794921875,
+            "gap": 0.008327945321411828,
+            "drift": 0.014090255497362527,
             "resolved": false
           }
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.015199951171875,
-          "drift": 0.0013223469699159454
+          "min": 0.015208171875,
+          "drift": 0.002188507823199475
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.00779728125,
+        "min": 0.007765380859375,
         "processMins": [
-          0.00779728125,
-          0.007883462890625,
-          0.008085611328125
+          0.007765380859375,
+          0.00779248046875,
+          0.007819009765625
         ],
-        "drift": 0.036978283696641086,
+        "drift": 0.006906152733674917,
         "lost": 0,
-        "spread": 0.017116843611354838,
+        "spread": 0.031512811645235395,
         "repeat": 512,
         "samples": 5,
         "warmed": 145,
@@ -205,9 +195,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 0.5129806774924107
+        "ratioToAnchor": 0.5106058060890372
       },
-      "measuredAt": "2026-10-22T17:35:03.225Z"
+      "measuredAt": "2026-10-22T20:17:54.126Z"
     },
     "preact-signals": {
       "format": 2,

@@ -57,7 +57,7 @@
     "check:docs": "node scripts/check-docs-examples.mjs",
     "size": "node scripts/check-bundle-size.mjs",
     "size:write": "node scripts/check-bundle-size.mjs --write",
-    "verify": "npm run lint && npm run clones && npm run check-structure && npm run build:core && npm run type-check && npm run check:docs && npm run size && npm test && npm test --workspace @oimdb/bench && npm --workspaces --if-present run build",
+    "verify": "npm run lint && npm run clones && npm run check-structure && npm run build:core && npm run type-check && npm run check:docs && npm run size && npm run coverage && npm test --workspace @oimdb/bench && npm --workspaces --if-present run build",
     "check-structure": "npm --workspaces --if-present run check-structure",
     "prepublishOnly": "npm run verify && npm run build",
     "prepare": "husky",

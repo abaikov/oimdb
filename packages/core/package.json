@@ -18,8 +18,7 @@
         }
     },
     "oimdbRelease": {
-        "publish": false,
-        "why": "Replaces the published @oimdb/core only once every consumer is migrated and the differential suite is green."
+        "publish": true
     },
     "scripts": {
         "build": "tsup src/index.ts --dts --format esm,cjs --clean && node scripts/mark-type-only-exports.mjs",

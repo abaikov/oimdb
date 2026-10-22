@@ -25,7 +25,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnChain--2026-10-22T17:12:09.565Z",
+        "id": "default--churnChain--2026-10-22T20:14:28.199Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -37,39 +37,38 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:12:09.565Z",
-        "seconds": 4.842,
+        "startedAt": "2026-10-22T20:14:28.199Z",
+        "seconds": 4.189,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.4873046875,
-          "peak": 3.5283203125,
-          "readings": 19,
-          "foreignPeak": 0.5283203125,
+          "start": 3.38525390625,
+          "peak": 3.43408203125,
+          "readings": 15,
+          "foreignPeak": 0.43408203125,
           "over": false
         },
         "gcMissing": false,
         "anchor": {
           "name": "baseline-array",
-          "min": 0.257802,
-          "drift": 0.03301176872173231
+          "min": 0.264625,
+          "drift": 0.02239773264052911
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.257802,
+        "min": 0.264625,
         "processMins": [
-          0.257802,
-          0.25854175,
-          0.2663125
+          0.264625,
+          0.267125,
+          0.270552
         ],
-        "drift": 0.03301176872173231,
+        "drift": 0.02239773264052911,
         "lost": 0,
-        "spread": 0.10267181790676574,
+        "spread": 0.5973075106282475,
         "repeat": 4,
         "samples": 5,
         "warmed": 50,
@@ -85,7 +84,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T17:12:14.407Z"
+      "measuredAt": "2026-10-22T20:14:32.388Z"
     },
     "oimdb": {
       "format": 2,
@@ -97,7 +96,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "8e38b6a0334dc11c",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -111,7 +110,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnChain--2026-10-22T17:12:09.565Z",
+        "id": "default--churnChain--2026-10-22T20:14:28.199Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -123,39 +122,38 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:12:09.565Z",
-        "seconds": 4.842,
+        "startedAt": "2026-10-22T20:14:28.199Z",
+        "seconds": 4.189,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.4873046875,
-          "peak": 3.5283203125,
-          "readings": 19,
-          "foreignPeak": 0.5283203125,
+          "start": 3.38525390625,
+          "peak": 3.43408203125,
+          "readings": 15,
+          "foreignPeak": 0.43408203125,
           "over": false
         },
         "gcMissing": false,
         "anchor": {
           "name": "baseline-array",
-          "min": 0.257802,
-          "drift": 0.03301176872173231
+          "min": 0.264625,
+          "drift": 0.02239773264052911
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.304229,
+        "min": 0.30921875,
         "processMins": [
-          0.304229,
-          0.31571875,
-          0.32391675
+          0.30921875,
+          0.31853125,
+          0.32355225
         ],
-        "drift": 0.06471358746207609,
+        "drift": 0.046353916119252145,
         "lost": 0,
-        "spread": 0.06467907398702943,
+        "spread": 0.2926730672056595,
         "repeat": 4,
         "samples": 5,
         "warmed": 50,
@@ -169,9 +167,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 1.180087819334218
+        "ratioToAnchor": 1.1685167690127538
       },
-      "measuredAt": "2026-10-22T17:12:14.407Z"
+      "measuredAt": "2026-10-22T20:14:32.388Z"
     },
     "oimdb-3.12.1": {
       "format": 2,

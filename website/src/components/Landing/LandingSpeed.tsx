@@ -232,7 +232,7 @@ const stories = (): TStory[] => {
         const rivalRow = table.rows
             .filter(isLibrary)
             .reduce<BenchRow | undefined>((best, row) => (best === undefined || row.ms < best.ms ? row : best), undefined);
-        if (rivalRow === undefined || oimdbRow.ms > rivalRow.ms) continue;
+        if (rivalRow === undefined || rivalRow.stale.length !== 0 || oimdbRow.ms > rivalRow.ms) continue;
         found.push({ ...storyText, scenario: table.scenario, oimdbRow, handWrittenRow, rivalRow, targetRow: rivalRow, targetName: rivalRow.adapter });
     }
     return found

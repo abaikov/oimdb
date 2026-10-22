@@ -25,7 +25,7 @@
         "warmup": 124
       },
       "batch": {
-        "id": "default--compositeKeyWrite--2026-10-22T17:35:03.227Z",
+        "id": "default--compositeKeyWrite--2026-10-22T20:17:54.127Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -38,56 +38,51 @@
           "control-heavy",
           "control-write",
           "baseline-array",
-          "oimdb",
-          "mobx",
-          "preact-signals",
-          "alien-signals",
-          "vue-reactivity",
-          "solid-js"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:35:03.227Z",
-        "seconds": 42.439,
+        "startedAt": "2026-10-22T20:17:54.127Z",
+        "seconds": 21.422,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.1220703125,
-          "peak": 4.5927734375,
-          "readings": 38,
-          "foreignPeak": 1.5927734375,
+          "start": 2.8564453125,
+          "peak": 2.8779296875,
+          "readings": 18,
+          "foreignPeak": 0,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.01594384765625,
-          "heavyMin": 0.03133073046875,
-          "gap": 0.9650670995008115,
-          "drift": 0.024933941751140852,
+          "leanMin": 0.016082275390625,
+          "heavyMin": 0.031475259765625,
+          "gap": 0.9571397082264356,
+          "drift": 0.061436400346120516,
           "resolved": true,
           "fine": {
-            "writeMin": 0.0164506015625,
-            "gap": 0.03178366459437117,
-            "drift": 0.024933941751140852,
-            "resolved": true
+            "writeMin": 0.016522298828125,
+            "gap": 0.027360769966450545,
+            "drift": 0.061436400346120516,
+            "resolved": false
           }
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.016420166015625,
-          "drift": 0.014779130796794382
+          "min": 0.01649251171875,
+          "drift": 0.011408349859536229
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.016420166015625,
+        "min": 0.01649251171875,
         "processMins": [
-          0.016420166015625,
-          0.016635171875,
-          0.016662841796875
+          0.01649251171875,
+          0.016656005859375,
+          0.0166806640625
         ],
-        "drift": 0.014779130796794382,
+        "drift": 0.011408349859536229,
         "lost": 0,
-        "spread": 0.01388703034628362,
+        "spread": 0.4409504739722076,
         "repeat": 512,
         "samples": 5,
         "warmed": 124,
@@ -103,7 +98,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T17:35:45.666Z"
+      "measuredAt": "2026-10-22T20:18:15.549Z"
     },
     "oimdb": {
       "format": 2,
@@ -115,7 +110,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "64ba88b80021654a",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -129,7 +124,7 @@
         "warmup": 124
       },
       "batch": {
-        "id": "default--compositeKeyWrite--2026-10-22T17:35:03.227Z",
+        "id": "default--compositeKeyWrite--2026-10-22T20:17:54.127Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -142,56 +137,51 @@
           "control-heavy",
           "control-write",
           "baseline-array",
-          "oimdb",
-          "mobx",
-          "preact-signals",
-          "alien-signals",
-          "vue-reactivity",
-          "solid-js"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:35:03.227Z",
-        "seconds": 42.439,
+        "startedAt": "2026-10-22T20:17:54.127Z",
+        "seconds": 21.422,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.1220703125,
-          "peak": 4.5927734375,
-          "readings": 38,
-          "foreignPeak": 1.5927734375,
+          "start": 2.8564453125,
+          "peak": 2.8779296875,
+          "readings": 18,
+          "foreignPeak": 0,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.01594384765625,
-          "heavyMin": 0.03133073046875,
-          "gap": 0.9650670995008115,
-          "drift": 0.024933941751140852,
+          "leanMin": 0.016082275390625,
+          "heavyMin": 0.031475259765625,
+          "gap": 0.9571397082264356,
+          "drift": 0.061436400346120516,
           "resolved": true,
           "fine": {
-            "writeMin": 0.0164506015625,
-            "gap": 0.03178366459437117,
-            "drift": 0.024933941751140852,
-            "resolved": true
+            "writeMin": 0.016522298828125,
+            "gap": 0.027360769966450545,
+            "drift": 0.061436400346120516,
+            "resolved": false
           }
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.016420166015625,
-          "drift": 0.014779130796794382
+          "min": 0.01649251171875,
+          "drift": 0.011408349859536229
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.008904541015625,
+        "min": 0.008910400390625,
         "processMins": [
-          0.008904541015625,
-          0.00898698046875,
-          0.010350912109375
+          0.008910400390625,
+          0.008993978515625,
+          0.0090142421875
         ],
-        "drift": 0.1624307295807859,
+        "drift": 0.011653998958818574,
         "lost": 0,
-        "spread": 0.01340717791242849,
+        "spread": 0.006904677096747745,
         "repeat": 512,
         "samples": 5,
         "warmed": 124,
@@ -205,9 +195,9 @@
           "distinct": 8,
           "redundant": 0
         },
-        "ratioToAnchor": 0.5422929955246294
+        "ratioToAnchor": 0.5402694594113854
       },
-      "measuredAt": "2026-10-22T17:35:45.666Z"
+      "measuredAt": "2026-10-22T20:18:15.549Z"
     },
     "preact-signals": {
       "format": 2,

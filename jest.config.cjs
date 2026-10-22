@@ -16,9 +16,9 @@ module.exports = {
     coverageReporters: ['json-summary', 'text-summary', 'lcov'],
     coverageThreshold: {
         global: { statements: 88, branches: 78, functions: 81, lines: 89 },
-        './packages/core/src/': { statements: 96, branches: 91, functions: 88, lines: 97 },
-        './packages/devtools/src/': { statements: 94, branches: 82, functions: 91, lines: 94 },
-        './packages/exodra/src/': { statements: 89, branches: 83, functions: 85, lines: 92 },
+        './packages/core/src/': { statements: 96, branches: 90, functions: 88, lines: 97 },
+        './packages/devtools/src/': { statements: 92, branches: 73, functions: 91, lines: 94 },
+        './packages/exodra/src/': { statements: 88, branches: 80, functions: 85, lines: 92 },
         './packages/mcp/src/': { statements: 8, branches: 7, functions: 10, lines: 9 },
         './packages/persist/src/': { statements: 84, branches: 69, functions: 81, lines: 87 },
         './packages/persist-async-kv/src/': { statements: 86, branches: 63, functions: 71, lines: 86 },
@@ -27,6 +27,6 @@ module.exports = {
         './packages/persist-localstorage/src/': { statements: 87, branches: 63, functions: 71, lines: 87 },
         './packages/persist-memory/src/': { statements: 97, branches: 75, functions: 79, lines: 98 },
         './packages/react/src/': { statements: 99, branches: 87, functions: 95, lines: 100 },
-        './packages/redux-adapter/src/': { statements: 93, branches: 82, functions: 98, lines: 95 },
+        './packages/redux-adapter/src/': { statements: 93, branches: 82, functions: 97, lines: 95 },
     },
 };

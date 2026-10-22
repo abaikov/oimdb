@@ -25,7 +25,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnSharedReversed--2026-10-22T17:11:24.820Z",
+        "id": "default--churnSharedReversed--2026-10-22T20:13:52.232Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -37,46 +37,45 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:11:24.820Z",
-        "seconds": 7.108,
+        "startedAt": "2026-10-22T20:13:52.232Z",
+        "seconds": 5.458,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.2744140625,
-          "peak": 4.2744140625,
-          "readings": 19,
-          "foreignPeak": 1.2744140625,
+          "start": 3.96435546875,
+          "peak": 3.96435546875,
+          "readings": 15,
+          "foreignPeak": 0.96435546875,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.021921875,
-          "heavyMin": 0.034946763888888885,
-          "gap": 0.594150312821731,
-          "drift": 0.04857305773342844,
+          "leanMin": 0.02275376388888889,
+          "heavyMin": 0.033652201388888886,
+          "gap": 0.4789729538031252,
+          "drift": 0.09761640572878164,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.021117770833333334,
-          "drift": 0.17731511671153727
+          "min": 0.02005902777777778,
+          "drift": 0.17123939761121687
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.021117770833333334,
+        "min": 0.02005902777777778,
         "processMins": [
-          0.021117770833333334,
-          0.021135416666666667,
-          0.02486227083333333
+          0.02005902777777778,
+          0.022623847222222222,
+          0.023493923611111113
         ],
-        "drift": 0.17731511671153727,
+        "drift": 0.17123939761121687,
         "lost": 0,
-        "spread": 0.03933791938661449,
+        "spread": 0.007919335295135875,
         "repeat": 144,
         "samples": 5,
         "warmed": 50,
@@ -92,7 +91,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T17:11:31.928Z"
+      "measuredAt": "2026-10-22T20:13:57.690Z"
     },
     "oimdb": {
       "format": 2,
@@ -104,7 +103,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "8e38b6a0334dc11c",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -118,7 +117,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnSharedReversed--2026-10-22T17:11:24.820Z",
+        "id": "default--churnSharedReversed--2026-10-22T20:13:52.232Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -130,46 +129,45 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:11:24.820Z",
-        "seconds": 7.108,
+        "startedAt": "2026-10-22T20:13:52.232Z",
+        "seconds": 5.458,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 4.2744140625,
-          "peak": 4.2744140625,
-          "readings": 19,
-          "foreignPeak": 1.2744140625,
+          "start": 3.96435546875,
+          "peak": 3.96435546875,
+          "readings": 15,
+          "foreignPeak": 0.96435546875,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.021921875,
-          "heavyMin": 0.034946763888888885,
-          "gap": 0.594150312821731,
-          "drift": 0.04857305773342844,
+          "leanMin": 0.02275376388888889,
+          "heavyMin": 0.033652201388888886,
+          "gap": 0.4789729538031252,
+          "drift": 0.09761640572878164,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.021117770833333334,
-          "drift": 0.17731511671153727
+          "min": 0.02005902777777778,
+          "drift": 0.17123939761121687
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.020407986111111113,
+        "min": 0.02012007638888889,
         "processMins": [
-          0.020407986111111113,
-          0.020489875,
-          0.02169965277777778
+          0.02012007638888889,
+          0.020243055555555556,
+          0.021140340277777777
         ],
-        "drift": 0.06329221607826456,
+        "drift": 0.05070874827554417,
         "lost": 0,
-        "spread": 0.05806039982985953,
+        "spread": 0.021111790289618692,
         "repeat": 144,
         "samples": 5,
         "warmed": 50,
@@ -183,9 +181,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 0.9663892212949928
+        "ratioToAnchor": 1.0030434481564825
       },
-      "measuredAt": "2026-10-22T17:11:31.928Z"
+      "measuredAt": "2026-10-22T20:13:57.690Z"
     },
     "oimdb-3.12.1": {
       "format": 2,

@@ -25,7 +25,7 @@
         "warmup": 2000
       },
       "batch": {
-        "id": "default--appFill--2026-10-22T17:12:36.506Z",
+        "id": "default--appFill--2026-10-22T20:14:49.811Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -37,46 +37,45 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:12:36.506Z",
-        "seconds": 4.67,
+        "startedAt": "2026-10-22T20:14:49.811Z",
+        "seconds": 3.693,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.92919921875,
-          "peak": 3.92919921875,
-          "readings": 19,
-          "foreignPeak": 0.92919921875,
+          "start": 5.09814453125,
+          "peak": 5.09814453125,
+          "readings": 15,
+          "foreignPeak": 2.09814453125,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.026792,
-          "heavyMin": 0.034125,
-          "gap": 0.2737011048074053,
-          "drift": 0.11197372349955208,
+          "leanMin": 0.027708,
+          "heavyMin": 0.036042,
+          "gap": 0.3007795582503247,
+          "drift": 0.09477831418900179,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.022916,
-          "drift": 0.08186419968580916
+          "min": 0.023292,
+          "drift": 0.05010303967027312
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.022916,
+        "min": 0.023292,
         "processMins": [
-          0.022916,
-          0.023708,
-          0.024792
+          0.023292,
+          0.024375,
+          0.024459
         ],
-        "drift": 0.08186419968580916,
+        "drift": 0.05010303967027312,
         "lost": 0,
-        "spread": 0.46914819340199004,
+        "spread": 0.5688219131032113,
         "repeat": 1,
         "samples": 9,
         "warmed": 2000,
@@ -92,7 +91,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T17:12:41.176Z"
+      "measuredAt": "2026-10-22T20:14:53.504Z"
     },
     "oimdb": {
       "format": 2,
@@ -104,7 +103,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "8e38b6a0334dc11c",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -118,7 +117,7 @@
         "warmup": 2000
       },
       "batch": {
-        "id": "default--appFill--2026-10-22T17:12:36.506Z",
+        "id": "default--appFill--2026-10-22T20:14:49.811Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -130,46 +129,45 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb"
         ],
-        "startedAt": "2026-10-22T17:12:36.506Z",
-        "seconds": 4.67,
+        "startedAt": "2026-10-22T20:14:49.811Z",
+        "seconds": 3.693,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.92919921875,
-          "peak": 3.92919921875,
-          "readings": 19,
-          "foreignPeak": 0.92919921875,
+          "start": 5.09814453125,
+          "peak": 5.09814453125,
+          "readings": 15,
+          "foreignPeak": 2.09814453125,
           "over": false
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.026792,
-          "heavyMin": 0.034125,
-          "gap": 0.2737011048074053,
-          "drift": 0.11197372349955208,
+          "leanMin": 0.027708,
+          "heavyMin": 0.036042,
+          "gap": 0.3007795582503247,
+          "drift": 0.09477831418900179,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.022916,
-          "drift": 0.08186419968580916
+          "min": 0.023292,
+          "drift": 0.05010303967027312
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.021583,
+        "min": 0.022084,
         "processMins": [
-          0.021583,
-          0.022542,
-          0.02275
+          0.022084,
+          0.0235,
+          0.023542
         ],
-        "drift": 0.05407033313255793,
+        "drift": 0.06602064843325489,
         "lost": 0,
-        "spread": 0.6062178566464348,
+        "spread": 0.6962053975729035,
         "repeat": 1,
         "samples": 9,
         "warmed": 2000,
@@ -183,9 +181,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 0.9418310350846572
+        "ratioToAnchor": 0.9481366992958955
       },
-      "measuredAt": "2026-10-22T17:12:41.176Z"
+      "measuredAt": "2026-10-22T20:14:53.504Z"
     },
     "preact-signals": {
       "format": 2,
