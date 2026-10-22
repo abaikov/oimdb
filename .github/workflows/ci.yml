@@ -49,4 +49,4 @@ jobs:
       - name: Coverage
         run: npm run coverage
       - name: Build
-        run: npm --workspaces --if-present run build
+        run: npm run build:packages
