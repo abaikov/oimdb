@@ -46,6 +46,8 @@ jobs:
         run: npm ci
       - name: Build the cores the bench imports from dist
         run: npm run build --workspace @oimdb/core --workspace @oimdb/core-legacy
+      - name: Copy llms.txt to static
+        run: cp llms.txt website/static/llms.txt
       - name: Type-check
         run: npm --workspaces --if-present run type-check
       - name: Test
