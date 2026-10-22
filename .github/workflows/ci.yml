@@ -44,6 +44,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Build the cores the bench imports from dist
+        run: npm run build --workspace @oimdb/core --workspace @oimdb/core-legacy
       - name: Type-check
         run: npm --workspaces --if-present run type-check
       - name: Test

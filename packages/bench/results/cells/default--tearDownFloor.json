@@ -9,7 +9,7 @@
         "adapter": "baseline-array"
       },
       "fingerprint": {
-        "harness": "316e21080fd09879",
+        "harness": "9f7d83f3c1a40cfe",
         "adapter": "e3b0c44298fc1c14",
         "subject": "e3b0c44298fc1c14",
         "libraries": {}
@@ -25,7 +25,7 @@
         "warmup": 2000
       },
       "batch": {
-        "id": "default--tearDownFloor--2026-10-18T14:05:05.817Z",
+        "id": "default--tearDownFloor--2026-10-22T18:54:40.124Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -36,31 +36,31 @@
         "adapterNames": [
           "baseline-array"
         ],
-        "startedAt": "2026-10-18T14:05:05.817Z",
-        "seconds": 4.404,
+        "startedAt": "2026-10-22T18:54:40.124Z",
+        "seconds": 3.79,
         "load": {
           "cores": 8,
-          "gate": 12,
+          "gate": 8,
           "selfAllowance": 3,
-          "start": 2.791015625,
-          "peak": 2.791015625,
-          "readings": 6,
-          "foreignPeak": 0,
+          "start": 3.38037109375,
+          "peak": 3.75,
+          "readings": 5,
+          "foreignPeak": 0.75,
           "over": false
         },
         "gcMissing": false
       },
       "outcome": {
         "status": "measured",
-        "min": 0.001583,
+        "min": 0.001458,
         "processMins": [
-          0.001583,
-          0.001667,
-          0.001917
+          0.001458,
+          0.001584,
+          0.001708
         ],
-        "drift": 0.21099178774478844,
+        "drift": 0.17146776406035666,
         "lost": 0,
-        "spread": 5.159191408717625,
+        "spread": 5.71604938271605,
         "repeat": 1,
         "samples": 15,
         "warmed": 2000,
@@ -75,7 +75,7 @@
           "redundant": 0
         }
       },
-      "measuredAt": "2026-10-18T14:05:10.221Z"
+      "measuredAt": "2026-10-22T18:54:43.914Z"
     }
   }
 }

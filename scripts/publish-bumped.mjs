@@ -73,21 +73,38 @@ for (const { pkg } of held) {
     console.log(`HOLD    ${pkg.name}@${pkg.version} — ${pkg.oimdbRelease.why}`);
 }
 
-const pkgs = candidates
+const releasable = candidates
     .filter(c => c.pkg.oimdbRelease.publish)
     .map(c => ({
         name: c.pkg.name,
         version: c.pkg.version,
         peers: c.pkg.peerDependencies ?? {},
+        oimdbDependencies: Object.keys({
+            ...c.pkg.dependencies,
+            ...c.pkg.peerDependencies,
+        }).filter(dep => dep.startsWith('@oimdb/')),
     }))
-    // core first, then alphabetical (publish order matters only for consistency)
-    .sort((a, b) =>
-        a.name === '@oimdb/core'
-            ? -1
-            : b.name === '@oimdb/core'
-              ? 1
-              : a.name.localeCompare(b.name)
-    );
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+const pkgs = [];
+const placed = new Set();
+const placing = new Set();
+const place = p => {
+    if (placed.has(p.name)) return;
+    if (placing.has(p.name)) {
+        console.error(`\nREFUSING TO PUBLISH: an @oimdb dependency cycle runs through ${p.name}.\n`);
+        process.exit(1);
+    }
+    placing.add(p.name);
+    for (const dep of p.oimdbDependencies) {
+        const releasableDep = releasable.find(q => q.name === dep);
+        if (releasableDep) place(releasableDep);
+    }
+    placing.delete(p.name);
+    placed.add(p.name);
+    pkgs.push(p);
+};
+for (const p of releasable) place(p);
 
 const versionCache = new Map();
 function publishedVersions(name) {
