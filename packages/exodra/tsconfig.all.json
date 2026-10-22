@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widened from "." to packages/ so core's .ts sources, pulled in by `paths`
+    // below, sit under rootDir — otherwise TS6059 on every one of them. See the
+    // note in packages/persist/tsconfig.all.json.
+    "rootDir": "..",
+    // Check against core's source, the tree jest already runs. See the note in
+    // packages/persist/tsconfig.all.json. Deliberately not in tsconfig.json,
+    // which tsup uses to emit this package's declarations.
+    "paths": {
+      "@oimdb/core": ["../core/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/mcp",
   "version": "1.2.0",
-  "description": "MCP server and CDP inspector for OIMDB — connects AI assistants to live browser state",
+  "description": "MCP server and CDP inspector for OIMDB \u2014 connects AI assistants to live browser state",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -14,8 +14,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
+  },
+  "oimdbRelease": {
+    "publish": true
   },
   "bin": {
     "oimdb-mcp": "bin/oimdb-mcp.cjs"
@@ -28,8 +34,9 @@
   "scripts": {
     "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
     "dev": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json --watch",
-    "type-check": "tsc --noEmit",
-    "prepublishOnly": "npm run type-check && npm run build"
+    "type-check": "tsc --noEmit -p tsconfig.tests.json",
+    "prepublishOnly": "npm run type-check && npm run build",
+    "test": "jest"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -39,7 +46,10 @@
   "devDependencies": {
     "@types/ws": "^8.5.10",
     "tsup": "^8.0.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "@types/jest": "^29.5.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1"
   },
   "keywords": [
     "oimdb",

@@ -1,707 +1,943 @@
 import {
+    action,
     autorun,
-    computed as mobxComputed,
-    configure,
+    compareShallow,
+    computed,
+    makeObservable,
     observable,
-    reaction,
     runInAction,
 } from 'mobx';
-import type { TAdapter, TComment, TUser } from '../harness/types';
+import type { IComputedValue, IReactionDisposer, ObservableSet } from 'mobx';
+import type {
+    BenchConsumer,
+    TConsumers,
+    TViewBinding,
+} from '../harness/consumer';
+import type { TOwner, TPairRow, TPlan, TRow } from '../harness/dataset';
+import {
+    deliver,
+    deliverCells,
+    deliverChurn,
+    deliverPage,
+    deliverRelation,
+    deliverSingle,
+    orderedIdsOfRows,
+    visibleOf,
+    visibleOnAxisInto,
+} from '../harness/render';
+import {
+    chainLevelOf,
+    diamondJoinOf,
+    diamondLeftOf,
+    diamondRightOf,
+} from '../harness/derivations';
+import { churnShapes, noRowStore, readShapes } from '../harness/types';
+import type {
+    TAdapter,
+    TBinding,
+    TCellConfig,
+    TChurnBinding,
+    TReadBinding,
+    TRelationBinding,
+    TRelationConfig,
+    TSingleBinding,
+    TViewConfig,
+} from '../harness/types';
 
-/**
- * Recipe: MobX's own guides. `observable.map` holds the entities, each value an observable object;
- * `computed` is the derived value; `reaction` is the effect with an explicit dependency expression;
- * `runInAction` is the write batch.
- * https://mobx.js.org/observable-state.html
- * https://mobx.js.org/computeds.html
- * https://mobx.js.org/reactions.html
- *
- * `enforceActions: 'never'` because this file writes outside actions on purpose in the scenarios
- * that measure a bare write; the batching scenarios use `runInAction` explicitly, which is what a
- * MobX app does for a burst.
- *
- * MobX is a reactivity system, not a database: it has no index and no query. Where a lookup needs
- * one, the doc comment says the index is ours.
- */
-configure({ enforceActions: 'never' });
+// action, mobx dist/mobx.cjs.development.js:1088 (executeAction): reactions wait for the outermost action.
+const frame = action((run: () => void): void => {
+    run();
+});
 
-type TObservableUser = TUser;
+class MobxRow implements TRow {
+    readonly id: string;
+    group: string;
+    rank: number;
+    label: string;
+    note: string;
 
-const buildUsers = (users: TUser[]) => {
-    const map = observable.map<string, TObservableUser>();
-    runInAction(() => {
-        for (const u of users) map.set(u.id, observable({ ...u }));
+    constructor(row: TRow) {
+        this.id = row.id;
+        this.group = row.group;
+        this.rank = row.rank;
+        this.label = row.label;
+        this.note = row.note;
+        makeObservable(this, {
+            group: observable,
+            rank: observable,
+            label: observable,
+            note: observable,
+        });
+    }
+}
+
+class MobxOwner implements TOwner {
+    readonly id: string;
+    name: string;
+
+    constructor(owner: TOwner) {
+        this.id = owner.id;
+        this.name = owner.name;
+        makeObservable(this, { name: observable });
+    }
+}
+
+class MobxPair implements TPairRow {
+    readonly owner: string;
+    readonly row: string;
+    mark: string;
+
+    constructor(owner: string, row: string, mark: string) {
+        this.owner = owner;
+        this.row = row;
+        this.mark = mark;
+        makeObservable(this, { mark: observable });
+    }
+}
+
+// Recipe: MobX's own model, unchanged. The rest: `mobx.md`.
+const bindViews = (
+    bindings: readonly TViewBinding[],
+    view: TViewConfig
+): TBinding => {
+    // The population, and the only place a row's values live. No view enumerates it,
+    // which is what makes it an independent answer for the audit below.
+    const rows = observable.map<string, TRow>();
+    // group → an OBSERVABLE SET of the row observables in that group. The rest: `mobx.md`.
+    const byGroup = observable.map<string, ObservableSet<TRow>>(undefined, {
+        deep: false,
     });
-    return map;
+
+    // The bucket for a group, created empty the first time a write names it. The rest:
+    // `mobx.md`.
+    const bucketOf = (group: string): ObservableSet<TRow> => {
+        const held = byGroup.get(group);
+        if (held !== undefined) return held;
+        const created = observable.set<TRow>([], { deep: false });
+        byGroup.set(group, created);
+        return created;
+    };
+
+    // A bucket holds `MobxRow`s, so `visibleOf` reads every column but `id` through a MobX
+    // accessor. The rest: `mobx.md`.
+    const windowOf = (group: string): IComputedValue<TRow[]> =>
+        computed(
+            () => {
+                const groupRows = byGroup.get(group);
+                if (groupRows === undefined) return [];
+                return visibleOf(groupRows, group, view.window);
+            },
+            { equals: compareShallow }
+        );
+
+    // ONE COMPUTED AND ONE AUTORUN PER VIEW — two, or fifty; nothing here counts them.
+    // Each reads its OWN group's bucket, so the dependency sets are disjoint. The rest:
+    // `mobx.md`.
+    const windows = bindings.map(bound => ({
+        consumer: bound.consumer,
+        rows: windowOf(bound.group),
+    }));
+    const stop: IReactionDisposer[] = windows.map(state =>
+        autorun(() => deliver(state.consumer, state.rows.get(), view.window))
+    );
+
+    // THE CELL WIRING, empty until `pin`. `pinned` holds the row OBSERVABLES — MobX's own
+    // observables, not copies — so the pin removes the `ObservableMap` lookup and
+    // nothing else.
+    const pinned: TRow[] = [];
+    const cellStop: IReactionDisposer[] = [];
+    let cells: TCellConfig = { ids: [], ranks: [] };
+    const labelText: string[] = [];
+    const noteText: string[] = [];
+    // The FIRST TWO consumers of this wiring — A and B under `bind`. The
+    // targeted-delivery script is a two-view script and is never bound per group.
+    const labelConsumer = bindings[0].consumer;
+    const noteConsumer = bindings[1].consumer;
+
+    return {
+        // Upsert by key; for a key already held, assign every field unconditionally.
+        // The value check is MobX's own (`prepareNewValue_`), so a re-send writes 4 × n
+        // properties and notifies on none. The rest: `mobx.md`.
+        write: action((incoming: readonly TRow[]): void => {
+            for (let i = 0; i < incoming.length; i++) {
+                const row = incoming[i];
+                const held = rows.get(row.id);
+                if (held === undefined) {
+                    const created = new MobxRow(row);
+                    rows.set(row.id, created);
+                    bucketOf(row.group).add(created);
+                    continue;
+                }
+                const from = held.group;
+                held.group = row.group;
+                held.rank = row.rank;
+                held.label = row.label;
+                held.note = row.note;
+                if (from !== row.group) {
+                    bucketOf(from).delete(held);
+                    bucketOf(row.group).add(held);
+                }
+            }
+        }),
+        // `ObservableMap.delete` plus the row's departure from its bucket, in one
+        // action. The rest: `mobx.md`.
+        remove: action((ids: readonly string[]): void => {
+            for (let i = 0; i < ids.length; i++) {
+                const held = rows.get(ids[i]);
+                if (held === undefined) continue;
+                const from = held.group;
+                rows.delete(ids[i]);
+                bucketOf(from).delete(held);
+            }
+        }),
+        patchLabel: action((id: string, label: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.label = label;
+        }),
+        // MobX tracks per PROPERTY and no computed filters, sorts or renders
+        // `note`, so its atom has no observers and neither reaction runs — from
+        // the same three lines as the label patch above.
+        patchNote: action((id: string, note: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.note = note;
+        }),
+        // THE MOVE. The assignment carries the VALUE and is unconditional; the two set
+        // operations carry THE CHANGE OF GROUP and are the reason the destination view
+        // wakes at all (see the header). The rest: `mobx.md`.
+        setGroup: action((id: string, group: string): void => {
+            const row = rows.get(id);
+            if (row === undefined) return;
+            const from = row.group;
+            row.group = group;
+            if (from === group) return;
+            bucketOf(from).delete(row);
+            bucketOf(group).add(row);
+        }),
+        setRank: action((id: string, rank: number): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.rank = rank;
+        }),
+        // THE OBSERVABLES, RESOLVED ONCE: the `rows.get(id)` every point write opens with
+        // is all the pin takes out of the timed path. The window autoruns are replaced
+        // by TWO CELL AUTORUNS, one per column. The rest: `mobx.md`.
+        pin: config => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            cells = config;
+            pinned.length = 0;
+            for (let i = 0; i < config.ids.length; i++) {
+                const row = rows.get(config.ids[i]);
+                if (row !== undefined) pinned.push(row);
+            }
+            labelText.length = pinned.length;
+            noteText.length = pinned.length;
+            cellStop.push(
+                autorun(() => {
+                    for (let i = 0; i < pinned.length; i++) {
+                        labelText[i] = pinned[i].label;
+                    }
+                    deliverCells(labelConsumer, cells, labelText);
+                })
+            );
+            cellStop.push(
+                autorun(() => {
+                    for (let i = 0; i < pinned.length; i++) {
+                        noteText[i] = pinned[i].note;
+                    }
+                    deliverCells(noteConsumer, cells, noteText);
+                })
+            );
+        },
+        // The position is the address — no `rows.get`. Otherwise exactly what
+        // `patchLabel` does.
+        patchPinnedLabel: action((at: number, label: string): void => {
+            pinned[at].label = label;
+        }),
+        patchPinnedNote: action((at: number, note: string): void => {
+            pinned[at].note = note;
+        }),
+        frame,
+        settle: () => undefined,
+        // The population map — DELIBERATELY THE ONE STRUCTURE THE VIEWS DO NOT
+        // ENUMERATE, since they derive from buckets. The rest: `mobx.md`.
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const row of rows.values()) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return held;
+        },
+        // The bucket itself — what every view derives from, so this is a genuine second
+        // witness. `byGroup.get` and NOT `bucketOf`: an audit may not mint a bucket for
+        // a group the store never saw. The rest: `mobx.md`.
+        groupOrder: group => {
+            const groupRows = byGroup.get(group);
+            if (groupRows === undefined) return [];
+            const held: TRow[] = [];
+            for (const row of groupRows) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return orderedIdsOfRows(held);
+        },
+        // THE COMPUTED THE AUTORUN DELIVERS, minus the `deliver` around it. The rest:
+        // `mobx.md`.
+        deliverableRows: at =>
+            at >= windows.length ? undefined : windows[at].rows.get(),
+        // The reactions hold the graph up: drop them and the computeds unmount.
+        // Both maps are created per bind, so nothing else needs tearing down.
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            for (let i = 0; i < cellStop.length; i++) cellStop[i]();
+            cellStop.length = 0;
+            pinned.length = 0;
+        },
+    };
 };
 
-/**
- * A REACTIVE index: the grouping is rebuilt inside a `computed`, so MobX tracks every entity it read
- * and a write invalidates it.
- *
- * The obvious shortcut is a plain Map built once from the source array — but that Map is not an
- * index, it is a snapshot: move an entity to another team and it silently answers the old
- * membership forever. Comparing that against a store whose index is maintained on write measures
- * nothing. The honest version costs an O(n) rebuild whenever anything changes, and that cost IS the
- * finding: a reactivity library without an index pays for correctness in full on every write.
- */
-const reactiveIndex = <TKey extends string>(
-    map: ReturnType<typeof observable.map<string, TObservableUser>>,
-    keyOf: (u: TUser) => TKey
-) =>
-    // `keepAlive` matters: a MobX computed that nothing OBSERVES is not memoised at all — it
-    // recomputes on every `.get()`. Without it this index rebuilt 10,000 entities per query and
-    // reported 9.6 s where the library really costs milliseconds. Outside a reaction, keepAlive is
-    // how MobX's own docs say to hold a computed's value.
-    // https://mobx.js.org/computeds.html#computedwithkeepalive
-    mobxComputed(
-        () => {
-            const byKey = new Map<TKey, TUser[]>();
-            for (const u of map.values()) {
-                const key = keyOf(u);
-                const bucket = byKey.get(key);
-                if (bucket) bucket.push(u);
-                else byKey.set(key, [u]);
+// The four ways a MobX consumer mounts a subscriber. The rest: `mobx.md`.
+const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
+    const rows = observable.map<string, TRow>();
+
+    const churnRows: TRow[] = [];
+    /** What each subscriber last read. */
+    const churnRead: (string | undefined)[] = [];
+    const stop: (IReactionDisposer | undefined)[] = [];
+    let churnWoke = 0;
+    let churnId = '';
+    let churnRank = 0;
+
+    // Mount subscriber `at`, whose body performs `read` — the tracked read that decides
+    // which atoms it depends on — and returns what it read.
+    const subscribe = (at: number, read: () => string): IReactionDisposer => {
+        let primed = false;
+        return autorun(() => {
+            const text = read();
+            churnRead[at] = text;
+            if (!primed) {
+                primed = true;
+                return;
             }
-            return byKey;
+            churnWoke++;
+        });
+    };
+
+    // A WHOLE ROW, AS MOBX EXPRESSES IT — all four value atoms, because MobX tracks per
+    // PROPERTY. The rest: `mobx.md`.
+    const wholeRow = (row: TRow): string => {
+        const touched = row.group.length + row.rank + row.note.length;
+        return touched < 0 ? '' : row.label;
+    };
+
+    return {
+        write: action((incoming: readonly TRow[]): void => {
+            for (let i = 0; i < incoming.length; i++) {
+                const row = incoming[i];
+                const held = rows.get(row.id);
+                if (held === undefined) {
+                    rows.set(row.id, new MobxRow(row));
+                    continue;
+                }
+                held.group = row.group;
+                held.rank = row.rank;
+                held.label = row.label;
+                held.note = row.note;
+            }
+        }),
+        remove: action((ids: readonly string[]): void => {
+            for (let i = 0; i < ids.length; i++) rows.delete(ids[i]);
+        }),
+        patchLabel: action((id: string, label: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.label = label;
+        }),
+        patchNote: action((id: string, note: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.note = note;
+        }),
+        setGroup: action((id: string, group: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.group = group;
+        }),
+        setRank: action((id: string, rank: number): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.rank = rank;
+        }),
+        // A churn binding derives no view and no churn script pins anything.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        frame,
+        // Every reaction has already run: MobX runs them at the end of the
+        // outermost action.
+        settle: () => {
+            if (churnWoke === 0) return;
+            deliverChurn(
+                churnConsumer,
+                churnId,
+                churnRank,
+                churnWoke,
+                churnRead
+            );
+            churnWoke = 0;
         },
-        { keepAlive: true }
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const row of rows.values()) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        /** NOTHING TO READ: no view is derived and there is no group index. */
+        groupOrder: () => undefined,
+        /** THE OBSERVABLES, RESOLVED ONCE — the `rows.get` every point write opens with. */
+        holdChurnRows: (ids, ranks) => {
+            churnId = ids[0];
+            churnRank = ranks[0];
+            for (let i = 0; i < ids.length; i++) {
+                const row = rows.get(ids[i]);
+                if (row !== undefined) churnRows.push(row);
+                churnRead[i] = undefined;
+            }
+        },
+        mountOnRows: (at, from, count) => {
+            if (count === 1) {
+                stop[at] = subscribe(at, () => wholeRow(churnRows[from]));
+                return;
+            }
+            stop[at] = subscribe(at, () => {
+                let text = '';
+                for (let i = from + count - 1; i >= from; i--) {
+                    text = wholeRow(churnRows[i]);
+                }
+                return text;
+            });
+        },
+        // ONE ATOM, and no derived value in front of it: an observable field is
+        // its own atom, so this is the column and nothing stands for it.
+        mountOnColumn: at => {
+            const row = churnRows[0];
+            stop[at] = subscribe(at, () => row.label);
+        },
+        mountOnChain: (at, from, count, depth) => {
+            let below: IComputedValue<string> = computed(() => {
+                let text = churnRows[from].label;
+                for (let i = from + 1; i < from + count; i++) {
+                    text = `${text},${churnRows[i].label}`;
+                }
+                return chainLevelOf(text, 1);
+            });
+            for (let level = 2; level <= depth; level++) {
+                const under = below;
+                below = computed(() => chainLevelOf(under.get(), level));
+            }
+            const head = below;
+            stop[at] = subscribe(at, () => head.get());
+        },
+        mountOnDiamond: (at, from) => {
+            const root = churnRows[from];
+            const left = computed(() => diamondLeftOf(root.label));
+            const right = computed(() => diamondRightOf(root.label));
+            const join = computed(() => diamondJoinOf(left.get(), right.get()));
+            stop[at] = subscribe(at, () => join.get());
+        },
+        unmount: at => {
+            const release = stop[at];
+            if (release === undefined) return;
+            release();
+            stop[at] = undefined;
+            churnRead[at] = undefined;
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]?.();
+            stop.length = 0;
+            churnRows.length = 0;
+            churnRead.length = 0;
+        },
+    };
+};
+
+// WHY THE OFFSET IS AN OBSERVABLE: a scroll has to reach the consumer through MobX's
+// own reaction, and a plain field would leave this adapter deciding when to render. The
+// rest: `mobx.md`.
+const bindReadStore = (
+    consumers: TConsumers,
+    view: TViewConfig,
+    plan: TPlan
+): TReadBinding => {
+    const rows = observable.map<string, TRow>();
+    const byGroup = observable.map<string, ObservableSet<TRow>>(undefined, {
+        deep: false,
+    });
+    const offset = observable.box(0);
+    const pagedGroup = observable.box(view.groupA);
+    /** Reused only by the pull; both views hand back fresh arrays. */
+    const found: TRow[] = [];
+
+    const bucketOf = (group: string): ObservableSet<TRow> => {
+        const held = byGroup.get(group);
+        if (held !== undefined) return held;
+        const created = observable.set<TRow>([], { deep: false });
+        byGroup.set(group, created);
+        return created;
+    };
+
+    const paged = computed(
+        () => {
+            const at = offset.get();
+            const group = pagedGroup.get();
+            const groupRows = byGroup.get(group);
+            return groupRows === undefined
+                ? []
+                : visibleOf(groupRows, group, at + view.window);
+        },
+        { equals: compareShallow }
     );
+    const onAxis = computed(
+        () => {
+            const groupRows = byGroup.get(view.groupA);
+            if (groupRows === undefined) return [];
+            return visibleOnAxisInto([], groupRows, view.groupA, view.window);
+        },
+        { equals: compareShallow }
+    );
+
+    const stop: IReactionDisposer[] = [
+        autorun(() => {
+            const at = offset.get();
+            deliverPage(consumers.a, paged.get(), at, view.window);
+        }),
+        autorun(() => {
+            deliverPage(consumers.b, onAxis.get(), 0, view.window);
+        }),
+    ];
+
+    return {
+        write: action((incoming: readonly TRow[]): void => {
+            for (let i = 0; i < incoming.length; i++) {
+                const row = incoming[i];
+                const held = rows.get(row.id);
+                if (held === undefined) {
+                    const created = new MobxRow(row);
+                    rows.set(row.id, created);
+                    bucketOf(row.group).add(created);
+                    continue;
+                }
+                const from = held.group;
+                held.group = row.group;
+                held.rank = row.rank;
+                held.label = row.label;
+                held.note = row.note;
+                if (from !== row.group) {
+                    bucketOf(from).delete(held);
+                    bucketOf(row.group).add(held);
+                }
+            }
+        }),
+        remove: action((ids: readonly string[]): void => {
+            for (let i = 0; i < ids.length; i++) {
+                const held = rows.get(ids[i]);
+                if (held === undefined) continue;
+                const from = held.group;
+                rows.delete(ids[i]);
+                bucketOf(from).delete(held);
+            }
+        }),
+        patchLabel: action((id: string, label: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.label = label;
+        }),
+        patchNote: action((id: string, note: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.note = note;
+        }),
+        setGroup: action((id: string, group: string): void => {
+            const row = rows.get(id);
+            if (row === undefined) return;
+            const from = row.group;
+            row.group = group;
+            if (from === group) return;
+            bucketOf(from).delete(row);
+            bucketOf(group).add(row);
+        }),
+        setRank: action((id: string, rank: number): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.rank = rank;
+        }),
+        // No read script pins anything.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        // ONE `ObservableMap.get` PER KEY, and the three columns read off the observable.
+        // The rest: `mobx.md`.
+        readKeys: (from, count) => {
+            const keys = plan.readKeys;
+            found.length = 0;
+            for (let i = 0; i < count; i++) {
+                const row = rows.get(keys[from + i]);
+                if (row !== undefined) found.push(row);
+            }
+            deliverPage(consumers.a, found, 0, count);
+        },
+        // ONE OBSERVABLE WRITE. Nothing is re-ordered and no row is touched.
+        scrollTo: action((to: number): void => {
+            offset.set(to);
+        }),
+        switchGroup: action((group: string): void => {
+            pagedGroup.set(group);
+            offset.set(0);
+        }),
+        frame,
+        settle: () => undefined,
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const row of rows.values()) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        groupOrder: group => {
+            const groupRows = byGroup.get(group);
+            if (groupRows === undefined) return [];
+            const held: TRow[] = [];
+            for (const row of groupRows) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return orderedIdsOfRows(held);
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            found.length = 0;
+        },
+    };
+};
+
+// TWO ENTITY TYPES — a second `observable.map` for the owners, and a third keyed by a
+// JOINED PAIR OF IDS for the records addressed by one identity of each. The rest:
+// `mobx.md`.
+const bindRelationStore = (consumers: TConsumers): TRelationBinding => {
+    const rows = observable.map<string, TRow>();
+    const owners = observable.map<string, TOwner>();
+    const pairs = observable.map<string, TPairRow>();
+
+    let config: TRelationConfig = {
+        ids: [],
+        ranks: [],
+        owners: [],
+        touched: [],
+        names: [],
+        seeds: [],
+    };
+    /** The owners the join script writes, by POSITION in `config.touched`. */
+    const touchedOwners: TOwner[] = [];
+    /** The owner observable each rendered line's name comes from, in `ids` order. */
+    const rowOwners: TOwner[] = [];
+    /** The pair observable each rendered line's mark comes from, in `ids` order. */
+    const rowPairs: TPairRow[] = [];
+    const stop: IReactionDisposer[] = [];
+    const nameText: string[] = [];
+    const markText: string[] = [];
+
+    const pairKey = (owner: string, row: string): string => `${owner} ${row}`;
+
+    return {
+        write: action((incoming: readonly TRow[]): void => {
+            for (let i = 0; i < incoming.length; i++) {
+                const row = incoming[i];
+                const held = rows.get(row.id);
+                if (held === undefined) {
+                    rows.set(row.id, new MobxRow(row));
+                    continue;
+                }
+                held.group = row.group;
+                held.rank = row.rank;
+                held.label = row.label;
+                held.note = row.note;
+            }
+        }),
+        remove: action((ids: readonly string[]): void => {
+            for (let i = 0; i < ids.length; i++) rows.delete(ids[i]);
+        }),
+        patchLabel: action((id: string, label: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.label = label;
+        }),
+        patchNote: action((id: string, note: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.note = note;
+        }),
+        setGroup: action((id: string, group: string): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.group = group;
+        }),
+        setRank: action((id: string, rank: number): void => {
+            const row = rows.get(id);
+            if (row !== undefined) row.rank = rank;
+        }),
+        // No relation script pins: the targeted-delivery script is a two-view
+        // script and is bound by `bind`.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        writeOwners: action((incoming: readonly TOwner[]): void => {
+            for (let i = 0; i < incoming.length; i++) {
+                const owner = incoming[i];
+                owners.set(owner.id, new MobxOwner(owner));
+            }
+        }),
+        // THE OBSERVABLES BOTH SCRIPTS WORK THROUGH, RESOLVED ONCE — the `owners.get` and
+        // `pairs.get` a keyed write would open with — and the pair records created at
+        // their seeds, outside the clock, so every timed step is a resolution and an
+        // update rather than a mint. The rest: `mobx.md`.
+        holdRelation: given => {
+            config = given;
+            nameText.length = given.ids.length;
+            markText.length = given.ids.length;
+            runInAction(() => {
+                for (let at = 0; at < given.touched.length; at++) {
+                    const held = owners.get(given.touched[at]);
+                    if (held !== undefined) touchedOwners.push(held);
+                }
+                for (let i = 0; i < given.ids.length; i++) {
+                    const owner = given.owners[i];
+                    const row = given.ids[i];
+                    const held = owners.get(owner);
+                    if (held !== undefined) rowOwners.push(held);
+                    const created = new MobxPair(owner, row, given.seeds[i]);
+                    pairs.set(pairKey(owner, row), created);
+                    rowPairs.push(created);
+                }
+            });
+            stop.push(
+                autorun(() => {
+                    for (let i = 0; i < rowOwners.length; i++) {
+                        nameText[i] = rowOwners[i].name;
+                    }
+                    deliverRelation(consumers.a, config, nameText);
+                })
+            );
+            stop.push(
+                autorun(() => {
+                    for (let i = 0; i < rowPairs.length; i++) {
+                        markText[i] = rowPairs[i].mark;
+                    }
+                    deliverRelation(consumers.b, config, markText);
+                })
+            );
+        },
+        // ONE ATOM WRITE, at a POSITION — no map read. It reaches view A because view
+        // A's autorun read this observable's `name`, and it cannot reach view B, whose
+        // autorun never read an owner.
+        patchOwnerName: action((at: number, name: string): void => {
+            touchedOwners[at].name = name;
+        }),
+        // COMPOSE THE ADDRESS, FIND THE RECORD, WRITE THE MARK. The string is built
+        // fresh every call: caching eight of them would make the row a measurement of
+        // an array read.
+        writePair: action((at: number, mark: string): void => {
+            const held = pairs.get(pairKey(config.owners[at], config.ids[at]));
+            if (held !== undefined) held.mark = mark;
+        }),
+        frame,
+        settle: () => undefined,
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const row of rows.values()) {
+                held.push({
+                    id: row.id,
+                    group: row.group,
+                    rank: row.rank,
+                    label: row.label,
+                    note: row.note,
+                });
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        /** NOTHING TO READ: no window, no group, no sort, no group index. */
+        groupOrder: () => undefined,
+        readOwners: () => {
+            const held: TOwner[] = [];
+            for (const owner of owners.values()) {
+                held.push({ id: owner.id, name: owner.name });
+            }
+            return held;
+        },
+        // EVERY PAIR RECORD, WITH THE ADDRESS READ OUT OF THE RECORD ITSELF and not out
+        // of the map's keys — those keys are this file's own composition, so answering
+        // from them would make the audit agree with whatever the composition did.
+        readPairs: () => {
+            const held: TPairRow[] = [];
+            for (const pair of pairs.values()) {
+                held.push({ owner: pair.owner, row: pair.row, mark: pair.mark });
+            }
+            return held;
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            touchedOwners.length = 0;
+            rowOwners.length = 0;
+            rowPairs.length = 0;
+            nameText.length = 0;
+            markText.length = 0;
+        },
+    };
+};
+
+
+/* ── one value, one subscriber, and a second value beside it ───────────── */
+
+// `observable.box` is MobX's own scalar — its documented answer to "an observable that
+// is not an object" — and `autorun` is the subscriber every other wiring in this file
+// is driven by. The rest: `mobx.md`.
+const bindSingleStore = (consumers: TConsumers): TSingleBinding => {
+    const value = observable.box('');
+    const bystander = observable.box('');
+    const stop: IReactionDisposer[] = [];
+    let name = '';
+    let bystanderName = '';
+    let read = '';
+    let readBystander = '';
+    let woke = false;
+    let wokeBystander = false;
+
+    return {
+        ...noRowStore('mobx'),
+        holdSingle: config => {
+            name = config.name;
+            bystanderName = config.bystander;
+            runInAction(() => {
+                value.set(config.seeds[0]);
+                bystander.set(config.seeds[1]);
+            });
+            let primed = false;
+            stop.push(
+                autorun(() => {
+                    read = value.get();
+                    if (!primed) {
+                        primed = true;
+                        return;
+                    }
+                    woke = true;
+                })
+            );
+            let primedBystander = false;
+            stop.push(
+                autorun(() => {
+                    readBystander = bystander.get();
+                    if (!primedBystander) {
+                        primedBystander = true;
+                        return;
+                    }
+                    wokeBystander = true;
+                })
+            );
+            woke = false;
+            wokeBystander = false;
+            deliverSingle(consumers.a, name, read);
+            deliverSingle(consumers.b, bystanderName, readBystander);
+        },
+        writeSingle: action((next: string): void => {
+            value.set(next);
+        }),
+        frame,
+        readSingle: () => value.get(),
+        readBystander: () => bystander.get(),
+        // Every reaction has already run: MobX runs them at the end of the
+        // outermost action, which the write above opens and closes.
+        settle: () => {
+            if (woke) {
+                woke = false;
+                deliverSingle(consumers.a, name, read);
+            }
+            if (wokeBystander) {
+                wokeBystander = false;
+                deliverSingle(consumers.b, bystanderName, readBystander);
+            }
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+        },
+    };
+};
 
 export const mobxAdapter: TAdapter = {
     name: 'mobx',
-    version: '6.16.1',
-    docs: 'https://mobx.js.org/computeds.html',
+    version: '7.0.6',
+    docs: 'https://mobx.js.org/reactions.html#autorun',
+    departure:
+        'its row-shaped churn subscriber reads all four of a row\'s atoms rather than the one column ' +
+        'the churn line renders — MobX tracks per PROPERTY, so a subscriber that read one would be ' +
+        'the column shape under another name, while the chain and diamond derive from the label ' +
+        'alone as every adapter\'s do; a removal leaves the group index through one ' +
+        'observable.set delete per id, where ' +
+        'other rows splice or rebuild the group\'s array; and the timed teardown disposes the ' +
+        'reactions only, leaving the observable map the population lives in to the collector.',
+    admission:
+        'every mutable column lives in its own MobX atom, on class instances annotated with ' +
+        'makeObservable (MobX\'s documented store shape: accessors on the instance, no Proxy) held ' +
+        'in an observable.map, and the group index is an observable.map of observable.sets of those ' +
+        "same objects rather than of values; the change signal is MobX's own autorun over a " +
+        'computed, run at the end of the outermost action, and the chain, the diamond and the view ' +
+        'switch are computeds and observable.boxes MobX re-evaluates itself.',
 
-    /**
-     * TABLE — ⚠ the index is HAND-ROLLED (MobX has no query layer); the sorted page behind it is a
-     * `computed`, which is MobX's memoisation and the reason a revisited team is cheap.
-     */
-    taskTable: (users, interactions) => {
-        const map = buildUsers(users);
-        const byTeam = reactiveIndex(map, u => u.teamId);
-        const sorted = new Map<string, { get: () => TUser[] }>();
-        const rowsFor = (team: string) => {
-            let memo = sorted.get(team);
-            if (!memo) {
-                memo = mobxComputed(
-                    () =>
-                        [...(byTeam.get().get(team) ?? [])].sort((a, b) =>
-                            a.name < b.name ? -1 : a.name > b.name ? 1 : 0
-                        ),
-                    { keepAlive: true }
-                );
-                sorted.set(team, memo);
-            }
-            return memo;
-        };
-        let page: TUser[] = [];
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    const offset = (i % 5) * 20;
-                    page = rowsFor(`t${i % 50}`)
-                        .get()
-                        .slice(offset, offset + 20);
-                }
-            },
-            verify: () => page.length === 20,
-            result: () => page.length,
-        };
+    reads: readShapes((consumers, view, plan) =>
+        bindReadStore(consumers, view, plan)
+    ),
+    churn: churnShapes(consumers => bindChurnStore(consumers.a)),
+    relations: {
+        build: consumers => bindRelationStore(consumers),
+        absent: '',
+    },
+    single: {
+        build: consumers => bindSingleStore(consumers),
+        absent: '',
     },
 
-    /** FEED PUSH — one `reaction` per visible row, the whole push inside a single action. */
-    taskFeedPush: users => {
-        const map = buildUsers(users);
-        const visible = users.slice(0, 200);
-        let woken = 0;
-        for (const u of visible) {
-            reaction(
-                () => map.get(u.id)!.name,
-                () => woken++
-            );
-        }
-        const pushed = [...users.slice(0, 12), ...users.slice(5_000, 5_988)];
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                runInAction(() => {
-                    for (const u of pushed) map.get(u.id)!.name = `push-${n}`;
-                    n++;
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /** DETAIL CARD — computeds for the comment list, its count and the caption. */
-    taskDetailCard: (users, comments, updates) => {
-        const map = buildUsers(users);
-        const commentMap = observable.map<string, TComment>();
-        runInAction(() => {
-            for (const c of comments) commentMap.set(c.id, observable({ ...c }));
-        });
-        const pk = users[0].id;
-        // ⚠ HAND-ROLLED relation index.
-        const commentIds = comments.filter(c => c.userId === pk).map(c => c.id);
-        const rows = mobxComputed(() => commentIds.map(id => commentMap.get(id)!));
-        const count = mobxComputed(() => rows.get().length);
-        const caption = mobxComputed(
-            () => `${map.get(pk)!.name} — ${count.get()} comments`
-        );
-        let sink = '';
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    map.get(pk)!.name = `n${n++}`;
-                    sink = caption.get();
-                }
-            },
-            verify: () => sink.includes('comments'),
-        };
-    },
-
-    /** FACET SEARCH — ⚠ HAND-ROLLED composite index, each combination behind a `computed`. */
-    taskFacetSearch: (users, interactions) => {
-        const map = buildUsers(users);
-        const byFacet = reactiveIndex(map, u => `${u.teamId}:${u.active}` as const);
-        const memos = new Map<string, { get: () => TUser[] }>();
-        const facet = (key: string) => {
-            let memo = memos.get(key);
-            if (!memo) {
-                memo = mobxComputed(() => byFacet.get().get(key) ?? [], {
-                    keepAlive: true,
-                });
-                memos.set(key, memo);
-            }
-            return memo;
-        };
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    size = facet(
-                        `t${i % 10}:${Math.floor(i / 10) % 2 === 0}`
-                    ).get().length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    load: users => {
-        let map: ReturnType<typeof observable.map<string, TObservableUser>>;
-        return {
-            setup: () => {
-                map = observable.map<string, TObservableUser>();
-            },
-            run: () => {
-                runInAction(() => {
-                    for (const u of users) map.set(u.id, observable({ ...u }));
-                });
-            },
-            verify: () => map.size === users.length,
-        };
-    },
-
-    readByPk: (users, reads) => {
-        const map = buildUsers(users);
-        const pk = users[users.length >> 1].id;
-        let sink: TUser | undefined;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < reads; i++) sink = map.get(pk);
-            },
-            verify: () => sink?.id === pk,
-        };
-    },
-
-    /** ⚠ HAND-ROLLED index; the write between queries invalidates the computed behind it. */
-    queryColdByField: (users, queries) => {
-        const map = buildUsers(users);
-        const byTeam = reactiveIndex(map, u => u.teamId);
-        const churn = users[0].id;
-        let size = 0;
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    map.get(churn)!.name = `n${n++}`;
-                    size = (byTeam.get().get(`t${i % 50}`) ?? []).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * queryHotByField: intentionally absent.
-     *
-     * "Hot LIVE" means reading a standing index without a memo in front of it. Here the index IS a
-     * derived value, so reading it is memoised by construction — there is no live read to measure,
-     * and reporting the cached lookup under a live label compares this library's cache hit against
-     * another's real work. The memoised number lives in `query cached`; the cost of keeping the
-     * index correct lives in `query cold`.
-     */
-
-
-    /** CACHED: `computed` is MobX's memoisation, one per team. */
-    queryCachedByField: (users, queries) => {
-        const map = buildUsers(users);
-        const byTeam = reactiveIndex(map, u => u.teamId);
-        const memos = new Map<string, { get: () => TUser[] }>();
-        const rowsFor = (team: string) => {
-            let memo = memos.get(team);
-            if (!memo) {
-                memo = mobxComputed(() => byTeam.get().get(team) ?? [], {
-                    keepAlive: true,
-                });
-                memos.set(team, memo);
-            }
-            return memo;
-        };
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = rowsFor(`t${i % 50}`).get().length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /** ⚠ HAND-ROLLED composite index behind a `computed` per combination. */
-    facetedFilter: (users, queries) => {
-        const map = buildUsers(users);
-        const byFacet = reactiveIndex(map, u => `${u.teamId}:${u.active}` as const);
-        const memos = new Map<string, { get: () => TUser[] }>();
-        const facet = (key: string) => {
-            let memo = memos.get(key);
-            if (!memo) {
-                memo = mobxComputed(() => byFacet.get().get(key) ?? [], {
-                    keepAlive: true,
-                });
-                memos.set(key, memo);
-            }
-            return memo;
-        };
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = facet(
-                        `t${i % 50}:${Math.floor(i / 50) % 2 === 0}`
-                    ).get().length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /** ⚠ HAND-ROLLED relation index behind a `computed` per user. */
-    relatedLookup: (users, comments, queries) => {
-        const commentMap = observable.map<string, TComment>();
-        runInAction(() => {
-            for (const c of comments) commentMap.set(c.id, observable({ ...c }));
-        });
-        const idsByUser = new Map<string, string[]>();
-        for (const c of comments) {
-            const bucket = idsByUser.get(c.userId);
-            if (bucket) bucket.push(c.id);
-            else idsByUser.set(c.userId, [c.id]);
-        }
-        const memos = new Map<string, { get: () => TComment[] }>();
-        const rowsFor = (userId: string) => {
-            let memo = memos.get(userId);
-            if (!memo) {
-                memo = mobxComputed(
-                    () => (idsByUser.get(userId) ?? []).map(id => commentMap.get(id)!),
-                    { keepAlive: true }
-                );
-                memos.set(userId, memo);
-            }
-            return memo;
-        };
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = rowsFor(`u${i % users.length}`).get().length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    computedChain: (users, updates) => {
-        const map = buildUsers(users);
-        const pk = users[users.length >> 1].id;
-        const level1 = mobxComputed(() => map.get(pk)!.name);
-        const level2 = mobxComputed(() => level1.get().toUpperCase());
-        const level3 = mobxComputed(() => `${level2.get()}!`);
-        let sink = '';
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    map.get(pk)!.name = `n${n++}`;
-                    sink = level3.get();
-                }
-            },
-            verify: () => sink.endsWith('!'),
-        };
-    },
-
-    /** ⚠ HAND-ROLLED ordered list — MobX has no sorted structure. */
-    orderedInsert: (users, inserts) => {
-        let map: ReturnType<typeof observable.map<string, TObservableUser>>;
-        let ids: string[];
-        let size = 0;
-        return {
-            setup: () => {
-                map = buildUsers(users);
-                ids = users.filter(u => u.teamId === 't0').map(u => u.id);
-            },
-            run: () => {
-                for (let i = 0; i < inserts; i++) {
-                    const id = `new-${i}`;
-                    runInAction(() => {
-                        map.set(
-                            id,
-                            observable({
-                                id,
-                                teamId: 't0',
-                                name: `name-0000${i % 10}`,
-                                active: true,
-                            })
-                        );
-                    });
-                    ids.push(id);
-                    size = ids
-                        .map(k => map.get(k)!)
-                        .sort((a, b) =>
-                            a.name < b.name ? -1 : a.name > b.name ? 1 : 0
-                        ).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    subscriptionChurn: (users, rows) => {
-        const map = buildUsers(users);
-        let stops: (() => void)[] = [];
-        let offset = 0;
-        const subscribe = (from: number) =>
-            users.slice(from, from + rows).map(u =>
-                reaction(
-                    () => map.get(u.id)!.name,
-                    () => undefined
-                )
-            );
-        return {
-            setup: () => {
-                for (const stop of stops) stop();
-                stops = subscribe(0);
-                offset = 0;
-            },
-            run: () => {
-                for (const stop of stops) stop();
-                offset = (offset + rows) % (users.length - rows);
-                stops = subscribe(offset);
-            },
-            verify: () => stops.length === rows,
-        };
-    },
-
-    pointUpdate: users => {
-        const map = buildUsers(users);
-        let woken = 0;
-        for (const u of users) {
-            reaction(
-                () => map.get(u.id)!.name,
-                () => woken++
-            );
-        }
-        const target = users[users.length >> 1].id;
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                map.get(target)!.name = `n${n++}`;
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    effectDispatch: users => {
-        const map = buildUsers(users);
-        let ran = 0;
-        for (const u of users) {
-            autorun(() => {
-                map.get(u.id)!.name;
-                ran++;
-            });
-        }
-        const target = users[users.length >> 1].id;
-        let n = 0;
-        return {
-            setup: () => {
-                ran = 0;
-            },
-            run: () => {
-                map.get(target)!.name = `n${n++}`;
-            },
-            verify: () => ran > 0,
-            ran: () => ran,
-        };
-    },
-
-    batchUpdate: users => {
-        const map = buildUsers(users);
-        let woken = 0;
-        for (const u of users) {
-            reaction(
-                () => map.get(u.id)!.name,
-                () => woken++
-            );
-        }
-        const slice = users.slice(0, Math.max(1, users.length / 10));
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                runInAction(() => {
-                    for (const u of slice) map.get(u.id)!.name = `n${n}`;
-                    n++;
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /** `runInAction` is MobX's frame: reactions run once at the end, not per assignment. */
-    burstCoalescing: (users, rewrites) => {
-        const map = buildUsers(users);
-        let woken = 0;
-        const hot = users.slice(0, 100);
-        for (const u of hot) {
-            reaction(
-                () => map.get(u.id)!.name,
-                () => woken++
-            );
-        }
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                runInAction(() => {
-                    for (let r = 0; r < rewrites; r++) {
-                        for (const u of hot) map.get(u.id)!.name = `n${n}`;
-                        n++;
-                    }
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    fanOutRecompute: (users, derived, updates) => {
-        const map = buildUsers(users);
-        let recomputes = 0;
-        let wakeups = 0;
-        for (let i = 0; i < derived; i++) {
-            const id = users[i].id;
-            const name = mobxComputed(() => {
-                recomputes++;
-                return map.get(id)!.name;
-            });
-            autorun(() => {
-                name.get();
-                wakeups++;
-            });
-        }
-        const target = users[0].id;
-        let n = 0;
-        return {
-            setup: () => {
-                map.get(target)!.name = `settle${n++}`;
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    map.get(target)!.name = `n${n++}`;
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    diamondGlitch: (users, updates) => {
-        const map = buildUsers(users);
-        const pk = users[0].id;
-        const a = mobxComputed(() => map.get(pk)!.name.length);
-        const b = mobxComputed(() => map.get(pk)!.name.toUpperCase());
-        let recomputes = 0;
-        const c = mobxComputed(() => {
-            recomputes++;
-            return `${a.get()}:${b.get()}`;
-        });
-        let wakeups = 0;
-        autorun(() => {
-            c.get();
-            wakeups++;
-        });
-        let n = 0;
-        return {
-            setup: () => {
-                map.get(pk)!.name = `settle-${n++}`;
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    map.get(pk)!.name = `name-${n++}`;
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    deepGraphGlitch: (users, depth, updates) => {
-        const map = buildUsers(users);
-        const pk = users[0].id;
-        const chain: { get: () => string }[] = [];
-        chain.push(mobxComputed(() => map.get(pk)!.name));
-        for (let level = 1; level < depth; level++) {
-            const previous = chain[level - 1];
-            chain.push(mobxComputed(() => previous.get()));
-        }
-        const tail = chain[depth - 1];
-        const faces = chain.filter((_, level) => level % 2 === 1);
-        let recomputes = 0;
-        let inconsistencies = 0;
-        const final = mobxComputed(() => {
-            recomputes++;
-            const direct = map.get(pk)!.name;
-            for (const face of faces) {
-                if (face.get() !== direct) inconsistencies++;
-            }
-            const deep = tail.get();
-            if (direct !== deep) inconsistencies++;
-            return `${direct}|${deep}`;
-        });
-        let wakeups = 0;
-        autorun(() => {
-            final.get();
-            wakeups++;
-        });
-        let n = 0;
-        return {
-            setup: () => {
-                map.get(pk)!.name = `settle-${n++}`;
-                recomputes = 0;
-                wakeups = 0;
-                inconsistencies = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    map.get(pk)!.name = `name-${n++}`;
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-            inconsistencies: () => inconsistencies,
-        };
-    },
-
-    /**
-     * MobX tracks property reads, so a computed that reads `name` never depends on `active` — the
-     * write is not even an invalidation. Its granularity is per property, like Legend-State's.
-     */
-    unrelatedFieldWakeups: (users, updates) => {
-        const map = buildUsers(users);
-        const pk = users[0].id;
-        let recomputes = 0;
-        const name = mobxComputed(() => {
-            recomputes++;
-            return map.get(pk)!.name;
-        });
-        let wakeups = 0;
-        autorun(() => {
-            name.get();
-            wakeups++;
-        });
-        let flag = false;
-        return {
-            setup: () => {
-                flag = !flag;
-                map.get(pk)!.active = flag;
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    flag = !flag;
-                    map.get(pk)!.active = flag;
-                }
-            },
-            verify: () => true,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    memoryForEntities: users => ({
-        build: () => ({ map: buildUsers(users) }),
-    }),
-
-    memoryForSubscriptions: users => ({
-        build: () => {
-            const map = buildUsers(users);
-            const stops = users.map(u =>
-                reaction(
-                    () => map.get(u.id)!.name,
-                    () => undefined
-                )
-            );
-            return { map, stops };
-        },
-    }),
+    bind: (consumers, view) =>
+        bindViews(
+            [
+                { group: view.groupA, consumer: consumers.a },
+                { group: view.groupB, consumer: consumers.b },
+            ],
+            view
+        ),
+    // The same body, handed fifty views instead of two: the builders differ by
+    // the view list and by nothing else, so this row compares libraries rather
+    // than wirings.
+    bindPerGroup: (consumers, view) => bindViews(consumers.views, view),
 };

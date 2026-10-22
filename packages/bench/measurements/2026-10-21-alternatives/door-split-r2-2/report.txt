@@ -1,0 +1,154 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.94x  38 ns  19 ns   0.5%     ~1.9x  control-resolution-2x
+1.07x  21 ns  19 ns   3.5%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.94x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 7.1% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 7.1% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+    ratio        margin   ours  floor  noise  path       decision
+!=  1.02x     unsettled  20 ns  20 ns   2.0%  per write  alt.update-door.writer-field-vs-module-writer
+!=  1.04x     unsettled  20 ns  19 ns   0.1%  per write  alt.update-door.method-vs-function
+!~  1.26x  1.26x DEARER  26 ns  21 ns   0.0%  per write  alt.update-door.shipped-vs-one-channel-method
+!   1.40x  1.40x DEARER  24 ns  17 ns   0.7%  per write  alt.ladder.update.5d-collection-route
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  0 of 4 decisions stand on this run, 2 came out wrong, 2 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.update-door.writer-field-vs-module-writer   [per write]   1.02x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the one-channel method without release, writer read from this.entityWriter
+  floor    the same method, the same writer object read from a module constant
+  Both sides run on a subclass of OIMEntityCollection built in the bench, over the same
+  population of priceDataset.batch entities, one { title } patch per round and one flush per
+  round; no index and no subscriber, so every write is one channel write. The subclass methods
+  reach the same protected members updateEntity uses; only the shape of the door differs. This
+  pair isolates: reading the writer off the collection instance instead of a constant.
+  measured  1,632,754 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 29 planned, 29/29 reached; spread 13.2%/9.5%; load 4.34 → 4.34 on 8 cores
+
+alt.update-door.method-vs-function   [per write]   1.04x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the one-channel method through the module writer, as a method on the collection
+  floor    the same steps as a plain function over the public members: assertNotFlushing, isReleased, columnSlotStore, the writer, the channel
+  Both sides run on a subclass of OIMEntityCollection built in the bench, over the same
+  population of priceDataset.batch entities, one { title } patch per round and one flush per
+  round; no index and no subscriber, so every write is one channel write. The subclass methods
+  reach the same protected members updateEntity uses; only the shape of the door differs. This
+  pair isolates: running the steps as protected methods of the collection instead of reading
+  the same members directly.
+  measured  1,714,482 ops/pass ours, 1,800,440 floor; 9 samples; warm-up 32 planned, 32/32 reached; spread 3.5%/23.9%; load 4.14 → 4.14 on 8 cores
+
+alt.update-door.shipped-vs-one-channel-method   [per write]   1.26x
+  verdict  !  THE REJECTED DESIGN WINS — 1.26x DEARER. This decision came out wrong.
+  ours     collection.updateEntity(slot, patch) — the shipped door
+  floor    a subclass method doing only the one-channel path: assert, column-reader check, writer, channel, release
+  Both sides run on a subclass of OIMEntityCollection built in the bench, over the same
+  population of priceDataset.batch entities, one { title } patch per round and one flush per
+  round; no index and no subscriber, so every write is one channel write. The subclass methods
+  reach the same protected members updateEntity uses; only the shape of the door differs. This
+  pair isolates: everything updateEntity carries beyond its one-channel path: the private
+  isOneChannelWrite and finishOneChannelWrite calls, the updatesEmptinessOnColumnWrite read,
+  and the subframe branch with its try/finally.
+  measured  1,652,168 ops/pass ours, 1,593,000 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 1.3%/97.5%; load 4.20 → 4.34 on 8 cores
+
+alt.ladder.update.5d-collection-route   [per write]   1.40x
+  verdict  !  THE REJECTED DESIGN WINS — 1.40x DEARER. This decision came out wrong.
+  ours     collection.updateEntity(slot, patch); channel.flush() per round
+  floor    the same steps written out by hand around the shipped writer and channel
+  One rung of a ladder from a hand-written tracked write (`entity.title = value` after `===`,
+  the entity queued once per frame) to `collection.updateEntity(slot, patch)`. Every rung
+  writes the same slots of one population of priceDataset.batch entities, in the same loop,
+  one { title } patch per round, and adds exactly one thing to the rung below it. Each pair
+  re-measures the rung below as its floor in its own run, so a ratio prices only what its rung
+  adds, and the rungs sum to the whole gap only to within the drift between runs. Up to the
+  writer-object rung a frame is a hand-written stamp per entity and a queue, drained once per
+  round; from the channel rung on it is the shipped channel and its flush. This rung adds: the
+  collection running the same steps through its own methods and its own fields instead of the
+  hand-written helpers and the hand-held object.
+  measured  2,005,590 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 5.3%/29.4%; load 3.61 → 4.20 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.94x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.07x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

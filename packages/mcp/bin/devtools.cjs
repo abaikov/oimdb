@@ -11,7 +11,16 @@ module.exports = function runDevtools() {
         : 7433;
     const noOpen = process.argv.includes('--no-open');
     const uiDir = path.join(__dirname, '../ui');
+    // Loopback unless told otherwise. This port hands out the application's
+    // whole data model, so binding every interface — which is what happens when
+    // no host is given — puts it on the café Wi-Fi.
+    const host = process.env.OIMDB_HOST || '127.0.0.1';
+    // Exact page origins, comma-separated. Never '*'.
+    const allowedOrigins = (process.env.OIMDB_ALLOWED_ORIGINS || '')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
 
-    const server = new OIMDevUIServer({ wsPort, uiPort, uiDir, open: !noOpen });
+    const server = new OIMDevUIServer({ wsPort, uiPort, uiDir, open: !noOpen, host, allowedOrigins });
     server.start();
 };

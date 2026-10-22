@@ -1,121 +1,147 @@
-/**
- * Measurement primitives.
- *
- * Timing is a median of repeated runs after a warm-up, never a single `performance.now()` pair: the
- * first runs of anything on V8 measure the JIT, not the code. Memory is RETAINED heap — collected
- * before and after, with the structure still referenced — not an allocation delta, which mostly
- * measures garbage and is what makes naive memory columns meaningless.
- */
+// Timing, on a machine that lies.
+//
+// THE HEADLINE IS THE MINIMUM, NEVER THE MEAN. Every error on a loaded laptop — a
+// preemption, a GC pause, a thermal step, another process — adds time and never
+// subtracts it, so the mean measures the neighbours on this machine and the minimum
+// measures the code. The sampling plan, the warm-up equality and the pricing of
+// `repeat` are in `README.md#measure`.
 
-const gc = (): void => {
-    const g = globalThis as unknown as { gc?: () => void };
-    if (typeof g.gc !== 'function') {
-        throw new Error(
-            'Run with --expose-gc: without a forced collection, retained memory cannot be measured.'
-        );
-    }
-    // Twice: the first pass can resurrect nothing but does free what the second then compacts.
-    g.gc();
-    g.gc();
-};
+// The spread above which a sample set says more about the machine than the code.
+// Nothing derives the number; see `README.md#measure`.
+export const SPREAD_CEILING = 0.3;
 
 export type TTiming = {
-    /** Median run, in milliseconds. */
+    min: number;
     median: number;
-    /** Fastest run — the floor the machine is capable of for this work. */
-    best: number;
-    /** Spread as a fraction of the median; a large value means the number is not trustworthy. */
+    max: number;
+    // Across the samples of ONE process. Not comparable with `TMeasuredRecord.drift`.
     spread: number;
-    runs: number;
+    samples: number;
+    repeat: number;
+    // What this adapter actually reached, which the plan's ceiling can cut short;
+    // the runner names every adapter that fell short of `TSamplingPlan.warmup`.
+    warmed: number;
 };
 
-/**
- * Repeat counts scaled to how expensive one run is. Nine repeats of a 60-second scenario buys no
- * extra confidence worth ten minutes of wall clock, while a 10-microsecond scenario needs every one
- * of them to rise above timer noise. `sampleMs` is the cost of a single run, measured by the caller.
- */
-const plan = (sampleMs: number): { warmup: number; runs: number } => {
-    if (sampleMs < 50) return { warmup: 3, runs: 9 };
-    if (sampleMs < 500) return { warmup: 2, runs: 7 };
-    if (sampleMs < 5_000) return { warmup: 1, runs: 5 };
-    // Never two: a median of two samples is not a median, and the slowest scenarios are exactly
-    // where the spread is widest and a robust middle matters most.
-    return { warmup: 0, runs: 3 };
+// The SAME numbers for every adapter on a scenario; the report's percentages depend
+// on that equality.
+export type TSamplingPlan = {
+    repeat: number;
+    samples: number;
+    warmup: number;
 };
+
+const WARMUP_BUDGET_MS = 1000;
+
+const WARMUP_CEILING_MS = 5 * WARMUP_BUDGET_MS;
+
+const WARMUP_FLOOR = 5;
+const WARMUP_CEILING = 2000;
 
 export const time = (
     run: () => void,
-    opts: {
-        warmup?: number;
-        runs?: number;
+    options: {
         setup?: () => void;
-        sampleMs?: number;
-    } = {}
+        // Untimed, and only before TIMED samples: without it a dropped 10 000-row
+        // store is collected inside the next timed run, per adapter.
+        collect?: () => void;
+        warmup: number;
+        samples: number;
+        repeat: number;
+    }
 ): TTiming => {
-    const scaled = plan(opts.sampleMs ?? 0);
-    const warmup = opts.warmup ?? scaled.warmup;
-    const runs = opts.runs ?? scaled.runs;
+    const { setup, collect, warmup, samples, repeat } = options;
 
-    for (let i = 0; i < warmup; i++) {
-        opts.setup?.();
-        run();
+    // At least one pass however small the count, or the first TIMED sample is the
+    // cold one; the ceiling is therefore tested AFTER an iteration.
+    const warmupStarted = process.hrtime.bigint();
+    let warmed = 0;
+    while (warmed < Math.max(1, warmup)) {
+        setup?.();
+        for (let r = 0; r < repeat; r++) run();
+        warmed++;
+        if (
+            Number(process.hrtime.bigint() - warmupStarted) / 1e6 >=
+            WARMUP_CEILING_MS
+        ) {
+            break;
+        }
     }
 
-    const samples: number[] = [];
-    for (let i = 0; i < runs; i++) {
-        opts.setup?.();
+    const taken: number[] = [];
+    for (let i = 0; i < samples; i++) {
+        setup?.();
+        collect?.();
         const started = process.hrtime.bigint();
-        run();
-        samples.push(Number(process.hrtime.bigint() - started) / 1e6);
+        for (let r = 0; r < repeat; r++) run();
+        taken.push(Number(process.hrtime.bigint() - started) / 1e6 / repeat);
     }
 
-    samples.sort((a, b) => a - b);
-    // A true median: with an even count take the mean of the two middle samples. Reading
-    // `samples[n >> 1]` returns the UPPER middle, which for two samples is simply the worse of the
-    // pair — and that was being reported as "median" on the slowest rows, where it inflated the
-    // figure by more than 2x against the same run's best.
-    const middle = samples.length >> 1;
+    taken.sort((a, b) => a - b);
+    const middle = taken.length >> 1;
     const median =
-        samples.length % 2 === 1
-            ? samples[middle]
-            : (samples[middle - 1] + samples[middle]) / 2;
-    const best = samples[0];
-    const worst = samples[samples.length - 1];
+        taken.length % 2 === 1
+            ? taken[middle]
+            : (taken[middle - 1] + taken[middle]) / 2;
+    const min = taken[0];
+    const max = taken[taken.length - 1];
     return {
+        min,
         median,
-        best,
-        spread: median === 0 ? 0 : (worst - best) / median,
-        runs,
+        max,
+        spread: min === 0 ? 0 : (max - min) / min,
+        samples: taken.length,
+        repeat,
+        warmed,
     };
 };
 
-/**
- * Retained heap of whatever `build` returns, in bytes.
- *
- * The result is held across the second collection on purpose — that is what makes the number
- * "memory this structure costs to keep", rather than "memory this code touched".
- */
-export const retained = <T>(build: () => T): number => {
-    gc();
-    const before = process.memoryUsage().heapUsed;
-    const held = build();
-    gc();
-    const after = process.memoryUsage().heapUsed;
-    // Touch it so nothing above can be optimised away or collected early.
-    if ((held as unknown) === Symbol.for('never')) throw new Error('unreachable');
-    return after - before;
+// Folds a run until a sample is worth timing (~20 ms), priced off the MEDIAN
+// participant so one straggler cannot set the whole column's resolution.
+export const repeatsFor = (sampleMs: number, cap: number): number => {
+    if (cap <= 1 || sampleMs >= 20) return 1;
+    return Math.max(1, Math.min(cap, Math.floor(20 / Math.max(sampleMs, 0.0005))));
 };
 
-export const formatBytes = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+// Here rather than in each runner: a median computed two ways in two files would be
+// two estimators.
+export const medianOf = (values: readonly number[]): number => {
+    const sorted = [...values].sort((a, b) => a - b);
+    const middle = sorted.length >> 1;
+    return sorted.length % 2 === 1
+        ? sorted[middle]
+        : (sorted[middle - 1] + sorted[middle]) / 2;
+};
+
+// Both callers must hand in figures measured the same way (the probe's minimum of
+// one run), or the two halves of the plan are priced in different units.
+export const planFor = (
+    slowestRunMs: number,
+    cap: number,
+    medianRunMs: number
+): TSamplingPlan => {
+    const repeat = repeatsFor(medianRunMs, cap);
+    const perSampleMs = slowestRunMs * repeat;
+    // One warm-up ITERATION is `repeat` runs, not one.
+    const medianIterationMs = medianRunMs * repeat;
+    return {
+        repeat,
+        samples: perSampleMs > 200 ? 5 : perSampleMs > 20 ? 9 : 15,
+        warmup: Math.max(
+            WARMUP_FLOOR,
+            Math.min(
+                WARMUP_CEILING,
+                Math.floor(WARMUP_BUDGET_MS / Math.max(medianIterationMs, 0.0005))
+            )
+        ),
+    };
 };
 
 export const formatMs = (ms: number): string => {
-    // Sub-microsecond values are real — a keyed write costs a couple of hundred nanoseconds — and
-    // printing them as "0 µs" throws the measurement away at the very last step.
     if (ms < 0.001) return `${(ms * 1e6).toFixed(0)} ns`;
-    if (ms < 1) return `${(ms * 1000).toFixed(1)} µs`;
-    return `${ms.toFixed(2)} ms`;
+    if (ms < 1) return `${(ms * 1000).toFixed(2)} µs`;
+    return `${ms.toFixed(3)} ms`;
 };
+
+export const formatPercent = (fraction: number): string =>
+    `${(fraction * 100).toFixed(1)}%`;

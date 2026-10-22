@@ -22,16 +22,18 @@ npm run docs:serve
 
 ## Deployment
 
-Docs deploy automatically to GitHub Pages on push to `main` via `.github/workflows/docs.yml`.
+Docs deploy automatically to GitHub Pages on push to `master` via `.github/workflows/docs.yml`.
 
 Live site: [https://oimdb.org/](https://oimdb.org/)
 
 ## Content
 
-| Path | Source |
-|------|--------|
+| Path | What is in it |
+|------|---------------|
 | `docs/intro.md` | Project overview |
 | `docs/getting-started/` | Installation and quick start |
-| `docs/packages/` | Package index (Phase 2: full API from READMEs) |
-| `docs/architecture/` | From `docs/ARCHITECTURE.md` |
-| `docs/guides/` | From `docs/PERFORMANCE.md` |
+| `docs/packages/` | Package index |
+| `docs/core/` | `@oimdb/core` — architecture, collections, indexes, reading and writing |
+| `docs/guides/` | Error handling, performance, SSR |
+| `docs/performance/` | How a benchmark earns belief, the price of a call, and what is not proven yet |
+| `blog/` | Posts |

@@ -1,0 +1,321 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.94x  38 ns  20 ns   0.2%     ~1.9x  control-resolution-2x
+1.01x  20 ns  19 ns   0.5%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.94x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.2% of 1.00 is a reading, and no
+  claim inside 3.6% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+   ratio    ours   floor  noise  path              operation
+L  27.7x  126 ns    5 ns   0.5%  per frame         subscribeToField.deliver-vs-guarded-call
+~  21.8x   60 ns    3 ns   0.2%  per frame         subscribe.deliver-vs-direct-call
+   5.58x  563 ns  101 ns   5.8%  per write         update.indexed-column-vs-hand-index
+~  3.15x  315 ns  100 ns   0.4%  per write         remove.indexed-vs-hand-index
+~  3.13x    3 ns    1 ns   2.5%  per read          read.members-vs-array-iteration
+~  2.58x    3 ns    1 ns   0.7%  per frame         flush.empty-vs-noop
+~  2.03x   80 ns   39 ns   2.5%  per write         remove.vs-map-delete
+   2.00x   15 ns    7 ns   1.0%  per read          buckets.find-vs-map-get
+   1.61x    2 ns    1 ns   2.0%  per read          entity.vs-held-object
+   1.24x   26 ns   21 ns   0.0%  per relationship  hold.vs-map-get
+   1.18x    3 ns    3 ns   1.7%  per read          read.members-vs-set-iteration
+   1.10x   23 ns   21 ns   0.7%  per read          find.vs-map-get
+±  1.03x    1 ns    1 ns   0.7%  per read          memberCount.vs-set-size
+~  0.12x    3 ns   25 ns   1.0%  per frame         flush.empty-vs-the-same-bookkeeping-by-hand
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+subscribeToField.deliver-vs-guarded-call   [per frame]   27.7x
+  ours   effectService.createEffect([column slot of 'title'], [], h) — the narrowest signal the engine has
+  floor  store the field and call h only when the name that moved is 'title'
+  THE ONE COLUMN THAT MOVED IS THE ONE SUBSCRIBED TO, on both sides, so this is the happy
+  case. THE MECHANISM UNDER OURS CHANGED AND THE OLD CAVEAT DESCRIBED THE OTHER ONE. It said
+  the write records a per-identity list of moved column names and the handler consults that
+  list on delivery, so two field subscriptions on one identity both woke and one returned
+  having found its name absent. There is no such list and no such filter: a COLUMN OF A ROW IS
+  ITS OWN IDENTITY, minted by `holdColumn` and hanging on the row, and a write marks only the
+  column slots that exist. So a `note` write does not reach a `title` subscriber at all. The
+  figure the old sentence stood behind is not re-attributed to this shape, and nothing
+  recorded against this id is a like-for-like continuation of it. WHAT IS LEFT IN THE RATIO:
+  the mint is outside the clock (one per row, at build), and inside it ours pays the write
+  path, the column mark, the enlist and the frame, against the floor's one store and one
+  string compare.
+  measured  378,894 ops/pass ours, 5,456,077 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 10.6%/1.8%; load 3.69 → 5.24 on 8 cores
+
+subscribe.deliver-vs-direct-call   [per frame]   21.8x
+  ours   update the row, flush, and the subscription fires — per identity delivered
+  floor  store the field and call the handler — per row
+  ONE WRITE PER IDENTITY PER FRAME, WHICH IS THE WORST CASE FOR US. Both sides call the
+  handler exactly once per row, so nothing here is saved by coalescing — the mechanism ours
+  pays for on every write is deliberately given nothing to do. Ours per operation: the whole
+  update path, then the stamp, then the enlisting of every effect on the slot onto the frame's
+  leaf array, then the frame walking that array and running each body. The floor: one store
+  and one call. The fixed cost of the frame itself is divided by a thousand deliveries here;
+  `flush.empty-vs-noop` prices it directly so a reader can subtract it. What ours buys and the
+  floor cannot: the handler is registered against the identity, so a writer does not have to
+  know who is listening. A SUBSCRIPTION IS AN EFFECT NOW and that is not only a renaming:
+  `effectService.createEffect` allocates a `TOIMEffect` that keeps its own root list, and the
+  give-back is `effect.detach()` rather than a disposer closure.
+  measured  718,362 ops/pass ours, 18,201,286 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 95.5%/1.2%; load 3.23 → 3.69 on 8 cores
+
+update.indexed-column-vs-hand-index   [per write]   5.58x
+  ours   collection.updateEntity(slot, { group }) — an OIMIndex over `group` re-files the row
+  floor  delete from the old Set, store the column, add to the new Set
+  THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. `OIMIndex` hears its source
+  collection through a content-change listener: `updateEntity` marks the row, the listener
+  reads the key the row was last filed under from the row's own `indexKeys` cell, compares it
+  with `keyOf(entity)` and moves the slot with `removeBucketMemberSlotByKey` +
+  `addBucketMemberSlotByKey`. The caller writes one column and nothing else. All sixty-four
+  buckets are held before the clock, because an index files only into buckets that exist. A
+  reading recorded under this id while the move was the caller's (`removeSlotAt` +
+  `appendSlot` on a positional bucket collection) priced a different body and must not be
+  quoted against this one. WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK. Ours resolves BOTH
+  buckets by key through the bucket store (two `Map.get`), as the floor resolves both `Set`s;
+  the unordered bucket is a `Set`, so leave and join are hashes on both sides. Ours
+  additionally reads and writes the row's index cell, holds and unholds the row from the
+  buckets, queues both buckets for the change-close flush that marks them on the channel so a
+  subscriber can be woken, and marks the row itself — and the flush that closes the batch is
+  inside the timed body. The floor can be read by iterating it and by nothing else. Direction:
+  inflates our ratio.
+  measured  65,106 ops/pass ours, 505,648 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 22.4%/5.2%; load 3.73 → 3.78 on 8 cores
+
+remove.indexed-vs-hand-index   [per write]   3.15x
+  ours   collection.clearContent(slot) with one OIMIndex over `group`
+  floor  map.delete(id) and Set.delete(row) from the group it was in
+  Ours finds the bucket to leave through the key the row's own `indexKeys` cell carries — one
+  cell read and one bucket-store `Map.get` — where the floor hashes the id and then hashes the
+  group name. Against that, ours clears the value, tells the index through its content
+  listener, unholds the row from the bucket, queues the bucket for the change-close flush that
+  marks it on the channel, and unfiles the emptied identity; the flush that closes this batch
+  is inside the timed body. The buckets are held for the whole pass, so none is released under
+  the clock. The floor leaves an empty Set behind for ever and tells nobody.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 427 planned, 427/427 reached; spread 89.7%/242.8%; load 4.20 → 4.20 on 8 cores
+
+read.members-vs-array-iteration   [per read]   3.13x
+  ours   for (const slot of byGroup.read(bucket)) slot.entity — per member visited
+  floor  for (let i = 0; i < rows.length; i++) — per member visited
+  THE SAME OUR-SIDE BODY AS THE ROW ABOVE AGAINST THE FLOOR SOMEBODY WOULD ACTUALLY WRITE. An
+  indexed array walk is the fastest way there is to visit a hundred objects and it beats a
+  `Set` iterator handily, so this ratio is the worse of the two and the more honest answer to
+  "what does reading a group cost me". What the array cannot do is stay correct: nothing
+  maintains it, nothing can be woken by it, and it holds rows rather than identities that
+  outlive them. The gap between this ratio and the `set-iteration` one above is a property of
+  JavaScript containers, not of either design.
+  measured  7,296,895 ops/pass ours, 44,490,910 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 30.9%/2.0%; load 3.38 → 3.38 on 8 cores
+
+flush.empty-vs-noop   [per frame]   2.58x
+  ours   channel.flush() with nothing marked and nobody subscribed
+  floor  a call that bumps a frame counter
+  THE FLOOR HERE IS ESSENTIALLY ZERO AND THE RATIO IS THEREFORE NOT A READING — take the
+  absolute nanoseconds on our side and ignore the multiple. A hand-written store has no frame
+  to close, so the nearest thing to a floor is the bookkeeping a person writes instead, and V8
+  inlines that to almost nothing. What ours does for the money: runs the effect graph's drain,
+  swaps the two delivery lists, walks an empty delivery, runs the after-flush and
+  after-each-frame phases, sweeps identities nobody holds and reports errors. This number is
+  the fixed cost every other frame row carries, which is what makes it worth printing even
+  though its ratio means nothing. AND THE MULTIPLE IS NOT THE ONLY THING TO IGNORE HERE: the
+  floor is timed twice around our side and the two timings disagree by more than the gap they
+  bracket, which is what the noise column on this row says. The absolute figure on our side is
+  the reading; it is split by `flush.empty-vs-the-same-bookkeeping-by-hand`, whose floor
+  performs these same phases inline.
+  measured  8,621,859 ops/pass ours, 21,926,810 floor; 9 samples; warm-up 39 planned, 39/39 reached; spread 38.3%/6.4%; load 3.07 → 3.07 on 8 cores
+
+remove.vs-map-delete   [per write]   2.03x
+  ours   collection.clearContent(slot) — through the identity, no index registered
+  floor  map.delete(id)
+  THE HASH IS ON THE FLOOR'S SIDE ONLY: ours is handed the identity and the floor hashes a
+  string, which flatters us — the deleteEntityByKey path is not priced here and would cost us
+  that lookup too. Against that, ours clears the value through the writer, reports it on the
+  channel, recomputes emptiness and asks whether anything holds or references the identity
+  before it unfiles it from the store — an unheld, emptied slot is released at the call. The
+  flush that closes the batch is inside the timed body. The floor's row is gone the instant
+  delete returns and nothing can be subscribed to it. Both sides rebuild their population
+  between passes, untimed.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1597 planned, 1597/1597 reached; spread 97.3%/116.1%; load 3.78 → 4.20 on 8 cores
+
+buckets.find-vs-map-get   [per read]   2.00x
+  ours   byGroup.buckets.find(address) — the bucket at an address, or nothing
+  floor  byGroup.get(address)
+  THE ADDRESS LOOKUP ON THE BUCKET SIDE, WITHOUT THE HOLD, so a reader can see which part of
+  `hold.vs-map-get` is the store call and which part is the minting and the two allocations.
+  Every address here hits and `find` cannot mint, so ours is one field load, one call and one
+  `Map.get` against the floor's one `Map.get`. Both sides cycle through all sixty-four
+  addresses. `OIMSlotByKeyStoreMapDriven` holds one `Map` and nothing else, so there is no
+  cell to hit or miss.
+  measured  2,097,152 ops/pass ours, 6,582,744 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 2.6%/1.9%; load 3.67 → 3.67 on 8 cores
+
+entity.vs-held-object   [per read]   1.61x
+  ours   slot.entity — the row behind an identity you already hold
+  floor  the object itself, held
+  ONE INDIRECTION AGAINST NONE, which is the smallest thing this table can ask about and is
+  close to the resolution floor — read it against the control rows before treating any part of
+  it as a result. Ours answers `TPriceDataRow | undefined` because an identity may carry no
+  value; the floor answers a row. This body does NOT narrow the undefined, so the branch a
+  real consumer writes is charged to neither side. IT IS THE WHOLE VALUE-READ PATH NOW.
+  `value.held-getValue-vs-object` and `value.construct-and-read-vs-object` stood below this
+  row and priced the same read through an observable; there is no observable, so this is the
+  only shape the question has left.
+  measured  23,838,502 ops/pass ours, 32,886,186 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 19.8%/9.1%; load 3.64 → 3.67 on 8 cores
+
+hold.vs-map-get   [per relationship]   1.24x
+  ours   collection.holdSlotByKey(id) — resolve a key to an identity and keep it, minting on a miss
+  floor  map.get(id)
+  THE FLOOR CANNOT MINT AND CANNOT KEEP, and those are the two differences. `holdSlotByKey`
+  promises an identity for a key the population has never seen, so a caller can subscribe to a
+  row before it arrives; and the hold is a COUNTED REFERENCE, so nothing can unfile that
+  identity while the caller still has it. Every key here HITS, so the minting branch never
+  runs — what is left over the map read is the store call, the `=== undefined` compare that is
+  false on every hit, and one `holdCount++` (`OIMSlotAggregate.holdSlotByKey` into
+  `OIMSlotOwner.holdSlot`). THE TWO ALLOCATIONS THIS CAVEAT CHARGED NO LONGER EXIST AND
+  NOTHING REPLACES THEM. It read "TWO ALLOCATIONS PER CALL: the `{ slot, release }` record and
+  the release closure `holdSlot` builds", and that was the charge the row was built to expose:
+  a minting door that allocated where a `Map.get` does not. No door hands back such a record —
+  `holdSlotByKey` returns the slot and increments one field — so the hit path allocates
+  nothing on either side and what is left between the two columns is one call and one store.
+  Direction: inflates our ratio, now by the store call and the increment alone. READ IT
+  AGAINST `find.vs-map-get` DIRECTLY ABOVE — the gap between the two is what the minting door
+  costs over the reading one, on the hit path, and that gap is the whole reason the
+  documentation says to hold an identity rather than resolve it per read. THIS BODY NEVER
+  GIVES THE HOLD BACK. The door is `OIMEntityCollection.releaseSlotIfUnheld` and nothing here
+  calls it, so the hold count grows for the life of the process — one decrement per call that
+  we do not charge ourselves for, and it is the only item on this row that runs in our favour.
+  This row measures a minting HOLD.
+  measured  1,731,392 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 2.4%/10.3%; load 4.03 → 4.03 on 8 cores
+
+read.members-vs-set-iteration   [per read]   1.18x
+  ours   for (const slot of byGroup.read(bucket)) slot.entity — per member visited
+  floor  for (const row of set) — per member visited, same container kind
+  THE SAME CONTAINER ON BOTH SIDES: an unordered bucket holds its members in a `Set`, so this
+  floor is the structural equal. Ours pays two things the floor does not — the read settles
+  whatever order report is outstanding on the bucket (nothing is outstanding here, and an
+  unordered bucket has no order to settle, so what is charged is the ASKING) and every member
+  is a slot the consumer must dereference to reach the row, which this body does. The per-read
+  costs — the settle and the iterator — are amortised over the hundred-odd members of a
+  bucket, so a caller reading buckets of one pays far more per member than this row shows.
+  measured  7,867,567 ops/pass ours, 18,255,948 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 2.1%/8.9%; load 3.41 → 3.41 on 8 cores
+
+find.vs-map-get   [per read]   1.10x
+  ours   collection.findEntityByKey(id) — the entity of a key, or undefined
+  floor  map.get(id)
+  THE CALIBRATION ROW. `findEntityByKey` is `findSlotByKey` — one call into the slot store
+  service and one `Map.get` — and one `.entity` load off the slot, so if this reads much above
+  1 the instrument is measuring call overhead rather than the library, and every other ratio
+  in this table should be read with that in mind. Every key hits — a miss is a different path
+  on both sides and would mix two prices.
+  measured  1,696,578 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 1.0%/2.0%; load 4.03 → 4.03 on 8 cores
+
+memberCount.vs-set-size   [per read]   1.03x
+  ours   bucketCollection.getBucketMemberSlotCount(bucket)
+  floor  set.size
+  Ours is two calls deep — the bucket collection hands the question to its bucket slots
+  service, whose `size` reads the same `Set.size` — and those two calls are the whole
+  difference. The floor reads a field of a container whose correctness is somebody else's
+  problem. Both sides cycle through all sixty-four buckets rather than asking the same one
+  repeatedly. THIS ROW ONCE READ BELOW 1.00 AND THAT NUMBER WAS A HASH, NOT A COUNT. The floor
+  reached its `Set` through `sets.get(name)` — a string-keyed `Map.get` — while our side was
+  handed the bucket out of an array. So the floor's number was very nearly all addressing and
+  ours was very nearly all service hop, and the row reported the difference between a hash and
+  an array load under the name of a member count. The floor now holds its sets in an array
+  indexed exactly the way our side indexes its buckets, so both sides are addressed alike and
+  what is left in the ratio is the service hop. This suite's standing rule is that a floor
+  doing less is a lie in our favour; that rule was pointed at us here, and the reading it
+  produced is withdrawn rather than qualified. THE CALL WAS `db.memberCount(bucket)` AND IS
+  `bucketCollection.getBucketMemberSlotCount(bucket)`, on the bucket collection rather than on
+  the database — the same question through a different object. Nothing recorded before
+  2026-08-29 is re-attributed to it, and the prediction the old caveat carried (roughly 3.5 to
+  4.4, from figures in `measurements/2026-08-20-price/read-2`) was written for the old call
+  and is not a prediction about this one.
+  measured  24,473,708 ops/pass ours, 48,382,790 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 3.9%/2.3%; load 3.27 → 3.27 on 8 cores
+
+flush.empty-vs-the-same-bookkeeping-by-hand   [per frame]   0.12x
+  ours   channel.flush() with nothing marked and nobody subscribed
+  floor  the same phases written out inline over a plain object: the two guards, the before-flush test, the empty leaf walk, the two emptiness tests and the counter
+  THIS ROW EXISTS TO SPLIT `flush.empty-vs-noop`, WHICH IS A PRICE AGAINST NOTHING. That row
+  puts an empty frame against a counter bump, so its multiple prices the existence of a frame
+  rather than anything inside one, and it cannot say which part of the absolute figure is the
+  bookkeeping and which is the SHAPE the bookkeeping is written in. This floor does the same
+  work: the same field reads, the same stores, the same walk of an empty leaf array, the same
+  two emptiness tests — the after-each-frame set and the error list — and the same
+  frame-counter increment, over a plain object with no methods. THE FLOOR WAS RE-TRANSCRIBED
+  and it is a SHORTER body than the one this row was first measured with. It used to write out
+  the two-list delivery swap, the levelled scheduler drain, the release sweep, the
+  deferred-callback queue and the bound on the spare list, because `OIMDB.runFrame` did all
+  five. `OIMChannel.runFrame` does none of them: a frame is one pass over one flat `leaves`
+  array, then `dispatchAfterEachFrame`, then `reportErrors`. Keeping the old phases would have
+  made this floor do MORE than the engine, which is the one direction a floor may never drift
+  in — so nothing recorded against this id is a like-for-like continuation of what it measures
+  now, and no earlier figure is re-attributed to it. WHAT IS LEFT IN THE RATIO: the call
+  frames our side enters (`flush`, `runFrame`, `dispatchAfterEachFrame`, `reportErrors`), the
+  two `try`/`finally` regions, the `do`/`while` a single frame still goes round once, and the
+  difference between a class field and a property of an object literal. A reading at 1.00 says
+  the phases ARE the price and nothing can come off without dropping a phase; a reading above
+  it says the structure is worth attacking and names its size. Direction: this floor does MORE
+  than any floor in this file — it is our own design transcribed — so the ratio understates
+  our cost against a primitive and is not comparable with the rows around it. It is a
+  decomposition instrument and not a price.
+  measured  16,588,332 ops/pass ours, 1,625,802 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 2.6%/32.3%; load 2.91 → 3.23 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.94x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.01x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

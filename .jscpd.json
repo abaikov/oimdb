@@ -1,0 +1,27 @@
+{
+  "threshold": 0,
+  "minTokens": 70,
+  "minLines": 5,
+  "format": ["typescript", "tsx"],
+  "reporters": ["consoleFull"],
+  "absolute": false,
+  "gitignore": true,
+  "ignore": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/tests/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.type-test.ts",
+    "**/*.bench.ts",
+    "packages/core-legacy/**",
+    "packages/bench/**",
+    "packages/browser-extension/**",
+    "website/**",
+    "packages/core/src/engine/computed/OIMSingleComputed.ts"
+  ],
+  "whyMinTokensIs70": "At 50 the detector reports 9 clones (0.82%) over packages/, at 60 three, at 70 one, and 80 and 100 report the same one — so the 50..70 band is entirely an eight-line `import type { … } from '@oimdb/persist'` run plus a pair of binary searches that differ in `<= 0` against `< 0`. Neither is duplicated logic: every file genuinely needs its imports, and upperBound/lowerBound are the std:: pair whose one attempted merge shipped a wrong ORDER (`r12, r85, joiner` for `r12, joiner, r85`) because `x <= 0` is `x < 1` only for integer comparators and TOIMSlotSorter is any (a, b) => number. 70 is the smallest resolution at which what remains is a body.",
+  "whyOIMSingleComputedIsNotScanned": "It declares the ten members every object that IS a slot declares — six places under packages/core/src do, in two orders — so the run it shares with facade/entity/OIMSingleEntity.ts is the slot's own shape, not a copied body. A shared base is impossible for the other declarers (OIMSlotOwner and OIMSlotAggregate take their one extends) and would couple a derivation to an entity for ten initialisers. Who may write each member is pinned by packages/core/tests/which-side-of-a-slot-owns-which-part.test.ts, which reads the list off the slot types; that census, not this detector, is what notices a member arriving unowned."
+}

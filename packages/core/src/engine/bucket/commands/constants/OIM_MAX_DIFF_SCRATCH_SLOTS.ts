@@ -1,0 +1,1 @@
+export const OIM_MAX_DIFF_SCRATCH_SLOTS = 4096;

@@ -1,0 +1,764 @@
+{
+    "pieces": [
+        {
+            "format": 1,
+            "experiment": {
+                "harness": "fb70b7b8b5baa39d",
+                "subject": "9ce438379981d151",
+                "libraries": "e2d393add63d2262",
+                "node": "v20.19.2",
+                "machine": "arm64 8× Apple M1",
+                "host": "edade2c7"
+            },
+            "point": {
+                "key": "default",
+                "n": 10000,
+                "window": 32,
+                "processes": 3
+            },
+            "scenario": "patchColumn",
+            "measuredAt": "2026-09-12T23:02:09.114Z",
+            "seconds": 420.689,
+            "load": {
+                "cores": 8,
+                "gate": 25,
+                "selfAllowance": 3,
+                "start": 8.3486328125,
+                "peak": 15.53369140625,
+                "readings": 95,
+                "foreignPeak": 12.53369140625,
+                "over": false
+            },
+            "verification": {
+                "signatures": [
+                    {
+                        "name": "baseline-array",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "baseline-indexed",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "oimdb",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "oimdb-3.12.1",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tinybase",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "signaldb",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tanstack-db",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tanstack-db-eager",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "lokijs",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "mobx",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "jotai",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "legend-state",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "effector",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "nanostores",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "redux-toolkit",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "preact-signals",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "alien-signals",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    }
+                ],
+                "oracles": [
+                    {
+                        "name": "baseline-array",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "baseline-indexed",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "oimdb",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "oimdb-3.12.1",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tinybase",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "signaldb",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tanstack-db",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "tanstack-db-eager",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "lokijs",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "mobx",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "jotai",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "legend-state",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "effector",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "nanostores",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "redux-toolkit",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "preact-signals",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    },
+                    {
+                        "name": "alien-signals",
+                        "signature": "b6c6cfe7/811c9dc5 32n/0n"
+                    }
+                ],
+                "failed": [],
+                "evidence": "r0000000 1 p0000000  (32 rows, 32 distinct renders)",
+                "steps": 32,
+                "byFinalState": false
+            },
+            "calibration": {
+                "costs": [
+                    {
+                        "name": "baseline-array",
+                        "runMs": 8.561
+                    },
+                    {
+                        "name": "baseline-indexed",
+                        "runMs": 0.726
+                    },
+                    {
+                        "name": "oimdb",
+                        "runMs": 0.137458
+                    },
+                    {
+                        "name": "oimdb-3.12.1",
+                        "runMs": 0.159084
+                    },
+                    {
+                        "name": "tinybase",
+                        "runMs": 0.503042
+                    },
+                    {
+                        "name": "signaldb",
+                        "runMs": 305.905708
+                    },
+                    {
+                        "name": "tanstack-db",
+                        "runMs": 1.927834
+                    },
+                    {
+                        "name": "tanstack-db-eager",
+                        "runMs": 1.626
+                    },
+                    {
+                        "name": "lokijs",
+                        "runMs": 0.793333
+                    },
+                    {
+                        "name": "mobx",
+                        "runMs": 0.328958
+                    },
+                    {
+                        "name": "jotai",
+                        "runMs": 2.955375
+                    },
+                    {
+                        "name": "legend-state",
+                        "runMs": 3.696916
+                    },
+                    {
+                        "name": "effector",
+                        "runMs": 35.517917
+                    },
+                    {
+                        "name": "nanostores",
+                        "runMs": 128.219333
+                    },
+                    {
+                        "name": "redux-toolkit",
+                        "runMs": 169.591417
+                    },
+                    {
+                        "name": "preact-signals",
+                        "runMs": 0.682125
+                    },
+                    {
+                        "name": "alien-signals",
+                        "runMs": 0.688
+                    }
+                ],
+                "probeFailures": [],
+                "plan": {
+                    "repeat": 12,
+                    "samples": 5,
+                    "warmup": 51
+                }
+            },
+            "timing": {
+                "measured": [
+                    {
+                        "name": "control-lean",
+                        "min": 3.8266007500000003,
+                        "processMins": [
+                            3.8266007500000003,
+                            3.9434965,
+                            4.90140275
+                        ],
+                        "drift": 0.2808764410554196,
+                        "lost": 0,
+                        "spread": 0.5786821153648355,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "control-heavy",
+                        "min": 8.01253125,
+                        "processMins": [
+                            8.01253125,
+                            8.67834375,
+                            12.042482666666666
+                        ],
+                        "drift": 0.5029560935149758,
+                        "lost": 0,
+                        "spread": 0.15282745387108476,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 64,
+                            "distinct": 32,
+                            "redundant": 32
+                        },
+                        "b": {
+                            "deliveries": 64,
+                            "distinct": 0,
+                            "redundant": 64
+                        }
+                    },
+                    {
+                        "name": "control-write",
+                        "min": 3.9485798333333335,
+                        "processMins": [
+                            3.9485798333333335,
+                            4.25490625,
+                            5.4608680000000005
+                        ],
+                        "drift": 0.382995464318627,
+                        "lost": 0,
+                        "spread": 0.5614923196648042,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "baseline-array",
+                        "min": 3.757510416666667,
+                        "processMins": [
+                            3.757510416666667,
+                            5.272708333333333,
+                            5.906836833333333
+                        ],
+                        "drift": 0.57200810598773,
+                        "lost": 0,
+                        "spread": 0.11194153930600097,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "baseline-indexed",
+                        "min": 0.907566,
+                        "processMins": [
+                            0.907566,
+                            0.9090104166666667,
+                            1.1947326666666667
+                        ],
+                        "drift": 0.3164140863217294,
+                        "lost": 0,
+                        "spread": 4.095994579641223,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "oimdb",
+                        "min": 0.1646805,
+                        "processMins": [
+                            0.1646805,
+                            0.2357465,
+                            0.23734025
+                        ],
+                        "drift": 0.4412164767534711,
+                        "lost": 0,
+                        "spread": 0.7088012849123,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "oimdb-3.12.1",
+                        "min": 0.21723608333333333,
+                        "processMins": [
+                            0.21723608333333333,
+                            0.27014583333333336,
+                            0.31944100000000003
+                        ],
+                        "drift": 0.47047854618995555,
+                        "lost": 0,
+                        "spread": 1.050620427162001,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "tinybase",
+                        "min": 0.8377534999999999,
+                        "processMins": [
+                            0.8377534999999999,
+                            0.9453575833333333,
+                            1.0130798333333333
+                        ],
+                        "drift": 0.20928152891433266,
+                        "lost": 0,
+                        "spread": 0.8226157813724443,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "signaldb",
+                        "min": 282.8999166666667,
+                        "processMins": [
+                            282.8999166666667,
+                            309.932875,
+                            398.3230868333333
+                        ],
+                        "drift": 0.40800001472841235,
+                        "lost": 0,
+                        "spread": 0.5376327876849261,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 2,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "tanstack-db",
+                        "min": 2.5218785,
+                        "processMins": [
+                            2.5218785,
+                            2.9703541666666666,
+                            3.2577048333333334
+                        ],
+                        "drift": 0.2917770754353682,
+                        "lost": 0,
+                        "spread": 0.43801809510912854,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "tanstack-db-eager",
+                        "min": 2.74934725,
+                        "processMins": [
+                            2.74934725,
+                            2.77408675,
+                            2.8167604166666664
+                        ],
+                        "drift": 0.024519698872765675,
+                        "lost": 0,
+                        "spread": 0.2711615760189381,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "lokijs",
+                        "min": 0.7791145833333334,
+                        "processMins": [
+                            0.7791145833333334,
+                            1.0182499999999999,
+                            1.3673437499999999
+                        ],
+                        "drift": 0.7549969917775249,
+                        "lost": 0,
+                        "spread": 0.16849618289992643,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "mobx",
+                        "min": 0.3944270833333334,
+                        "processMins": [
+                            0.3944270833333334,
+                            0.4524305833333333,
+                            0.5245138333333333
+                        ],
+                        "drift": 0.32981191073550764,
+                        "lost": 0,
+                        "spread": 0.15889776838769298,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "jotai",
+                        "min": 3.6481596666666665,
+                        "processMins": [
+                            3.6481596666666665,
+                            4.284718750000001,
+                            5.180625
+                        ],
+                        "drift": 0.4200653132963205,
+                        "lost": 0,
+                        "spread": 0.12253230601474968,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "legend-state",
+                        "min": 4.561829833333333,
+                        "processMins": [
+                            4.561829833333333,
+                            6.247597249999999,
+                            6.378881916666667
+                        ],
+                        "drift": 0.39831649792285473,
+                        "lost": 0,
+                        "spread": 1.1857951810930842,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "effector",
+                        "min": 27.186152833333335,
+                        "processMins": [
+                            27.186152833333335,
+                            30.272163250000002,
+                            38.07059375
+                        ],
+                        "drift": 0.4003670906801162,
+                        "lost": 0,
+                        "spread": 0.30976975245308225,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 11,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "nanostores",
+                        "min": 78.15665625,
+                        "processMins": [
+                            78.15665625,
+                            95.50121875,
+                            126.39556599999999
+                        ],
+                        "drift": 0.6172079521377937,
+                        "lost": 0,
+                        "spread": 0.2823854440847237,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 4,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "redux-toolkit",
+                        "min": 145.02891666666667,
+                        "processMins": [
+                            145.02891666666667,
+                            153.499125,
+                            179.40558333333334
+                        ],
+                        "drift": 0.23703318935821419,
+                        "lost": 0,
+                        "spread": 0.25093585244781624,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 3,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 32,
+                            "distinct": 0,
+                            "redundant": 32
+                        }
+                    },
+                    {
+                        "name": "preact-signals",
+                        "min": 0.74490975,
+                        "processMins": [
+                            0.74490975,
+                            0.8819514166666668,
+                            1.2661354166666667
+                        ],
+                        "drift": 0.6997165316559042,
+                        "lost": 0,
+                        "spread": 0.7460588346440626,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    },
+                    {
+                        "name": "alien-signals",
+                        "min": 0.8206944166666666,
+                        "processMins": [
+                            0.8206944166666666,
+                            0.9305451666666666,
+                            1.2398784166666668
+                        ],
+                        "drift": 0.5107674567868492,
+                        "lost": 0,
+                        "spread": 0.5094051957828805,
+                        "repeat": 12,
+                        "samples": 5,
+                        "warmed": 51,
+                        "a": {
+                            "deliveries": 32,
+                            "distinct": 32,
+                            "redundant": 0
+                        },
+                        "b": {
+                            "deliveries": 0,
+                            "distinct": 0,
+                            "redundant": 0
+                        }
+                    }
+                ],
+                "unmeasured": [],
+                "gcMissing": false
+            }
+        }
+    ]
+}

@@ -1,0 +1,1 @@
+export const OIM_REVISIONS_PER_EPOCH =2 ** 30;

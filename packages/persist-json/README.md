@@ -1,130 +1,149 @@
 # @oimdb/persist-json
 
-JSON-dump persistence backend for [`@oimdb/persist`](../persist) — the SSR
-dehydrate/hydrate transport.
+JSON-dump backend for [`@oimdb/persist`](../persist): the transport for server-side rendering.
+The server persists into memory and dumps that memory as one plain object; the client starts its
+backend from the dump and hydrates from it.
 
-Storage is a single plain, JSON-serializable object whose keys are the
-per-resource `storageKey`s. That means the whole registered state can be
-`JSON.stringify`-ed on the server, inlined into the HTML, and fed straight back
-into the same collections on the client. There is no I/O, no batching, no path —
-it is the simplest possible backend.
-
-## Install
+It depends on [`@oimdb/persist-memory`](../persist-memory): `OIMPersistJsonBackend` extends
+`OIMPersistMemoryBackend`, so it takes the memory strategies (`OIMPersistMemoryRecordsStrategy`,
+`OIMPersistMemorySnapshotStrategy`) and behaves like the memory backend in every other respect.
 
 ```bash
-npm install @oimdb/persist-json @oimdb/persist @oimdb/core
+npm install @oimdb/persist-json @oimdb/persist-memory @oimdb/persist @oimdb/core
 ```
 
-## SSR recipe
+## Exports
 
-### Server — fill collections, then dehydrate to a string
+| export | what it is |
+|---|---|
+| `OIMPersistJsonBackend` | `new OIMPersistJsonBackend({ initialPersistJsonDump? })`; `dehydrate()` returns the dump |
+| `TOIMPersistJsonBackendOptions` | `{ initialPersistJsonDump? }` |
+| `TOIMPersistJsonDump` | `{ snapshotValues, recordsByStorageKey }`: snapshot values by `storageKey`, and the `{ key, entity }` records of every records `storageKey` |
+
+Records are dumped as arrays of `{ key, entity }`, so a numeric key comes back a number. The
+constructor writes the dump straight into the backend's maps, with no write batch and no
+persistor involved.
+
+## The SSR flow
+
+The server and the client register the same resources under the same `storageKey`s.
+
+```ts setup
+import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import type { TOIMStoreKey } from '@oimdb/core';
+import {
+    OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords,
+    OIMPersistSchedulerMicrotaskDriven, OIMPersistor, oimReconcileByKey,
+} from '@oimdb/persist';
+import { OIMPersistMemoryRecordsStrategy, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
+import { OIMPersistJsonBackend } from '@oimdb/persist-json';
+import type { TOIMPersistJsonDump } from '@oimdb/persist-json';
+
+type TQuestion = { id: string; text: string; answer?: string };
+
+const db = new OIMDB();
+const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
+    entityWriter: createOIMEntityWriterInPlace(),
+});
+const questionCollectionService = createOIMEntityService<TQuestion>(db, {
+    keyOf: question => question.id,
+    entityWriter: persistEntityWriter,
+});
+const questionEntityStoreSlot = questionCollectionService.createStoreSlot(db);
+
+const createQuestionPersistor = (persistJsonBackend: OIMPersistJsonBackend) => {
+    const persistor = new OIMPersistor<OIMPersistJsonBackend, OIMPersistMemoryWriteBatch>({
+        persistBackend: persistJsonBackend,
+        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+    });
+    persistor.addPersistResource(new OIMPersistResourceRecords({
+        persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+            entityCollectionService: questionCollectionService,
+            entityStoreSlot: questionEntityStoreSlot,
+            persistEntityWriter,
+        }),
+        persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
+    }));
+    return persistor;
+};
+```
+
+### Server: fill, persist, dump
 
 ```ts
-import { OIMCollection } from '@oimdb/core';
-import { createJsonPersistor } from '@oimdb/persist-json';
+const persistJsonBackend = new OIMPersistJsonBackend();
+const persistor = createQuestionPersistor(persistJsonBackend);
 
-type Question = { id: string; text: string; answer?: string };
-
-const persistor = createJsonPersistor();
-const questions = new OIMCollection<Question, string>();
-
-// Register under a stable storage key.
-persistor.collection(questions).entry({ storageKey: 'questions' });
-
-// Fill the collection (e.g. from your DB) and snapshot it into storage.
-questions.upsertMany([
+questionCollectionService.slotContentService.upsertEntities(questionEntityStoreSlot, [
     { id: 'q1', text: 'What is your name?' },
     { id: 'q2', text: 'What is your quest?' },
 ]);
 await persistor.persist();
 
-// Serialize the whole registered state and inline it into the page.
-const json = JSON.stringify(persistor.dehydrate());
-const html = `<script>window.__OIM__ = ${json}</script>`;
+const jsonText = JSON.stringify(persistJsonBackend.dehydrate());
 ```
 
-### Client — seed from the inline blob, then hydrate
+`persist()` is queued on the persistor's chain, so the backend holds nothing until its promise
+resolves: dump after awaiting it. `dehydrate()` hands back the stored objects themselves (the
+memory backend keeps values by reference), so serialize it at once.
+
+### Client: start the backend from the dump, then hydrate
 
 ```ts
-import { OIMCollection } from '@oimdb/core';
-import { createJsonPersistor } from '@oimdb/persist-json';
+declare const jsonText: string;
 
-const questions = new OIMCollection<Question, string>();
+const initialPersistJsonDump = JSON.parse(jsonText) as TOIMPersistJsonDump;
+const persistor = createQuestionPersistor(new OIMPersistJsonBackend({ initialPersistJsonDump }));
 
-// `initial` is the blob inlined by the server.
-const persistor = createJsonPersistor({ initial: window.__OIM__ });
-
-// Register the SAME collections under the SAME keys as the server.
-persistor.collection(questions).entry({ storageKey: 'questions' });
-
-// `hydrate()` is synchronous in effect: the blob is already in memory, so the
-// collection is populated before you hand off to React `hydrateRoot`.
 await persistor.hydrate();
 ```
 
-## Merging SSR with a durable local cache (the key scenario)
+The hydrate runs on the persistor's chain too, so the entity store slot holds the questions once its
+promise resolves. Render after that.
 
-A common case: the server ships read-only **questions**, while the user's own
-**answers** live in a durable local store (e.g. IndexedDB via
-[`@oimdb/persist-idb`](../persist-idb)). Both feed the *same* collection. The
-rule is ordering plus a reconciler:
+## Merging a durable local cache over the server dump
 
-1. Hydrate the SSR JSON persistor **first** — the collection now holds the
-   server questions.
-2. Hydrate the local (durable) persistor **after**, using the engine's
-   `.onHydrate(reconcile)` hook so the locally-stored data lays *onto* the SSR
-   pre-state instead of replacing it.
-3. Do **not** `start()` autosave on the local persistor until after its hydrate
-   completes — otherwise the merge could be written back mid-flight.
+The server ships the questions; the user's answers live in a durable backend such as
+[`@oimdb/persist-idb`](../persist-idb). Both hydrate into the same entity store slot:
+
+1. Hydrate the JSON persistor first: the store slot holds the server's questions.
+2. Hydrate the durable persistor second, with `persistHydrateReconcile`, so the stored answers are
+   merged onto the questions instead of replacing them. Without a reconcile, the collection source
+   makes the store slot exactly the stored records, and the server's questions that the cache does
+   not name are deleted.
+3. Start autosave on the durable persistor only after its hydrate.
 
 ```ts
-import { byPk } from '@oimdb/persist'; // from the engine, not this package
+declare const initialPersistJsonDump: TOIMPersistJsonDump;
+declare const answerPersistJsonDump: TOIMPersistJsonDump;
 
-// 1. SSR blob first: questions land in the collection.
-const ssr = createJsonPersistor({ initial: window.__OIM__ });
-ssr.collection(questions).entry({ storageKey: 'questions' });
-await ssr.hydrate();
+await createQuestionPersistor(new OIMPersistJsonBackend({ initialPersistJsonDump })).hydrate();
 
-// 2. Durable local source second, merged onto the SSR pre-state.
-//    Here a second JSON persistor stands in for the local backend; in a real
-//    app this would be createIndexedDbPersistor(...) from @oimdb/persist-idb.
-const local = createJsonPersistor({ initial: window.__ANSWERS__ });
-local
-    .collection(questions)
-    .entry({ storageKey: 'questions' })
-    .onHydrate(
-        byPk((question, answer) =>
-            question ? { ...question, answer: answer.answer } : answer
-        )
-    );
-await local.hydrate();
-
-// 3. Only now is it safe to enable autosave on the local persistor.
-local.start();
+const answerPersistor = new OIMPersistor<OIMPersistJsonBackend, OIMPersistMemoryWriteBatch>({
+    persistBackend: new OIMPersistJsonBackend({ initialPersistJsonDump: answerPersistJsonDump }),
+    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+});
+answerPersistor.addPersistResource(new OIMPersistResourceRecords({
+    persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+        entityCollectionService: questionCollectionService,
+        entityStoreSlot: questionEntityStoreSlot,
+        persistEntityWriter,
+    }),
+    persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
+    persistHydrateReconcile: oimReconcileByKey<TOIMStoreKey, TQuestion>(
+        (currentQuestion, incomingQuestion) => currentQuestion === undefined
+            ? incomingQuestion
+            : { ...currentQuestion, answer: incomingQuestion.answer },
+    ),
+}));
+await answerPersistor.hydrate();
+answerPersistor.start();
 ```
 
-`byPk` walks the union of primary keys and, per pk, calls your resolver with:
+A second JSON backend stands in for the durable one here; in an application it is an
+`OIMPersistIndexedDbBackend` with an `OIMPersistIndexedDbRecordsStrategy`. `oimReconcileByKey` calls the
+resolver for every stored key with what memory holds (`currentQuestion`, from the server) and what
+the cache holds (`incomingQuestion`); keys only in memory are kept as they are.
 
-- `current` — what is in the collection **now** (the SSR questions);
-- `incoming` — what **this** hydrate brings (the locally-stored answers).
-
-So `question ? { ...question, answer: answer.answer } : answer` keeps the
-server's question text and overlays the local answer; a key present only locally
-falls through to `answer`.
-
-> `byPk` and `.onHydrate` come from `@oimdb/persist` (the engine), not from this
-> package. This package only provides the JSON storage backend and `dehydrate()`.
-
-## API
-
-| Member | Purpose |
-|---|---|
-| `createJsonPersistor({ initial? })` | Create a persistor; `initial` seeds storage from an SSR blob. |
-| `.collection(c).entry({ storageKey }, codec?)` | Persist a collection snapshot under one key. |
-| `.collection(c).using(strategy, codec?)` | Persist a collection with a custom strategy. |
-| `.object(o).entry({ storageKey })` | Persist an object snapshot under one key. |
-| `.setIndex(i) / .arrayIndex(i) / .orderedArrayIndex(i)` `.entry({ storageKey })` | Persist an index snapshot under one key. |
-| `persistor.dehydrate()` | Return the JSON-serializable dump of everything persisted. |
-
-The engine (lifecycle, batching, codecs, reconcilers, source adapters) lives in
-[`@oimdb/persist`](../persist); this package only provides the JSON backend.
+The engine (persistor, resources, sources, schedulers, codecs, reconcile) is
+[`@oimdb/persist`](../persist).

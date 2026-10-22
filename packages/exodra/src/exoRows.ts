@@ -1,55 +1,34 @@
 import type { TExoBindable } from '@exodra/reactivity-types';
-import type { TOIMKey } from '@oimdb/core';
+import type { TOIMDisposer, TOIMStoreKey } from '@oimdb/core';
+import { oimSameKeySequence } from '@oimdb/core';
+import type { TOIMExoRenderedRow } from './types/TOIMExoRenderedRow';
 import { exoSource } from './exoSource';
 
-const keysEqual = (a: readonly TOIMKey[], b: readonly TOIMKey[]): boolean => {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-        if (!Object.is(a[i], b[i])) return false;
-    }
-    return true;
-};
-
-/**
- * Keys in, identity-stable Exodra children out.
- *
- * Exodra's children bucket reconciles by object IDENTITY, and OIMDB replaces an entity object on
- * every update — so an entity reference cannot answer "is this the same row?". A primary key can.
- * Each key gets its schema rendered ONCE and cached, so a field edit re-reads to the very same array
- * and the reconcile is a no-op, while the row's own inner bindables update in place and focus
- * survives. Membership and order changes rebuild from the cache, rendering only genuinely new keys
- * and dropping the departed ones.
- *
- * **The key IS the item.** There is no key function to pass — identity is what you feed in, and on
- * every real path it already exists: a collection and an index both hand you pks. That is also why a
- * key must never carry state: folding a count or a flag into it (`` `${id}:${n}` ``) turns "which row
- * is this" into "which row and in what condition", so the row is rebuilt whenever that condition
- * changes and its focus is lost. Anything that varies WITHIN a row belongs in a bindable there.
- *
- * A read is idempotent: the key sequence is compared to the previous one and only a real change
- * rebuilds, so repeated `getValue()` calls hand back the same array reference.
- *
- * Keys must be unique — a duplicate would place one schema object at two positions, which an
- * identity-reconciling renderer cannot express. That throws rather than corrupting the list.
- */
-export function exoRows<TKey extends TOIMKey, TSchema>(
+export function exoRows<TKey extends TOIMStoreKey, TSchema>(
     keys: TExoBindable<readonly TKey[]>,
-    render: (key: TKey) => TSchema
+    render: (key: TKey) => TOIMExoRenderedRow<TSchema>
 ): TExoBindable<readonly TSchema[]> {
-    const cache = new Map<TKey, TSchema>();
+    const cache = new Map<TKey, TOIMExoRenderedRow<TSchema>>();
     let lastKeys: readonly TKey[] | undefined;
     let lastOut: readonly TSchema[] = [];
 
+    const disposeRows = (): void => {
+        for (const row of cache.values()) row.dispose();
+        cache.clear();
+        // Emptied WITH the cache, or the identity short-circuit answers from released holds.
+        lastKeys = undefined;
+        lastOut = [];
+    };
+
     const read = (): readonly TSchema[] => {
         const next = keys.getValue();
-        // The keys array IS the identity sequence — nothing is derived from it, and an unchanged
-        // source short-circuits on reference alone.
-        if (lastKeys && (next === lastKeys || keysEqual(lastKeys, next))) {
+        if (lastKeys && oimSameKeySequence(lastKeys, next)) {
             lastKeys = next;
             return lastOut;
         }
 
-        const out: TSchema[] = new Array(next.length);
+        // Decided over the whole sequence BEFORE anything is rendered, so a refusal
+        // leaves the cache and `lastKeys` agreeing. See "The refusal is atomic".
         const seen = new Set<TKey>();
         for (let i = 0; i < next.length; i++) {
             const key = next[i];
@@ -60,17 +39,38 @@ export function exoRows<TKey extends TOIMKey, TSchema>(
                 );
             }
             seen.add(key);
-            if (cache.has(key)) {
-                out[i] = cache.get(key) as TSchema;
-            } else {
-                const schema = render(key);
-                cache.set(key, schema);
-                out[i] = schema;
+        }
+
+        const out: TSchema[] = new Array(next.length);
+        // Only the keys THIS call minted: a refusal part-way through gives back what
+        // this call resolved and leaves everything already cached alone.
+        const minted: TKey[] = [];
+        try {
+            for (let i = 0; i < next.length; i++) {
+                const key = next[i];
+                const cachedExoRenderedRow = cache.get(key);
+                if (cachedExoRenderedRow !== undefined) {
+                    out[i] = cachedExoRenderedRow.schema;
+                } else {
+                    const row = render(key);
+                    cache.set(key, row);
+                    minted.push(key);
+                    out[i] = row.schema;
+                }
             }
+        } catch (failure) {
+            for (let i = 0; i < minted.length; i++) {
+                const key = minted[i];
+                cache.get(key)?.dispose();
+                cache.delete(key);
+            }
+            throw failure;
         }
         // Deleting the current entry while iterating a Map is well-defined, so no key snapshot.
-        for (const key of cache.keys()) {
-            if (!seen.has(key)) cache.delete(key);
+        for (const [key, row] of cache) {
+            if (seen.has(key)) continue;
+            row.dispose();
+            cache.delete(key);
         }
 
         lastKeys = next;
@@ -79,12 +79,29 @@ export function exoRows<TKey extends TOIMKey, TSchema>(
     };
 
     return exoSource(read, onChange => {
-        let lastEmitted = read();
-        return keys.subscribe(() => {
-            const out = read();
-            if (out === lastEmitted) return;
-            lastEmitted = out;
-            onChange();
-        });
+        // Declared before the try: the unwind has to run before either exists.
+        let lastEmitted: readonly TSchema[] = [];
+        let keysDisposer: TOIMDisposer | undefined;
+        try {
+            lastEmitted = read();
+            keysDisposer = keys.subscribe(() => {
+                const out = read();
+                if (out === lastEmitted) return;
+                lastEmitted = out;
+                onChange();
+            });
+        } catch (failure) {
+            // NOTHING GIVES THESE ROWS BACK IF THE THROW LEAVES HERE: the disposer
+            // below is the only caller of `disposeRows()` and is never built.
+            keysDisposer?.();
+            keysDisposer = undefined;
+            disposeRows();
+            throw failure;
+        }
+        return () => {
+            keysDisposer?.();
+            keysDisposer = undefined;
+            disposeRows();
+        };
     });
 }

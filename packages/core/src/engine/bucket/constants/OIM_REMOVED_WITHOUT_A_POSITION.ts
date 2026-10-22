@@ -1,0 +1,1 @@
+export const OIM_REMOVED_WITHOUT_A_POSITION = -2;

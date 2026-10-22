@@ -42,7 +42,9 @@ Two things fall out of static levels that a per-write approach doesn't get for f
 
 - **The deep-uneven glitch disappears.** A node that depends on both a shallow ancestor `A` and a deep one `D` (with `D` several levels below `A`) is scheduled the instant `A` fires — but it lands in *its own* high bucket and waits until `D`'s level has drained. It reads `D` fresh, exactly once. Without levels it would run early in `A`'s wave and read a stale `D` — a glitch that lazy pull-on-read doesn't catch, because `D` isn't even marked dirty yet.
 
-- **Turning the levels on was nearly free at runtime.** Flipping the scheduler from "everything at level 0, let lazy pulls sort out the order" to "each node at its real depth" removed the redundant reschedules and out-of-order pulls; the array-by-level removed the map hashing. On the compute benchmarks that was roughly **+78%** on a diamond graph and **+24%** on a depth-50 chain — for a change that only *moved* work to construction time.
+- **Turning the levels on was nearly free at runtime.** Flipping the scheduler from "everything at level 0, let lazy pulls sort out the order" to "each node at its real depth" removed the redundant reschedules and out-of-order pulls; the array-by-level removed the map hashing. This post originally put that at *+78%* on a diamond graph and *+24%* on a depth-50 chain. **Those two figures name no artifact, so treat them as unmeasured until one exists** — but unlike most such numbers, this one is recoverable rather than lost, and here is exactly how.
+
+  The commit that added `computeLevel` / `registerLevel` and the array-by-level drain is `94341b2`; before it, `dirtyByLevel` was a `Map<number, Set>` and every node scheduled at the default level 0. The compute benchmark — which runs *"Computed diamond graph"* and *"Computed chain depth=50"*, the two shapes quoted — is byte-identical on both sides of that commit, blob `18b4866` either way. It sits at `packages/core-legacy/bench/effect-computed.bench.ts` today and at `packages/core/bench/effect-computed.bench.ts` at that commit, which is the path to name when checking the two revisions out. So the before/after is `94341b2^` against `94341b2`: one bench file, run twice, with only the scheduler differing. Two caveats for whoever runs it: that bench times the whole `setProperty` + `flush` + effect-delivery loop as updates/sec, not the ordering work on its own, so any percentage it yields is end-to-end on that loop; and it is a single `performance.now()` span with no controls, no repeats and no load gate, which is not the standard [How we measure](/docs/performance/) now holds a published figure to. Until a pair exists under `packages/bench/measurements/`, the sentence this post can defend is the qualitative one: the ordering work moved to construction time, and nothing replaced it at flush time.
 
 ## Cost
 
@@ -50,6 +52,8 @@ Dependencies are fixed. No `get(cond) ? get(a) : get(b)` — a node can't grow o
 
 ## Where it lives
 
-- `packages/core/src/modules/compute/core/OIMComputeRuntime.ts` — `computeLevel` / `registerLevel` / `getLevel`, and the array-by-level drain with pooled sets.
-- `packages/core/src/modules/computed/core/OIMComputed.ts`, `.../effect/core/OIMEffect.ts` — declare deps; level derived from the runtime at construction.
-- `packages/core/src/dx/on.ts`, `.../dx/OIMCollectionKit.ts` — `on.*` + `kit.computed` / `kit.effect` build the static graph without hand-wiring dependencies.
+- `packages/core-legacy/src/modules/compute/core/OIMComputeRuntime.ts` — `computeLevel` / `registerLevel` / `getLevel`, and the array-by-level drain with pooled sets.
+- `packages/core-legacy/src/modules/computed/core/OIMComputed.ts`, `.../effect/core/OIMEffect.ts` — declare deps; level derived from the runtime at construction.
+- `packages/core-legacy/src/dx/on.ts`, `.../dx/OIMCollectionKit.ts` — `on.*` + `kit.computed` / `kit.effect` build the static graph without hand-wiring dependencies.
+
+This is the legacy engine, kept at `packages/core-legacy`. Static dependencies survived the rewrite and the levels did not: the engine shipped today has no compute runtime and no `level`, because a pulled derivation gets its ordering from the walk itself ([the first touch pays for everyone](/blog/first-touch-pays-for-everyone)).

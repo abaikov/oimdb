@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/devtools",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "Debug registry for OIMDB: name collections and indexes, inspect runtime state, assist AI development",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -14,8 +14,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
+  },
+  "oimdbRelease": {
+    "publish": true
   },
   "files": [
     "dist",
@@ -27,11 +33,15 @@
     "dev": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit -p tsconfig.tests.json",
     "prepack": "node -e \"const {copyFileSync}=require('fs');copyFileSync('../../llms.txt','llms.txt');copyFileSync('../../llms-full.txt','llms-full.txt')\"",
     "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
+  "peerDependencies": {
+    "@oimdb/core": "^4.0.0"
+  },
   "devDependencies": {
+    "@oimdb/core": "*",
     "@types/jest": "^29.5.5",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",

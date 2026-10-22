@@ -1,0 +1,172 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 43.30277093791954,
+            "floorNs": 20.28342056274414,
+            "floorAgainNs": 20.358839988708496,
+            "ratio": 2.1348850310512475,
+            "noise": 0.003718279455432836,
+            "oursOperations": 785835,
+            "floorOperations": 1048576,
+            "oursSpread": 0.254597828847084,
+            "floorSpread": 0.3790604017883925,
+            "samples": 9,
+            "warmup": 34,
+            "oursWarmed": 34,
+            "floorWarmed": 34,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 2.70849609375,
+            "peak": 3.6923828125,
+            "readings": 3,
+            "foreignPeak": 2.6923828125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.575695037841797,
+            "floorNs": 20.052495238710094,
+            "floorAgainNs": 19.48360663675393,
+            "ratio": 0.9762224004946843,
+            "noise": 0.029198321058433365,
+            "oursOperations": 2097152,
+            "floorOperations": 1858740,
+            "oursSpread": 0.16512412379563612,
+            "floorSpread": 0.1870945438813599,
+            "samples": 9,
+            "warmup": 25,
+            "oursWarmed": 25,
+            "floorWarmed": 25,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.6923828125,
+            "peak": 3.6923828125,
+            "readings": 3,
+            "foreignPeak": 2.6923828125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.remove-member.unordered-vs-ordered.100",
+            "path": "per row per write",
+            "ours": "a member leaves a bucket of 100 and joins another, membership in a Set (OIMBucketMutatorUnordered)",
+            "floor": "the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)",
+            "caveat": "A BUCKET OF 100, and the size is in the id because the answer is a function of it — that is the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered half: `indexOf` compares m + 1 members and `splice` moves 100 − m − 1 of them, then the settle's `upperBound` spends 7 comparator calls and its splice moves about 100 − m more, where m is the departing member's position. The schedule visits 16 positions evenly spaced over the list (0, 6, 12, … 90), so a pass averages them: about 50 reference compares and about 100 pointer moves per member moved. On the unordered half: one `Set.delete` and one `Set.add`, neither of them a function of the size, and a read that hands the set back as it stands. So the floor should grow in proportion to the bucket and ours should not move — which is the shape the published table asserts and the reason these four rows exist. ONE FLUSH IS SPREAD OVER 64 OPERATIONS, since a frame swaps one band in every lane at once; `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure. WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a grouped index actually takes — `collection.update` on the column the index is filed by, a flush that files it, and a read of every bucket in the frame. The read is not decoration: an index nobody reads is not an index, and on the ordered half it is where the order is settled. Both halves run the identical body; the only difference in the process is which mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the failure this suite has already published a wrong number for: a write whose value equals the value the row holds moves no field, marks nothing and files nothing, and both halves then time an empty frame. Here the row written is in the page it is written OUT of and is given the group of the page it is written INTO, so the value always differs, the address always moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the two members of one band, one in each page of the lane, and the swap exchanges them — which is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they were when the pass started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00 — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is the container difference, are the numbers to read against the published table. (2) The ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a binary search and one more splice — where the published table claims to price removal alone, so the ordered figure here is larger than that column by roughly one memmove of the bucket. (3) Both lists are walked every frame and stay in cache; a real index of this size read once a frame would be colder, which flatters the ordered half most at the largest size. (4) The unordered half is not flat for free either: a `Set` added to and deleted from fills its entry table with tombstones and is rehashed when it fills, which is one pass over the set every capacity-many insertions — an amortised handful of element copies per operation, and the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one page and every position after it would be a lie; so a pass may overshoot the operation count the prober asked for by fewer operations than there are pages, out of the tens of thousands it asks for.",
+            "isControl": false,
+            "oursNs": 214.64075740006882,
+            "floorNs": 448.0660705566406,
+            "floorAgainNs": 448.43418884277344,
+            "ratio": 0.479038185447554,
+            "noise": 0.0008215714385056928,
+            "oursOperations": 156958,
+            "floorOperations": 65536,
+            "oursSpread": 0.11502813451184181,
+            "floorSpread": 0.19388377609421567,
+            "samples": 9,
+            "warmup": 31,
+            "oursWarmed": 31,
+            "floorWarmed": 31,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.63671875,
+            "peak": 3.66552734375,
+            "readings": 3,
+            "foreignPeak": 2.66552734375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.remove-member.unordered-vs-ordered.1k",
+            "path": "per row per write",
+            "ours": "a member leaves a bucket of 1000 and joins another, membership in a Set (OIMBucketMutatorUnordered)",
+            "floor": "the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)",
+            "caveat": "A BUCKET OF 1000, and the size is in the id because the answer is a function of it — that is the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered half: `indexOf` compares m + 1 members and `splice` moves 1000 − m − 1 of them, then the settle's `upperBound` spends 10 comparator calls and its splice moves about 1000 − m more, where m is the departing member's position. The schedule visits 16 positions evenly spaced over the list (0, 62, 124, … 930), so a pass averages them: about 500 reference compares and about 1000 pointer moves per member moved. On the unordered half: one `Set.delete` and one `Set.add`, neither of them a function of the size, and a read that hands the set back as it stands. So the floor should grow in proportion to the bucket and ours should not move — which is the shape the published table asserts and the reason these four rows exist. ONE FLUSH IS SPREAD OVER 64 OPERATIONS, since a frame swaps one band in every lane at once; `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure. WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a grouped index actually takes — `collection.update` on the column the index is filed by, a flush that files it, and a read of every bucket in the frame. The read is not decoration: an index nobody reads is not an index, and on the ordered half it is where the order is settled. Both halves run the identical body; the only difference in the process is which mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the failure this suite has already published a wrong number for: a write whose value equals the value the row holds moves no field, marks nothing and files nothing, and both halves then time an empty frame. Here the row written is in the page it is written OUT of and is given the group of the page it is written INTO, so the value always differs, the address always moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the two members of one band, one in each page of the lane, and the swap exchanges them — which is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they were when the pass started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00 — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is the container difference, are the numbers to read against the published table. (2) The ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a binary search and one more splice — where the published table claims to price removal alone, so the ordered figure here is larger than that column by roughly one memmove of the bucket. (3) Both lists are walked every frame and stay in cache; a real index of this size read once a frame would be colder, which flatters the ordered half most at the largest size. (4) The unordered half is not flat for free either: a `Set` added to and deleted from fills its entry table with tombstones and is rehashed when it fills, which is one pass over the set every capacity-many insertions — an amortised handful of element copies per operation, and the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one page and every position after it would be a lie; so a pass may overshoot the operation count the prober asked for by fewer operations than there are pages, out of the tens of thousands it asks for.",
+            "isControl": false,
+            "oursNs": 338.8193303285414,
+            "floorNs": 1412.1371718882303,
+            "floorAgainNs": 1425.2399205367028,
+            "ratio": 0.2399337239140099,
+            "noise": 0.009278665634835044,
+            "oursOperations": 88969,
+            "floorOperations": 30706,
+            "oursSpread": 0.4643991290327493,
+            "floorSpread": 0.1713008604674182,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.66552734375,
+            "peak": 3.85205078125,
+            "readings": 3,
+            "foreignPeak": 2.85205078125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.remove-member.unordered-vs-ordered.10k",
+            "path": "per row per write",
+            "ours": "a member leaves a bucket of 10000 and joins another, membership in a Set (OIMBucketMutatorUnordered)",
+            "floor": "the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)",
+            "caveat": "A BUCKET OF 10000, and the size is in the id because the answer is a function of it — that is the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered half: `indexOf` compares m + 1 members and `splice` moves 10000 − m − 1 of them, then the settle's `upperBound` spends 14 comparator calls and its splice moves about 10000 − m more, where m is the departing member's position. The schedule visits 16 positions evenly spaced over the list (0, 625, 1250, … 9375), so a pass averages them: about 5000 reference compares and about 10000 pointer moves per member moved. On the unordered half: one `Set.delete` and one `Set.add`, neither of them a function of the size, and a read that hands the set back as it stands. So the floor should grow in proportion to the bucket and ours should not move — which is the shape the published table asserts and the reason these four rows exist. ONE FLUSH IS SPREAD OVER 8 OPERATIONS, since a frame swaps one band in every lane at once; `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure. WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a grouped index actually takes — `collection.update` on the column the index is filed by, a flush that files it, and a read of every bucket in the frame. The read is not decoration: an index nobody reads is not an index, and on the ordered half it is where the order is settled. Both halves run the identical body; the only difference in the process is which mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the failure this suite has already published a wrong number for: a write whose value equals the value the row holds moves no field, marks nothing and files nothing, and both halves then time an empty frame. Here the row written is in the page it is written OUT of and is given the group of the page it is written INTO, so the value always differs, the address always moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the two members of one band, one in each page of the lane, and the swap exchanges them — which is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they were when the pass started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00 — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is the container difference, are the numbers to read against the published table. (2) The ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a binary search and one more splice — where the published table claims to price removal alone, so the ordered figure here is larger than that column by roughly one memmove of the bucket. (3) Both lists are walked every frame and stay in cache; a real index of this size read once a frame would be colder, which flatters the ordered half most at the largest size. (4) The unordered half is not flat for free either: a `Set` added to and deleted from fills its entry table with tombstones and is rehashed when it fills, which is one pass over the set every capacity-many insertions — an amortised handful of element copies per operation, and the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one page and every position after it would be a lie; so a pass may overshoot the operation count the prober asked for by fewer operations than there are pages, out of the tens of thousands it asks for.",
+            "isControl": false,
+            "oursNs": 1533.8783264160156,
+            "floorNs": 10735.55517578125,
+            "floorAgainNs": 11962.259765625,
+            "ratio": 0.14287834222829485,
+            "noise": 0.11426559407110308,
+            "oursOperations": 32768,
+            "floorOperations": 4096,
+            "oursSpread": 3.6965798401878156,
+            "floorSpread": 1.2789458828148306,
+            "samples": 9,
+            "warmup": 20,
+            "oursWarmed": 20,
+            "floorWarmed": 20,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.85205078125,
+            "peak": 4.51513671875,
+            "readings": 3,
+            "foreignPeak": 3.51513671875,
+            "over": true
+        }
+    }
+]

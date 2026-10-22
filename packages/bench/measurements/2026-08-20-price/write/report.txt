@@ -1,0 +1,205 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.87x  38 ns  20 ns   0.3%     ~1.9x  control-resolution-2x
+1.06x  21 ns  20 ns   0.9%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.87x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 6.3% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 6.3% of 1.00 is a reading.
+
+THE PRICES, worst ratio first
+
+    ratio    ours   floor  noise  path               operation
+    38.7x  153 ns    4 ns   5.1%  per write          upsert.whole-row-vs-five-stores
+    34.6x   45 ns    1 ns   0.3%  per write          update.column-vs-field-store
+    11.8x   24 ns    2 ns   0.1%  per write          update.unchanged-vs-field-store
+    8.51x   41 ns    5 ns   0.0%  per write          update.column-vs-tracked-store
+    3.01x   71 ns   24 ns   1.7%  per write          updateByKey.vs-map-get-and-store
+~   2.77x  103 ns   37 ns   1.6%  per write          remove.vs-map-delete
+~   1.99x  122 ns   61 ns   1.7%  per row per write  upsert.insert-vs-map-set
+~L  1.93x  200 ns  104 ns   2.3%  per write          remove.indexed-vs-hand-index
+    1.82x  184 ns  102 ns   2.1%  per write          update.indexed-column-vs-hand-index
+~   1.65x  124 ns   76 ns   4.8%  per row per write  upsert.insert-vs-tracked-store
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+upsert.whole-row-vs-five-stores   [per write]   38.7x
+  ours   collection.upsert(row) — a key that already carries a value
+  floor  copy five columns onto the stored object, one store each
+  THE FLOOR CANNOT EXPRESS ONE HALF OF WHAT UPSERT PROMISES. An upsert of an existing key also
+  REMOVES the columns the new value does not carry, which means walking the stored row to find
+  them; here both rows carry all five columns, so that walk finds nothing and the floor's five
+  stores are the same net effect. Ours additionally gates each column on ===, so only the
+  column that actually moved is written and reported, where the floor writes all five every
+  time. Direction: mixed — the gate saves us four stores and costs us five comparisons plus a
+  moved-list allocation, and the marking and routing are ours alone. Read it beside
+  update.column: the difference between the two is what sending a whole row costs over sending
+  the column that changed.
+  measured  308,938 ops/pass ours, 12,491,350 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 15.0%/12.9%; load 2.74 → 3.08 on 8 cores
+
+update.column-vs-field-store   [per write]   34.6x
+  ours   collection.update(slot, patch) — one column, no index reads it
+  floor  row.title = value
+  THE LOOKUP IS ON NEITHER SIDE — ours holds the slot, the floor holds the object, both
+  resolved outside the clock. That is the comparison this row is for. What ours does that a
+  store cannot: it walks the patch, refuses names a row may not carry, gates each column on
+  ===, builds the list of what moved, stamps the slot and the collection, and asks the
+  dependents map for each moved column so an index could be routed. Direction: inflates our
+  ratio; the tracked row below prices the part of that a person would have had to write
+  anyway. The patch object is REUSED rather than written as a literal per call — a caller who
+  writes { title } inline pays one more allocation per write than this row charges us for. The
+  batch closes with one flush per eight thousand writes, which is why every write in it takes
+  the marking path rather than the already-stamped early return.
+  measured  1,193,120 ops/pass ours, 36,226,500 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 6.6%/23.9%; load 2.52 → 2.56 on 8 cores
+
+update.unchanged-vs-field-store   [per write]   11.8x
+  ours   collection.update(slot, patch) with the value the row already holds
+  floor  row.title = value — a store that always happens
+  THE TWO SIDES DO OPPOSITE THINGS, ON PURPOSE. Ours walks the patch, finds every column
+  equal, returns before marking anything and wakes nobody; the floor stores unconditionally
+  because it has nothing to protect. So this is not "which is faster at the same work" — it is
+  what the comparator gate costs when it fires, against the cheapest possible thing that
+  ignores the question. No flush closes this batch, because nothing was marked and there is
+  nothing for a frame to deliver: that is the point of the row. Direction: inflates our ratio;
+  what the gate buys is that a screen re-sending a server payload it already holds does not
+  repaint.
+  measured  1,730,324 ops/pass ours, 24,081,668 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 10.2%/7.6%; load 2.52 → 2.63 on 8 cores
+
+update.column-vs-tracked-store   [per write]   8.51x
+  ours   collection.update(slot, patch) — one column, no index reads it
+  floor  gate on !==, stamp the row once per frame, queue it, store
+  THE FLOOR NOW DOES THE JOB. It compares before it writes, so a re-send moves nothing; it
+  stamps the row with the frame number so ten writes to one row queue it once; and it queues
+  the row so a frame could deliver it. Four lines. What it still does not do: record WHICH
+  columns moved (so no field-granular subscription is possible), route to an index, or mark
+  the collection separately from the row. Direction: still inflates our ratio, and this is the
+  number to quote when somebody asks what the engine costs over doing it properly by hand.
+  measured  600,899 ops/pass ours, 10,165,464 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 15.1%/6.3%; load 2.56 → 2.56 on 8 cores
+
+updateByKey.vs-map-get-and-store   [per write]   3.01x
+  ours   collection.updateByKey(id, patch)
+  floor  const row = map.get(id); if (row !== undefined) row.title = value
+  THE ONE WRITE ROW WHERE BOTH SIDES PAY THE LOOKUP, which is what makes it the fair
+  comparison for a key that arrived from outside. Ours is one map read and then the identity
+  path priced two rows up; the floor is one map read and a store. The difference between this
+  ratio and the update.column ratio is the price of NOT having held the identity — the
+  engine's own source puts that at 103-132 ns against 36-51, and this row is the independent
+  check on that claim.
+  measured  670,264 ops/pass ours, 1,713,584 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 9.0%/9.7%; load 2.63 → 2.74 on 8 cores
+
+remove.vs-map-delete   [per write]   2.77x
+  ours   collection.remove(slot) — through the identity, no index registered
+  floor  map.delete(id)
+  THE HASH IS ON THE FLOOR'S SIDE ONLY: ours is handed the identity and the floor hashes a
+  string, which flatters us — the removeByKey path is not priced here and would cost us that
+  lookup too. Against that, ours does not free anything at the call: the identity outlives the
+  value, subscribers stay, and the slot is offered to the frame's sweep to be released only if
+  nothing holds it. The flush that closes the batch is where that sweep runs and it is inside
+  the timed body. The floor's row is gone the instant delete returns and nothing can be
+  subscribed to it. Both sides rebuild their population between passes, untimed.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1261 planned, 1261/1261 reached; spread 173.9%/426.1%; load 3.08 → 3.48 on 8 cores
+
+upsert.insert-vs-map-set   [per row per write]   1.99x
+  ours   collection.upsert(row) — a key this population has never seen
+  floor  map.set(row.id, { ...row })
+  THE FLOOR DOES LESS, AND KNOWABLY SO. Ours mints an identity (a sixteen-field slot, a links
+  cell per index, an entry in the identity store), copies the row, walks the copy's own names
+  to refuse the ones a row may not carry, stamps the slot, stamps the collection and records
+  the row on the presence channel so every index and every whole-population reader hears about
+  it. The floor allocates one copy and hashes one string. Direction: this inflates our ratio,
+  and no three-line floor can close the gap — what the extra buys is that anything subscribed
+  to this population, or indexing it, is woken by this insert. The tracked row below is the
+  closest a few lines get. Both sides abandon their container between passes and both are
+  collected outside the clock, so the GC of what each allocated is NOT inside either number;
+  our allocation per row is roughly three objects to the floor's one, and that debt is paid
+  later.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 776 planned, 776/776 reached; spread 80.8%/42.4%; load 2.31 → 2.52 on 8 cores
+
+remove.indexed-vs-hand-index   [per write]   1.93x
+  ours   collection.remove(slot) with one index over `group`
+  floor  map.delete(id) and Set.delete(row) from the group it was in
+  Ours lets go of the membership through the cell the row already carries — no lookup of any
+  kind — where the floor hashes the id and then hashes the group name. That flatters us and is
+  the design being priced: the row knows where it is filed. Against that, ours stamps the
+  bucket so its subscribers are woken, and offers both the row's identity and any bucket left
+  empty to the frame's sweep, which runs inside the flush that closes this batch. The floor
+  leaves an empty Set behind for ever and tells nobody.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 608 planned, 608/608 reached; spread 106.6%/48.8%; load 3.48 → 3.84 on 8 cores
+
+update.indexed-column-vs-hand-index   [per write]   1.82x
+  ours   collection.update(slot, { group }) with one index over `group`
+  floor  delete from the old Set, store the column, add to the new Set
+  THE CLOSEST TO EQUAL WORK IN THIS SUITE, and the caveats are about WHEN rather than whether.
+  Both sides move a row between two unordered groups, and both keep an empty group's
+  container. Ours defers the actual filing to the frame drain, so the flush that closes the
+  batch is where the membership moves — it is inside the timed body and is charged here. Ours
+  additionally: records the row on the column's channel so every index reading `group` is
+  offered it once, stamps both buckets so their subscribers can be woken, and keeps each
+  bucket as a hold-counted identity that can be resolved by address. The floor can be read by
+  iterating it and by nothing else. Direction: inflates our ratio, and what it buys is the
+  only thing on this row that a screen actually needs — a list that repaints itself.
+  measured  255,226 ops/pass ours, 532,872 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 28.8%/11.4%; load 3.08 → 3.08 on 8 cores
+
+upsert.insert-vs-tracked-store   [per row per write]   1.65x
+  ours   collection.upsert(row) — a key this population has never seen
+  floor  map.set(id, copy) into a store that also queues what changed
+  THE FAIRER FLOOR, and it is still not equal. The floor now keeps a per-row frame stamp and a
+  queue, so something downstream could be told — which is the job our insert is doing and the
+  bare Map is not. What the floor still does not have: an identity that outlives the value, a
+  per-index cell on every row, a presence channel that tells indexes and whole-population
+  readers separately from the row itself, or any means of recording WHICH columns moved.
+  Direction: still inflates our ratio, by less than the bare-Map row above. The pair of ratios
+  brackets the truth; neither number alone is it.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 731 planned, 731/731 reached; spread 14.2%/114.3%; load 2.52 → 2.52 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.87x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.06x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

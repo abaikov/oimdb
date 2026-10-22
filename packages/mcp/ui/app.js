@@ -324,7 +324,7 @@ function buildCompRow(name, info) {
 
 function renderHistory(history) {
     if (!history.length) {
-        listHistory.innerHTML = '<div class="empty">No flushes recorded yet.<br>Call <code>registry.trackFlushes(...)</code> in debug.ts.</div>';
+        listHistory.innerHTML = '<div class="empty">No flushes recorded yet.<br>Call <code>oimDevRegistry.trackFlushes(...)</code> in debug.ts.</div>';
         return;
     }
     listHistory.innerHTML = '';

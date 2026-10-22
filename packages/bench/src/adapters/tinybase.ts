@@ -1,518 +1,795 @@
+import { createQueries, createStore } from 'tinybase';
+import type { Ids, Queries, Store } from 'tinybase';
+import type {
+    BenchConsumer,
+    TConsumers,
+    TViewBinding,
+} from '../harness/consumer';
+import { onSecondAxis } from '../harness/dataset';
+import type { TOwner, TPairRow, TPlan, TRow } from '../harness/dataset';
 import {
-    createIndexes,
-    createQueries,
-    createRelationships,
-    createStore,
-} from 'tinybase';
-import type { Store } from 'tinybase';
-import type { TAdapter, TUser } from '../harness/types';
+    deliver,
+    deliverCells,
+    deliverChurn,
+    deliverPage,
+    deliverRelation,
+    deliverSingle,
+    orderedIdsOfRows,
+} from '../harness/render';
+import {
+    chainLevelOf,
+    diamondJoinOf,
+    diamondLeftOf,
+    diamondRightOf,
+} from '../harness/derivations';
+import { churnShapes, noRowStore, readShapes } from '../harness/types';
+import type {
+    TAdapter,
+    TBinding,
+    TCellConfig,
+    TChurnBinding,
+    TReadBinding,
+    TRelationBinding,
+    TRelationConfig,
+    TSingleBinding,
+    TViewConfig,
+} from '../harness/types';
 
-/**
- * Every query row here materialises the rows, not just their ids: `getSliceRowIds` alone returns
- * keys, and comparing that against adapters that hand back entities would credit TinyBase for work
- * it had not done. Rows are also written without copying — `setRow` accepts the source object.
- *
- * Recipe: the TinyBase guides. A `Store` holds keyed rows; `createIndexes` builds and maintains a
- * slice index (including a composite one, via a cell-deriving function); `addRowListener` is the
- * per-row subscription; `transaction` coalesces writes; `createQueries` gives sorted result ids.
- * https://tinybase.org/guides/the-basics/
- * https://tinybase.org/guides/using-indexes/
- * https://tinybase.org/guides/using-queries/
- *
- * TinyBase is the closest thing to oimdb in this list: an in-memory reactive store with maintained
- * indexes and listeners down to the individual row and cell. Nothing here is hand-rolled.
- */
-const buildStore = (users: TUser[]): Store => {
+/** One table, keyed by the row id. TinyBase's row id IS the primary key. */
+const TABLE = 'rows';
+// A TinyBase store holds several tables, which is what lets a second entity type be a
+// second table rather than more columns on the first. The rest: `tinybase.md`.
+const OWNERS_TABLE = 'owners';
+const PAIRS_TABLE = 'pairs';
+
+const ORDER_CELL = 'order';
+const RANK_OFFSET = 1e15;
+
+// Ranks are integers inside ±1e15, so offset and padded the string sorts as `compareRows` does.
+const orderKeyOf = (rank: number, rowId: string): string =>
+    `${String(rank + RANK_OFFSET).padStart(16, '0')} ${rowId}`;
+
+const transactionFrameOf =
+    (store: Store) =>
+    (run: () => void): void => {
+        store.transaction(run);
+    };
+
+type TCellWrites = Pick<TBinding, 'remove' | 'patchLabel' | 'patchNote' | 'setGroup' | 'setRank'>;
+
+// One TinyBase transaction per write call; inside a frame's it nests. The rest: `tinybase.md`.
+const transactedStoreOf = () => {
     const store = createStore();
-    store.transaction(() => {
-        for (const u of users) store.setRow('users', u.id, u);
+    const setCell = (rowId: string, cellId: string, value: string | number): void => {
+        store.setCell(TABLE, rowId, cellId, value);
+    };
+    const cellWrites: TCellWrites = {
+        remove: ids =>
+            store.transaction(() => {
+                for (let i = 0; i < ids.length; i++) store.delRow(TABLE, ids[i]);
+            }),
+        patchLabel: (id, label) => setCell(id, 'label', label),
+        patchNote: (id, note) => setCell(id, 'note', note),
+        setGroup: (id, group) => setCell(id, 'group', group),
+        // Kept a number: the sort is on this cell, and a string here would order
+        // 1000 before 200.
+        setRank: (id, rank) => setCell(id, 'rank', rank),
+    };
+    return { store, setCell, cellWrites, frame: transactionFrameOf(store) };
+};
+
+// The STORE's table, cell by cell — never a query result. The rest: `tinybase.md`.
+const rowsOf = (store: Store): TRow[] =>
+    Object.entries(store.getTable(TABLE)).map(([id, row]) => ({ ...row, id }) as TRow);
+
+// A query — TinyBase's own grouping structure, so a genuine second witness: a
+// `where('group', …)` that lost a row on a `setCell`, or kept one a group move took
+// out, parts from the model here. The rest: `tinybase.md`.
+const groupOrderOf = (queries: Queries, group: string): readonly string[] => {
+    queries.setQueryDefinition('audit', TABLE, ({ select, where }) => {
+        select('rank');
+        where('group', group);
     });
-    return store;
+    const groupRows = Object.entries(queries.getResultTable('audit')).map(
+        ([id, row]): TRow => ({ id, group, rank: row.rank as number, label: '', note: '' })
+    );
+    queries.delQueryDefinition('audit');
+    return orderedIdsOfRows(groupRows);
+};
+
+type TWindowView = {
+    queryId: string;
+    consumer: BenchConsumer;
+    /** The window's row ids, in TinyBase's order. Owned by its listener. */
+    ids: Ids;
+    shapeListener: string;
+    /** Set by the shape listener: the window's ids may have moved. */
+    shapeMoved: boolean;
+    /** Some listener of this view fired since the last render. */
+    pending: boolean;
+    /** Content listener id by row id, one per row currently in the window. */
+    watching: Map<string, string>;
+    // Row holders, allocated once and overwritten. The rest: `tinybase.md`.
+    pool: TRow[];
+    visible: TRow[];
+};
+
+const windowViewOf = (queryId: string, group: string, consumer: BenchConsumer, window: number): TWindowView => ({
+    queryId,
+    consumer,
+    ids: [],
+    shapeListener: '',
+    shapeMoved: false,
+    pending: false,
+    watching: new Map(),
+    pool: Array.from({ length: window }, () => ({ id: '', group, rank: 0, label: '', note: '' })),
+    visible: [],
+});
+
+// TinyBase maintains the sorted, windowed id list itself, so the adapter never sorts the
+// group's 200 rows to find its first 32 — and this is the only thing that can tell the
+// content subscriptions they now point at the wrong rows, hence `shapeMoved` and not just
+// `pending`. The rest: `tinybase.md`.
+const watchShape = (queries: Queries, state: TWindowView, from: number, window: number): void => {
+    state.shapeListener = queries.addResultSortedRowIdsListener(
+        state.queryId,
+        ORDER_CELL,
+        false,
+        from,
+        window,
+        (_queries, _tableId, _cellId, _descending, _offset, _limit, sortedRowIds) => {
+            state.ids = sortedRowIds;
+            state.shapeMoved = true;
+            state.pending = true;
+        }
+    );
+};
+
+const unwatchRows = (queries: Queries, state: TWindowView): void => {
+    for (const listenerId of state.watching.values()) queries.delListener(listenerId);
+    state.watching.clear();
+};
+
+const rewatchRows = (queries: Queries, state: TWindowView, upto: number): void => {
+    const ids = state.ids;
+    for (const [rowId, listenerId] of state.watching) {
+        const at = ids.indexOf(rowId);
+        if (at !== -1 && at < upto) continue;
+        queries.delListener(listenerId);
+        state.watching.delete(rowId);
+    }
+    for (let i = 0; i < upto; i++) {
+        if (state.watching.has(ids[i])) continue;
+        state.watching.set(
+            ids[i],
+            queries.addResultRowListener(state.queryId, ids[i], () => {
+                state.pending = true;
+            })
+        );
+    }
+};
+
+// The same read, plus the content subscriptions moved onto the rows the window
+// shows NOW; a row that stays keeps its listener. The rest: `tinybase.md`.
+const renderWindow = (queries: Queries, state: TWindowView, window: number): void => {
+    const ids = state.ids;
+    const upto = ids.length < window ? ids.length : window;
+    state.visible.length = 0;
+    for (let i = 0; i < upto; i++) {
+        const holder = state.pool[i];
+        holder.id = ids[i];
+        // TinyBase cells are `string | number | boolean`; the store validated these two
+        // on the way in, so the runtime shape is known where the type is not.
+        holder.rank = queries.getResultCell(state.queryId, ids[i], 'rank') as number;
+        holder.label = queries.getResultCell(state.queryId, ids[i], 'label') as string;
+        state.visible.push(holder);
+    }
+    if (!state.shapeMoved) return;
+    state.shapeMoved = false;
+    rewatchRows(queries, state, upto);
+};
+
+// Recipe: `createQueries` — TinyBase's own derived-table primitive, one query per view,
+// with the window read through `addResultSortedRowIdsListener`. The rest:
+// `tinybase.md`.
+const bindViews = (
+    bindings: readonly TViewBinding[],
+    view: TViewConfig
+): TBinding => {
+    const { store, setCell, cellWrites, frame } = transactedStoreOf();
+    const queries = createQueries(store);
+
+    // ONE QUERY PER VIEW — two, or fifty. TinyBase maintains every query's result table
+    // on write; what stays narrow is the DELIVERY, because a listener only fires for a
+    // result that changed. The rest: `tinybase.md`.
+    const views = bindings.map(bound => {
+        queries.setQueryDefinition(bound.group, TABLE, ({ select, where }) => {
+            // Exactly the columns the consumer reads; `note` is LEFT OUT so a
+            // write to it cannot reach a listener.
+            select('rank');
+            select('label');
+            select((getTableCell, rowId) => orderKeyOf(getTableCell('rank') as number, rowId)).as(ORDER_CELL);
+            where('group', bound.group);
+        });
+        const state = windowViewOf(bound.group, bound.group, bound.consumer, view.window);
+        watchShape(queries, state, 0, view.window);
+        return state;
+    });
+
+    // THE CELL WIRING, empty until `pin`. The rest: `tinybase.md`.
+    const cellListenerIds: string[] = [];
+    let cells: TCellConfig = { ids: [], ranks: [] };
+    const labelText: string[] = [];
+    const noteText: string[] = [];
+    let labelPending = false;
+    let notePending = false;
+
+    /** Read back through `getCell` — the store's own accessor. */
+    const renderCells = (column: 'label' | 'note', consumer: BenchConsumer, text: string[]): void => {
+        for (let i = 0; i < cells.ids.length; i++) text[i] = store.getCell(TABLE, cells.ids[i], column) as string;
+        deliverCells(consumer, cells, text);
+    };
+
+    return {
+        ...cellWrites,
+        // `setRow` for every row, whatever the store holds; the row id is the key
+        // and not a cell. The rest: `tinybase.md`.
+        write: rows =>
+            store.transaction(() => {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    store.setRow(TABLE, row.id, { group: row.group, rank: row.rank, label: row.label, note: row.note });
+                }
+            }),
+        // The window wiring goes: both sorted-row-id listeners, every per-row result
+        // listener, and the query DEFINITIONS. The rest: `tinybase.md`.
+        pin: config => {
+            for (const state of views) {
+                unwatchRows(queries, state);
+                queries.delListener(state.shapeListener);
+                // A query TinyBase still holds is a result table it maintains on every
+                // write, and this row must not be charged for two derived tables nothing
+                // renders. The rest: `tinybase.md`.
+                queries.delQueryDefinition(state.queryId);
+            }
+            views.length = 0;
+            cells = config;
+            for (let i = 0; i < config.ids.length; i++) {
+                cellListenerIds.push(
+                    store.addCellListener(TABLE, config.ids[i], 'label', () => {
+                        labelPending = true;
+                    }),
+                    store.addCellListener(TABLE, config.ids[i], 'note', () => {
+                        notePending = true;
+                    })
+                );
+            }
+            // Untimed: the state every sample starts from.
+            renderCells('label', bindings[0].consumer, labelText);
+            renderCells('note', bindings[1].consumer, noteText);
+        },
+        patchPinnedLabel: (at, label) => setCell(cells.ids[at], 'label', label),
+        patchPinnedNote: (at, note) => setCell(cells.ids[at], 'note', note),
+        frame,
+        settle: () => {
+            // The cell views, if `pin` installed any: each is rendered only when its
+            // OWN cell listener fired. The rest: `tinybase.md`.
+            if (labelPending) {
+                labelPending = false;
+                renderCells('label', bindings[0].consumer, labelText);
+            }
+            if (notePending) {
+                notePending = false;
+                renderCells('note', bindings[1].consumer, noteText);
+            }
+            for (let i = 0; i < views.length; i++) {
+                const state = views[i];
+                if (!state.pending) continue;
+                state.pending = false;
+                renderWindow(queries, state, view.window);
+                deliver(state.consumer, state.visible, view.window);
+            }
+        },
+        readAll: () => rowsOf(store),
+        deliverableRows: () => undefined,
+        groupOrder: group => groupOrderOf(queries, group),
+        dispose: () => {
+            // The load scenario rebuilds from empty between samples, so a
+            // teardown that left 64 result-row listeners standing would hand the
+            // next timed region subscribers still being told about writes.
+            for (const state of views) {
+                unwatchRows(queries, state);
+                queries.delListener(state.shapeListener);
+            }
+            for (const listenerId of cellListenerIds) store.delListener(listenerId);
+            queries.destroy();
+            store.delTables();
+        },
+    };
+};
+
+const resultTextOf = (queries: Queries, queryId: string, rowId: string, cellId: string): string =>
+    (queries.getResultCell(queryId, rowId, cellId) as string) ?? '';
+
+// The same table and the same cells, and no queries but the ones a chain subscriber
+// builds for itself, because a query TinyBase still holds is a result table it
+// maintains on every write. The rest: `tinybase.md`.
+const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
+    const { store, cellWrites, frame } = transactedStoreOf();
+    const queries = createQueries(store);
+
+    let churnIds: readonly string[] = [];
+    const churnRead: (string | undefined)[] = [];
+    /** Per subscriber: what gives its listeners and queries back. */
+    const mounted: ((() => void) | undefined)[] = [];
+    let churnWoke = 0;
+    let churnId = '';
+    let churnRank = 0;
+
+    /** Read back through the store's own accessor. */
+    const labelAt = (at: number): string =>
+        (store.getCell(TABLE, churnIds[at], 'label') as string) ?? '';
+
+    const unmount = (at: number): void => {
+        mounted[at]?.();
+        mounted[at] = undefined;
+        churnRead[at] = undefined;
+    };
+
+    return {
+        ...cellWrites,
+        write: rows =>
+            store.transaction(() => {
+                for (let i = 0; i < rows.length; i++) store.setRow(TABLE, rows[i].id, rows[i]);
+            }),
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        frame,
+        // Every write's transaction has finished by now, and finishing is what runs
+        // TinyBase's listeners, the result listeners of chained queries included.
+        settle: () => {
+            if (churnWoke === 0) return;
+            deliverChurn(churnConsumer, churnId, churnRank, churnWoke, churnRead);
+            churnWoke = 0;
+        },
+        readAll: () => rowsOf(store),
+        deliverableRows: () => undefined,
+        groupOrder: () => undefined,
+        /** NOTHING TO RESOLVE: the id is the handle — see the window wiring's `pin`. */
+        holdChurnRows: (ids, ranks) => {
+            churnIds = ids;
+            churnId = ids[0];
+            churnRank = ranks[0];
+            for (let i = 0; i < ids.length; i++) churnRead[i] = undefined;
+        },
+        mountOnRows: (at, from, count) => {
+            const listeners: string[] = new Array(count);
+            for (let i = 0; i < count; i++) {
+                listeners[i] = store.addRowListener(TABLE, churnIds[from + i], () => {
+                    churnWoke++;
+                    churnRead[at] = labelAt(from);
+                });
+            }
+            mounted[at] = () => {
+                for (let i = 0; i < listeners.length; i++) store.delListener(listeners[i]);
+            };
+            churnRead[at] = labelAt(from);
+        },
+        mountOnColumn: at => {
+            const listener = store.addCellListener(TABLE, churnIds[0], 'label', () => {
+                churnWoke++;
+                churnRead[at] = labelAt(0);
+            });
+            mounted[at] = () => store.delListener(listener);
+            churnRead[at] = labelAt(0);
+        },
+        // THE CHAIN IS QUERIES FROM QUERIES: a root query over the subscriber's rows,
+        // then `depth - 1` queries each rooted on the result of the one below, and a
+        // result cell listener on the head. The rest: `tinybase.md`.
+        mountOnChain: (at, from, count, depth) => {
+            const roots = new Set(churnIds.slice(from, from + count));
+            const queryIds: string[] = new Array(depth);
+            queryIds[0] = `chain:${at}:0`;
+            queries.setQueryDefinition(queryIds[0], TABLE, ({ select, where }) => {
+                select('group');
+                select('rank');
+                select('note');
+                select(getTableCell => chainLevelOf(getTableCell('label') as string, 1)).as('label');
+                where(getTableCell => roots.has(getTableCell('id') as string));
+            });
+            for (let level = 2; level <= depth; level++) {
+                queryIds[level - 1] = `chain:${at}:${level - 1}`;
+                queries.setQueryDefinition(queryIds[level - 1], true, queryIds[level - 2], ({ select }) => {
+                    select(getTableCell => chainLevelOf(getTableCell('label') as string, level)).as('label');
+                });
+            }
+            const headId = queryIds[depth - 1];
+            const firstId = churnIds[from];
+            const listener = queries.addResultCellListener(headId, firstId, 'label', () => {
+                churnWoke++;
+                churnRead[at] = resultTextOf(queries, headId, firstId, 'label');
+            });
+            churnRead[at] = resultTextOf(queries, headId, firstId, 'label');
+            mounted[at] = () => {
+                queries.delListener(listener);
+                for (let level = depth - 1; level >= 0; level--) queries.delQueryDefinition(queryIds[level]);
+            };
+        },
+        mountOnDiamond: (at, from) => {
+            const rowId = churnIds[from];
+            const leftId = `diamond:${at}:left`;
+            const rightId = `diamond:${at}:right`;
+            const joinId = `diamond:${at}:join`;
+            queries.setQueryDefinition(leftId, TABLE, ({ select, where }) => {
+                select(getTableCell => diamondLeftOf(getTableCell('label') as string)).as('left');
+                where('id', rowId);
+            });
+            queries.setQueryDefinition(rightId, TABLE, ({ select, where }) => {
+                select(getTableCell => diamondRightOf(getTableCell('label') as string)).as('right');
+                where('id', rowId);
+            });
+            queries.setQueryDefinition(joinId, true, leftId, ({ select, join }) => {
+                join(true, rightId, (_getCell, leftRowId) => leftRowId);
+                select(getTableCell =>
+                    diamondJoinOf(getTableCell('left') as string, getTableCell(true, rightId, 'right') as string)
+                ).as('join');
+            });
+            const listener = queries.addResultCellListener(joinId, rowId, 'join', () => {
+                churnWoke++;
+                churnRead[at] = resultTextOf(queries, joinId, rowId, 'join');
+            });
+            churnRead[at] = resultTextOf(queries, joinId, rowId, 'join');
+            mounted[at] = () => {
+                queries.delListener(listener);
+                for (const queryId of [joinId, rightId, leftId]) queries.delQueryDefinition(queryId);
+            };
+        },
+        unmount,
+        dispose: () => {
+            for (let at = 0; at < mounted.length; at++) unmount(at);
+            queries.destroy();
+            store.delTables();
+        },
+    };
+};
+
+// THE SECOND PREDICATE IS TINYBASE'S OWN `where(callback)`, reading the row's `id`
+// cell: the axis is derived from the key and the key is stored as a cell, so the filter
+// runs inside the query rather than over its result. The rest: `tinybase.md`.
+const bindReadStore = (
+    consumers: TConsumers,
+    view: TViewConfig,
+    plan: TPlan
+): TReadBinding => {
+    const { store, cellWrites, frame } = transactedStoreOf();
+    const queries = createQueries(store);
+
+    queries.setQueryDefinition(
+        'paged',
+        TABLE,
+        ({ select, where, param }) => {
+            select('rank');
+            select('label');
+            select((getTableCell, rowId) => orderKeyOf(getTableCell('rank') as number, rowId)).as(ORDER_CELL);
+            where('group', param('group') as string);
+        },
+        { group: view.groupA }
+    );
+    queries.setQueryDefinition('onAxis', TABLE, ({ select, where }) => {
+        select('rank');
+        select('label');
+        select((getTableCell, rowId) => orderKeyOf(getTableCell('rank') as number, rowId)).as(ORDER_CELL);
+        where('group', view.groupA);
+        // The second axis, inside the query: the row's own `id` cell decides it.
+        where(getCell => onSecondAxis(getCell('id') as string));
+    });
+
+    const paged = windowViewOf('paged', view.groupA, consumers.a, view.window);
+    const onAxis = windowViewOf('onAxis', view.groupA, consumers.b, view.window);
+    watchShape(queries, paged, 0, view.window);
+    watchShape(queries, onAxis, 0, view.window);
+    /** Reused only by the pull. */
+    const found: TRow[] = [];
+
+    // THE LISTENER IS SWAPPED FOR ONE AT THE NEW OFFSET and the page asked for. Nothing
+    // is written, nothing is re-ordered: `getResultSortedRowIds` reads the ordering the
+    // query already maintains.
+    const pageAt = (offset: number): void => {
+        queries.delListener(paged.shapeListener);
+        watchShape(queries, paged, offset, view.window);
+        paged.ids = queries.getResultSortedRowIds('paged', ORDER_CELL, false, offset, view.window);
+        paged.shapeMoved = true;
+        paged.pending = true;
+    };
+
+    return {
+        ...cellWrites,
+        write: rows =>
+            store.transaction(() => {
+                for (let i = 0; i < rows.length; i++) store.setRow(TABLE, rows[i].id, rows[i]);
+            }),
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        // TWO `getCell` READS PER KEY — the two columns the page renders, against the
+        // STORE and not a query result; a missing row answers `undefined`. Nothing is
+        // resolved in advance.
+        readKeys: (from, count) => {
+            const keys = plan.readKeys;
+            found.length = 0;
+            for (let i = 0; i < count; i++) {
+                const rowId = keys[from + i];
+                const rank = store.getCell(TABLE, rowId, 'rank');
+                if (rank === undefined) continue;
+                found.push({
+                    id: rowId,
+                    group: '',
+                    rank: rank as number,
+                    label: store.getCell(TABLE, rowId, 'label') as string,
+                    note: '',
+                });
+            }
+            deliverPage(consumers.a, found, 0, count);
+        },
+        scrollTo: to => pageAt(to),
+        // `setParamValue` re-runs the definition over the new group.
+        switchGroup: group => {
+            queries.setParamValue('paged', 'group', group);
+            pageAt(0);
+        },
+        frame,
+        settle: () => {
+            for (const state of [paged, onAxis]) {
+                if (!state.pending) continue;
+                state.pending = false;
+                renderWindow(queries, state, view.window);
+                deliverPage(state.consumer, state.visible, 0, view.window);
+            }
+        },
+        readAll: () => rowsOf(store),
+        deliverableRows: () => undefined,
+        /** A query of its own, for the reason the window wiring gives. */
+        groupOrder: group => groupOrderOf(queries, group),
+        dispose: () => {
+            for (const state of [paged, onAxis]) {
+                unwatchRows(queries, state);
+                queries.delListener(state.shapeListener);
+            }
+            found.length = 0;
+            queries.destroy();
+            store.delTables();
+        },
+    };
+};
+
+// TWO ENTITY TYPES — THREE TABLES in one TinyBase store, the shape the library is built
+// around. The rest: `tinybase.md`.
+const bindRelationStore = (consumers: TConsumers): TRelationBinding => {
+    const { store, cellWrites, frame } = transactedStoreOf();
+
+    let config: TRelationConfig = { ids: [], ranks: [], owners: [], touched: [], names: [], seeds: [] };
+    /** The pair table's row ids, in `ids` order — composed once, for the render. */
+    const pairIds: string[] = [];
+    const listenerIds: string[] = [];
+    const nameText: string[] = [];
+    const markText: string[] = [];
+    let namesPending = false;
+    let marksPending = false;
+
+    const pairKey = (owner: string, row: string): string => `${owner} ${row}`;
+
+    const renderNames = (): void => {
+        for (let i = 0; i < config.ids.length; i++) {
+            nameText[i] = (store.getCell(OWNERS_TABLE, config.owners[i], 'name') as string) ?? '';
+        }
+        deliverRelation(consumers.a, config, nameText);
+    };
+
+    const renderMarks = (): void => {
+        for (let i = 0; i < pairIds.length; i++) {
+            markText[i] = (store.getCell(PAIRS_TABLE, pairIds[i], 'mark') as string) ?? '';
+        }
+        deliverRelation(consumers.b, config, markText);
+    };
+
+    return {
+        ...cellWrites,
+        write: rows =>
+            store.transaction(() => {
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    store.setRow(TABLE, row.id, { group: row.group, rank: row.rank, label: row.label, note: row.note });
+                }
+            }),
+        frame,
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        writeOwners: owners =>
+            store.transaction(() => {
+                for (let i = 0; i < owners.length; i++) store.setRow(OWNERS_TABLE, owners[i].id, { name: owners[i].name });
+            }),
+        // THE PAIR RECORDS AT THEIR SEEDS AND THE TWELVE CELL LISTENERS. The rest:
+        // `tinybase.md`.
+        holdRelation: given => {
+            config = given;
+            store.transaction(() => {
+                for (let i = 0; i < given.ids.length; i++) {
+                    const key = pairKey(given.owners[i], given.ids[i]);
+                    pairIds.push(key);
+                    // The two halves of the address are CELLS of the record, so the
+                    // audit can read back where the store put it.
+                    store.setRow(PAIRS_TABLE, key, { owner: given.owners[i], row: given.ids[i], mark: given.seeds[i] });
+                }
+            });
+            for (let at = 0; at < given.touched.length; at++) {
+                listenerIds.push(
+                    store.addCellListener(OWNERS_TABLE, given.touched[at], 'name', () => {
+                        namesPending = true;
+                    })
+                );
+            }
+            for (let i = 0; i < pairIds.length; i++) {
+                listenerIds.push(
+                    store.addCellListener(PAIRS_TABLE, pairIds[i], 'mark', () => {
+                        marksPending = true;
+                    })
+                );
+            }
+            renderNames();
+            renderMarks();
+        },
+        // ONE CELL WRITE in the owners table: only that owner's `name` listener can
+        // fire, and the pair table is not touched at all.
+        patchOwnerName: (at, name) => {
+            store.setCell(OWNERS_TABLE, config.touched[at], 'name', name);
+        },
+        // COMPOSE THE ADDRESS AND WRITE THE CELL AT IT. The string is built fresh every
+        // call: caching eight of them would make the row a measurement of an array
+        // read.
+        writePair: (at, mark) => {
+            store.setCell(PAIRS_TABLE, pairKey(config.owners[at], config.ids[at]), 'mark', mark);
+        },
+        // Every write's transaction has finished by now, and finishing is what runs
+        // TinyBase's listeners, so the flags below are set by the time they are read.
+        settle: () => {
+            if (namesPending) {
+                namesPending = false;
+                renderNames();
+            }
+            if (marksPending) {
+                marksPending = false;
+                renderMarks();
+            }
+        },
+        readAll: () => rowsOf(store),
+        deliverableRows: () => undefined,
+        groupOrder: () => undefined,
+        readOwners: () =>
+            Object.entries(store.getTable(OWNERS_TABLE)).map(([id, owner]): TOwner => ({ id, name: owner.name as string })),
+        // EVERY PAIR RECORD, WITH THE ADDRESS READ OUT OF ITS OWN CELLS and not out of
+        // the row id — the row id is this file's own composition, so answering from it
+        // would make the audit agree with whatever the composition did.
+        readPairs: () => Object.values(store.getTable(PAIRS_TABLE)) as TPairRow[],
+        dispose: () => {
+            for (let i = 0; i < listenerIds.length; i++) store.delListener(listenerIds[i]);
+            store.delTables();
+        },
+    };
+};
+
+
+/* ── one value, one subscriber, and a second value beside it ───────────── */
+
+// VALUES AND NOT A TABLE, and this is the one adapter in the report whose library ships
+// the task as a first-class thing: TinyBase's Values are keyed scalars beside its
+// Tables, `setValue`/`getValue` write and read one, and `addValueListener(valueId, …)`
+// subscribes to one. The rest: `tinybase.md`.
+const bindSingleStore = (consumers: TConsumers): TSingleBinding => {
+    const store = createStore();
+    const listeners: string[] = [];
+    let name = '';
+    let bystanderName = '';
+    let read = '';
+    let readBystander = '';
+    let woke = false;
+    let wokeBystander = false;
+
+    const valueOf = (id: string): string => (store.getValue(id) as string) ?? '';
+
+    return {
+        ...noRowStore('tinybase'),
+        holdSingle: config => {
+            name = config.name;
+            bystanderName = config.bystander;
+            store.setValue(name, config.seeds[0]);
+            store.setValue(bystanderName, config.seeds[1]);
+            read = config.seeds[0];
+            readBystander = config.seeds[1];
+            listeners.push(
+                store.addValueListener(name, () => {
+                    read = valueOf(name);
+                    woke = true;
+                }),
+                store.addValueListener(bystanderName, () => {
+                    readBystander = valueOf(bystanderName);
+                    wokeBystander = true;
+                })
+            );
+            deliverSingle(consumers.a, name, read);
+            deliverSingle(consumers.b, bystanderName, readBystander);
+        },
+        writeSingle: next => {
+            store.setValue(name, next);
+        },
+        frame: transactionFrameOf(store),
+        readSingle: () => valueOf(name),
+        readBystander: () => valueOf(bystanderName),
+        // A bare `setValue` is its own transaction, so every listener has
+        // already run; what is left is the frame boundary.
+        settle: () => {
+            if (woke) {
+                woke = false;
+                deliverSingle(consumers.a, name, read);
+            }
+            if (wokeBystander) {
+                wokeBystander = false;
+                deliverSingle(consumers.b, bystanderName, readBystander);
+            }
+        },
+        dispose: () => {
+            for (let i = 0; i < listeners.length; i++) store.delListener(listeners[i]);
+            listeners.length = 0;
+        },
+    };
 };
 
 export const tinybaseAdapter: TAdapter = {
     name: 'tinybase',
-    version: '9.3.0',
-    docs: 'https://tinybase.org/guides/using-indexes/',
+    version: '10.0.1',
+    docs: 'https://tinybase.org/guides/using-queries/',
+    departure:
+        'a sorted result sorts on ONE cell, so each view query selects a calculated cell joining a ' +
+        'fixed-width rank to the row id and TinyBase sorts and windows on that; the read and churn ' +
+        'wirings also store the row id as a cell, because a where callback is handed no row id and ' +
+        'the second axis and the chain\'s root rows are both predicates on it. Each chain subscriber ' +
+        'builds its own root query, which TinyBase evaluates over the whole table at mount, and each ' +
+        'diamond subscriber builds two such root queries and a third rooted on the left result that ' +
+        'joins the right one by row id. A view switch re-runs the paged query\'s definition through ' +
+        'setParamValue. On the ' +
+        'wide shape it registers a row listener per churn row it is asked for and each body reads ' +
+        'the first of them alone.',
+    admission:
+        'the row values live in a TinyBase Store\'s cells and the change signal is the library\'s ' +
+        'own — addResultSortedRowIdsListener and addResultRowListener on a query, ' +
+        'addResultCellListener on the head of a chain of queries and on the join of a diamond, ' +
+        'addCellListener on a cell — all ' +
+        'called by TinyBase when the transaction finishes; the adapter keeps no values of its own.',
 
-    /** TABLE — `createQueries` keeps the filtered result and hands back sorted ids for the page. */
-    taskTable: (users, interactions) => {
-        const store = buildStore(users);
-        const queriesApi = createQueries(store);
-        for (let t = 0; t < 50; t++) {
-            queriesApi.setQueryDefinition(`team${t}`, 'users', ({ select, where }) => {
-                select('name');
-                where('teamId', `t${t}`);
-            });
-        }
-        let page: unknown[] = [];
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    const offset = (i % 5) * 20;
-                    page = queriesApi
-                        .getResultSortedRowIds(`team${i % 50}`, 'name', false, offset, 20)
-                        .map(id => store.getRow('users', id));
-                }
-            },
-            verify: () => page.length === 20,
-            result: () => page.length,
-        };
+    reads: readShapes((consumers, view, plan) =>
+        bindReadStore(consumers, view, plan)
+    ),
+    churn: churnShapes(consumers => bindChurnStore(consumers.a)),
+    relations: {
+        build: consumers => bindRelationStore(consumers),
+        absent: '',
+    },
+    single: {
+        build: consumers => bindSingleStore(consumers),
+        absent: '',
     },
 
-    /** FEED PUSH — per-row listeners and a single `transaction` for the whole push. */
-    taskFeedPush: users => {
-        const store = buildStore(users);
-        const visible = users.slice(0, 200);
-        let woken = 0;
-        for (const u of visible) store.addRowListener('users', u.id, () => woken++);
-        const pushed = [...users.slice(0, 12), ...users.slice(5_000, 5_988)];
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.transaction(() => {
-                    for (const u of pushed) {
-                        store.setCell('users', u.id, 'name', `push-${n}`);
-                    }
-                    n++;
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /** DETAIL CARD — an index for the comments; the caption is assembled on read. */
-    taskDetailCard: (users, comments, updates) => {
-        const store = buildStore(users);
-        store.transaction(() => {
-            for (const c of comments) store.setRow('comments', c.id, c);
-        });
-        const relationships = createRelationships(store);
-        relationships.setRelationshipDefinition(
-            'commentUser',
-            'comments',
-            'users',
-            'userId'
-        );
-        const pk = users[0].id;
-        let sink = '';
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    store.setCell('users', pk, 'name', `n${n++}`);
-                    const rows = relationships
-                        .getLocalRowIds('commentUser', pk)
-                        .map(id => store.getRow('comments', id));
-                    sink = `${store.getCell('users', pk, 'name') as string} — ${rows.length} comments`;
-                }
-            },
-            verify: () => sink.includes('comments'),
-        };
-    },
-
-    /**
-     * FACET SEARCH — `createQueries` keeps a maintained result table per combination, which is
-     * TinyBase's memoising primitive; a revisited filter pair is answered from it rather than
-     * re-derived, matching what the other adapters do with a computed / derived atom / live query.
-     */
-    taskFacetSearch: (users, interactions) => {
-        const store = buildStore(users);
-        const queriesApi = createQueries(store);
-        for (let t = 0; t < 10; t++) {
-            for (const active of [true, false]) {
-                queriesApi.setQueryDefinition(
-                    `facet${t}:${active}`,
-                    'users',
-                    ({ select, where }) => {
-                        select('name');
-                        where('teamId', `t${t}`);
-                        where('active', active);
-                    }
-                );
-            }
-        }
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    size = queriesApi.getResultRowIds(
-                        `facet${i % 10}:${Math.floor(i / 10) % 2 === 0}`
-                    ).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    load: users => {
-        let store: Store;
-        return {
-            setup: () => {
-                store = createStore();
-            },
-            run: () => {
-                // One transaction, rows written straight from the source array — no reshaping step
-                // billed to the library and none hidden in setup either.
-                store.transaction(() => {
-                    for (const u of users) store.setRow('users', u.id, u);
-                });
-            },
-            verify: () => store.getRowIds('users').length === users.length,
-        };
-    },
-
-    readByPk: (users, reads) => {
-        const store = buildStore(users);
-        const pk = users[users.length >> 1].id;
-        let sink: unknown;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < reads; i++) sink = store.getRow('users', pk);
-            },
-            verify: () => Boolean(sink),
-        };
-    },
-
-    pointUpdate: users => {
-        const store = buildStore(users);
-        let woken = 0;
-        for (const u of users) {
-            store.addRowListener('users', u.id, () => woken++);
-        }
-        const target = users[users.length >> 1].id;
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.setCell('users', target, 'name', `n${n++}`);
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    queryColdByField: (users, queries) => {
-        const store = buildStore(users);
-        const indexes = createIndexes(store);
-        indexes.setIndexDefinition('byTeam', 'users', 'teamId');
-        const churn = users[0].id;
-        let size = 0;
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    store.setCell('users', churn, 'name', `n${n++}`);
-                    size = indexes
-                        .getSliceRowIds('byTeam', `t${i % 50}`)
-                        .map(id => store.getRow('users', id)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    queryHotByField: (users, queries) => {
-        const store = buildStore(users);
-        const indexes = createIndexes(store);
-        indexes.setIndexDefinition('byTeam', 'users', 'teamId');
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = indexes
-                        .getSliceRowIds('byTeam', `t${i % 50}`)
-                        .map(id => store.getRow('users', id)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * CACHED: `createQueries` keeps a result table and maintains it on write, so a repeated read is
-     * served from that table rather than re-running the query — TinyBase's own memoising primitive,
-     * the counterpart to an `OIMComputed`.
-     * https://tinybase.org/guides/using-queries/
-     */
-    queryCachedByField: (users, queries) => {
-        const store = buildStore(users);
-        const queriesApi = createQueries(store);
-        for (let t = 0; t < 50; t++) {
-            queriesApi.setQueryDefinition(`team${t}`, 'users', ({ select, where }) => {
-                select('name');
-                where('teamId', `t${t}`);
-            });
-        }
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = queriesApi.getResultRowIds(`team${i % 50}`).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * Keys only — TinyBase's NATIVE shape: its list guides render from row ids and let each row read
-     * its own cells. `createQueries` keeps the result table maintained, so a repeated read is served
-     * from it rather than re-derived, which matches the memoised read every other adapter gets here.
-     */
-    queryHotKeysOnly: (users, queries) => {
-        const store = buildStore(users);
-        const queriesApi = createQueries(store);
-        for (let t = 0; t < 50; t++) {
-            queriesApi.setQueryDefinition(`ids${t}`, 'users', ({ select, where }) => {
-                select('name');
-                where('teamId', `t${t}`);
-            });
-        }
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = queriesApi.getResultRowIds(`ids${i % 50}`).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * `createQueries` keeps a maintained result table per combination — TinyBase's memoising
-     * primitive, and the right counterpart to everyone else's cached path.
-     */
-    facetedFilter: (users, queries) => {
-        const store = buildStore(users);
-        const queriesApi = createQueries(store);
-        for (let t = 0; t < 50; t++) {
-            for (const active of [true, false]) {
-                queriesApi.setQueryDefinition(
-                    `f${t}:${active}`,
-                    'users',
-                    ({ select, where }) => {
-                        select('name');
-                        where('teamId', `t${t}`);
-                        where('active', active);
-                    }
-                );
-            }
-        }
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = queriesApi
-                        .getResultRowIds(
-                            `f${i % 50}:${Math.floor(i / 50) % 2 === 0}`
-                        )
-                        .map(id => store.getRow('users', id)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    relatedLookup: (users, comments, queries) => {
-        const store = createStore();
-        store.transaction(() => {
-            for (const c of comments) store.setRow('comments', c.id, c);
-        });
-        // `createRelationships` is TinyBase's dedicated primitive for "the rows pointing at this
-        // row" and is ~20x faster here than the general slice index: 0.10 ms vs 2.06 ms per 1,000
-        // lookups. Using the index instead would have measured the wrong tool.
-        const relationships = createRelationships(store);
-        relationships.setRelationshipDefinition(
-            'commentUser',
-            'comments',
-            'users',
-            'userId'
-        );
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = relationships
-                        .getLocalRowIds('commentUser', `u${i % users.length}`)
-                        .map(id => store.getRow('comments', id)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * computedChain: absent, and this is a measured finding rather than an omission. TinyBase has no
-     * composable derived-scalar primitive — its derived structures (Indexes, Metrics, Relationships,
-     * Queries) are all table-shaped. The only way to chain scalars is listeners writing Values, and
-     * that cascade stops after two hops: a mutator listener triggered by another mutator listener's
-     * write never fires. Verified directly — level1 and level2 settle, level3 stays undefined on
-     * every write, in either registration order. A three-level chain is therefore not expressible.
-     * https://tinybase.org/guides/the-basics/using-values/
-     */
-
-    effectDispatch: users => {
-        const store = buildStore(users);
-        let ran = 0;
-        for (const u of users) store.addRowListener('users', u.id, () => ran++);
-        const target = users[users.length >> 1].id;
-        let n = 0;
-        return {
-            setup: () => {
-                ran = 0;
-            },
-            run: () => {
-                store.setCell('users', target, 'name', `n${n++}`);
-            },
-            verify: () => ran > 0,
-            ran: () => ran,
-        };
-    },
-
-    batchUpdate: users => {
-        const store = buildStore(users);
-        let woken = 0;
-        for (const u of users) store.addRowListener('users', u.id, () => woken++);
-        const slice = users.slice(0, Math.max(1, users.length / 10));
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.transaction(() => {
-                    for (const u of slice) {
-                        store.setCell('users', u.id, 'name', `n${n}`);
-                    }
-                    n++;
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /** `transaction` is TinyBase's coalescing unit: listeners fire once per row when it commits. */
-    burstCoalescing: (users, rewrites) => {
-        const store = buildStore(users);
-        let woken = 0;
-        const hot = users.slice(0, 100);
-        for (const u of hot) store.addRowListener('users', u.id, () => woken++);
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.transaction(() => {
-                    for (let r = 0; r < rewrites; r++) {
-                        for (const u of hot) {
-                            store.setCell('users', u.id, 'name', `n${n}`);
-                        }
-                        n++;
-                    }
-                });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    subscriptionChurn: (users, rows) => {
-        const store = buildStore(users);
-        let ids: string[] = [];
-        let offset = 0;
-        const subscribe = (from: number) =>
-            users
-                .slice(from, from + rows)
-                .map(u => store.addRowListener('users', u.id, () => undefined));
-        return {
-            setup: () => {
-                for (const id of ids) store.delListener(id);
-                ids = subscribe(0);
-                offset = 0;
-            },
-            run: () => {
-                for (const id of ids) store.delListener(id);
-                offset = (offset + rows) % (users.length - rows);
-                ids = subscribe(offset);
-            },
-            verify: () => ids.length === rows,
-        };
-    },
-
-    /**
-     * Queries maintain a result table and hand back sorted row ids — TinyBase's own answer to an
-     * ordered list, so no sorting is hand-rolled here.
-     * https://tinybase.org/api/queries/interfaces/queries/queries/methods/result/getresultsortedrowids/
-     */
-    orderedInsert: (users, inserts) => {
-        let store: Store;
-        let queries: ReturnType<typeof createQueries>;
-        let size = 0;
-        return {
-            setup: () => {
-                store = buildStore(users);
-                queries = createQueries(store);
-                queries.setQueryDefinition('team0', 'users', ({ select, where }) => {
-                    select('name');
-                    where('teamId', 't0');
-                });
-            },
-            run: () => {
-                for (let i = 0; i < inserts; i++) {
-                    store.setRow('users', `new-${i}`, {
-                        id: `new-${i}`,
-                        teamId: 't0',
-                        name: `name-0000${i % 10}`,
-                        active: true,
-                    });
-                    size = queries
-                        .getResultSortedRowIds('team0', 'name', false)
-                        .map(id => store.getRow('users', id)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    memoryForEntities: users => ({
-        build: () => ({ store: buildStore(users) }),
-    }),
-
-    memoryForSubscriptions: users => ({
-        build: () => {
-            const store = buildStore(users);
-            const ids = users.map(u =>
-                store.addRowListener('users', u.id, () => undefined)
-            );
-            return { store, ids };
-        },
-    }),
+    bind: (consumers, view) =>
+        bindViews(
+            [
+                { group: view.groupA, consumer: consumers.a },
+                { group: view.groupB, consumer: consumers.b },
+            ],
+            view
+        ),
+    // The same body, handed fifty views instead of two: the builders differ by
+    // the view list and by nothing else, so this row compares libraries rather
+    // than wirings.
+    bindPerGroup: (consumers, view) => bindViews(consumers.views, view),
 };

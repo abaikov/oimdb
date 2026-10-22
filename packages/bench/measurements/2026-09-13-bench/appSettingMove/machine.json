@@ -1,0 +1,21 @@
+{
+    "cpu": "Apple M1",
+    "cores": 8,
+    "arch": "arm64",
+    "platform": "darwin",
+    "release": "25.2.0",
+    "totalMemoryGb": 16,
+    "node": "v20.19.2",
+    "maxForeignLoad": 25,
+    "gateWasRaised": true,
+    "experiment": {
+        "harness": "d602ae30d940f86d",
+        "subject": "d21c75178673678f",
+        "libraries": "e2d393add63d2262",
+        "node": "v20.19.2",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+    },
+    "scenarioPieces": 2,
+    "hasMemoryPiece": false
+}

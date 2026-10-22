@@ -1,0 +1,112 @@
+{
+  "format": 2,
+  "point": {
+    "key": "default",
+    "n": 10000,
+    "window": 32,
+    "processes": 1
+  },
+  "scenario": "scrollWindow",
+  "plan": {
+    "repeat": 120,
+    "samples": 5,
+    "warmup": 50
+  },
+  "probes": [
+    {
+      "name": "baseline-array",
+      "runMs": 0.9215
+    },
+    {
+      "name": "baseline-indexed",
+      "runMs": 0.165459
+    },
+    {
+      "name": "oimdb",
+      "runMs": 0.112625
+    },
+    {
+      "name": "oimdb-3.12.1",
+      "runMs": 0.0615
+    },
+    {
+      "name": "tinybase",
+      "runMs": 0.849084
+    },
+    {
+      "name": "signaldb",
+      "runMs": 8.139208
+    },
+    {
+      "name": "tanstack-db-eager",
+      "runMs": 0.337125
+    },
+    {
+      "name": "tanstack-db-indexed",
+      "runMs": 0.346792
+    },
+    {
+      "name": "lokijs",
+      "runMs": 0.030125
+    },
+    {
+      "name": "mobx",
+      "runMs": 1.688458
+    },
+    {
+      "name": "jotai",
+      "runMs": 0.754417
+    },
+    {
+      "name": "legend-state",
+      "runMs": 3.581583
+    },
+    {
+      "name": "effector",
+      "runMs": 0.129042
+    },
+    {
+      "name": "nanostores",
+      "runMs": 0.115833
+    },
+    {
+      "name": "redux-toolkit",
+      "runMs": 0.142042
+    },
+    {
+      "name": "preact-signals",
+      "runMs": 0.109583
+    },
+    {
+      "name": "alien-signals",
+      "runMs": 0.115584
+    },
+    {
+      "name": "zustand",
+      "runMs": 0.188875
+    },
+    {
+      "name": "valtio",
+      "runMs": 0.883542
+    },
+    {
+      "name": "xstate-store",
+      "runMs": 0.109792
+    },
+    {
+      "name": "vue-reactivity",
+      "runMs": 0.122584
+    },
+    {
+      "name": "solid-js",
+      "runMs": 0.172542
+    },
+    {
+      "name": "tanstack-store",
+      "runMs": 0.1345
+    }
+  ],
+  "probeFailures": [],
+  "probedAt": "2026-10-18T12:11:12.418Z",
+  "harness": "38bebce7a9f213bc"
+}

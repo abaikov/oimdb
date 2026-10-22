@@ -1,0 +1,98 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.94x  38 ns  20 ns   0.7%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.5%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.94x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.0% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.0% of 1.00 is a reading, and no
+  claim inside 0.1% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+   ratio   ours  floor  noise  path       operation
+   3.97x  19 ns   5 ns   0.2%  per write  update.column-vs-tracked-store
+~  3.89x  19 ns   5 ns   0.8%  per write  update.entity-column-vs-tracked-store
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+update.column-vs-tracked-store   [per write]   3.97x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  gate on !==, stamp the row once per frame, queue it, store
+  THE FLOOR NOW DOES THE JOB. It compares before it writes, so a re-send moves nothing; it
+  stamps the row with the frame number so ten writes to one row queue it once; and it queues
+  the row so a frame could deliver it. Four lines. What it still does not do: record WHICH
+  columns moved (so no field-granular subscription is possible), route to an index, or mark
+  the collection separately from the row. Direction: still inflates our ratio, and this is the
+  number to quote when somebody asks what the engine costs over doing it properly by hand.
+  measured  1,908,168 ops/pass ours, 5,142,431 floor; 9 samples; warm-up 32 planned, 32/32 reached; spread 5.3%/5.4%; load 3.83 → 3.92 on 8 cores
+
+update.entity-column-vs-tracked-store   [per write]   3.89x
+  ours   collection.updateEntityColumn(slot, 'title', value) — one column, no index reads it
+  floor  gate on !==, stamp the row once per frame, queue it, store
+  The same floor as update.column-vs-tracked-store, against the column door: no patch object
+  and no walk over it. Both sides hand over one value per write and queue each entity at most
+  once per frame.
+  measured  2,565,167 ops/pass ours, 10,157,258 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 77.5%/8.1%; load 3.77 → 3.77 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.94x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

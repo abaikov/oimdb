@@ -1,0 +1,922 @@
+{
+  "format": 2,
+  "cells": {
+    "baseline-array": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "baseline-array"
+      },
+      "fingerprint": {
+        "harness": "f8846e1efd74fc0e",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-21T09:02:59.623Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "baseline-array",
+          "oimdb",
+          "preact-signals",
+          "alien-signals"
+        ],
+        "startedAt": "2026-10-21T09:02:59.623Z",
+        "seconds": 81.357,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 3.3720703125,
+          "peak": 5.63427734375,
+          "readings": 30,
+          "foreignPeak": 2.63427734375,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6250244137931036,
+          "heavyMin": 7.365810344827586,
+          "gap": 1.0319339965824532,
+          "drift": 0.2764565033694823,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.605478448275862,
+            "gap": -0.005391954173569109,
+            "drift": 0.049331016158293085,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35743244827586207,
+          "drift": 0.13675533192141154
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 3.6692112068965517,
+        "processMins": [
+          3.6692112068965517,
+          3.8214008620689657,
+          4.053676724137931
+        ],
+        "drift": 0.10478151721513017,
+        "lost": 0,
+        "spread": 0.04141013113548546,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 40,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 32,
+          "distinct": 0,
+          "redundant": 32
+        },
+        "ratioToAnchor": 10.265467571832477
+      },
+      "measuredAt": "2026-10-21T09:04:20.980Z"
+    },
+    "oimdb": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "oimdb"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "8e38b6a0334dc11c",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-22T17:00:59.609Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "oimdb",
+          "oimdb-sorted-index"
+        ],
+        "startedAt": "2026-10-22T17:00:59.609Z",
+        "seconds": 60.759,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 5.54736328125,
+          "peak": 5.54736328125,
+          "readings": 22,
+          "foreignPeak": 2.54736328125,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6822427931034487,
+          "heavyMin": 7.35034051724138,
+          "gap": 0.9961585724352532,
+          "drift": 0.022482474862747733,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.6345459655172414,
+            "gap": -0.012953200064791955,
+            "drift": 0.02928910164209378,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35875575862068965,
+          "drift": 0.034838609343000364
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.1337313448275862,
+        "processMins": [
+          0.1337313448275862,
+          0.13567672413793103,
+          0.14085486206896553
+        ],
+        "drift": 0.053267371614062205,
+        "lost": 0,
+        "spread": 0.10904930600697395,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.3727643155938287
+      },
+      "measuredAt": "2026-10-22T17:02:00.368Z"
+    },
+    "oimdb-3.12.1": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "oimdb-3.12.1"
+      },
+      "fingerprint": {
+        "harness": "316e21080fd09879",
+        "adapter": "561cf8b869ffa66f",
+        "subject": "e6938ade924a0448",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-18T13:26:29.665Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-array",
+          "baseline-indexed",
+          "oimdb",
+          "oimdb-3.12.1",
+          "preact-signals",
+          "alien-signals"
+        ],
+        "startedAt": "2026-10-18T13:26:29.665Z",
+        "seconds": 83.581,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 5.80224609375,
+          "peak": 5.80224609375,
+          "readings": 34,
+          "foreignPeak": 2.80224609375,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.669350586206897,
+          "heavyMin": 7.37868824137931,
+          "gap": 1.0108975874684276,
+          "drift": 0.016317571893993254,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.660188206896552,
+            "gap": -0.0024970029696225328,
+            "drift": 0.01481791849909887,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 3.682800275862069,
+          "drift": 0.008419857947674091
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.14941955172413796,
+        "processMins": [
+          0.14941955172413796,
+          0.14960775862068967,
+          0.1580488275862069
+        ],
+        "drift": 0.05775198601854004,
+        "lost": 0,
+        "spread": 0.02890495565945159,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.04057226581182491
+      },
+      "measuredAt": "2026-10-18T13:27:53.246Z"
+    },
+    "mobx": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "mobx"
+      },
+      "fingerprint": {
+        "harness": "38bebce7a9f213bc",
+        "adapter": "58197aa18b3cade8",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "mobx": "7.0.6"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-18T12:06:51.963Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 1
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-array",
+          "oimdb",
+          "oimdb-3.12.1",
+          "mobx",
+          "zustand"
+        ],
+        "startedAt": "2026-10-18T12:06:51.963Z",
+        "seconds": 59.532,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 1,
+          "start": 3.24853515625,
+          "peak": 3.89453125,
+          "readings": 38,
+          "foreignPeak": 2.89453125,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.647353448275862,
+          "heavyMin": 7.35801724137931,
+          "gap": 1.0173578858548828,
+          "drift": 0,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.655285931034483,
+            "gap": 0.0021748599007783754,
+            "drift": 0,
+            "resolved": true
+          }
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 3.718926724137931,
+          "drift": 0
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.31643103448275867,
+        "processMins": [
+          0.31643103448275867
+        ],
+        "drift": 0,
+        "lost": 0,
+        "spread": 0.05520438075518974,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.0850866548213878
+      },
+      "measuredAt": "2026-10-18T12:07:51.495Z"
+    },
+    "zustand": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "zustand"
+      },
+      "fingerprint": {
+        "harness": "38bebce7a9f213bc",
+        "adapter": "c72fadbd20f9c150",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "zustand": "5.0.15"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-18T12:06:51.963Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 1
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-array",
+          "oimdb",
+          "oimdb-3.12.1",
+          "mobx",
+          "zustand"
+        ],
+        "startedAt": "2026-10-18T12:06:51.963Z",
+        "seconds": 59.532,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 1,
+          "start": 3.24853515625,
+          "peak": 3.89453125,
+          "readings": 38,
+          "foreignPeak": 2.89453125,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.647353448275862,
+          "heavyMin": 7.35801724137931,
+          "gap": 1.0173578858548828,
+          "drift": 0,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.655285931034483,
+            "gap": 0.0021748599007783754,
+            "drift": 0,
+            "resolved": true
+          }
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 3.718926724137931,
+          "drift": 0
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 71.17193820689654,
+        "processMins": [
+          71.17193820689654
+        ],
+        "drift": 0,
+        "lost": 0,
+        "spread": 0.1004551291071418,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 3,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 19.137762985473884
+      },
+      "measuredAt": "2026-10-18T12:07:51.495Z"
+    },
+    "baseline-indexed": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "baseline-indexed"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-22T17:00:59.609Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "oimdb",
+          "oimdb-sorted-index"
+        ],
+        "startedAt": "2026-10-22T17:00:59.609Z",
+        "seconds": 60.759,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 5.54736328125,
+          "peak": 5.54736328125,
+          "readings": 22,
+          "foreignPeak": 2.54736328125,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6822427931034487,
+          "heavyMin": 7.35034051724138,
+          "gap": 0.9961585724352532,
+          "drift": 0.022482474862747733,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.6345459655172414,
+            "gap": -0.012953200064791955,
+            "drift": 0.02928910164209378,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35875575862068965,
+          "drift": 0.034838609343000364
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.35875575862068965,
+        "processMins": [
+          0.35875575862068965,
+          0.35912499999999997,
+          0.3712543103448276
+        ],
+        "drift": 0.034838609343000364,
+        "lost": 0,
+        "spread": 0.036184256371902986,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1
+      },
+      "measuredAt": "2026-10-22T17:02:00.368Z"
+    },
+    "preact-signals": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "preact-signals"
+      },
+      "fingerprint": {
+        "harness": "f8846e1efd74fc0e",
+        "adapter": "b7a75d6a8b063d4d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@preact/signals-core": "1.14.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-21T09:02:59.623Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "baseline-array",
+          "oimdb",
+          "preact-signals",
+          "alien-signals"
+        ],
+        "startedAt": "2026-10-21T09:02:59.623Z",
+        "seconds": 81.357,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 3.3720703125,
+          "peak": 5.63427734375,
+          "readings": 30,
+          "foreignPeak": 2.63427734375,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6250244137931036,
+          "heavyMin": 7.365810344827586,
+          "gap": 1.0319339965824532,
+          "drift": 0.2764565033694823,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.605478448275862,
+            "gap": -0.005391954173569109,
+            "drift": 0.049331016158293085,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35743244827586207,
+          "drift": 0.13675533192141154
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.14448848275862067,
+        "processMins": [
+          0.14448848275862067,
+          0.2194956896551724,
+          0.22862355172413792
+        ],
+        "drift": 0.5822960235942921,
+        "lost": 0,
+        "spread": 0.3049404247946264,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.40423997165222725
+      },
+      "measuredAt": "2026-10-21T09:04:20.980Z"
+    },
+    "alien-signals": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "alien-signals"
+      },
+      "fingerprint": {
+        "harness": "f8846e1efd74fc0e",
+        "adapter": "a7431c13b27c31f5",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "alien-signals": "3.2.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-21T09:02:59.623Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "baseline-array",
+          "oimdb",
+          "preact-signals",
+          "alien-signals"
+        ],
+        "startedAt": "2026-10-21T09:02:59.623Z",
+        "seconds": 81.357,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 3.3720703125,
+          "peak": 5.63427734375,
+          "readings": 30,
+          "foreignPeak": 2.63427734375,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6250244137931036,
+          "heavyMin": 7.365810344827586,
+          "gap": 1.0319339965824532,
+          "drift": 0.2764565033694823,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.605478448275862,
+            "gap": -0.005391954173569109,
+            "drift": 0.049331016158293085,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35743244827586207,
+          "drift": 0.13675533192141154
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.14441093103448274,
+        "processMins": [
+          0.14441093103448274,
+          0.1712341724137931,
+          0.1729971379310345
+        ],
+        "drift": 0.19795043693559375,
+        "lost": 0,
+        "spread": 0.19317479310120048,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.40402300275499364
+      },
+      "measuredAt": "2026-10-21T09:04:20.980Z"
+    },
+    "oimdb-sorted-index": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "patchColumn",
+        "adapter": "oimdb-sorted-index"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "8e38b6a0334dc11c",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 29,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--patchColumn--2026-10-22T17:00:59.609Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "patchColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "control-write",
+          "baseline-indexed",
+          "oimdb",
+          "oimdb-sorted-index"
+        ],
+        "startedAt": "2026-10-22T17:00:59.609Z",
+        "seconds": 60.759,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 5.54736328125,
+          "peak": 5.54736328125,
+          "readings": 22,
+          "foreignPeak": 2.54736328125,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 3.6822427931034487,
+          "heavyMin": 7.35034051724138,
+          "gap": 0.9961585724352532,
+          "drift": 0.022482474862747733,
+          "resolved": true,
+          "fine": {
+            "writeMin": 3.6345459655172414,
+            "gap": -0.012953200064791955,
+            "drift": 0.02928910164209378,
+            "resolved": false
+          }
+        },
+        "anchor": {
+          "name": "baseline-indexed",
+          "min": 0.35875575862068965,
+          "drift": 0.034838609343000364
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.13418675862068966,
+        "processMins": [
+          0.13418675862068966,
+          0.14200144827586206,
+          0.15005889655172416
+        ],
+        "drift": 0.11828393571902894,
+        "lost": 0,
+        "spread": 0.016329017509307656,
+        "repeat": 29,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 32,
+          "distinct": 32,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 0.3740337413303086
+      },
+      "measuredAt": "2026-10-22T17:02:00.368Z"
+    }
+  }
+}

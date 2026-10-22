@@ -1,0 +1,74 @@
+---
+sidebar_position: 2
+title: Scenario tables
+---
+
+import BenchScenarioTables from '@site/src/components/Bench/BenchScenarioTables';
+import BenchMemory from '@site/src/components/Bench/BenchMemory';
+
+# Scenario tables
+
+One table per scenario and operating point, assembled from the stored cells. Rows are
+ordered by their ratio to the anchor. `#n` means the row is separated from **every** row
+above it by more than the larger drift of the two (for two rows from different
+batches, by more than the larger of *row drift + its batch's anchor drift*). `≈` means
+this machine did not establish where it belongs.
+
+`renders A / B` is distinct renders over deliveries for the two views. If a library
+woke a consumer without changing what it shows, the difference counts as redundant
+deliveries, which are counted, not hidden.
+
+<BenchScenarioTables />
+
+## What each store holds
+
+The other half of the trade, in bytes: `heapUsed` after the whole `default` population has
+been written and both views delivered, minus the heap before `bind()`, both after two
+forced collections. There is one process and one reading per participant, so no drift and no rank.
+A store that keeps indexes pays for them here; one that derives by rescanning holds little
+and pays in the tables above. Each worker loads only its own library, so the baseline is
+the harness and nothing else.
+
+<BenchMemory />
+
+## What one mechanism holds
+
+Bytes retained per row or per derivation, measured by `npm run retained` in `packages/bench`:
+the same population built in separate processes without the mechanism, with it, and without it
+again, and the heap difference (`v8.getHeapStatistics().used_heap_size`, after forced collections)
+divided by the row count. A positive number is what the mechanism costs. Nothing here is a timing.
+
+Measured 2026-10-22 on node v24.16.0, Apple M1, 8 cores, 100,000 rows per row of the table.
+
+| what is measured | per | bytes | in references | engine |
+|---|---|---:|---:|---|
+| a settled, held derivation (`OIMComputedService`, fan-in 3, value a number) over 100,000 entities | derivation | 333.06 B | 41.65 | current core |
+| an array of 3 per-source readings beside each derivation: the per-slot clock, modelled, not shipped | derivation | 79.95 B | 10.00 | current core |
+| the entities themselves: two strings, one number, two shared strings per row | row | 171.91 B | 21.50 | `core-legacy` |
+| `detectExternalMutations: true` against `false`: a shallow snapshot per key, its map, and a cleared `Set`'s capacity | row | 100.79 B | 12.61 | `core-legacy` |
+
+**How to read it.**
+
+- **What the derivation row includes.** The slot and its fields (the two global clock stamps
+  among them), the array of its three source references, its entry in the service's `Map`, one
+  reference in the array holding it, and its numeric value. It does not include the entities,
+  which are the same on both sides of the subtraction.
+- **What it does not cover.** A derivation with a different fan-in, or one whose value is a list
+  (`createOIMComputedServiceBucketMemo`), is a different figure: the source array grows with the
+  fan-in, and a list is dominated by its own array.
+- **The per-slot readings row is a model.** It prices the arm of the clock fork that does not
+  ship, so it is the cost the shipped global stamps avoid, about a quarter of a derivation
+  (79.95 / 333.06).
+- **The two legacy rows.** They weigh `OIMCollectionChangedFields` in `packages/core-legacy`,
+  not this engine. Read together, the snapshot option adds 100.79 B to rows that hold
+  171.91 B on this row shape. A shape with more bytes behind its references moves the entity
+  row up and leaves the snapshot row where it is.
+
+**What the instrument was checked against, in the same run.**
+
+- **Bytes per reference.** A pre-sized array of 1,048,576 references measured 8.00 B per
+  reference, and one of 131,072 measured 7.96 B. That is the uncompressed answer: this build has
+  no pointer compression.
+- **"In references".** That column is the per-row figure divided by 8.00 B.
+- **Noise floor.** The same 100,000-row population built twice, in two processes, came out
+  64 B apart. No difference smaller than 64 B is a reading.

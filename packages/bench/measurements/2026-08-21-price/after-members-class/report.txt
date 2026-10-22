@@ -1,0 +1,100 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 3.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.93x  37 ns  19 ns   2.1%     ~1.9x  control-resolution-2x
+0.99x  19 ns  19 ns   0.3%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.93x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.5% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.5% of 1.00 is a reading.
+
+THE PRICES, worst ratio first
+
+   ratio    ours  floor  noise  path              operation
+~   366x  263 ns   1 ns   0.1%  per relationship  all.vs-holding-an-array
+   35.3x  261 ns   7 ns   0.2%  per relationship  groups.resolve-vs-map-get
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+all.vs-holding-an-array   [per relationship]   366x
+  ours   all(collection) — the whole population as one live membership
+  floor  the array of rows, held
+  THE INDEX IS DECLARED ONCE AND SHARED, so what is priced here is the SECOND call onwards:
+  the memo lookup, the check that the index is still filed, the sole bucket resolved by
+  address, and this caller's own hold on it with the observable that carries the release. The
+  floor is a variable read and is at the resolution limit of this harness, so treat the
+  absolute nanoseconds as the reading and the ratio as an upper bound. What ours buys: the
+  membership is maintained by the engine, can be subscribed to, and can be handed to
+  `db.computed`. This body never detaches, so the hold is never given back and that decrement
+  is not charged to us.
+  measured  96,465 ops/pass ours, 65,910,124 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 31.3%/0.8%; load 3.82 → 3.91 on 8 cores
+
+groups.resolve-vs-map-get   [per relationship]   35.3x
+  ours   groupBy(collection, ['group'])('group-7') — resolve a group to a live handle
+  floor  byGroup.get('group-7')
+  THE MOST UNEQUAL PAIR IN THIS SUITE, and it is on the table because the engine's own
+  documentation says "resolved ONCE — hold it", so the row is what IGNORING that advice costs.
+  Ours resolves the bucket, takes a hold on it so the frame sweep cannot drop it underneath
+  the caller, and builds an observable — a getter closure, a subscribe closure, a detach
+  closure and the object they hang on. Five allocations against a hash. The floor hands back a
+  container that can be iterated and cannot be subscribed to, cannot be handed to
+  `db.computed`, and will be the WRONG container the moment somebody rebuilds it. Direction:
+  inflates our ratio enormously, and it is a real number for anybody who writes this inside a
+  render body. This body never calls `detach()`, so the hold count grows and is never given
+  back — that is one decrement we do not charge ourselves for. The resolve underneath goes
+  through `bucketFor`, so this body pays that call's last-resolved memo and never collects on
+  it: cycling sixty-four addresses means a miss every time. See `bucketFor.vs-map-get` and the
+  grouped-run row beside it for what that costs and what it is worth when a batch arrives in
+  the order the memo was written for.
+  measured  97,701 ops/pass ours, 3,388,059 floor; 9 samples; warm-up 39 planned, 39/39 reached; spread 11.3%/6.9%; load 3.28 → 3.82 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.93x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.99x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

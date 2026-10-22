@@ -1,0 +1,987 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 99.00   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.95x  37 ns  19 ns   0.2%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   1.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.95x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.1% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.1% of 1.00 is a reading, and no
+  claim inside 0.2% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+   ratio      ours    floor  noise  path              operation
+   33.8x  90.90 µs  2.69 µs   2.0%  per relationship  graph.subscription.build.d64
+   30.7x  10.37 µs   338 ns   0.2%  per relationship  graph.subscription.build.d8
+   21.3x     42 ns     2 ns   0.1%  per write         graph.dependencies.inactive-branch.s3
+   19.3x     38 ns     2 ns   0.0%  per write         graph.dependencies-tracked.inactive-branch.s3
+   16.5x   1.13 µs    69 ns   4.1%  per relationship  graph.subscription.build.d1
+   3.91x   3.87 µs   988 ns   0.7%  per frame         graph.derived-collection.bulk-unread-column.n128
+   2.66x    277 ns   104 ns   0.5%  per frame         graph.coalescing.batched.k16
+   2.30x    193 ns    84 ns   0.1%  per frame         graph.revision-clock.batched-writes.d1
+   2.30x  12.31 µs  5.36 µs   0.3%  per frame         graph.derived-collection.bulk-read-column.n128
+   1.98x     56 ns    28 ns   0.2%  per write         graph.dependencies-tracked.reads-per-run.r1
+   1.77x     47 ns    26 ns   0.7%  per frame         graph.coalescing-tracked.unbatched.k1
+   1.71x     73 ns    42 ns   1.0%  per write         graph.subscription-tracked.run.d1
+   1.70x     49 ns    29 ns   0.4%  per write         graph.dependencies.reads-per-run.r1
+   1.58x     67 ns    43 ns   1.2%  per write         graph.dependencies-tracked.reads-per-run.r2
+~  1.47x     62 ns    42 ns   0.9%  per write         graph.subscription.run.d1
+   1.47x     55 ns    38 ns   0.3%  per frame         graph.scroll-window.k1
+   1.35x     35 ns    26 ns   0.1%  per write         graph.delivery.write-and-flush-without-effect
+~  1.34x     36 ns    27 ns   0.8%  per frame         graph.coalescing.unbatched.k1
+   1.33x    354 ns   267 ns   0.7%  per frame         graph.revision-clock.batched-writes.d8
+~  1.10x    239 ns   218 ns   2.9%  per write         graph.subscription-tracked.run.d8
+   1.06x    232 ns   219 ns   0.3%  per write         graph.subscription.run.d8
+   1.02x   1.59 µs  1.56 µs   0.8%  per frame         graph.revision-clock.batched-writes.d64
+   0.98x   1.47 µs  1.49 µs   0.2%  per write         graph.subscription-tracked.run.d64
+=  0.98x     43 ns    44 ns   2.5%  per write         graph.dependencies.reads-per-run.r2
+   0.96x    101 ns   105 ns   1.3%  per frame         graph.coalescing-tracked.unbatched.k4
+~  0.96x     25 ns    26 ns   0.2%  per write         graph.delivery.write-and-effect-run-without-flush
+   0.94x     67 ns    72 ns   1.4%  per write         graph.dependencies-tracked.reads-per-run.r4
+~  0.92x   1.46 µs  1.58 µs   5.5%  per write         graph.subscription.run.d64
+   0.86x     23 ns    26 ns   0.4%  per write         graph.delivery.write-only
+   0.80x     83 ns   103 ns   0.1%  per frame         graph.coalescing.unbatched.k4
+   0.76x     85 ns   113 ns   0.0%  per write         graph.dependencies-tracked.reads-per-run.r8
+   0.67x    282 ns   420 ns   0.1%  per frame         graph.coalescing.unbatched.k16
+   0.67x     18 ns    27 ns   1.3%  per write         graph.delivery.write-with-another-column-held
+~  0.67x    283 ns   423 ns   0.6%  per frame         graph.coalescing-tracked.unbatched.k16
+~  0.65x    101 ns   155 ns   0.3%  per frame         graph.scroll-window.k4
+   0.65x     47 ns    72 ns   0.1%  per write         graph.dependencies.reads-per-run.r4
+   0.64x    128 ns   200 ns   0.0%  per write         graph.dependencies-tracked.reads-per-run.r16
+   0.50x     57 ns   114 ns   1.6%  per write         graph.dependencies.reads-per-run.r8
+   0.48x    618 ns  1.28 µs   0.6%  per write         graph.dependencies-tracked.reads-per-run.r128
+   0.43x     85 ns   198 ns   0.9%  per write         graph.dependencies.reads-per-run.r16
+   0.33x    417 ns  1.27 µs   0.1%  per write         graph.dependencies.reads-per-run.r128
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+graph.subscription.build.d64   [per relationship]   33.8x
+  ours   64 new OIMSingleComputed in a chain, createEffectImmediate over the head, disposeEffect, channel.flush()
+  floor  64 alien computed() in a chain, effect() over the head, then its dispose()
+  ONE OPERATION IS ONE MOUNT AND UNMOUNT: create a chain of 64 derived nodes over a standing
+  root, create one effect over the head and run it once (which reads the whole chain), then
+  dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
+  measured as what subscribing costs. Ours constructs an OIMSingleComputed per node (an object
+  with its own owner and value services), mints its slot, holds its sources, merges the root
+  list the effect subscribes to and subscribes the effect to the root and the head; disposal
+  unsubscribes, and the flush that ends the operation releases every node, which unholds its
+  sources down the chain. Alien-signals allocates one closure-backed node per computed and
+  links dependencies as the first run reads them; disposing the effect unlinks it and each
+  computed left without subscribers unlinks its own dependencies. EXPECTED DIRECTION [FIGURE
+  STATED IN ADVANCE]: ours above alien at every depth, because ours pays for a declared, held,
+  stamped graph up front, which is what the matching run rows are meant to pay back. Read this
+  row together with the run row of the same depth. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  1,024 ops/pass ours, 16,074 floor; 9 samples; warm-up 13 planned, 13/13 reached; spread 27.3%/3.6%; load 2.60 → 2.71 on 8 cores
+
+graph.subscription.build.d8   [per relationship]   30.7x
+  ours   8 new OIMSingleComputed in a chain, createEffectImmediate over the head, disposeEffect, channel.flush()
+  floor  8 alien computed() in a chain, effect() over the head, then its dispose()
+  ONE OPERATION IS ONE MOUNT AND UNMOUNT: create a chain of 8 derived nodes over a standing
+  root, create one effect over the head and run it once (which reads the whole chain), then
+  dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
+  measured as what subscribing costs. Ours constructs an OIMSingleComputed per node (an object
+  with its own owner and value services), mints its slot, holds its sources, merges the root
+  list the effect subscribes to and subscribes the effect to the root and the head; disposal
+  unsubscribes, and the flush that ends the operation releases every node, which unholds its
+  sources down the chain. Alien-signals allocates one closure-backed node per computed and
+  links dependencies as the first run reads them; disposing the effect unlinks it and each
+  computed left without subscribers unlinks its own dependencies. EXPECTED DIRECTION [FIGURE
+  STATED IN ADVANCE]: ours above alien at every depth, because ours pays for a declared, held,
+  stamped graph up front, which is what the matching run rows are meant to pay back. Read this
+  row together with the run row of the same depth. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  5,702 ops/pass ours, 146,696 floor; 9 samples; warm-up 18 planned, 18/18 reached; spread 17.1%/4.0%; load 2.24 → 2.60 on 8 cores
+
+graph.dependencies.inactive-branch.s3   [per write]   21.3x
+  ours   updateEntityColumn on the unread branch value, then channel.flush(); the effect declares flag, active and inactive as sources
+  floor  inactive(v) with no batch; the alien effect reads flag() and then active() only
+  ONE OPERATION IS ONE WRITE TO THE INACTIVE BRANCH AND ONE SETTLE. An effect reads a flag and
+  then one of two values, and the flag selects the first, so the written value is one the body
+  does not read. ARCHITECTURAL POINT: declared against auto-tracked dependencies, measured on
+  a conditional branch. Ours has no auto-tracking: the flag and both values are declared as
+  the effect's sources, so a write to the unread value schedules the effect and the flush runs
+  the body. Alien-signals subscribed the effect only to what its last run read, so the write
+  finds no subscriber and nothing runs; the floor is a signal store with no one listening.
+  EXPECTED BODY RUNS PER OPERATION [FIGURE STATED IN ADVANCE]: alien 0, ours 1; both run
+  counts are sunk into priceSink.number at the end of each pass. The ratio is therefore large
+  by construction and prices the work ours does that the floor skips, not a slower path doing
+  the same work. Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  1,272,628 ops/pass ours, 34,407,746 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 1.0%/1.9%; load 2.20 → 2.20 on 8 cores
+
+graph.dependencies-tracked.inactive-branch.s3   [per write]   19.3x
+  ours   updateEntityColumn on the unread branch value, then channel.flush(); the OIMEffectService.createEffectWithSourceTracking effect reads flag and then active only, through readSourceSlot
+  floor  inactive(v) with no batch; the alien effect reads flag() and then active() only
+  ONE OPERATION IS ONE WRITE TO THE INACTIVE BRANCH AND ONE SETTLE. An effect reads a flag and
+  then one of two values, and the flag selects the first, so the written value is one the body
+  does not read. The tracked effect read only the flag and the active value on its last run,
+  so the write to the inactive value must wake nothing on either arm. EXPECTED BODY RUNS PER
+  OPERATION [FIGURE STATED IN ADVANCE]: alien 0, ours 0; both run counts are sunk into
+  priceSink.number at the end of each pass, and an ours count above 0 is a defect of the
+  tracked strategy. THIS IS THE SAME TASK AS graph.dependencies.inactive-branch.s3, with the
+  same floor builder; only the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against
+  graph.dependencies.inactive-branch.s3: the difference between the two is the price of
+  tracking against declaring on this task. Ours is @oimdb/core from source: an OIMSingleEntity
+  root written through entityContentService.updateEntityColumn, OIMSingleComputed nodes for
+  anything derived, one effect from OIMEffectService, and channel.flush() as the settle. The
+  floor is alien-signals 3.2: signal, computed, effect, and startBatch/endBatch where the row
+  says so. Every write stores a new number from a counter, so no write on either arm is
+  stopped by a same-value check. Each arm runs in its own process.
+  measured  2,097,152 ops/pass ours, 34,388,946 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 4.5%/20.2%; load 2.02 → 2.18 on 8 cores
+
+graph.subscription.build.d1   [per relationship]   16.5x
+  ours   1 new OIMSingleComputed in a chain, createEffectImmediate over the head, disposeEffect, channel.flush()
+  floor  1 alien computed() in a chain, effect() over the head, then its dispose()
+  ONE OPERATION IS ONE MOUNT AND UNMOUNT: create a chain of 1 derived nodes over a standing
+  root, create one effect over the head and run it once (which reads the whole chain), then
+  dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
+  measured as what subscribing costs. Ours constructs an OIMSingleComputed per node (an object
+  with its own owner and value services), mints its slot, holds its sources, merges the root
+  list the effect subscribes to and subscribes the effect to the root and the head; disposal
+  unsubscribes, and the flush that ends the operation releases every node, which unholds its
+  sources down the chain. Alien-signals allocates one closure-backed node per computed and
+  links dependencies as the first run reads them; disposing the effect unlinks it and each
+  computed left without subscribers unlinks its own dependencies. EXPECTED DIRECTION [FIGURE
+  STATED IN ADVANCE]: ours above alien at every depth, because ours pays for a declared, held,
+  stamped graph up front, which is what the matching run rows are meant to pay back. Read this
+  row together with the run row of the same depth. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  19,448 ops/pass ours, 680,576 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 26.1%/2.0%; load 2.34 → 2.34 on 8 cores
+
+graph.derived-collection.bulk-unread-column.n128   [per frame]   3.91x
+  ours   updateEntityColumn(note) on 128 roots, then channel.flush(); an OIMSingleComputed per root over its value column slot and one effect over all of them
+  floor  startBatch(); note(v) on 128 rows; endBatch(); an alien computed per row over its value signal and one alien effect over all of them
+  ONE OPERATION IS ONE FRAME: one column written on every one of 128 roots, and one settle.
+  Each root has two columns, value and note; a derived value per root reads value only (value
+  × 2), and one effect reads all 128 derived values, which is a derived collection wholly on
+  screen. THE WRITTEN COLUMN IS ONE NO DERIVED VALUE READS, so neither arm may re-derive
+  anything or run the effect, and what is left is what each arm pays to learn that. Ours
+  sources each derived value on the held column slot of value (slotContentOwner.holdColumn),
+  so a note write does not reach it; alien has one signal per field, the shape every signal
+  adapter in this bench uses, and batches the frame with startBatch/endBatch, since ours
+  delivers once per frame. Ours is @oimdb/core from source: an OIMSingleEntity root written
+  through entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything
+  derived, one effect from OIMEffectService, and channel.flush() as the settle. The floor is
+  alien-signals 3.2: signal, computed, effect, and startBatch/endBatch where the row says so.
+  Every write stores a new number from a counter, so no write on either arm is stopped by a
+  same-value check. Each arm runs in its own process.
+  measured  8,946 ops/pass ours, 26,679 floor; 9 samples; warm-up 29 planned, 29/29 reached; spread 6.9%/3.4%; load 1.88 → 1.88 on 8 cores
+
+graph.coalescing.batched.k16   [per frame]   2.66x
+  ours   16× updateEntityColumn on one root, then channel.flush(); one effect on the root runs once
+  floor  startBatch(); 16× root(v); endBatch(); the alien effect on the root runs once
+  ONE OPERATION IS 16 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root, and
+  THE FLOOR BATCHES. ARCHITECTURAL POINT: frame coalescing against per-write delivery, with
+  the floor given the coalescing it offers by hand. Ours enlists the effect on the first write
+  and runs it once at the flush; alien-signals wraps the writes in startBatch/endBatch and
+  runs the effect once at endBatch. Both arms run the body once per operation, so this row is
+  the fairness check for the unbatched row of the same count: it shows how much of that row's
+  difference is coalescing and how much is the cost of each write itself. Ours is @oimdb/core
+  from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  198,310 ops/pass ours, 328,058 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 3.2%/1.5%; load 2.36 → 2.85 on 8 cores
+
+graph.revision-clock.batched-writes.d1   [per frame]   2.30x
+  ours   8× updateEntityColumn on the root, then channel.flush(), under 1 OIMSingleComputed nodes and one effect over the head
+  floor  startBatch(); 8× root(v); endBatch(), under 1 alien computeds and one alien effect over the head
+  ONE OPERATION IS ONE FRAME: 8 writes to the root and one settle, under a standing chain of 1
+  derived nodes (each the previous plus one) and one effect reading the head. The chain and
+  the effect are built, and read once, outside the clock. ARCHITECTURAL POINT: a revision
+  clock against dirty-mark propagation, measured as what a write costs under a deep standing
+  graph. Ours stamps the root with the next revision on each write and enlists only the
+  effects subscribed to the root; the effect is subscribed to the root slot of the chain
+  directly, so no write walks the chain. At the flush the effect asks the head, each node asks
+  its source, compares source stamps and re-derives, so the chain is walked once, at the read.
+  Alien-signals walks the subscriber chain on the first write of the batch and flags every
+  node pending (node_modules/alien-signals/esm/system.mjs, propagate), later writes in the
+  same batch stop at the already-pending first node, and endBatch runs the effect, which pulls
+  the chain and re-derives every node. Both arms re-derive all 1 nodes once and run the effect
+  once per operation. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the write side is
+  constant for ours and grows with depth for alien, the read side grows with depth on both, so
+  if the write-side walk is what separates them the ratio falls as depth grows; a ratio that
+  stays flat across the three depths says the pull at the read dominates on both arms. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  248,388 ops/pass ours, 397,100 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 8.2%/1.0%; load 2.44 → 2.57 on 8 cores
+
+graph.derived-collection.bulk-read-column.n128   [per frame]   2.30x
+  ours   updateEntityColumn(value) on 128 roots, then channel.flush(); an OIMSingleComputed per root over its value column slot and one effect over all of them
+  floor  startBatch(); value(v) on 128 rows; endBatch(); an alien computed per row over its value signal and one alien effect over all of them
+  ONE OPERATION IS ONE FRAME: one column written on every one of 128 roots, and one settle.
+  Each root has two columns, value and note; a derived value per root reads value only (value
+  × 2), and one effect reads all 128 derived values, which is a derived collection wholly on
+  screen. THE WRITTEN COLUMN IS THE ONE THE DERIVED VALUES READ, so both arms re-derive every
+  value and run the effect once. Ours sources each derived value on the held column slot of
+  value (slotContentOwner.holdColumn), so a note write does not reach it; alien has one signal
+  per field, the shape every signal adapter in this bench uses, and batches the frame with
+  startBatch/endBatch, since ours delivers once per frame. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  2,048 ops/pass ours, 8,642 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 1.8%/2.0%; load 2.04 → 2.04 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r1   [per write]   1.98x
+  ours   updateEntityColumn on one of 1 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 1 root slots through readSourceSlot and sums them
+  floor  one of 1 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 1 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. Each run reads the 1 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r1, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r1: the difference between
+  the two is the price of tracking against declaring on this task. Ours is @oimdb/core from
+  source: an OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  783,252 ops/pass ours, 1,939,894 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 1.4%/18.8%; load 2.30 → 2.52 on 8 cores
+
+graph.coalescing-tracked.unbatched.k1   [per frame]   1.77x
+  ours   1× updateEntityColumn on one root, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reading the root through readSourceSlot runs once
+  floor  1× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 1 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root. Ours
+  runs the body once at the flush; alien-signals with no batch runs it 1 times per operation.
+  THIS IS THE SAME TASK AS graph.coalescing.unbatched.k1, with the same floor builder; only
+  the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.coalescing.unbatched.k1:
+  the difference between the two is the price of tracking against declaring on this task. Ours
+  is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  946,574 ops/pass ours, 1,291,562 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 0.9%/1.2%; load 2.27 → 2.27 on 8 cores
+
+graph.subscription-tracked.run.d1   [per write]   1.71x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 1 OIMSingleComputed nodes and one OIMEffectService.createEffectWithSourceTracking effect reading the head through readSourceComputedValue
+  floor  one root(v) with no batch, under a standing chain of 1 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 1 derived
+  nodes and one effect over the head. The tracked effect reads the head through
+  effectSourceTracker.readSourceComputedValue, so the head computed is the one source it
+  tracks. THIS IS THE SAME TASK AS graph.subscription.run.d1, with the same floor builder;
+  only the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.subscription.run.d1: the
+  difference between the two is the price of tracking against declaring on this task. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  631,724 ops/pass ours, 1,266,846 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 21.5%/10.3%; load 2.40 → 2.40 on 8 cores
+
+graph.dependencies.reads-per-run.r1   [per write]   1.70x
+  ours   updateEntityColumn on one of 1 roots, then channel.flush(); one effect declaring all 1 root slots sums them
+  floor  one of 1 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 1 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 1 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  1,143,470 ops/pass ours, 1,965,786 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 1.5%/1.3%; load 2.79 → 2.89 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r2   [per write]   1.58x
+  ours   updateEntityColumn on one of 2 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 2 root slots through readSourceSlot and sums them
+  floor  one of 2 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 2 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. Each run reads the 2 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r2, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r2: the difference between
+  the two is the price of tracking against declaring on this task. Ours is @oimdb/core from
+  source: an OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  704,538 ops/pass ours, 1,194,244 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 3.8%/0.8%; load 2.52 → 2.52 on 8 cores
+
+graph.subscription.run.d1   [per write]   1.47x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 1 OIMSingleComputed nodes and one effect
+  floor  one root(v) with no batch, under a standing chain of 1 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 1 derived
+  nodes and one effect over the head. ARCHITECTURAL POINT: build at subscription against lazy
+  linking, measured as what running costs once the graph stands. Ours stamps the root,
+  schedules the effect it subscribed to at build, and on flush pulls the chain by stamp
+  comparison. Alien-signals has no settle call: the write propagates pending flags down the
+  chain and runs the effect synchronously at the end of the write, with no batch; a batch of
+  one write would add only the start and end calls. Read against the build row of the same
+  depth: the build row is what ours pays up front, this row is whether it comes back per
+  write. Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  759,046 ops/pass ours, 1,316,250 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 58.2%/1.8%; load 2.65 → 2.65 on 8 cores
+
+graph.scroll-window.k1   [per frame]   1.47x
+  ours   1× updateEntityColumn on a scroll position, then channel.flush(); an OIMSingleComputed first visible index over it and one effect on the index
+  floor  1× position(v) with no batch; an alien computed first visible index and one alien effect on it
+  ONE OPERATION IS 1 WRITE OF A SCROLL POSITION AND ONE SETTLE. A derived first visible index,
+  floor(position / 32), sits on the position and one effect reads the index, so the position
+  changes on every write and the index once per 32 writes: the effect body runs once per 32
+  pixels on both arms. THE SAME-VALUE STATEMENT BELOW HOLDS FOR THE POSITION AND NOT FOR THE
+  INDEX: the index is stopped by each arm's own equality check (the default sameValueGuard of
+  OIMSingleComputed, and alien's computed comparison), which is what this row prices.
+  ARCHITECTURAL POINT: a value written every frame whose consumer wakes rarely, which is the
+  shape of a virtualised list under scroll. Ours enlists the effect on the write, and at the
+  flush the effect asks the index, which re-derives, finds the same value and stops.
+  Alien-signals propagates pending flags to the computed and the effect on the write, and the
+  effect checks the computed, which re-derives and stops. Browsers dispatch scroll at most
+  once per rendered frame, so k1 is the scroll case; k4 is a handler that moves the position
+  several times. Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  1,021,792 ops/pass ours, 1,375,364 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 5.7%/0.7%; load 2.85 → 2.85 on 8 cores
+
+graph.delivery.write-and-flush-without-effect   [per write]   1.35x
+  ours   one updateEntityColumn on a held root, then channel.flush(), no effect
+  floor  one root(v) with no batch; one alien effect on the root runs after the write
+  ONE OPERATION IS ONE WRITE TO ONE ROOT, and ours stops at: the write and an empty frame.
+  ARCHITECTURAL POINT: none; this row splits graph.coalescing.unbatched.k1, whose ours side is
+  one write, one channel.flush() and one effect run. Every row of this group stands against
+  the same floor, one alien write with one alien effect on the root, so the ns difference
+  between two rows of the group is the price of the step one row adds over the other. The
+  write-and-effect-run row calls effectService.runEffectIfSourcesChanged directly, so it pays
+  the effect service and no frame; after its first write the frame never closes, so the slot
+  counts as changed in the open frame and the write enlists nothing more. Ours is @oimdb/core
+  from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  2,079,518 ops/pass ours, 1,807,974 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 4.1%/1.0%; load 2.47 → 2.47 on 8 cores
+
+graph.coalescing.unbatched.k1   [per frame]   1.34x
+  ours   1× updateEntityColumn on one root, then channel.flush(); one effect on the root runs once
+  floor  1× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 1 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.
+  ARCHITECTURAL POINT: frame coalescing against per-write delivery. Ours enlists the effect on
+  the first write of the frame, finds it already changed in this frame on every later write,
+  and runs the body once at the flush. Alien-signals with no batch runs the effect
+  synchronously at the end of every write, so the body runs 1 times per operation. EXPECTED
+  DIRECTION [FIGURE STATED IN ADVANCE]: with a single write ours pays the flush and alien pays
+  nothing extra, so ours is above alien there; as writes per frame grow, alien pays one effect
+  run per write and ours pays one in total, so the ratio is expected to fall. The batched row
+  at the largest count is the fairness check. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  1,313,962 ops/pass ours, 1,630,656 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 9.2%/33.5%; load 2.18 → 2.32 on 8 cores
+
+graph.revision-clock.batched-writes.d8   [per frame]   1.33x
+  ours   8× updateEntityColumn on the root, then channel.flush(), under 8 OIMSingleComputed nodes and one effect over the head
+  floor  startBatch(); 8× root(v); endBatch(), under 8 alien computeds and one alien effect over the head
+  ONE OPERATION IS ONE FRAME: 8 writes to the root and one settle, under a standing chain of 8
+  derived nodes (each the previous plus one) and one effect reading the head. The chain and
+  the effect are built, and read once, outside the clock. ARCHITECTURAL POINT: a revision
+  clock against dirty-mark propagation, measured as what a write costs under a deep standing
+  graph. Ours stamps the root with the next revision on each write and enlists only the
+  effects subscribed to the root; the effect is subscribed to the root slot of the chain
+  directly, so no write walks the chain. At the flush the effect asks the head, each node asks
+  its source, compares source stamps and re-derives, so the chain is walked once, at the read.
+  Alien-signals walks the subscriber chain on the first write of the batch and flags every
+  node pending (node_modules/alien-signals/esm/system.mjs, propagate), later writes in the
+  same batch stop at the already-pending first node, and endBatch runs the effect, which pulls
+  the chain and re-derives every node. Both arms re-derive all 8 nodes once and run the effect
+  once per operation. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the write side is
+  constant for ours and grows with depth for alien, the read side grows with depth on both, so
+  if the write-side walk is what separates them the ratio falls as depth grows; a ratio that
+  stays flat across the three depths says the pull at the read dominates on both arms. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  71,175 ops/pass ours, 171,148 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 3.1%/1.4%; load 2.57 → 2.57 on 8 cores
+
+graph.subscription-tracked.run.d8   [per write]   1.10x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 8 OIMSingleComputed nodes and one OIMEffectService.createEffectWithSourceTracking effect reading the head through readSourceComputedValue
+  floor  one root(v) with no batch, under a standing chain of 8 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 8 derived
+  nodes and one effect over the head. The tracked effect reads the head through
+  effectSourceTracker.readSourceComputedValue, so the head computed is the one source it
+  tracks. THIS IS THE SAME TASK AS graph.subscription.run.d8, with the same floor builder;
+  only the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.subscription.run.d8: the
+  difference between the two is the price of tracking against declaring on this task. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  209,386 ops/pass ours, 220,312 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 4.1%/31.3%; load 2.34 → 2.34 on 8 cores
+
+graph.subscription.run.d8   [per write]   1.06x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 8 OIMSingleComputed nodes and one effect
+  floor  one root(v) with no batch, under a standing chain of 8 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 8 derived
+  nodes and one effect over the head. ARCHITECTURAL POINT: build at subscription against lazy
+  linking, measured as what running costs once the graph stands. Ours stamps the root,
+  schedules the effect it subscribed to at build, and on flush pulls the chain by stamp
+  comparison. Alien-signals has no settle call: the write propagates pending flags down the
+  chain and runs the effect synchronously at the end of the write, with no batch; a batch of
+  one write would add only the start and end calls. Read against the build row of the same
+  depth: the build row is what ours pays up front, this row is whether it comes back per
+  write. Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  209,312 ops/pass ours, 223,420 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 3.5%/10.9%; load 2.52 → 2.52 on 8 cores
+
+graph.revision-clock.batched-writes.d64   [per frame]   1.02x
+  ours   8× updateEntityColumn on the root, then channel.flush(), under 64 OIMSingleComputed nodes and one effect over the head
+  floor  startBatch(); 8× root(v); endBatch(), under 64 alien computeds and one alien effect over the head
+  ONE OPERATION IS ONE FRAME: 8 writes to the root and one settle, under a standing chain of
+  64 derived nodes (each the previous plus one) and one effect reading the head. The chain and
+  the effect are built, and read once, outside the clock. ARCHITECTURAL POINT: a revision
+  clock against dirty-mark propagation, measured as what a write costs under a deep standing
+  graph. Ours stamps the root with the next revision on each write and enlists only the
+  effects subscribed to the root; the effect is subscribed to the root slot of the chain
+  directly, so no write walks the chain. At the flush the effect asks the head, each node asks
+  its source, compares source stamps and re-derives, so the chain is walked once, at the read.
+  Alien-signals walks the subscriber chain on the first write of the batch and flags every
+  node pending (node_modules/alien-signals/esm/system.mjs, propagate), later writes in the
+  same batch stop at the already-pending first node, and endBatch runs the effect, which pulls
+  the chain and re-derives every node. Both arms re-derive all 64 nodes once and run the
+  effect once per operation. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the write side is
+  constant for ours and grows with depth for alien, the read side grows with depth on both, so
+  if the write-side walk is what separates them the ratio falls as depth grows; a ratio that
+  stays flat across the three depths says the pull at the read dominates on both arms. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  29,110 ops/pass ours, 32,138 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 4.3%/16.9%; load 2.41 → 2.41 on 8 cores
+
+graph.subscription-tracked.run.d64   [per write]   0.98x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 64 OIMSingleComputed nodes and one OIMEffectService.createEffectWithSourceTracking effect reading the head through readSourceComputedValue
+  floor  one root(v) with no batch, under a standing chain of 64 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 64 derived
+  nodes and one effect over the head. The tracked effect reads the head through
+  effectSourceTracker.readSourceComputedValue, so the head computed is the one source it
+  tracks. THIS IS THE SAME TASK AS graph.subscription.run.d64, with the same floor builder;
+  only the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.subscription.run.d64: the
+  difference between the two is the price of tracking against declaring on this task. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  30,544 ops/pass ours, 31,784 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 1.4%/0.9%; load 2.23 → 2.79 on 8 cores
+
+graph.dependencies.reads-per-run.r2   [per write]   0.98x
+  ours   updateEntityColumn on one of 2 roots, then channel.flush(); one effect declaring all 2 root slots sums them
+  floor  one of 2 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 2 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 2 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  560,648 ops/pass ours, 1,192,794 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 2.2%/2.9%; load 2.89 → 2.89 on 8 cores
+
+graph.coalescing-tracked.unbatched.k4   [per frame]   0.96x
+  ours   4× updateEntityColumn on one root, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reading the root through readSourceSlot runs once
+  floor  4× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 4 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root. Ours
+  runs the body once at the flush; alien-signals with no batch runs it 4 times per operation.
+  THIS IS THE SAME TASK AS graph.coalescing.unbatched.k4, with the same floor builder; only
+  the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.coalescing.unbatched.k4:
+  the difference between the two is the price of tracking against declaring on this task. Ours
+  is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  414,086 ops/pass ours, 488,346 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 2.0%/4.3%; load 2.16 → 2.61 on 8 cores
+
+graph.delivery.write-and-effect-run-without-flush   [per write]   0.96x
+  ours   one updateEntityColumn, then effectService.runEffectIfSourcesChanged(effect), no flush
+  floor  one root(v) with no batch; one alien effect on the root runs after the write
+  ONE OPERATION IS ONE WRITE TO ONE ROOT, and ours stops at: the write and the effect service,
+  with no frame. ARCHITECTURAL POINT: none; this row splits graph.coalescing.unbatched.k1,
+  whose ours side is one write, one channel.flush() and one effect run. Every row of this
+  group stands against the same floor, one alien write with one alien effect on the root, so
+  the ns difference between two rows of the group is the price of the step one row adds over
+  the other. The write-and-effect-run row calls effectService.runEffectIfSourcesChanged
+  directly, so it pays the effect service and no frame; after its first write the frame never
+  closes, so the slot counts as changed in the open frame and the write enlists nothing more.
+  Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  2,097,152 ops/pass ours, 1,975,166 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 4.4%/46.9%; load 2.24 → 2.24 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r4   [per write]   0.94x
+  ours   updateEntityColumn on one of 4 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 4 root slots through readSourceSlot and sums them
+  floor  one of 4 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 4 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. Each run reads the 4 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r4, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r4: the difference between
+  the two is the price of tracking against declaring on this task. Ours is @oimdb/core from
+  source: an OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  688,452 ops/pass ours, 720,678 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 8.9%/2.3%; load 2.36 → 2.36 on 8 cores
+
+graph.subscription.run.d64   [per write]   0.92x
+  ours   one updateEntityColumn on the root, then channel.flush(), under a standing chain of 64 OIMSingleComputed nodes and one effect
+  floor  one root(v) with no batch, under a standing chain of 64 alien computeds and one alien effect
+  ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of 64 derived
+  nodes and one effect over the head. ARCHITECTURAL POINT: build at subscription against lazy
+  linking, measured as what running costs once the graph stands. Ours stamps the root,
+  schedules the effect it subscribed to at build, and on flush pulls the chain by stamp
+  comparison. Alien-signals has no settle call: the write propagates pending flags down the
+  chain and runs the effect synchronously at the end of the write, with no batch; a batch of
+  one write would add only the start and end calls. Read against the build row of the same
+  depth: the build row is what ours pays up front, this row is whether it comes back per
+  write. Ours is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  28,762 ops/pass ours, 31,966 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.3%/67.9%; load 2.44 → 2.44 on 8 cores
+
+graph.delivery.write-only   [per write]   0.86x
+  ours   one updateEntityColumn on a held root, no effect, no flush
+  floor  one root(v) with no batch; one alien effect on the root runs after the write
+  ONE OPERATION IS ONE WRITE TO ONE ROOT, and ours stops at: the write. ARCHITECTURAL POINT:
+  none; this row splits graph.coalescing.unbatched.k1, whose ours side is one write, one
+  channel.flush() and one effect run. Every row of this group stands against the same floor,
+  one alien write with one alien effect on the root, so the ns difference between two rows of
+  the group is the price of the step one row adds over the other. The write-and-effect-run row
+  calls effectService.runEffectIfSourcesChanged directly, so it pays the effect service and no
+  frame; after its first write the frame never closes, so the slot counts as changed in the
+  open frame and the write enlists nothing more. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  2,574,920 ops/pass ours, 1,759,752 floor; 9 samples; warm-up 29 planned, 29/29 reached; spread 1.0%/7.4%; load 2.60 → 2.60 on 8 cores
+
+graph.coalescing.unbatched.k4   [per frame]   0.80x
+  ours   4× updateEntityColumn on one root, then channel.flush(); one effect on the root runs once
+  floor  4× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 4 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.
+  ARCHITECTURAL POINT: frame coalescing against per-write delivery. Ours enlists the effect on
+  the first write of the frame, finds it already changed in this frame on every later write,
+  and runs the body once at the flush. Alien-signals with no batch runs the effect
+  synchronously at the end of every write, so the body runs 4 times per operation. EXPECTED
+  DIRECTION [FIGURE STATED IN ADVANCE]: with a single write ours pays the flush and alien pays
+  nothing extra, so ours is above alien there; as writes per frame grow, alien pays one effect
+  run per write and ours pays one in total, so the ratio is expected to fall. The batched row
+  at the largest count is the fairness check. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  449,278 ops/pass ours, 439,084 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 1.6%/5.9%; load 2.22 → 2.22 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r8   [per write]   0.76x
+  ours   updateEntityColumn on one of 8 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 8 root slots through readSourceSlot and sums them
+  floor  one of 8 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 8 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. Each run reads the 8 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r8, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r8: the difference between
+  the two is the price of tracking against declaring on this task. Ours is @oimdb/core from
+  source: an OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  616,086 ops/pass ours, 449,452 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 1.8%/2.3%; load 2.33 → 2.33 on 8 cores
+
+graph.coalescing.unbatched.k16   [per frame]   0.67x
+  ours   16× updateEntityColumn on one root, then channel.flush(); one effect on the root runs once
+  floor  16× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 16 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.
+  ARCHITECTURAL POINT: frame coalescing against per-write delivery. Ours enlists the effect on
+  the first write of the frame, finds it already changed in this frame on every later write,
+  and runs the body once at the flush. Alien-signals with no batch runs the effect
+  synchronously at the end of every write, so the body runs 16 times per operation. EXPECTED
+  DIRECTION [FIGURE STATED IN ADVANCE]: with a single write ours pays the flush and alien pays
+  nothing extra, so ours is above alien there; as writes per frame grow, alien pays one effect
+  run per write and ours pays one in total, so the ratio is expected to fall. The batched row
+  at the largest count is the fairness check. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  95,685 ops/pass ours, 65,536 floor; 9 samples; warm-up 38 planned, 38/38 reached; spread 0.9%/0.8%; load 2.03 → 2.27 on 8 cores
+
+graph.delivery.write-with-another-column-held   [per write]   0.67x
+  ours   one updateEntityColumn(note) on a held root whose value column slot is held, no effect, no flush
+  floor  one root(v) with no batch; one alien effect on the root runs after the write
+  ONE OPERATION IS ONE WRITE TO ONE ROOT, and ours stops at: the write of a column nobody
+  reads, on an entity one of whose other columns is held. ARCHITECTURAL POINT: none; this row
+  splits graph.coalescing.unbatched.k1, whose ours side is one write, one channel.flush() and
+  one effect run. Every row of this group stands against the same floor, one alien write with
+  one alien effect on the root, so the ns difference between two rows of the group is the
+  price of the step one row adds over the other. The write-and-effect-run row calls
+  effectService.runEffectIfSourcesChanged directly, so it pays the effect service and no
+  frame; after its first write the frame never closes, so the slot counts as changed in the
+  open frame and the write enlists nothing more. Ours is @oimdb/core from source: an
+  OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  2,097,152 ops/pass ours, 1,348,294 floor; 9 samples; warm-up 32 planned, 32/32 reached; spread 0.9%/4.2%; load 2.13 → 2.13 on 8 cores
+
+graph.coalescing-tracked.unbatched.k16   [per frame]   0.67x
+  ours   16× updateEntityColumn on one root, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reading the root through readSourceSlot runs once
+  floor  16× root(v) with no batch; the alien effect on the root runs after every write
+  ONE OPERATION IS 16 WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.
+  Ours runs the body once at the flush; alien-signals with no batch runs it 16 times per
+  operation. THIS IS THE SAME TASK AS graph.coalescing.unbatched.k16, with the same floor
+  builder; only the ours effect differs. The effect comes from
+  OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its
+  dependencies are tracked at run time: each run reads its sources through effectSourceTracker
+  (readSourceSlot for a root, readSourceComputedValue for a computed) instead of the root and
+  computed lists declared once at build. Read this row against graph.coalescing.unbatched.k16:
+  the difference between the two is the price of tracking against declaring on this task. Ours
+  is @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  192,392 ops/pass ours, 65,536 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 38.7%/0.7%; load 2.61 → 2.61 on 8 cores
+
+graph.scroll-window.k4   [per frame]   0.65x
+  ours   4× updateEntityColumn on a scroll position, then channel.flush(); an OIMSingleComputed first visible index over it and one effect on the index
+  floor  4× position(v) with no batch; an alien computed first visible index and one alien effect on it
+  ONE OPERATION IS 4 WRITES OF A SCROLL POSITION AND ONE SETTLE. A derived first visible
+  index, floor(position / 32), sits on the position and one effect reads the index, so the
+  position changes on every write and the index once per 32 writes: the effect body runs once
+  per 32 pixels on both arms. THE SAME-VALUE STATEMENT BELOW HOLDS FOR THE POSITION AND NOT
+  FOR THE INDEX: the index is stopped by each arm's own equality check (the default
+  sameValueGuard of OIMSingleComputed, and alien's computed comparison), which is what this
+  row prices. ARCHITECTURAL POINT: a value written every frame whose consumer wakes rarely,
+  which is the shape of a virtualised list under scroll. Ours enlists the effect on the write,
+  and at the flush the effect asks the index, which re-derives, finds the same value and
+  stops. Alien-signals propagates pending flags to the computed and the effect on the write,
+  and the effect checks the computed, which re-derives and stops. Browsers dispatch scroll at
+  most once per rendered frame, so k1 is the scroll case; k4 is a handler that moves the
+  position several times. Ours is @oimdb/core from source: an OIMSingleEntity root written
+  through entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything
+  derived, one effect from OIMEffectService, and channel.flush() as the settle. The floor is
+  alien-signals 3.2: signal, computed, effect, and startBatch/endBatch where the row says so.
+  Every write stores a new number from a counter, so no write on either arm is stopped by a
+  same-value check. Each arm runs in its own process.
+  measured  495,972 ops/pass ours, 346,294 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 5.6%/41.2%; load 2.70 → 2.70 on 8 cores
+
+graph.dependencies.reads-per-run.r4   [per write]   0.65x
+  ours   updateEntityColumn on one of 4 roots, then channel.flush(); one effect declaring all 4 root slots sums them
+  floor  one of 4 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 4 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 4 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  993,046 ops/pass ours, 715,654 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 17.5%/1.6%; load 2.84 → 2.84 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r16   [per write]   0.64x
+  ours   updateEntityColumn on one of 16 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 16 root slots through readSourceSlot and sums them
+  floor  one of 16 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 16 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. Each run reads the 16 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r16, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r16: the difference between
+  the two is the price of tracking against declaring on this task. Ours is @oimdb/core from
+  source: an OIMSingleEntity root written through entityContentService.updateEntityColumn,
+  OIMSingleComputed nodes for anything derived, one effect from OIMEffectService, and
+  channel.flush() as the settle. The floor is alien-signals 3.2: signal, computed, effect, and
+  startBatch/endBatch where the row says so. Every write stores a new number from a counter,
+  so no write on either arm is stopped by a same-value check. Each arm runs in its own
+  process.
+  measured  409,376 ops/pass ours, 127,055 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 1.3%/0.9%; load 2.20 → 2.42 on 8 cores
+
+graph.dependencies.reads-per-run.r8   [per write]   0.50x
+  ours   updateEntityColumn on one of 8 roots, then channel.flush(); one effect declaring all 8 root slots sums them
+  floor  one of 8 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 8 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 8 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  670,354 ops/pass ours, 452,754 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 7.4%/5.5%; load 2.77 → 2.77 on 8 cores
+
+graph.dependencies-tracked.reads-per-run.r128   [per write]   0.48x
+  ours   updateEntityColumn on one of 128 roots, then channel.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all 128 root slots through readSourceSlot and sums them
+  floor  one of 128 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 128 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. Each run reads the 128 roots through
+  effectSourceTracker.readSourceSlot, so both arms re-track on every run. THIS IS THE SAME
+  TASK AS graph.dependencies.reads-per-run.r128, with the same floor builder; only the ours
+  effect differs. The effect comes from OIMEffectService.createEffectWithSourceTracking
+  instead of createEffectImmediate, and its dependencies are tracked at run time: each run
+  reads its sources through effectSourceTracker (readSourceSlot for a root,
+  readSourceComputedValue for a computed) instead of the root and computed lists declared once
+  at build. Read this row against graph.dependencies.reads-per-run.r128: the difference
+  between the two is the price of tracking against declaring on this task. Ours is @oimdb/core
+  from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  64,252 ops/pass ours, 19,931 floor; 9 samples; warm-up 30 planned, 30/30 reached; spread 2.6%/0.9%; load 2.42 → 2.42 on 8 cores
+
+graph.dependencies.reads-per-run.r16   [per write]   0.43x
+  ours   updateEntityColumn on one of 16 roots, then channel.flush(); one effect declaring all 16 root slots sums them
+  floor  one of 16 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 16 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 16 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  460,312 ops/pass ours, 124,693 floor; 9 samples; warm-up 29 planned, 29/29 reached; spread 9.6%/0.8%; load 2.58 → 2.58 on 8 cores
+
+graph.dependencies.reads-per-run.r128   [per write]   0.33x
+  ours   updateEntityColumn on one of 128 roots, then channel.flush(); one effect declaring all 128 root slots sums them
+  floor  one of 128 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 128 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 128 root
+  slots as the effect's sources once, at build; a run checks each source stamp before the body
+  and the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  65,536 ops/pass ours, 39,386 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 2.0%/1.3%; load 2.45 → 2.45 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.95x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

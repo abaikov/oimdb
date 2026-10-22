@@ -1,0 +1,40 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widened from "." to packages/ so core's .ts sources, pulled in by `paths`
+    // below, sit under rootDir — otherwise TS6059 on every one of them. See the
+    // note in packages/persist/tsconfig.all.json.
+    "rootDir": "..",
+    "baseUrl": ".",
+    // `paths` in an extending config REPLACES the parent's map, so the react /
+    // react-dom entries below are restated from tsconfig.json rather than
+    // merged. `@oimdb/core` points at core's SOURCE — the tree jest runs (see
+    // moduleNameMapper in jest.config.cjs) — so tsc stops checking this package
+    // against the last successful `core` build. Not in tsconfig.json: tsup uses
+    // that one, and mapping it there would inline core's types into the
+    // published @oimdb/react declarations.
+    "paths": {
+      "@oimdb/core": [
+        "../core/src/index.ts"
+      ],
+      "@testing-library/react": [
+        "../react-legacy/node_modules/@testing-library/react"
+      ],
+      "react": [
+        "../react-legacy/node_modules/react"
+      ],
+      "react-dom/*": [
+        "../react-legacy/node_modules/react-dom/*"
+      ]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

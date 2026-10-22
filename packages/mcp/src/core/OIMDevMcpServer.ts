@@ -1,67 +1,59 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { WebSocketServer, WebSocket } from 'ws';
 import { pathToFileURL } from 'node:url';
 import { resolve as resolvePath } from 'node:path';
 import { z } from 'zod';
-import {
-    IOIMDevRegistryLike,
-    TOIMBridgeMessage,
-    TOIMDevMcpOptions,
-} from '../types/TOIMDevMcpOptions';
+import { OIMDevBridge } from './OIMDevBridge';
+import type { IOIMDevRegistry } from '../interfaces/IOIMDevRegistry';
+import type { TOIMDevMcpOptions } from '../types/TOIMDevMcpOptions';
 
 /**
- * Loads an in-process registry from a module path: accepts a `registry` named
+ * Loads an in-process registry from a module path: accepts an `oimDevRegistry` named
  * export, a default export, or a zero-arg factory returning one. Used for
  * offline introspection without a running browser.
  */
 async function loadRegistryFromModule(
     path: string
-): Promise<IOIMDevRegistryLike> {
+): Promise<IOIMDevRegistry> {
     const url = pathToFileURL(resolvePath(path)).href;
     const mod = (await import(url)) as Record<string, unknown>;
-    let candidate: unknown = mod.registry ?? mod.default ?? mod;
+    let candidate: unknown = mod.oimDevRegistry ?? mod.default ?? mod;
     if (typeof candidate === 'function') {
         candidate = await (candidate as () => unknown)();
     }
     if (
         !candidate ||
-        typeof (candidate as IOIMDevRegistryLike).inspect !== 'function' ||
-        typeof (candidate as IOIMDevRegistryLike).dumpString !== 'function'
+        typeof (candidate as IOIMDevRegistry).inspect !== 'function' ||
+        typeof (candidate as IOIMDevRegistry).dumpString !== 'function'
     ) {
         throw new Error(
             `[OIMDB MCP] Module "${path}" must export a registry exposing ` +
-                `inspect() and dumpString() (as a "registry" or default export, ` +
+                `inspect() and dumpString() (as an "oimDevRegistry" or default export, ` +
                 `or a zero-arg factory returning one).`
         );
     }
-    return candidate as IOIMDevRegistryLike;
+    return candidate as IOIMDevRegistry;
 }
-
-type TOIMPendingRequest = {
-    resolve: (data: unknown) => void;
-    reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-};
-
-type TOIMConnectedBrowser = {
-    ws: WebSocket;
-    url: string;
-    title: string;
-};
 
 export class OIMDevMcpServer {
     private readonly mcpServer: McpServer;
     private readonly wsPort: number;
-    private wss: WebSocketServer | null = null;
-    private latestBrowser: TOIMConnectedBrowser | null = null;
-    private readonly pending = new Map<string, TOIMPendingRequest>();
-    private inProcessRegistry: IOIMDevRegistryLike | null;
-    private readonly modelModulePath?: string;
+    private readonly bridge: OIMDevBridge;
+    private inProcessRegistry: IOIMDevRegistry | null;
+    private readonly modelModulePath?: string | undefined;
     private modelModuleLoaded = false;
 
     constructor(options: TOIMDevMcpOptions = {}) {
         this.wsPort = options.wsPort ?? 7432;
+        this.bridge = new OIMDevBridge({
+            wsPort: this.wsPort,
+            host: options.host ?? '127.0.0.1',
+            allowedOrigins: new Set(options.allowedOrigins ?? []),
+            logPrefix: '[OIMDB MCP]',
+            portInUseHint: 'npx @oimdb/mcp',
+            requestTimeoutMessage:
+                'Browser response timeout (5s). Is the page active?',
+        });
         this.inProcessRegistry = options.registry ?? null;
         this.modelModulePath = options.modelModulePath;
         this.mcpServer = new McpServer(
@@ -80,7 +72,7 @@ export class OIMDevMcpServer {
      * Resolves the in-process registry, loading the model module on first use.
      * Returns null when no in-process source is configured (browser-bridge mode).
      */
-    private async getInProcessRegistry(): Promise<IOIMDevRegistryLike | null> {
+    private async getInProcessRegistry(): Promise<IOIMDevRegistry | null> {
         if (this.inProcessRegistry) return this.inProcessRegistry;
         if (this.modelModulePath && !this.modelModuleLoaded) {
             this.modelModuleLoaded = true;
@@ -95,14 +87,14 @@ export class OIMDevMcpServer {
     private async readInspect(): Promise<unknown> {
         const registry = await this.getInProcessRegistry();
         if (registry) return registry.inspect();
-        return this.queryBrowser('inspect');
+        return this.requestBrowser('inspect');
     }
 
     /** Reads the human-readable dump from the in-process model or the browser. */
     private async readDump(): Promise<string> {
         const registry = await this.getInProcessRegistry();
         if (registry) return registry.dumpString();
-        return (await this.queryBrowser('dump')) as string;
+        return (await this.requestBrowser('dump')) as string;
     }
 
     private registerTools(): void {
@@ -120,7 +112,7 @@ export class OIMDevMcpServer {
 
         server.registerTool('oimdb_dump', {
             description:
-                'Get a human-readable text summary of OIMDB state. Same output as registry.dump(). Reads the connected browser tab or an in-process model when configured.',
+                'Get a human-readable text summary of OIMDB state. Same output as oimDevRegistry.dump(). Reads the connected browser tab or an in-process model when configured.',
         }, async () => {
             const text = await this.readDump();
             return { content: [{ type: 'text' as const, text }] };
@@ -155,79 +147,20 @@ export class OIMDevMcpServer {
         });
     }
 
-    private async queryBrowser(action: string): Promise<unknown> {
-        if (!this.latestBrowser) {
+    private requestBrowser(action: string): Promise<unknown> {
+        if (this.bridge.connectedBrowser === null) {
             throw new Error(
                 `No browser tab connected to the OIMDB MCP bridge.\n\n` +
                 `Live mode — add to your debug entry point:\n` +
-                `  import { registry } from '@oimdb/devtools';\n` +
-                `  registry.connect(); // connects to ws://localhost:${this.wsPort}\n` +
+                `  import { oimDevRegistry } from '@oimdb/devtools';\n` +
+                `  oimDevRegistry.connect(); // connects to ws://localhost:${this.wsPort}\n` +
                 `Then reload the page.\n\n` +
                 `Offline mode — point the server at a model module instead:\n` +
                 `  OIMDB_MODEL_MODULE=./path/to/model.js npx @oimdb/mcp\n` +
-                `(the module exports a "registry" with inspect()/dumpString()).`
+                `(the module exports an "oimDevRegistry" with inspect()/dumpString()).`
             );
         }
-
-        return new Promise((resolve, reject) => {
-            const id = Math.random().toString(36).slice(2);
-            const timer = setTimeout(() => {
-                this.pending.delete(id);
-                reject(new Error('Browser response timeout (5s). Is the page active?'));
-            }, 5000);
-
-            this.pending.set(id, { resolve, reject, timer });
-            this.latestBrowser!.ws.send(JSON.stringify({ type: 'request', id, action }));
-        });
-    }
-
-    private setupWebSocketServer(): void {
-        this.wss = new WebSocketServer({ port: this.wsPort });
-
-        this.wss.on('error', (err: NodeJS.ErrnoException) => {
-            if (err.code === 'EADDRINUSE') {
-                process.stderr.write(
-                    `[OIMDB MCP] Port ${this.wsPort} is already in use.\n` +
-                    `Set a different port: OIMDB_WS_PORT=7433 npx @oimdb/mcp\n`
-                );
-                process.exit(1);
-            }
-            process.stderr.write(`[OIMDB MCP] WebSocket server error: ${err.message}\n`);
-            process.exit(1);
-        });
-
-        this.wss.on('connection', (ws) => {
-            ws.on('message', (raw) => {
-                const msg = JSON.parse(raw.toString()) as TOIMBridgeMessage;
-
-                if (msg.type === 'hello') {
-                    this.latestBrowser = { ws, url: msg.url, title: msg.title };
-                    process.stderr.write(`[OIMDB MCP] Browser connected: ${msg.title} (${msg.url})\n`);
-                    return;
-                }
-
-                if (msg.type === 'response') {
-                    const pending = this.pending.get(msg.id);
-                    if (!pending) return;
-                    this.pending.delete(msg.id);
-                    clearTimeout(pending.timer);
-                    if (msg.error) {
-                        pending.reject(new Error(msg.error));
-                    } else {
-                        pending.resolve(msg.data);
-                    }
-                }
-            });
-
-            ws.on('close', () => {
-                if (this.latestBrowser?.ws === ws) {
-                    this.latestBrowser = null;
-                    process.stderr.write('[OIMDB MCP] Browser disconnected\n');
-                }
-            });
-        });
-
-        process.stderr.write(`[OIMDB MCP] Bridge ready on ws://localhost:${this.wsPort}\n`);
+        return this.bridge.request(action);
     }
 
     public async start(): Promise<void> {
@@ -239,7 +172,7 @@ export class OIMDevMcpServer {
                 '[OIMDB MCP] In-process model loaded — serving offline (no browser bridge).\n'
             );
         } else {
-            this.setupWebSocketServer();
+            this.bridge.start();
         }
         const transport = new StdioServerTransport();
         await this.mcpServer.connect(transport);

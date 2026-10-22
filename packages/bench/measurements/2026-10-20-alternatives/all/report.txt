@@ -1,0 +1,1077 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.99x  39 ns  20 ns   1.1%     ~1.9x  control-resolution-2x
+0.99x  19 ns  19 ns   0.8%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.99x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.1% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.1% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+     ratio         margin     ours     floor  noise  path               decision
+     0.04x  24.9x cheaper    40 ns    990 ns   0.0%  per frame          alt.dirty-list-vs-scan.1-of-1024-marked
+     0.10x  10.3x cheaper     3 ns     26 ns   0.1%  per write          alt.dirty-flag-vs-set.65536-carriers.4-marks-each
+     0.14x  6.92x cheaper   147 ns   1.01 µs   0.0%  per frame          alt.dirty-list-vs-scan.32-of-1024-marked
+~    0.17x  6.04x cheaper     7 ns     39 ns   1.9%  per write          alt.dirty-flag-vs-set.65536-carriers.1-marks-each
+     0.19x  5.28x cheaper     2 ns      9 ns   0.3%  per write          alt.dirty-flag-vs-set.1024-carriers.4-marks-each
+     0.20x  4.98x cheaper     4 ns     21 ns   2.0%  per write          alt.dirty-flag-vs-set.1024-carriers.1-marks-each
+     0.35x  2.86x cheaper  8.05 µs  23.04 µs   0.1%  per frame          alt.coalesce-vs-eager.16-writes-per-node-per-frame
+~    0.37x  2.67x cheaper   624 ns   1.67 µs   1.5%  per write          alt.computed-dedup.getter-vs-channel.few-read-once
+     0.38x  2.61x cheaper     3 ns      8 ns   0.5%  per read           alt.replacement-rebuild.survivors-vs-spread-and-delete.read-after
+     0.42x  2.40x cheaper     9 ns     21 ns   0.1%  per read           alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-8
+~    0.57x  1.75x cheaper  1.16 µs   2.03 µs   2.2%  per write          alt.replacement-rebuild.survivors-vs-spread-and-delete.the-removal
+     0.61x  1.63x cheaper  3.54 µs   5.77 µs   1.7%  per frame          alt.coalesce-vs-eager.4-writes-per-node-per-frame
+     0.62x  1.62x cheaper   356 ns    578 ns   5.0%  per write          alt.column-walk.for-in-vs-object-keys.every-column-moved
+     0.65x  1.54x cheaper     8 ns     13 ns   0.1%  per read           alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-3
+     0.69x  1.45x cheaper   181 ns    263 ns  14.1%  per write          alt.column-walk.for-in-vs-object-keys.unchanged-resend
+     0.73x  1.37x cheaper   182 ns    249 ns   2.2%  per write          alt.equality-predicate.row-comparator-vs-column-comparators.one-column-of-sixteen
+~    0.79x  1.27x cheaper   178 ns    226 ns   0.7%  per write          alt.forbidden-name.comparison-vs-set.unchanged-resend
+     0.82x  1.22x cheaper   177 ns    217 ns   0.8%  per write          alt.replacing-build.decide-first-vs-build-as-you-walk.unchanged-resend
+     0.84x  1.19x cheaper     8 ns     10 ns   0.1%  per read           alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-1
+~    0.87x  1.15x cheaper  1.09 µs   1.26 µs   1.2%  per frame          alt.dirty-list-vs-scan.256-of-1024-marked
+     0.88x  1.14x cheaper    42 ns     48 ns   2.6%  per write          alt.slot-literal.complete-vs-grown.write-a-partly-subscribed-population
+     0.93x  1.07x cheaper   178 ns    191 ns   5.7%  per write          alt.forbidden-name.call-vs-inlined.unchanged-resend
+     0.94x  1.06x cheaper  2.78 µs   2.94 µs   0.3%  per frame          alt.coalesce-vs-eager.2-writes-per-node-per-frame
+     0.96x  1.04x cheaper     7 ns      8 ns   2.7%  per write          alt.slot-shape.one-write-site-against-one-per-kind
+     0.98x  1.02x cheaper  2.07 µs   2.10 µs   1.3%  per frame          alt.effect-shape.class-vs-literal-and-service.wake
+=    0.99x      unsettled     3 ns      3 ns   2.4%  per read           alt.column-left.delete-vs-blank.read-one-row-in-eight-lost-a-column
+=~   0.99x      unsettled   183 ns    184 ns   1.1%  per write          alt.equality-predicate.shared-default-vs-inlined.unchanged-resend
+=    1.00x      unsettled  2.18 µs   2.19 µs   3.3%  per relationship   alt.slot-literal.complete-vs-grown.mint-a-population
+!=~  1.00x      unsettled    95 ns     95 ns   0.1%  per relationship   alt.effect-shape.class-vs-literal-and-service.dispose
+!~   1.02x   1.02x DEARER     3 ns      3 ns   0.2%  per read           alt.column-left.delete-vs-blank.read-every-row-lost-a-column
+!    1.04x   1.04x DEARER    96 ns     93 ns   1.5%  per relationship   alt.effect-shape.class-vs-literal-and-service.create
+!    1.04x   1.04x DEARER    62 ns     59 ns   0.2%  per read           alt.clock.global-pair-vs-per-slot.read-after-an-unrelated-write.fan-in-3
+!~   1.06x   1.06x DEARER     8 ns      7 ns   3.4%  per write          alt.slot-shape.three-shapes-against-one-at-the-write
+!~   1.08x   1.08x DEARER   220 ns    204 ns   2.7%  per write          alt.column-walk.probe-once-vs-hasownproperty-per-column.unchanged-resend
+!~   1.17x   1.17x DEARER   469 ns    401 ns   2.5%  per write          alt.replacing-build.assign-the-moved-vs-spread-the-patch.one-column-of-sixteen
+!    1.24x   1.24x DEARER   228 ns    183 ns   0.2%  per write          alt.equality-predicate.shared-default-vs-inlined.with-a-second-comparator-present
+!~   1.51x   1.51x DEARER   668 ns    442 ns  16.6%  per write          alt.replacing-build.decide-first-vs-build-as-you-walk.every-column-moved
+!    1.53x   1.53x DEARER   110 ns     72 ns   3.8%  per row per write  alt.column-subscription.by-column-vs-by-row.1024-rows
+!    1.72x   1.72x DEARER  2.49 µs   1.45 µs   2.4%  per frame          alt.coalesce-vs-eager.1-writes-per-node-per-frame
+!    1.86x   1.86x DEARER  9.35 µs   5.04 µs   2.1%  per write          alt.computed-dedup.getter-vs-channel.all-read-four-times
+!    2.41x   2.41x DEARER  4.18 µs   1.73 µs   3.8%  per frame          alt.dirty-list-vs-scan.1024-of-1024-marked
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  25 of 41 decisions stand on this run, 12 came out wrong, 4 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.dirty-list-vs-scan.1-of-1024-marked   [per frame]   0.04x
+  verdict  the shipped design wins — 24.9x cheaper
+  ours     a delivery list built at the write — the frame walks only what was marked
+  floor    a stamp written at the write — the frame scans every subscriber for this frame's stamp
+  ONE OPERATION IS ONE FRAME: the stated number of subscribers out of the population are
+  marked, spread evenly, and the frame delivers to exactly those. The list pays a flag test
+  and a push per mark and walks only the marked; the scan pays one store per mark and walks
+  the whole population every frame. So the answer turns on the marked fraction and THE ROWS
+  CROSS OVER: read them as a table, never as one ratio. Both arms were checked to deliver to
+  the same number of subscribers before the clock.
+  measured  1,203,822 ops/pass ours, 49,404 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.3%/1.7%; load 3.71 → 3.71 on 8 cores
+
+alt.dirty-flag-vs-set.65536-carriers.4-marks-each   [per write]   0.10x
+  verdict  the shipped design wins — 10.3x cheaper
+  ours     if (!carrier.isPending) { carrier.isPending = true; pending.push(carrier) } — drained as an array
+  floor    pendingSet.add(carrier) — drained by iterating the Set and clearing it
+  ONE OPERATION IS ONE MARK. A frame marks every carrier the stated number of times, in passes
+  over the whole population, and then drains, so a repeat mark is the flag's early return on
+  ours and a hash hit on the Set. The drain runs one counting body per carrier on both arms
+  and both were checked to run the same number before the clock. This is the shape of
+  `OIMChannel.enlist` and its frame loop, hand-written, so one carrier shape reaches each arm;
+  production carriers are megamorphic there, which charges the field reads on our side and not
+  the Set on the other, so the ratio is a lower bound on what the flag costs in the engine.
+  measured  18,302,754 ops/pass ours, 1,552,952 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 4.7%/3.5%; load 3.43 → 3.71 on 8 cores
+
+alt.dirty-list-vs-scan.32-of-1024-marked   [per frame]   0.14x
+  verdict  the shipped design wins — 6.92x cheaper
+  ours     a delivery list built at the write — the frame walks only what was marked
+  floor    a stamp written at the write — the frame scans every subscriber for this frame's stamp
+  ONE OPERATION IS ONE FRAME: the stated number of subscribers out of the population are
+  marked, spread evenly, and the frame delivers to exactly those. The list pays a flag test
+  and a push per mark and walks only the marked; the scan pays one store per mark and walks
+  the whole population every frame. So the answer turns on the marked fraction and THE ROWS
+  CROSS OVER: read them as a table, never as one ratio. Both arms were checked to deliver to
+  the same number of subscribers before the clock.
+  measured  332,750 ops/pass ours, 44,966 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.4%/3.3%; load 3.69 → 3.69 on 8 cores
+
+alt.dirty-flag-vs-set.65536-carriers.1-marks-each   [per write]   0.17x
+  verdict  the shipped design wins — 6.04x cheaper
+  ours     if (!carrier.isPending) { carrier.isPending = true; pending.push(carrier) } — drained as an array
+  floor    pendingSet.add(carrier) — drained by iterating the Set and clearing it
+  ONE OPERATION IS ONE MARK. A frame marks every carrier the stated number of times, in passes
+  over the whole population, and then drains, so a repeat mark is the flag's early return on
+  ours and a hash hit on the Set. The drain runs one counting body per carrier on both arms
+  and both were checked to run the same number before the clock. This is the shape of
+  `OIMChannel.enlist` and its frame loop, hand-written, so one carrier shape reaches each arm;
+  production carriers are megamorphic there, which charges the field reads on our side and not
+  the Set on the other, so the ratio is a lower bound on what the flag costs in the engine.
+  measured  6,423,570 ops/pass ours, 698,004 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 17.9%/53.4%; load 3.35 → 3.64 on 8 cores
+
+alt.dirty-flag-vs-set.1024-carriers.4-marks-each   [per write]   0.19x
+  verdict  the shipped design wins — 5.28x cheaper
+  ours     if (!carrier.isPending) { carrier.isPending = true; pending.push(carrier) } — drained as an array
+  floor    pendingSet.add(carrier) — drained by iterating the Set and clearing it
+  ONE OPERATION IS ONE MARK. A frame marks every carrier the stated number of times, in passes
+  over the whole population, and then drains, so a repeat mark is the flag's early return on
+  ours and a hash hit on the Set. The drain runs one counting body per carrier on both arms
+  and both were checked to run the same number before the clock. This is the shape of
+  `OIMChannel.enlist` and its frame loop, hand-written, so one carrier shape reaches each arm;
+  production carriers are megamorphic there, which charges the field reads on our side and not
+  the Set on the other, so the ratio is a lower bound on what the flag costs in the engine.
+  measured  27,937,814 ops/pass ours, 2,584,663 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 3.3%/5.9%; load 3.20 → 3.35 on 8 cores
+
+alt.dirty-flag-vs-set.1024-carriers.1-marks-each   [per write]   0.20x
+  verdict  the shipped design wins — 4.98x cheaper
+  ours     if (!carrier.isPending) { carrier.isPending = true; pending.push(carrier) } — drained as an array
+  floor    pendingSet.add(carrier) — drained by iterating the Set and clearing it
+  ONE OPERATION IS ONE MARK. A frame marks every carrier the stated number of times, in passes
+  over the whole population, and then drains, so a repeat mark is the flag's early return on
+  ours and a hash hit on the Set. The drain runs one counting body per carrier on both arms
+  and both were checked to run the same number before the clock. This is the shape of
+  `OIMChannel.enlist` and its frame loop, hand-written, so one carrier shape reaches each arm;
+  production carriers are megamorphic there, which charges the field reads on our side and not
+  the Set on the other, so the ratio is a lower bound on what the flag costs in the engine.
+  measured  11,503,852 ops/pass ours, 2,004,874 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 12.5%/8.7%; load 3.13 → 3.20 on 8 cores
+
+alt.coalesce-vs-eager.16-writes-per-node-per-frame   [per frame]   0.35x
+  verdict  the shipped design wins — 2.86x cheaper
+  ours     mark the node at the write, recompute each marked node once when the frame closes
+  floor    recompute the node at every write
+  ONE OPERATION IS ONE FRAME over the whole node population, each node taking the stated
+  number of writes to its sources. Coalescing pays a flag test and a push per write and one
+  recompute per node per frame; eager pays one recompute per write and nothing else. So the
+  answer is a BREAK-EVEN in writes per node per frame, not a speed-up: at one write eager does
+  strictly less, and every row above it is where coalescing has to earn its list. Both arms
+  are plain objects; both were checked to leave every node holding the same value after a
+  frame.
+  measured  5,874 ops/pass ours, 2,048 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 0.8%/2.5%; load 4.41 → 4.41 on 8 cores
+
+alt.computed-dedup.getter-vs-channel.few-read-once   [per write]   0.37x
+  verdict  the shipped design wins — 2.67x cheaper
+  ours     a frame of 16 writes; 16 of 256 derivations read once each — deduped at the getter
+  floor    the same frame — deduped in the channel, by a dependent walk and a frame stamp
+  THE SHAPE AN APPLICATION USUALLY HAS, and the one the shipped arm is built for: far more
+  derivations exist than any one frame reads. Ours settles 16 derivations and touches nothing
+  else; the channel arm walks every dependent of all 16 written roots and recomputes each
+  queued derivation whether or not it is read. ABOVE 1.0x HERE WOULD BE THE FINDING [FIGURE
+  STATED IN ADVANCE], because it would mean the per-read source comparison costs more than
+  recomputing derivations nobody wants. Both arms write through the same `OIMEntityCollection`
+  and `OIMChannel`, so the write path is common and cancels; what differs is only where the
+  "already done this frame" question is asked. What no ratio here prices: the getter arm is
+  what makes a derivation nobody reads cost nothing at all, which is a property of the whole
+  engine and not of this frame.
+  measured  32 ops/pass ours, 32 floor; 15 samples; warm-up 2000 planned, 2000/2000 reached; spread 90.8%/314.5%; load 3.23 → 3.23 on 8 cores
+
+alt.replacement-rebuild.survivors-vs-spread-and-delete.read-after   [per read]   0.38x
+  verdict  the shipped design wins — 2.61x cheaper
+  ours     read a surviving column off a replacement built empty and filled with survivors
+  floor    REJECTED: the same read off a replacement spread and then deleted from
+  THE SECOND READING, AND THE ONE THE SHIPPED SIDE IS BUYING. `delete` on a plain object takes
+  it out of the shape its population shares, and the rejected rebuild would hand readers a
+  replacement born in that state on every removal. That cost is paid PER READ, for the life of
+  the row. ONE OPERATION IS ONE PROPERTY READ of a SURVIVING column (`c07`) off one stored
+  row, walked through the whole population with a mask. Every row of both populations has been
+  through the same whole-row `upsertEntity` missing `c15`; ours built the replacement in the
+  shipped replacing `putEntity`, the rejected one spread it and `delete`d `c15`. THE WORK IS
+  IDENTICAL AND THE SHAPES ARE NOT. A SURVIVING COLUMN AND NOT THE REMOVED ONE, deliberately:
+  `c15` reads `undefined` on both sides and would measure a miss. EVERY ROW LOST THE COLUMN,
+  so each arm sees exactly one shape — the conservative form. THIS PAIR DOES NOT DECLARE
+  `isolate`, AND THAT IS A DECISION RATHER THAN A DEFAULT. The timed body on each arm is a
+  hand-written read loop belonging to that arm alone — no library code is entered by either,
+  so there is no shared compiled function whose inline caches the two arms could spoil for
+  each other. Each loop's property access therefore sees exactly the row shape its own design
+  produces, for the life of the process, which is the whole thing being measured. The
+  populations ARE built through the shipped `upsertEntity` with two different writers, and
+  that build is outside the clock; nothing timed here touches it. Keeping the ordinary
+  single-process form buys the floor-twice bracket, which is the stronger drift check and is
+  what these rows want.
+  measured  15,628,034 ops/pass ours, 6,054,660 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.0%/7.3%; load 4.47 → 4.47 on 8 cores
+
+alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-8   [per read]   0.42x
+  verdict  the shipped design wins — 2.40x cheaper
+  ours     getValueForSlot on a computed slot over 8 source slots, refreshed against the channel clock — nothing written since
+  floor    settle it against eight readings, held in an array beside the source list
+  THE WIDE END. 1024 derivations of eight sources use all 8192 rows of the fixture, so every
+  row is a source of exactly one derivation. Ours compares two inline fields; the rejected arm
+  indexes eight elements off a heap array it allocated per derivation. IF THIS ROW COMES BACK
+  NEAR 1.00 THE QUIET-READ CLAIM IS DEAD [FIGURE STATED IN ADVANCE]. RESIDUALS. Both arms
+  derive the same sum over the same entity slots of two fixtures built alike, and the build
+  throws unless every derivation answers the same on both. AGAINST US: our comparison is a
+  CALL to `oimIsRevisionAfter` and walks an EMPTY `sourceComputeds` array first, where the
+  rejected arm compares inline with `!==` — a per-slot counter cannot wrap inside a process
+  and needs no epoch, which is the one structural advantage that design has and it is granted
+  in full. AGAINST THE REJECTED ARM: its readings are an array object per derivation, so every
+  settle chases one more pointer than our two inline fields. OURS IS READ THROUGH ITS OWNER:
+  the 1024 derivations are the held slots of one `OIMComputedCollection` keyed by derivation,
+  and each read is `getValueForSlot`, which pays `assertNotReleased` and a call into
+  `oimRefreshComputedSlot` before the clock compare — charged to us. A derive looks its source
+  list up by the slot's key, which only a write that lands in a source list would reach, and
+  no row here makes one. NO ROW MEASURES BYTES; `src/retained/retainedPairsDerivations.ts` is
+  where that half lives.
+  measured  6,069,936 ops/pass ours, 1,978,644 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 30.0%/2.5%; load 2.92 → 3.17 on 8 cores
+
+alt.replacement-rebuild.survivors-vs-spread-and-delete.the-removal   [per write]   0.57x
+  verdict  the shipped design wins — 1.75x cheaper
+  ours     upsertEntity of a row missing one column — the replacement is built from the survivors
+  floor    REJECTED: { ...entity }, then delete the departing column off the copy
+  The shipped side is the replacing `putEntity`: one pass over the stored row with a
+  `hasOwnProperty` on the incoming value per column, and ONE new object built from the
+  survivors. The rejected side keeps the two-step put the engine used to run — its
+  spread-and-`delete` removal, then the shipped replacing `patchEntity`, which spreads a
+  second copy — so it pays two objects where ours pays one. ONE OPERATION IS ONE
+  `upsertEntity` OF A ROW THE POPULATION ALREADY HAS, and the passes ALTERNATE: a value
+  without `c15`, then the whole value again — a column can only leave a row once. Both sides
+  write the row to the channel once per upsert. THE SURROUNDING `upsertEntity` IS INSIDE BOTH
+  NUMBERS — the marks and the content-change call — so the ratio is a LOWER BOUND on the
+  difference between the two rebuilds. READINGS TAKEN BEFORE THE ENGINE HAD `putEntity` priced
+  a different shipped side and do not describe this one. WHAT THIS ROW DOES NOT MEASURE is
+  what the shipped side buys, which falls on every later READ of a row the `delete` took out
+  of its shape. That is the row below. THIS PAIR DECLARES `isolate`, AND THE READING IS
+  UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  33,094 ops/pass ours, 15,026 floor; 9 samples; warm-up 29 planned, 29/29 reached; spread 5.9%/36.1%; load 4.51 → 4.51 on 8 cores
+
+alt.coalesce-vs-eager.4-writes-per-node-per-frame   [per frame]   0.61x
+  verdict  the shipped design wins — 1.63x cheaper
+  ours     mark the node at the write, recompute each marked node once when the frame closes
+  floor    recompute the node at every write
+  ONE OPERATION IS ONE FRAME over the whole node population, each node taking the stated
+  number of writes to its sources. Coalescing pays a flag test and a push per write and one
+  recompute per node per frame; eager pays one recompute per write and nothing else. So the
+  answer is a BREAK-EVEN in writes per node per frame, not a speed-up: at one write eager does
+  strictly less, and every row above it is where coalescing has to earn its list. Both arms
+  are plain objects; both were checked to leave every node holding the same value after a
+  frame.
+  measured  13,800 ops/pass ours, 8,602 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 8.8%/28.2%; load 3.79 → 4.41 on 8 cores
+
+alt.column-walk.for-in-vs-object-keys.every-column-moved   [per write]   0.62x
+  verdict  the shipped design wins — 1.62x cheaper
+  ours     updateEntity(slot, patch) on the shipped walk — sixteen columns, all of them moving
+  floor    REJECTED: the same write with Object.keys(source) — sixteen columns, all moving
+  THE COUNTERWEIGHT TO THE ROW ABOVE, AND IT IS OWED. An unchanged re-send is the one write on
+  which the shipped walk allocates nothing whatever, so measuring the rejected design only
+  there would report its worst case as its case. Here every write moves all sixteen columns:
+  BOTH arms allocate a changed-names array and push sixteen names into it, both assign sixteen
+  columns, and both mark the row and its columns. The floor's names array is then one
+  allocation among several rather than its only one, and if the shipped walk's advantage is
+  really the allocation, this ratio is markedly closer to 1.00 than the unchanged row's. ONE
+  OPERATION IS ONE `updateEntity` CARRYING SIXTEEN COLUMNS. The values advance by one of eight
+  per pass and column `c` takes `titles[(round + c) & 7]`, so no write is ever handed a value
+  the row already holds. THE WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE
+  BOTH NUMBERS: `assertWritable` with the channel's `assertNotFlushing`,
+  `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0` test, and — on a write
+  that moves something — the changed-names array, `markColumnsChanged`'s column-store probe
+  per moved column, `channel.writeWithoutFlushCheck` and `markContentChanged`. That is a large
+  constant added to the numerator and the denominator alike, so it pulls this ratio toward
+  1.00 and the printed ratio is a LOWER BOUND on the difference between the two walks. The two
+  nanosecond columns beside it are not pulled anywhere: subtract them to get the per-write
+  difference the row is actually about. THIS PAIR DECLARES `isolate`, AND THE READING IS
+  UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  65,536 ops/pass ours, 65,536 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 12.0%/14.2%; load 4.73 → 4.99 on 8 cores
+
+alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-3   [per read]   0.65x
+  verdict  the shipped design wins — 1.54x cheaper
+  ours     getValueForSlot on a computed slot over 3 source slots, refreshed against the channel clock — nothing written since
+  floor    settle it against three readings, held in an array beside the source list
+  THE QUIET READ AT THREE SOURCES. Ours still returns on the two-field `checkedAt` comparison
+  whatever the fan-in; the rejected arm walks three readings. The recovered table put fan-in 3
+  at 1.14x to 1.18x in our favour [NO RUN BEHIND THIS FIGURE], measured on an engine that
+  walked the sources on every settle, so it is not a prediction for this row. RESIDUALS. Both
+  arms derive the same sum over the same entity slots of two fixtures built alike, and the
+  build throws unless every derivation answers the same on both. AGAINST US: our comparison is
+  a CALL to `oimIsRevisionAfter` and walks an EMPTY `sourceComputeds` array first, where the
+  rejected arm compares inline with `!==` — a per-slot counter cannot wrap inside a process
+  and needs no epoch, which is the one structural advantage that design has and it is granted
+  in full. AGAINST THE REJECTED ARM: its readings are an array object per derivation, so every
+  settle chases one more pointer than our two inline fields. OURS IS READ THROUGH ITS OWNER:
+  the 1024 derivations are the held slots of one `OIMComputedCollection` keyed by derivation,
+  and each read is `getValueForSlot`, which pays `assertNotReleased` and a call into
+  `oimRefreshComputedSlot` before the clock compare — charged to us. A derive looks its source
+  list up by the slot's key, which only a write that lands in a source list would reach, and
+  no row here makes one. NO ROW MEASURES BYTES; `src/retained/retainedPairsDerivations.ts` is
+  where that half lives.
+  measured  5,791,506 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 30 planned, 30/30 reached; spread 1.6%/14.8%; load 3.00 → 3.00 on 8 cores
+
+alt.column-walk.for-in-vs-object-keys.unchanged-resend   [per write]   0.69x
+  verdict  the shipped design wins — 1.45x cheaper
+  ours     updateEntity(slot, patch) on the shipped walk — for…in, own-property-ness proved once
+  floor    REJECTED: the same write with Object.keys(source) and a walk of that array
+  THE SCENARIO THE SOURCE'S OLD FIGURE NAMED, GIVEN A DIRECTORY. The in-place writer's source
+  once put the array-allocating form at 1.099 ms against 479 µs on "ten thousand rows
+  rewritten with the values they already hold" [NO RUN BEHIND THIS FIGURE]. This row is that
+  scenario: ONE OPERATION IS ONE `updateEntity` OF A ROW WITH A PATCH IT ALREADY MATCHES IN
+  ALL SIXTEEN COLUMNS. The population is primed outside the clock so every row holds round
+  zero's values, and the timed patch is round zero's — so every write enumerates sixteen
+  columns, compares sixteen times, moves nothing, and returns having marked nothing. OPERATION
+  COUNT, both arms: 16 `oimIsProtoKey` compares, 16 `oimSameValueZeroGuard` calls, 16 pairs of
+  property loads, and no changed-names array. Ours additionally pays ONE `oimIsPlain` — one
+  `getPrototypeOf` and two reference compares, per write. The floor pays ONE `Object.keys` — a
+  sixteen-element array allocated, filled and abandoned per write. THE DIFFERENCE IS ONE
+  PROTOTYPE PROBE AGAINST ONE SIXTEEN-ELEMENT ARRAY, plus whatever the two enumerations cost
+  each other. THIS IS THE MOST FAVOURABLE SCENARIO THE SHIPPED WALK HAS, and that is why the
+  row beside it exists. Read the two rows together or neither. A FLUSH CLOSES EACH PASS ON
+  BOTH ARMS and is an empty one — nothing was marked. THE WRITE AROUND THE WALK IS IDENTICAL
+  ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with the channel's
+  `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0`
+  test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  138,478 ops/pass ours, 176,206 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 7.5%/10.9%; load 5.05 → 5.05 on 8 cores
+
+alt.equality-predicate.row-comparator-vs-column-comparators.one-column-of-sixteen   [per write]   0.73x
+  verdict  the shipped design wins — 1.37x cheaper
+  ours     a population built with one comparator for the whole row — asked on all sixteen
+  floor    REJECTED: a map from column name to predicate, plain === for the other fifteen
+  WHAT A CALLER REACHING FOR THE PARAMETER ALMOST ALWAYS ACTUALLY WANTS: the one column
+  holding a value that needs more than `===` gets the comparison it needs without every other
+  column of every row paying for it. Sixteen columns, one of which needs an equality that is
+  not `===`, written both ways. ONE OPERATION IS ONE UNCHANGED `updateEntity` OF SIXTEEN
+  COLUMNS. Ours: 16 calls to the row comparator, of which 15 return on its `a === b` first
+  line and one runs the expensive body. Floor: 16 `Map.prototype.get` probes, 15 inline `===`
+  comparisons, and one call into the same expensive body. THE DIFFERENCE IS FIFTEEN CALLS
+  AGAINST SIXTEEN MAP PROBES; the expensive comparison is charged once to both arms and
+  cancels. THE EXPENSIVE COMPARATOR IS A CASE-INSENSITIVE STRING COMPARE AND NOT A DEEP EQUAL,
+  on purpose: a deeper comparator would raise both nanosecond columns by the same amount and
+  pull the ratio toward 1.00, so this row is the map design's best case. THE WRITE AROUND THE
+  WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with the
+  channel's `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the
+  `length > 0` test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  266,906 ops/pass ours, 192,268 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.9%/2.0%; load 5.77 → 5.77 on 8 cores
+
+alt.forbidden-name.comparison-vs-set.unchanged-resend   [per write]   0.79x
+  verdict  the shipped design wins — 1.27x cheaper
+  ours     updateEntity(slot, patch) — oimIsProtoKey(name), whose whole body is one comparison
+  floor    REJECTED: a Set of forbidden names, asked once per enumerated column
+  WHAT THE RULE WOULD COST IF IT COULD GROW. The forbidden-name rule is one comparison against
+  `OIM_PROTO_KEY`; a membership test against a collection is the shape it would take the day a
+  second name joins it, and nothing has ever measured that. ONE OPERATION IS ONE UNCHANGED
+  `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the clock, so the predicate is asked
+  sixteen times and the equality gate then ends every column — the arrangement that gives the
+  predicate the largest share of a write it will ever have. OPERATION COUNT, ours: 16
+  monomorphic calls each doing one string compare. Floor: 16 `Set.prototype.has` calls, each
+  probing a table of ONE entry. THE SET IS AT ITS BEST HERE AND THE READING IS THEREFORE THE
+  REJECTED DESIGN'S FLOOR, NOT ITS TYPICAL COST. THE STRINGS ARE INTERNED ON BOTH ARMS, so the
+  floor never pays a fresh hash and only pays a probe — in the floor's favour. THE WRITE
+  AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with
+  the channel's `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the
+  `length > 0` test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  255,714 ops/pass ours, 189,040 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 11.6%/67.3%; load 5.49 → 6.99 on 8 cores
+
+alt.replacing-build.decide-first-vs-build-as-you-walk.unchanged-resend   [per write]   0.82x
+  verdict  the shipped design wins — 1.22x cheaper
+  ours     the replacing writer: walk, find nothing moved, allocate nothing
+  floor    REJECTED: copy the row up front, assign what moved, store the copy regardless
+  THE WRITE THE SHIPPED ORDER EXISTS FOR. "Decide before you allocate" only differs from
+  "build as you walk" on a write that moves NOTHING, and there it differs completely: ours
+  returns false having allocated neither a row nor a names array, and the floor has already
+  spread the row before it could know. ONE OPERATION IS ONE UNCHANGED `updateEntity` OF A
+  SIXTEEN-COLUMN ROW, primed outside the clock. Both arms: 16 `oimIsProtoKey` calls, 16
+  equality calls, one `oimIsPlain`, no mark. The floor allocates one seventeen-property
+  record, copies seventeen values into it and stores it on the slot — per write, abandoned.
+  THE COPY IS STORED, so it escapes and V8 cannot elide it; storing it is also the faithful
+  reading of the rejected design, which has no decision point at which to withhold the copy —
+  and so hands readers a new reference on an unchanged write. THIS ROW MEASURES WHAT THAT
+  COSTS AND NOT WHETHER IT IS ACCEPTABLE. Read with the `every-column-moved` row beside it.
+  THE WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS:
+  `assertWritable` with the channel's `assertNotFlushing`, `openSubframe`/`closeSubframe`, the
+  writer dispatch, the `length > 0` test, and — on a write that moves something — the
+  changed-names array, `markColumnsChanged`'s column-store probe per moved column,
+  `channel.writeWithoutFlushCheck` and `markContentChanged`. That is a large constant added to
+  the numerator and the denominator alike, so it pulls this ratio toward 1.00 and the printed
+  ratio is a LOWER BOUND on the difference between the two walks. The two nanosecond columns
+  beside it are not pulled anywhere: subtract them to get the per-write difference the row is
+  actually about. THIS PAIR DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT.
+  Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  276,754 ops/pass ours, 225,896 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 9.4%/7.6%; load 5.43 → 5.43 on 8 cores
+
+alt.clock.global-pair-vs-per-slot.quiet-read.fan-in-1   [per read]   0.84x
+  verdict  the shipped design wins — 1.19x cheaper
+  ours     getValueForSlot on a computed slot over 1 source slot, refreshed against the channel clock — nothing written since
+  floor    settle it against one reading per source, held in an array beside the source list
+  THE QUIET READ, AND ON THE SHIPPED ENGINE IT DOES NOT WALK THE SOURCES AT ALL.
+  `oimRefreshComputedSlot` returns on the slot's `checkedAt` pair matching the channel clock,
+  which is only possible because the clock is ONE scale: nothing was written anywhere, so
+  nothing a derivation reads can have moved. The per-slot arm has no such question to ask and
+  must compare every source reading. At one source that walk is one element, so this row is
+  the narrowest the gap can be. 1024 derivations are settled before the clock starts and read
+  in rotation. RESIDUALS. Both arms derive the same sum over the same entity slots of two
+  fixtures built alike, and the build throws unless every derivation answers the same on both.
+  AGAINST US: our comparison is a CALL to `oimIsRevisionAfter` and walks an EMPTY
+  `sourceComputeds` array first, where the rejected arm compares inline with `!==` — a
+  per-slot counter cannot wrap inside a process and needs no epoch, which is the one
+  structural advantage that design has and it is granted in full. AGAINST THE REJECTED ARM:
+  its readings are an array object per derivation, so every settle chases one more pointer
+  than our two inline fields. OURS IS READ THROUGH ITS OWNER: the 1024 derivations are the
+  held slots of one `OIMComputedCollection` keyed by derivation, and each read is
+  `getValueForSlot`, which pays `assertNotReleased` and a call into `oimRefreshComputedSlot`
+  before the clock compare — charged to us. A derive looks its source list up by the slot's
+  key, which only a write that lands in a source list would reach, and no row here makes one.
+  NO ROW MEASURES BYTES; `src/retained/retainedPairsDerivations.ts` is where that half lives.
+  measured  4,823,183 ops/pass ours, 5,009,800 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 1.3%/1.6%; load 3.17 → 3.17 on 8 cores
+
+alt.dirty-list-vs-scan.256-of-1024-marked   [per frame]   0.87x
+  verdict  the shipped design wins — 1.15x cheaper
+  ours     a delivery list built at the write — the frame walks only what was marked
+  floor    a stamp written at the write — the frame scans every subscriber for this frame's stamp
+  ONE OPERATION IS ONE FRAME: the stated number of subscribers out of the population are
+  marked, spread evenly, and the frame delivers to exactly those. The list pays a flag test
+  and a push per mark and walks only the marked; the scan pays one store per mark and walks
+  the whole population every frame. So the answer turns on the marked fraction and THE ROWS
+  CROSS OVER: read them as a table, never as one ratio. Both arms were checked to deliver to
+  the same number of subscribers before the clock.
+  measured  35,148 ops/pass ours, 39,476 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 9.2%/78.0%; load 3.55 → 3.59 on 8 cores
+
+alt.slot-literal.complete-vs-grown.write-a-partly-subscribed-population   [per write]   0.88x
+  verdict  the shipped design wins — 1.14x cheaper
+  ours     updateEntity on a loaded population whose every slot has one shape
+  floor    REJECTED: the same write where a slot’s shape depends on what has happened to it
+  WHERE THE SHIPPED LITERAL IS SUPPOSED TO EARN THE FIVE STORES THE ROW ABOVE CHARGES IT FOR.
+  "Every slot of a population settles on a single hidden class" is only worth anything if
+  something later reads those slots through a site that would otherwise go polymorphic — which
+  is the write path: `channel.writeWithoutFlushCheck` reads `effects`, `changedAtRevision` and
+  `changedAtEpoch`, and the collection reads `entity` and `isReleased`, all through one
+  compiled body per method. THE POPULATION IS DELIBERATELY HETEROGENEOUS THE WAY A SCREEN
+  MAKES IT SO: one row in eight carries an effect (`effectService.createEffect([slot], [],
+  body)`), which is what a mounted view of a list looks like. On ours that changes no shape —
+  `effects` was there from birth. On the floor the subscribed slots gain a property the rest
+  do not have, so the population holds two shapes and every one of those reads sees both. ONE
+  OPERATION IS ONE `updateEntity` MOVING ONE COLUMN of a sixteen-column row, and the
+  subscribed eighth really is woken — both arms subscribe the same rows to the same shared
+  body, so the delivery is inside both numbers and cancels. THE FLOOR IS AT ITS BEST WITH TWO
+  SHAPES; a column hold (`columnSlotStore`) or an index (`indexKeys`) adds another at the same
+  sites, so this reading is a LOWER BOUND on what the shipped literal buys. THIS PAIR DECLARES
+  `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through
+  one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  896,098 ops/pass ours, 898,022 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 20.4%/1.3%; load 5.73 → 5.73 on 8 cores
+
+alt.forbidden-name.call-vs-inlined.unchanged-resend   [per write]   0.93x
+  verdict  the shipped design wins — 1.07x cheaper
+  ours     updateEntity(slot, patch) — one shared predicate called from the walk
+  floor    REJECTED: name !== "__proto__" written into the walk, with no call at all
+  THE ROW WHOSE EXPECTED ANSWER IS 1.00, STATED IN ADVANCE SO A RUN CAN REFUTE IT.
+  `oimIsProtoKey` is module-level, monomorphic, one expression, no closure — the shape an
+  optimiser removes — which is a claim that this ratio comes back inside the noise floor. If
+  it does, centralising the rule is free; if it does not, the centralisation was bought with
+  something. ONE OPERATION IS ONE UNCHANGED `updateEntity` OF SIXTEEN COLUMNS, so the
+  difference is sixteen call frames per write against none. THE FLOOR IS NOT A DESIGN ANYBODY
+  SHOULD SHIP: it is the duplicated comparison the rule was centralised out of, here as a
+  measurement instrument — the isolated cost of a call level. THE WRITE AROUND THE WALK IS
+  IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with the channel's
+  `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0`
+  test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  278,360 ops/pass ours, 266,196 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 8.0%/10.4%; load 6.99 → 6.99 on 8 cores
+
+alt.coalesce-vs-eager.2-writes-per-node-per-frame   [per frame]   0.94x
+  verdict  the shipped design wins — 1.06x cheaper
+  ours     mark the node at the write, recompute each marked node once when the frame closes
+  floor    recompute the node at every write
+  ONE OPERATION IS ONE FRAME over the whole node population, each node taking the stated
+  number of writes to its sources. Coalescing pays a flag test and a push per write and one
+  recompute per node per frame; eager pays one recompute per write and nothing else. So the
+  answer is a BREAK-EVEN in writes per node per frame, not a speed-up: at one write eager does
+  strictly less, and every row above it is where coalescing has to earn its list. Both arms
+  are plain objects; both were checked to leave every node holding the same value after a
+  frame.
+  measured  12,678 ops/pass ours, 8,515 floor; 9 samples; warm-up 33 planned, 33/33 reached; spread 12.1%/2.5%; load 3.77 → 3.79 on 8 cores
+
+alt.slot-shape.one-write-site-against-one-per-kind   [per write]   0.96x
+  verdict  the shipped design wins — 1.04x cheaper
+  ours     one write function handed three slot shapes — entity, bucket, column
+  floor    three write functions, one per slot kind, each handed only its own shape
+  ONE OPERATION IS THREE WRITES, one slot of each kind, in the same order on both arms over
+  the same pool of literals. The bodies are byte-identical and are SEPARATE FUNCTION LITERALS
+  — closures minted from one literal share their feedback, so a factory would make the
+  rejected arm polymorphic too and the row would price nothing. These three are the literals
+  `how-many-shapes-reach-the-write-door.test.ts` pins at `OIMChannel.writeWithoutFlushCheck`,
+  so our arm is as polymorphic as production. `isolate` keeps the two arms from sharing a heap
+  history.
+  measured  7,021,010 ops/pass ours, 3,793,782 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 15.8%/1.6%; load 4.82 → 4.94 on 8 cores
+
+alt.effect-shape.class-vs-literal-and-service.wake   [per frame]   0.98x
+  verdict  the shipped design wins — 1.02x cheaper
+  ours     channel.write(slot); channel.flush() — wakes the TOIMEffects standing on that slot
+  floor    channel.write(slot); channel.flush() — wakes the literal effects standing on that slot
+  THE SHIPPED SERVICE AGAINST THE BENCH'S OWN LITERAL COPY OF ITS ALGORITHM. Ours is the
+  shipped `OIMEffectService`, whose effects are plain `TOIMEffect` objects carrying an
+  `effectService` reference. The floor is a literal copy of the same fields and the same run
+  and dispose steps, kept in this file as module-level functions and a small literal service
+  object (`runEffectIfSourcesChanged`, `setPositionInSubscribedSlot`) because the channel and
+  `OIMSlotOwner.unsubscribeFromSlot` call those through the effect. Both subscribe through the
+  same `OIMSlotOwner.subscribeToSlot`, so `isolate` keeps each arm in its own process. Each
+  arm keeps ONE resident effect alive for the whole process, so the hidden-class loss at a
+  full GC (WHY-EACH-ROW.md, churnChain) is excluded and what remains is the cost of the
+  service call itself. The floor skips the shipped `createEffect`'s source-computed dedup
+  `Set` branch, its try/catch and its frame-scheduling check, none of which does work for an
+  effect with no source computeds. 1024 effects stand over 57 overlapping 8-row windows of 64
+  rows; one operation is one write and one frame, which runs every effect whose window holds
+  the row (up to 8).
+  measured  22,196 ops/pass ours, 22,892 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 4.4%/26.5%; load 4.71 → 4.97 on 8 cores
+
+alt.column-left.delete-vs-blank.read-one-row-in-eight-lost-a-column   [per read]   0.99x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the same read where one row in eight was deleted from — two shapes in one population
+  floor    REJECTED: the same population blanked instead — one shape throughout
+  THE POPULATION AN APPLICATION ACTUALLY HAS, AND THE SECOND THING THE SHIPPED `delete` COSTS.
+  Here one row in eight has lost a column and seven have not, so ours reads through a site
+  that sees two shapes while the floor's sees one — a blanked population cannot fragment. ONE
+  OPERATION IS ONE PROPERTY READ of `c07` off one stored row, over the whole population with a
+  mask. Both arms read the same column of the same rows in the same order and differ only in
+  what the removal did. READ AGAINST THE ROW ABOVE: that one isolates the cost of the shape,
+  this one adds the cost of two shapes at one site. THIS PAIR DOES NOT DECLARE `isolate`, AND
+  THAT IS A DECISION RATHER THAN A DEFAULT. The timed body on each arm is a hand-written read
+  loop belonging to that arm alone — no library code is entered by either, so there is no
+  shared compiled function whose inline caches the two arms could spoil for each other. Each
+  loop's property access therefore sees exactly the row shape its own design produces, for the
+  life of the process, which is the whole thing being measured. The populations ARE built
+  through the shipped `upsertEntity` with two different writers, and that build is outside the
+  clock; nothing timed here touches it. Keeping the ordinary single-process form buys the
+  floor-twice bracket, which is the stronger drift check and is what these rows want.
+  measured  7,819,264 ops/pass ours, 15,322,036 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 2.7%/16.8%; load 4.04 → 4.04 on 8 cores
+
+alt.equality-predicate.shared-default-vs-inlined.unchanged-resend   [per write]   0.99x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     updateEntity(slot, patch) — the shared default predicate, asked once per column
+  floor    REJECTED: SameValueZero written into the walk, with no parameter
+  THE NEGATIVE READING A CALL-SITE DECISION IS OWED. The equality predicate is a parameter
+  (`sameValueGuard`) so a caller can say what a change MEANS for their rows, and the argument
+  for putting it on the hottest walk in the engine was that a shared default keeps the site
+  monomorphic and therefore free. That is a ratio, and this row takes it. ONE OPERATION IS ONE
+  UNCHANGED `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the clock. Ours: 16 calls
+  to `oimSameValueZeroGuard` through the shipped default writer's captured parameter. Floor:
+  the same comparison — `a === b || (a !== a && b !== b)` — 16 times inline. Both: 16
+  `oimIsProtoKey` calls, one `oimIsPlain`, no allocation, and the early return. THE UNCHANGED
+  WRITE IS WHERE THE PREDICATE IS THE WHOLE COLUMN; read this as the predicate's largest share
+  of a write and not as its typical one. THE WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS
+  AND IS INSIDE BOTH NUMBERS: `assertWritable` with the channel's `assertNotFlushing`,
+  `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0` test, and — on a write
+  that moves something — the changed-names array, `markColumnsChanged`'s column-store probe
+  per moved column, `channel.writeWithoutFlushCheck` and `markContentChanged`. That is a large
+  constant added to the numerator and the denominator alike, so it pulls this ratio toward
+  1.00 and the printed ratio is a LOWER BOUND on the difference between the two walks. The two
+  nanosecond columns beside it are not pulled anywhere: subtract them to get the per-write
+  difference the row is actually about. THIS PAIR DECLARES `isolate`, AND THE READING IS
+  UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  276,416 ops/pass ours, 263,796 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 74.0%/5.4%; load 6.75 → 6.75 on 8 cores
+
+alt.slot-literal.complete-vs-grown.mint-a-population   [per relationship]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     upsertEntity of a key that has none — the shipped fifteen-field entity slot literal
+  floor    REJECTED: a slot minted with its ten valued fields, the rest added on first use
+  THE FIRST OF THE TWO READINGS THIS DECISION ASKS FOR, AND IT IS THE ONE THAT SHOULD GO
+  AGAINST US. `createOIMEntitySlot` returns fifteen fields, five of them born`undefined` —
+  `effects`, `entity`, `columnSlotStore`, `data`, `indexKeys` — and the rejected design (a
+  subclass overriding `createSlot`) leaves all five out and lets the engine add each on first
+  assignment. So ours pays five stores per identity the floor does not, and if this row does
+  not come back ABOVE 1.00 the two designs do not differ where the argument says they do. ONE
+  OPERATION IS ONE `upsertEntity` OF A KEY THAT HAS NO VALUE — the whole first-load path:
+  `writeContentByKey` minting the identity, the copying writer strategy, the store, the marks.
+  The pass CONSUMES its fixture, so both sides declare `operationsPerPass` and rebuild an
+  empty population in the untimed `reset`. ONE DIFFERENCE THAT IS NOT THE LITERAL, in the
+  FLOOR'S disfavour: on the floor `slot.entity =` ADDS a property rather than storing into
+  one, a map transition per row — which is what "added on first use" means. WHAT THIS ROW
+  CANNOT SAY is what the unused fields COST in bytes; that is `npm run retained`, and this
+  pair does not stand in for it. THIS PAIR DECLARES `isolate`, AND THE READING IS
+  UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 53 planned, 53/53 reached; spread 4.0%/5.2%; load 5.42 → 5.73 on 8 cores
+
+alt.effect-shape.class-vs-literal-and-service.dispose   [per relationship]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     effectService.disposeEffect(effect) — a TOIMEffect over 8 roots
+  floor    disposeLiteralEffect(effect) — a literal over 8 roots
+  THE SHIPPED SERVICE AGAINST THE BENCH'S OWN LITERAL COPY OF ITS ALGORITHM. Ours is the
+  shipped `OIMEffectService`, whose effects are plain `TOIMEffect` objects carrying an
+  `effectService` reference. The floor is a literal copy of the same fields and the same run
+  and dispose steps, kept in this file as module-level functions and a small literal service
+  object (`runEffectIfSourcesChanged`, `setPositionInSubscribedSlot`) because the channel and
+  `OIMSlotOwner.unsubscribeFromSlot` call those through the effect. Both subscribe through the
+  same `OIMSlotOwner.subscribeToSlot`, so `isolate` keeps each arm in its own process. Each
+  arm keeps ONE resident effect alive for the whole process, so the hidden-class loss at a
+  full GC (WHY-EACH-ROW.md, churnChain) is excluded and what remains is the cost of the
+  service call itself. The floor skips the shipped `createEffect`'s source-computed dedup
+  `Set` branch, its try/catch and its frame-scheduling check, none of which does work for an
+  effect with no source computeds. One operation is one effect unsubscribed from 8 roots; the
+  pass's effects are created in `reset`, untimed, and one frame closes the pass.
+  measured  1,024 ops/pass ours, 1,024 floor; 15 samples; warm-up 2000 planned, 2000/2000 reached; spread 111.3%/245.1%; load 4.97 → 4.97 on 8 cores
+
+alt.column-left.delete-vs-blank.read-every-row-lost-a-column   [per read]   1.02x
+  verdict  !  THE REJECTED DESIGN WINS — 1.02x DEARER. This decision came out wrong.
+  ours     read a surviving column off an in-place row the engine deleted a column from
+  floor    REJECTED: the same read off a row whose departed column was set to undefined
+  EXPECTED TO GO AGAINST THE SHIPPED DESIGN. The blanked form keeps the hidden class its
+  population settled on; the shipped in-place `putEntity` `delete`s and every later read pays
+  for it. ONE OPERATION IS ONE PROPERTY READ of a SURVIVING column (`c07`) off one stored row,
+  walked through the whole population with a mask. Both populations were loaded identically
+  and given the same whole-row `upsertEntity` missing `c15`; ours ran the shipped in-place
+  `putEntity`, which `delete`s it, the rejected one set it to `undefined`. The stored object
+  is the SAME OBJECT on the in-place path on both arms. WHAT THE BLANKED FORM CANNOT DO, and
+  it is not visible in this number: `c15` stays an own property, so the next whole-row
+  `upsertEntity` finds the same column leaving again, reports it removed again and wakes its
+  subscribers again — and a column a caller deliberately stored as `undefined` would stop
+  being distinguishable from one that left. THIS PAIR DOES NOT DECLARE `isolate`, AND THAT IS
+  A DECISION RATHER THAN A DEFAULT. The timed body on each arm is a hand-written read loop
+  belonging to that arm alone — no library code is entered by either, so there is no shared
+  compiled function whose inline caches the two arms could spoil for each other. Each loop's
+  property access therefore sees exactly the row shape its own design produces, for the life
+  of the process, which is the whole thing being measured. The populations ARE built through
+  the shipped `upsertEntity` with two different writers, and that build is outside the clock;
+  nothing timed here touches it. Keeping the ordinary single-process form buys the floor-twice
+  bracket, which is the stronger drift check and is what these rows want.
+  measured  15,246,472 ops/pass ours, 15,972,626 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 35.4%/10.7%; load 4.32 → 4.32 on 8 cores
+
+alt.effect-shape.class-vs-literal-and-service.create   [per relationship]   1.04x
+  verdict  !  THE REJECTED DESIGN WINS — 1.04x DEARER. This decision came out wrong.
+  ours     effectService.createEffect(rootSlots, [], body) — a new TOIMEffect over 8 roots
+  floor    createLiteralEffect(channel, rootSlots, body) — a literal over 8 roots, subscribed by a shared function
+  THE SHIPPED SERVICE AGAINST THE BENCH'S OWN LITERAL COPY OF ITS ALGORITHM. Ours is the
+  shipped `OIMEffectService`, whose effects are plain `TOIMEffect` objects carrying an
+  `effectService` reference. The floor is a literal copy of the same fields and the same run
+  and dispose steps, kept in this file as module-level functions and a small literal service
+  object (`runEffectIfSourcesChanged`, `setPositionInSubscribedSlot`) because the channel and
+  `OIMSlotOwner.unsubscribeFromSlot` call those through the effect. Both subscribe through the
+  same `OIMSlotOwner.subscribeToSlot`, so `isolate` keeps each arm in its own process. Each
+  arm keeps ONE resident effect alive for the whole process, so the hidden-class loss at a
+  full GC (WHY-EACH-ROW.md, churnChain) is excluded and what remains is the cost of the
+  service call itself. The floor skips the shipped `createEffect`'s source-computed dedup
+  `Set` branch, its try/catch and its frame-scheduling check, none of which does work for an
+  effect with no source computeds. One operation is one effect created and subscribed to 8
+  roots; the disposal of the pass is in `reset`, untimed.
+  measured  1,024 ops/pass ours, 1,024 floor; 15 samples; warm-up 2000 planned, 2000/2000 reached; spread 13.9%/10.4%; load 4.69 → 4.71 on 8 cores
+
+alt.clock.global-pair-vs-per-slot.read-after-an-unrelated-write.fan-in-3   [per read]   1.04x
+  verdict  !  THE REJECTED DESIGN WINS — 1.04x DEARER. This decision came out wrong.
+  ours     write an entity no derivation reads, then getValueForSlot on a computed slot over 3 source slots
+  floor    the same write, then settle against three per-source readings
+  THE QUIET ROWS' OTHER HALF, AND THE ONE TO READ BESIDE THEM. Any write anywhere moves the
+  channel clock, so the `checkedAt` short-circuit misses and ours walks its three sources
+  through `oimIsRevisionAfter` exactly as the rejected arm walks its readings — neither
+  re-derives, because the written row is outside every source list. The write is the shipped
+  `collection.update` on BOTH arms and moves `title` on every call, so it is in both numbers
+  alike. Without this row the quiet rows would price the short-circuit as if every frame were
+  silent. RESIDUALS. Both arms derive the same sum over the same entity slots of two fixtures
+  built alike, and the build throws unless every derivation answers the same on both. AGAINST
+  US: our comparison is a CALL to `oimIsRevisionAfter` and walks an EMPTY `sourceComputeds`
+  array first, where the rejected arm compares inline with `!==` — a per-slot counter cannot
+  wrap inside a process and needs no epoch, which is the one structural advantage that design
+  has and it is granted in full. AGAINST THE REJECTED ARM: its readings are an array object
+  per derivation, so every settle chases one more pointer than our two inline fields. OURS IS
+  READ THROUGH ITS OWNER: the 1024 derivations are the held slots of one
+  `OIMComputedCollection` keyed by derivation, and each read is `getValueForSlot`, which pays
+  `assertNotReleased` and a call into `oimRefreshComputedSlot` before the clock compare —
+  charged to us. A derive looks its source list up by the slot's key, which only a write that
+  lands in a source list would reach, and no row here makes one. NO ROW MEASURES BYTES;
+  `src/retained/retainedPairsDerivations.ts` is where that half lives.
+  measured  857,222 ops/pass ours, 811,726 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 1.7%/4.6%; load 3.17 → 3.23 on 8 cores
+
+alt.slot-shape.three-shapes-against-one-at-the-write   [per write]   1.06x
+  verdict  !  THE REJECTED DESIGN WINS — 1.06x DEARER. This decision came out wrong.
+  ours     one write function handed the three shipped slot shapes
+  floor    one write function handed three slots minted with one unified shape
+  THE HALF OF THE UNIFIED-SHAPE ARGUMENT THAT FAVOURS IT, and it must be read with
+  `alt.slot-shape.three-shapes-against-one-at-the-mint`, which is the half that pays for it.
+  One operation is three writes in the same order over the same pool size on both arms; the
+  only difference is whether the site sees three hidden classes or one. The unified literal
+  carries every field any kind needs, in one order, so it is one map. Above one is the shipped
+  design losing at the write.
+  measured  7,324,122 ops/pass ours, 3,667,589 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 80.6%/1.4%; load 4.94 → 5.05 on 8 cores
+
+alt.column-walk.probe-once-vs-hasownproperty-per-column.unchanged-resend   [per write]   1.08x
+  verdict  !  THE REJECTED DESIGN WINS — 1.08x DEARER. This decision came out wrong.
+  ours     updateEntity(slot, patch) — one oimIsPlain per write, and a bare for…in after it
+  floor    REJECTED: hasOwnProperty.call per column, with no oimIsPlain probe at all
+  THE SECOND DESIGN THE SAME DECISION REFUSED. The writer's old source put the per-column
+  probe at "a quarter of" an unchanged re-send — a share of a scenario, not a ratio, and no
+  directory. This row is that scenario at sixteen columns. ONE OPERATION IS ONE UNCHANGED
+  `updateEntity`, primed exactly as the first row of this file. OPERATION COUNT, ours: 1
+  `getPrototypeOf` and 2 reference compares, then 16 `oimIsProtoKey` compares and 16 equality
+  calls. Floor: 16 `oimIsProtoKey` compares, 16 `Object.prototype.hasOwnProperty.call`
+  invocations and 16 equality calls. THE DIFFERENCE IS ONE PROTOTYPE PROBE AGAINST SIXTEEN
+  BUILTIN CALLS, per write. WHAT THE FLOOR BUYS IS NOT VISIBLE IN THIS NUMBER: unconditional
+  correctness with no probe of the patch and no second rule for the non-plain payload. THE
+  PATCH HERE IS A PLAIN OBJECT, the case the shipped design optimises for; on a class-instance
+  patch ours takes the filtered walk and pays what the floor pays plus the probe. THE WRITE
+  AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with
+  the channel's `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the
+  `length > 0` test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  108,349 ops/pass ours, 239,416 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 257.1%/81.3%; load 4.83 → 5.88 on 8 cores
+
+alt.replacing-build.assign-the-moved-vs-spread-the-patch.one-column-of-sixteen   [per write]   1.17x
+  verdict  !  THE REJECTED DESIGN WINS — 1.17x DEARER. This decision came out wrong.
+  ours     the replacing writer: { ...entity }, then one store per column the walk recorded
+  floor    REJECTED: { ...entity, ...source } — the whole patch spread over the copy
+  THE ARMS OF THIS QUESTION SWAPPED SIDES. The shipped replacing writer used to spread the
+  whole patch over the copy; `createOIMEntityWriterReplacing` now assigns only the names
+  `changedColumns` recorded, so the spread is the rejected arm. ONE OPERATION IS ONE
+  `updateEntity` CARRYING SIXTEEN COLUMNS OF WHICH EXACTLY ONE HAS MOVED — the shape a socket
+  re-sending a whole row produces, and the shape that makes the two designs differ most.
+  OPERATION COUNT. Both arms: the same `changedColumns` walk — 16 `oimIsProtoKey` calls, 16
+  equality calls, one names array with ONE push — the marks, and one record allocated. Ours
+  then copies 17 values from the entity and does ONE store. The floor copies 17 from the
+  entity and 16 from the patch — 33 stores, 15 of them writing a value the copy already held.
+  THE DIFFERENCE IS SIXTEEN PROPERTY COPIES AGAINST ONE, per write. WHAT THE SPREAD WOULD BUY,
+  and it is not a number: a caller's `sameValueGuard` may call two different objects equal,
+  and the spread then stores the NEWER one while reporting nothing moved, where the shipped
+  form keeps the older one. ONLY `c00` ADVANCES, by one of eight per pass; the other fifteen
+  columns hold the values the population was primed with. THE WRITE AROUND THE WALK IS
+  IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable` with the channel's
+  `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0`
+  test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  59,268 ops/pass ours, 65,536 floor; 9 samples; warm-up 34 planned, 34/34 reached; spread 72.0%/17.2%; load 4.59 → 4.59 on 8 cores
+
+alt.equality-predicate.shared-default-vs-inlined.with-a-second-comparator-present   [per write]   1.24x
+  verdict  !  THE REJECTED DESIGN WINS — 1.24x DEARER. This decision came out wrong.
+  ours     the same write, in a process where one other population has its own comparator
+  floor    REJECTED: SameValueZero written into the walk — nothing can spoil it
+  THE HALF OF THE ALTERNATIVE THE ROW ABOVE CANNOT SEE. `createOIMEntityWriterInPlace` returns
+  a closure over ONE compiled `patchEntityInPlace` and ONE `changedColumns`, so the
+  `sameValueGuard(entity[name], source[name])` inside it is one call site for the whole
+  process — and one population built with its own comparator makes it polymorphic for every
+  population that did not. A design with no parameter cannot be spoiled that way. HOW THE
+  SPOILER IS APPLIED, outside the clock: a second population of 64 rows is built with
+  `createOIMEntityWriterInPlace({ sameValueGuard: caseInsensitiveEquality })` and written to
+  in this side's `reset`, which is never timed. The timed body touches only the measured
+  population, so the WORK on the two arms is identical and the difference from the row above
+  is the state of one inline cache. THE FLOOR IS THE SAME FLOOR AS THE ROW ABOVE,
+  deliberately. A CAVEAT AGAINST THIS ROW: nothing here forces V8 to keep the site
+  polymorphic; if the two rows come back identical within the noise floor, that is the first
+  thing to suspect and the second is that polymorphism at this site is genuinely free. THE
+  WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertWritable`
+  with the channel's `assertNotFlushing`, `openSubframe`/`closeSubframe`, the writer dispatch,
+  the `length > 0` test, and — on a write that moves something — the changed-names array,
+  `markColumnsChanged`'s column-store probe per moved column, `channel.writeWithoutFlushCheck`
+  and `markContentChanged`. That is a large constant added to the numerator and the
+  denominator alike, so it pulls this ratio toward 1.00 and the printed ratio is a LOWER BOUND
+  on the difference between the two walks. The two nanosecond columns beside it are not pulled
+  anywhere: subtract them to get the per-write difference the row is actually about. THIS PAIR
+  DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms reach the
+  engine through one compiled function — `OIMEntityCollection.prototype.patchEntity`, whose
+  single call site `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers
+  in one process. Neither would then be inlined, and inlining the column walk into the write
+  is exactly where a walk's advantage lives; worse, the failure is invisible, because a ratio
+  of 1.00 would be equally consistent with "the two walks cost the same" and "each arm ran
+  through caches the other had already made polymorphic". Each side is therefore probed and
+  timed in a process that has never constructed the other, and `build` declines to fill the
+  population it was not asked for — merely FILLING the other design's population teaches V8
+  its shape, so declining to time it is not enough. What it costs: `noise` now includes
+  process-to-process variation, which is the honest thing for it to include here.
+  measured  216,376 ops/pass ours, 136,552 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 5.5%/4.1%; load 6.10 → 6.10 on 8 cores
+
+alt.replacing-build.decide-first-vs-build-as-you-walk.every-column-moved   [per write]   1.51x
+  verdict  !  THE REJECTED DESIGN WINS — 1.51x DEARER. This decision came out wrong.
+  ours     the replacing writer: walk to decide, then one spread and one store per moved column
+  floor    REJECTED: one spread of the entity up front, then assign each column as it is found
+  WHAT THE SHIPPED ORDER COSTS WHEN THE WRITE REALLY CHANGES SOMETHING — a re-hydration, where
+  every write changes something. ONE OPERATION IS ONE `updateEntity` MOVING ALL SIXTEEN
+  COLUMNS. Both arms: 16 `oimIsProtoKey` calls, 16 equality calls, one changed-names array
+  with 16 pushes, the marks, and exactly ONE record allocated with 17 values spread and 16
+  stored. The difference is that ours walks the patch to decide and then loops the 16 recorded
+  names a second time to store them, where the floor stores as it walks. IF IT COMES BACK NEAR
+  1.00 the second loop is worth nothing and the rejected design loses on its own ground as
+  well as on the unchanged-write contract. THE WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS
+  AND IS INSIDE BOTH NUMBERS: `assertWritable` with the channel's `assertNotFlushing`,
+  `openSubframe`/`closeSubframe`, the writer dispatch, the `length > 0` test, and — on a write
+  that moves something — the changed-names array, `markColumnsChanged`'s column-store probe
+  per moved column, `channel.writeWithoutFlushCheck` and `markContentChanged`. That is a large
+  constant added to the numerator and the denominator alike, so it pulls this ratio toward
+  1.00 and the printed ratio is a LOWER BOUND on the difference between the two walks. The two
+  nanosecond columns beside it are not pulled anywhere: subtract them to get the per-write
+  difference the row is actually about. THIS PAIR DECLARES `isolate`, AND THE READING IS
+  UNINTERPRETABLE WITHOUT IT. Both arms reach the engine through one compiled function —
+  `OIMEntityCollection.prototype.patchEntity`, whose single call site
+  `this.entityWriter.patchEntity(entitySlot, patch)` would see both writers in one process.
+  Neither would then be inlined, and inlining the column walk into the write is exactly where
+  a walk's advantage lives; worse, the failure is invisible, because a ratio of 1.00 would be
+  equally consistent with "the two walks cost the same" and "each arm ran through caches the
+  other had already made polymorphic". Each side is therefore probed and timed in a process
+  that has never constructed the other, and `build` declines to fill the population it was not
+  asked for — merely FILLING the other design's population teaches V8 its shape, so declining
+  to time it is not enough. What it costs: `noise` now includes process-to-process variation,
+  which is the honest thing for it to include here.
+  measured  49,502 ops/pass ours, 135,266 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 183.5%/58.7%; load 4.97 → 4.97 on 8 cores
+
+alt.column-subscription.by-column-vs-by-row.1024-rows   [per row per write]   1.53x
+  verdict  !  THE REJECTED DESIGN WINS — 1.53x DEARER. This decision came out wrong.
+  ours     effectService.createEffect([collection.holdColumn(slot, 'title')], [], body) — per row
+  floor    effectService.createEffect([slot], [], body) with the body comparing `title` against what it saw last
+  ONE OPERATION IS ONE ROW WRITE, AND A PASS IS TWO OF THEM PER ROW: every row's `note` moves
+  and a frame runs, then every row's `title` moves and a frame runs. One subscriber per row,
+  mounted before the clock, cares only about `title`. Ours subscribes to the column's own
+  identity, so the `note` frame wakes nobody — the write probes the row's column store and
+  finds no `note` column — and the `title` frame wakes every subscriber; the rejected arm
+  subscribes to the row, so BOTH frames wake every subscriber and its body filters the `note`
+  frame out. Each arm was checked to report exactly one title change per row per pass. The two
+  arms put different slot shapes through the same `update` and the same channel, so the pair
+  is isolated.
+  measured  422,146 ops/pass ours, 316,988 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 12.0%/14.6%; load 4.22 → 4.92 on 8 cores
+
+alt.coalesce-vs-eager.1-writes-per-node-per-frame   [per frame]   1.72x
+  verdict  !  THE REJECTED DESIGN WINS — 1.72x DEARER. This decision came out wrong.
+  ours     mark the node at the write, recompute each marked node once when the frame closes
+  floor    recompute the node at every write
+  ONE OPERATION IS ONE FRAME over the whole node population, each node taking the stated
+  number of writes to its sources. Coalescing pays a flag test and a push per write and one
+  recompute per node per frame; eager pays one recompute per write and nothing else. So the
+  answer is a BREAK-EVEN in writes per node per frame, not a speed-up: at one write eager does
+  strictly less, and every row above it is where coalescing has to earn its list. Both arms
+  are plain objects; both were checked to leave every node holding the same value after a
+  frame.
+  measured  10,215 ops/pass ours, 33,568 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 24.1%/4.0%; load 3.67 → 3.77 on 8 cores
+
+alt.computed-dedup.getter-vs-channel.all-read-four-times   [per write]   1.86x
+  verdict  !  THE REJECTED DESIGN WINS — 1.86x DEARER. This decision came out wrong.
+  ours     a frame of 16 writes; all 256 derivations read 4 times each — deduped at the getter
+  floor    the same frame — deduped in the channel, by a dependent walk and a frame stamp
+  THE OTHER END, AND THE ONE THAT SHOULD GO AGAINST US: everything derived is wanted, and
+  wanted repeatedly. Ours walks the four sources on the FIRST read of each of the 256
+  derivations — 1024 comparisons a frame — and answers the other three reads of each from the
+  slot's `checkedAt` pair against the channel clock, through `getValueForSlot` and its
+  `assertNotReleased` every time; the channel arm asks nothing on a read and recomputes only
+  what the writes touched. BELOW 1.0x HERE IS EXPECTED [FIGURE STATED IN ADVANCE]; a row that
+  came out above 1.0x at BOTH ends would mean one arm is not written in its best form and the
+  pair must not be quoted. Read with the row above and never alone: the pair IS the answer,
+  and either row by itself reads as a verdict on "dedup" that neither one supports.
+  measured  1,040 ops/pass ours, 1,040 floor; 15 samples; warm-up 89 planned, 89/89 reached; spread 15.4%/5.7%; load 3.23 → 3.23 on 8 cores
+
+alt.dirty-list-vs-scan.1024-of-1024-marked   [per frame]   2.41x
+  verdict  !  THE REJECTED DESIGN WINS — 2.41x DEARER. This decision came out wrong.
+  ours     a delivery list built at the write — the frame walks only what was marked
+  floor    a stamp written at the write — the frame scans every subscriber for this frame's stamp
+  ONE OPERATION IS ONE FRAME: the stated number of subscribers out of the population are
+  marked, spread evenly, and the frame delivers to exactly those. The list pays a flag test
+  and a push per mark and walks only the marked; the scan pays one store per mark and walks
+  the whole population every frame. So the answer turns on the marked fraction and THE ROWS
+  CROSS OVER: read them as a table, never as one ratio. Both arms were checked to deliver to
+  the same number of subscribers before the clock.
+  measured  4,594 ops/pass ours, 27,922 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 28.7%/8.6%; load 3.46 → 3.67 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.99x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.99x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

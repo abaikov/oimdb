@@ -1,0 +1,1 @@
+export const OIM_COLUMN_GROUP_KEY_SEPARATOR = '\u0000';

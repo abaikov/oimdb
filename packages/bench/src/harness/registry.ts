@@ -1,108 +1,188 @@
-import type { TAdapter } from './types';
+import type { TAdapter, TExcludedLibrary, TWiring } from './types';
+import { CHURN_SHAPES, READ_SHAPES } from './types';
+import { alienSignalsAdapter } from '../adapters/alien-signals';
+import { baselineArrayAdapter } from '../adapters/baseline-array';
+import { baselineArrayIndexedAdapter } from '../adapters/baseline-array-indexed';
+import { effectorAdapter } from '../adapters/effector';
 import { jotaiAdapter } from '../adapters/jotai';
 import { legendStateAdapter } from '../adapters/legend-state';
 import { lokiAdapter } from '../adapters/lokijs';
-import { effectorAdapter } from '../adapters/effector';
 import { mobxAdapter } from '../adapters/mobx';
-import { nanostoresAdapter } from '../adapters/nanostores';
-import { alienSignalsAdapter } from '../adapters/alien-signals';
-import { oimdbAdapter } from '../adapters/oimdb';
+import { nanostoresAdapter, nanostoresPerRowAdapter } from '../adapters/nanostores';
+import { oimdbAdapter, oimdbSortedIndexAdapter } from '../adapters/oimdb';
+import { oimdbLegacyAdapter } from '../adapters/oimdb-legacy';
 import { preactSignalsAdapter } from '../adapters/preact-signals';
 import { reduxToolkitAdapter } from '../adapters/redux-toolkit';
 import { signaldbAdapter } from '../adapters/signaldb';
-import { tanstackDbAdapter } from '../adapters/tanstack-db';
+import { tanstackDbAdapter, tanstackDbEagerAdapter, tanstackDbIndexedAdapter } from '../adapters/tanstack-db';
+import { tanstackTableExclusion } from '../adapters/tanstack-table';
 import { tinybaseAdapter } from '../adapters/tinybase';
+import { zustandAdapter } from '../adapters/zustand';
+import { valtioAdapter } from '../adapters/valtio';
+import { xstateStoreAdapter } from '../adapters/xstate-store';
+import { vueReactivityAdapter } from '../adapters/vue-reactivity';
+import { solidSignalsAdapter } from '../adapters/solid-signals';
+import { tanstackStoreAdapter } from '../adapters/tanstack-store';
+import { controlHeavyAdapter, controlLeanAdapter, controlWriteAdapter } from './control';
 
 /**
- * Order is presentation order in the report.
+ * Presentation order. THE TWO ANCHORS ARE FIRST AND TOGETHER: every other number is
+ * read against them, and the gap BETWEEN them is itself a result — the price of a
+ * group index, measured on the same scripts at the same point.
  *
- * `@tanstack/table-core` is deliberately NOT here. It is a headless VIEW layer over an array the
- * caller owns — no storage, no subscriptions, no writes — so putting it beside stores invited a
- * comparison that cannot mean anything, and the rows it did produce (a 10-second "ordered insert")
- * measured a usage nobody writes rather than the library. The adapter file is kept for reference;
- * it is not run.
+ * TWO ROWS OF ONE LIBRARY, TWICE OVER, because a configuration is not a footnote.
+ * Each row of a pair is a full row — its own processes, the same reference
+ * model, the same population audit. Nothing about being half of a pair exempts a
+ * row from anything.
  */
-export const ADAPTERS: TAdapter[] = [
+export const ADAPTERS: readonly TAdapter[] = [
+    baselineArrayAdapter,
+    baselineArrayIndexedAdapter,
     oimdbAdapter,
+    oimdbSortedIndexAdapter,
+    oimdbLegacyAdapter,
     tinybaseAdapter,
     signaldbAdapter,
     tanstackDbAdapter,
+    tanstackDbEagerAdapter,
+    tanstackDbIndexedAdapter,
     lokiAdapter,
+    mobxAdapter,
     jotaiAdapter,
     legendStateAdapter,
-    mobxAdapter,
     effectorAdapter,
     nanostoresAdapter,
+    nanostoresPerRowAdapter,
     reduxToolkitAdapter,
-    // Reference only — signal libraries, no storage. They appear in the reactive-graph rows and
-    // are `n/a` everywhere else, which is what they are rather than what was skipped.
     preactSignalsAdapter,
     alienSignalsAdapter,
+    zustandAdapter,
+    valtioAdapter,
+    xstateStoreAdapter,
+    vueReactivityAdapter,
+    solidSignalsAdapter,
+    tanstackStoreAdapter,
 ];
 
-export const adapterByName = (name: string): TAdapter => {
-    const adapter = ADAPTERS.find(a => a.name === name);
-    if (!adapter) throw new Error(`Unknown adapter: ${name}`);
-    return adapter;
+/**
+ * Libraries deliberately NOT measured, printed once above the report. The rule they
+ * fail is stated on `TExcludedLibrary`. A library missing with no line here would
+ * be a fact about whoever wrote the adapters; a library named here is a fact about
+ * the library.
+ */
+export const EXCLUDED: readonly TExcludedLibrary[] = [tanstackTableExclusion];
+
+/**
+ * Whose process the consumer lower bound is measured in — and therefore WHOSE
+ * STORAGE SHAPE it is a bound for.
+ *
+ * Named rather than `ADAPTERS[0]` because the choice is load-bearing: the scenario
+ * renders plain objects, the cheapest shape any adapter here stores and the shape
+ * oimdb's adapter stores. See `consumerFloor` before subtracting the number.
+ *
+ * It is not the ratio anchor (`cells/participants.ts` `anchorFor`): the bound is a
+ * bound for a STORAGE SHAPE, and both hand-written participants store plain objects.
+ */
+export const FLOOR_ADAPTER: TAdapter = baselineArrayAdapter;
+
+/**
+ * THE TWO ANCHORS, named as a pair so nothing has to find them by string. `lean`
+ * keeps no group index and rescans; `indexed` keeps one and re-renders only the
+ * windows a write can change (see `adapters/baseline-array-indexed.md`).
+ */
+export const ANCHOR_LEAN: TAdapter = baselineArrayAdapter;
+export const ANCHOR_INDEXED: TAdapter = baselineArrayIndexedAdapter;
+
+/**
+ * THE RESOLUTION CONTROL — bodies of code with a difference the harness knows about
+ * in advance. See `control.ts`.
+ */
+export const CONTROLS: readonly TAdapter[] = [
+    controlLeanAdapter,
+    controlHeavyAdapter,
+    // THE FINE ARM, and the reason there are three rather than two: lean/heavy
+    // attests a doubled DERIVATION, far larger than the gaps the tables ask a
+    // reader to read and on an axis most rows do not vary along. See `control.ts`.
+    controlWriteAdapter,
+];
+
+export const ALL_ADAPTERS: readonly TAdapter[] = [...ADAPTERS, ...CONTROLS];
+
+/**
+ * EXACTLY ONE HALF OF EVERY WIRING DECLARATION IS SET, and it is checked here
+ * rather than trusted.
+ *
+ * A `TWiring` is two fields that have to agree: a builder, or a line saying why
+ * there is none. Both set means a wiring AND an excuse printed above the same
+ * table; neither set means a library missing from that table with nothing said
+ * about it. Neither is expressible in the type, so it is a throw at module load,
+ * in every process, before anything is measured.
+ *
+ * ASKED PER SHAPE, not per family: `churn` is four declarations and `reads` is
+ * three, so an adapter that supplies three churn shapes and declines the fourth
+ * is checked on each of the four separately — which is the whole point of the
+ * split.
+ */
+const checkWiring = (
+    adapterName: string,
+    field: string,
+    wiring: TWiring<unknown>
+): void => {
+    const wired = wiring.build !== undefined;
+    const excused = wiring.absent.length > 0;
+    if (wired === excused) {
+        throw new Error(
+            `${adapterName}: exactly one of \`${field}.build\` and \`${field}.absent\` must be set, ` +
+                `and this adapter sets ${wired ? 'both' : 'neither'}. An adapter with that wiring ` +
+                'needs no excuse; one without owes the reader the reason.'
+        );
+    }
 };
 
-/**
- * `DEFAULT_REPEAT_CAP` applies to every timed scenario that does not set its own.
- *
- * A scenario whose single pass takes tens of microseconds is not a measurement: V8 has not left its
- * warm-up tiers by the time it ends, so the figure is JIT state rather than code. Measured directly
- * — 1,000 cached faceted reads came out at 476 ns each inside the harness and 66 ns each when run
- * long enough to settle, a 7x distortion, and it fell unevenly across libraries. The worker scales
- * the count down from this cap so each sample lands near 50 ms of steady-state work.
- *
- * The cap must be high enough that the SCALING can actually reach 50 ms. A cap of 1,000 on a 500 ns
- * operation pins the sample at half a millisecond — V8 never leaves its warm-up tiers, the spread
- * blows out past 2.0, and the figure lands ~2.5x above what the same code does once settled. Set it
- * from the fastest operation worth measuring (~250 ns), not from a round number.
- *
- * `noRepeat` marks a scenario whose `run()` cannot be called twice against one `setup()`: `load` and
- * `orderedInsert` INSERT. Repeating them is wrong in two different ways — LokiJS throws on the
- * duplicate id, while an upsert-based store silently measures "write into an already-full store"
- * for every pass after the first and comes out looking faster than it is. The loud failure is the
- * lucky case; this flag exists because of the quiet one.
- */
-export const DEFAULT_REPEAT_CAP = 200_000;
+for (const adapter of [...ADAPTERS, ...CONTROLS]) {
+    for (const shape of CHURN_SHAPES) {
+        checkWiring(adapter.name, `churn.${shape}`, adapter.churn[shape]);
+    }
+    for (const shape of READ_SHAPES) {
+        checkWiring(adapter.name, `reads.${shape}`, adapter.reads[shape]);
+    }
+    // Two rows are driven by `relations.build`, and one declaration covers both.
+    checkWiring(adapter.name, 'relations', adapter.relations);
+    /**
+     * THE ADMISSION RULE, ASKED OF EVERY ROW RATHER THAN OF THE ONE IT EXCLUDES.
+     *
+     * `TExcludedLibrary`'s rule — a library is measured here when it OWNS THE DATA
+     * and emits a CHANGE SIGNAL for it — was never asked of the rows that passed. A
+     * rule tested only on the row it rejects cannot be checked by a reader. The
+     * type forces an answer; this throw stops the answer being blank. The strings
+     * are printed together above the tables, beside the exclusion.
+     */
+    if (adapter.admission.trim().length === 0) {
+        throw new Error(
+            `${adapter.name}: \`admission\` is empty. Every row in this comparison has to say where ` +
+                'its values live and what emits the change signal that drives the consumer — the same ' +
+                'rule `tanstack-table` is excluded under. A blank answer would leave the rule applied ' +
+                'to the one row it rejects and to nobody it admits.'
+        );
+    }
+}
+
+export const adapterByName = (name: string): TAdapter => {
+    const found = ALL_ADAPTERS.find(adapter => adapter.name === name);
+    if (found === undefined) throw new Error(`Unknown adapter: ${name}`);
+    return found;
+};
+
+/** Rows in the dataset, unless told otherwise. */
+export const DEFAULT_N = 10_000;
 
 /**
- * Every scenario, in report order, with the label the report prints. `counter` names the extra
- * number a scenario reports beside its time (how many subscribers woke, how many effects ran).
+ * How many separate PROCESSES measure each (adapter, scenario) pair.
  *
- * `repeat` exists because a scenario whose `run` performs ONE operation cannot be timed: a single
- * write costs a few hundred nanoseconds, which is the same order as the timer call and the setup
- * around it, so the reported figure is mostly measurement overhead. Those scenarios are executed
- * `repeat` times per sample and the result divided back down to a per-operation cost.
+ * A process that lands in a bad JIT or GC state stays there for its whole life, so
+ * a single process gives a number that is stable and wrong. The minimum across
+ * independent processes is the cheapest defence.
  */
-export const SCENARIOS = [
-    { key: 'taskTable', label: 'task: table', unsupported: 'no filter/sort/page path' },
-    { key: 'taskFeedPush', label: 'task: feed push', unsupported: 'no per-row subscription', counter: 'woken' },
-    { key: 'taskDetailCard', label: 'task: detail card', unsupported: 'no relation mechanism' },
-    { key: 'taskFacetSearch', label: 'task: facet search', unsupported: 'no multi-field lookup' },
-    { key: 'load', label: 'load', unsupported: 'no bulk insert', noRepeat: true },
-    { key: 'readByPk', label: 'read by pk', unsupported: 'no primary-key lookup' },
-    { key: 'queryColdByField', label: 'query cold', unsupported: 'no field query' },
-    { key: 'queryHotByField', label: 'query hot', unsupported: 'no field query' },
-    { key: 'queryCachedByField', label: 'query cached', unsupported: 'no memoising primitive' },
-    { key: 'queryHotKeysOnly', label: 'query hot (keys only)', unsupported: 'cannot answer without building rows' },
-    { key: 'facetedFilter', label: 'faceted filter', unsupported: 'no multi-field lookup' },
-    { key: 'relatedLookup', label: 'related lookup', unsupported: 'no relation mechanism' },
-    { key: 'computedChain', label: 'computed chain', unsupported: 'no derived-value primitive' },
-    { key: 'orderedInsert', label: 'ordered insert', unsupported: 'no ordered structure', noRepeat: true },
-    { key: 'subscriptionChurn', label: 'subscription churn', unsupported: 'no per-entity subscription' },
-    { key: 'pointUpdate', label: 'point update', unsupported: 'no per-entity subscription', counter: 'woken', repeat: 200_000 },
-    { key: 'effectDispatch', label: 'effect dispatch', unsupported: 'no effect primitive', counter: 'ran', repeat: 200_000 },
-    { key: 'batchUpdate', label: 'batch update (10%)', unsupported: 'no bulk write', counter: 'woken' },
-    { key: 'burstCoalescing', label: 'burst (same rows)', unsupported: 'no per-entity subscription', counter: 'woken' },
-    { key: 'fanOutRecompute', label: 'graph: fan-out', unsupported: 'no derived-value primitive', reactive: true, repeat: 200_000 },
-    { key: 'diamondGlitch', label: 'graph: diamond', unsupported: 'no derived-value primitive', reactive: true, repeat: 200_000 },
-    { key: 'deepGraphGlitch', label: 'graph: deep diamond', unsupported: 'no derived-value primitive', reactive: true, repeat: 200_000 },
-    { key: 'unrelatedFieldWakeups', label: 'graph: dep granularity', unsupported: 'no derived-value primitive', reactive: true, repeat: 200_000 },
-    { key: 'memoryForEntities', label: 'memory: entities', unsupported: 'no store', memory: true },
-    { key: 'memoryForSubscriptions', label: 'memory: + subscriptions', unsupported: 'no per-entity subscription', memory: true },
-] as const;
+export const PROCESSES_PER_VARIANT = Number(process.env.BENCH_PROCESSES ?? 3);
 
-export type TScenarioKey = (typeof SCENARIOS)[number]['key'];
+export { CONTROL_HEAVY, CONTROL_LEAN, CONTROL_WRITE } from './control';

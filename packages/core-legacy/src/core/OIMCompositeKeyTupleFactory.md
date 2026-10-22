@@ -1,0 +1,37 @@
+# Why the segment order gets an object
+
+A composite key can be spelled in more than one way; this builds exactly one of
+them — the positional `TOIMKeyPath` that trie-backed stores and composite indexes
+are keyed by — and nothing else: it does not wrap a collection, does not cache
+and does not invalidate.
+
+What it buys is that the segment ORDER exists in one place instead of being
+restated, by convention, at every call site. Both sides then derive from it —
+`selectPk` hands it the entity, a lookup hands it an object carrying the same
+fields — so a renamed or missing segment is a compile error instead of a silently
+different bucket. With same-typed segments a swapped pair is otherwise caught by
+nothing at all.
+
+```ts
+type TCardKeys = { boardId: string; cardId: string };
+const cardKey = ctk<TCardKeys>()(['boardId', 'cardId']);   // ctk — create tuple key
+
+const cards = new OIMReactiveCollection<Card, TOIMKeyPath>(queue, {
+    selectPk: card => cardKey(card),                 // the entity carries those fields
+    store: new OIMCollectionStoreTrieDriven<Card>(),
+});
+
+cards.getOneByPk(cardKey({ boardId: 'b1', cardId: 'c9' }));
+```
+
+It is parameterised by the KEY type rather than the entity: with every value
+already a `TOIMPk`, the projection needs no type assertion anywhere. An entity
+satisfies it structurally, so the same factory serves `selectPk` and every
+lookup.
+
+`create` allocates one small array, so call it where the fields CHANGE — a lookup
+against a ready tuple walks the trie without allocating at all.
+
+Note what it is not: this produces ONE key made of several segments. An index
+whose selector returns several keys files one entity under each of them — the
+opposite relationship.

@@ -1,0 +1,458 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 99.00   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+2.00x  39 ns  19 ns   0.6%     ~1.9x  control-resolution-2x
+1.01x  19 ns  19 ns   0.4%     1.00x  control-scale-same-body
+
+  The resolution control saw 2.00x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.5% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.5% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+    ratio        margin    ours   floor  noise  path               decision
+!~  1.03x  1.03x DEARER   23 ns   22 ns   0.7%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-64-adds
+!   1.09x  1.09x DEARER   70 ns   64 ns   0.4%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.64-buckets-one-add-each
+!~  1.09x  1.09x DEARER   22 ns   21 ns   0.2%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-64-adds
+!   1.09x  1.09x DEARER   41 ns   38 ns   3.1%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-8-adds-with-a-listener
+!   1.13x  1.13x DEARER   41 ns   37 ns   0.4%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-8-adds-with-a-listener
+!   1.16x  1.16x DEARER   87 ns   75 ns   4.1%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.8-buckets-one-add-each
+!   1.16x  1.16x DEARER   69 ns   59 ns   0.9%  per row per write  alt.bucket-coalescing.adaptive-by-listener.64-buckets-one-add-each
+!~  1.16x  1.16x DEARER   41 ns   35 ns   0.4%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-8-adds
+!   1.17x  1.17x DEARER   22 ns   19 ns   0.0%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-64-adds-with-a-listener
+!   1.20x  1.20x DEARER  180 ns  150 ns   6.5%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-1-adds-with-a-listener
+!   1.26x  1.26x DEARER  180 ns  143 ns   0.3%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-1-adds-with-a-listener
+!   1.26x  1.26x DEARER   83 ns   66 ns   0.9%  per row per write  alt.bucket-coalescing.adaptive-by-listener.8-buckets-one-add-each
+!~  1.26x  1.26x DEARER   25 ns   20 ns  17.4%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-64-adds-with-a-listener
+!~  1.28x  1.28x DEARER  177 ns  138 ns   0.7%  per row per write  alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-1-adds
+!   1.40x  1.40x DEARER   42 ns   30 ns   0.0%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-8-adds
+!   1.72x  1.72x DEARER  175 ns  102 ns   0.3%  per row per write  alt.bucket-coalescing.adaptive-by-listener.one-bucket-1-adds
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  0 of 16 decisions stand on this run, 16 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-64-adds   [per row per write]   1.03x
+  verdict  !  THE REJECTED DESIGN WINS — 1.03x DEARER. This decision came out wrong.
+  ours     64 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds to ONE bucket inside one subframe. No content-change listener. Every bucket is
+  UNHELD (holdCount 0), so each one is releasable at the close and its release check runs on
+  both arms. Held scenarios never reach the array on this arm when no listener exists, so they
+  price the immediate path plus one listener-count check and one hold-count check per add.
+  Unheld scenarios also pay one push per bucket and its release check at the close. The model
+  reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  2,097,152 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 44.1%/11.0%; load 2.94 → 3.90 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.64-buckets-one-add-each   [per row per write]   1.09x
+  verdict  !  THE REJECTED DESIGN WINS — 1.09x DEARER. This decision came out wrong.
+  ours     64 adds, one to each of 64 buckets, in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds spread over 64 different buckets inside one subframe, so there is nothing to
+  coalesce: every bucket changes once. No content-change listener. Every bucket is UNHELD
+  (holdCount 0), so each one is releasable at the close and its release check runs on both
+  arms. Held scenarios never reach the array on this arm when no listener exists, so they
+  price the immediate path plus one listener-count check and one hold-count check per add.
+  Unheld scenarios also pay one push per bucket and its release check at the close. The model
+  reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  340,630 ops/pass ours, 743,926 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 10.1%/5.7%; load 6.13 → 6.13 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-64-adds   [per row per write]   1.09x
+  verdict  !  THE REJECTED DESIGN WINS — 1.09x DEARER. This decision came out wrong.
+  ours     64 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds to ONE bucket inside one subframe. No content-change listener. Held scenarios never
+  reach the array on this arm when no listener exists, so they price the immediate path plus
+  one listener-count check and one hold-count check per add. Unheld scenarios also pay one
+  push per bucket and its release check at the close. The model reads releasability as
+  holdCount 0; the shipped release policy is the default, which releases an unheld bucket only
+  when it is empty. One operation is one member add. Both arms open the same nested subframe
+  around each add, push the member into the bucket store, and close the frame after every
+  outer subframe; emptying the stores there is timed on both arms alike. The bucket slot is
+  held and has one effect, so the channel write door takes its effect path: the first write of
+  a frame schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  1,900,422 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 44.8%/2.7%; load 2.85 → 2.94 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-8-adds-with-a-listener   [per row per write]   1.09x
+  verdict  !  THE REJECTED DESIGN WINS — 1.09x DEARER. This decision came out wrong.
+  ours     8 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 8 changes of
+  one bucket. Every bucket is UNHELD (holdCount 0), so each one is releasable at the close and
+  its release check runs on both arms. Held scenarios never reach the array on this arm when
+  no listener exists, so they price the immediate path plus one listener-count check and one
+  hold-count check per add. Unheld scenarios also pay one push per bucket and its release
+  check at the close. The model reads releasability as holdCount 0; the shipped release policy
+  is the default, which releases an unheld bucket only when it is empty. One operation is one
+  member add. Both arms open the same nested subframe around each add, push the member into
+  the bucket store, and close the frame after every outer subframe; emptying the stores there
+  is timed on both arms alike. The bucket slot is held and has one effect, so the channel
+  write door takes its effect path: the first write of a frame schedules the effect and the
+  rest find it scheduled. The bodies copy OIMBucketWriter.markBucketSlotChanged,
+  OIMChannel.writeWithoutFlushCheck and closeSubframe, and OIMSlotContentOwner.settleWrite,
+  contentChanged and its subframe delivery, as of 2026-10-21. The release policy is the
+  default one, which does nothing on a write, so neither arm calls it.
+  measured  1,176,906 ops/pass ours, 1,320,582 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.3%/6.0%; load 6.89 → 6.89 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-8-adds-with-a-listener   [per row per write]   1.13x
+  verdict  !  THE REJECTED DESIGN WINS — 1.13x DEARER. This decision came out wrong.
+  ours     8 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 8 changes of
+  one bucket. Held scenarios never reach the array on this arm when no listener exists, so
+  they price the immediate path plus one listener-count check and one hold-count check per
+  add. Unheld scenarios also pay one push per bucket and its release check at the close. The
+  model reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  1,167,992 ops/pass ours, 1,282,338 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 4.1%/14.3%; load 3.11 → 3.42 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.8-buckets-one-add-each   [per row per write]   1.16x
+  verdict  !  THE REJECTED DESIGN WINS — 1.16x DEARER. This decision came out wrong.
+  ours     8 adds, one to each of 8 buckets, in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds spread over 8 different buckets inside one subframe, so there is nothing to coalesce:
+  every bucket changes once. No content-change listener. Every bucket is UNHELD (holdCount 0),
+  so each one is releasable at the close and its release check runs on both arms. Held
+  scenarios never reach the array on this arm when no listener exists, so they price the
+  immediate path plus one listener-count check and one hold-count check per add. Unheld
+  scenarios also pay one push per bucket and its release check at the close. The model reads
+  releasability as holdCount 0; the shipped release policy is the default, which releases an
+  unheld bucket only when it is empty. One operation is one member add. Both arms open the
+  same nested subframe around each add, push the member into the bucket store, and close the
+  frame after every outer subframe; emptying the stores there is timed on both arms alike. The
+  bucket slot is held and has one effect, so the channel write door takes its effect path: the
+  first write of a frame schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  267,033 ops/pass ours, 601,820 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 11.6%/5.7%; load 6.49 → 6.49 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.64-buckets-one-add-each   [per row per write]   1.16x
+  verdict  !  THE REJECTED DESIGN WINS — 1.16x DEARER. This decision came out wrong.
+  ours     64 adds, one to each of 64 buckets, in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds spread over 64 different buckets inside one subframe, so there is nothing to
+  coalesce: every bucket changes once. No content-change listener. Held scenarios never reach
+  the array on this arm when no listener exists, so they price the immediate path plus one
+  listener-count check and one hold-count check per add. Unheld scenarios also pay one push
+  per bucket and its release check at the close. The model reads releasability as holdCount 0;
+  the shipped release policy is the default, which releases an unheld bucket only when it is
+  empty. One operation is one member add. Both arms open the same nested subframe around each
+  add, push the member into the bucket store, and close the frame after every outer subframe;
+  emptying the stores there is timed on both arms alike. The bucket slot is held and has one
+  effect, so the channel write door takes its effect path: the first write of a frame
+  schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  716,946 ops/pass ours, 796,340 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 7.9%/2.5%; load 3.12 → 3.12 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-8-adds   [per row per write]   1.16x
+  verdict  !  THE REJECTED DESIGN WINS — 1.16x DEARER. This decision came out wrong.
+  ours     8 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds to ONE bucket inside one subframe. No content-change listener. Every bucket is UNHELD
+  (holdCount 0), so each one is releasable at the close and its release check runs on both
+  arms. Held scenarios never reach the array on this arm when no listener exists, so they
+  price the immediate path plus one listener-count check and one hold-count check per add.
+  Unheld scenarios also pay one push per bucket and its release check at the close. The model
+  reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  1,141,478 ops/pass ours, 690,023 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 43.6%/3.6%; load 3.02 → 3.02 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-64-adds-with-a-listener   [per row per write]   1.17x
+  verdict  !  THE REJECTED DESIGN WINS — 1.17x DEARER. This decision came out wrong.
+  ours     64 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 64 changes
+  of one bucket. Held scenarios never reach the array on this arm when no listener exists, so
+  they price the immediate path plus one listener-count check and one hold-count check per
+  add. Unheld scenarios also pay one push per bucket and its release check at the close. The
+  model reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  2,036,122 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 2.1%/2.1%; load 3.22 → 3.22 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-1-adds-with-a-listener   [per row per write]   1.20x
+  verdict  !  THE REJECTED DESIGN WINS — 1.20x DEARER. This decision came out wrong.
+  ours     1 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  1 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 1 changes of
+  one bucket. Every bucket is UNHELD (holdCount 0), so each one is releasable at the close and
+  its release check runs on both arms. Held scenarios never reach the array on this arm when
+  no listener exists, so they price the immediate path plus one listener-count check and one
+  hold-count check per add. Unheld scenarios also pay one push per bucket and its release
+  check at the close. The model reads releasability as holdCount 0; the shipped release policy
+  is the default, which releases an unheld bucket only when it is empty. One operation is one
+  member add. Both arms open the same nested subframe around each add, push the member into
+  the bucket store, and close the frame after every outer subframe; emptying the stores there
+  is timed on both arms alike. The bucket slot is held and has one effect, so the channel
+  write door takes its effect path: the first write of a frame schedules the effect and the
+  rest find it scheduled. The bodies copy OIMBucketWriter.markBucketSlotChanged,
+  OIMChannel.writeWithoutFlushCheck and closeSubframe, and OIMSlotContentOwner.settleWrite,
+  contentChanged and its subframe delivery, as of 2026-10-21. The release policy is the
+  default one, which does nothing on a write, so neither arm calls it.
+  measured  264,794 ops/pass ours, 171,709 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 9.6%/9.6%; load 3.75 → 6.89 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-1-adds-with-a-listener   [per row per write]   1.26x
+  verdict  !  THE REJECTED DESIGN WINS — 1.26x DEARER. This decision came out wrong.
+  ours     1 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  1 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 1 changes of
+  one bucket. Held scenarios never reach the array on this arm when no listener exists, so
+  they price the immediate path plus one listener-count check and one hold-count check per
+  add. Unheld scenarios also pay one push per bucket and its release check at the close. The
+  model reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  262,124 ops/pass ours, 334,092 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 23.8%/7.4%; load 2.94 → 3.11 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.8-buckets-one-add-each   [per row per write]   1.26x
+  verdict  !  THE REJECTED DESIGN WINS — 1.26x DEARER. This decision came out wrong.
+  ours     8 adds, one to each of 8 buckets, in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds spread over 8 different buckets inside one subframe, so there is nothing to coalesce:
+  every bucket changes once. No content-change listener. Held scenarios never reach the array
+  on this arm when no listener exists, so they price the immediate path plus one
+  listener-count check and one hold-count check per add. Unheld scenarios also pay one push
+  per bucket and its release check at the close. The model reads releasability as holdCount 0;
+  the shipped release policy is the default, which releases an unheld bucket only when it is
+  empty. One operation is one member add. Both arms open the same nested subframe around each
+  add, push the member into the bucket store, and close the frame after every outer subframe;
+  emptying the stores there is timed on both arms alike. The bucket slot is held and has one
+  effect, so the channel write door takes its effect path: the first write of a frame
+  schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  577,622 ops/pass ours, 750,670 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.0%/8.7%; load 3.13 → 3.13 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-64-adds-with-a-listener   [per row per write]   1.26x
+  verdict  !  THE REJECTED DESIGN WINS — 1.26x DEARER. This decision came out wrong.
+  ours     64 adds to one bucket in one subframe, one content-change listener, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  64 adds to ONE bucket inside one subframe, one content-change listener on the bucket owner.
+  Without coalescing each add is still buffered by the owner's own subframe and delivered at
+  the close as onContentChangedMany with one entry per add, so the listener hears 64 changes
+  of one bucket. Every bucket is UNHELD (holdCount 0), so each one is releasable at the close
+  and its release check runs on both arms. Held scenarios never reach the array on this arm
+  when no listener exists, so they price the immediate path plus one listener-count check and
+  one hold-count check per add. Unheld scenarios also pay one push per bucket and its release
+  check at the close. The model reads releasability as holdCount 0; the shipped release policy
+  is the default, which releases an unheld bucket only when it is empty. One operation is one
+  member add. Both arms open the same nested subframe around each add, push the member into
+  the bucket store, and close the frame after every outer subframe; emptying the stores there
+  is timed on both arms alike. The bucket slot is held and has one effect, so the channel
+  write door takes its effect path: the first write of a frame schedules the effect and the
+  rest find it scheduled. The bodies copy OIMBucketWriter.markBucketSlotChanged,
+  OIMChannel.writeWithoutFlushCheck and closeSubframe, and OIMSlotContentOwner.settleWrite,
+  contentChanged and its subframe delivery, as of 2026-10-21. The release policy is the
+  default one, which does nothing on a write, so neither arm calls it.
+  measured  2,073,380 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 40.4%/6.5%; load 6.66 → 6.66 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.unheld.one-bucket-1-adds   [per row per write]   1.28x
+  verdict  !  THE REJECTED DESIGN WINS — 1.28x DEARER. This decision came out wrong.
+  ours     1 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  1 adds to ONE bucket inside one subframe. No content-change listener. Every bucket is UNHELD
+  (holdCount 0), so each one is releasable at the close and its release check runs on both
+  arms. Held scenarios never reach the array on this arm when no listener exists, so they
+  price the immediate path plus one listener-count check and one hold-count check per add.
+  Unheld scenarios also pay one push per bucket and its release check at the close. The model
+  reads releasability as holdCount 0; the shipped release policy is the default, which
+  releases an unheld bucket only when it is empty. One operation is one member add. Both arms
+  open the same nested subframe around each add, push the member into the bucket store, and
+  close the frame after every outer subframe; emptying the stores there is timed on both arms
+  alike. The bucket slot is held and has one effect, so the channel write door takes its
+  effect path: the first write of a frame schedules the effect and the rest find it scheduled.
+  The bodies copy OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and
+  closeSubframe, and OIMSlotContentOwner.settleWrite, contentChanged and its subframe
+  delivery, as of 2026-10-21. The release policy is the default one, which does nothing on a
+  write, so neither arm calls it.
+  measured  273,574 ops/pass ours, 361,758 floor; 9 samples; warm-up 19 planned, 19/19 reached; spread 90.5%/2.3%; load 3.02 → 3.02 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-8-adds   [per row per write]   1.40x
+  verdict  !  THE REJECTED DESIGN WINS — 1.40x DEARER. This decision came out wrong.
+  ours     8 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  8 adds to ONE bucket inside one subframe. No content-change listener. Held scenarios never
+  reach the array on this arm when no listener exists, so they price the immediate path plus
+  one listener-count check and one hold-count check per add. Unheld scenarios also pay one
+  push per bucket and its release check at the close. The model reads releasability as
+  holdCount 0; the shipped release policy is the default, which releases an unheld bucket only
+  when it is empty. One operation is one member add. Both arms open the same nested subframe
+  around each add, push the member into the bucket store, and close the frame after every
+  outer subframe; emptying the stores there is timed on both arms alike. The bucket slot is
+  held and has one effect, so the channel write door takes its effect path: the first write of
+  a frame schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  795,324 ops/pass ours, 1,592,226 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 1.6%/16.0%; load 2.75 → 2.85 on 8 cores
+
+alt.bucket-coalescing.adaptive-by-listener.one-bucket-1-adds   [per row per write]   1.72x
+  verdict  !  THE REJECTED DESIGN WINS — 1.72x DEARER. This decision came out wrong.
+  ours     1 adds to one bucket in one subframe, coalesced: the bucket marked pending, flushed by a subframe-close callback
+  floor    adaptive by listener: with no content-change listener every change is written, settled and announced at once, and the bucket is pushed once into the channel-owned array only when it is releasable (unheld); with a listener it behaves as the adaptive arm
+  1 adds to ONE bucket inside one subframe. No content-change listener. Held scenarios never
+  reach the array on this arm when no listener exists, so they price the immediate path plus
+  one listener-count check and one hold-count check per add. Unheld scenarios also pay one
+  push per bucket and its release check at the close. The model reads releasability as
+  holdCount 0; the shipped release policy is the default, which releases an unheld bucket only
+  when it is empty. One operation is one member add. Both arms open the same nested subframe
+  around each add, push the member into the bucket store, and close the frame after every
+  outer subframe; emptying the stores there is timed on both arms alike. The bucket slot is
+  held and has one effect, so the channel write door takes its effect path: the first write of
+  a frame schedules the effect and the rest find it scheduled. The bodies copy
+  OIMBucketWriter.markBucketSlotChanged, OIMChannel.writeWithoutFlushCheck and closeSubframe,
+  and OIMSlotContentOwner.settleWrite, contentChanged and its subframe delivery, as of
+  2026-10-21. The release policy is the default one, which does nothing on a write, so neither
+  arm calls it.
+  measured  272,772 ops/pass ours, 473,760 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.1%/27.4%; load 2.80 → 2.81 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   2.00x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.01x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

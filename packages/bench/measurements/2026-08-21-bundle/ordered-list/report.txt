@@ -1,0 +1,187 @@
+OIMDB — WHAT ONE PUBLIC API COSTS AN APPLICATION THAT NEVER CALLS IT
+
+Two applications are bundled, tree-shaken, minified and gzipped. They are the same program
+except that one of them asks for an ordered list. The difference between them is what a METHOD
+on OIMDB would have charged every application that never asks — because every consumer imports
+OIMDB, and a bundler cannot drop a class's methods one at a time. A single bundle size settles
+nothing; only the gap does.
+
+esbuild 0.25.9   esm / browser / es2020   minify on   gzip -9   node v24.16.0
+engine measured: 96 files, 597,227 B of source (comments included — the minifier removes them, the control below says by how much)
+
+NO LOAD GATE AND NO REFUSAL, unlike every other table under measurements/. A byte count is
+deterministic: the same source through the same bundler emits the same bytes whatever else the
+machine is doing. Nothing here was skipped — there was nothing to skip.
+
+THE INSTRUMENT, BEFORE ANY BYTE
+
+       from        to  ratio  requirement                                       control
+   43.19 KB   9.25 KB  0.21x  a database alone under 60% of the whole surface   control-tree-shaking
+  212.77 KB  43.19 KB  0.20x  minified under 70% of the same bundle unminified  control-minified
+
+  A database alone is 21.4% of the published surface, so unreachable code is being dropped.
+  Minifying took the whole surface to 20.3% of itself, so the minifier ran and these are shipped bytes.
+
+THE DIFFERENCE
+
+minified   gzipped  of package  of package (gz)  difference
++1.57 KB  +0.64 KB        3.6%             5.3%  ordered-list-diff
+
+KB is bytes / 1024. "of package" is the difference over the arm that keeps every export with
+nothing droppable — the largest denominator available, chosen so the percentage is not
+flattered.
+
+ordered-list-diff
+  What does asking for an ordered list add to an application that was not going to have one?
+  from   without-ordered-list (minified)    26,457 B  7,895 B gzipped
+  to     with-ordered-list (minified)       28,064 B  8,550 B gzipped
+  delta  +1,607 B (+1.57 KB)  ·  +655 B gzipped (+0.64 KB)
+  share  3.6% of the package minified  ·  5.3% gzipped
+  THIS IS THE NUMBER EIGHT SITES IN THIS REPOSITORY QUOTE AS "some 2.7 KB — around 4% of the
+  package", and it is the whole quantitative half of the argument for `createOrderedCommands`
+  being a free function rather than a method on `OIMDB`. Read it as the cost a METHOD would
+  have imposed: every consumer imports `OIMDB`, a bundler cannot drop a class's methods one at
+  a time, so under that design the arm on the left would have carried the same bytes as the
+  arm on the right. WHAT THE DIFFERENCE CONTAINS: the `createOrderedCommands` module, the
+  `diffOrderedList` module it pins, and the three-line call site — the call site is NOT
+  subtracted, because an application that renders an ordered list writes one under either
+  design, so treating this as the cost of the modules alone over-states it by a few dozen
+  bytes. THE DENOMINATOR is every name the package exports with nothing droppable, which is
+  the largest one available and therefore the least flattering to the percentage.
+
+WHAT THE DIFFERENCE IS MADE OF
+
+  +1,246 B  packages/core/src/core/diffOrderedList.ts
+    +279 B  packages/core/src/core/createOrderedCommands.ts
+      +3 B  packages/core/src/core/OIMBucketAddressStoreByKey.ts
+      +2 B  packages/core/src/core/writeInPlace.ts
+      +2 B  packages/core/src/core/WRITE_IN_PLACE.ts
+      +2 B  packages/core/src/groupings/declaredGroups.ts
+      −1 B  packages/core/src/abstract/OIMCollection.ts
+      +1 B  packages/core/src/core/createCollectionSlot.ts
+      +1 B  packages/core/src/core/hasReferences.ts
+      +1 B  packages/core/src/core/isPlain.ts
+      +1 B  packages/core/src/core/leaveHeldBucket.ts
+      +1 B  packages/core/src/core/OIMCollectionByKey.ts
+      +1 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      +1 B  packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts
+      +1 B  packages/core/src/groupings/groupBy.ts
+      +1 B  packages/core/src/groupings/groupsOf.ts
+      +1 B  packages/core/src/groupings/holdBucket.ts
+      +1 B  packages/core/src/groupings/isStillFiled.ts
+
+Every module of @oimdb/core whose contribution differs between the two arms, and by how much.
+They come to +1,544 B of the +1,607 B between the two bundles; the remaining +63 B is the arm's
+own call site and the bundler's glue, which the caveat above deliberately does not subtract.
+This is the list the caveat's claim about WHAT THE DIFFERENCE CONTAINS has to match — if a
+module nobody mentioned is on it, the claim is stale and this table is the thing that noticed.
+
+THE ARMS, IN FULL
+
+minified   gzipped  unminified  core kept  modules    diff?  arm
+43.19 KB  12.14 KB   212.77 KB   42.41 KB       60  1.24 KB  everything
+ 9.25 KB   2.97 KB    75.16 KB    9.22 KB        7       no  database-only
+25.84 KB   7.71 KB   162.93 KB   25.53 KB       34       no  without-ordered-list
+27.41 KB   8.35 KB   166.83 KB   27.04 KB       36  1.22 KB  with-ordered-list
+
+"core kept", "modules" AND "diff?" COUNT WHAT THE BUNDLER KEPT, NOT WHAT IT READ. All three come
+from esbuild's own per-module byte contributions to the minified output: "modules" is how many
+modules of @oimdb/core contributed more than nothing, "core kept" is what they came to together,
+and "diff?" is what core/diffOrderedList.ts contributed on its own — or "no" where the bundler
+dropped it. A module that was shaken out is absent, not counted at zero.
+
+AN EARLIER VERSION OF THIS HARNESS READ THE INPUT GRAPH INSTEAD — every file esbuild opened,
+including the ones it then dropped — and reported the same 61 modules and the same "diff: yes"
+for all four arms while their bundles differed by a factor of four. A recorded run under
+measurements/ that still says that predates this fix, and its module column is answering "did
+the bundler open this file", not "does a consumer ship it".
+
+AND "core kept" IS A PART OF "minified", NOT A SECOND MEASUREMENT OF IT. What it leaves out is
+the arm's own source and the bundler's glue — which is why the ENGINE's toll is that column and
+not the bundle total beside it.
+
+everything   packages/bench/src/bundle/consumers/everything.ts
+  every name @oimdb/core exports, re-exported so nothing is droppable
+  kept 60 modules of @oimdb/core, 43,425 B of this arm's 44,226 B minified bundle:
+     7,083 B  packages/core/src/core/OIMDB.ts
+     4,185 B  packages/core/src/abstract/OIMCollection.ts
+     3,138 B  packages/core/src/core/OIMIndex.ts
+     3,098 B  packages/core/src/core/OIMBucketMutatorOrdered.ts
+     2,358 B  packages/core/src/core/membersInOrder.ts
+     1,911 B  packages/core/src/core/OIMIndexPositional.ts
+     1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+     1,266 B  packages/core/src/core/diffOrderedList.ts
+    18,640 B  + 52 more modules — every one of them in records.json
+  diffOrderedList.ts IS among them, at 1,266 B
+
+database-only   packages/bench/src/bundle/consumers/databaseOnly.ts
+  new OIMDB() and nothing else — the toll every consumer pays
+  kept 7 modules of @oimdb/core, 9,441 B of this arm's 9,477 B minified bundle:
+    7,074 B  packages/core/src/core/OIMDB.ts
+      700 B  packages/core/src/core/OIMEffectScheduler.ts
+      575 B  packages/core/src/core/OIMSubscriberStore.ts
+      534 B  packages/core/src/core/createEffectNode.ts
+      271 B  packages/core/src/core/OIMBucketOwner.ts
+      195 B  packages/core/src/core/recordMovedFields.ts
+       92 B  packages/core/src/core/OIMObservable.ts
+  diffOrderedList.ts is NOT among them
+
+without-ordered-list   packages/bench/src/bundle/consumers/withoutOrderedList.ts
+  a database, a population, a grouping, a write, a subscription and a read
+  kept 34 modules of @oimdb/core, 26,141 B of this arm's 26,457 B minified bundle:
+    7,078 B  packages/core/src/core/OIMDB.ts
+    4,184 B  packages/core/src/abstract/OIMCollection.ts
+    3,138 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+    1,086 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      706 B  packages/core/src/abstract/OIMIndexStrategy.ts
+    6,455 B  + 26 more modules — every one of them in records.json
+  diffOrderedList.ts is NOT among them
+
+with-ordered-list   packages/bench/src/bundle/consumers/withOrderedList.ts
+  the same application, plus createOrderedCommands on the same bucket
+  kept 36 modules of @oimdb/core, 27,685 B of this arm's 28,064 B minified bundle:
+    7,078 B  packages/core/src/core/OIMDB.ts
+    4,183 B  packages/core/src/abstract/OIMCollection.ts
+    3,138 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+    1,246 B  packages/core/src/core/diffOrderedList.ts
+    1,087 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+    7,459 B  + 28 more modules — every one of them in records.json
+  diffOrderedList.ts IS among them, at 1,246 B
+
+The "diff?" column is the bundler's own answer to the question
+packages/core/tests/what-an-import-retains.test.ts answers by reading import statements with no
+toolchain at all. Two instruments, one fact. If they ever disagree, one of them is wrong and
+finding out which is worth more than either number.
+
+THE BREAKDOWN UNDER EACH ARM IS WHY THE COLUMN CAN BE TRUSTED TO DISAGREE. A count alone has one
+way to be wrong and no way to show it; a list of modules with the bytes each one contributed can
+be opened, added up, and checked against the source. database-only is printed in full because it
+is the toll no consumer can avoid — what this engine charges an application that constructs a
+database and asks for nothing else, module by module. The longer arms are cut to the largest
+few, with the count and the bytes of the remainder on the line below; records.json keeps every
+module of every arm.
+
+IF THIS DIFFERENCE IS MUCH SMALLER THAN 2.7 KB
+
+Then the figure quoted at eight sites in this repository is wrong and should be replaced by
+whatever this run says, at every one of them, in one pass, naming this directory. That is the
+only outcome that requires action, and it requires it whichever way the number went.
+
+WHAT IT WOULD NOT DO IS OVERTURN THE DECISION. The argument for a free function has two halves
+and only one of them is a size. The other is reachability, and it is not a matter of degree: as
+a method the diff is in every consumer's bundle, as a free function it is in the bundle of
+consumers who call it, and that holds at 2.7 KB, at 0.4 KB and at 40 bytes. A small number would
+mean the eight sites overstated the price of a decision that was still the right shape — and it
+would mean this project quoted a measurement it had never taken, which is the failure
+measurements/README.md exists to name.
+
+IT WOULD ALSO NOT BE A REASON TO PUT THE METHOD BACK. The cost of doing that is not this
+difference — it is this difference multiplied by every application that will ever import OIMDB,
+forever, none of which can opt out. The free function's cost is a line in an import statement,
+paid once, by the caller who wanted it.

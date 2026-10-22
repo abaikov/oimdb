@@ -1,0 +1,24 @@
+{
+  "format": 2,
+  "point": {
+    "key": "default",
+    "n": 10000,
+    "window": 32,
+    "processes": 3
+  },
+  "scenario": "tearDownFloor",
+  "plan": {
+    "repeat": 1,
+    "samples": 15,
+    "warmup": 2000
+  },
+  "probes": [
+    {
+      "name": "baseline-array",
+      "runMs": 0
+    }
+  ],
+  "probeFailures": [],
+  "probedAt": "2026-10-18T14:05:06.375Z",
+  "harness": "316e21080fd09879"
+}

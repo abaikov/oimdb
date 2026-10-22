@@ -1,0 +1,488 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.92x  37 ns  20 ns   1.7%     ~1.9x  control-resolution-2x
+1.05x  20 ns  19 ns   4.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.92x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 5.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 5.2% of 1.00 is a reading, and no
+  claim inside 15.6% of it — 3x the error above — is mostly about the code.
+
+  ** THE INSTRUMENT WAS 5.2% OUT ON THIS RUN. The scale control times the same body under **
+  ** two names, so that 5.2% is this machine's own error and nothing else. **
+
+  It is not a spread and it does not average out: it is one multiplicative factor sitting under
+  EVERY ratio below, in an unknown direction. The report does not void the table for it, because a
+  30x claim is not disturbed by a twentieth of itself — but a claim of the same order as this
+  figure is mostly this figure. A claim that fails to outrun it by 3x carries ± below, and
+  it lands on 1 of the 16 rows below — chain.four-links-vs-the-shipped-two.
+
+THE PRICES, worst ratio first
+
+    ratio    ours  floor  noise  path               operation
+    36.7x  148 ns   4 ns   0.2%  per write          upsert.whole-row-vs-five-stores
+~   27.0x   36 ns   1 ns   0.4%  per write          update.column-vs-field-store
+    16.9x   32 ns   2 ns   6.2%  per write          update.column-vs-field-store-a-patch-per-write
+    14.5x   36 ns   2 ns   0.1%  per write          update.column-vs-field-store-and-the-listener-guards
+    9.94x   20 ns   2 ns   3.3%  per write          update.unchanged-vs-field-store
+    7.11x   36 ns   5 ns   6.2%  per write          update.column-vs-tracked-store
+    5.78x  146 ns  25 ns   1.8%  per write          upsert.whole-row-vs-map-get-and-five-stores
+~L  3.58x  149 ns  42 ns   0.7%  per write          upsert.whole-row-vs-five-stores-and-a-departure-walk
+    2.93x   66 ns  22 ns   0.4%  per write          updateByKey.vs-map-get-and-store
+~   1.79x  118 ns  66 ns   0.4%  per row per write  upsert.insert-vs-map-set
+~   1.47x  120 ns  81 ns   2.3%  per row per write  upsert.insert-vs-tracked-store
+    1.21x   43 ns  36 ns   0.0%  per write          chain.next-as-a-parameter-vs-next-held-in-a-field
+±   1.13x   41 ns  36 ns   1.5%  per write          chain.four-links-vs-the-shipped-two
+=   1.02x   37 ns  36 ns   0.0%  per write          chain.three-links-vs-the-shipped-two
+=   1.01x   37 ns  37 ns   0.8%  per write          update.column-vs-the-strict-equality-default
+=   0.96x   39 ns  40 ns   0.4%  per write          chain.three-link-classes-in-one-process-vs-one-class-three-times
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+upsert.whole-row-vs-five-stores   [per write]   36.7x
+  ours   collection.upsertEntity(row) — a key that already carries a value
+  floor  copy five columns onto the stored object, one store each
+  THE FLOOR CANNOT EXPRESS ONE HALF OF WHAT UPSERT PROMISES. An upsert of an existing key also
+  REMOVES the columns the new value does not carry, which means walking the stored row to find
+  them; here both rows carry all five columns, so that walk finds nothing and the floor's five
+  stores are the same net effect. Ours additionally gates each column on the default equality,
+  so only the column that actually moved is written and reported, where the floor writes all
+  five every time. THAT DEFAULT IS SAMEVALUEZERO AND WAS AN INLINE `===` WHEN THIS ROW WAS
+  RECORDED: the four columns this fixture does not move settle on the first clause and cost
+  what they cost before, and the one that moves carries one comparison this figure never saw.
+  Direction: mixed — the gate saves us four stores and costs us five comparisons plus a
+  moved-list allocation, and the marking and routing are ours alone. Read it beside
+  update.column: the difference between the two is what sending a whole row costs over sending
+  the column that changed. THE STRUCTURAL CAVEAT AT THE HEAD OF THIS REPORT RUNS BACKWARDS ON
+  THIS ROW AND ON NO OTHER WRITE ROW. It says a Map-keyed floor pays a hash our identity path
+  does not, which flatters us. Here it is the reverse: the floor is handed `held[i]` by its
+  index and never looks anything up, while ours is handed a ROW and must resolve its key —
+  `keyOf` and then the store lookup inside `writeContentByKey`, a `Map.get` over eight
+  thousand string keys. That lookup is inside our number and outside the floor's, so this row
+  overstates what the design costs a caller who already holds the identity.
+  `upsert.whole-row-vs-map-get-and-five-stores` is the same measurement with the lookup on
+  both sides; the difference between the two rows is the hash, and neither alone is the price
+  of an upsert.
+  measured  329,444 ops/pass ours, 12,269,546 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 15.4%/16.2%; load 3.87 → 4.04 on 8 cores
+
+update.column-vs-field-store   [per write]   27.0x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  row.title = value
+  THE LOOKUP IS ON NEITHER SIDE — ours holds the slot, the floor holds the object, both
+  resolved outside the clock. That is the comparison this row is for. What ours does that a
+  store cannot: it walks the patch, refuses names a row may not carry, gates each column on
+  the default equality, builds the list of what moved, stamps the slot and the collection, and
+  tests the row's column store and the population's listener list so a column subscriber or an
+  index could be told. THAT DEFAULT IS SAMEVALUEZERO AND WAS AN INLINE `===` WHEN
+  2026-08-20-price/write WAS RECORDED. The call was there under both — the predicate has
+  always been reached through the strategy's captured parameter — so the delta is one
+  comparison, and only on a column that moved, which is one per write here.
+  `update.column-vs-the-strict-equality-default` is that delta on its own and is unrun; until
+  it runs, this row's recorded figure is a figure for the older body. Direction: inflates our
+  ratio; the tracked row below prices the part of that a person would have had to write
+  anyway. The patch object is REUSED rather than written as a literal per call — a caller who
+  writes { title } inline pays one more allocation per write than this row charges us for. The
+  batch closes with one flush per eight thousand writes, which is why every write in it takes
+  the marking path rather than the already-stamped early return. THE REUSED PATCH IS ALSO WHAT
+  STOPS THIS ROW BEING SUBTRACTED FROM `update.unchanged-vs-field-store`, and that subtraction
+  is the only way anyone has to split this number into the walk that decides and the tail that
+  reports. The unchanged row hands `updateEntity` a DIFFERENT patch object per write and its
+  floor reads the value out of that object; this row reuses one patch and its floor reads a
+  local. Two differences, both on the wrong side of the subtraction.
+  `update.column-vs-field-store-a-patch-per-write` is this row with the unchanged row's patch
+  supply and the unchanged row's floor, and it exists so the split can be taken arm for arm
+  instead of across two bodies that differ in three ways.
+  measured  1,332,304 ops/pass ours, 36,497,600 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 1.6%/38.3%; load 3.73 → 3.73 on 8 cores
+
+update.column-vs-field-store-a-patch-per-write   [per write]   16.9x
+  ours   collection.updateEntity(slot, patch) — one column, one patch object per row
+  floor  row.title = patch.title
+  THE ROW ABOVE, ARM FOR ARM WITH `update.unchanged-vs-field-store`, AND THAT IS ITS WHOLE
+  REASON. The only handle anybody has on how the row above's gap divides is the unchanged row,
+  which times the same call up to the point where the comparator finds every column equal and
+  returns before marking anything. Subtracting one from the other would give the walk and the
+  tail — except that the two bodies differ in three ways at once: the row above REUSES one
+  patch object where the unchanged row allocates eight thousand and hands a different one to
+  every write, and its floor stores a local where the unchanged row's floor reads the value
+  off the patch first. A fresh patch per write is a fresh receiver for `isPlain` and for the
+  `for…in`, and the extra load is a real instruction on the floor. Both differences push the
+  same way and neither is the thing being priced. THIS ROW REMOVES ALL THREE. The patch supply
+  is the unchanged row's — one object per row, built outside the clock — and the floor is the
+  unchanged row's floor to the character. What is left between this row's `ours` and the
+  unchanged row's `ours` is exactly what a write that MOVES a column does and a write that
+  moves nothing does not: one store into the entity, the moved-names array and its push, two
+  `channel.write` calls — the row and the population — one `columnSlotStoreService.get` probe
+  for the moved column inside `OIMColumnOwner.markColumnsChanged`, and the frame that closes
+  the batch. EIGHT PATCH ARRAYS, ONE PER TITLE, so this row moves the column on exactly the
+  writes the row above moves it on. The title advances by one of eight per batch and every row
+  in a batch is written with the same title, which is the row above's rotation with the shared
+  object unpicked into one object per row. THE FLUSH IS ON THIS SIDE OF THE SUBTRACTION AND
+  NOT ON THE UNCHANGED ROW'S: nothing is marked there, so no frame is asked for.
+  `flush.empty-vs-noop` [2026-08-20-price/frame] prices a frame with nothing queued, and over
+  eight thousand writes it is four thousandths of a nanosecond each — named here because it
+  belongs to the difference, not because it can be seen in it.
+  measured  1,272,050 ops/pass ours, 25,244,082 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 3.8%/14.3%; load 3.59 → 3.59 on 8 cores
+
+update.column-vs-field-store-and-the-listener-guards   [per write]   14.5x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  test the row for a column store and the population for listeners, then row.title = value
+  THE TWO "IS ANYBODY LISTENING" GUARDS, PUT ON THE FLOOR. A write that moves a column asks
+  two questions before it can skip the routing: `OIMColumnOwner.markColumnsChanged` tests
+  `carrierSlot.columnSlotStore === undefined` (no column of this row was ever subscribed to),
+  and `OIMSlotAggregate.contentChanged` tests `listeners.length === 0` (no index hears this
+  population). Both hold on every row of this fixture. Inside `update.column-vs-field-store`
+  they are two operations among thirty and nothing separates them; here the floor makes the
+  identical two tests on an identically empty state, so THE ITEM IS THE DIFFERENCE BETWEEN
+  THAT ROW'S GAP AND THIS ROW'S GAP. OUR ARM IS THAT ROW'S ARM TO THE CHARACTER — the same
+  fixture, the same reused patch, the same rotation of eight titles, the same flush per eight
+  thousand writes. OPERATION COUNT, THE DIFFERENCE ONLY: one field load and one `undefined`
+  compare per row, one length load and one compare per row. Expected inside the noise floor.
+  measured  1,267,458 ops/pass ours, 19,723,980 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.1%/20.8%; load 3.59 → 3.59 on 8 cores
+
+update.unchanged-vs-field-store   [per write]   9.94x
+  ours   collection.updateEntity(slot, patch) with the value the row already holds
+  floor  row.title = value — a store that always happens
+  THE TWO SIDES DO OPPOSITE THINGS, ON PURPOSE. Ours walks the patch, finds every column
+  equal, returns before marking anything and wakes nobody; the floor stores unconditionally
+  because it has nothing to protect. So this is not "which is faster at the same work" — it is
+  what the comparator gate costs when it fires, against the cheapest possible thing that
+  ignores the question. No flush closes this batch, because nothing was marked and there is
+  nothing for a frame to deliver: that is the point of the row. Direction: inflates our ratio;
+  what the gate buys is that a screen re-sending a server payload it already holds does not
+  repaint.
+  measured  1,739,048 ops/pass ours, 23,646,754 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 2.2%/8.1%; load 3.68 → 3.86 on 8 cores
+
+update.column-vs-tracked-store   [per write]   7.11x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  gate on !==, stamp the row once per frame, queue it, store
+  THE FLOOR NOW DOES THE JOB. It compares before it writes, so a re-send moves nothing; it
+  stamps the row with the frame number so ten writes to one row queue it once; and it queues
+  the row so a frame could deliver it. Four lines. What it still does not do: record WHICH
+  columns moved (so no field-granular subscription is possible), route to an index, or mark
+  the collection separately from the row. Direction: still inflates our ratio, and this is the
+  number to quote when somebody asks what the engine costs over doing it properly by hand.
+  measured  1,307,148 ops/pass ours, 9,504,428 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 1.0%/9.3%; load 3.65 → 3.68 on 8 cores
+
+upsert.whole-row-vs-map-get-and-five-stores   [per write]   5.78x
+  ours   collection.upsertEntity(row) — a key that already carries a value
+  floor  const stored = map.get(row.id); then copy five columns onto it
+  THE ROW ABOVE, WITH THE LOOKUP PUT BACK ON THE FLOOR. `upsertEntity` is handed a ROW and not
+  an identity, so it calls `keyOf` and then `writeContentByKey` — a `Map.get` over eight
+  thousand string keys — before it can write anything. The floor of
+  `upsert.whole-row-vs-five-stores` is handed `held[i]` by its loop index and never looks
+  anything up, which makes that row the one write row in this suite where the hash falls on
+  OUR side. Here the floor resolves the same key through its own `Map` first, so both sides
+  pay one hash and the row is what a person doing this job by hand would actually have
+  written. OUR SIDE IS THE SAME BODY AS THE ROW ABOVE, deliberately and to the line: the same
+  fixture, the same two whole-row variants alternating so the title moves on every row of
+  every pass, the same flush per eight thousand writes. Nothing about our arm differs, so the
+  two rows' `ours` columns should agree to within the between-pair disagreement of this piece,
+  and the difference between the two FLOORS is one `Map.get` and one `undefined` test. READ
+  THE PAIR OF ROWS, NOT EITHER ONE: the row above prices an upsert against a floor that
+  already knows where the row is, this one against a floor that has to find out, and a caller
+  sits at one or the other depending on whether the write came from a socket payload or from
+  something they were holding. WHAT IS STILL NOT EQUAL. The floor's five stores are
+  unconditional where ours gates each column on the default equality — SameValueZero — and
+  writes the one that moved; ours walks the stored row for columns the new value does not
+  carry (here it finds none, so the net effect matches); and the marking, the presence of a
+  `columnSlotStoreService.get` probe per moved column and the frame that closes the batch are
+  ours alone. All three are stated on the row above and are unchanged by moving the lookup —
+  this row changes exactly one thing about that comparison, which is the point of it.
+  measured  309,406 ops/pass ours, 1,376,422 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 9.2%/8.5%; load 3.80 → 3.97 on 8 cores
+
+upsert.whole-row-vs-five-stores-and-a-departure-walk   [per write]   3.58x
+  ours   collection.upsertEntity(row) — a key that already carries a value
+  floor  walk the stored row for columns the new one does not carry, then five stores
+  THE DEPARTURE WALK, PUT ON THE FLOOR, WHICH IS THE ONLY WAY THIS HARNESS CAN PRICE AN
+  OPERATION THAT NEITHER ARM OF AN EXISTING ROW ISOLATES. `upsert.whole-row-vs-five-stores`
+  charges our side a walk of the STORED row's own names, with a `hasOwnProperty` probe of the
+  caller's row per name, and its floor makes neither — so the walk sits inside that row's
+  residual with the marking, the routing and four extra columns of comparison, and nothing
+  separates it from them. Here the floor makes the identical walk, to the line of
+  `OIMEntityCollection.writeEntity`, and stores five columns after it. THE ITEM IS THE
+  DIFFERENCE BETWEEN THIS ROW'S GAP AND THAT ROW'S GAP, and nothing else about either arm
+  changes. OUR ARM IS THAT ROW'S ARM TO THE CHARACTER — the same fixture, the same two
+  whole-row variants alternating so `title` moves on every row of every pass, the same flush
+  per eight thousand writes, the same absence of an index, a subscriber and a projection. So
+  the two rows' `ours` columns should agree to within the between-pair disagreement of this
+  piece, and a run where they do not is a run that has said something about the machine rather
+  than about the walk. OPERATION COUNT, THE DIFFERENCE ONLY: one `for…in` over the five names
+  the stored row carries, five `hasOwnProperty` probes of a five-property row, and one `??=`
+  test that never fires — both rows of this fixture carry all five columns, so nothing ever
+  leaves and no array is allocated on either arm. That is the walk at its CHEAPEST: it finds
+  nothing, which is what a server re-sending whole rows always makes it do, and it is the case
+  an upsert being a whole-row replace is charged for. A payload that genuinely drops a column
+  would add a push, a `deleteColumns` call and an `undefined` write per departing name to our
+  side and a `delete` to the floor. WHAT THIS ROW IS NOT. It is not a merge-versus-replace
+  comparison — the floor here is not the rejected design, it is the shipped design with one
+  item lifted out of it and set beside a hand-written store. The rejected design is
+  `upsertEntity` WITHOUT the walk, which is `upsert.whole-row-vs-five-stores` with a floor
+  that does less, and no row in this suite is that. Read this one as the price of the item,
+  not as a verdict on the consequence.
+  measured  333,068 ops/pass ours, 1,081,512 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 14.9%/32.4%; load 3.97 → 4.85 on 8 cores
+
+updateByKey.vs-map-get-and-store   [per write]   2.93x
+  ours   collection.updateEntityByKey(id, patch)
+  floor  const row = map.get(id); if (row !== undefined) row.title = value
+  THE ONE WRITE ROW WHERE BOTH SIDES PAY THE LOOKUP, which is what makes it the fair
+  comparison for a key that arrived from outside. Ours is one map read and then the identity
+  path priced two rows up; the floor is one map read and a store. The difference between this
+  ratio and the update.column ratio is the price of NOT having held the identity — the
+  engine's own source puts that at 103-132 ns against 36-51 [NO RUN BEHIND THIS FIGURE], and
+  this row is the independent check on that claim.
+  measured  551,426 ops/pass ours, 1,570,040 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 17.6%/15.8%; load 3.86 → 3.87 on 8 cores
+
+upsert.insert-vs-map-set   [per row per write]   1.79x
+  ours   collection.upsertEntity(row) — a key this population has never seen
+  floor  map.set(row.id, { ...row })
+  THE FLOOR DOES LESS, AND KNOWABLY SO. Ours mints an identity (a slot and an entry in the
+  identity store — there is no per-index `links` cell, so a row carries nothing per index at
+  all), copies the row, walks the copy's own names to refuse the ones a row may not carry,
+  stamps the slot, stamps the collection and records the row on the presence channel so every
+  index and every whole-population reader hears about it. The floor allocates one copy and
+  hashes one string. Direction: this inflates our ratio, and no three-line floor can close the
+  gap — what the extra buys is that anything subscribed to this population, or indexing it, is
+  woken by this insert. The tracked row below is the closest a few lines get. Both sides
+  abandon their container between passes and both are collected outside the clock, so the GC
+  of what each allocated is NOT inside either number; our allocation per row is roughly three
+  objects to the floor's one, and that debt is paid later.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1111 planned, 1111/1111 reached; spread 55.8%/102.0%; load 4.05 → 4.05 on 8 cores
+
+upsert.insert-vs-tracked-store   [per row per write]   1.47x
+  ours   collection.upsertEntity(row) — a key this population has never seen
+  floor  map.set(id, copy) into a store that also queues what changed
+  THE FAIRER FLOOR, and it is still not equal. The floor now keeps a per-row frame stamp and a
+  queue, so something downstream could be told — which is the job our insert is doing and the
+  bare Map is not. What the floor still does not have: an identity that outlives the value, a
+  per-index cell on every row, a presence channel that tells indexes and whole-population
+  readers separately from the row itself, or any means of recording WHICH columns moved.
+  Direction: still inflates our ratio, by less than the bare-Map row above. The pair of ratios
+  brackets the truth; neither number alone is it.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 836 planned, 836/836 reached; spread 34.1%/93.9%; load 3.97 → 3.97 on 8 cores
+
+chain.next-as-a-parameter-vs-next-held-in-a-field   [per write]   1.21x
+  ours   one forwarding stage reached through a stages array, handed its continuation
+  floor  one forwarding link holding its continuation in a field — the shipped construction
+  THE TWO WAYS TO SPELL A CHAIN, WITH EXACTLY ONE STAGE IN EACH so the comparison is about the
+  SPELLING and not about depth. Both arms put one forwarding step between
+  `OIMEntityCollection` and `createOIMEntityWriterInPlace`, and that step does nothing but
+  pass the call on. THE DIFFERENCE, and it is the whole row: the field-bound arm reads
+  `this.inner` and calls a method on it; the parameter arm ALLOCATES THE CONTINUATION — a
+  closure over the stage index and the receiver — and hands it in, on every write. PREDICTED
+  OPERATION COUNT per write: the field arm pays two property loads and a call; the parameter
+  arm pays a closure allocation, an array load, a property load and two calls. WHICH WAY THE
+  UNMEASURED DIFFERENCE PUSHES: against the parameter arm, and only that way — it does
+  everything the field arm does and allocates on top [FIGURE STATED IN ADVANCE]. WHAT THE
+  PARAMETER FORM BUYS, which no number here prices: a stage that never names what is under it,
+  so an order can be composed at run time. A reader deciding between the two owes that against
+  whatever this costs. THE WRITE AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH
+  NUMBERS: `assertNotFlushing`, `openSubframe`/`closeSubframe` on the channel, the column walk
+  over a ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the
+  channel and the frame that closes the pass. ONE OPERATION IS ONE `updateEntity` OF ONE
+  COLUMN OF ONE ROW, over a population of 1024, with a frame per pass over the population — so
+  the frame is one part in 1024 of the row. The link is touched ONCE per operation:
+  `updateEntity` reaches `patchEntity` and no other door. A row that removed a column would
+  touch it twice and is not measured here.
+  measured  1,167,508 ops/pass ours, 1,303,248 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.7%/0.6%; load 4.16 → 4.16 on 8 cores
+
+chain.four-links-vs-the-shipped-two   [per write]   1.13x
+  ours   updateEntity throughOIMEntityCollection → two forwarding links → createOIMEntityWriterInPlace
+  floor  the same updateEntity throughthe shipped chain: OIMEntityCollection → createOIMEntityWriterInPlace
+  THE SECOND POINT OF THE CURVE, AND THE ONLY THING THAT SAYS WHETHER A LINK HAS A FLAT PRICE.
+  Read against the row above it: if two links cost twice what one link costs, a chain is a
+  straight line and a consumer can budget by counting links. If the second link costs more
+  than the first, the site has stopped being inlined and the row above under-reads every
+  deeper chain [FIGURE STATED IN ADVANCE]. A SINGLE ROW HERE ANSWERS NOTHING; the pair of rows
+  is the measurement. THE WRITE AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH
+  NUMBERS: `assertNotFlushing`, `openSubframe`/`closeSubframe` on the channel, the column walk
+  over a ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the
+  channel and the frame that closes the pass. ONE OPERATION IS ONE `updateEntity` OF ONE
+  COLUMN OF ONE ROW, over a population of 1024, with a frame per pass over the population — so
+  the frame is one part in 1024 of the row. The link is touched ONCE per operation:
+  `updateEntity` reaches `patchEntity` and no other door. A row that removed a column would
+  touch it twice and is not measured here.
+  measured  1,121,936 ops/pass ours, 1,336,244 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 29.0%/1.0%; load 4.54 → 4.54 on 8 cores
+
+chain.three-links-vs-the-shipped-two   [per write]   1.02x
+  ours   updateEntity throughOIMEntityCollection → a forwarding link → createOIMEntityWriterInPlace
+  floor  the same updateEntity throughthe shipped chain: OIMEntityCollection → createOIMEntityWriterInPlace
+  WHAT ONE LINK COSTS, AND THE ROW A TTL LAYER WOULD BE BUILT ON. The added link forwards
+  `patchEntity` and returns what came back, so the difference between the two numbers is one
+  field load, one arrow-property load and one call — per write. PREDICTED OPERATION COUNT: one
+  extra frame of three machine operations against a write that already does sixteen or more,
+  over 1024 rows per pass. WHICH WAY THE UNMEASURED DIFFERENCE PUSHES: against the deep arm,
+  and only that way. The forwarding link cannot make any part of the write cheaper, so a
+  reading AT OR BELOW 1.00 IS THE INSTRUMENT AND NOT THE DESIGN [FIGURE STATED IN ADVANCE].
+  WHAT IS NOT PRICED HERE: the shape cost. Both arms are isolated, so each runs with ONE shape
+  at the delegating site; a process that mixes link types pays a polymorphic site on top of
+  what this row reads, and no row in this suite measures that yet. THE WRITE AROUND THE LINK
+  IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertNotFlushing`,
+  `openSubframe`/`closeSubframe` on the channel, the column walk over a ONE-COLUMN patch, the
+  equality call, the store into `slot.entity`, the report to the channel and the frame that
+  closes the pass. ONE OPERATION IS ONE `updateEntity` OF ONE COLUMN OF ONE ROW, over a
+  population of 1024, with a frame per pass over the population — so the frame is one part in
+  1024 of the row. The link is touched ONCE per operation: `updateEntity` reaches
+  `patchEntity` and no other door. A row that removed a column would touch it twice and is not
+  measured here.
+  measured  1,166,676 ops/pass ours, 1,272,544 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 1.7%/6.0%; load 4.85 → 4.85 on 8 cores
+
+update.column-vs-the-strict-equality-default   [per write]   1.01x
+  ours   collection.updateEntity(slot, patch) — the shipped default, which is SameValueZero
+  floor  the same update on a population built with createOIMEntityWriterInPlace({ sameValueGuard: (a, b) => a === b })
+  THE ONE ITEM OF THE WRITE PATH THAT IS IN NO RECORDED NUMBER, BECAUSE IT POSTDATES THEM ALL.
+  Every write row in `2026-08-20-price/write` was measured against a default equality that was
+  an inline `a === b`. The default is `oimSameValueZeroGuard` now — `a === b || (a !== a && b
+  !== b)` — and what that costs is not a call, since the predicate was already reached through
+  the strategy's captured parameter on both designs. IT IS ONE COMPARISON, AND ONLY ON A
+  COLUMN THAT MOVED: an equal column settles on the first clause and short-circuits, byte for
+  byte what was there before, while a moved column then evaluates `a !== a` and short-circuits
+  on that. BOTH ARMS ARE `collection.update` ON THE SAME FIXTURE, one column moving per write,
+  so the difference is that one comparison per write and the state of one inline cache. The
+  floor's predicate is a different function object of the same shape as the shipped
+  `oimSameValueZeroGuard` — module-level, monomorphic, one expression, no closure. THIS PAIR
+  DECLARES `isolate` AND IT MUST. `changedColumns` is ONE compiled body however many writers
+  the factory builds, so `sameValueGuard(entity[name], source[name])` inside it is one call
+  site for the whole process. Building both arms in one process would make that site see two
+  functions and would spoil BOTH of them equally, which is a measurement of nothing. The same
+  reasoning, and the same declaration, is on
+  `alt.equality-predicate.shared-default-vs-inlined.with-a-second-comparator-present`, where
+  making the site polymorphic is the subject rather than the hazard. DO NOT BORROW
+  `alt.equality-predicate.shared-default-vs-inlined.unchanged-resend` FOR THIS. That row
+  prices the predicate's CALL FRAME against a walk with no parameter at all, on an UNCHANGED
+  re-send where every column settles on the first clause — so the second comparison this row
+  exists for never executes in it. The two rows are about the parameter and about the body,
+  and they do not substitute. ONE COMPARISON PER WRITE IS BELOW WHAT THIS INSTRUMENT RESOLVED
+  ON ITS OWN SCALE CONTROL, and that is the expected reading, stated in advance so a run can
+  refute it: this pair should come back inside the noise floor. If it does, the argument in
+  `oimSameValueZeroGuard.ts` — that the new answer is free on the hot path and spends only
+  where it saves a report, a reindex and a wake-up — holds at the write. If it does NOT, there
+  is a real cost on the hottest path in the engine and the `NaN` defect was bought with
+  something.
+  measured  1,373,058 ops/pass ours, 1,245,538 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 21.9%/1.6%; load 3.38 → 3.65 on 8 cores
+
+chain.three-link-classes-in-one-process-vs-one-class-three-times   [per write]   0.96x
+  ours   three collections, each with a DIFFERENT forwarding class — the site sees three shapes
+  floor  three collections with the SAME forwarding class — the site sees one shape
+  THE COST NO OTHER ROW IN THIS FILE PRICES, AND THE ONE THAT DECIDES THE SHAPE OF A LAYER
+  API. Every other row here declares `isolate` so each arm runs with ONE shape at
+  `OIMEntityCollection`'s `this.inner.patchEntity`; this row is what those rows deliberately
+  keep out. Both arms write the same number of rows through the same depth over three
+  populations round-robin, and DIFFER ONLY IN HOW MANY CLASSES stand at that one call site:
+  three, or one constructed three times. The three classes have IDENTICAL BODIES — they are
+  written out separately rather than generated, because a factory hands back one class and
+  that is the other arm. WHAT IT DECIDES: whether a consumer may freely mix layer types, or
+  whether a layer API should be one class parameterised by a callback. If this row is flat,
+  the question is answered and nothing follows from it; if it is not, then every count in the
+  rows above is a floor rather than the price [FIGURE STATED IN ADVANCE]. WHICH WAY THE
+  UNMEASURED DIFFERENCE PUSHES: against the many-classes arm and only that way — three shapes
+  at a site cannot make it faster than one. WHY THREE AND NOT FIVE: three is inside V8's
+  polymorphic range, so the row reads what a POLYMORPHIC site costs against a monomorphic one.
+  What a MEGAMORPHIC site costs is a different row and this suite does not have it. OPERATION
+  COUNT, AND IT IS NOT THE GEOMETRY THE SHARED PARAGRAPH BELOW DESCRIBES: this row runs THREE
+  populations of 1024 and not one. One operation is one `updateEntity` of one column of one
+  row and the link is touched once per operation, as below; what differs is the round. One
+  round writes the same rows in each of the three worlds and closes a frame in each, so a full
+  round is 3072 updates and 3 frames, and the count a pass consumes moves in steps of 3072
+  rather than of 1024. BOTH ARMS RUN THAT ONE DRIVER OVER THREE WORLDS, so at an equal
+  operation count they perform an equal number of updates and an equal number of frames:
+  nothing about how much work a pass does differs between the arms, only which classes stand
+  at the delegating site. THE DRIVER CHANGED AND THE ID DID NOT, so a reading recorded under
+  this id in `measurements/2026-09-07-price/chain-depth` and one taken now are not comparable
+  and may not be put in one column. What the driver it replaced did: it took the rows per
+  world from the WHOLE remaining count and then charged that count multiplied by the three
+  worlds, so a pass performed up to 2048 updates more than the number the reading is divided
+  by, and each arm was inflated by its own remainder. In that stored run that is 402432
+  updates performed against 400514 charged on our side and 626688 against 625872 on the floor,
+  which moves that stored ratio by less than one part in two hundred. THE OVERSHOOT WAS A
+  FALSE COUNT, IT IS GONE, AND IT WAS NOT WHAT AILS THIS ROW. WHAT DOES, AND IT IS NOT THE
+  DRIVER BUT THE DIVISOR: in measurements/2026-09-07-price/chain-depth the floor of this row
+  is timed at 64.13 ns and again at 44.75 ns, 43.3% apart, and the quotient takes the FIRST of
+  the two while the second was equally entitled to it. The same 59.81 ns of ours in
+  measurements/2026-09-07-price/chain-depth over the other floor reading is 1.34x rather than
+  the 0.93x stored, and the three sibling rows of that same run read their floor at 43.81,
+  44.36 and 44.52 ns, so the 64.13 is one bad process. Three later re-runs of this row came
+  out at 1.41, 1.31 and 1.38 and none of them was recorded, so they are quoted here as a
+  direction only [NO RUN BEHIND THIS FIGURE]. The printer now prints `void` for a ratio whose
+  side disagreed with itself past the bar and gives that row no place in the ranking, so this
+  row states a price again only when a run has it under the bar. WHAT IS STILL UNFOUND is why
+  one process of this body was half again as slow as the four others that timed it, and no
+  claim about mixing link classes may be quoted from this row until that is answered. A SECOND
+  DIFFERENCE BETWEEN THE ARMS, WHICH THE DIRECTION STATED ABOVE DOES NOT COVER. The
+  many-classes arm has THREE forwarding bodies, each holding one
+  `createOIMEntityWriterInPlace` and therefore seeing one receiver at its own
+  `this.inner.patchEntity`; the one-class arm has ONE forwarding body seeing the three
+  `createOIMEntityWriterInPlace` objects of the three worlds. The arms therefore differ at the
+  link's own delegating site as well as at the collection's, and in the opposite order. "Only
+  that way" is stated of the site this row names and is not established for the row as a
+  whole; what the second site costs is not measured here and no row in this suite measures it.
+  THE WRITE AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS:
+  `assertNotFlushing`, `openSubframe`/`closeSubframe` on the channel, the column walk over a
+  ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the channel
+  and the frame that closes the pass. ONE OPERATION IS ONE `updateEntity` OF ONE COLUMN OF ONE
+  ROW, over a population of 1024, with a frame per pass over the population — so the frame is
+  one part in 1024 of the row. The link is touched ONCE per operation: `updateEntity` reaches
+  `patchEntity` and no other door. A row that removed a column would touch it twice and is not
+  measured here.
+  measured  1,239,608 ops/pass ours, 1,197,734 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.0%/1.2%; load 3.89 → 3.98 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.92x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.05x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

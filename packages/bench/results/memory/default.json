@@ -1,0 +1,1006 @@
+{
+  "format": 2,
+  "records": {
+    "baseline-array": {
+      "adapter": "baseline-array",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.3427734375,
+        "peak": 4.3427734375,
+        "readings": 2,
+        "foreignPeak": 3.3427734375,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:49.571Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13512320,
+        "held": 496208
+      }
+    },
+    "baseline-indexed": {
+      "adapter": "baseline-indexed",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.3427734375,
+        "peak": 4.3427734375,
+        "readings": 2,
+        "foreignPeak": 3.3427734375,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:49.749Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13512176,
+        "held": 1067096
+      }
+    },
+    "oimdb": {
+      "adapter": "oimdb",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "8e38b6a0334dc11c",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.3427734375,
+        "peak": 4.3427734375,
+        "readings": 2,
+        "foreignPeak": 3.3427734375,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:49.952Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14172352,
+        "held": 4466008
+      }
+    },
+    "oimdb-sorted-index": {
+      "adapter": "oimdb-sorted-index",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "8e38b6a0334dc11c",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.3427734375,
+        "peak": 4.3427734375,
+        "readings": 2,
+        "foreignPeak": 3.3427734375,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:50.157Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14173128,
+        "held": 4431360
+      }
+    },
+    "oimdb-3.12.1": {
+      "adapter": "oimdb-3.12.1",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "2c2db844b7eca5c8",
+        "subject": "e0adc140f93c5505",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:50.364Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14400920,
+        "held": 4226888
+      }
+    },
+    "tinybase": {
+      "adapter": "tinybase",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "bb3071b8659deeb7",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "tinybase": "10.0.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:50.674Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13881168,
+        "held": 3574320
+      }
+    },
+    "signaldb": {
+      "adapter": "signaldb",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "a2fcb5ab05c6a667",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@signaldb/core": "1.8.1",
+          "fast-sort": "3.4.1",
+          "mingo": "7.2.2",
+          "@preact/signals-core": "1.14.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:51.316Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 17514688,
+        "held": 4609552
+      }
+    },
+    "tanstack-db": {
+      "adapter": "tanstack-db",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:51.658Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 19483240,
+        "held": 6181176
+      }
+    },
+    "tanstack-db-eager": {
+      "adapter": "tanstack-db-eager",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:52.030Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 19482800,
+        "held": 10532216
+      }
+    },
+    "tanstack-db-indexed": {
+      "adapter": "tanstack-db-indexed",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:52.387Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 19482704,
+        "held": 10576064
+      }
+    },
+    "lokijs": {
+      "adapter": "lokijs",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "b8d6061ea6a4ffe0",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "lokijs": "1.5.12"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:52.605Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14389488,
+        "held": 2071976
+      }
+    },
+    "mobx": {
+      "adapter": "mobx",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "cf185a6fd0a0b465",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "mobx": "7.0.6"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:52.840Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14701360,
+        "held": 17749392
+      }
+    },
+    "jotai": {
+      "adapter": "jotai",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "efa4d4bab8854ef0",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "jotai": "3.0.1",
+          "jotai-family": "1.1.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:53.060Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13721744,
+        "held": 10324848
+      }
+    },
+    "legend-state": {
+      "adapter": "legend-state",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "947a6c3b263d76a8",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@legendapp/state": "2.1.15"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:53.368Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13792216,
+        "held": 24029184
+      }
+    },
+    "effector": {
+      "adapter": "effector",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "fec6689750ddf0f6",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "effector": "23.4.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:53.561Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13926856,
+        "held": 2497624
+      }
+    },
+    "nanostores": {
+      "adapter": "nanostores",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "4356a6a6c71e352b",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "nanostores": "1.5.5"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:53.752Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13734792,
+        "held": 2011264
+      }
+    },
+    "nanostores-per-row": {
+      "adapter": "nanostores-per-row",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "4356a6a6c71e352b",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "nanostores": "1.5.5"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:53.948Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13733968,
+        "held": 11261536
+      }
+    },
+    "redux-toolkit": {
+      "adapter": "redux-toolkit",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "7e0419fe717519ad",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "redux": "5.0.1",
+          "immer": "11.1.21",
+          "reselect": "5.3.0",
+          "redux-thunk": "3.1.0",
+          "@reduxjs/toolkit": "2.13.0",
+          "react": "19.3.1",
+          "use-sync-external-store": "1.6.0",
+          "react-redux": "9.2.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:54.182Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 15174840,
+        "held": 1536136
+      }
+    },
+    "preact-signals": {
+      "adapter": "preact-signals",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "d1dfa870686ab6cc",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@preact/signals-core": "1.14.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:54.373Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13721360,
+        "held": 4856664
+      }
+    },
+    "alien-signals": {
+      "adapter": "alien-signals",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "27c7792a7894c384",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "alien-signals": "3.2.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:54.562Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13658528,
+        "held": 5773144
+      }
+    },
+    "zustand": {
+      "adapter": "zustand",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "bbd4ac9e525164b3",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "zustand": "5.0.15",
+          "reselect": "5.3.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:54.754Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13815728,
+        "held": 1349064
+      }
+    },
+    "valtio": {
+      "adapter": "valtio",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "edf0a2aed536604d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "proxy-compare": "3.0.1",
+          "valtio": "2.3.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:55.026Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13662776,
+        "held": 16863824
+      }
+    },
+    "xstate-store": {
+      "adapter": "xstate-store",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "aa2be9c54216f9af",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@xstate/store": "4.2.3"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.23486328125,
+        "peak": 4.23486328125,
+        "readings": 2,
+        "foreignPeak": 3.23486328125,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:55.216Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13674272,
+        "held": 1380928
+      }
+    },
+    "vue-reactivity": {
+      "adapter": "vue-reactivity",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "422c1f411c74eed1",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@vue/shared": "3.5.43",
+          "@vue/reactivity": "3.5.43"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.1357421875,
+        "peak": 4.1357421875,
+        "readings": 2,
+        "foreignPeak": 3.1357421875,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:55.426Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 14223064,
+        "held": 7403648
+      }
+    },
+    "solid-js": {
+      "adapter": "solid-js",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "c9972274dc92b888",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "solid-js": "1.9.15"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.1357421875,
+        "peak": 4.1357421875,
+        "readings": 2,
+        "foreignPeak": 3.1357421875,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:55.640Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13726264,
+        "held": 11899992
+      }
+    },
+    "tanstack-store": {
+      "adapter": "tanstack-store",
+      "point": {
+        "key": "default",
+        "n": 10000,
+        "window": 32,
+        "processes": 3
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "37346e49a26e0a60",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/store": "0.11.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "load": {
+        "cores": 8,
+        "gate": 8,
+        "selfAllowance": 1,
+        "start": 4.1357421875,
+        "peak": 4.1357421875,
+        "readings": 2,
+        "foreignPeak": 3.1357421875,
+        "over": false
+      },
+      "measuredAt": "2026-10-22T17:16:55.836Z",
+      "outcome": {
+        "status": "weighed",
+        "baseline": 13686080,
+        "held": 6137632
+      }
+    }
+  }
+}

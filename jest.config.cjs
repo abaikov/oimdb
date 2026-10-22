@@ -1,15 +1,32 @@
-// Every package owns a jest config with the right environment (node vs jsdom), the right matcher
-// (.ts vs .tsx) and its own module mapping. The root run delegates to them instead of restating a
-// generic one: a single root testMatch limited to `.ts` files silently skipped every JSX suite, so
-// `npm test` reported green while react — and the JSX suites of redux-adapter and
-// persist-integration-tests — never ran at all.
+// Why this delegates, and why the two limits below exist: TESTING.md, section 1.
 module.exports = {
     projects: ['<rootDir>/packages/*/jest.config.cjs'],
-
-    // Each worker runs ts-jest, which type-checks — that is memory-hungry, and jest's default of
-    // (cores - 1) workers is enough to take the whole machine down. Half the cores keeps the run
-    // comfortably parallel while leaving the box usable, and recycling a worker once it balloons
-    // stops one heavy suite from dragging the rest into swap.
     maxWorkers: '50%',
-    workerIdleMemoryLimit: '512MB',
+    workerIdleMemoryLimit: '300MB',
+    collectCoverageFrom: [
+        'src/**/*.ts',
+        'src/**/*.tsx',
+        '!src/**/*.d.ts',
+        '!src/**/*.test.ts',
+        '!src/**/*.test.tsx',
+        '!src/**/*.type-test.ts',
+    ],
+    coveragePathIgnorePatterns: ['/node_modules/', '/packages/core-legacy/'],
+    coverageDirectory: '<rootDir>/coverage',
+    coverageReporters: ['json-summary', 'text-summary', 'lcov'],
+    coverageThreshold: {
+        global: { statements: 88, branches: 78, functions: 81, lines: 89 },
+        './packages/core/src/': { statements: 96, branches: 91, functions: 88, lines: 97 },
+        './packages/devtools/src/': { statements: 94, branches: 82, functions: 91, lines: 94 },
+        './packages/exodra/src/': { statements: 89, branches: 83, functions: 85, lines: 92 },
+        './packages/mcp/src/': { statements: 8, branches: 7, functions: 10, lines: 9 },
+        './packages/persist/src/': { statements: 84, branches: 69, functions: 81, lines: 87 },
+        './packages/persist-async-kv/src/': { statements: 86, branches: 63, functions: 71, lines: 86 },
+        './packages/persist-idb/src/': { statements: 85, branches: 81, functions: 81, lines: 88 },
+        './packages/persist-json/src/': { statements: 95, branches: 100, functions: 70, lines: 94 },
+        './packages/persist-localstorage/src/': { statements: 87, branches: 63, functions: 71, lines: 87 },
+        './packages/persist-memory/src/': { statements: 97, branches: 75, functions: 79, lines: 98 },
+        './packages/react/src/': { statements: 99, branches: 87, functions: 95, lines: 100 },
+        './packages/redux-adapter/src/': { statements: 93, branches: 82, functions: 98, lines: 95 },
+    },
 };

@@ -1,0 +1,419 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.93x  37 ns  19 ns   0.5%     ~1.9x  control-resolution-2x
+1.02x  20 ns  19 ns   0.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.93x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.6% of 1.00 is a reading, and no
+  claim inside 4.9% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+    ratio      ours   floor  noise  path               operation
+~    174x  17.15 µs   99 ns   0.9%  per write          sweep.grouped-column.manual-set-members
+    5.22x    517 ns   99 ns   0.2%  per write          sweep.grouped-column.index-replacing
+    5.01x    482 ns   96 ns   2.5%  per write          sweep.grouped-column.manual-positional
+~   4.87x    121 ns   25 ns   1.5%  per write          sweep.poll-unchanged.in-place-default
+    4.79x    117 ns   24 ns   1.7%  per write          sweep.poll-unchanged.one-index-declared
+~   4.74x    119 ns   25 ns   0.0%  per write          sweep.poll-unchanged.replacing
+    4.70x    456 ns   97 ns   1.3%  per write          sweep.grouped-column.index-in-place
+    2.93x    570 ns  194 ns   0.5%  per row per write  order.resort-within-a-bucket-vs-sorted-array-splice
+    1.79x    119 ns   67 ns   0.6%  per row per write  sweep.insert-then-read.in-place-default
+~   1.78x    119 ns   67 ns   1.2%  per row per write  sweep.insert-then-read.replacing
+~   1.47x    129 ns   88 ns   1.2%  per row per write  insert-gap.whole-row-vs-the-baseline-floor
+~   1.44x     26 ns   18 ns   0.1%  per row per write  insert-gap.the-copying-strategy-beyond-the-spread
+    1.40x    125 ns   89 ns   5.5%  per row per write  insert-gap.the-bucket-join
+~   1.16x     42 ns   36 ns   2.0%  per relationship   effect.attach-and-dispose-vs-set-add-delete
+=~  1.01x     85 ns   84 ns   3.6%  per row per write  insert-gap.the-fourteen-field-slot
+~   0.87x     14 ns   16 ns   0.6%  per read           chain-address.resolve-vs-nested-map-get
+~   0.82x    115 ns  140 ns   0.7%  per row per write  insert-gap.the-probe-one-hash-against-two
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+sweep.grouped-column.manual-set-members   [per write]   174x
+  ours   updateEntity(slot, { group }), writeContent on both buckets, then getBucketMemberSlots(bucket)
+  floor  move the row between two Sets, write the column, iterate one Set
+  THE ARM IS THE WHOLE-BUCKET DOOR, IN PLACE. THE MEMBERSHIP IS THE CALLER'S ON THIS ARM: the
+  bucket collection is not an index and hears no write, so the move is made in the same
+  statement sequence as the write, inside the timed body. WHAT THE ARM PAYS THAT THE FLOOR
+  DOES NOT: `updateEntity` walks the patch, gates the column, builds the moved-column list and
+  marks the row on the channel; then the move marks both buckets and keeps the slot's hold
+  count. THE ADDRESS IS RESOLVED THE SAME WAY ON BOTH SIDES: one `getSlotByKey` per end of the
+  move, which is the hash the floor pays as `byGroup.get(next)`. THE OLD GROUP IS READ OFF THE
+  STORED ROW BEFORE THE WRITE LANDS, which a caller holding the slot can always do.
+  `writeContent` is handed each bucket's new membership, asks the bucket service whether the
+  bucket already holds exactly those slots, and — since it does not — replaces the set and
+  reports who arrived and who left. Moving one row is therefore TWO FULL BUCKET REWRITES, plus
+  the caller's own `indexOf` and `splice` on the array it keeps beside them, on groups of a
+  hundred and twenty-eight. THIS IS THE DOOR A RE-HYDRATED SERVER LIST USES and pricing it on
+  a one-row move is pricing it on its worst task; the distance between it and the other arms
+  is what the finer doors are worth. THE FLOOR IS THE SAME CODE FOR EVERY ARM OF THIS TASK,
+  which is the property that makes the arms comparable at all. It moves the row between two
+  `Set`s — the container our unordered bucket holds its members in, so this is the structural
+  equal and not a cheaper shape — writes the column, and iterates one group. WHAT IT DOES LESS
+  OF, and every item pushes our ratio UP: it keeps no identity that outlives the value, so
+  nothing can be subscribed to a row or to a group; it stamps no clock; it records no moved
+  columns; it keeps no hold count, so a group cannot be resolved by address and handed to a
+  consumer; and its groups can be read by iterating them and by nothing else. WHAT IS ON BOTH
+  SIDES AND CANCELS: the read group is held from outside the clock on both, and the read
+  visits the same members on both. WHERE THE FLOOR IS CHARGED MORE THAN IT SHOULD BE, stated
+  because it flatters us: it hashes `row.group` to find the departure set, where the index arm
+  reads the previous key off the slot's own index-key cell.
+  measured  2,048 ops/pass ours, 498,418 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 11.9%/42.1%; load 3.22 → 3.22 on 8 cores
+
+sweep.grouped-column.index-replacing   [per write]   5.22x
+  ours   updateEntity(slot, { group }) with an OIMIndex over group, then index.getBucketMemberSlots(bucket) — the auto-index, replacing
+  floor  move the row between two Sets, write the column, iterate one Set
+  THE ARM IS THE AUTO-INDEX, REPLACING. THE MOVE IS THE ENGINE'S: the index listens to the
+  collection's content changes, so `updateEntity` alone re-files the row —
+  `updateIndexKeyForSlot` reads the previous key off the slot's index-key cell, runs `keyOf`
+  on the new entity, writes the cell, and calls `removeBucketMemberSlotByKey` and
+  `addBucketMemberSlotByKey`, each a hash of the address, a `Set` edit, a hold or an unhold
+  and a channel mark queued to the change close. A caller writes one call and cannot forget to
+  move a row. [FIGURE STATED IN ADVANCE] Expect this to be the closest arm of the task; if a
+  manual door comes out closer, the listener path costs more than the caller writing the move.
+  THE FLOOR IS THE SAME CODE FOR EVERY ARM OF THIS TASK, which is the property that makes the
+  arms comparable at all. It moves the row between two `Set`s — the container our unordered
+  bucket holds its members in, so this is the structural equal and not a cheaper shape —
+  writes the column, and iterates one group. WHAT IT DOES LESS OF, and every item pushes our
+  ratio UP: it keeps no identity that outlives the value, so nothing can be subscribed to a
+  row or to a group; it stamps no clock; it records no moved columns; it keeps no hold count,
+  so a group cannot be resolved by address and handed to a consumer; and its groups can be
+  read by iterating them and by nothing else. WHAT IS ON BOTH SIDES AND CANCELS: the read
+  group is held from outside the clock on both, and the read visits the same members on both.
+  WHERE THE FLOOR IS CHARGED MORE THAN IT SHOULD BE, stated because it flatters us: it hashes
+  `row.group` to find the departure set, where the index arm reads the previous key off the
+  slot's own index-key cell.
+  measured  63,040 ops/pass ours, 451,278 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 4.5%/1.3%; load 3.15 → 3.22 on 8 cores
+
+sweep.grouped-column.manual-positional   [per write]   5.01x
+  ours   updateEntity(slot, { group }), removeBucketMemberSlotAt + insertBucketMemberSlotAt at the end, then getBucketMemberSlots(bucket)
+  floor  move the row between two Sets, write the column, iterate one Set
+  THE ARM IS THE POSITIONAL DOOR, IN PLACE. THE MEMBERSHIP IS THE CALLER'S ON THIS ARM: the
+  bucket collection is not an index and hears no write, so the move is made in the same
+  statement sequence as the write, inside the timed body. WHAT THE ARM PAYS THAT THE FLOOR
+  DOES NOT: `updateEntity` walks the patch, gates the column, builds the moved-column list and
+  marks the row on the channel; then the move marks both buckets and keeps the slot's hold
+  count. THE ADDRESS IS RESOLVED THE SAME WAY ON BOTH SIDES: one `getSlotByKey` per end of the
+  move, which is the hash the floor pays as `byGroup.get(next)`. THE OLD GROUP IS READ OFF THE
+  STORED ROW BEFORE THE WRITE LANDS, which a caller holding the slot can always do. THIS ARM
+  TAKES THE POSITIONAL DOOR on an `OIMBucketSlotsServiceArrayDriven`, so the caller owns the
+  order: `getBucketMemberSlotPosition` finds the member in the bucket it is leaving — an
+  `indexOf` over that group — `removeBucketMemberSlotAt` splices it out, and
+  `insertBucketMemberSlotAt` at `getBucketMemberSlotCount` appends it to the one it joins. It
+  is O(members of the group being left) against the floor's hash, and that is the largest
+  single term on this row. THE FLOOR IS THE SAME CODE FOR EVERY ARM OF THIS TASK, which is the
+  property that makes the arms comparable at all. It moves the row between two `Set`s — the
+  container our unordered bucket holds its members in, so this is the structural equal and not
+  a cheaper shape — writes the column, and iterates one group. WHAT IT DOES LESS OF, and every
+  item pushes our ratio UP: it keeps no identity that outlives the value, so nothing can be
+  subscribed to a row or to a group; it stamps no clock; it records no moved columns; it keeps
+  no hold count, so a group cannot be resolved by address and handed to a consumer; and its
+  groups can be read by iterating them and by nothing else. WHAT IS ON BOTH SIDES AND CANCELS:
+  the read group is held from outside the clock on both, and the read visits the same members
+  on both. WHERE THE FLOOR IS CHARGED MORE THAN IT SHOULD BE, stated because it flatters us:
+  it hashes `row.group` to find the departure set, where the index arm reads the previous key
+  off the slot's own index-key cell.
+  measured  56,236 ops/pass ours, 499,386 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 4.9%/4.3%; load 2.96 → 3.44 on 8 cores
+
+sweep.poll-unchanged.in-place-default   [per write]   4.87x
+  ours   collection.upsertEntity(row) with the values the row already holds — the shipped default, no index
+  floor  map.get(id), then compare each column and assign only what moved
+  THE ARM IS THE SHIPPED DEFAULT, NO INDEX. NOTHING MOVES ON EITHER SIDE, which is the point
+  of the task: `upsertEntity` finds the key populated, `OIMEntityCollection.writeEntity` walks
+  the stored row for columns the new one does not carry (there are none), calls `patchEntity`,
+  is told nothing moved, and `write` returns before it marks anything or tells any listener.
+  The floor gets the row and compares. THIS IS THE FAIREST FLOOR IN THE SUITE: a hand-written
+  store that wanted to wake anybody would need the same decision this write makes. WHERE THE
+  FLOOR STILL DOES LESS, both pushing our ratio UP: it compares four columns named at compile
+  time where `patchEntity` enumerates whatever the patch carries, and it never looks for
+  columns the stored row has that the new one does not, where `writeEntity` walks the stored
+  row with a `hasOwnProperty` per column first. Ours also opens and closes a change window per
+  row. THE HASH IS ON BOTH SIDES: ours calls `keyOf` and the store's `get`, the floor calls
+  `byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes a batch that queued nothing. NO INDEX
+  IS BUILT on this arm, which is the baseline the indexed arm is read against. THE SAME SOURCE
+  ROWS ARE RE-SENT EVERY PASS, so no pass can drift into being a real write.
+  measured  396,376 ops/pass ours, 1,429,410 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 78.5%/2.9%; load 3.44 → 3.45 on 8 cores
+
+sweep.poll-unchanged.one-index-declared   [per write]   4.79x
+  ours   collection.upsertEntity(row) with the values the row already holds — the shipped default, one index
+  floor  map.get(id), then compare each column and assign only what moved
+  THE ARM IS THE SHIPPED DEFAULT, ONE INDEX. NOTHING MOVES ON EITHER SIDE, which is the point
+  of the task: `upsertEntity` finds the key populated, `OIMEntityCollection.writeEntity` walks
+  the stored row for columns the new one does not carry (there are none), calls `patchEntity`,
+  is told nothing moved, and `write` returns before it marks anything or tells any listener.
+  The floor gets the row and compares. THIS IS THE FAIREST FLOOR IN THE SUITE: a hand-written
+  store that wanted to wake anybody would need the same decision this write makes. WHERE THE
+  FLOOR STILL DOES LESS, both pushing our ratio UP: it compares four columns named at compile
+  time where `patchEntity` enumerates whatever the patch carries, and it never looks for
+  columns the stored row has that the new one does not, where `writeEntity` walks the stored
+  row with a `hasOwnProperty` per column first. Ours also opens and closes a change window per
+  row. THE HASH IS ON BOTH SIDES: ours calls `keyOf` and the store's `get`, the floor calls
+  `byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes a batch that queued nothing. AN INDEX
+  LISTENS AND IS NEVER REACHED. This arm carries one `OIMIndex` over `group` with every bucket
+  held, so the collection has a content-change listener; a write that lands nothing never
+  calls it. [FIGURE STATED IN ADVANCE] Expect this arm to be indistinguishable from the
+  un-indexed one within both rows' noise. The floor keeps no groups on this arm either, so the
+  index is charged entirely to us. THE SAME SOURCE ROWS ARE RE-SENT EVERY PASS, so no pass can
+  drift into being a real write.
+  measured  407,146 ops/pass ours, 1,416,996 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 2.3%/22.1%; load 3.26 → 3.26 on 8 cores
+
+sweep.poll-unchanged.replacing   [per write]   4.74x
+  ours   collection.upsertEntity(row) with the values the row already holds — createOIMEntityWriterReplacing, no index
+  floor  map.get(id), then compare each column and assign only what moved
+  THE ARM IS CREATEOIMENTITYWRITERREPLACING, NO INDEX. NOTHING MOVES ON EITHER SIDE, which is
+  the point of the task: `upsertEntity` finds the key populated,
+  `OIMEntityCollection.writeEntity` walks the stored row for columns the new one does not
+  carry (there are none), calls `patchEntity`, is told nothing moved, and `write` returns
+  before it marks anything or tells any listener. The floor gets the row and compares. THIS IS
+  THE FAIREST FLOOR IN THE SUITE: a hand-written store that wanted to wake anybody would need
+  the same decision this write makes. WHERE THE FLOOR STILL DOES LESS, both pushing our ratio
+  UP: it compares four columns named at compile time where `patchEntity` enumerates whatever
+  the patch carries, and it never looks for columns the stored row has that the new one does
+  not, where `writeEntity` walks the stored row with a `hasOwnProperty` per column first. Ours
+  also opens and closes a change window per row. THE HASH IS ON BOTH SIDES: ours calls `keyOf`
+  and the store's `get`, the floor calls `byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes
+  a batch that queued nothing. NO INDEX IS BUILT on this arm, which is the baseline the
+  indexed arm is read against. THE SAME SOURCE ROWS ARE RE-SENT EVERY PASS, so no pass can
+  drift into being a real write.
+  measured  406,522 ops/pass ours, 1,569,038 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 37.0%/4.0%; load 3.45 → 3.45 on 8 cores
+
+sweep.grouped-column.index-in-place   [per write]   4.70x
+  ours   updateEntity(slot, { group }) with an OIMIndex over group, then index.getBucketMemberSlots(bucket) — the auto-index, in place
+  floor  move the row between two Sets, write the column, iterate one Set
+  THE ARM IS THE AUTO-INDEX, IN PLACE. THE MOVE IS THE ENGINE'S: the index listens to the
+  collection's content changes, so `updateEntity` alone re-files the row —
+  `updateIndexKeyForSlot` reads the previous key off the slot's index-key cell, runs `keyOf`
+  on the new entity, writes the cell, and calls `removeBucketMemberSlotByKey` and
+  `addBucketMemberSlotByKey`, each a hash of the address, a `Set` edit, a hold or an unhold
+  and a channel mark queued to the change close. A caller writes one call and cannot forget to
+  move a row. [FIGURE STATED IN ADVANCE] Expect this to be the closest arm of the task; if a
+  manual door comes out closer, the listener path costs more than the caller writing the move.
+  THE FLOOR IS THE SAME CODE FOR EVERY ARM OF THIS TASK, which is the property that makes the
+  arms comparable at all. It moves the row between two `Set`s — the container our unordered
+  bucket holds its members in, so this is the structural equal and not a cheaper shape —
+  writes the column, and iterates one group. WHAT IT DOES LESS OF, and every item pushes our
+  ratio UP: it keeps no identity that outlives the value, so nothing can be subscribed to a
+  row or to a group; it stamps no clock; it records no moved columns; it keeps no hold count,
+  so a group cannot be resolved by address and handed to a consumer; and its groups can be
+  read by iterating them and by nothing else. WHAT IS ON BOTH SIDES AND CANCELS: the read
+  group is held from outside the clock on both, and the read visits the same members on both.
+  WHERE THE FLOOR IS CHARGED MORE THAN IT SHOULD BE, stated because it flatters us: it hashes
+  `row.group` to find the departure set, where the index arm reads the previous key off the
+  slot's own index-key cell.
+  measured  65,242 ops/pass ours, 480,060 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 16.9%/4.5%; load 3.16 → 3.16 on 8 cores
+
+order.resort-within-a-bucket-vs-sorted-array-splice   [per row per write]   2.93x
+  ours   updateEntity(slot, { rank }), then sortedComputedCollection.getValueForSlot(sortedComputed) —createOIMComputedCollectionSorted over an index, columns [rank asc]
+  floor  swap the ranks, then indexOf/splice out and upperBound/splice in, on a sorted array
+  AN ENTITY MOVES WITHIN ITS GROUP, NOTHING JOINS OR LEAVES. A frame swaps the ranks of band
+  `m` and band `m + 64` in every one of the sixty-four groups for 4 values of `m`, so each
+  group of 128 sees 8 movers. OURS IS THE SHIPPED ORDER: an `OIMIndex` over `group`
+  (`createOIMIndexSetDriven`) and a `createOIMComputedCollectionSorted` over it with `columns:
+  [{ column: 'rank', direction: 'asc' }]`, one sorted computed held per group. NOTHING IS
+  REPORTED BY HAND: `updateEntity` hands the index the changed columns, the index writes the
+  group's `rank` bucket column slot, and that slot is a source of the group's sorted computed.
+  THE READ IS INSIDE THE TIMED BODY: the computed is pulled, so the sort runs at the first
+  `getValueForSlot` of the frame and every group is walked once per frame on both sides. THE
+  COUNT THIS PREDICTS, per group per frame: ours copies the previous order (`slice` of 128)
+  and runs `Array.prototype.sort` over it with the columns comparator, each compare loading
+  `entity` off two slots and reading `rank` off both; the floor does, per mover, `indexOf`,
+  `splice` out, `upperBoundByRank` and `splice` in. [FIGURE STATED IN ADVANCE] V8's sort over
+  128 entries with 8 displaced is on the order of 128 compares plus a binary search per mover,
+  against the floor's 8 scans and 16 splices. WHERE THEY ARE NOT EQUAL: ours re-sorts the
+  whole group however few entities moved, where the floor touches only the movers, which
+  inflates our ratio; ours sorts once for all eight movers, which flatters us; and ours
+  additionally walks the patch, marks the entity slot and the bucket column slot on the
+  channel per `updateEntity`, which the floor's plain field store does not.
+  measured  71,288 ops/pass ours, 230,416 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 1.4%/3.6%; load 3.08 → 3.08 on 8 cores
+
+sweep.insert-then-read.in-place-default   [per row per write]   1.79x
+  ours   collection.upsertEntity(row) into an empty population, then findEntityByKey(key) — the shipped default, in place
+  floor  map.set(row.id, { ...row }) per row, then map.get(key)
+  THE ARM IS THE SHIPPED DEFAULT, IN PLACE, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER
+  THE FORK COSTS ANYTHING AT ALL HERE. `createOIMEntityWriterInPlace` and
+  `createOIMEntityWriterReplacing` both default `fillEntity` to `oimCopyingWriterStrategy`,
+  and the insert branch of `OIMEntityCollection.writeEntity` calls `fillEntity` and no other
+  member of the writer — so the two arms should run the same code on this path. [FIGURE STATED
+  IN ADVANCE] Expect the two arms to differ by less than each row's own noise; a difference
+  larger than that is the finding. THE FLOOR DOES LESS, KNOWABLY. It allocates one copy and
+  hashes one string per row. Ours additionally mints a fourteen-field slot, opens and closes a
+  change window, copies the row with a `__proto__` probe, marks the slot on the channel and
+  decides its emptiness. Direction: inflates our ratio, on both arms, and nothing on this axis
+  can close it. THE READ IS ONE PER POPULATION and is there to make the fill answerable rather
+  than to be priced. THE FLUSH IS INSIDE OUR NUMBER and has no counterpart on the floor; it
+  runs no effect, since nothing subscribes. BOTH SIDES ABANDON THEIR CONTAINER BETWEEN PASSES
+  and both are collected outside the clock.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 867 planned, 867/867 reached; spread 21.8%/4.6%; load 3.56 → 3.56 on 8 cores
+
+sweep.insert-then-read.replacing   [per row per write]   1.78x
+  ours   collection.upsertEntity(row) into an empty population, then findEntityByKey(key) — createOIMEntityWriterReplacing
+  floor  map.set(row.id, { ...row }) per row, then map.get(key)
+  THE ARM IS CREATEOIMENTITYWRITERREPLACING, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER
+  THE FORK COSTS ANYTHING AT ALL HERE. `createOIMEntityWriterInPlace` and
+  `createOIMEntityWriterReplacing` both default `fillEntity` to `oimCopyingWriterStrategy`,
+  and the insert branch of `OIMEntityCollection.writeEntity` calls `fillEntity` and no other
+  member of the writer — so the two arms should run the same code on this path. [FIGURE STATED
+  IN ADVANCE] Expect the two arms to differ by less than each row's own noise; a difference
+  larger than that is the finding. THE FLOOR DOES LESS, KNOWABLY. It allocates one copy and
+  hashes one string per row. Ours additionally mints a fourteen-field slot, opens and closes a
+  change window, copies the row with a `__proto__` probe, marks the slot on the channel and
+  decides its emptiness. Direction: inflates our ratio, on both arms, and nothing on this axis
+  can close it. THE READ IS ONE PER POPULATION and is there to make the fill answerable rather
+  than to be priced. THE FLUSH IS INSIDE OUR NUMBER and has no counterpart on the floor; it
+  runs no effect, since nothing subscribes. BOTH SIDES ABANDON THEIR CONTAINER BETWEEN PASSES
+  and both are collected outside the clock.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 983 planned, 983/983 reached; spread 20.1%/46.8%; load 3.35 → 3.35 on 8 cores
+
+insert-gap.whole-row-vs-the-baseline-floor   [per row per write]   1.47x
+  ours   collection.upsertEntity(row) into an empty OIMEntityCollection
+  floor  const held = byId.get(row.id); if (held === undefined) byId.set(row.id, { ...row })
+  THE ANCHOR ROW, AND THE ONLY ONE HERE WHOSE RATIO MEANS ANYTHING: the floor is
+  `baseline-array.ts`'s insert copied, so this is the engine half of the scenario gap. IT IS
+  NOT THE WHOLE SCENARIO GAP AND MUST NOT BE READ AS ONE. The `oimdb` adapter keeps its group
+  index inside its own `write`, and `baseline-array` deliberately keeps no index at all. None
+  of that bookkeeping is on either side of this pair. In our favour: our side takes no frame
+  and flushes nothing, so no delivery is timed on either side. Against us: our side mints a
+  fourteen-field slot, opens and closes a change window, stamps the clock and marks the slot
+  on the channel per row, which the floor has no equivalent of.
+  measured  10,000 ops/pass ours, 10,000 floor; 15 samples; warm-up 587 planned, 587/587 reached; spread 33.4%/33.8%; load 3.71 → 3.71 on 8 cores
+
+insert-gap.the-copying-strategy-beyond-the-spread   [per row per write]   1.44x
+  ours   oimCopyingWriterStrategy(slot, row) — the spread, then the `__proto__` own-key probe
+  floor  slot.entity = { ...row } — the spread alone
+  THE ONE PART OF THE COPY THE FLOOR DOES NOT PAY. `baseline-array` allocates `{ ...row }` per
+  inserted row exactly as the shipped writer strategy does, so the SPREAD is common ground and
+  cannot be in the gap; what is ours alone is what `oimCopyingWriterStrategy` does after it —
+  one call and one `Object.hasOwn(stored, '__proto__')`, which is false on every row here, so
+  the `delete` never runs. The slots are minted outside the clock and reused by both arms, so
+  only the record is allocated inside either clock.
+  measured  10,000 ops/pass ours, 10,000 floor; 15 samples; warm-up 2000 planned, 2000/2000 reached; spread 138.3%/13.6%; load 3.56 → 3.56 on 8 cores
+
+insert-gap.the-bucket-join   [per row per write]   1.40x
+  ours   bucketSlotsService.addSlot(bucket, slot) per inserted slot, on the shipped unordered service
+  floor  the same loop with no row set kept at all
+  WHAT A ROW SET OF EVERY INSERTED SLOT COSTS TO MAINTAIN, and it is charged to us alone:
+  `baseline-array` keeps no such list, so the floor arm here is the honest shape of not having
+  one. Both arms mint the slot and the copy and file them in a `Map`; ours additionally calls
+  the shipped service — one `add`, a `Set.add` into a set growing to the population size and
+  two `size` reads. The bucket is `OIMSingleBucketSetDriven`'s, so no collection or channel is
+  in either arm. The collection no longer keeps such a set of its own rows; this is the price
+  of a consumer keeping one.
+  measured  10,000 ops/pass ours, 10,000 floor; 15 samples; warm-up 802 planned, 802/802 reached; spread 6.0%/17.8%; load 3.69 → 3.69 on 8 cores
+
+effect.attach-and-dispose-vs-set-add-delete   [per relationship]   1.16x
+  ours   const effect = effectService.createEffect([slot], [], body); effectService.disposeEffect(effect)
+  floor  set.add(handler); set.delete(handler)
+  THE MOUNT AND THE UNMOUNT AS ONE OPERATION, because half of a subscription is not a thing a
+  screen ever does. The only subscriber is an effect. Ours allocates a `TOIMEffect`, files it
+  on the slot's effect list and holds the slot, asks whether the slot was written since the
+  batch opened so a write already in it still reaches the newcomer, and on the way out clears
+  its pending mark, swaps itself out of the list, unholds the slot and asks whether anything
+  still keeps it. The one-element source array is built outside the clock, per slot, so the
+  caller's literal is not charged. The floor adds to a `Set` somebody else has to remember to
+  create, and can never tell the new subscriber about a write that already landed. Direction:
+  inflates our ratio. Every slot here carries a value, so the unhold never releases an
+  identity.
+  measured  951,546 ops/pass ours, 984,938 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 167.8%/4.2%; load 3.86 → 3.86 on 8 cores
+
+insert-gap.the-fourteen-field-slot   [per row per write]   1.01x
+  ours   createOIMEntitySlot(key, owner) beside the record copy, both filed in a Map
+  floor  the record copy alone, filed in a Map
+  THE ALLOCATION ON ITS OWN, with no engine call around it: both arms are hand-written loops
+  over the same rows into the same kind of `Map`, and the only difference is that ours mints
+  the fourteen-field literal `createOIMEntitySlot` returns and stores the copy on its `entity`
+  field. The copy is on BOTH sides, because the floor adapter copies too.
+  measured  10,000 ops/pass ours, 10,000 floor; 15 samples; warm-up 978 planned, 978/978 reached; spread 29.8%/181.1%; load 3.84 → 3.84 on 8 cores
+
+chain-address.resolve-vs-nested-map-get   [per read]   0.87x
+  ours   buckets.getSlotByKey([deckSlot, shelfSlot]) on a tree-driven bucket store
+  floor  byDeck.get(deck).get(shelf)
+  AN ADDRESS OF TWO IDENTITIES AGAINST AN ADDRESS OF TWO STRINGS. Ours walks the composite key
+  tree `OIMSlotStoreServiceTreeDriven` keeps: one `Map.get` keyed by the deck slot, one keyed
+  by the shelf slot, then the bucket on the node — object-keyed hashes, no string hashing. The
+  floor makes two string-keyed `Map.get`s and an `undefined` test. The key arrays are built
+  outside the clock, as a caller holding the two segment identities would hold the pair. Every
+  address hits a held bucket, so `getSlotByKey` never mints; it adds the store call and the
+  `found !== undefined` test over the floor. Sixty-four combinations, eight decks by eight
+  shelves, cycled on both sides. It replaces
+  `chain-address.resolve-and-hold-vs-nested-map-get`, which held per call; no reading was ever
+  recorded under either id.
+  measured  2,097,152 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 32 planned, 32/32 reached; spread 167.9%/61.9%; load 3.08 → 3.31 on 8 cores
+
+insert-gap.the-probe-one-hash-against-two   [per row per write]   0.82x
+  ours   collection.fillContents(keys, rows) — mint and set, no probe
+  floor  collection.upsertEntities(rows) — probe, then mint and set
+  BOTH ARMS ARE OURS AND THE FIGURE IS THE DIFFERENCE, NOT THE RATIO. `fillContents` files
+  every key without asking whether it is taken, on a precondition — this collection holds
+  nothing — checked once per call rather than per row; `upsertEntities` asks per row through
+  `writeByKey`. So the difference is one string hash on a `Map` that grows to the population
+  size, plus `fillContents`'s own duplicate check — which is a second `get` per row on
+  `fillContents`'s side, so the two arms hash equally often and THIS ROW NOW PRICES THE WRITE
+  DOOR'S FRAMING, NOT A HASH: `writeByKey`'s per-row change window and `keyOf` call against
+  `fillContents`'s one window per call. The key array `fillContents` consumes is built outside
+  the clock, which the shipped `insertEntities` does not do — it builds one per call. Both
+  arms report through one channel each.
+  measured  10,000 ops/pass ours, 10,000 floor; 15 samples; warm-up 562 planned, 562/562 reached; spread 133.7%/23.4%; load 3.65 → 3.84 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.93x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.02x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

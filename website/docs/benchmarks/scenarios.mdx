@@ -1,0 +1,25 @@
+---
+sidebar_position: 4
+title: Scenarios
+---
+
+import {BenchScenarios} from '@site/src/components/Bench/BenchAudit';
+
+# Scenarios
+
+Every scenario is a script in
+[`packages/bench/src/harness/scenarios.ts`](https://github.com/abaikov/oimdb/blob/master/packages/bench/src/harness/scenarios.ts):
+`prepare` and `restore` run outside the clock, `run` is timed, `check` demands the
+renders the script implies, and `oracle` replays the same script against the reference
+model. Each one has an **audit card** saying what application work it stands for, what
+property of a store decides it, which designs it favours by construction, and every
+bias found in it.
+
+| verdict | meaning |
+|---|---|
+| `representative` | an application does this, at roughly this size, often enough to matter |
+| `narrow` | real, but one corner of a larger behaviour; read beside its siblings |
+| `synthetic` | an instrument — a floor, an isolation of one cost — not a workload |
+| `misleading` | as written, it rewards something an application would not want |
+
+<BenchScenarios />

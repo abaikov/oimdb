@@ -1,15 +1,40 @@
 {
   "name": "@oimdb/redux-adapter",
-  "version": "2.2.0",
-  "description": "Redux adapter for OIMDB - Create Redux reducers from OIMDB collections and indexes",
+  "version": "3.0.0",
+  "description": "Redux adapter for the identity-addressed OIMDB core. Not published: replaces @oimdb/redux-adapter only once the core replacement lands.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
   },
+  "oimdbRelease": {
+    "publish": false,
+    "why": "Replaces the published @oimdb/redux-adapter only once the @oimdb/core replacement lands."
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "test": "jest",
+    "type-check": "tsc --noEmit -p tsconfig.all.json",
+    "clean": "rimraf dist",
+    "prepack": "node -e \"const {copyFileSync,existsSync}=require('fs');if(existsSync('../../llms.txt'))copyFileSync('../../llms.txt','llms.txt')\"",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "peerDependencies": {
+    "redux": "^4.0.0 || ^5.0.0",
+    "@oimdb/core": "^4.0.0"
+  },
+  "license": "MIT",
+  "author": "Andrei Baikov",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abaikov/oimdb.git"
@@ -18,54 +43,39 @@
     "url": "https://github.com/abaikov/oimdb/issues"
   },
   "homepage": "https://github.com/abaikov/oimdb#readme",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "scripts": {
-    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
-    "test": "jest",
-    "type-check": "tsc --noEmit",
-    "clean": "rimraf dist",
-    "prepublishOnly": "npm run type-check && npm test && npm run build"
-  },
-  "files": [
-    "dist"
+  "keywords": [
+    "oimdb",
+    "in-memory",
+    "database",
+    "reactive",
+    "typescript",
+    "type-safe",
+    "indices",
+    "subscriptions",
+    "event-processing",
+    "state-management"
   ],
-  "peerDependencies": {
-    "@oimdb/core": "^3.8.0",
-    "redux": "^4.0.0 || ^5.0.0"
-  },
   "devDependencies": {
-    "@oimdb/react": "^2.0.0",
     "@reduxjs/toolkit": "^2.10.1",
     "@testing-library/react": "^14.3.1",
     "@types/jest": "^29.5.8",
     "@types/react": "^18.0.0",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
-    "react": "^18.0.0",
     "react-redux": "^9.0.0",
     "redux": "^5.0.0",
     "rimraf": "^5.0.5",
     "ts-jest": "^29.1.1",
     "tsup": "^8.5.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "react": "^18.0.0"
   },
-  "keywords": [
-    "oimdb",
-    "redux",
-    "adapter",
-    "reducer",
-    "state-management",
-    "typescript",
-    "reactive",
-    "collections",
-    "indexes"
-  ],
-  "author": "Andrei Baikov",
-  "license": "MIT"
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md"
+  ]
 }

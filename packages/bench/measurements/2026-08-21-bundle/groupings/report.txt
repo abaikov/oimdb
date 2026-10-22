@@ -1,0 +1,367 @@
+OIMDB — WHAT THE SHAPE OF THE GROUPING LAYER COSTS SOMEBODY ELSE'S BUNDLE
+
+One program, bundled five times, tree-shaken, minified and gzipped. Two of the five are
+baselines — a consumer who never groups anything, and a consumer who takes one grouping and
+reads it — and the other three are that same consumer under a design that was really considered
+and turned down: the four groupings as METHODS on the collection class, the four modules as ONE
+module over one shared memo, and the bucket mutator as an `order?` OPTION the callee resolves.
+Each difference is one decision and nothing else. A single bundle size settles nothing; only the
+gaps do.
+
+esbuild 0.25.9   esm / browser / es2020   minify on   gzip -9   node v24.16.0
+engine measured: 99 files, 663,769 B of source (comments included — the minifier removes them, the control below says by how much)
+
+NO LOAD GATE AND NO REFUSAL, unlike every other table under measurements/. A byte count is
+deterministic: the same source through the same bundler emits the same bytes whatever else the
+machine is doing. Nothing here was skipped — there was nothing to skip.
+
+THE INSTRUMENT, BEFORE ANY BYTE
+
+       from        to  ratio  requirement                                       control
+   44.59 KB   9.85 KB  0.22x  a database alone under 60% of the whole surface   control-tree-shaking
+  242.67 KB  44.59 KB  0.18x  minified under 70% of the same bundle unminified  control-minified
+
+  A database alone is 22.1% of the published surface, so unreachable code is being dropped.
+  Minifying took the whole surface to 18.4% of itself, so the minifier ran and these are shipped bytes.
+
+THE DIFFERENCE
+
+ minified   gzipped  of package  of package (gz)  difference
++10.15 KB  +2.55 KB       22.8%            20.4%  grouping-layer-diff
+ +5.42 KB  +1.16 KB       12.1%             9.3%  grouping-shared-module-diff
+ +5.52 KB  +1.69 KB       12.4%            13.5%  grouping-order-option-diff
+
+KB is bytes / 1024. "of package" is the difference over the arm that keeps every export with
+nothing droppable — the largest denominator available, chosen so the percentage is not
+flattered.
+
+grouping-layer-diff
+  What would the grouping layer cost an application that never groups anything, if the four
+  groupings hung off the collection class as methods?
+  from   grouping-none (minified)           22,828 B  6,765 B gzipped
+  to     grouping-layer-pinned (minified)   33,224 B  9,373 B gzipped
+  delta  +10,396 B (+10.15 KB)  ·  +2,608 B gzipped (+2.55 KB)
+  share  22.8% of the package minified  ·  20.4% gzipped
+  THE DECISION THIS ROW PRICES IS `packaging.a-grouping-is-a-free-function`. Every consumer of
+  this library holds a POPULATION; a bundler cannot drop a class's methods one at a time; so
+  under the method form the arm on the left would have carried everything the arm on the right
+  carries — the four grouping bodies and every address store, membership source and mutator
+  they name — without a line of the application being able to reach any of it. WHAT THE ARM ON
+  THE RIGHT STANDS IN FOR: the four names are pushed rather than written as four method bodies
+  inside `OIMCollection`, which loses the method form four function signatures and four module
+  wrappers — tens of bytes in ITS favour, against a closure both forms carry identically. The
+  decomposition below names that closure module by module, so the claim can be checked rather
+  than believed. PREDICTED ≈14.8 KB minified, by adding up module sizes in the ordered-list
+  artifact — arithmetic over an artifact, not a measurement, stated here so this run either
+  confirms or refutes it.
+
+grouping-shared-module-diff
+  What would one shared grouping module cost a caller who takes exactly one grouping?
+  from   grouping-one (minified)            27,831 B  8,240 B gzipped
+  to     grouping-one-shared-module (minified) 33,377 B  9,432 B gzipped
+  delta  +5,546 B (+5.42 KB)  ·  +1,192 B gzipped (+1.16 KB)
+  share  12.1% of the package minified  ·  9.3% gzipped
+  THE DECISION THIS ROW PRICES IS
+  `packaging.each-grouping-is-its-own-module-with-its-own-memo`. A module exporting four
+  INDEPENDENT functions would shake per export and this row would read near zero — that is not
+  the design that was turned down. The one turned down is a single module over ONE memo keyed
+  by the columns and a token saying which grouping it was, so one mint-and-memo helper serves
+  all four shapes, and a helper branching over a token names every address store and every
+  membership source from one function body. A bundler cannot see past a runtime test. WHAT THE
+  ARM ON THE RIGHT STANDS IN FOR, and the direction it errs: the other three groupings are
+  pushed rather than routed through a shared helper, so the shared form would write the mint
+  scaffolding once instead of four times and save whatever that scaffolding costs while still
+  dragging every strategy — this row is an UPPER BOUND, and the strategies are the kilobytes.
+  THE REACHABILITY HALF IS NOT MEASURED HERE AND IS NOT OPEN:
+  `packages/core/tests/what-an-import-retains.test.ts` already asserts, with no toolchain,
+  that `groupBy` retains none of `OIMBucketAddressStoreByIdentityChain`,
+  `OIMMembershipSourceDerivedMany` or `OIMMembershipSourceAll`. PREDICTED ≈4.5 KB minified for
+  four grouping modules rather than one, by arithmetic over the ordered-list artifact rather
+  than by a build — stated here so this run answers it.
+
+grouping-order-option-diff
+  What would an `order?` option cost a caller who groups one column and sorts nothing?
+  from   grouping-one (minified)            27,831 B  8,240 B gzipped
+  to     grouping-one-order-option (minified) 33,486 B  9,966 B gzipped
+  delta  +5,655 B (+5.52 KB)  ·  +1,726 B gzipped (+1.69 KB)
+  share  12.4% of the package minified  ·  13.5% gzipped
+  THE DECISION THIS ROW PRICES IS `packaging.a-grouping-takes-a-constructed-mutator`. Under
+  the shipped design the mutator arrives constructed, so `groupBy` names exactly one mutator —
+  the unordered fallback. Under the option form it names both arms of `order === undefined ?
+  new OIMBucketMutatorUnordered() : new OIMBucketMutatorOrdered(order)`, and a bundler cannot
+  see past a runtime test, so the ordered mutator and the two modules only it reaches follow
+  every consumer who groups ANYTHING. WHAT THE ARM ON THE RIGHT STANDS IN FOR: the class is
+  referenced and never constructed, which is faithful — retention is decided by a live symbol
+  naming the class, not by the `new` running — but the ternary itself and the option plumbing
+  are absent, a few dozen bytes in the option form's favour that are NOT subtracted. THE
+  REACHABILITY HALF IS ALREADY PINNED by `what-an-import-retains.test.ts`, whose own title
+  says it: "the mutator is an argument, not an option". PREDICTED ≈5.6 KB minified, by
+  arithmetic over the ordered-list artifact rather than by a build.
+
+WHAT EACH DIFFERENCE IS MADE OF
+
+grouping-layer-diff   grouping-none → grouping-layer-pinned
+
+  +1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+  +1,086 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+    +893 B  packages/core/src/core/OIMBucketAddressStoreByIdentityChain.ts
+    +860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+    +811 B  packages/core/src/core/OIMCompositeKeyTreeWalk.ts
+    +791 B  packages/core/src/core/OIMMembershipSourceAll.ts
+    +706 B  packages/core/src/abstract/OIMIndexStrategy.ts
+    +614 B  packages/core/src/core/OIMBucketAddressStoreByKey.ts
+    +562 B  packages/core/src/core/OIMBucketMutatorUnordered.ts
+    +360 B  packages/core/src/groupings/declaredGroups.ts
+    +344 B  packages/core/src/groupings/all.ts
+    +301 B  packages/core/src/core/OIMBucketAddressStoreSingle.ts
+    +220 B  packages/core/src/groupings/groupByEach.ts
+    +214 B  packages/core/src/groupings/groupBy.ts
+    +158 B  packages/core/src/groupings/groupByCompositeKey.ts
+    +109 B  packages/core/src/core/sameSlots.ts
+    +107 B  packages/core/src/groupings/holdBucket.ts
+     +90 B  packages/core/src/groupings/groupsOf.ts
+     +80 B  packages/core/src/core/leaveBucket.ts
+     +77 B  packages/core/src/core/leaveHeldBucket.ts
+     +68 B  packages/core/src/core/OIMMembers.ts
+     +65 B  packages/core/src/core/joinBucket.ts
+     +48 B  packages/core/src/groupings/isStillFiled.ts
+     +43 B  packages/core/src/core/sameKey.ts
+      +4 B  packages/core/src/abstract/OIMCollection.ts
+      +4 B  packages/core/src/core/OIMDB.ts
+      +2 B  packages/core/src/core/createEffectNode.ts
+      +2 B  packages/core/src/core/writeInPlace.ts
+      +2 B  packages/core/src/core/WRITE_IN_PLACE.ts
+      +1 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      +1 B  packages/core/src/core/createCollectionSlot.ts
+      +1 B  packages/core/src/core/hasReferences.ts
+      +1 B  packages/core/src/core/isPlain.ts
+      +1 B  packages/core/src/core/OIMCollectionByKey.ts
+      +1 B  packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts
+
+Every module of @oimdb/core whose contribution differs between the two arms, and by how much.
+They come to +10,373 B of the +10,396 B between the two bundles; the remaining +23 B is the
+arm's own call site and the bundler's glue, which the caveat above deliberately does not
+subtract. This is the list the caveat's claim about WHAT THE DIFFERENCE CONTAINS has to match —
+if a module nobody mentioned is on it, the claim is stale and this table is the thing that
+noticed.
+
+grouping-shared-module-diff   grouping-one → grouping-one-shared-module
+
+  +1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+    +893 B  packages/core/src/core/OIMBucketAddressStoreByIdentityChain.ts
+    +811 B  packages/core/src/core/OIMCompositeKeyTreeWalk.ts
+    +791 B  packages/core/src/core/OIMMembershipSourceAll.ts
+    +344 B  packages/core/src/groupings/all.ts
+    +301 B  packages/core/src/core/OIMBucketAddressStoreSingle.ts
+    +220 B  packages/core/src/groupings/groupByEach.ts
+    +158 B  packages/core/src/groupings/groupByCompositeKey.ts
+    +109 B  packages/core/src/core/sameSlots.ts
+     +80 B  packages/core/src/core/leaveBucket.ts
+     +65 B  packages/core/src/core/joinBucket.ts
+      +2 B  packages/core/src/core/OIMBucketAddressStoreByKey.ts
+      +2 B  packages/core/src/core/writeInPlace.ts
+      +2 B  packages/core/src/core/WRITE_IN_PLACE.ts
+      −2 B  packages/core/src/groupings/declaredGroups.ts
+      +1 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      +1 B  packages/core/src/core/createCollectionSlot.ts
+      +1 B  packages/core/src/core/hasReferences.ts
+      +1 B  packages/core/src/core/isPlain.ts
+      +1 B  packages/core/src/core/OIMCollectionByKey.ts
+      +1 B  packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts
+      +1 B  packages/core/src/core/sameKey.ts
+      −1 B  packages/core/src/groupings/isStillFiled.ts
+
+Every module of @oimdb/core whose contribution differs between the two arms, and by how much.
+They come to +5,528 B of the +5,546 B between the two bundles; the remaining +18 B is the arm's
+own call site and the bundler's glue, which the caveat above deliberately does not subtract.
+This is the list the caveat's claim about WHAT THE DIFFERENCE CONTAINS has to match — if a
+module nobody mentioned is on it, the claim is stale and this table is the thing that noticed.
+
+grouping-order-option-diff   grouping-one → grouping-one-order-option
+
+  +3,117 B  packages/core/src/core/OIMBucketMutatorOrdered.ts
+  +2,337 B  packages/core/src/core/membersInOrder.ts
+    +175 B  packages/core/src/core/dropSlotFromPendingSort.ts
+      +2 B  packages/core/src/abstract/OIMCollection.ts
+      +2 B  packages/core/src/core/writeInPlace.ts
+      +2 B  packages/core/src/core/WRITE_IN_PLACE.ts
+      +1 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      +1 B  packages/core/src/core/createCollectionSlot.ts
+      +1 B  packages/core/src/core/hasReferences.ts
+      +1 B  packages/core/src/core/isPlain.ts
+      +1 B  packages/core/src/core/leaveHeldBucket.ts
+      +1 B  packages/core/src/core/OIMCollectionByKey.ts
+      +1 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      +1 B  packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts
+      +1 B  packages/core/src/groupings/groupsOf.ts
+      +1 B  packages/core/src/groupings/holdBucket.ts
+
+Every module of @oimdb/core whose contribution differs between the two arms, and by how much.
+They come to +5,645 B of the +5,655 B between the two bundles; the remaining +10 B is the arm's
+own call site and the bundler's glue, which the caveat above deliberately does not subtract.
+This is the list the caveat's claim about WHAT THE DIFFERENCE CONTAINS has to match — if a
+module nobody mentioned is on it, the claim is stale and this table is the thing that noticed.
+
+THE ARMS, IN FULL
+
+minified   gzipped  unminified  core kept  modules    sort?  arm
+44.59 KB  12.50 KB   242.67 KB   43.81 KB       63  3.05 KB  everything
+ 9.85 KB   3.15 KB    90.86 KB    9.81 KB        8       no  database-only
+22.29 KB   6.61 KB   173.57 KB   22.05 KB       24       no  grouping-none
+32.45 KB   9.15 KB   208.63 KB   32.18 KB       48       no  grouping-layer-pinned
+27.18 KB   8.05 KB   190.90 KB   26.78 KB       37       no  grouping-one
+32.59 KB   9.21 KB   208.87 KB   32.18 KB       48       no  grouping-one-shared-module
+32.70 KB   9.73 KB   206.22 KB   32.29 KB       40  3.04 KB  grouping-one-order-option
+
+"core kept", "modules" AND "sort?" COUNT WHAT THE BUNDLER KEPT, NOT WHAT IT READ. All three come
+from esbuild's own per-module byte contributions to the minified output: "modules" is how many
+modules of @oimdb/core contributed more than nothing, "core kept" is what they came to together,
+and "sort?" is what core/OIMBucketMutatorOrdered.ts contributed on its own — or "no" where the
+bundler dropped it. A module that was shaken out is absent, not counted at zero.
+
+AN EARLIER VERSION OF THIS HARNESS READ THE INPUT GRAPH INSTEAD — every file esbuild opened,
+including the ones it then dropped — and reported the same 61 modules and the same "diff: yes"
+for all four arms while their bundles differed by a factor of four. A recorded run under
+measurements/ that still says that predates this fix, and its module column is answering "did
+the bundler open this file", not "does a consumer ship it".
+
+AND "core kept" IS A PART OF "minified", NOT A SECOND MEASUREMENT OF IT. What it leaves out is
+the arm's own source and the bundler's glue — which is why the ENGINE's toll is that column and
+not the bundle total beside it.
+
+everything   packages/bench/src/bundle/consumers/everything.ts
+  every name @oimdb/core exports, re-exported so nothing is droppable
+  kept 63 modules of @oimdb/core, 44,862 B of this arm's 45,663 B minified bundle:
+     7,451 B  packages/core/src/core/OIMDB.ts
+     4,752 B  packages/core/src/abstract/OIMCollection.ts
+     3,204 B  packages/core/src/core/OIMIndex.ts
+     3,119 B  packages/core/src/core/OIMBucketMutatorOrdered.ts
+     2,358 B  packages/core/src/core/membersInOrder.ts
+     1,911 B  packages/core/src/core/OIMIndexPositional.ts
+     1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+     1,266 B  packages/core/src/core/diffOrderedList.ts
+    19,055 B  + 55 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts IS among them, at 3,119 B
+
+database-only   packages/bench/src/bundle/consumers/databaseOnly.ts
+  new OIMDB() and nothing else — the toll every consumer pays
+  kept 8 modules of @oimdb/core, 10,049 B of this arm's 10,085 B minified bundle:
+    7,442 B  packages/core/src/core/OIMDB.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+      685 B  packages/core/src/core/OIMSubscriberStore.ts
+      566 B  packages/core/src/core/createEffectNode.ts
+      271 B  packages/core/src/core/OIMBucketOwner.ts
+      195 B  packages/core/src/core/recordMovedFields.ts
+       92 B  packages/core/src/core/OIMObservable.ts
+       86 B  packages/core/src/core/OIMMembersObservable.ts
+  core/OIMBucketMutatorOrdered.ts is NOT among them
+
+grouping-none   packages/bench/src/bundle/consumers/groupingNone.ts
+  a database, a population, a write, a subscription and a read — no index at all
+  kept 24 modules of @oimdb/core, 22,575 B of this arm's 22,828 B minified bundle:
+    7,442 B  packages/core/src/core/OIMDB.ts
+    4,747 B  packages/core/src/abstract/OIMCollection.ts
+    3,204 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+      685 B  packages/core/src/core/OIMSubscriberStore.ts
+      566 B  packages/core/src/core/createEffectNode.ts
+    2,585 B  + 16 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts is NOT among them
+
+grouping-layer-pinned   packages/bench/src/bundle/consumers/groupingLayerPinned.ts
+  the same consumer, holding the four grouping bodies a method form would have given it
+  kept 48 modules of @oimdb/core, 32,948 B of this arm's 33,224 B minified bundle:
+     7,446 B  packages/core/src/core/OIMDB.ts
+     4,751 B  packages/core/src/abstract/OIMCollection.ts
+     3,204 B  packages/core/src/core/OIMIndex.ts
+     1,911 B  packages/core/src/core/OIMIndexPositional.ts
+     1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+     1,086 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+       893 B  packages/core/src/core/OIMBucketAddressStoreByIdentityChain.ts
+       860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+    11,051 B  + 40 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts is NOT among them
+
+grouping-one   packages/bench/src/bundle/consumers/groupingOne.ts
+  the same consumer, taking groupBy alone and reading one unordered group
+  kept 37 modules of @oimdb/core, 27,423 B of this arm's 27,831 B minified bundle:
+    7,446 B  packages/core/src/core/OIMDB.ts
+    4,751 B  packages/core/src/abstract/OIMCollection.ts
+    3,204 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+    1,086 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+    6,730 B  + 29 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts is NOT among them
+
+grouping-one-shared-module   packages/bench/src/bundle/consumers/groupingOneSharedModule.ts
+  the same caller, holding the three groupings one shared module could not withhold
+  kept 48 modules of @oimdb/core, 32,951 B of this arm's 33,377 B minified bundle:
+     7,446 B  packages/core/src/core/OIMDB.ts
+     4,751 B  packages/core/src/abstract/OIMCollection.ts
+     3,204 B  packages/core/src/core/OIMIndex.ts
+     1,911 B  packages/core/src/core/OIMIndexPositional.ts
+     1,746 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+     1,086 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+       893 B  packages/core/src/core/OIMBucketAddressStoreByIdentityChain.ts
+       860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+    11,054 B  + 40 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts is NOT among them
+
+grouping-one-order-option   packages/bench/src/bundle/consumers/groupingOneOrderOption.ts
+  the same caller, holding the ordered mutator an `order?` ternary would have named
+  kept 40 modules of @oimdb/core, 33,068 B of this arm's 33,486 B minified bundle:
+    7,446 B  packages/core/src/core/OIMDB.ts
+    4,753 B  packages/core/src/abstract/OIMCollection.ts
+    3,204 B  packages/core/src/core/OIMIndex.ts
+    3,117 B  packages/core/src/core/OIMBucketMutatorOrdered.ts
+    2,337 B  packages/core/src/core/membersInOrder.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+    1,087 B  packages/core/src/core/OIMMembershipSourceDerived.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+    8,353 B  + 32 more modules — every one of them in records.json
+  core/OIMBucketMutatorOrdered.ts IS among them, at 3,117 B
+
+The "sort?" column is the bundler's own answer to the question
+packages/core/tests/what-an-import-retains.test.ts answers by reading import statements with no
+toolchain at all. Two instruments, one fact. If they ever disagree, one of them is wrong and
+finding out which is worth more than either number.
+
+THE BREAKDOWN UNDER EACH ARM IS WHY THE COLUMN CAN BE TRUSTED TO DISAGREE. A count alone has one
+way to be wrong and no way to show it; a list of modules with the bytes each one contributed can
+be opened, added up, and checked against the source. database-only is printed in full because it
+is the toll no consumer can avoid — what this engine charges an application that constructs a
+database and asks for nothing else, module by module. The longer arms are cut to the largest
+few, with the count and the bytes of the remainder on the line below; records.json keeps every
+module of every arm.
+
+IF ANY OF THESE THREE COMES OUT SMALL
+
+Then the prediction beside it was wrong and the prediction is what should go, not the row. All
+three were arrived at by adding up module sizes in the ordered-list artifact rather than by
+building anything, which is exactly the move this repository calls arithmetic over an artifact
+and refuses to publish. This run is the first time any of them meets a bundler. A refuted
+prediction here costs nothing, because none of the three has ever been cited anywhere.
+
+WHAT A SMALL NUMBER WOULD NOT DO IS OVERTURN ANY OF THE THREE DECISIONS. Each has two halves and
+only one of them is a size. The other is reachability, and it is not a matter of degree: a
+method is in the bundle of everyone who holds the class, a shared memo is in the bundle of
+everyone who takes one grouping, and a ternary over an option is in the bundle of everyone who
+groups at all. `packages/core/tests/what-an-import-retains.test.ts` pins that half already, with
+no toolchain and no threshold, and it goes on holding at 14 KB, at 1 KB and at forty bytes.
+
+WHAT WOULD DESERVE ATTENTION IS THE ORDER OF THE THREE. The layer row is measured against a
+consumer who never groups and the other two against a consumer who groups once, so they are not
+competing for the same reader — but if the shared module or the order option turned out to be
+the larger of the two, that would say where the weight of this layer actually sits, and it would
+say it about the caller this library is mostly for: somebody who groups one column and sorts
+nothing.
+
+AND IF THE LAYER ROW IS THE LARGEST BY FAR, that is not a licence to quote it as what the
+groupings "cost". It is what a design nobody shipped would have cost a consumer who never
+groups. The shipped design charges that consumer nothing at all, which is the arm on the left,
+and its own number is in the table below.

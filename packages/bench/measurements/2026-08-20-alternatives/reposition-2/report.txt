@@ -1,0 +1,224 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 3.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+2.07x  40 ns  19 ns   0.1%     ~1.9x  control-resolution-2x
+0.93x  19 ns  21 ns   4.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 2.07x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 6.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 6.6% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+   ratio         margin      ours      floor  noise  path       decision
+   0.03x  33.7x cheaper  13.69 µs  461.24 µs   2.2%  per frame  alt.reposition-one-vs-full-resort.10k
+~  0.07x  15.1x cheaper   2.05 µs   30.98 µs   3.1%  per frame  alt.reposition-one-vs-full-resort.1k
+   0.35x  2.85x cheaper    623 ns    1.77 µs   2.0%  per frame  alt.reposition-one-vs-full-resort.100
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  3 of 3 decisions stand on this run, 0 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.reposition-one-vs-full-resort.10k   [per frame]   0.03x
+  verdict  the shipped design wins — 33.7x cheaper
+  ours     one member of a bucket of 10000 is written and the bucket is read — settled by reposition
+  floor    the same write and the same read, settled by sorting the whole bucket
+  A BUCKET OF 10000, and the size is in the id because the answer depends on it: the repair is
+  one scan plus two splices plus a binary search where the sort is a pass over everything, so
+  a single size would be a pair that picked its own answer. Every operation is one row's sort
+  column written, one frame closed, and one bucket read — the read is where an order is
+  settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that
+  is not tidiness. `reset` puts every member back on the rank it came in with, reads every
+  bucket so both designs put their lists back into that order, and returns the schedule to
+  round zero — all of it outside the clock and the identical call on the two halves. It is
+  there because a write whose value equals the value the row already holds moves no field,
+  marks nothing and reports no member as possibly moved, so the settle these two designs are
+  being told apart by never runs and the pair prints the price of an empty frame under this
+  row's name. Restoring is affordable for the same reason it is needed: a member that did not
+  move is written back the value it holds and takes that early return, so a reset costs the
+  members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST
+  MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small
+  bucket it does and at the large ones it does not — and a member's landing is therefore
+  offset by how many times it has been visited. Without that offset a second visit re-sends
+  the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is
+  everything `membersInOrder` is: the budget arithmetic that decides when repairing one member
+  at a time has stopped being cheaper than sorting, the reproduction of
+  `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not
+  move goes back exactly where it sat, the two rescue paths that put movers back when the
+  caller's comparator throws with them spliced out of the list, and the walk that spots a bulk
+  load which arrived already in order. Five hundred lines against three, and the three cannot
+  be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and
+  the read call are IDENTICAL on both halves and are inside both numbers, which pulls this
+  ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is
+  most of the distance between this row and the 13x/22x/26x our own notes remember for the
+  settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the
+  write-side bookkeeping our design pays for is charged to us and to nothing on the other
+  side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer —
+  whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing
+  against where it sat) and the engine wakes a subscriber only when it says yes; the floor
+  would need a copy of the list and a walk of it, and since nothing here subscribes to these
+  buckets it never pays for one. That flatters the floor.
+  measured  2,048 ops/pass ours, 1,024 floor; 5 samples; warm-up 5 planned, 5/5 reached; spread 12.0%/3.1%; load 3.90 → 3.99 on 8 cores
+
+alt.reposition-one-vs-full-resort.1k   [per frame]   0.07x
+  verdict  the shipped design wins — 15.1x cheaper
+  ours     one member of a bucket of 1000 is written and the bucket is read — settled by reposition
+  floor    the same write and the same read, settled by sorting the whole bucket
+  A BUCKET OF 1000, and the size is in the id because the answer depends on it: the repair is
+  one scan plus two splices plus a binary search where the sort is a pass over everything, so
+  a single size would be a pair that picked its own answer. Every operation is one row's sort
+  column written, one frame closed, and one bucket read — the read is where an order is
+  settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that
+  is not tidiness. `reset` puts every member back on the rank it came in with, reads every
+  bucket so both designs put their lists back into that order, and returns the schedule to
+  round zero — all of it outside the clock and the identical call on the two halves. It is
+  there because a write whose value equals the value the row already holds moves no field,
+  marks nothing and reports no member as possibly moved, so the settle these two designs are
+  being told apart by never runs and the pair prints the price of an empty frame under this
+  row's name. Restoring is affordable for the same reason it is needed: a member that did not
+  move is written back the value it holds and takes that early return, so a reset costs the
+  members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST
+  MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small
+  bucket it does and at the large ones it does not — and a member's landing is therefore
+  offset by how many times it has been visited. Without that offset a second visit re-sends
+  the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is
+  everything `membersInOrder` is: the budget arithmetic that decides when repairing one member
+  at a time has stopped being cheaper than sorting, the reproduction of
+  `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not
+  move goes back exactly where it sat, the two rescue paths that put movers back when the
+  caller's comparator throws with them spliced out of the list, and the walk that spots a bulk
+  load which arrived already in order. Five hundred lines against three, and the three cannot
+  be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and
+  the read call are IDENTICAL on both halves and are inside both numbers, which pulls this
+  ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is
+  most of the distance between this row and the 13x/22x/26x our own notes remember for the
+  settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the
+  write-side bookkeeping our design pays for is charged to us and to nothing on the other
+  side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer —
+  whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing
+  against where it sat) and the engine wakes a subscriber only when it says yes; the floor
+  would need a copy of the list and a walk of it, and since nothing here subscribes to these
+  buckets it never pays for one. That flatters the floor.
+  measured  18,190 ops/pass ours, 1,024 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 8.8%/54.6%; load 3.55 → 3.90 on 8 cores
+
+alt.reposition-one-vs-full-resort.100   [per frame]   0.35x
+  verdict  the shipped design wins — 2.85x cheaper
+  ours     one member of a bucket of 100 is written and the bucket is read — settled by reposition
+  floor    the same write and the same read, settled by sorting the whole bucket
+  A BUCKET OF 100, and the size is in the id because the answer depends on it: the repair is
+  one scan plus two splices plus a binary search where the sort is a pass over everything, so
+  a single size would be a pair that picked its own answer. Every operation is one row's sort
+  column written, one frame closed, and one bucket read — the read is where an order is
+  settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that
+  is not tidiness. `reset` puts every member back on the rank it came in with, reads every
+  bucket so both designs put their lists back into that order, and returns the schedule to
+  round zero — all of it outside the clock and the identical call on the two halves. It is
+  there because a write whose value equals the value the row already holds moves no field,
+  marks nothing and reports no member as possibly moved, so the settle these two designs are
+  being told apart by never runs and the pair prints the price of an empty frame under this
+  row's name. Restoring is affordable for the same reason it is needed: a member that did not
+  move is written back the value it holds and takes that early return, so a reset costs the
+  members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST
+  MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small
+  bucket it does and at the large ones it does not — and a member's landing is therefore
+  offset by how many times it has been visited. Without that offset a second visit re-sends
+  the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is
+  everything `membersInOrder` is: the budget arithmetic that decides when repairing one member
+  at a time has stopped being cheaper than sorting, the reproduction of
+  `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not
+  move goes back exactly where it sat, the two rescue paths that put movers back when the
+  caller's comparator throws with them spliced out of the list, and the walk that spots a bulk
+  load which arrived already in order. Five hundred lines against three, and the three cannot
+  be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and
+  the read call are IDENTICAL on both halves and are inside both numbers, which pulls this
+  ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is
+  most of the distance between this row and the 13x/22x/26x our own notes remember for the
+  settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the
+  write-side bookkeeping our design pays for is charged to us and to nothing on the other
+  side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer —
+  whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing
+  against where it sat) and the engine wakes a subscriber only when it says yes; the floor
+  would need a copy of the list and a walk of it, and since nothing here subscribes to these
+  buckets it never pays for one. That flatters the floor.
+  measured  49,824 ops/pass ours, 15,908 floor; 9 samples; warm-up 33 planned, 33/33 reached; spread 13.1%/15.0%; load 3.68 → 3.68 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   2.07x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.93x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

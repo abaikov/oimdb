@@ -1,179 +1,210 @@
 ---
 sidebar_position: 2
+description: How to fill store slots on the server, serialize them with bucket slots, rebuild the same shape on the client, and end the request cleanly.
 ---
 
-# Server-Side Rendering (SSR)
+# Server-side rendering
 
-OIMDB has no separate SSR mechanism. **SSR pre-state is just collections that are
-already populated before you call `hydrate()`.** The server fills collections from
-your data source, serializes them, and the client seeds the *same* collections from
-that blob so the first client render matches the server HTML.
+There is no SSR mechanism in this engine, and there does not need to be. SSR
+pre-state is a store slot that is already filled before the client's first
+render: the server fills it and serializes what it filled, the client builds the
+*same* services and store slots and writes the same content in.
 
-The only special part is what happens when a *second*, durable source
-(e.g. an IndexedDB cache of the user's local edits) hydrates **after** the SSR
-pre-state is already in the collection. Instead of letting that later hydrate
-**replace** the pre-state, you reconcile it via the engine's `.onHydrate(reconcile)`
-hook.
+<InShort>
 
-Transport is provided by [`@oimdb/persist-json`](/docs/packages/persist) — a backend
-whose entire storage is one plain JSON-serializable object, so it can be
-`JSON.stringify`-ed on the server and read straight back on the client.
+- Two things cross the wire: the entities, and which slots each bucket holds.
+- The server fills the store slots and serializes both; the client writes the same content into the same shape.
+- A bucket content service's `writeBucketMemberSlots` states a bucket's whole list, so a bucket keeps only what the snapshot lists. Compute a merged list yourself if you mean a merge.
+- Load before the first render, and hold any bucket that nothing else keeps until it is serialized.
 
-```bash
-npm install @oimdb/persist-json @oimdb/persist @oimdb/core
-```
+</InShort>
 
-## The model
+:::warning[This page routes nothing through `@oimdb/persist`]
 
-1. **Server**: build a per-request store, fill collections, dehydrate to a string,
-   inline it into the HTML.
-2. **Client phase 1 (sync, before `hydrateRoot`)**: seed the same collections from
-   the inlined blob via `createJsonPersistor({ initial })` and `await hydrate()`.
-   The collections now hold the server data, so React's first render matches the
-   server markup.
-3. **Client phase 2 (async, after)**: hydrate a durable persistor (IndexedDB,
-   `localStorage`, …) whose resource uses `.onHydrate(...)` to lay local data
-   *onto* the SSR pre-state rather than overwriting it.
+Everything below uses the core alone. Persistence is available, but an SSR fill
+is two ordinary writes, and routing it through a persistence engine would
+document a dependency it does not need. For persistence itself, see
+[Persist](/docs/packages/persist).
 
-## Server — fill collections, then dehydrate to a string
+:::
 
-Build a fresh store per request (never share collections across requests), fill the
-collections from your DB, register them on a JSON persistor under stable storage
-keys, `persist()`, then `JSON.stringify` the dump.
+**When to take the other route.** If the application already registers its
+store slots with an `@oimdb/persist` persistor, `@oimdb/persist-json` is the SSR
+transport for that setup: `OIMPersistJsonBackend` keeps every resource under its
+`storageKey`, the server calls `dehydrate()` and stringifies the dump, and the
+client passes it back as `initialPersistJsonDump` to a backend serving the same
+resources (recipe in
+[Persist: backends — JSON](/docs/packages/persist-backends#json-for-server-side-rendering)).
+Take the route on this page when nothing else needs a persistor. Then the
+fill is two writes and nothing more.
 
-```ts
-import { OIMCollection } from '@oimdb/core';
-import { createJsonPersistor } from '@oimdb/persist-json';
+## What has to cross the wire
+
+Two things, and keeping them separate is the whole of the shape:
+
+1. **The content**: the entities.
+2. **The bucket lists**: which slots are in which bucket.
+
+The second is not implied by the first. Which slots a bucket holds is a fact
+about the **response** you composed, and no column can express absence, so it is
+stated separately on both sides. See
+[Buckets](/docs/core/indexes#a-buckets-slots-are-the-callers).
+
+## Server: fill, then serialize both
+
+```ts setup
+import {
+    OIMChannelService, OIMDB, createOIMBucketService, createOIMEntityService, type TOIMEntitySlot,
+} from '@oimdb/core';
 
 type Question = { id: string; text: string; answer?: string };
 
-const persistor = createJsonPersistor();
-const questions = new OIMCollection<Question, string>();
-
-// Register under a stable storage key.
-persistor.collection(questions).entry({ storageKey: 'questions' });
-
-// Fill the collection (e.g. from your DB) and snapshot it into storage.
-questions.upsertMany([
-    { id: 'q1', text: 'What is your name?' },
-    { id: 'q2', text: 'What is your quest?' },
-]);
-await persistor.persist();
-
-// Serialize the whole registered state and inline it into the page.
-const json = JSON.stringify(persistor.dehydrate());
-const html = `<script>window.__OIM__ = ${json}</script>`;
+const db = new OIMDB();
+const questionService = createOIMEntityService<Question>(db, { keyOf: (question) => question.id });
+const questions = questionService.createStoreSlot(db);
+const resultService = createOIMBucketService<TOIMEntitySlot<Question>>(db);
+const results = resultService.createStoreSlot(db);
+const resultContentService = resultService.slotContentService;
 ```
 
-:::warning Escape the inlined blob
-A raw `</script>` sequence anywhere inside your data will terminate the inline
-`<script>` early. Escape it (replace `<` with `<`) before inlining. If your
-snapshots contain `Date`, `Map`, or `Set` values, `JSON.stringify` cannot round-trip
-them — use a structured serializer such as
-[devalue](https://github.com/Rich-Harris/devalue) and pass the parsed result as
-`initial` on the client.
+```typescript
+const entities: readonly Question[] = [
+    { id: 'q1', text: 'What is your name?' },
+    { id: 'q2', text: 'What is your quest?' },
+];
+
+questionService.slotContentService.insertEntities(questions, entities);
+
+const page = resultService.holdSlotByKey(results, 'page-1');
+resultContentService.writeBucketMemberSlots(page, entities.map((question) => questionService.getSlotByKey(questions, question.id)));
+db.flush();
+
+const snapshot = { entities, bucketIds: entities.map((question) => question.id) };
+const html = `<script>window.__OIM__ = ${JSON.stringify(snapshot).replace(/</g, '\\u003c')}</script>`;
+```
+
+:::warning[Escape the inlined blob]
+A raw `</script>` inside your data ends the inline `<script>` early. Escape `<`
+before inlining, as above.
 :::
 
-## Client — seed from the inline blob, then hydrate
+## Client: build the same shape, write the same content
 
-```ts
-import { OIMCollection } from '@oimdb/core';
-import { createJsonPersistor } from '@oimdb/persist-json';
+```typescript
+const snapshot = (window as unknown as { __OIM__: { entities: Question[]; bucketIds: string[] } }).__OIM__;
 
-const questions = new OIMCollection<Question, string>();
+// …the same db, services and store slots as on the server…
 
-// `initial` is the blob inlined by the server.
-const persistor = createJsonPersistor({ initial: window.__OIM__ });
+questionService.slotContentService.insertEntities(questions, snapshot.entities);
 
-// Register the SAME collections under the SAME keys as the server.
-persistor.collection(questions).entry({ storageKey: 'questions' });
-
-// `hydrate()` is synchronous in effect: the blob is already in memory, so the
-// collection is populated before you hand off to React `hydrateRoot`.
-await persistor.hydrate();
+const page = resultService.holdSlotByKey(results, 'page-1');
+resultContentService.writeBucketMemberSlots(
+    page,
+    snapshot.bucketIds.map((id) => questionService.getSlotByKey(questions, id)),
+);
+db.flush();
 
 // hydrateRoot(document.getElementById('root')!, <App />);
 ```
 
-After this `await`, the collections hold exactly the server data, so the first
-client render matches the server HTML and React hydration does not warn.
+`insertEntities` fits both sides for the same reason: its precondition is the one
+an SSR fill meets. It refuses a key that already has an identity in the store slot, and a key
+named twice in the same load. An empty identity counts: a `getSlotByKey` read or a hold on a key
+mints one, and it makes the next `insertEntities` of that key refuse. On a refusal it rolls back
+the entities that call filed and nothing else. The whole load runs inside one
+subframe, so it is one frame's worth of writes rather than one per entity. Per key it still does
+a lookup and a store, the same two hash operations an `insertEntity` does, so what it buys is the
+refusal, not fewer hashes. `fillEntities(storeSlot, keys, entities)` is the stricter companion: it
+also refuses when the store slot holds any identity at all. If anything may have read the store
+slot first (a cache seeded before the SSR blob arrives, a component that called `getSlotByKey`),
+use `upsertEntities`, which asks per entity and works in any state.
 
-## Worked example — questions from server, answers saved locally
+Pick between `insertEntities` and `upsertEntities` by precondition: the first
+refuses a key that already has an identity, the second takes any state.
 
-A common scenario: the server ships read-only **questions**, while the user's own
-**answers** live in a durable local store (e.g. IndexedDB via
-[`@oimdb/persist-idb`](/docs/packages/persist)). Both feed the *same* collection.
+## Restating a bucket's slots evicts, and that is the contract
 
-The rule is **ordering plus a reconciler**:
+`writeBucketMemberSlots` states the **whole** list. Applying a snapshot of two questions
+onto a bucket that currently holds five leaves the bucket holding **two**. The
+other three keep their content in the entity store slot and leave the bucket.
 
-1. Hydrate the SSR JSON persistor **first** — the collection now holds the server
-   questions (the pre-state).
-2. Hydrate the local (durable) persistor **after**, using `.onHydrate(reconcile)`
-   so the locally-stored data lays *onto* the SSR pre-state instead of replacing it.
-3. Do **not** `start()` autosave on the local persistor until after its hydrate
-   completes — otherwise the merge could be written back mid-flight.
+There is nothing left to ask: every bucket's slots here are the caller's, nothing
+re-derives them from a column, and a bucket the load left alone would come back
+holding whatever it held before. If you mean a merge, compute the merged list
+yourself and state that:
 
-The local store should own **only the answer field**. A codec keeps the persisted
-shape minimal:
-
-```ts
-import { byPk } from '@oimdb/persist'; // from the engine, not the JSON backend
-
-// 1. SSR blob first: questions land in the collection.
-const ssr = createJsonPersistor({ initial: window.__OIM__ });
-ssr.collection(questions).entry({ storageKey: 'questions' });
-await ssr.hydrate();
-
-// 2. Durable local source second, merged onto the SSR pre-state.
-//    Here a second JSON persistor stands in for the local backend; in a real
-//    app this would be createIndexedDbPersistor(...) from @oimdb/persist-idb.
-const local = createJsonPersistor({ initial: window.__ANSWERS__ });
-local
-    .collection(questions)
-    .entry({ storageKey: 'questions' })
-    .onHydrate(
-        byPk((question, answer) =>
-            question ? { ...question, answer: answer.answer } : answer
-        )
-    );
-await local.hydrate();
-
-// 3. Only now is it safe to enable autosave on the local persistor.
-local.start();
+```typescript
+const page = resultService.holdSlotByKey(results, 'page-1');
+const incoming = [questionService.getSlotByKey(questions, 'q3')];
+const merged = [...new Set([...resultContentService.getBucketMemberSlots(page), ...incoming])];
+resultContentService.writeBucketMemberSlots(page, merged);
 ```
 
-`byPk` walks the union of primary keys and, per pk, calls your resolver with:
+`writeBucketMemberSlots` is idempotent, so re-stating an unchanged list evicts nothing
+and wakes nobody: the bucket content service reconciles the new list against the
+old one, and when nothing arrived and nothing departed the write returns `false`
+without marking the bucket (`OIMSlotContentBucketService.writeBucketMemberSlots`).
 
-- `current` — what is in the collection **now** (the SSR questions);
-- `incoming` — what **this** hydrate brings (the locally-stored answers).
+**Why a whole list and not add/remove calls.** A server response is a whole list.
+Stating it whole means the client never has to know what it held before, and the
+reconcile computes the arrivals and departures once, in the engine, instead of in
+every caller.
 
-So `question ? { ...question, answer: answer.answer } : answer` keeps the server's
-question text and overlays the local answer; a key present only locally falls
-through to `answer`.
+## The identities are the same on both sides
 
-> `byPk` and `.onHydrate` come from `@oimdb/persist` (the engine), not from
-> `@oimdb/persist-json`. The JSON package only provides the storage backend and
-> `dehydrate()`.
+Nothing about the pre-state is special, and that is the point of seeding the same
+store slot rather than a parallel cache: an entity the server sent and an entity a later
+write patches are **one identity**, resolved once, watched by the same effects.
+There is no reconciliation pass and no "hydration mismatch" concept in the engine.
+A load is an ordinary batch of writes, delivered in an ordinary frame.
 
-## Conflict policies
+Load **before** the first render if you can. A load that lands after components
+have mounted is not wrong, but it is a second frame: the first paint will have
+been of an empty store slot, and every effect is woken once when the content
+arrives.
 
-The default `hydrate()` behavior (no `.onHydrate` hook) is **replace** — the last
-hydrate wins. This is fully backward compatible: code that never registers a hook
-behaves exactly as before. For SSR + durable cache you opt into a merge:
+## Hold what nothing else holds
 
-- **Per-pk overlay** — `byPk((current, incoming, pk) => …)` lifts a per-entity
-  resolver to a whole-collection reconcile. Pick fields from either side per key,
-  as in the answers example above.
-- **Last-write-wins by version** — keep an `updatedAt` (or monotonic `version`)
-  field on the entity and, inside the resolver, return whichever side is newer.
-  This mirrors how TanStack Query's `persistQueryClient` reconciles a restored
-  cache against fresh data by comparing `dataUpdatedAt`.
+```typescript
+const page = resultService.holdSlotByKey(results, 'page-1');
+```
 
-A `reconcile(current, incoming) => snapshot` you pass directly to `.onHydrate`
-operates on the whole collection snapshot; `byPk` is sugar for the common
-per-entity case.
+Keep that `page` slot for as long as the bucket is meant to exist, and call
+`page.owner.unholdSlot(page)` when it is not. Under the default release policy,
+`OIMSlotReleasePolicyAtEmpty`, a bucket is kept by its slots, its effects (an
+effect holds what it subscribes to) and its holds; one that passes through empty
+with none of the three is unfiled. On the server, where nothing subscribes, the
+hold is what keeps an empty bucket (a page with no results) between
+`writeBucketMemberSlots` and the serialization, and what keeps any bucket under a policy
+that releases on a clock.
 
-## See also
+**Why a hold and not a "keep" flag.** A hold is counted and given back by the
+thing that took it, so two parts of a request that both need the page cannot
+release it out from under each other; a flag would have one owner and no answer
+for the second.
 
-- [Persist guide](/docs/packages/persist) — backends, codecs, autosave, and the
-  hydration merge hook.
+## Ending the request
+
+The db above is built per request and nothing on the server subscribes to
+its channel, which is the precondition of the one call that ends a channel whole:
+
+```typescript
+OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);   // nothing is subscribed to anything in it
+```
+
+It sets a flag that makes every later `flush()` and flush request a no-op,
+cancels a scheduled flush, hands back the mints the unused-slot collector took for
+the frame it will now never run, empties the list of pending effects and the
+after-each-frame and after-each-flush handlers, and returns. Nothing walks a slot to ask who is subscribed to it, and
+the request's services and store slots go when your own references to them do. The engine does not verify
+the precondition, because that check would be the walk the call exists to skip. So on a
+server that *does* subscribe, keep that guarantee yourself or do not call it. See
+[dropping the whole channel](/docs/core/channel#dropping-the-whole-channel).
+
+## Where to next
+
+<DocCards>
+<DocCard to="/docs/core/indexes" title="Buckets">Why a bucket's slots are stated separately.</DocCard>
+<DocCard to="/docs/core/writing" title="Writing">`insertEntities` and its precondition.</DocCard>
+<DocCard to="/docs/getting-started/quick-start" title="Quick Start">Build a working program step by step.</DocCard>
+</DocCards>

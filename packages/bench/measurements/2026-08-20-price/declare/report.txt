@@ -1,0 +1,105 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.93x  37 ns  19 ns   0.6%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.3%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.93x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.2% of 1.00 is a reading.
+
+THE PRICES, worst ratio first
+
+  ratio       ours     floor  noise  path             operation
+   205x    1.12 µs      5 ns   3.3%  per declaration  new-db.vs-hand-written-frame-state
+  5.56x      89 ns     16 ns   2.3%  per declaration  new-collection.vs-new-map
+  4.43x  213.39 µs  48.13 µs   3.5%  per declaration  addIndex.over-a-loaded-population-vs-hand-built-map
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+new-db.vs-hand-written-frame-state   [per declaration]   205x
+  ours   new OIMDB()
+  floor  the object a person keeps instead: a frame number and a queue
+  NOT A LIKE-FOR-LIKE FLOOR. Nobody hand-writes a database; the nearest thing is the
+  bookkeeping a person keeps beside their `Map`, which is a frame counter and a list of what
+  to repaint. Ours constructs a subscriber store, an effect scheduler, two delivery lists, a
+  frame record, a release set and the bound callbacks that hold them together. Direction:
+  inflates our ratio without limit, and it is paid ONCE per application. It is on the table
+  because a price nobody prints is a price nobody believes, not because the multiple means
+  anything.
+  measured  42,182 ops/pass ours, 8,914,380 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 5.0%/5.9%; load 2.40 → 2.40 on 8 cores
+
+new-collection.vs-new-map   [per declaration]   5.56x
+  ours   new OIMCollectionByKey(db, row => row.id)
+  floor  new Map()
+  A population against the container that would have held it. Ours also builds the identity
+  store, the presence channel, the empty index list, the free-ordinal list, the dependents map
+  and the projection list, and it keeps the key selector — which is the closure a caller
+  passes and which the floor does not need because the caller writes `row.id` at every call
+  site instead. Direction: inflates our ratio; paid once per population.
+  measured  266,696 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 33 planned, 33/33 reached; spread 25.3%/13.1%; load 2.36 → 2.36 on 8 cores
+
+addIndex.over-a-loaded-population-vs-hand-built-map   [per declaration]   4.43x
+  ours   addIndex over a population already holding a thousand rows, then removeIndex
+  floor  build a Map of Sets from the same thousand rows, then drop it
+  BOTH SIDES BUILD AND THEN GIVE BACK, which is what makes them comparable at all: declaring
+  an index on a live population widens every existing row and files it, so the operation is
+  O(rows) exactly as building the map is, and a body that only ever added would accumulate
+  indexes and price a growing population instead. Ours also widens each row's per-index cell
+  array, registers the index's maintenance node in the effect graph, and mints a hold-counted
+  bucket identity per group where the floor mints a bare `Set`. The teardown differs in kind
+  and both are inside the clock: ours unlinks every row and frees the ordinal, the floor drops
+  a reference and lets the collector deal with it later — so part of the floor's teardown is
+  paid outside this number and part of ours is inside it. Direction: inflates our ratio.
+  measured  1,024 ops/pass ours, 1,024 floor; 5 samples; warm-up 7 planned, 7/7 reached; spread 3.2%/10.2%; load 2.36 → 2.36 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.93x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

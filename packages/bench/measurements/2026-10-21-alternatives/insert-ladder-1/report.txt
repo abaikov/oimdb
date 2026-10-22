@@ -1,0 +1,230 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.95x  38 ns  20 ns   0.0%     ~1.9x  control-resolution-2x
+0.99x  20 ns  20 ns   0.2%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.95x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.6% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+     ratio        margin    ours   floor  noise  path               decision
+!=~  1.00x     unsettled  104 ns  103 ns   1.8%  per row per write  alt.ladder.insert.5-assert-writable
+!=~  1.01x     unsettled  101 ns   99 ns   3.8%  per row per write  alt.ladder.insert.4-writer-and-channel
+!~   1.04x  1.04x DEARER  105 ns  101 ns   2.1%  per row per write  alt.ladder.insert.6-emptiness
+!    1.05x  1.05x DEARER   85 ns   80 ns   0.9%  per row per write  alt.ladder.insert.2-slot
+!=~  1.07x     unsettled   96 ns   90 ns   9.4%  per row per write  alt.ladder.insert.3-identity-store
+!~L  1.08x  1.08x DEARER  114 ns  105 ns   0.4%  per row per write  alt.ladder.insert.8-release-check
+!~   1.11x  1.11x DEARER  119 ns  107 ns   0.4%  per row per write  alt.ladder.insert.7-content-changed
+!~   1.19x  1.19x DEARER   79 ns   66 ns   4.2%  per row per write  alt.ladder.insert.1-copy
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  0 of 8 decisions stand on this run, 5 came out wrong, 3 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.ladder.insert.5-assert-writable   [per row per write]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     channel.assertNotFlushing() and the released check before filing
+  floor    the writer and the channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  assertWritable.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 401 planned, 401/401 reached; spread 88.8%/18.9%; load 3.55 → 3.59 on 8 cores
+
+alt.ladder.insert.4-writer-and-channel   [per row per write]   1.01x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the shipped writer fills the slot, then channel.writeWithoutFlushCheck(slot); db.flush() per pass
+  floor    the copy assigned by hand, no channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  writeContentImpl: the shipped writer object and the channel write that stamps the slot, and
+  the keyOf call upsertEntity makes before writeContentByKey.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 528 planned, 528/528 reached; spread 18.4%/259.8%; load 3.55 → 3.55 on 8 cores
+
+alt.ladder.insert.6-emptiness   [per row per write]   1.04x
+  verdict  !  THE REJECTED DESIGN WINS — 1.04x DEARER. This decision came out wrong.
+  ours     the emptiness check and the release policy notified, as updateEmptiness does
+  floor    the assert, the writer and the channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  updateEmptiness: the emptiness strategy, the slot-stamp check, onSlotWritten, and the idle
+  check of a slot nobody subscribes to.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 897 planned, 897/897 reached; spread 45.6%/7.3%; load 3.59 → 4.18 on 8 cores
+
+alt.ladder.insert.2-slot   [per row per write]   1.05x
+  verdict  !  THE REJECTED DESIGN WINS — 1.05x DEARER. This decision came out wrong.
+  ours     map.set(id, slot) with slot = createOIMEntitySlot(id, owner), slot.entity = the copy
+  floor    map.set(id, oimCopyEntity(entity))
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the
+  fourteen-field slot object the copy is stored in.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1119 planned, 1119/1119 reached; spread 24.7%/7.9%; load 3.74 → 3.74 on 8 cores
+
+alt.ladder.insert.3-identity-store   [per row per write]   1.07x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the store service: get to probe, ownKey, then set
+  floor    map.set(id, slot)
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the probe
+  writeContentByKey opens with, and the store service in place of the bare Map.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 883 planned, 883/883 reached; spread 85.4%/69.6%; load 3.60 → 3.60 on 8 cores
+
+alt.ladder.insert.8-release-check   [per row per write]   1.08x
+  verdict  !  THE REJECTED DESIGN WINS — 1.08x DEARER. This decision came out wrong.
+  ours     the release check after filing
+  floor    the steps below without it
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  releaseSlotIfUnheldAfterListeners: the subframe-tail check, isReleasable and the policy
+  question.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 687 planned, 687/687 reached; spread 51.1%/54.0%; load 4.18 → 4.56 on 8 cores
+
+alt.ladder.insert.7-content-changed   [per row per write]   1.11x
+  verdict  !  THE REJECTED DESIGN WINS — 1.11x DEARER. This decision came out wrong.
+  ours     the content-change step with no listener
+  floor    the steps below without it
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  contentChanged, which returns at once when the collection has no listener.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 617 planned, 617/617 reached; spread 425.9%/237.7%; load 4.18 → 4.18 on 8 cores
+
+alt.ladder.insert.1-copy   [per row per write]   1.19x
+  verdict  !  THE REJECTED DESIGN WINS — 1.19x DEARER. This decision came out wrong.
+  ours     map.set(id, oimCopyEntity(entity))
+  floor    map.set(id, { ...entity })
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntity, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, the default entity
+  writer, the channel, the emptiness check, the AtEmpty release policy. Each pair re-measures
+  the rung below as its floor in its own run, so a ratio prices only what its rung adds. From
+  the writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
+  oimCopyEntity instead of the bare spread: the spread plus the own-`__proto__` probe and its
+  delete.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1372 planned, 1372/1372 reached; spread 159.7%/29.7%; load 3.74 → 3.74 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.95x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.99x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

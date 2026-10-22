@@ -1,13 +1,15 @@
 # @oimdb/persist-integration-tests
 
-Private cross-package integration tests (SSR end-to-end, multi-backend) for the
-`@oimdb/persist` family. Not published.
+Private cross-package integration tests for the `@oimdb/persist` family. Not published.
 
-These tests exercise real behavior that per-package unit tests can't:
+They cover what a single package's tests cannot:
 
-- the full SSR data cycle across packages (server `dehydrate()` → JSON string →
-  client `hydrate()` → durable cache merged on top via `onHydrate(byPk(...))`);
-- that an SSR render and a client React `hydrateRoot` of the same dehydrated
-  state produce matching markup (no hydration mismatch).
+- the full SSR cycle across packages: the server persists into an `OIMPersistJsonBackend` and
+  dumps `dehydrate()` as JSON text; the client builds an `OIMPersistJsonBackend` from that dump with
+  `initialPersistJsonDump`, hydrates, and then hydrates a durable `OIMPersistIndexedDbBackend` on top
+  with `persistHydrateReconcile: oimReconcileByKey(...)`;
+- that a server render and a client React `hydrateRoot` of the same hydrated state produce the same
+  markup.
 
-Run with `npm test` and type-check with `npm run type-check`.
+The tests run under jsdom with `fake-indexeddb`, against the packages' sources. Run them with
+`npm test` and type-check them with `npm run type-check`.

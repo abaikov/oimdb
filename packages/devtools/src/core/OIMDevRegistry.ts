@@ -1,103 +1,99 @@
-import { IOIMDevCollectionLike } from '../interfaces/IOIMDevCollectionLike';
-import { IOIMDevComputedLike } from '../interfaces/IOIMDevComputedLike';
-import { TOIMDevCollectionOptions } from '../types/TOIMDevCollectionOptions';
 import {
-    TOIMDevFlushErrorRecord,
-    TOIMDevFlushRecord,
-    TOIMDevInspectResult,
-} from '../types/TOIMDevInspectResult';
+    OIMChannelService,
+    type IOIMChannelMap,
+    type IOIMStoreSlotListener,
+    type OIMComputedService,
+    type OIMSlotCollectionService,
+    type TOIMBucketSlot,
+    type TOIMComputedStoreSlot,
+    type TOIMDefaultSlotStore,
+    type TOIMEntitySlot,
+    type TOIMDisposer,
+    type TOIMKeyedSlot,
+    type TOIMStoreKey,
+    type TOIMStoreSlot,
+} from '@oimdb/core';
+import { OIMDevBridgeRequestReader } from './OIMDevBridgeRequestReader';
+import type { TOIMDevCollectionOptions } from '../types/TOIMDevCollectionOptions';
+import type { TOIMDevCollectionInfo } from '../types/TOIMDevCollectionInfo';
+import type { TOIMDevComputedInfo } from '../types/TOIMDevComputedInfo';
+import type { TOIMDevFlushErrorRecord } from '../types/TOIMDevFlushErrorRecord';
+import type { TOIMDevFlushRecord } from '../types/TOIMDevFlushRecord';
+import type { TOIMDevIndexInfo } from '../types/TOIMDevIndexInfo';
+import type { TOIMDevInspectResult } from '../types/TOIMDevInspectResult';
 
 type TOIMDevRegistryEntry = {
-    name: string;
-    collection: IOIMDevCollectionLike;
-    options: TOIMDevCollectionOptions;
+    read: () => readonly TOIMEntitySlot[] | undefined;
+    indexes: Record<string, () => readonly TOIMKeyedSlot[] | undefined>;
+    relations: Record<string, string>;
+    description: string | undefined;
 };
 
-type TOIMDevDepWithSource = {
-    source: unknown;
-};
-
-function hasSource(dep: unknown): dep is TOIMDevDepWithSource {
-    return dep !== null && typeof dep === 'object' && 'source' in dep;
-}
-
-type TOIMDevComputedWithDeps = IOIMDevComputedLike & {
-    deps: readonly unknown[];
-};
-
-function hasDeps(computed: IOIMDevComputedLike): computed is TOIMDevComputedWithDeps {
-    return 'deps' in computed && Array.isArray((computed as TOIMDevComputedWithDeps).deps);
-}
-
-export class OIMDevRegistry {
+export class OIMDevRegistry implements IOIMStoreSlotListener {
     private readonly entries = new Map<string, TOIMDevRegistryEntry>();
-    private readonly computedEntries = new Map<string, IOIMDevComputedLike>();
-    private readonly nameByInstance = new WeakMap<object, string>();
+    private readonly computedEntries = new Map<string, () => TOIMDevComputedInfo | undefined>();
+    private readonly storeSlots = new WeakSet<object>();
     private readonly flushHistory: TOIMDevFlushRecord[] = [];
     private readonly flushErrors: TOIMDevFlushErrorRecord[] = [];
+    /** Every frame off the socket goes through this before a field is read off it. */
+    private readonly requestReader = new OIMDevBridgeRequestReader();
     private static readonly MAX_HISTORY = 50;
 
-    public collection(
+    public onStoreSlotCreated(storeSlot: TOIMStoreSlot): void {
+        this.storeSlots.add(storeSlot);
+    }
+
+    public collection<
+        TKey, TEntity extends object, TStore,
+        TBucketStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMBucketSlot<unknown, TOIMStoreKey>>,
+    >(
         name: string,
-        collection: IOIMDevCollectionLike,
-        options: TOIMDevCollectionOptions = {}
+        entityCollectionService: Pick<OIMSlotCollectionService<TKey, TOIMEntitySlot<TEntity, TKey>, TStore, unknown>, 'getSlots'>,
+        entityStoreSlot: TOIMStoreSlot<TStore, TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>>,
+        options: TOIMDevCollectionOptions<TBucketStore> = {}
     ): this {
-        this.entries.set(name, { name, collection, options });
-        this.nameByInstance.set(collection as object, name);
-
-        if (options.indexes) {
-            for (const [indexName, index] of Object.entries(options.indexes)) {
-                this.nameByInstance.set(index as object, `${name}.${indexName}`);
-            }
+        const indexes: Record<string, () => readonly TOIMKeyedSlot[] | undefined> = {};
+        for (const [indexName, { bucketCollectionService, bucketStoreSlot }] of Object.entries(options.indexes ?? {})) {
+            indexes[indexName] = OIMDevRegistry.readWeakly(bucketStoreSlot, storeSlot => bucketCollectionService.getSlots(storeSlot));
         }
-
+        this.entries.set(name, {
+            read: OIMDevRegistry.readWeakly(entityStoreSlot, storeSlot => entityCollectionService.getSlots(storeSlot)),
+            indexes,
+            relations: options.relations ?? {},
+            description: options.description,
+        });
         return this;
     }
 
-    public computed(name: string, computed: IOIMDevComputedLike): this {
-        this.computedEntries.set(name, computed);
-        this.nameByInstance.set(computed as object, name);
+    public computed<TValue, TStore>(
+        name: string,
+        computedService: OIMComputedService<void, TValue, TStore>,
+        computedStoreSlot: TOIMComputedStoreSlot<TStore, TValue, void>,
+    ): this {
+        const computedStoreSlotWeakRef = new WeakRef(computedStoreSlot);
+        this.computedEntries.set(name, () => {
+            const liveComputedStoreSlot = computedStoreSlotWeakRef.deref();
+            if (liveComputedStoreSlot === undefined) return undefined;
+            const computedCollectionService = computedService.computedCollectionService;
+            const computedSlot = computedCollectionService.getSlotByKey(liveComputedStoreSlot, undefined);
+            return { currentValue: computedCollectionService.slotContentService.getValueForSlot(computedSlot) };
+        });
         return this;
     }
 
     public inspect(): TOIMDevInspectResult {
         const collections: TOIMDevInspectResult['collections'] = {};
-
         for (const [name, entry] of this.entries) {
-            const indexes: TOIMDevInspectResult['collections'][string]['indexes'] = {};
-
-            if (entry.options.indexes) {
-                for (const [indexName, index] of Object.entries(entry.options.indexes)) {
-                    const keys = index.getKeys();
-                    // Copy into a fresh mutable array for the serializable result.
-                    indexes[indexName] = { keyCount: keys.length, keys: [...keys] };
-                }
-            }
-
-            const allPks = entry.collection.getAllPks();
-            const all = entry.collection.getAll();
-
-            collections[name] = {
-                count: allPks.length,
-                samplePks: allPks.slice(0, 5),
-                sampleEntity: all[0] ?? null,
-                entities: all,
-                indexes,
-                relations: entry.options.relations ?? {},
-                description: entry.options.description,
-            };
+            const collectionInfo = OIMDevRegistry.describeCollection(entry);
+            if (collectionInfo === undefined) this.entries.delete(name);
+            else collections[name] = collectionInfo;
         }
 
         const computeds: TOIMDevInspectResult['computeds'] = {};
-
-        for (const [name, comp] of this.computedEntries) {
-            const collectedDeps = this.collectComputedDeps(comp);
-            computeds[name] = {
-                isReady: comp.isReady,
-                needsRecompute: comp.needsRecompute,
-                currentValue: comp.getIfReady(),
-                deps: collectedDeps,
-            };
+        for (const [name, read] of this.computedEntries) {
+            const computedInfo = read();
+            if (computedInfo === undefined) this.computedEntries.delete(name);
+            else computeds[name] = computedInfo;
         }
 
         return {
@@ -147,19 +143,7 @@ export class OIMDevRegistry {
             lines.push('');
             lines.push('  computeds:');
             for (const [name, info] of computedEntries) {
-                const status = !info.isReady
-                    ? 'not computed yet'
-                    : info.needsRecompute
-                      ? `stale  — last: ${JSON.stringify(info.currentValue)}`
-                      : `fresh  — value: ${JSON.stringify(info.currentValue)}`;
-                lines.push(`    ${name.padEnd(24)} ${status}`);
-
-                if (info.deps.length > 0) {
-                    const depsStr = info.deps
-                        .map((d) => (d.name ?? '(unregistered)'))
-                        .join(', ');
-                    lines.push(`    ${''.padEnd(24)}   deps: ${depsStr}`);
-                }
+                lines.push(`    ${name.padEnd(24)} value: ${JSON.stringify(info.currentValue)}`);
             }
         }
 
@@ -171,22 +155,13 @@ export class OIMDevRegistry {
         console.log(this.dumpString());
     }
 
-    /**
-     * Subscribe to queue flushes and record them in the history.
-     * Returns an unsubscribe function.
-     *
-     * Usage:
-     * ```ts
-     * registry.trackFlushes(handler =>
-     *   queue.emitter.on(EOIMEventQueueEventType.AFTER_FLUSH, handler)
-     * );
-     * ```
-     */
-    public trackFlushes(subscribe: (handler: () => void) => () => void): () => void {
-        return subscribe(() => {
+    /** The size of every registered population, once per flush. */
+    public trackFlushes(channelMap: IOIMChannelMap): TOIMDisposer {
+        return OIMChannelService.INSTANCE.subscribeAfterEachFlush(channelMap.defaultChannelSlot, () => {
             const counts: Record<string, number> = {};
             for (const [name, entry] of this.entries) {
-                counts[name] = entry.collection.getAllPks().length;
+                const entitySlots = entry.read();
+                if (entitySlots !== undefined) counts[name] = entitySlots.length;
             }
             this.flushHistory.unshift({ time: Date.now(), counts });
             if (this.flushHistory.length > OIMDevRegistry.MAX_HISTORY) {
@@ -195,30 +170,13 @@ export class OIMDevRegistry {
         });
     }
 
-    /**
-     * Subscribe to flush errors and record them so `getState().errors` surfaces
-     * them (and the MCP bridge with them). Returns an unsubscribe function.
-     *
-     * Usage:
-     * ```ts
-     * registry.trackFlushErrors(handler =>
-     *   queue.emitter.on(EOIMEventQueueEventType.FLUSH_ERROR, handler)
-     * );
-     * ```
-     */
-    public trackFlushErrors(
-        subscribe: (
-            handler: (payload: { error: unknown }) => void
-        ) => () => void
-    ): () => void {
-        return subscribe(({ error }) => {
-            const message =
-                error instanceof Error ? error.message : String(error);
-            this.flushErrors.unshift({ time: Date.now(), message });
-            if (this.flushErrors.length > OIMDevRegistry.MAX_HISTORY) {
-                this.flushErrors.length = OIMDevRegistry.MAX_HISTORY;
-            }
-        });
+    /** A SINK the caller pushes into from the error policy's `onError`, never a subscription. */
+    public recordError(error: unknown): void {
+        const message = error instanceof Error ? error.message : String(error);
+        this.flushErrors.unshift({ time: Date.now(), message });
+        if (this.flushErrors.length > OIMDevRegistry.MAX_HISTORY) {
+            this.flushErrors.length = OIMDevRegistry.MAX_HISTORY;
+        }
     }
 
     public connect(url = 'ws://localhost:7432'): () => void {
@@ -237,13 +195,15 @@ export class OIMDevRegistry {
         });
 
         ws.addEventListener('message', (event) => {
-            const msg = JSON.parse(event.data as string) as { type: string; id: string; action: string };
-            if (msg.type !== 'request') return;
+            // A FRAME THIS PAGE CANNOT READ IS DROPPED, silently, and the socket
+            // stays — unlike the server, which closes with 1007.
+            const request = this.requestReader.read(event.data);
+            if (request === null) return;
             try {
-                const data = msg.action === 'dump' ? this.dumpString() : this.inspect();
-                ws.send(JSON.stringify({ type: 'response', id: msg.id, data }));
+                const data = request.action === 'dump' ? this.dumpString() : this.inspect();
+                ws.send(JSON.stringify({ type: 'response', id: request.id, data }));
             } catch (err) {
-                ws.send(JSON.stringify({ type: 'response', id: msg.id, data: null, error: String(err) }));
+                ws.send(JSON.stringify({ type: 'response', id: request.id, data: null, error: String(err) }));
             }
         });
 
@@ -254,17 +214,62 @@ export class OIMDevRegistry {
         return () => ws.close();
     }
 
-    private collectComputedDeps(
-        comp: IOIMDevComputedLike
-    ): TOIMDevInspectResult['computeds'][string]['deps'] {
-        if (!hasDeps(comp)) return [];
 
-        return comp.deps.map((dep) => {
-            if (!hasSource(dep)) return { name: null };
-            const source = dep.source;
-            if (source === null || typeof source !== 'object') return { name: null };
-            const name = this.nameByInstance.get(source as object) ?? null;
-            return { name };
-        });
+    private static readWeakly<TStoreSlot extends object, TSlot>(
+        storeSlot: TStoreSlot,
+        getSlots: (liveStoreSlot: TStoreSlot) => Iterable<TSlot>,
+    ): () => readonly TSlot[] | undefined {
+        const storeSlotWeakRef = new WeakRef(storeSlot);
+        return () => {
+            const liveStoreSlot = storeSlotWeakRef.deref();
+            return liveStoreSlot === undefined ? undefined : Array.from(getSlots(liveStoreSlot));
+        };
+    }
+
+    private static describeCollection(entry: TOIMDevRegistryEntry): TOIMDevCollectionInfo | undefined {
+        const rows = entry.read();
+        if (rows === undefined) return undefined;
+        const plainKeys: unknown[] = [];
+        const entities: unknown[] = [];
+        for (const entitySlot of rows) {
+            plainKeys.push(OIMDevRegistry.plainKeyOf(entitySlot));
+            // A HOLE IS KEPT: `undefined` is what the engine holds at a reserved or
+            // emptied identity, and dropping it under-reports the population.
+            entities.push(entitySlot.entity);
+        }
+
+        const indexes: Record<string, TOIMDevIndexInfo> = {};
+        for (const [indexName, readIndex] of Object.entries(entry.indexes)) {
+            // NOTHING IS SETTLED HERE: `write` refuses to run inside a frame, so
+            // nothing is pending, and addresses are read rather than slots.
+            const bucketSlots = readIndex();
+            if (bucketSlots === undefined) continue;
+            const keys: unknown[] = [];
+            for (const bucketSlot of bucketSlots) {
+                keys.push(OIMDevRegistry.plainKeyOf(bucketSlot));
+            }
+            indexes[indexName] = { keyCount: keys.length, keys };
+        }
+
+        return {
+            count: rows.length,
+            samplePks: plainKeys.slice(0, 5),
+            sampleEntity: entities[0] ?? null,
+            entities,
+            indexes,
+            relations: entry.relations,
+            description: entry.description,
+        };
+    }
+
+    /** What names this identity, in a form a report can be serialised in. */
+    private static plainKeyOf(slot: TOIMKeyedSlot): unknown {
+        return OIMDevRegistry.plainKeyPartOf(slot.key);
+    }
+
+    private static plainKeyPartOf(key: unknown): unknown {
+        if (Array.isArray(key)) return key.map((segment: unknown) => OIMDevRegistry.plainKeyPartOf(segment));
+        if (key === null || typeof key !== 'object') return key;
+        return OIMDevRegistry.plainKeyPartOf((key as TOIMKeyedSlot).key);
     }
 }

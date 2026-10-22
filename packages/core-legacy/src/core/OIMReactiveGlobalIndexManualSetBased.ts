@@ -1,0 +1,63 @@
+import type { TOIMKey } from '../types/TOIMKey';
+import { OIMReactiveGlobalIndexSetBased } from '../abstract/OIMReactiveGlobalIndexSetBased';
+import { OIMGlobalIndexManualSetBased } from './OIMGlobalIndexManualSetBased';
+import type { OIMEventQueue } from './OIMEventQueue';
+import type { IOIMSingleUpdateEmitter } from '../interfaces/IOIMSingleUpdateEmitter';
+import type { TOIMIndexComparator } from '../types/TOIMIndexComparator';
+import type { TOIMAnyEntitySlot } from '../types/TOIMEntitySlot';
+
+class OIMGlobalIndexManualSetBasedReactive<
+    TPk extends TOIMKey,
+> extends OIMGlobalIndexManualSetBased<TPk> {
+    constructor(
+        private readonly emitter: IOIMSingleUpdateEmitter,
+        opts?: { comparePks?: TOIMIndexComparator<TPk> }
+    ) {
+        super(opts);
+    }
+
+    protected override emitUpdate(): void {
+        this.emitter.markUpdated();
+    }
+}
+
+/**
+ * Reactive manual set-based keyless index — raw-slot writes bridged to a
+ * single-carrier emitter. Mirrors {@link OIMReactiveIndexManualSetBased}.
+ */
+export class OIMReactiveGlobalIndexManualSetBased<
+    TPk extends TOIMKey,
+> extends OIMReactiveGlobalIndexSetBased<
+    TPk,
+    OIMGlobalIndexManualSetBased<TPk>
+> {
+    constructor(
+        queue: OIMEventQueue,
+        opts?: { indexOptions?: { comparePks?: TOIMIndexComparator<TPk> } }
+    ) {
+        super(
+            queue,
+            emitter =>
+                new OIMGlobalIndexManualSetBasedReactive<TPk>(
+                    emitter,
+                    opts?.indexOptions
+                )
+        );
+    }
+
+    public setSlots(slots: Iterable<TOIMAnyEntitySlot<TPk>>): void {
+        this.index.setSlots(slots);
+    }
+
+    public addSlots(slots: readonly TOIMAnyEntitySlot<TPk>[]): void {
+        this.index.addSlots(slots);
+    }
+
+    public removeSlots(slots: readonly TOIMAnyEntitySlot<TPk>[]): void {
+        this.index.removeSlots(slots);
+    }
+
+    public clear(): void {
+        this.index.clear();
+    }
+}

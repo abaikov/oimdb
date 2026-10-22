@@ -1,0 +1,138 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 37.471219893807366,
+            "floorNs": 19.3092622756958,
+            "floorAgainNs": 19.3451247215271,
+            "ratio": 1.9405826778256399,
+            "noise": 0.0018572664931087606,
+            "oursOperations": 1513476,
+            "floorOperations": 2097152,
+            "oursSpread": 0.04827184794301687,
+            "floorSpread": 0.10628819874561596,
+            "samples": 9,
+            "warmup": 23,
+            "oursWarmed": 23,
+            "floorWarmed": 23,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 2.73388671875,
+            "peak": 2.73388671875,
+            "readings": 3,
+            "foreignPeak": 1.73388671875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.24729347229004,
+            "floorNs": 19.196808338165283,
+            "floorAgainNs": 19.367575645446777,
+            "ratio": 1.0026298712387718,
+            "noise": 0.008895609325951893,
+            "oursOperations": 2097152,
+            "floorOperations": 2097152,
+            "oursSpread": 0.06373692229558159,
+            "floorSpread": 0.17266588215568707,
+            "samples": 9,
+            "warmup": 25,
+            "oursWarmed": 25,
+            "floorWarmed": 25,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 2.5947265625,
+            "peak": 2.5947265625,
+            "readings": 3,
+            "foreignPeak": 1.5947265625,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.prepend-list-vs-positions-map",
+            "path": "per write",
+            "ours": "insertMemberAt(bucket, 0, slot) into a list of 1024, membership kept in a Set",
+            "floor": "the same prepend, membership kept in a Map to positions",
+            "caveat": "THE OPERATION COUNT IS NOT IN DISPUTE AND THE RATIO NEVER WAS MEASURED. A prepend splices one member in at the front, which invalidates every position after it: the renumber is exactly `list.length - at` map writes, so 1025 of them here, against one memmove and one `Set.add` on our side. `OIMBucketMutatorOrderedUnique` calls that \"an order of magnitude more work\" with neither a count nor a measurement behind it, and this row is the measurement. EACH OPERATION IS A PREPEND AND A REMOVAL OF THE TAIL, so the list stays the length it is named for; the removal renumbers nothing on either design, since no position sits after the last. WHAT THE POSITIONS MAP BUYS is priced in the row below, and it is real: a position in one hash, and a removal by member with no scan to find it. DIRECTION: the index's own epilogue — the unlink, the link, the mark, the deferred release — is identical on both halves and is inside both numbers, which pulls this toward 1.00; and no frame is closed inside either body, so after the first operation every `mark` of this bucket takes its early return, on both halves alike. A LAZY positions map is a third design and this row does not refute it: renumbering on the first position asked after an edit rather than at the edit would take this cost out of the prepend entirely, and put a full pass on the first read after every write instead.",
+            "isControl": false,
+            "oursNs": 980.241839163943,
+            "floorNs": 10779.238374528697,
+            "floorAgainNs": 10814.777963971512,
+            "ratio": 0.09093794989080593,
+            "noise": 0.003297040867636315,
+            "oursOperations": 49566,
+            "floorOperations": 2387,
+            "oursSpread": 0.05229572549193382,
+            "floorSpread": 0.21337574963927378,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 2.466796875,
+            "peak": 2.50927734375,
+            "readings": 3,
+            "foreignPeak": 1.50927734375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.position-of-a-member-vs-positions-map",
+            "path": "per read",
+            "ours": "positionOf(bucket, member) in a list of 1024 — one hash, then a scan",
+            "floor": "the same question answered by a Map to positions — one hash",
+            "caveat": "THE ONE ROW IN THIS FILE WHERE THE DESIGN WE REJECTED WINS, and it should: a hash against a scan of five hundred on average. It is here because a pair that only shows a rejected design losing is an argument and not a measurement. WHAT IT DOES NOT SHOW is the call site. Both places in the engine that ask for a position splice with it immediately afterwards, and that splice is the same memmove for both designs — so this advantage does not survive into `insertMemberAt` or `setMemberAt`, and the row above is what it costs to have it at all. DIRECTION: this is the rejected design priced alone and at its most favourable, with none of the renumbering it pays for elsewhere; the members are cycled through with a mask so the scan length is uniform over the list rather than sitting at either end.",
+            "isControl": false,
+            "oursNs": 129.10977145294666,
+            "floorNs": 5.81232230443673,
+            "floorAgainNs": 5.698492618998747,
+            "ratio": 22.21311288164338,
+            "noise": 0.019975402803624795,
+            "oursOperations": 194577,
+            "floorOperations": 7921554,
+            "oursSpread": 0.11988925790007335,
+            "floorSpread": 0.11255059849432997,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 2.50927734375,
+            "peak": 2.50927734375,
+            "readings": 3,
+            "foreignPeak": 1.50927734375,
+            "over": false
+        }
+    }
+]

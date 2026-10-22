@@ -1,18 +1,10 @@
-import { OIMDevRegistry } from './core/OIMDevRegistry';
-
-export { OIMDevRegistry };
-export type { IOIMDevCollectionLike } from './interfaces/IOIMDevCollectionLike';
-export type { IOIMDevComputedLike } from './interfaces/IOIMDevComputedLike';
-export type { IOIMDevIndexLike } from './interfaces/IOIMDevIndexLike';
+export { OIMDevRegistry } from './core/OIMDevRegistry';
 export type { TOIMDevCollectionOptions } from './types/TOIMDevCollectionOptions';
-export type {
-    TOIMDevCollectionInfo,
-    TOIMDevComputedDepInfo,
-    TOIMDevComputedInfo,
-    TOIMDevFlushErrorRecord,
-    TOIMDevFlushRecord,
-    TOIMDevIndexInfo,
-    TOIMDevInspectResult,
-} from './types/TOIMDevInspectResult';
-
-export const registry = new OIMDevRegistry();
+export type { TOIMDevCollectionInfo } from './types/TOIMDevCollectionInfo';
+export type { TOIMDevComputedInfo } from './types/TOIMDevComputedInfo';
+export type { TOIMDevFlushErrorRecord } from './types/TOIMDevFlushErrorRecord';
+export type { TOIMDevFlushRecord } from './types/TOIMDevFlushRecord';
+export type { TOIMDevIndexInfo } from './types/TOIMDevIndexInfo';
+export type { TOIMDevInspectResult } from './types/TOIMDevInspectResult';
+export { oimDevRegistry } from './oimDevRegistry';
+export { oimInitDevtools } from './oimInitDevtools';

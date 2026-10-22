@@ -1,10 +1,9 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-
 const config: Config = {
   title: 'OIMDB',
-  tagline: 'High-performance reactive in-memory database for frontend applications',
+  tagline: 'Powerful state. Native speed.',
   favicon: 'img/favicon.svg',
 
   future: {
@@ -54,10 +53,26 @@ const config: Config = {
     ],
   ],
 
+  themes: [
+    [
+      '@easyops-cn/docusaurus-search-local',
+      {
+        hashed: true,
+        indexBlog: true,
+        docsRouteBasePath: '/docs',
+        highlightSearchTermsOnTargetPage: true,
+        explicitSearchResultPath: true,
+        searchResultLimits: 10,
+        searchBarShortcutHint: true,
+      },
+    ],
+  ],
+
   themeConfig: {
-    image: 'img/docusaurus-social-card.jpg',
+    image: 'img/oimdb-social-card.jpg',
     colorMode: {
-      respectPrefersColorScheme: true,
+      defaultMode: 'dark',
+      respectPrefersColorScheme: false,
     },
     navbar: {
       title: 'OIMDB',
@@ -92,7 +107,9 @@ const config: Config = {
           items: [
             {label: 'Introduction', to: '/docs/intro'},
             {label: 'Quick Start', to: '/docs/getting-started/quick-start'},
-            {label: 'Core Model', to: '/docs/core/model'},
+            {label: 'Recipes', to: '/docs/recipes'},
+            {label: 'Core concepts', to: '/docs/core/model'},
+            {label: 'API reference', to: '/docs/core/reference'},
             {label: 'Performance', to: '/docs/guides/performance'},
           ],
         },

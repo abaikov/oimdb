@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/persist-async-kv",
-  "version": "3.1.0",
-  "description": "Async key-value persistence backend for @oimdb/persist — React Native AsyncStorage, Cordova, any async KV",
+  "version": "4.0.0",
+  "description": "Async key-value persistence backend for @oimdb/persist \u2014 React Native AsyncStorage, Cordova, any async KV",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -23,13 +23,19 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
     }
+  },
+  "oimdbRelease": {
+    "publish": true
   },
   "scripts": {
     "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
     "test": "jest",
-    "type-check": "tsc --noEmit",
+    "type-check": "tsc --noEmit -p tsconfig.all.json",
     "clean": "rimraf dist",
     "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
@@ -37,8 +43,8 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^2.0.0 || ^3.0.0",
-    "@oimdb/persist": "^3.0.0"
+    "@oimdb/core": "^4.0.0",
+    "@oimdb/persist": "^4.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

@@ -1,47 +1,70 @@
-// --- Core engine ---
-export { OIMPersistor } from './core/OIMPersistor';
-export { OIMPersistResource } from './core/OIMPersistResource';
+export { OIMPersistor } from './persistor/OIMPersistor';
+export type { IOIMPersistBackend } from './persistor/interfaces/IOIMPersistBackend';
+export type { IOIMPersistWriteBatch } from './persistor/interfaces/IOIMPersistWriteBatch';
+export type { TOIMPersistorOptions } from './persistor/types/TOIMPersistorOptions';
 
-// --- Interfaces ---
-export type { IOIMAnyPersistResource } from './interfaces/IOIMAnyPersistResource';
+export type { TOIMPersistErrorContext } from './error/types/TOIMPersistErrorContext';
+export type { TOIMPersistErrorHandler } from './error/types/TOIMPersistErrorHandler';
+export type { TOIMPersistErrorReport } from './error/types/TOIMPersistErrorReport';
+export type { TOIMPersistOperation } from './error/types/TOIMPersistOperation';
 
-// --- Contracts / types ---
-export type { TOIMPersistUnsubscribe } from './types/TOIMPersistUnsubscribe';
-export type { TOIMPersistCodec } from './types/TOIMPersistCodec';
-export type { TOIMPersistSourceAdapter } from './types/TOIMPersistSourceAdapter';
-export type { TOIMPersistStrategy } from './types/TOIMPersistStrategy';
-export type { TOIMPersistResourceOptions } from './types/TOIMPersistResourceOptions';
-export type { TOIMPersistorOptions } from './types/TOIMPersistorOptions';
-export type { TOIMPersistErrorContext } from './types/TOIMPersistErrorContext';
-export type { TOIMPersistDelta } from './types/TOIMPersistDelta';
-export type { TOIMPersistKeyedCapability } from './types/TOIMPersistKeyedCapability';
-export type { TOIMPersistBatchItem } from './types/TOIMPersistBatchItem';
-export type { TOIMPersistHydrateReconcile } from './types/TOIMPersistHydrateReconcile';
-export type { TOIMEmitter } from './types/TOIMEmitter';
+export type { IOIMPersistResource } from './resource/interfaces/IOIMPersistResource';
+export { OIMPersistResourceSnapshot } from './resource/OIMPersistResourceSnapshot';
+export { OIMPersistResourceRecords } from './resource/OIMPersistResourceRecords';
+export type { TOIMPersistResourceSnapshotOptions } from './resource/types/TOIMPersistResourceSnapshotOptions';
+export type { TOIMPersistResourceRecordsOptions } from './resource/types/TOIMPersistResourceRecordsOptions';
 
-// --- Snapshot shapes ---
-export type { TOIMCollectionPersistSnapshot } from './types/TOIMCollectionPersistSnapshot';
-export type { TOIMObjectPersistSnapshot } from './types/TOIMObjectPersistSnapshot';
-export type { TOIMIndexPersistSnapshot } from './types/TOIMIndexPersistSnapshot';
+export type { IOIMPersistSnapshotSource } from './source/interfaces/IOIMPersistSnapshotSource';
+export type { IOIMPersistRecordSource } from './source/interfaces/IOIMPersistRecordSource';
+export type { IOIMPersistSourceChangeMark } from './source/interfaces/IOIMPersistSourceChangeMark';
+export { OIMPersistSourceChangeMarkSlotDriven } from './source/OIMPersistSourceChangeMarkSlotDriven';
+export type { TOIMPersistSourceChangeMarkSlotDrivenOptions } from './source/types/TOIMPersistSourceChangeMarkSlotDrivenOptions';
+export { OIMPersistSourceChangeMarkSubscriptionDriven } from './source/OIMPersistSourceChangeMarkSubscriptionDriven';
+export type {
+    TOIMPersistSourceChangeMarkSubscriptionDrivenOptions,
+} from './source/types/TOIMPersistSourceChangeMarkSubscriptionDrivenOptions';
+export type { TOIMPersistRecord } from './source/types/TOIMPersistRecord';
+export type { TOIMPersistRecords } from './source/types/TOIMPersistRecords';
+export type { TOIMPersistRecordsDelta } from './source/types/TOIMPersistRecordsDelta';
+export { OIMPersistSnapshotSourceSingleEntityDriven } from './source/OIMPersistSnapshotSourceSingleEntityDriven';
+export type { TOIMPersistSnapshotSourceSingleEntityDrivenOptions } from './source/types/TOIMPersistSnapshotSourceSingleEntityDrivenOptions';
+export { OIMPersistRecordSourceCollectionWriteDriven } from './source/OIMPersistRecordSourceCollectionWriteDriven';
+export { OIMPersistRecordSourceCollectionChangeDriven } from './source/OIMPersistRecordSourceCollectionChangeDriven';
+export type { TOIMPersistRecordSourceCollectionOptions } from './source/types/TOIMPersistRecordSourceCollectionOptions';
+export { OIMPersistRecordSourceBucketDriven } from './source/OIMPersistRecordSourceBucketDriven';
+export type { TOIMPersistRecordSourceBucketDrivenOptions } from './source/types/TOIMPersistRecordSourceBucketDrivenOptions';
+export { OIMPersistEntityWriter } from './source/OIMPersistEntityWriter';
+export type { TOIMPersistEntityWriterOptions } from './source/types/TOIMPersistEntityWriterOptions';
 
-// --- Source shapes ---
-export type { TOIMCollectionPersistSource } from './types/TOIMCollectionPersistSource';
-export type { TOIMObjectPersistSource } from './types/TOIMObjectPersistSource';
-export type { TOIMSetIndexPersistSource } from './types/TOIMSetIndexPersistSource';
-export type { TOIMArrayIndexPersistSource } from './types/TOIMArrayIndexPersistSource';
-export type { TOIMOrderedArrayIndexPersistSource } from './types/TOIMOrderedArrayIndexPersistSource';
+export type { IOIMPersistSnapshotStrategy } from './strategy/interfaces/IOIMPersistSnapshotStrategy';
+export type { IOIMPersistRecordsStrategy } from './strategy/interfaces/IOIMPersistRecordsStrategy';
 
-// --- Source adapters ---
-export { createCollectionSourceAdapter } from './adapters/createCollectionSourceAdapter';
-export { createObjectSourceAdapter } from './adapters/createObjectSourceAdapter';
-export { createSetIndexSourceAdapter } from './adapters/createSetIndexSourceAdapter';
-export { createArrayIndexSourceAdapter } from './adapters/createArrayIndexSourceAdapter';
-export { createOrderedArrayIndexSourceAdapter } from './adapters/createOrderedArrayIndexSourceAdapter';
+export type { IOIMPersistScheduler } from './schedule/interfaces/IOIMPersistScheduler';
+export { OIMPersistSchedulerFrameDriven } from './schedule/OIMPersistSchedulerFrameDriven';
+export type { TOIMPersistSchedulerFrameDrivenOptions } from './schedule/types/TOIMPersistSchedulerFrameDrivenOptions';
+export { OIMPersistSchedulerMicrotaskDriven } from './schedule/OIMPersistSchedulerMicrotaskDriven';
 
-// --- Hydration reconcilers ---
-export { byPk } from './reconcile/byPk';
+export type { IOIMPersistCodec } from './codec/interfaces/IOIMPersistCodec';
+export { OIMPersistCodecIdentity } from './codec/OIMPersistCodecIdentity';
+export { OIMPersistCodecVersioned } from './codec/OIMPersistCodecVersioned';
+export type { TOIMPersistCodecVersionedOptions } from './codec/types/TOIMPersistCodecVersionedOptions';
+export type { TOIMPersistVersionedShape } from './codec/types/TOIMPersistVersionedShape';
 
-// --- Versioned codec ---
-export { createVersionedCodec } from './utils/createVersionedCodec';
-export type { TOIMVersionedPersistedShape } from './types/TOIMVersionedPersistedShape';
-export type { TOIMVersionedCodecOptions } from './types/TOIMVersionedCodecOptions';
+export type { TOIMPersistHydrateReconcile } from './reconcile/types/TOIMPersistHydrateReconcile';
+export { oimReconcileByKey } from './reconcile/oimReconcileByKey';
+
+export type { IOIMPersistKeyValueStorage } from './keyvalue/interfaces/IOIMPersistKeyValueStorage';
+export { OIMPersistKeyValueStorageItemDriven } from './keyvalue/OIMPersistKeyValueStorageItemDriven';
+export type { TOIMPersistKeyValueItemStorage } from './keyvalue/types/TOIMPersistKeyValueItemStorage';
+export type { TOIMPersistKeyValueStorageItemDrivenOptions } from './keyvalue/types/TOIMPersistKeyValueStorageItemDrivenOptions';
+export { OIMPersistKeyValueBackend } from './keyvalue/OIMPersistKeyValueBackend';
+export type { TOIMPersistKeyValueBackendOptions } from './keyvalue/types/TOIMPersistKeyValueBackendOptions';
+export type { TOIMPersistKeyValueSerializer } from './keyvalue/types/TOIMPersistKeyValueSerializer';
+export { OIM_PERSIST_KEY_VALUE_JSON_SERIALIZER } from './keyvalue/constants/OIM_PERSIST_KEY_VALUE_JSON_SERIALIZER';
+export { OIMPersistKeyValueWriteBatch } from './keyvalue/OIMPersistKeyValueWriteBatch';
+export { OIMPersistWriteBatchChanges } from './persistor/OIMPersistWriteBatchChanges';
+export { oimWritePersistRecordsDelta } from './strategy/utils/oimWritePersistRecordsDelta';
+export { OIMPersistKeyValueEntryStrategy } from './keyvalue/OIMPersistKeyValueEntryStrategy';
+export type { TOIMPersistKeyValueEntryStrategyOptions } from './keyvalue/types/TOIMPersistKeyValueEntryStrategyOptions';
+export { OIMPersistKeyValuePathStrategy } from './keyvalue/OIMPersistKeyValuePathStrategy';
+export type { TOIMPersistKeyValuePathStrategyOptions } from './keyvalue/types/TOIMPersistKeyValuePathStrategyOptions';

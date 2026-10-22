@@ -42,14 +42,9 @@ public cancel(fn: () => void): void {
 
 Zero allocation per enqueue, and idempotent — the same `fn` enqueued twice runs once, because the `Set` keys on identity. Each emitter holds one stable `onFlush` method and enqueues that, so its scheduling dedup is just the `Set`.
 
-The disposer-closure shape against the by-reference one (3M iterations, no-op task — so this isolates queue overhead, not task work):
+No artifact under [`packages/bench/measurements/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements) covers this comparison, so no timing is stated (see [How we measure](/docs/performance/)).
 
-| approach | enqueue + cancel | enqueue + flush |
-|---|---|---|
-| disposer closure | 0.116 µs | 0.135 µs |
-| by reference | 0.067 µs | 0.067 µs |
-
-The gap (~0.05–0.07 µs) is the closure the call no longer allocates. By-reference reads the same for cancel and flush because the task is a no-op: at this resolution the closure alloc is the only thing that moves, so removing it flattens both columns to the bare `Set` op.
+What survives without a stopwatch is the allocation count, which is the actual argument. Per enqueue, the disposer shape allocates one closure and the wrapper shape allocates one object; the by-reference shape allocates **zero**, and adds the reference to a `Set` that dedups on identity. Every one of those allocations is also garbage the moment the task runs. How many nanoseconds a closure allocation costs on a given machine is exactly the part this post can no longer tell you — what it can tell you is that on this path there isn't one.
 
 ## Cost
 
@@ -57,4 +52,4 @@ Cancellation needs the caller to hold the original reference and pass the same o
 
 ## Where it lives
 
-`packages/core/src/core/OIMEventQueue.ts`
+`packages/core-legacy/src/core/OIMEventQueue.ts` — the legacy engine, kept at `packages/core-legacy`. The engine shipped today has no task queue to cancel from: `OIMFlushScheduler` arms one wake and `OIMChannel` holds the list of effects that owe a run.

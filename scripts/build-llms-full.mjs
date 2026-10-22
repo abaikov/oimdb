@@ -13,20 +13,15 @@ const read = p => readFileSync(join(root, p), 'utf8').trimEnd();
 
 const master = read('llms.txt');
 
-// Master reference first.
 const parts = [master];
 
-// Then each package's OWN reference. Core leads; the rest follow alphabetically so the output is
-// deterministic and new packages are picked up automatically.
-//
 // Packages that ship the master reference rather than writing their own get their `llms.txt` from
 // `prepack` (`copyFileSync('../../llms.txt', …)`). Concatenating those repeats the master once per
-// package — which is what used to happen: 71% of the generated output was the same 47 KB, four
-// times over.
+// package: 71% of the output was the same 47 KB, four times over.
 //
 // The test is "is this file tracked by git": a package's OWN reference is committed, a prepack copy
 // is gitignored. Comparing content against the master instead looks equivalent but is not — the
-// moment the root file is edited, yesterday's copies stop matching and silently come back.
+// moment the root file is edited, the copies stop matching and silently come back.
 const isTracked = path => {
     try {
         execFileSync('git', ['ls-files', '--error-unmatch', path], {
@@ -41,8 +36,18 @@ const isTracked = path => {
 
 const pkgDir = join(root, 'packages');
 const skipped = [];
+const frozen = [];
 const withLlms = readdirSync(pkgDir)
     .filter(name => existsSync(join(pkgDir, name, 'llms.txt')))
+    // A `-legacy` package is a frozen record of an engine that is not here. Its
+    // reference is written against symbols nothing exports, and it can only tell an
+    // assistant what this repository used to be — which is the one thing this file
+    // must not do. Kept in the tree, kept out of the shipped reference.
+    .filter(name => {
+        if (!name.endsWith('-legacy')) return true;
+        frozen.push(name);
+        return false;
+    })
     .filter(name => {
         if (isTracked(`packages/${name}/llms.txt`)) return true;
         skipped.push(name);
@@ -71,5 +76,6 @@ console.log(
     `llms-full.txt written: master + ${withLlms.length} package refs (${withLlms.join(', ') || 'none'}).` +
         (skipped.length
             ? ` Skipped ${skipped.length} untracked prepack ${skipped.length === 1 ? 'copy' : 'copies'}: ${skipped.join(', ')}.`
-            : '')
+            : '') +
+        (frozen.length ? ` Left out ${frozen.length} frozen: ${frozen.join(', ')}.` : '')
 );

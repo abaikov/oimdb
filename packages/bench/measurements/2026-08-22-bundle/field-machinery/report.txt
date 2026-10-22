@@ -1,0 +1,231 @@
+OIMDB — WHAT THE FIELD MACHINERY COSTS AN APPLICATION THAT NEVER TOUCHES IT
+
+ONE application, bundled twice, tree-shaken, minified and gzipped. It files rows into a
+population, keeps one index whose membership it writes by hand, subscribes and reads — and it
+declares no `dependsOn` and calls no `subscribeToField`, so the field-recording and
+column-routing apparatus is inert for it from the first line to the last. That half is already
+settled without a bundler: a manual membership source declares `selects?: undefined`, so
+`dependents` stays empty and the routing loop returns on `size === 0`, and every recording site
+is behind `slot.movedFields !== undefined`, which nothing sets until a field subscription
+arrives. ZERO TIME, AND THE BYTES ARE THE OPEN QUESTION. THE TWO ARMS DIFFER IN THE ENGINE, NOT
+IN THE CONSUMER, and they have to: the grouping split already happened, so a consumer can choose
+to import from `src/groupings/` and two real programs exist — nothing a consumer writes can
+decline `recordMovedFields`, so two arms over today's engine would differ by exactly zero. The
+second arm is therefore a COUNTERFACTUAL BUILD: the same consumer module, against
+`packages/core/src` with the apparatus removed in memory, member by member, every rule asserted
+by occurrence count and every one of them printed under the arm below.
+
+esbuild 0.25.9   esm / browser / es2020   minify on   gzip -9   node v24.16.0
+engine measured: 102 files, 726,323 B of source (comments included — the minifier removes them, the control below says by how much)
+
+NO LOAD GATE AND NO REFUSAL, unlike every other table under measurements/. A byte count is
+deterministic: the same source through the same bundler emits the same bytes whatever else the
+machine is doing. Nothing here was skipped — there was nothing to skip.
+
+THE INSTRUMENT, BEFORE ANY BYTE
+
+       from        to  ratio  requirement                                       control
+   44.74 KB   9.88 KB  0.22x  a database alone under 60% of the whole surface   control-tree-shaking
+  248.34 KB  44.74 KB  0.18x  minified under 70% of the same bundle unminified  control-minified
+
+  A database alone is 22.1% of the published surface, so unreachable code is being dropped.
+  Minifying took the whole surface to 18.0% of itself, so the minifier ran and these are shipped bytes.
+
+THE DIFFERENCE
+
+minified   gzipped  of package  of package (gz)  difference
++2.51 KB  +0.57 KB        5.6%             4.6%  field-machinery-diff
+
+KB is bytes / 1024. "of package" is the difference over the arm that keeps every export with
+nothing droppable — the largest denominator available, chosen so the percentage is not
+flattered.
+
+field-machinery-diff
+  What does the field-recording and column-routing apparatus add to an application that
+  declares no dependsOn and calls no subscribeToField?
+  from   field-lifted (minified)            23,851 B  7,166 B gzipped
+  to     field-floor (minified)             26,421 B  7,752 B gzipped
+  delta  +2,570 B (+2.51 KB)  ·  +586 B gzipped (+0.57 KB)
+  share  5.6% of the package minified  ·  4.6% gzipped
+  READ THE GZIPPED NUMBER. Minified bytes are what a bundle report shows and what an argument
+  gets made with; gzipped bytes are what a user downloads, and it is the gzipped column this
+  row should be quoted from. NO FIGURE WAS PREDICTED FOR EITHER COLUMN [FIGURE STATED IN
+  ADVANCE]: the grouping split measured +10.15 KB minified and +2.55 KB gzipped for the
+  analogous question (measurements/2026-08-21-bundle/groupings, row grouping-layer-diff), and
+  there is no arithmetic that carries that across — the grouping arm pinned eight strategy
+  classes and their closure, this one removes guards, two maps and a short loop. Saying so is
+  the whole of the prediction. THE ROW IS A LOWER BOUND on what a split would save, and every
+  reason points the same way: the excision leaves the `import { recordMovedFields }` lines in
+  place, leaves `assertColumnsAreDeclared` on the membership source the consumer imported,
+  leaves `OIMSingletonEntitySlot` alone, and leaves every doc comment of every member it
+  removed. There is nothing in it that could make the difference larger than a real split
+  would. THE SECOND ARM IS A COUNTERFACTUAL: no published @oimdb/core builds it, and what was
+  taken out is listed under the arm below and in records.json. THE PROOF THE LIST IS COMPLETE
+  is in the module table — the imports were left in, so if any recording site had been missed
+  the bundler would have kept core/recordMovedFields.ts in the lifted arm too. THE DENOMINATOR
+  is every name the package exports with nothing droppable, the largest available and
+  therefore the least flattering to the percentage.
+
+WHAT THE DIFFERENCE IS MADE OF
+
+  +1,431 B  packages/core/src/core/OIMDB.ts
+    +899 B  packages/core/src/abstract/OIMCollection.ts
+    +195 B  packages/core/src/core/recordMovedFields.ts
+     +35 B  packages/core/src/core/createCollectionSlot.ts
+      +2 B  packages/core/src/core/createEffectNode.ts
+      +1 B  packages/core/src/core/leaveHeldBucket.ts
+      +1 B  packages/core/src/core/OIMMembershipSourceManual.ts
+
+Every module of @oimdb/core whose contribution differs between the two arms, and by how much.
+They come to +2,564 B of the +2,570 B between the two bundles; the remaining +6 B is the arm's
+own call site and the bundler's glue, which the caveat above deliberately does not subtract.
+This is the list the caveat's claim about WHAT THE DIFFERENCE CONTAINS has to match — if a
+module nobody mentioned is on it, the claim is stale and this table is the thing that noticed.
+
+THE ARMS, IN FULL
+
+minified   gzipped  unminified  core kept  modules  record?  arm
+44.74 KB  12.53 KB   248.34 KB   43.96 KB       66  0.19 KB  everything
+ 9.88 KB   3.17 KB    94.30 KB    9.84 KB        9  0.19 KB  database-only
+23.29 KB   7.00 KB   188.47 KB   22.79 KB       34       no  field-lifted
+25.80 KB   7.57 KB   193.26 KB   25.29 KB       35  0.19 KB  field-floor
+
+"core kept", "modules" AND "record?" COUNT WHAT THE BUNDLER KEPT, NOT WHAT IT READ. All three
+come from esbuild's own per-module byte contributions to the minified output: "modules" is how
+many modules of @oimdb/core contributed more than nothing, "core kept" is what they came to
+together, and "record?" is what core/recordMovedFields.ts contributed on its own — or "no" where
+the bundler dropped it. A module that was shaken out is absent, not counted at zero.
+
+AN EARLIER VERSION OF THIS HARNESS READ THE INPUT GRAPH INSTEAD — every file esbuild opened,
+including the ones it then dropped — and reported the same 61 modules and the same "diff: yes"
+for all four arms while their bundles differed by a factor of four. A recorded run under
+measurements/ that still says that predates this fix, and its module column is answering "did
+the bundler open this file", not "does a consumer ship it".
+
+AND "core kept" IS A PART OF "minified", NOT A SECOND MEASUREMENT OF IT. What it leaves out is
+the arm's own source and the bundler's glue — which is why the ENGINE's toll is that column and
+not the bundle total beside it.
+
+everything   packages/bench/src/bundle/consumers/everything.ts
+  every name @oimdb/core exports, re-exported so nothing is droppable
+  kept 66 modules of @oimdb/core, 45,010 B of this arm's 45,811 B minified bundle:
+     7,440 B  packages/core/src/core/OIMDB.ts
+     4,777 B  packages/core/src/abstract/OIMCollection.ts
+     3,204 B  packages/core/src/core/OIMIndex.ts
+     3,119 B  packages/core/src/core/OIMBucketMutatorOrdered.ts
+     2,358 B  packages/core/src/core/membersInOrder.ts
+     1,911 B  packages/core/src/core/OIMIndexPositional.ts
+     1,745 B  packages/core/src/core/OIMMembershipSourceDerivedMany.ts
+     1,266 B  packages/core/src/core/diffOrderedList.ts
+    19,190 B  + 58 more modules — every one of them in records.json
+  core/recordMovedFields.ts IS among them, at 195 B
+
+database-only   packages/bench/src/bundle/consumers/databaseOnly.ts
+  new OIMDB() and nothing else — the toll every consumer pays
+  kept 9 modules of @oimdb/core, 10,081 B of this arm's 10,117 B minified bundle:
+    7,431 B  packages/core/src/core/OIMDB.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+      685 B  packages/core/src/core/OIMSubscriberStore.ts
+      566 B  packages/core/src/core/createEffectNode.ts
+      271 B  packages/core/src/core/OIMBucketOwner.ts
+      195 B  packages/core/src/core/recordMovedFields.ts
+       92 B  packages/core/src/core/OIMObservable.ts
+       86 B  packages/core/src/core/OIMMembersObservable.ts
+       43 B  packages/core/src/core/sameValueZero.ts
+  core/recordMovedFields.ts IS among them, at 195 B
+
+field-lifted   packages/bench/src/bundle/consumers/fieldFloor.ts
+  the identical application against an engine where the field machinery is not reachable — a counterfactual build, not a package anybody can install
+  COUNTERFACTUAL ARM — built against an engine with the following removed in memory. No published @oimdb/core produces this bundle:
+    - abstract/OIMCollection.ts — the column-name → moved-rows-channel map `dependsOn` builds (×1)
+    - abstract/OIMCollection.ts — the routing loop every write runs twice — the column half of the write path (×1)
+    - abstract/OIMCollection.ts — the sweep that drops a column channel nothing reads any more (×1)
+    - abstract/OIMCollection.ts — the four guarded recordings on the population write path (×4)
+    - abstract/OIMCollection.ts — the three call sites of the routing loop (×3)
+    - abstract/OIMCollection.ts — the sweep's call site, in removeIndex (×1)
+    - abstract/OIMCollection.ts — the registration-time refusal of an index that declared no column (×1)
+    - abstract/OIMCollection.ts — reading the declaration out of the index options (×1)
+    - abstract/OIMCollection.ts — the declared columns themselves (×1)
+    - abstract/OIMCollection.ts — the selector's columns and the comparator's, gathered as one routing (×1)
+    - abstract/OIMCollection.ts — folding the mutator's columns into that set (×1)
+    - abstract/OIMCollection.ts — minting one channel per declared column at addIndex — `presence` is kept (×1)
+    - core/OIMDB.ts — the observable over one column of one row — the only caller of subscribeToField (×1)
+    - core/OIMDB.ts — told only when one named column moved (×1)
+    - core/OIMDB.ts — the same over several columns (×1)
+    - core/OIMDB.ts — which columns of this row moved in the frame being delivered (×1)
+    - core/OIMDB.ts — allocating the recording array, and crediting one born behind a write (×1)
+    - core/OIMDB.ts — giving the array back once nothing is listening to the row at all (×1)
+    - core/OIMDB.ts — the set that remembers which arrays are owed a credit this frame (×1)
+    - core/OIMDB.ts — channel → identity, so a disposer can find the array to free (×1)
+    - core/OIMDB.ts — the ask on every unsubscribe of every kind, in subscribe's disposer (×1)
+    - core/OIMDB.ts — emptying the credit set at the end of every frame, in flush (×1)
+    - core/createCollectionSlot.ts — the recording array's slot on every row of every population (×1)
+    - core/createCollectionSlot.ts — the frame stamp that array describes (×1)
+  kept 34 modules of @oimdb/core, 23,334 B of this arm's 23,851 B minified bundle:
+    6,004 B  packages/core/src/core/OIMDB.ts
+    3,876 B  packages/core/src/abstract/OIMCollection.ts
+    3,204 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+      706 B  packages/core/src/abstract/OIMIndexStrategy.ts
+    5,338 B  + 26 more modules — every one of them in records.json
+  core/recordMovedFields.ts is NOT among them
+
+field-floor   packages/bench/src/bundle/consumers/fieldFloor.ts
+  a database, a population, a manual index, a batch, two subscriptions and a write — no dependsOn, no subscribeToField
+  kept 35 modules of @oimdb/core, 25,898 B of this arm's 26,421 B minified bundle:
+    7,435 B  packages/core/src/core/OIMDB.ts
+    4,775 B  packages/core/src/abstract/OIMCollection.ts
+    3,204 B  packages/core/src/core/OIMIndex.ts
+    1,911 B  packages/core/src/core/OIMIndexPositional.ts
+      860 B  packages/core/src/abstract/OIMBucketAddressStore.ts
+      723 B  packages/core/src/core/assertNoBucketIsHeld.ts
+      712 B  packages/core/src/core/OIMEffectScheduler.ts
+      706 B  packages/core/src/abstract/OIMIndexStrategy.ts
+    5,572 B  + 27 more modules — every one of them in records.json
+  core/recordMovedFields.ts IS among them, at 195 B
+
+The "record?" column is the bundler's own answer to the question
+packages/core/tests/what-an-import-retains.test.ts answers by reading import statements with no
+toolchain at all. Two instruments, one fact. If they ever disagree, one of them is wrong and
+finding out which is worth more than either number.
+
+THE BREAKDOWN UNDER EACH ARM IS WHY THE COLUMN CAN BE TRUSTED TO DISAGREE. A count alone has one
+way to be wrong and no way to show it; a list of modules with the bytes each one contributed can
+be opened, added up, and checked against the source. database-only is printed in full because it
+is the toll no consumer can avoid — what this engine charges an application that constructs a
+database and asks for nothing else, module by module. The longer arms are cut to the largest
+few, with the count and the bytes of the remainder on the line below; records.json keeps every
+module of every arm.
+
+IF THIS COMES OUT SMALL — AND IT MAY WELL
+
+THEN THE QUESTION IS CLOSED, AND THAT IS THE RESULT. `recordMovedFields.ts` is a small module
+and the routing is a short loop over a map that is empty. A measured "this is not worth
+splitting" is worth more than a split nobody needed, and it is worth more than the open question
+the header of `OIMCollection.ts` leaves behind: that file records the argument for moving eight
+strategies to `src/groupings/`, the field machinery was not moved with them, and no entry
+anywhere says why. A few hundred bytes here is that entry.
+
+IT WOULD NOT MEAN THE APPARATUS IS FREE. This row is a LOWER BOUND and every omission in the
+excision points the same way — the imports are left in, the membership source keeps its empty
+`assertColumnsAreDeclared`, `OIMSingletonEntitySlot` is untouched, and every doc comment of
+every removed member stays. A real split would take more out than this arm did, so the true
+saving is at least this number rather than at most it.
+
+AND A LARGE NUMBER WOULD NOT BE A DESIGN ON ITS OWN. What this arm does is DELETE; what a split
+has to do is MOVE, and this does not move as cleanly as four grouping functions did.
+`reindexDependents` is on the write path of every population, so lifting it means a caller who
+declares a column installs something that path then calls — an indirection on the hottest path
+this engine has, which is a cost in nanoseconds against a saving in bytes. This piece prices one
+side of that trade and says nothing about the other; `packages/bench/src/price/` is where the
+other side would be measured, and it has not been.
+
+WHAT DESERVES ATTENTION EITHER WAY IS THE SHAPE OF THE BREAKDOWN. If the difference is mostly
+`core/recordMovedFields.ts` and `core/OIMDB.ts`, this is a database-side surface and the
+population barely pays for it — which would mean the header of `OIMCollection.ts` names the
+wrong owner for the argument. If it is mostly `abstract/OIMCollection.ts`, that header names the
+right one, and the machinery's omission from the grouping move is the thing that wants
+explaining.

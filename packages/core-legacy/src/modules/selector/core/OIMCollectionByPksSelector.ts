@@ -1,0 +1,42 @@
+import type { TOIMKey } from '../../../types/TOIMKey';
+import type { OIMReactiveCollection } from '../../../core/OIMReactiveCollection';
+import { OIMSelector } from './OIMSelector';
+import { OIMSelectorSourceDependencyUpdateEventEmitterKeys } from './OIMSelectorSourceDependencyUpdateEventEmitterKeys';
+import type { OIMComputeRuntime } from '../../compute/core/OIMComputeRuntime';
+
+export class OIMCollectionByPksSelector<
+    TEntity extends object,
+    TPk extends TOIMKey,
+> extends OIMSelector<readonly (TEntity | undefined)[]> {
+    private readonly pks: readonly TPk[];
+
+    constructor(
+        runtime: OIMComputeRuntime,
+        private readonly collection: OIMReactiveCollection<TEntity, TPk>,
+        pks: readonly TPk[]
+    ) {
+        super(runtime, [
+            new OIMSelectorSourceDependencyUpdateEventEmitterKeys<TPk>(
+                collection.emitter,
+                pks
+            ),
+        ]);
+        this.pks = pks;
+    }
+
+    public getValue(): readonly (TEntity | undefined)[] {
+        return this.pks.map(pk => this.collection.getOneByPk(pk));
+    }
+
+    protected areEqual(
+        prev: readonly (TEntity | undefined)[],
+        next: readonly (TEntity | undefined)[]
+    ): boolean {
+        if (prev === next) return true;
+        if (prev.length !== next.length) return false;
+        for (let i = 0; i < prev.length; i++) {
+            if (prev[i] !== next[i]) return false;
+        }
+        return true;
+    }
+}

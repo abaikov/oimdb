@@ -1,0 +1,150 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.89x  37 ns  20 ns   1.1%     ~1.9x  control-resolution-2x
+1.01x  19 ns  19 ns   0.1%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.89x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.6% of 1.00 is a reading.
+
+THE PRICES, worst ratio first
+
+  ratio   ours  floor  noise  path      operation
+  7.17x   9 ns   1 ns   0.3%  per read  value.construct-and-read-vs-object
+  3.80x   6 ns   2 ns   0.2%  per read  field.held-getValue-vs-property
+  3.10x   3 ns   1 ns   2.7%  per read  read.members-vs-array-iteration
+  3.09x   4 ns   1 ns   3.4%  per read  value.held-getValue-vs-object
+  2.29x  20 ns   9 ns   1.6%  per read  bucketFor.vs-map-get
+  1.25x   3 ns   3 ns   0.2%  per read  read.members-vs-set-iteration
+  0.72x   6 ns   8 ns   0.7%  per read  memberCount.vs-set-size
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+value.construct-and-read-vs-object   [per read]   7.17x
+  ours   db.value(slot).getValue() — built and thrown away at the read
+  floor  the object itself, held
+  THE SAME CALL AS THE ROW ABOVE WRITTEN THE WAY THE DOCUMENTATION SAYS NOT TO, so the gap
+  between the two ratios is the price of building the observable rather than holding it: an
+  object and two closures, per read, all immediately garbage. It is on the table because it is
+  what a render body does when nobody has said otherwise, and because a price nobody can see
+  is a price nobody believes. The allocation debt is collected outside the clock, between
+  samples, so this number is the construction and not the collection of it.
+  measured  5,966,408 ops/pass ours, 38,442,244 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 8.3%/6.4%; load 2.73 → 2.85 on 8 cores
+
+field.held-getValue-vs-property   [per read]   3.80x
+  ours   observable.getValue() on a db.field(slot, 'title') built once and held
+  floor  row.title
+  A column read through the graph against a property read. Ours goes closure → slot → entity →
+  optional chain → indexed property, and answers `string | undefined` twice over: the identity
+  may carry no value and the value may not carry the column. The floor is one property of an
+  object somebody is holding. What ours buys is that `onChange` here wakes only when THIS
+  column moved, which is the narrowest signal the engine has; the frame group prices what that
+  delivery costs, and this row prices only the read.
+  measured  8,180,924 ops/pass ours, 30,579,646 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 8.4%/7.7%; load 2.85 → 2.87 on 8 cores
+
+read.members-vs-array-iteration   [per read]   3.10x
+  ours   for (const slot of db.read(bucket)) slot.entity — per member visited
+  floor  for (let i = 0; i < rows.length; i++) — per member visited
+  THE SAME OUR-SIDE BODY AS THE ROW ABOVE AGAINST THE FLOOR SOMEBODY WOULD ACTUALLY WRITE. An
+  indexed array walk is the fastest way there is to visit a hundred objects and it beats a
+  `Set` iterator handily, so this ratio is the worse of the two and the more honest answer to
+  "what does reading a group cost me". What the array cannot do is stay correct: nothing
+  maintains it, nothing can be woken by it, and it holds rows rather than identities that
+  outlive them. The gap between this ratio and the `set-iteration` one above is a property of
+  JavaScript containers, not of either design.
+  measured  14,519,694 ops/pass ours, 45,732,790 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 13.5%/12.3%; load 2.57 → 2.76 on 8 cores
+
+value.held-getValue-vs-object   [per read]   3.09x
+  ours   observable.getValue() on a db.value(slot) built once and held
+  floor  the object itself, held
+  THE READ PATH AS THE DOCUMENTATION INTENDS IT: the observable is built outside the clock,
+  once per row, and the timed body only calls it. So this is a closure call and a field read
+  against a variable read. What ours buys over the floor is `onChange` on the same object —
+  the reason a reader can be told rather than polling — which this row does not exercise and
+  does not charge for.
+  measured  12,388,658 ops/pass ours, 38,134,668 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 23.5%/12.7%; load 2.70 → 2.73 on 8 cores
+
+bucketFor.vs-map-get   [per read]   2.29x
+  ours   index.bucketAddressStore.bucketFor(address) — the bucket, without the handle
+  floor  byGroup.get(address)
+  THE SAME QUESTION AS THE ROW ABOVE WITH THE HANDLE TAKEN OFF, printed so the reader can see
+  which half of that ratio is the address lookup and which half is the observable. Ours mints
+  on a miss (every address here hits) and carries a last-resolved cache, so a body that asks
+  for the same address twice in a row answers the second from a reference comparison — this
+  body cycles through all sixty-four addresses, which defeats that cache deliberately, because
+  a benchmark that hits it every time would price a comparison and call it a lookup.
+  measured  2,097,152 ops/pass ours, 2,938,135 floor; 9 samples; warm-up 30 planned, 30/30 reached; spread 4.9%/23.1%; load 2.32 → 2.53 on 8 cores
+
+read.members-vs-set-iteration   [per read]   1.25x
+  ours   for (const slot of db.read(bucket)) slot.entity — per member visited
+  floor  for (const row of set) — per member visited, same container kind
+  THE SAME CONTAINER ON BOTH SIDES: an unordered bucket holds its members in a `Set`, so this
+  floor is the structural equal. Ours pays two things the floor does not — the index is
+  settled on every read (deferred filing is what makes a write cheap, and the read is where
+  that debt is collected, here with nothing outstanding) and every member is a slot the
+  consumer must dereference to reach the row, which this body does. The per-read costs —
+  settling and allocating an iterator — are amortised over the hundred-odd members of a
+  bucket, so a caller reading buckets of one pays far more per member than this row shows.
+  measured  15,171,100 ops/pass ours, 18,941,042 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 9.5%/4.6%; load 2.53 → 2.57 on 8 cores
+
+memberCount.vs-set-size   [per read]   0.72x
+  ours   db.memberCount(bucket)
+  floor  set.size
+  Ours settles the index before answering, because a count taken before the frame's deferred
+  filing has run would be last frame's count — that settle is the whole difference and it is
+  charged on every call, with nothing outstanding to settle in this body. The floor reads a
+  field of a container whose correctness is somebody else's problem. Both sides cycle through
+  all sixty-four buckets rather than asking the same one repeatedly.
+  measured  4,414,004 ops/pass ours, 3,182,631 floor; 9 samples; warm-up 39 planned, 39/39 reached; spread 9.6%/10.8%; load 2.76 → 2.76 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.89x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.01x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

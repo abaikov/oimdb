@@ -1,0 +1,27 @@
+---
+sidebar_position: 3
+title: Participants
+---
+
+import {BenchParticipants} from '@site/src/components/Bench/BenchAudit';
+
+# Participants
+
+A library is measured when it **owns the data and emits a change signal for it**, both
+halves its own. Each row is driven by an adapter in
+[`packages/bench/src/adapters/`](https://github.com/abaikov/oimdb/tree/master/packages/bench/src/adapters),
+and each adapter has an **audit card** answering one question per wiring: is this the
+way the library's own documentation and source say to do it, on its fast path?
+
+| verdict | meaning |
+|---|---|
+| `idiomatic` | the documented way, on the library's fast path |
+| `improvable` | correct, but a documented faster way exists and is not used |
+| `handicapped` | the adapter makes the library do work an ordinary user would not |
+| `advantaged` | the adapter does part of the library's job, or skips work the script asks for |
+
+A card is tied to the exact adapter source and library versions it was written against.
+When either changes, the card is shown as **stale** until somebody re-reads it. The
+state is computed, not remembered.
+
+<BenchParticipants />

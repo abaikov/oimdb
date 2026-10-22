@@ -1,29 +1,17 @@
-// One project, not two. The JSX suite declares its own environment with a
-// `@jest-environment jsdom` docblock, which is all the split was ever for — and unlike nested
-// `projects`, a plain config still carries its preset and transform when the root run loads it.
 module.exports = {
     preset: 'ts-jest',
     testEnvironment: 'node',
     watchman: false,
-    roots: ['<rootDir>/tests'],
-    testMatch: ['**/*.test.ts', '**/*.test.tsx'],
-    moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
-    transform: {
-        '^.+\\.tsx?$': [
-            'ts-jest',
-            { tsconfig: { jsx: 'react-jsx' } },
-        ],
-    },
-    moduleNameMapper: {
-        '^react$': '<rootDir>/node_modules/react',
-        '^react-dom$': '<rootDir>/node_modules/react-dom',
-        '^@oimdb/core$': '<rootDir>/../core/src',
-        '^@oimdb/react$': '<rootDir>/../react/src',
-    },
-    collectCoverageFrom: [
-        'src/**/*.ts',
-        '!src/**/*.d.ts',
-        '!src/**/*.test.ts',
-        '!src/**/*.spec.ts',
-    ],
+    roots: ['<rootDir>/tests', '<rootDir>/src'],
+    testMatch: ['**/*.test.ts'],
+    moduleNameMapper: { '^@oimdb/core$': '<rootDir>/../core/src' },
+    collectCoverageFrom: ['src/**/*.ts', '!src/index.ts'],
+    // ts-jest type-checks by default, and every package maps `@oimdb/core` to
+    // `../core/src` — so each worker built a full TypeScript program over the
+    // whole core tree just to run assertions that take microseconds. Under
+    // `isolatedModules` ts-jest transpiles file-by-file instead, with no
+    // language service and no program: the compile cost and the memory that
+    // came with it disappear. Types are still checked, by `npm run type-check`
+    // and by the build — not once per jest worker.
+    transform: { '^.+\\.tsx?$': ['ts-jest', { tsconfig: { isolatedModules: true } }] },
 };

@@ -8,15 +8,14 @@
  * is noisy. Do not silence a rule repo-wide to make new code pass; fix the code
  * or pin the one line with a reason.
  *
- * Rules deliberately NOT enabled yet, with today's violation counts — turning any
- * of them on means fixing those first:
- *   @typescript-eslint/consistent-type-imports        782  (fully `--fix`-able)
+ * Rules deliberately NOT enabled, with their violation counts — turning any of
+ * them on means fixing those first:
  *   @typescript-eslint/explicit-member-accessibility  217
  *   @typescript-eslint/no-non-null-assertion           16  (each needs a real guard, not a mechanical edit)
  *
  *   @typescript-eslint/consistent-type-definitions    192  — and it should stay off.
  *     It rewrites `type X = {…}` to `interface X {…}`, which this repo cannot do
- *     mechanically: CLAUDE.md gives types and interfaces DIFFERENT prefixes
+ *     mechanically: the naming rules give types and interfaces DIFFERENT prefixes
  *     (`TOIM…` vs `IOIM…`), and `naming-convention` above enforces both on the
  *     exported surface. So every autofix turns a legal `TOIMFooOptions` into an
  *     interface that then violates the interface rule, and honouring it means
@@ -28,7 +27,7 @@ module.exports = {
     root: true,
     parser: '@typescript-eslint/parser',
     extends: ['eslint:recommended', 'plugin:@typescript-eslint/recommended'],
-    plugins: ['@typescript-eslint'],
+    plugins: ['@typescript-eslint', 'react-hooks'],
     parserOptions: {
         ecmaVersion: 2022,
         sourceType: 'module',
@@ -52,11 +51,24 @@ module.exports = {
         '*.js',
     ],
     rules: {
+        // A value import meant as `import type` shows up only as a number in somebody else's bundle.
+        '@typescript-eslint/consistent-type-imports': ['error', {
+            prefer: 'type-imports',
+            fixStyle: 'separate-type-imports',
+        }],
+
         // A duplicated key in an object literal is silent: the last one wins and the earlier
         // implementation is dead code that still reads as live. The TS preset switches this off
         // (the compiler flags it in some positions, not all), and a benchmark adapter assembled by
         // editing blocks hit exactly the gap — several scenarios ran a stale shadowed version.
         'no-dupe-keys': 'error',
+
+        // A component-owned computed whose options close over a prop missing from `deps` keeps
+        // showing the old value with no error anywhere; only the call site can see that.
+        'react-hooks/rules-of-hooks': 'error',
+        'react-hooks/exhaustive-deps': ['error', {
+            additionalHooks: '^(useOIMSingleComputedValue|useOIMComputedCollection)$',
+        }],
 
         // A private field or method nobody reads is dead weight that still reads
         // as live — and `@typescript-eslint/no-unused-vars` does not look inside
@@ -76,7 +88,7 @@ module.exports = {
                 caughtErrorsIgnorePattern: '^_',
             },
         ],
-        // CLAUDE.md: no `any`. Use `unknown`, a generic, or a discriminated union.
+        // House rule: no `any`. Use `unknown`, a generic, or a discriminated union.
         '@typescript-eslint/no-explicit-any': 'error',
         eqeqeq: ['error', 'smart'],
         'prefer-const': 'error',
@@ -88,14 +100,8 @@ module.exports = {
         // into a draft/accumulator handed in as a parameter, which is the whole
         // point of those functions.
         'no-param-reassign': 'error',
-        // `else` after a `return` adds a nesting level that carries no
-        // information — the early return already ended that branch.
         'no-else-return': ['error', { allowElseIf: false }],
-        // A lone `if` inside an `else` is an `else if` written with extra
-        // braces: same control flow, one more level of indentation.
         'no-lonely-if': 'error',
-        // `{ a: a }` in a destructuring pattern reads as a rename until you
-        // compare both halves; it renames nothing.
         'no-useless-rename': 'error',
         // `!!x` / `+x` / `'' + x` hide a type conversion in punctuation. Spell
         // the conversion out — `Boolean(x)`, `Number(x)`, `String(x)` — so the
@@ -103,8 +109,6 @@ module.exports = {
         // NOT narrow `x` the way `!!x && x.y` does; at those sites write the
         // explicit `x !== undefined` instead of reaching for `Boolean`.
         'no-implicit-coercion': 'error',
-        // String concatenation buries the literal text in `+` operators and
-        // quote-juggling; a template shows the final string's shape as written.
         'prefer-template': 'error',
         // An empty body is either an unfinished stub or a deliberate no-op, and
         // the two look identical. A real no-op keeps its body and takes an
@@ -118,9 +122,6 @@ module.exports = {
 
         // --- house style ---
         '@typescript-eslint/no-inferrable-types': 'error',
-        // `{ key: key }` and `foo: function () {}` restate what shorthand says
-        // once; the long form only ever hides whether the value is really the
-        // same binding.
         'object-shorthand': ['error', 'always'],
         // `curly` is deliberately NOT enabled. The codebase uses brace-less
         // `if (cond) return;` throughout, and with a condition wrapped across
@@ -128,7 +129,7 @@ module.exports = {
         // what it replaces, for zero correctness gain.
 
         /**
-         * CLAUDE.md prefix system, enforced on the PUBLIC surface only
+         * The prefix system, enforced on the PUBLIC surface only
          * (`modifiers: ['exported']`): class `OIM`, interface `IOIM`,
          * type `TOIM`, enum `EOIM`. Function-local aliases (`type TKey = …`)
          * are unaffected — the convention is about module exports.
@@ -164,7 +165,7 @@ module.exports = {
     overrides: [
         {
             /**
-             * CLAUDE.md: "Style rules do NOT apply to tests, scripts, or bench
+             * House rule: "Style rules do NOT apply to tests, scripts, or bench
              * files." Correctness rules still do — only the conventions that exist
              * to keep the published surface coherent are lifted.
              */

@@ -1,74 +1,62 @@
 import type { TExoBindable } from '@exodra/reactivity-types';
 
-/**
- * The base primitive: a bare `(read, subscribe)` pair becomes a read-only Exodra bindable. Every
- * other bindable in this package is built on it.
- *
- * - **Lazy and ref-counted** — `subscribe` is called only while at least one downstream subscriber
- *   exists and torn down when the last one leaves, so cost is O(visible), not O(total).
- * - **SSR-safe** — `getValue()` reads through to the store and is valid with no subscription at all.
- * - **Every upstream emit is forwarded.** There is no equality option: `subscribe` is a callback YOU
- *   write, so a caller that wants no-op emits dropped compares in it and does not call `onChange`.
- *
- * ```ts
- * const theme = exoSource(read, onChange => {
- *     let last = read();
- *     return settings.subscribeOnKey('theme', () => {
- *         const next = read();
- *         if (Object.is(next, last)) return;
- *         last = next;
- *         onChange();
- *     });
- * });
- * ```
- */
 export function exoSource<T>(
     read: () => T,
     subscribe: (onChange: () => void) => () => void
 ): TExoBindable<T> {
-    const subscribers = new Set<() => void>();
-    // Mirrors the sole member while `subscribers.size === 1` — see the fast path in the notifier.
-    let onlySubscriber: (() => void) | undefined;
+    type TOIMSubscription = { handler: () => void; live: boolean };
+
+    const subscribers: TOIMSubscription[] = [];
     let upstreamUnsub: (() => void) | undefined;
-    // Many OIMDB sources (a selector's `watch`) fire synchronously on subscribe. `getValue` already
-    // carries that value, so an emit during the subscription window is a no-op, not a change.
+    // An emit during the subscription window is a no-op: `getValue` already carries it.
     let priming = false;
 
     const onUpstreamChange = () => {
         if (priming) return;
-        // One subscriber is the overwhelmingly common case — a bindable feeds a single binding — and
-        // snapshotting a one-element Set on every emit is pure allocation. The snapshot below only
-        // exists so a subscriber may (un)subscribe DURING notification; with exactly one there is
-        // nothing to skip or revisit, and `only` is captured before the call so a subscriber added
-        // from inside it is not run this round.
-        if (subscribers.size === 1) {
-            const only = onlySubscriber;
-            if (only) only();
+        // The snapshot below only exists so a subscriber may (un)subscribe DURING
+        // notification; with exactly one there is nothing to skip or revisit.
+        if (subscribers.length === 1) {
+            const only = subscribers[0];
+            if (only.live) only.handler();
             return;
         }
-        // Snapshot so a subscriber may (un)subscribe during notification without skipping/looping.
-        for (const subscriber of Array.from(subscribers)) {
-            if (subscribers.has(subscriber)) subscriber();
+        for (const subscription of subscribers.slice()) {
+            if (subscription.live) subscription.handler();
         }
+    };
+
+    /** Twice is harmless and has to be: a second removal would take somebody else's entry. */
+    const deleteSubscription = (subscription: TOIMSubscription): void => {
+        if (!subscription.live) return;
+        subscription.live = false;
+        const at = subscribers.indexOf(subscription);
+        if (at >= 0) subscribers.splice(at, 1);
     };
 
     return {
         getValue: read,
         subscribe(update) {
-            subscribers.add(update);
-            onlySubscriber = subscribers.size === 1 ? update : undefined;
-            if (subscribers.size === 1) {
+            const subscription: TOIMSubscription ={ handler: update, live: true };
+            subscribers.push(subscription);
+            if (subscribers.length === 1) {
                 priming = true;
-                upstreamUnsub = subscribe(onUpstreamChange);
-                priming = false;
+                try {
+                    upstreamUnsub = subscribe(onUpstreamChange);
+                } catch (failure) {
+                    // A THROWING UPSTREAM MUST NOT LEAVE THIS BINDABLE PERMANENTLY
+                    // DEAF: the failed call leaves nothing behind, so the next
+                    // subscriber is the first one again.
+                    deleteSubscription(subscription);
+                    upstreamUnsub = undefined;
+                    throw failure;
+                } finally {
+                    priming = false;
+                }
             }
             return () => {
-                subscribers.delete(update);
-                onlySubscriber =
-                    subscribers.size === 1
-                        ? (subscribers.values().next().value as () => void)
-                        : undefined;
-                if (subscribers.size === 0) {
+                if (!subscription.live) return;
+                deleteSubscription(subscription);
+                if (subscribers.length === 0) {
                     upstreamUnsub?.();
                     upstreamUnsub = undefined;
                 }

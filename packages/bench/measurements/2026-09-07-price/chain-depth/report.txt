@@ -1,0 +1,174 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 3.00   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+2.02x  39 ns  19 ns   1.8%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.4%     1.00x  control-scale-same-body
+
+  The resolution control saw 2.02x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.2% of 1.00 is a reading, and no
+  claim inside 0.6% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+    ratio   ours  floor  noise  path       operation
+    1.24x  55 ns  45 ns   1.1%  per write  chain.next-as-a-parameter-vs-next-held-in-a-field
+    1.09x  48 ns  44 ns   0.5%  per write  chain.four-links-vs-the-shipped-two
+=   1.00x  44 ns  44 ns   0.1%  per write  chain.three-links-vs-the-shipped-two
+=≠  0.93x  60 ns  64 ns  43.3%  per write  chain.three-link-classes-in-one-process-vs-one-class-three-times
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+chain.next-as-a-parameter-vs-next-held-in-a-field   [per write]   1.24x
+  ours   one forwarding stage reached through a stages array, handed its continuation
+  floor  one forwarding link holding its continuation in a field — the shipped construction
+  THE TWO WAYS TO SPELL A CHAIN, WITH EXACTLY ONE STAGE IN EACH so the comparison is about the
+  SPELLING and not about depth. Both arms put one forwarding step between
+  `OIMEntityServiceWithChannel` and `writeInPlace`, and that step does nothing but pass the call
+  on. THE DIFFERENCE, and it is the whole row: the field-bound arm reads `this.inner` and
+  calls a method on it; the parameter arm ALLOCATES THE CONTINUATION — a closure over the
+  stage index and the receiver — and hands it in, on every write. PREDICTED OPERATION COUNT
+  per write: the field arm pays two property loads and a call; the parameter arm pays a
+  closure allocation, an array load, a property load and two calls. WHICH WAY THE UNMEASURED
+  DIFFERENCE PUSHES: against the parameter arm, and only that way — it does everything the
+  field arm does and allocates on top [FIGURE STATED IN ADVANCE]. WHAT THE PARAMETER FORM
+  BUYS, which no number here prices: a stage that never names what is under it, so an order
+  can be composed at run time. A reader deciding between the two owes that against whatever
+  this costs. THE WRITE AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS:
+  `assertNotFlushing`, `openChange`/`closeChange` on the channel, the column walk over a
+  ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the channel
+  and the frame that closes the pass. ONE OPERATION IS ONE `update` OF ONE COLUMN OF ONE ROW,
+  over a population of 1024, with a frame per pass over the population — so the frame is one
+  part in 1024 of the row. The link is touched ONCE per operation: `update` reaches
+  `mutateSlot` and no other door. A row that removed a column would touch it twice and is not
+  measured here.
+  measured  749,998 ops/pass ours, 975,070 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 9.0%/11.5%; load 4.19 → 4.49 on 8 cores, less 6.00 allowed for its own workers
+
+chain.four-links-vs-the-shipped-two   [per write]   1.09x
+  ours   update through OIMEntityServiceWithChannel → two forwarding links → writeInPlace
+  floor  the same update through the shipped chain: OIMEntityServiceWithChannel → writeInPlace
+  THE SECOND POINT OF THE CURVE, AND THE ONLY THING THAT SAYS WHETHER A LINK HAS A FLAT PRICE.
+  Read against the row above it: if two links cost twice what one link costs, a chain is a
+  straight line and a consumer can budget by counting links. If the second link costs more
+  than the first, the site has stopped being inlined and the row above under-reads every
+  deeper chain [FIGURE STATED IN ADVANCE]. A SINGLE ROW HERE ANSWERS NOTHING; the pair of rows
+  is the measurement. THE WRITE AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH
+  NUMBERS: `assertNotFlushing`, `openChange`/`closeChange` on the channel, the column walk
+  over a ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the
+  channel and the frame that closes the pass. ONE OPERATION IS ONE `update` OF ONE COLUMN OF
+  ONE ROW, over a population of 1024, with a frame per pass over the population — so the frame
+  is one part in 1024 of the row. The link is touched ONCE per operation: `update` reaches
+  `mutateSlot` and no other door. A row that removed a column would touch it twice and is not
+  measured here.
+  measured  462,869 ops/pass ours, 1,028,500 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 3.0%/14.9%; load 3.07 → 4.19 on 8 cores, less 6.00 allowed for its own workers
+
+chain.three-links-vs-the-shipped-two   [per write]   1.00x
+  ours   update through OIMEntityServiceWithChannel → a forwarding link → writeInPlace
+  floor  the same update through the shipped chain: OIMEntityServiceWithChannel → writeInPlace
+  WHAT ONE LINK COSTS, AND THE ROW A TTL LAYER WOULD BE BUILT ON. The added link forwards
+  `mutateSlot` and returns what came back, so the difference between the two numbers is one
+  field load, one arrow-property load and one call — per write. PREDICTED OPERATION COUNT: one
+  extra frame of three machine operations against a write that already does sixteen or more,
+  over 1024 rows per pass. WHICH WAY THE UNMEASURED DIFFERENCE PUSHES: against the deep arm,
+  and only that way. The forwarding link cannot make any part of the write cheaper, so a
+  reading AT OR BELOW 1.00 IS THE INSTRUMENT AND NOT THE DESIGN [FIGURE STATED IN ADVANCE].
+  WHAT IS NOT PRICED HERE: the shape cost. Both arms are isolated, so each runs with ONE shape
+  at the delegating site; a process that mixes link types pays a polymorphic site on top of
+  what this row reads, and no row in this suite measures that yet. THE WRITE AROUND THE LINK
+  IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: `assertNotFlushing`,
+  `openChange`/`closeChange` on the channel, the column walk over a ONE-COLUMN patch, the
+  equality call, the store into `slot.entity`, the report to the channel and the frame that
+  closes the pass. ONE OPERATION IS ONE `update` OF ONE COLUMN OF ONE ROW, over a population
+  of 1024, with a frame per pass over the population — so the frame is one part in 1024 of the
+  row. The link is touched ONCE per operation: `update` reaches `mutateSlot` and no other
+  door. A row that removed a column would touch it twice and is not measured here.
+  measured  1,050,482 ops/pass ours, 1,051,352 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 3.5%/3.4%; load 2.37 → 3.07 on 8 cores, less 6.00 allowed for its own workers
+
+chain.three-link-classes-in-one-process-vs-one-class-three-times   [per write]   0.93x
+  ours   three collections, each with a DIFFERENT forwarding class — the site sees three shapes
+  floor  three collections with the SAME forwarding class — the site sees one shape
+  THE COST NO OTHER ROW IN THIS FILE PRICES, AND THE ONE THAT DECIDES THE SHAPE OF A LAYER
+  API. Every other row here declares `isolate` so each arm runs with ONE shape at
+  `OIMEntityServiceWithChannel`'s `this.inner.mutateSlot`; this row is what those rows
+  deliberately keep out. Both arms write the same number of rows through the same depth over
+  three populations round-robin, and DIFFER ONLY IN HOW MANY CLASSES stand at that one call
+  site: three, or one constructed three times. The three classes have IDENTICAL BODIES — they
+  are written out separately rather than generated, because a factory hands back one class and
+  that is the other arm. WHAT IT DECIDES: whether a consumer may freely mix layer types, or
+  whether a layer API should be one class parameterised by a callback. If this row is flat,
+  the question is answered and nothing follows from it; if it is not, then every count in the
+  rows above is a floor rather than the price [FIGURE STATED IN ADVANCE]. WHICH WAY THE
+  UNMEASURED DIFFERENCE PUSHES: against the many-classes arm and only that way — three shapes
+  at a site cannot make it faster than one. WHY THREE AND NOT FIVE: three is inside V8's
+  polymorphic range, so the row reads what a POLYMORPHIC site costs against a monomorphic one.
+  What a MEGAMORPHIC site costs is a different row and this suite does not have it. THE WRITE
+  AROUND THE LINK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS:
+  `assertNotFlushing`, `openChange`/`closeChange` on the channel, the column walk over a
+  ONE-COLUMN patch, the equality call, the store into `slot.entity`, the report to the channel
+  and the frame that closes the pass. ONE OPERATION IS ONE `update` OF ONE COLUMN OF ONE ROW,
+  over a population of 1024, with a frame per pass over the population — so the frame is one
+  part in 1024 of the row. The link is touched ONCE per operation: `update` reaches
+  `mutateSlot` and no other door. A row that removed a column would touch it twice and is not
+  measured here.
+  measured  400,514 ops/pass ours, 625,872 floor; 9 samples; warm-up 34 planned, 34/34 reached; spread 5.9%/9.4%; load 4.45 → 4.45 on 8 cores, less 6.00 allowed for its own workers
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   2.02x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

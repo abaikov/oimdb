@@ -1,0 +1,419 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.94x  37 ns  19 ns   0.0%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.94x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.0% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.0% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+     ratio         margin    ours   floor  noise  path               decision
+=~   0.85x      unsettled   92 ns  109 ns  16.9%  per row per write  alt.ladder.insert.5-key-of
+~    0.92x  1.09x cheaper   87 ns   94 ns   0.7%  per row per write  alt.ladder.insert-door.8-door
+~    0.96x  1.05x cheaper  103 ns  108 ns   1.2%  per row per write  alt.ladder.insert.12-collection-door
+=~   0.99x      unsettled   93 ns   94 ns   1.6%  per row per write  alt.ladder.insert-door.3-write
+~    0.99x  1.01x cheaper   97 ns   97 ns   0.1%  per row per write  alt.ladder.insert-door.4-emptiness
+=~   1.00x      unsettled   98 ns   98 ns   1.7%  per row per write  alt.ladder.insert.8-emptiness
+!=~  1.00x      unsettled  100 ns  100 ns   1.5%  per row per write  alt.ladder.insert-door.5-content-changed
+!=~  1.00x      unsettled   92 ns   91 ns   0.3%  per row per write  alt.ladder.insert.4-identity-store
+!=   1.01x      unsettled   93 ns   92 ns   1.5%  per row per write  alt.ladder.insert-door.1-subframe
+!=   1.01x      unsettled  104 ns  102 ns   2.5%  per row per write  alt.ladder.insert-door.7-create-slot
+!=~  1.01x      unsettled   98 ns   96 ns   7.1%  per row per write  alt.ladder.insert.7-assert-writable
+!~   1.02x   1.02x DEARER   95 ns   94 ns   1.1%  per row per write  alt.ladder.insert-door.2-assert-writable
+!~   1.03x   1.03x DEARER   92 ns   90 ns   1.9%  per row per write  alt.ladder.insert.6-writer-and-channel
+!~   1.03x   1.03x DEARER  100 ns   97 ns   1.7%  per row per write  alt.ladder.insert-door.6-release-check
+!~   1.04x   1.04x DEARER  107 ns  103 ns   1.1%  per row per write  alt.ladder.insert.11-subframe
+!    1.04x   1.04x DEARER   81 ns   78 ns   0.3%  per row per write  alt.ladder.insert.2-slot
+!~   1.06x   1.06x DEARER  102 ns   96 ns   3.7%  per row per write  alt.ladder.insert.9-content-changed
+!=   1.07x      unsettled   90 ns   84 ns   8.9%  per row per write  alt.ladder.insert.3-probe
+!~   1.08x   1.08x DEARER  104 ns   97 ns   1.5%  per row per write  alt.ladder.insert.10-release-check
+!~   1.16x   1.16x DEARER   76 ns   65 ns   2.4%  per row per write  alt.ladder.insert.1-copy
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  3 of 20 decisions stand on this run, 8 came out wrong, 9 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.ladder.insert.5-key-of   [per row per write]   0.85x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the key read through a keyOf function
+  floor    the key read as row.id
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the keyOf call upsertEntity makes before writeContentByKey.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 511 planned, 511/511 reached; spread 15.0%/96.4%; load 2.91 → 3.24 on 8 cores
+
+alt.ladder.insert-door.8-door   [per row per write]   0.92x
+  verdict  the shipped design wins — 1.09x cheaper
+  ours     collection.upsertEntity(entity)
+  floor    every step through the collection's own methods, chained by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: writeContentByKey
+  itself: its own filing through the private store, its two try blocks and the changedSlots
+  check.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 767 planned, 767/767 reached; spread 20.9%/32.0%; load 3.47 → 3.51 on 8 cores
+
+alt.ladder.insert.12-collection-door   [per row per write]   0.96x
+  verdict  the shipped design wins — 1.05x cheaper
+  ours     collection.upsertEntity(entity); db.flush() per pass
+  floor    the same steps written by hand around the shipped pieces
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the collection running the same steps through its own
+  methods and fields instead of the hand-written helpers.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 683 planned, 683/683 reached; spread 9.4%/151.3%; load 4.22 → 4.22 on 8 cores
+
+alt.ladder.insert-door.3-write   [per row per write]   0.99x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     writeContentImpl through the collection
+  floor    the writer and the channel called by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: writeContentImpl:
+  fillEntity, dispatchEntityChanged and its column-owner check.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 841 planned, 841/841 reached; spread 18.1%/39.3%; load 3.72 → 3.72 on 8 cores
+
+alt.ladder.insert-door.4-emptiness   [per row per write]   0.99x
+  verdict  the shipped design wins — 1.01x cheaper
+  ours     updateEmptiness through the collection
+  floor    the step by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  updateEmptiness and settleWrite.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 865 planned, 865/865 reached; spread 6.8%/199.5%; load 3.72 → 3.83 on 8 cores
+
+alt.ladder.insert.8-emptiness   [per row per write]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the emptiness check and the release policy notified, as updateEmptiness does
+  floor    the assert, the writer and the channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: updateEmptiness: the emptiness strategy, the slot-stamp
+  check, onSlotWritten, and the idle check of a slot nobody subscribes to.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 833 planned, 833/833 reached; spread 9.7%/58.9%; load 3.22 → 3.22 on 8 cores
+
+alt.ladder.insert-door.5-content-changed   [per row per write]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     contentChanged through the collection
+  floor    no content-change call
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  contentChanged with no listener.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 805 planned, 805/805 reached; spread 37.2%/125.9%; load 3.83 → 3.83 on 8 cores
+
+alt.ladder.insert.4-identity-store   [per row per write]   1.00x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     the store service: get, ownKey, set
+  floor    map.get(id), then map.set(id, slot)
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the store service in place of the bare Map for the probe
+  and the filing (setByKey).
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 791 planned, 791/791 reached; spread 55.1%/11.7%; load 2.91 → 2.91 on 8 cores
+
+alt.ladder.insert-door.1-subframe   [per row per write]   1.01x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     openSubframe/closeSubframe through the collection
+  floor    every step by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  openSubframe/closeSubframe override chain instead of the channel call and a counter.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 747 planned, 747/747 reached; spread 5.5%/7.2%; load 3.96 → 3.96 on 8 cores
+
+alt.ladder.insert-door.7-create-slot   [per row per write]   1.01x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     createSlot through the collection
+  floor    createOIMEntitySlot called by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  createSlot.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 672 planned, 672/672 reached; spread 29.4%/8.9%; load 3.68 → 3.68 on 8 cores
+
+alt.ladder.insert.7-assert-writable   [per row per write]   1.01x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     channel.assertNotFlushing() and the released check before filing
+  floor    the writer and the channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: assertWritable.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1002 planned, 1002/1002 reached; spread 60.9%/12.5%; load 3.22 → 3.22 on 8 cores
+
+alt.ladder.insert-door.2-assert-writable   [per row per write]   1.02x
+  verdict  !  THE REJECTED DESIGN WINS — 1.02x DEARER. This decision came out wrong.
+  ours     assertWritable through the collection
+  floor    the step below by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  assertWritable.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 704 planned, 704/704 reached; spread 42.1%/12.9%; load 3.96 → 3.96 on 8 cores
+
+alt.ladder.insert.6-writer-and-channel   [per row per write]   1.03x
+  verdict  !  THE REJECTED DESIGN WINS — 1.03x DEARER. This decision came out wrong.
+  ours     the shipped writer fills the slot, then channel.writeWithoutFlushCheck(slot); db.flush() per pass
+  floor    the copy assigned by hand, no channel
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: writeContentImpl: the shipped writer object and the channel
+  write that stamps the slot.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 863 planned, 863/863 reached; spread 76.1%/39.5%; load 3.24 → 3.24 on 8 cores
+
+alt.ladder.insert-door.6-release-check   [per row per write]   1.03x
+  verdict  !  THE REJECTED DESIGN WINS — 1.03x DEARER. This decision came out wrong.
+  ours     releaseSlotIfUnheldAfterListeners through the collection
+  floor    the check by hand
+  One rung of a ladder from the insert path written by hand, step by step, around the shipped
+  pieces, to collection.upsertEntity on the same collection. Every rung swaps exactly one
+  hand-written step for the collection's own protected method, reached through a bench
+  subclass that only forwards to it, so the gap a rung shows is what that method costs beyond
+  the hand step. The collection inserts without a copy (the default) under the AtEmpty policy.
+  Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt
+  outside the clock and ends its pass with db.flush(). This rung adds: the collection's
+  release check after the write.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 862 planned, 862/862 reached; spread 36.6%/29.4%; load 3.68 → 3.68 on 8 cores
+
+alt.ladder.insert.11-subframe   [per row per write]   1.04x
+  verdict  !  THE REJECTED DESIGN WINS — 1.04x DEARER. This decision came out wrong.
+  ours     every step inside channel.openSubframe/closeSubframe with try/catch, as writeContentByKey runs them
+  floor    the same steps without a subframe
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the subframe the insert opens around itself, and the
+  try/catch around it.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 793 planned, 793/793 reached; spread 7.8%/49.8%; load 4.15 → 4.22 on 8 cores
+
+alt.ladder.insert.2-slot   [per row per write]   1.04x
+  verdict  !  THE REJECTED DESIGN WINS — 1.04x DEARER. This decision came out wrong.
+  ours     map.set(id, slot) with slot = createOIMEntitySlot(id, owner), slot.entity = the copy
+  floor    map.set(id, oimCopyEntitySanitized(entity))
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the fourteen-field slot object the copy is stored in.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1180 planned, 1180/1180 reached; spread 5.6%/8.1%; load 3.08 → 3.08 on 8 cores
+
+alt.ladder.insert.9-content-changed   [per row per write]   1.06x
+  verdict  !  THE REJECTED DESIGN WINS — 1.06x DEARER. This decision came out wrong.
+  ours     the content-change step with no listener
+  floor    the steps below without it
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: contentChanged, which returns at once when the collection
+  has no listener.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 716 planned, 716/716 reached; spread 412.8%/8.4%; load 3.12 → 4.15 on 8 cores
+
+alt.ladder.insert.3-probe   [per row per write]   1.07x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     map.get(id) first, then map.set(id, slot)
+  floor    map.set(id, slot)
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: the probe writeContentByKey opens with, on the bare Map.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1173 planned, 1173/1173 reached; spread 9.8%/11.2%; load 3.08 → 3.08 on 8 cores
+
+alt.ladder.insert.10-release-check   [per row per write]   1.08x
+  verdict  !  THE REJECTED DESIGN WINS — 1.08x DEARER. This decision came out wrong.
+  ours     the release check after filing
+  floor    the steps below without it
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: releaseSlotIfUnheldAfterListeners: the subframe-tail check,
+  isReleasable and the policy question.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 782 planned, 782/782 reached; spread 33.7%/41.2%; load 4.15 → 4.15 on 8 cores
+
+alt.ladder.insert.1-copy   [per row per write]   1.16x
+  verdict  !  THE REJECTED DESIGN WINS — 1.16x DEARER. This decision came out wrong.
+  ours     map.set(id, oimCopyEntitySanitized(entity))
+  floor    map.set(id, { ...entity })
+  One rung of a ladder from `map.set(id, { ...entity })` to `collection.upsertEntity(entity)`
+  for a key the population has never seen. Every rung inserts the same priceDataset.batch
+  distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
+  OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
+  AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
+  a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
+  with db.flush(). This rung adds: oimCopyEntitySanitized instead of the bare spread: the
+  spread plus the own-`__proto__` probe and its delete.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1430 planned, 1430/1430 reached; spread 234.6%/91.2%; load 3.08 → 3.08 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.94x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

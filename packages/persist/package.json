@@ -1,15 +1,36 @@
 {
   "name": "@oimdb/persist",
-  "version": "3.2.0",
-  "description": "Storage-agnostic persistence engine for OIMDB (source adapters, resources, versioned codec). Backends ship as @oimdb/persist-memory, -localstorage, -idb.",
+  "version": "4.0.0",
+  "description": "Storage-agnostic persistence engine ported onto the identity-addressed OIMDB core. Not published: replaces @oimdb/persist only once the core replacement lands.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
   },
+  "oimdbRelease": {
+    "publish": false,
+    "why": "Replaces the published @oimdb/persist only once the @oimdb/core replacement lands."
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "test": "jest",
+    "type-check": "tsc --noEmit -p tsconfig.all.json",
+    "clean": "rimraf dist",
+    "prepack": "node -e \"const {copyFileSync,existsSync}=require('fs');if(existsSync('../../llms.txt'))copyFileSync('../../llms.txt','llms.txt')\"",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "license": "MIT",
+  "author": "Andrei Baikov",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abaikov/oimdb.git"
@@ -18,28 +39,20 @@
     "url": "https://github.com/abaikov/oimdb/issues"
   },
   "homepage": "https://github.com/abaikov/oimdb#readme",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "scripts": {
-    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
-    "test": "jest",
-    "type-check": "tsc --noEmit",
-    "clean": "rimraf dist",
-    "prepack": "node -e \"const {copyFileSync}=require('fs');copyFileSync('../../llms.txt','llms.txt');copyFileSync('../../llms-full.txt','llms-full.txt')\"",
-    "prepublishOnly": "npm run type-check && npm test && npm run build"
-  },
-  "files": [
-    "dist",
-    "llms.txt",
-    "llms-full.txt"
+  "keywords": [
+    "oimdb",
+    "in-memory",
+    "database",
+    "reactive",
+    "typescript",
+    "type-safe",
+    "indices",
+    "subscriptions",
+    "event-processing",
+    "state-management"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^3.8.0"
+    "@oimdb/core": "^4.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
@@ -49,15 +62,12 @@
     "typescript": "^5.2.2",
     "rimraf": "^5.0.5"
   },
-  "keywords": [
-    "oimdb",
-    "persist",
-    "persistence",
-    "engine",
-    "codec",
-    "ssr",
-    "typescript"
-  ],
-  "author": "Andrei Baikov",
-  "license": "MIT"
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md"
+  ]
 }

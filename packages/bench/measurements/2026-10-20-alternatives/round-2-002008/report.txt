@@ -1,0 +1,172 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.96x  38 ns  19 ns   1.2%     ~1.9x  control-resolution-2x
+1.01x  20 ns  19 ns   0.2%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.96x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.5% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.5% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+    ratio        margin      ours     floor  noise  path               decision
+!L  1.09x  1.09x DEARER      3 ns      3 ns   1.7%  per read           alt.iterate-members.unordered-vs-ordered
+!w  2.27x  2.27x DEARER  4.766 ms  2.100 ms   2.4%  per row per write  alt.remove-member.unordered-vs-ordered.50k
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  0 of 2 decisions stand on this run, 2 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.iterate-members.unordered-vs-ordered   [per read]   1.09x
+  verdict  !  THE REJECTED DESIGN WINS — 1.09x DEARER. This decision came out wrong.
+  ours     for (const slot of bucketCollection.getBucketMemberSlots(bucket)) slot.entity — a Set of 10000, per member
+  floor    the same walk of the same members, kept as a list, per member
+  THE SENTENCE UNDER TEST is the one printed above the published removal table: "Both iterate
+  at around [NO RUN BEHIND THIS FIGURE] 2 ns per element, and the difference between them is a
+  fraction of that." It is the half of the bucket service argument that says the choice is NOT
+  an iteration question, and it had no measurement behind it either. THE BODY IS THE SAME ON
+  BOTH HALVES, character for character: one `getBucketMemberSlots`, one for-of, one field load
+  and one store into the sink per member. The only difference in the process is what
+  `getBucketMemberSlots` hands back — a `Set` on ours, the service's own array on the floor —
+  so this row is a property of two JavaScript containers reached through one library, which is
+  exactly what the sentence claims to be about. NOTHING IS WRITTEN, NO MEMBERSHIP IS SET AND
+  NO FRAME IS CLOSED, and neither service orders anything on a read: the list hands back the
+  array `priceGroupIndex` filled, in the order it was written. What a pass pays outside the
+  walk is one service call and one iterator, spread over 10000 members. DIRECTION, three ways:
+  (1) ours is measured on a set that was FILLED and never deleted from, so its entry table has
+  no tombstones to walk — a bucket that has churned iterates worse, and this row therefore
+  flatters the unordered half; (2) `slot.entity` is loaded per member on both halves, because
+  a reader that visits members without looking at them is not a reader, and it is the same
+  monomorphic field load on each side; (3) a pass is a whole walk of the bucket, so the
+  operation count may overshoot what the prober asked for by fewer than 10000 members out of
+  the millions a [NO RUN BEHIND THIS FIGURE] 25 ms pass visits.
+  measured  14,720,174 ops/pass ours, 16,255,314 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 10.1%/26.0%; load 4.08 → 5.42 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.50k   [per row per write]   2.27x
+  verdict  !  THE REJECTED DESIGN WINS — 2.27x DEARER. This decision came out wrong.
+  ours     a member leaves a bucket of 50000 and joins another, membership in a Set (OIMBucketSlotsServiceSetDriven)
+  floor    the same move, membership in a list kept in the caller's order (OIMBucketSlotsServiceArrayDriven)
+  A BUCKET OF 50000, and the size is in the id because the answer is a function of it on BOTH
+  halves. THE COUNT THIS PREDICTS, per member moved, through `bucketCollection.writeContent`:
+  on the ordered half, `reconcile` compares the held list against the one handed in up to the
+  swapped band, finds them unequal, drains all 50000 members and pushes all 50000 back, and
+  the collection holds 50000 arrivals and unholds 50000 departures. On the unordered half:
+  `reconcile` builds one Set of the 50000 slots handed in, probes it once per held member,
+  deletes the one departure and adds the one arrival, and one hold is taken and one given
+  back. The ordered half's sequence comparison stops at the swapped band, which is why the
+  sweep over 16 positions (0, 3125, 6250, … 46875) exists: it averages that comparison length.
+  ONE FLUSH IS SPREAD OVER 2 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the
+  engine offers for it — two array stores that exchange the member between the two lists this
+  file holds, `bucketCollection.writeContent` of each of those lists, a flush, and a read of
+  every bucket in the frame through `getBucketMemberSlots`. Both halves run the identical
+  body; the only difference in the process is which bucket service object the collection was
+  constructed with. READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a
+  derived membership source and are not this operation. EVERY OPERATION REALLY MOVES A MEMBER,
+  which is the failure this suite has already published a wrong number for: `writeContent`
+  RETURNS without a wake when `reconcile` finds nothing arrived and nothing departed, and both
+  halves would then time a frame in which no container was touched. Here the two lists handed
+  in differ from what the buckets hold by exactly one member each, and
+  `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly the members this file
+  holds for it before the clock starts. The two rows of a swap are the two members of one
+  band, one in each page of the lane, and the swap exchanges them — which is why this needs no
+  `reset` at all: sizes, positions and the sweep are exactly what they were when the pass
+  started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION,
+  three ways. (1) The two array stores, the mark, the flush and the read call are identical in
+  SHAPE on both halves and inside both numbers, which pulls the RATIO toward 1.00, so the two
+  printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS:
+  `OIMBucketSlotsServiceSetDriven.reconcile` takes the set difference (one Set of the list
+  handed in, one probe per held member) and moves one hold each way, while the ordered half's
+  `reconcile` compares the two sequences up to the first mismatch, then drains the whole list
+  and re-adds every member, so every member it holds is unheld and held again. READINGS
+  RECORDED BEFORE 2026-10-17 timed a set half that drained and refilled the whole set and an
+  ordered half that kept a rank sorter and took a multiset difference, and are not this
+  operation. (3) Both containers are walked every frame and stay in cache, which flatters
+  both. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one
+  page and every position after it would be a lie; so a pass may overshoot the operation count
+  the prober asked for by fewer operations than there are pages, out of the tens of thousands
+  it asks for.
+  measured  1,024 ops/pass ours, 1,024 floor; 5 samples; warm-up 5 planned, 1/3 reached; spread 15.9%/19.3%; load 4.06 → 4.08 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.96x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.01x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

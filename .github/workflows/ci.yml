@@ -1,11 +1,12 @@
 name: CI
 
 on:
+  # One run per commit on every branch; no `pull_request`, which would double it. TESTING.md §1.
   push:
-    # The default branch here is `master`; `main` is kept so a rename does not
-    # silently stop running CI.
-    branches: [master, main]
-  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -22,6 +23,12 @@ jobs:
       # and this is the job that should fail first and fastest.
       - name: Lint
         run: npm run lint
+      - name: Check structure
+        run: npm run check-structure
+      - name: Check docs examples
+        run: npm run check:docs
+      - name: Check bundle size against the docs
+        run: npm run size
 
   test:
     runs-on: ubuntu-latest
@@ -37,7 +44,12 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: Type-check
+        run: npm --workspaces --if-present run type-check
       - name: Test
         run: npm --workspaces --if-present run test
+      - name: Coverage
+        if: matrix.node == 20
+        run: npm run coverage
       - name: Build
         run: npm --workspaces --if-present run build

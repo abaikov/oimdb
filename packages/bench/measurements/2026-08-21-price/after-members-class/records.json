@@ -1,0 +1,138 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 37.257854096870034,
+            "floorNs": 19.27665901184082,
+            "floorAgainNs": 19.677976608276367,
+            "ratio": 1.9327962420243125,
+            "noise": 0.020818835680448296,
+            "oursOperations": 1645256,
+            "floorOperations": 2097152,
+            "oursSpread": 0.012057758215719675,
+            "floorSpread": 0.04318993647764634,
+            "samples": 9,
+            "warmup": 22,
+            "oursWarmed": 22,
+            "floorWarmed": 22,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.25244140625,
+            "peak": 3.39208984375,
+            "readings": 3,
+            "foreignPeak": 2.39208984375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.02808713912964,
+            "floorNs": 19.131600856781006,
+            "floorAgainNs": 19.187331199645996,
+            "ratio": 0.9945893854661578,
+            "noise": 0.002912999454786198,
+            "oursOperations": 2097152,
+            "floorOperations": 2097152,
+            "oursSpread": 0.02484561314955888,
+            "floorSpread": 0.03716695692810967,
+            "samples": 9,
+            "warmup": 25,
+            "oursWarmed": 25,
+            "floorWarmed": 25,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.39208984375,
+            "peak": 3.39208984375,
+            "readings": 3,
+            "foreignPeak": 2.39208984375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "groups.resolve-vs-map-get",
+            "path": "per relationship",
+            "ours": "groupBy(collection, ['group'])('group-7') — resolve a group to a live handle",
+            "floor": "byGroup.get('group-7')",
+            "caveat": "THE MOST UNEQUAL PAIR IN THIS SUITE, and it is on the table because the engine's own documentation says \"resolved ONCE — hold it\", so the row is what IGNORING that advice costs. Ours resolves the bucket, takes a hold on it so the frame sweep cannot drop it underneath the caller, and builds an observable — a getter closure, a subscribe closure, a detach closure and the object they hang on. Five allocations against a hash. The floor hands back a container that can be iterated and cannot be subscribed to, cannot be handed to `db.computed`, and will be the WRONG container the moment somebody rebuilds it. Direction: inflates our ratio enormously, and it is a real number for anybody who writes this inside a render body. This body never calls `detach()`, so the hold count grows and is never given back — that is one decrement we do not charge ourselves for. The resolve underneath goes through `bucketFor`, so this body pays that call's last-resolved memo and never collects on it: cycling sixty-four addresses means a miss every time. See `bucketFor.vs-map-get` and the grouped-run row beside it for what that costs and what it is worth when a batch arrives in the order the memo was written for.",
+            "isControl": false,
+            "oursNs": 260.58885784178256,
+            "floorNs": 7.383959960555586,
+            "floorAgainNs": 7.398213549409854,
+            "ratio": 35.29120678251555,
+            "noise": 0.0019303448190955749,
+            "oursOperations": 97701,
+            "floorOperations": 3388059,
+            "oursSpread": 0.11298368030657907,
+            "floorSpread": 0.06932205132354051,
+            "samples": 9,
+            "warmup": 39,
+            "oursWarmed": 39,
+            "floorWarmed": 39,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.2802734375,
+            "peak": 3.818359375,
+            "readings": 3,
+            "foreignPeak": 2.818359375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "all.vs-holding-an-array",
+            "path": "per relationship",
+            "ours": "all(collection) — the whole population as one live membership",
+            "floor": "the array of rows, held",
+            "caveat": "THE INDEX IS DECLARED ONCE AND SHARED, so what is priced here is the SECOND call onwards: the memo lookup, the check that the index is still filed, the sole bucket resolved by address, and this caller's own hold on it with the observable that carries the release. The floor is a variable read and is at the resolution limit of this harness, so treat the absolute nanoseconds as the reading and the ratio as an upper bound. What ours buys: the membership is maintained by the engine, can be subscribed to, and can be handed to `db.computed`. This body never detaches, so the hold is never given back and that decrement is not charged to us.",
+            "isControl": false,
+            "oursNs": 263.33428704711554,
+            "floorNs": 0.7190201614550141,
+            "floorAgainNs": 0.7197326316667224,
+            "ratio": 366.2404771991796,
+            "noise": 0.0009908904505077061,
+            "oursOperations": 96465,
+            "floorOperations": 65910124,
+            "oursSpread": 0.31311988382894906,
+            "floorSpread": 0.007614003150153542,
+            "samples": 9,
+            "warmup": 25,
+            "oursWarmed": 25,
+            "floorWarmed": 25,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.818359375,
+            "peak": 3.91259765625,
+            "readings": 3,
+            "foreignPeak": 2.91259765625,
+            "over": false
+        }
+    }
+]

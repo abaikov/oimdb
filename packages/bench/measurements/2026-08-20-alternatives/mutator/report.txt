@@ -1,0 +1,245 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 3.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+2.13x  43 ns  20 ns   0.4%     ~1.9x  control-resolution-2x
+0.98x  20 ns  20 ns   2.9%     1.00x  control-scale-same-body
+
+  The resolution control saw 2.13x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 2.4% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 2.4% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+    ratio         margin     ours     floor  noise  path               decision
+~L  0.14x  7.00x cheaper  1.53 µs  10.74 µs  11.4%  per row per write  alt.remove-member.unordered-vs-ordered.10k
+~   0.24x  4.17x cheaper   339 ns   1.41 µs   0.9%  per row per write  alt.remove-member.unordered-vs-ordered.1k
+    0.48x  2.09x cheaper   215 ns    448 ns   0.1%  per row per write  alt.remove-member.unordered-vs-ordered.100
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  3 of 3 decisions stand on this run, 0 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.remove-member.unordered-vs-ordered.10k   [per row per write]   0.14x
+  verdict  the shipped design wins — 7.00x cheaper
+  ours     a member leaves a bucket of 10000 and joins another, membership in a Set (OIMBucketMutatorUnordered)
+  floor    the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)
+  A BUCKET OF 10000, and the size is in the id because the answer is a function of it — that
+  is the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered
+  half: `indexOf` compares m + 1 members and `splice` moves 10000 − m − 1 of them, then the
+  settle's `upperBound` spends 14 comparator calls and its splice moves about 10000 − m more,
+  where m is the departing member's position. The schedule visits 16 positions evenly spaced
+  over the list (0, 625, 1250, … 9375), so a pass averages them: about 5000 reference compares
+  and about 10000 pointer moves per member moved. On the unordered half: one `Set.delete` and
+  one `Set.add`, neither of them a function of the size, and a read that hands the set back as
+  it stands. So the floor should grow in proportion to the bucket and ours should not move —
+  which is the shape the published table asserts and the reason these four rows exist. ONE
+  FLUSH IS SPREAD OVER 8 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a
+  grouped index actually takes — `collection.update` on the column the index is filed by, a
+  flush that files it, and a read of every bucket in the frame. The read is not decoration: an
+  index nobody reads is not an index, and on the ordered half it is where the order is
+  settled. Both halves run the identical body; the only difference in the process is which
+  mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the
+  failure this suite has already published a wrong number for: a write whose value equals the
+  value the row holds moves no field, marks nothing and files nothing, and both halves then
+  time an empty frame. Here the row written is in the page it is written OUT of and is given
+  the group of the page it is written INTO, so the value always differs, the address always
+  moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the
+  two members of one band, one in each page of the lane, and the swap exchanges them — which
+  is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they
+  were when the pass started, so an empty reset here is a steady state rather than a forgotten
+  one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the
+  read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00
+  — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is
+  the container difference, are the numbers to read against the published table. (2) The
+  ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a
+  binary search and one more splice — where the published table claims to price removal alone,
+  so the ordered figure here is larger than that column by roughly one memmove of the bucket.
+  (3) Both lists are walked every frame and stay in cache; a real index of this size read once
+  a frame would be colder, which flatters the ordered half most at the largest size. (4) The
+  unordered half is not flat for free either: a `Set` added to and deleted from fills its
+  entry table with tombstones and is rehashed when it fills, which is one pass over the set
+  every capacity-many insertions — an amortised handful of element copies per operation, and
+  the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half
+  a swap would leave both members of a band in one page and every position after it would be a
+  lie; so a pass may overshoot the operation count the prober asked for by fewer operations
+  than there are pages, out of the tens of thousands it asks for.
+  measured  32,768 ops/pass ours, 4,096 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 369.7%/127.9%; load 3.85 → 4.52 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.1k   [per row per write]   0.24x
+  verdict  the shipped design wins — 4.17x cheaper
+  ours     a member leaves a bucket of 1000 and joins another, membership in a Set (OIMBucketMutatorUnordered)
+  floor    the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)
+  A BUCKET OF 1000, and the size is in the id because the answer is a function of it — that is
+  the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered half:
+  `indexOf` compares m + 1 members and `splice` moves 1000 − m − 1 of them, then the settle's
+  `upperBound` spends 10 comparator calls and its splice moves about 1000 − m more, where m is
+  the departing member's position. The schedule visits 16 positions evenly spaced over the
+  list (0, 62, 124, … 930), so a pass averages them: about 500 reference compares and about
+  1000 pointer moves per member moved. On the unordered half: one `Set.delete` and one
+  `Set.add`, neither of them a function of the size, and a read that hands the set back as it
+  stands. So the floor should grow in proportion to the bucket and ours should not move —
+  which is the shape the published table asserts and the reason these four rows exist. ONE
+  FLUSH IS SPREAD OVER 64 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a
+  grouped index actually takes — `collection.update` on the column the index is filed by, a
+  flush that files it, and a read of every bucket in the frame. The read is not decoration: an
+  index nobody reads is not an index, and on the ordered half it is where the order is
+  settled. Both halves run the identical body; the only difference in the process is which
+  mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the
+  failure this suite has already published a wrong number for: a write whose value equals the
+  value the row holds moves no field, marks nothing and files nothing, and both halves then
+  time an empty frame. Here the row written is in the page it is written OUT of and is given
+  the group of the page it is written INTO, so the value always differs, the address always
+  moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the
+  two members of one band, one in each page of the lane, and the swap exchanges them — which
+  is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they
+  were when the pass started, so an empty reset here is a steady state rather than a forgotten
+  one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the
+  read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00
+  — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is
+  the container difference, are the numbers to read against the published table. (2) The
+  ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a
+  binary search and one more splice — where the published table claims to price removal alone,
+  so the ordered figure here is larger than that column by roughly one memmove of the bucket.
+  (3) Both lists are walked every frame and stay in cache; a real index of this size read once
+  a frame would be colder, which flatters the ordered half most at the largest size. (4) The
+  unordered half is not flat for free either: a `Set` added to and deleted from fills its
+  entry table with tombstones and is rehashed when it fills, which is one pass over the set
+  every capacity-many insertions — an amortised handful of element copies per operation, and
+  the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half
+  a swap would leave both members of a band in one page and every position after it would be a
+  lie; so a pass may overshoot the operation count the prober asked for by fewer operations
+  than there are pages, out of the tens of thousands it asks for.
+  measured  88,969 ops/pass ours, 30,706 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 46.4%/17.1%; load 3.67 → 3.85 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.100   [per row per write]   0.48x
+  verdict  the shipped design wins — 2.09x cheaper
+  ours     a member leaves a bucket of 100 and joins another, membership in a Set (OIMBucketMutatorUnordered)
+  floor    the same move, membership in a list kept sorted by rank (OIMBucketMutatorOrdered)
+  A BUCKET OF 100, and the size is in the id because the answer is a function of it — that is
+  the entire claim under test. THE COUNT THIS PREDICTS, per member moved, on the ordered half:
+  `indexOf` compares m + 1 members and `splice` moves 100 − m − 1 of them, then the settle's
+  `upperBound` spends 7 comparator calls and its splice moves about 100 − m more, where m is
+  the departing member's position. The schedule visits 16 positions evenly spaced over the
+  list (0, 6, 12, … 90), so a pass averages them: about 50 reference compares and about 100
+  pointer moves per member moved. On the unordered half: one `Set.delete` and one `Set.add`,
+  neither of them a function of the size, and a read that hands the set back as it stands. So
+  the floor should grow in proportion to the bucket and ours should not move — which is the
+  shape the published table asserts and the reason these four rows exist. ONE FLUSH IS SPREAD
+  OVER 64 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the path a
+  grouped index actually takes — `collection.update` on the column the index is filed by, a
+  flush that files it, and a read of every bucket in the frame. The read is not decoration: an
+  index nobody reads is not an index, and on the ordered half it is where the order is
+  settled. Both halves run the identical body; the only difference in the process is which
+  mutator object was handed to `addIndex`. EVERY OPERATION REALLY MOVES A MEMBER, which is the
+  failure this suite has already published a wrong number for: a write whose value equals the
+  value the row holds moves no field, marks nothing and files nothing, and both halves then
+  time an empty frame. Here the row written is in the page it is written OUT of and is given
+  the group of the page it is written INTO, so the value always differs, the address always
+  moves, and `moveSlotToBucket` always removes and always adds. The two rows of a swap are the
+  two members of one band, one in each page of the lane, and the swap exchanges them — which
+  is why this needs no `reset` at all: sizes, positions and the sweep are exactly what they
+  were when the pass started, so an empty reset here is a steady state rather than a forgotten
+  one. DIRECTION, four ways. (1) The write, the mark, the flush, the filing, the links and the
+  read are identical on both halves and inside both numbers, which pulls the RATIO toward 1.00
+  — so the ratio is a lower bound and the two printed nanosecond figures, whose difference is
+  the container difference, are the numbers to read against the published table. (2) The
+  ordered half is charged for keeping the ARRIVAL in order as well as for the removal — a
+  binary search and one more splice — where the published table claims to price removal alone,
+  so the ordered figure here is larger than that column by roughly one memmove of the bucket.
+  (3) Both lists are walked every frame and stay in cache; a real index of this size read once
+  a frame would be colder, which flatters the ordered half most at the largest size. (4) The
+  unordered half is not flat for free either: a `Set` added to and deleted from fills its
+  entry table with tombstones and is rehashed when it fills, which is one pass over the set
+  every capacity-many insertions — an amortised handful of element copies per operation, and
+  the one way this side can carry the bucket size at all. A PASS IS WHOLE FRAMES, because half
+  a swap would leave both members of a band in one page and every position after it would be a
+  lie; so a pass may overshoot the operation count the prober asked for by fewer operations
+  than there are pages, out of the tens of thousands it asks for.
+  measured  156,958 ops/pass ours, 65,536 floor; 9 samples; warm-up 31 planned, 31/31 reached; spread 11.5%/19.4%; load 3.64 → 3.67 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   2.13x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.98x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

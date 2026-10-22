@@ -2,7 +2,24 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    // packages/, not ./src: the `paths` below pull core's and persist's .ts
+    // sources into the checking program, and `rootDir` must contain every
+    // non-declaration input or tsc reports TS6059 for each one — a check that
+    // `noEmit` does NOT skip. tsconfig.build.json already overrides rootDir to
+    // ".." for the build, so this value only affects the check.
+    "rootDir": "..",
+    // This file wears two hats: `npm run type-check` is a bare `tsc --noEmit`,
+    // so this IS the check config, and tsconfig.build.json extends it for the
+    // published build. The mapping below belongs to the checking role only — it
+    // points `@oimdb/core` / `@oimdb/persist` at their SOURCE, the same trees
+    // jest runs (see moduleNameMapper in jest.config.cjs), so tsc stops
+    // checking against whatever those packages last built. tsconfig.build.json
+    // resets `paths` to {} so the emitted declarations keep resolving through
+    // the package entry points and nothing gets inlined into what ships.
+    "paths": {
+      "@oimdb/core": ["../core/src/index.ts"],
+      "@oimdb/persist": ["../persist/src/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.bench.ts"]

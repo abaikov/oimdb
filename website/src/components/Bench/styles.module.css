@@ -1,0 +1,498 @@
+.root {
+  --bench-surface: #fcfcfb;
+  --bench-ink: #0b0b0b;
+  --bench-ink-secondary: #52514e;
+  --bench-ink-muted: #898781;
+  --bench-grid: #e1e0d9;
+  --bench-border: rgba(11, 11, 11, 0.1);
+  --bench-neutral: #f0efec;
+  --bench-faster-1: #d6f0d2;
+  --bench-faster-2: #8fd18a;
+  --bench-faster-3: #2e9b3a;
+  --bench-middle: #f6e7a8;
+  --bench-slower-1: #f8d3d2;
+  --bench-slower-2: #ee8f8e;
+  --bench-slower-3: #c93b3a;
+  --bench-bar: #2a78d6;
+  --bench-good: #006300;
+  --bench-warn: #8a5a00;
+  --bench-bad: #b3261e;
+  margin: 1rem 0 2rem;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme='dark'] .root {
+  --bench-surface: #1a1a19;
+  --bench-ink: #f0efec;
+  --bench-ink-secondary: #c3c2b7;
+  --bench-ink-muted: #898781;
+  --bench-grid: #2c2c2a;
+  --bench-border: rgba(255, 255, 255, 0.1);
+  --bench-neutral: #383835;
+  --bench-faster-1: #1f3d22;
+  --bench-faster-2: #2d6e33;
+  --bench-faster-3: #45b351;
+  --bench-middle: #5a4f1e;
+  --bench-slower-1: #4f2120;
+  --bench-slower-2: #9b3332;
+  --bench-slower-3: #e66767;
+  --bench-bar: #3987e5;
+  --bench-good: #0ca30c;
+  --bench-warn: #fab219;
+  --bench-bad: #e66767;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  color: var(--bench-ink-secondary);
+  font-size: 0.85rem;
+}
+
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--bench-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segment {
+  border: 0;
+  background: transparent;
+  color: var(--bench-ink-secondary);
+  padding: 0.3rem 0.8rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--bench-border);
+}
+
+.segmentActive {
+  background: var(--bench-neutral);
+  color: var(--bench-ink);
+  font-weight: 600;
+}
+
+.toggle {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  cursor: pointer;
+}
+
+.legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 3px;
+  margin-left: 0.6rem;
+  border: 1px solid var(--bench-border);
+}
+
+.scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.matrix {
+  display: table;
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+.matrix th,
+.matrix td {
+  border: 0;
+  padding: 0;
+}
+
+.matrix thead,
+.matrix tr,
+.matrix th {
+  background: transparent !important;
+  border: 0;
+}
+
+.corner {
+  text-align: left;
+  vertical-align: bottom;
+  color: var(--bench-ink-muted);
+  font-weight: 500;
+}
+
+.columnHead {
+  height: 7.5rem;
+  vertical-align: bottom;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--bench-ink-secondary);
+}
+
+.columnHead span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  padding: 0.25rem 0;
+}
+
+.columnHead .columnHeadNote {
+  font-size: 0.7em;
+  opacity: 0.65;
+}
+
+.rowHead {
+  text-align: left;
+  white-space: nowrap;
+  padding-right: 0.75rem !important;
+  font-weight: 500;
+}
+
+.matrix th.stickyColumn {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bench-surface, var(--ifm-background-color)) !important;
+}
+
+.rowHead a {
+  color: var(--bench-ink);
+}
+
+.cell,
+.cellEmpty,
+.cellDeclined {
+  min-width: 2.7rem;
+  height: 1.6rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  text-align: center;
+  border-radius: 4px;
+}
+
+.cell {
+  color: var(--bench-ink);
+  cursor: default;
+}
+
+.cellEmpty {
+  background: transparent;
+  outline: 1px dashed var(--bench-grid);
+  outline-offset: -1px;
+  color: var(--bench-bad);
+}
+
+.cellDeclined {
+  color: var(--bench-ink-muted);
+}
+
+.toneNeutral {
+  background: var(--bench-neutral);
+}
+
+.toneFaster1 {
+  background: var(--bench-faster-1);
+}
+
+.toneFaster2 {
+  background: var(--bench-faster-2);
+}
+
+.toneFaster3 {
+  background: var(--bench-faster-3);
+  color: #fff;
+}
+
+.toneMiddle {
+  background: var(--bench-middle);
+}
+
+.winner {
+  font-weight: 700;
+}
+
+.toneSlower1 {
+  background: var(--bench-slower-1);
+}
+
+.toneSlower2 {
+  background: var(--bench-slower-2);
+}
+
+.toneSlower3 {
+  background: var(--bench-slower-3);
+  color: #fff;
+}
+
+.hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent 0 4px,
+    var(--bench-border) 4px 6px
+  );
+}
+
+.tooltip {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  background: var(--bench-surface);
+  color: var(--bench-ink-secondary);
+  border: 1px solid var(--bench-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  max-width: 22rem;
+}
+
+.tooltipTitle {
+  color: var(--bench-ink);
+  font-weight: 600;
+}
+
+.scenarioTooltip {
+  max-width: 28rem;
+  padding: 0.7rem 0.85rem;
+}
+
+.scenarioTooltipText {
+  margin: 0.35rem 0 0;
+  color: var(--bench-ink-secondary);
+}
+
+.scenarioTooltipSetup {
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--bench-border);
+  color: var(--bench-ink-muted);
+  font-size: 0.72rem;
+}
+
+.empty {
+  padding: 1rem;
+  border: 1px dashed var(--bench-grid);
+  border-radius: 6px;
+  color: var(--bench-ink-secondary);
+}
+
+.scenario {
+  margin: 2rem 0;
+}
+
+.description {
+  color: var(--bench-ink-secondary);
+  font-size: 0.9rem;
+}
+
+.results {
+  display: table;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
+.results td {
+  white-space: nowrap;
+}
+
+.results td:last-child {
+  white-space: normal;
+}
+
+.numeric {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.barCell {
+  min-width: 10rem;
+  white-space: nowrap;
+}
+
+.bar {
+  display: inline-block;
+  height: 0.7rem;
+  max-width: 7rem;
+  background: var(--bench-bar);
+  border-radius: 0 4px 4px 0;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+}
+
+.barLabel {
+  vertical-align: middle;
+}
+
+.rowFlagged td {
+  color: var(--bench-ink-muted);
+}
+
+.problem {
+  color: var(--bench-bad);
+  font-size: 0.85rem;
+}
+
+.note {
+  color: var(--bench-ink-secondary);
+  font-size: 0.85rem;
+}
+
+.card {
+  border: 1px solid var(--bench-border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1rem 0;
+}
+
+.card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.verdict,
+.auditState {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.auditState {
+  font-weight: 500;
+  color: var(--bench-ink-muted);
+}
+
+.verdict_idiomatic,
+.verdict_representative,
+.audit_current {
+  color: var(--bench-good);
+}
+
+.verdict_improvable,
+.verdict_narrow,
+.verdict_synthetic,
+.audit_unstamped,
+.audit_stale {
+  color: var(--bench-warn);
+}
+
+.verdict_handicapped,
+.verdict_advantaged,
+.verdict_misleading,
+.audit_missing {
+  color: var(--bench-bad);
+}
+
+.verdict_declined {
+  color: var(--bench-ink-muted);
+}
+
+.priceCards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 1rem 0 2rem;
+}
+
+.priceCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--oim-hairline-gold);
+  border-radius: 12px;
+  background: var(--oim-surface-raised);
+}
+
+.priceCardStale {
+  border-style: dashed;
+}
+
+.priceSides {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.6rem 1rem;
+}
+
+.priceSides code {
+  display: block;
+  white-space: normal;
+  word-break: break-word;
+  font-size: 0.8rem;
+}
+
+.priceSideLabel {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bench-ink-secondary);
+}
+
+.priceFigures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.2rem;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.priceRatio {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.priceNoise {
+  font-size: 0.8rem;
+  color: var(--bench-ink-secondary);
+}
+
+.priceCaveat {
+  font-size: 0.86rem;
+}
+
+.priceCaveat summary {
+  cursor: pointer;
+  color: var(--bench-ink-secondary);
+}
+
+.priceCaveat p {
+  margin: 0.4rem 0 0;
+  line-height: 1.55;
+}
+
+.priceMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1rem;
+  font-size: 0.78rem;
+  color: var(--bench-ink-secondary);
+}
+
+.priceInline {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}

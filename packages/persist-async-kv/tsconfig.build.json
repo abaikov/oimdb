@@ -1,6 +1,12 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".."
+    "rootDir": "..",
+    // Drop the source mapping tsconfig.json declares for type-checking. A build
+    // must resolve @oimdb/core and @oimdb/persist through their package entry
+    // points, or the emitted .d.ts would inline another package's types and
+    // change what ships. `paths` in an extending config replaces the parent's
+    // map outright, so {} is a full reset.
+    "paths": {}
   }
 }

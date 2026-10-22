@@ -38,5 +38,7 @@ Callers must handle `undefined` — TypeScript forces narrowing, mildly annoying
 
 ## Where it lives
 
-- `packages/core/src/abstract/OIMIndex.ts` (`slotsToEntities`, `getEntitiesByKey`)
-- `packages/core/src/types/TOIMEntitySlot.ts` (the `item: TEntity | undefined` slot)
+- `packages/core-legacy/src/abstract/OIMIndex.ts` (`slotsToEntities`, `getEntitiesByKey`)
+- `packages/core-legacy/src/types/TOIMEntitySlot.ts` (the `item: TEntity | undefined` slot)
+
+This is the legacy engine, kept at `packages/core-legacy`. The contract outlives the shape: in the engine shipped today a bucket holds slots and the hole is `slot.entity === undefined` on a slot the bucket still names, so position and presence are still two separate answers.

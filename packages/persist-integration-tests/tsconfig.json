@@ -2,7 +2,18 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "noEmit": true
+    "noEmit": true,
+    // This package only ever type-checks — it has no build and ships nothing —
+    // so the mapping is safe to put directly in tsconfig.json. It mirrors
+    // jest.config.cjs's moduleNameMapper exactly, so the compiler and the
+    // runtime see the same four packages' sources instead of their last builds.
+    "paths": {
+      "@oimdb/core": ["../core/src/index.ts"],
+      "@oimdb/persist": ["../persist/src/index.ts"],
+      "@oimdb/persist-json": ["../persist-json/src/index.ts"],
+      "@oimdb/persist-memory": ["../persist-memory/src/index.ts"],
+      "@oimdb/persist-idb": ["../persist-idb/src/index.ts"]
+    }
   },
   "include": ["tests"]
 }

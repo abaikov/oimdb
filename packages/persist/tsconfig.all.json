@@ -1,0 +1,30 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    // Widened from "." to the packages/ directory because `paths` below pulls
+    // core's .ts sources into this program. `rootDir` must contain every
+    // non-declaration input file or tsc reports TS6059 for each one — and that
+    // check is NOT skipped by `noEmit`. Emit is off here, so the value only
+    // serves that constraint.
+    "rootDir": "..",
+    // Type-check against core's SOURCE, the same tree jest runs (its
+    // moduleNameMapper points `@oimdb/core` at `../core/src`). Without this the
+    // compiler resolves through the workspace symlink to `core/dist/index.d.ts`
+    // — the last successful build — so a stale or failed `--dts` run makes tsc
+    // report errors against code that no longer exists. Lives here and NOT in
+    // tsconfig.json, which is the build config: mapping it there would inline
+    // core's types into this package's published declarations.
+    "paths": {
+      "@oimdb/core": ["../core/src/index.ts"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

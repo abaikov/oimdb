@@ -1,0 +1,138 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 37.572336495166105,
+            "floorNs": 19.464592456817627,
+            "floorAgainNs": 19.316335201263428,
+            "ratio": 1.9302914550366606,
+            "noise": 0.0076752269004164994,
+            "oursOperations": 1645670,
+            "floorOperations": 2097152,
+            "oursSpread": 0.09994542117067616,
+            "floorSpread": 0.3851554018256007,
+            "samples": 9,
+            "warmup": 21,
+            "oursWarmed": 21,
+            "floorWarmed": 21,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.30078125,
+            "peak": 2.30078125,
+            "readings": 3,
+            "foreignPeak": 1.30078125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.229968070983887,
+            "floorNs": 19.35116481781006,
+            "floorAgainNs": 19.324064254760742,
+            "ratio": 0.9937369792481625,
+            "noise": 0.0014024256332432665,
+            "oursOperations": 2097152,
+            "floorOperations": 2097152,
+            "oursSpread": 0.19684031750910747,
+            "floorSpread": 0.07559939751124214,
+            "samples": 9,
+            "warmup": 25,
+            "oursWarmed": 25,
+            "floorWarmed": 25,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.2763671875,
+            "peak": 2.4140625,
+            "readings": 3,
+            "foreignPeak": 1.4140625,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "all.vs-holding-an-array",
+            "path": "per relationship",
+            "ours": "all(collection) — the whole population as one live membership",
+            "floor": "the array of rows, held",
+            "caveat": "THE INDEX IS DECLARED ONCE AND SHARED, so what is priced here is the SECOND call onwards: the memo lookup, the check that the index is still filed, the sole bucket resolved by address, and this caller's own hold on it with the observable that carries the release. The floor is a variable read and is at the resolution limit of this harness, so treat the absolute nanoseconds as the reading and the ratio as an upper bound. What ours buys: the membership is maintained by the engine, can be subscribed to, and can be handed to `db.computed`. This body never detaches, so the hold is never given back and that decrement is not charged to us.",
+            "isControl": false,
+            "oursNs": 213.34824355971898,
+            "floorNs": 0.7215204238891602,
+            "floorAgainNs": 0.7226063460111618,
+            "ratio": 295.6925909452752,
+            "noise": 0.0015050469620087527,
+            "oursOperations": 119560,
+            "floorOperations": 67108864,
+            "oursSpread": 0.10894006393936688,
+            "floorSpread": 0.08947674055505829,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.4140625,
+            "peak": 2.4609375,
+            "readings": 3,
+            "foreignPeak": 1.4609375,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "subscribe.attach-and-detach-vs-set-add-delete",
+            "path": "per relationship",
+            "ours": "const stop = db.subscribe(slot, handler); stop()",
+            "floor": "set.add(handler); set.delete(handler)",
+            "caveat": "THE MOUNT AND THE UNMOUNT AS ONE OPERATION, because half of a subscription is not a thing a screen ever does. Ours allocates the per-identity subscriber storage on the first subscriber, announces the arrival — which retires the identity's frame stamp so a write already recorded in the open batch still reaches this newcomer — and on the way out asks whether anything still holds the identity. The floor adds to a `Set` somebody else has to remember to create, and can never tell the new subscriber about a write that already landed. Direction: inflates our ratio. Every slot here carries a value, so the release on the way out never actually drops an identity; a subscription to a key with no value yet would take the sweep path and cost more.",
+            "isControl": false,
+            "oursNs": 50.94226846274436,
+            "floorNs": 36.14365198334977,
+            "floorAgainNs": 36.03371311650939,
+            "ratio": 1.409438882551543,
+            "noise": 0.0030510002253975404,
+            "oursOperations": 914734,
+            "floorOperations": 1279502,
+            "oursSpread": 0.07780630866254101,
+            "floorSpread": 0.0892512034857164,
+            "samples": 9,
+            "warmup": 21,
+            "oursWarmed": 21,
+            "floorWarmed": 21,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.4609375,
+            "peak": 2.4609375,
+            "readings": 3,
+            "foreignPeak": 1.4609375,
+            "over": false
+        }
+    }
+]

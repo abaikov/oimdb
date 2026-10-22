@@ -1,0 +1,79 @@
+---
+sidebar_position: 1
+title: Results at a glance
+hide_table_of_contents: true
+---
+
+import BenchMatrix from '@site/src/components/Bench/BenchMatrix';
+import BenchCodeMatrix from '@site/src/components/Bench/BenchCodeMatrix';
+import {benchResults} from '@site/src/components/Bench/data';
+
+# Results at a glance
+
+Every cell below is **one library driving one screen-shaped task**. It was verified
+against a plain-`Map` reference model before timing, then timed in its own processes
+beside a hand-written anchor. Each row is one scenario, named as in its own table below, and
+the fastest library's cell carries a 🏆 and its time; every other cell says **how many
+times slower** that library is than the fastest one: `1.3×`, `12×`. The two `baseline-*` columns are plain `Map` code with no
+library; they are shown for scale and never win a row.
+
+:::note[Most rows are hand-written collections on top of a library]
+
+Most libraries here ship no collections, group indexes or sorted windows. In those rows
+the collections are written by hand on top of the library's primitives, without OIMDB, so the
+row measures that code, not a feature the library ships. Such a column is marked
+"+ hand-written collections".
+
+:::
+
+<BenchMatrix />
+
+**How to read a cell**
+
+- **Colour** runs from green to red: dark green is the fastest library, light green is
+  a little slower, yellow is about twice as slow, and red is slower still, darkest at
+  an order of magnitude and beyond. The thresholds are in `BenchMatrix.tsx`.
+  The value is always printed; colour only helps the eye find the pattern.
+- **Hatched** cells are stale (the code, a library version or the sampling plan changed
+  since they were measured) or flagged (the batch's control pair could not resolve its
+  own known difference, the machine was busy, a process was lost). Tick *only fresh,
+  unflagged cells* to hide them.
+- **`·`** means the library declined that wiring, with a written reason in the
+  [scenario tables](./results.mdx). **`✗`** means it ran and either disagreed with the reference
+  model or crashed; it gets no number. An empty dashed cell has not been measured yet.
+- Hover a cell for the absolute time, drift, render counts and date.
+- The six **floors** (scripts with no store, measured once to bound the harness's own share)
+  are instruments, not rows to compare, so they appear only in the scenario tables.
+
+The matrix ranks nothing on its own: a place is given only in the
+[scenario tables](./results.mdx), and only where a row stands clear of every row above it by
+more than both rows' measured drift.
+
+Published {benchResults.generatedAt.slice(0, 16).replace('T', ' ')} UTC from <code>{benchResults.environment.machine}</code>, Node {benchResults.environment.node}.
+
+## How much code each task took
+
+Time is one cost; the code a developer writes to get it is another. Each cell is the number
+of code lines (comments and blanks excluded) reachable from the participant's wiring for that
+task's shape: its builder, every helper it calls and the constants it reads, but not the
+methods only another shape needs. The source is first re-printed in one canonical layout
+(the TypeScript printer, every block and object literal one member per line, comments
+dropped), so joining calls onto one long line or splitting them changes nothing. The count
+is computed from the adapter source by `npm run lines`, needs no measurement, and is current
+on every publish. Each row is one wiring, shared by the tasks it names; hover it for the list.
+The library with the fewest lines in a row gets a 🏆, and the colour runs from green (fewest)
+to red (ten times as many or more). The two `baseline-*` columns are plain `Map` code, shown
+grey for scale. Fewer lines is not better on its own: read it beside the time, never
+instead of it.
+
+<BenchCodeMatrix />
+
+## Where the rest is
+
+| page | what it answers |
+|---|---|
+| [Scenario tables](./results.mdx) | every scenario's full table: time, ratio, drift, render counts, flags, who declined and why |
+| [Participants](./participants.mdx) | each library's version, what it stores, and the audit of **how idiomatically its adapter uses it** |
+| [Scenarios](./scenarios.mdx) | what each script models, what decides it, and the audit of **how representative it is** |
+| [Methodology](./methodology.md) | verification, the anchor, the controls, the ranking rule, the load gate, staleness |
+| [Running the suite](./running.md) | measuring in small pieces, a budget at a time, without giving the machine a day |

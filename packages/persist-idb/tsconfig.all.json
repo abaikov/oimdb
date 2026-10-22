@@ -1,0 +1,20 @@
+{
+  // WHAT THIS EXISTS FOR: tsconfig.json is the BUILD config — `include: src`,
+  // `exclude: **/*.test.ts` — so a bare `tsc --noEmit` reported zero while every
+  // test file in this package was outside the program. jest does not close that
+  // gap either: `isolatedModules` transpiles file by file and checks nothing. So
+  // the tests type-checked nowhere, and a suite calling a removed API was green
+  // at `tsc` and red only at run time. `npm run type-check` points here.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

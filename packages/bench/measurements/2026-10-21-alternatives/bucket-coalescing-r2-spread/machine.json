@@ -1,0 +1,14 @@
+{
+    "cpu": "Apple M1",
+    "cores": 8,
+    "arch": "arm64",
+    "platform": "darwin",
+    "release": "25.2.0",
+    "totalMemoryGb": 16,
+    "node": "v24.16.0",
+    "maxForeignLoad": 99,
+    "gateWasRaised": true,
+    "coreFingerprint": "63a1d3921cce50d5",
+    "pairs": 2,
+    "controls": 2
+}

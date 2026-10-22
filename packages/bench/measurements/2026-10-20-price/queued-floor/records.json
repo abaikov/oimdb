@@ -1,0 +1,40 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 37.6315888121072,
+            "floorNs": 19.294523489740072,
+            "floorAgainNs": 19.466898894642718,
+            "ratio": 1.9503766875672222,
+            "noise": 0.008933903187311496,
+            "oursOperations": 773622,
+            "floorOperations": 1392310,
+            "oursSpread": 0.05838676519207727,
+            "floorSpread": 0.05174840580081305,
+            "samples": 9,
+            "warmup": 36,
+            "repeat": 1,
+            "oursWarmed": 36,
+            "floorWarmed": 36,
+            "gcAvailable": true,
+            "node": "v24.16.0",
+            "oursAgainNs": 32.260479924304114,
+            "oursNoise": 0.1664919089984353
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "selfAllowance": 2,
+            "start": 3.11474609375,
+            "peak": 8.22802734375,
+            "readings": 4,
+            "foreignPeak": 6.22802734375,
+            "over": true
+        }
+    }
+]

@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "resolveJsonModule": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "noImplicitOverride": false,
+    "exactOptionalPropertyTypes": false
+  },
+  "include": ["src/**/*", "tests/**/*", "../core/src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

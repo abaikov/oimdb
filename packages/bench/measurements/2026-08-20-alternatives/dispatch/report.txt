@@ -1,0 +1,359 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 3.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.93x  37 ns  19 ns   0.0%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.3%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.93x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.2% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+   ratio         margin     ours     floor  noise  path               decision
+   0.04x  25.3x cheaper   467 ns  11.81 µs   1.1%  per frame          alt.dirty-list-vs-scan.8k-1pct
+   0.09x  11.1x cheaper   107 ns   1.19 µs   7.7%  per frame          alt.dirty-list-vs-scan.1k-1pct
+   0.17x  5.84x cheaper     7 ns     39 ns   0.4%  per write          alt.coalesce-vs-eager.20-writes-16-row-node
+~  0.24x  4.16x cheaper     7 ns     28 ns   1.8%  per row per write  alt.dirty-flag-vs-set-as-queue.sparse-64-of-1024
+   0.25x  3.97x cheaper     6 ns     25 ns   0.4%  per row per write  alt.dirty-flag-vs-side-map.sparse-64-of-1024
+   0.28x  3.63x cheaper     7 ns     26 ns   1.9%  per row per write  alt.dirty-flag-vs-set-as-queue.all-dirty
+   0.28x  3.61x cheaper     7 ns     25 ns   3.0%  per row per write  alt.dirty-flag-vs-side-map.all-dirty
+   0.53x  1.87x cheaper    17 ns     32 ns   0.3%  per frame          alt.skip-by-map-vs-closure-early-return.3-of-4-skipped
+   0.54x  1.84x cheaper    19 ns     35 ns   0.3%  per frame          alt.skip-by-map-vs-closure-early-return.1-of-4-skipped
+   0.61x  1.63x cheaper   723 ns   1.18 µs   0.3%  per frame          alt.dirty-list-vs-scan.1k-10pct
+   0.92x  1.09x cheaper     3 ns      3 ns   0.1%  per write          alt.coalesce-vs-eager.20-writes
+!  1.21x   1.21x DEARER     4 ns      3 ns   0.3%  per write          alt.coalesce-vs-eager.4-writes
+!  1.52x   1.52x DEARER  3.49 µs   2.30 µs   1.9%  per frame          alt.dirty-list-vs-scan.1k-50pct
+!  2.28x   2.28x DEARER     8 ns      4 ns   2.7%  per write          alt.coalesce-vs-eager.1-write
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  11 of 14 decisions stand on this run, 3 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.dirty-list-vs-scan.8k-1pct   [per frame]   0.04x
+  verdict  the shipped design wins — 25.3x cheaper
+  ours     push and deliver the list — 8192 subscribed, 82 dirty
+  floor    stamp only, then scan all 8192 — 82 dirty
+  THE SAME FRACTION AS THE FIRST ROW, EIGHT TIMES THE POPULATION, which is the only way to
+  show that the scan's cost is set by what is SUBSCRIBED and not by what changed. Our
+  per-frame cost should barely move between this row and the 1k-1pct row (82 marks against 10,
+  and no walk of the other 8110); the scan's should grow by roughly eight. A virtualised table
+  with a subscription per row, a chat with a subscription per message, any screen that mounts
+  thousands of readers and touches a handful per frame is this row. What the scan buys and the
+  residuals are as in the 1% row; nothing changes but K.
+  measured  97,464 ops/pass ours, 2,048 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 7.0%/28.8%; load 3.16 → 3.16 on 8 cores
+
+alt.dirty-list-vs-scan.1k-1pct   [per frame]   0.09x
+  verdict  the shipped design wins — 11.1x cheaper
+  ours     push the marked identity onto the frame list; deliver the list — 1024 subscribed, 10 dirty
+  floor    stamp only; at the frame, scan all 1024 and deliver those stamped this frame
+  THE SPARSE END, WHICH IS WHERE AN INTERACTIVE FRAME LIVES: a keystroke moves one row of a
+  mounted list, not all of them. Ours per frame: 10 marks, each paying a stamp compare and
+  store, a `subscribers` field read, an `isEmpty` call, the delivery stamp and an array push —
+  then a walk of 10. The scan per frame: 10 marks of ONE STORE each and then 1024 stamp
+  comparisons. What the scan BUYS is real and is the reason it keeps being proposed: the write
+  path loses its push, its second stamp and its emptiness question, so the hottest path in the
+  engine gets shorter; there is no list to allocate, recycle, bound or double-buffer
+  (`PENDING_KEEP_AT_MOST` and the two swapped arrays stop existing); and a mark cannot be lost
+  by any list bookkeeping because there is no list. RESIDUALS. Both arms deliver through the
+  shipped `OIMSubscriberStore.deliver`, exactly M times each, so delivery is not in the
+  difference. Our mark carries the emptiness question that the scan design answers by
+  construction — counted against us, correctly. The scan's mark is an unconditional store with
+  no dedup, which is the leanest form the design has and is what it should be measured as.
+  NEITHER ARM DELIVERS: both owe the same M deliveries of the same shipped code, and a
+  constant added to both halves of a ratio only pulls it toward 1.
+  `subscribe.deliver-vs-direct-call` prices delivery on its own.
+  measured  287,386 ops/pass ours, 37,002 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 7.7%/25.4%; load 3.11 → 3.18 on 8 cores
+
+alt.coalesce-vs-eager.20-writes-16-row-node   [per write]   0.17x
+  verdict  the shipped design wins — 5.84x cheaper
+  ours     write, mark once, recompute a 16-row derivation at the frame — 20 writes per node per frame
+  floor    write, recompute the 16-row derivation immediately — 20 writes per node per frame
+  THE SAME TWENTY WRITES OVER A NODE THAT ACTUALLY COSTS SOMETHING — a total over sixteen
+  rows, which is what a derived value on a screen usually is (a sum in a footer, a count of
+  what matches, a joined label). 256 nodes of 16 rows each; a write moves one row of a group
+  and invalidates that group's node. Read against the row above, THE PAIR ANSWERS THE
+  INDEPENDENCE QUESTION: the BREAK-EVEN stays at more than one write per node per frame
+  whatever the node costs, because at one write both arms compute exactly once and only our
+  bookkeeping separates them — but the SIZE of the win past the break-even is set almost
+  entirely by the recompute, since coalescing saves 19 recomputes and nothing else. Two rows
+  are the fewest that can show that; one would have been quoted as a headline. What eager
+  buys, and the diamond argument that no ratio prices, are as stated in the 1-write row — and
+  they matter MORE here, since a costlier node is usually a node with more parents.
+  measured  3,787,753 ops/pass ours, 1,215,846 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 10.1%/6.3%; load 2.90 → 3.07 on 8 cores
+
+alt.dirty-flag-vs-set-as-queue.sparse-64-of-1024   [per row per write]   0.24x
+  verdict  the shipped design wins — 4.16x cheaper
+  ours     stamp and push — 64 of 1024 identities dirty per flush
+  floor    Set.add — 64 of 1024 identities dirty per flush
+  THE POST'S SECOND COLUMN. Everything the all-dirty row says applies unchanged; what differs
+  is that a flush now delivers 64 identities instead of 1024, so the two containers are
+  compared at a size a real interactive frame reaches rather than at a bulk load. What the Set
+  BUYS is what it bought above, plus one thing that only shows here: its `clear()` is
+  proportional to what was in it, so a sparse flush costs it almost nothing, where a
+  boolean-flag design would have to walk the delivered batch to reset flags whatever its size.
+  The shipped stamp does neither. THE WINDOW MOVES — each flush takes the next 64 identities
+  rather than the same 64 — so neither arm is measured on a working set that has settled into
+  L1 in a way the other's has not; both walk the whole population every 16 flushes. Direction:
+  as above, and the first-mark-only arrangement understates our margin here too.
+  measured  3,929,827 ops/pass ours, 1,368,042 floor; 9 samples; warm-up 31 planned, 31/31 reached; spread 31.3%/33.0%; load 3.39 → 3.39 on 8 cores
+
+alt.dirty-flag-vs-side-map.sparse-64-of-1024   [per row per write]   0.25x
+  verdict  the shipped design wins — 3.97x cheaper
+  ours     stamp and push — 64 of 1024 identities dirty per flush
+  floor    Map<identity, frame> beside an array — 64 of 1024 dirty per flush
+  THE SIDE MAP AT AN INTERACTIVE BATCH SIZE. Everything the all-dirty side-map row says holds;
+  what this one adds is the case the design is usually argued for — a small batch out of a
+  large population, where the map holds 1024 live entries and only 64 of them are probed. If
+  the two side-map rows differ by much more than the two Set rows do, the difference is the
+  map's working set rather than its per-mark cost, and that is a fact about the design and not
+  about the measurement. What it BUYS is what it buys above: nothing of ours on the caller's
+  object. Direction: the persistent map is the cheapest form of the rejected design, and the
+  window moves so neither arm is measured on an unnaturally hot 64 rows.
+  measured  3,927,840 ops/pass ours, 1,361,884 floor; 9 samples; warm-up 33 planned, 33/33 reached; spread 9.1%/9.1%; load 3.34 → 3.34 on 8 cores
+
+alt.dirty-flag-vs-set-as-queue.all-dirty   [per row per write]   0.28x
+  verdict  the shipped design wins — 3.63x cheaper
+  ours     stamp the identity with the frame number and push it onto a plain array
+  floor    add the identity to a Set<identity>, which dedups by membership
+  THE PUBLISHED CLAIM, REBUILT — 1024 identities, every one of them marked once per flush, and
+  the batch then WALKED rather than delivered, which is what the published microbench did
+  ("mark + iterate, nothing else") and is the only way this row can be about the container.
+  Both arms owe the same M deliveries and the delivery is the same shipped code either way, so
+  putting it in would add one constant to both halves of the ratio — and a constant added to
+  both halves only pulls a ratio toward 1, hardest where the margin is largest.
+  `subscribe.deliver-vs-direct-call` prices delivery on its own, so a reader who wants the
+  per-mark-plus-delivery figure can add the two rather than have them silently mixed here.
+  `mark`'s own `changedInFrame` stamp is on neither arm for the same reason — every design
+  keeps it, whatever it queues into. The only difference between the two bodies is therefore
+  the container the batch is kept in. What the Set BUYS, and it is not nothing: dedup and
+  membership are one operation, there is no per-identity word to keep in step, and the
+  invariant the flag design has to hold by hand — the identity is in the batch iff its stamp
+  says so — cannot be broken, so it cannot drop an update or double-deliver. The blog post
+  pays for the speed with that invariant and says so. RESIDUALS, and both push the same way:
+  every mark here is a FIRST mark, so our stamp never takes its early return and the Set never
+  probes an entry it already holds — the arrangement least favourable to the stamp, since a
+  repeat mark is a field compare for us and a full hash probe for the Set, and `OIMDB.mark`
+  records that five marks in six of a real batch are repeats. And the shipped stamp is a FRAME
+  NUMBER, not the boolean the post measured, so no reset pass over the delivered batch is
+  needed at all; the post's arm paid one store per delivered carrier that this one does not.
+  The first understates our margin, the second means this arm is cheaper than the one the ~4x
+  was measured on.
+  measured  3,739,506 ops/pass ours, 1,416,842 floor; 9 samples; warm-up 32 planned, 32/32 reached; spread 15.4%/7.3%; load 3.43 → 3.43 on 8 cores
+
+alt.dirty-flag-vs-side-map.all-dirty   [per row per write]   0.28x
+  verdict  the shipped design wins — 3.61x cheaper
+  ours     stamp the identity with the frame number and push it onto a plain array
+  floor    keep the stamp in a Map<identity, frame> beside a plain array queue
+  THE ARM THAT LOSES TO THE ONE IT WAS MEANT TO REPLACE, which is why it is worth a row of its
+  own. This is the design proposed whenever "do not write engine bookkeeping onto the caller's
+  objects" is the argument, and what it BUYS is exactly that: the identity carries no
+  `queuedInFrame` word, nothing on it can be corrupted by a caller or by a second database,
+  and the whole batch state can be thrown away at once. It is also the strictly WORSE half of
+  the trade against the Set beside it — it keeps the array push AND pays a hash probe to read
+  the stamp and a second to write it, where the Set pays one probe for dedup, membership and
+  insertion together. Read this ratio beside the Set row above rather than on its own: both
+  are measured against the same shipped arm in the same arrangement, which is what makes the
+  two rejected designs comparable when their own two numbers come from different processes.
+  THE MAP IS PERSISTENT and holds frame numbers rather than being cleared per flush, which is
+  the cheapest honest form of this design — no rehash, no clear, no growth. Direction: in the
+  rejected design's favour.
+  measured  7,384,080 ops/pass ours, 1,448,950 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 8.7%/9.4%; load 3.28 → 3.34 on 8 cores
+
+alt.skip-by-map-vs-closure-early-return.3-of-4-skipped   [per frame]   0.53x
+  verdict  the shipped design wins — 1.87x cheaper
+  ours     call every subscriber and let the field closure early-return — 1 of 4 fires
+  floor    consult a subscriber→column map first and skip the call — 1 of 4 fires
+  ONE OPERATION IS ONE SUBSCRIBER CONSIDERED, not one delivery: four field subscriptions sit
+  on each identity, one column moved, so three of the four must be filtered out and the ratio
+  is per handler. BOTH ARMS RUN THE SHIPPED `OIMSubscriberStore.deliver` — the settled list,
+  the disposal re-check, the buffer, the try/catch — and ours runs the shipped
+  `db.subscribeToField` closures unmodified (`OIMDB.ts:952-963`); only the rejected filter is
+  written here, as the `tell` override the shipped class documents as its variation seam. What
+  the map BUYS: the call never happens, so a subscriber that does not care costs no frame; who
+  wants what is data rather than something sealed inside a closure, which a devtool could list
+  and a delivery could in principle use to skip whole groups without touching them; and the
+  identity needs no `movedFields` array at all. RESIDUALS. Ours reads `slot.movedInFrame`
+  against `db.frame.number` before it even looks at the column, which the map design does not
+  need because delivery already established that the identity moved — a genuine ours-only
+  cost, counted. The map arm is handed what moved once, outside the clock, where a real one
+  would store it per delivery. And `deliver`'s own `this.tell` call site sees two receiver
+  classes in this one process, so it is polymorphic for BOTH arms — an instrument effect paid
+  equally, which pulls the ratio toward 1 and therefore shrinks whichever margin is real.
+  measured  2,097,152 ops/pass ours, 1,391,276 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 8.4%/4.6%; load 3.23 → 3.29 on 8 cores
+
+alt.skip-by-map-vs-closure-early-return.1-of-4-skipped   [per frame]   0.54x
+  verdict  the shipped design wins — 1.84x cheaper
+  ours     call every subscriber and let the field closure early-return — 3 of 4 fire
+  floor    consult a subscriber→column map first and skip the call — 3 of 4 fire
+  THE OTHER END OF THE ONE VARIABLE THAT DECIDES THIS, and the reason the row above must not
+  be quoted alone. Three columns moved, so three of the four subscribers are owed their call
+  and only one is filtered: everything the map saves by not calling is gone, and it still pays
+  its lookup on all four. Ours pays a longer `indexOf` in return — the moved list has three
+  entries here rather than one, and our filter scans it — so the two designs move toward each
+  other from both sides. If the map is ahead in the 3-of-4-skipped row and behind in this one,
+  the honest statement of the decision is a crossover in the skip fraction and not a speed-up,
+  and the shipped choice is then an argument about which fraction a real screen sits at (a
+  component watching one column of a row that moved for another reason is the common case,
+  which is the row above). Every residual named in that row applies here unchanged.
+  measured  2,097,152 ops/pass ours, 1,265,174 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 8.4%/8.6%; load 3.29 → 3.29 on 8 cores
+
+alt.dirty-list-vs-scan.1k-10pct   [per frame]   0.61x
+  verdict  the shipped design wins — 1.63x cheaper
+  ours     push and deliver the list — 1024 subscribed, 102 dirty
+  floor    stamp only, then scan all 1024 — 102 dirty
+  TEN PER CENT, which is the point of this table and not a filler row: it is between the
+  fraction where the list wins by an order of magnitude and the fraction where the scan takes
+  the lead, so it is what says WHERE the crossover is rather than only that there is one. A
+  batch load into a mounted screen — a page of search results replacing a page — is roughly
+  here. What the scan buys and every residual are as stated in the 1% row; nothing about the
+  two bodies changes but M.
+  measured  45,984 ops/pass ours, 31,520 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 20.2%/7.0%; load 3.18 → 3.18 on 8 cores
+
+alt.coalesce-vs-eager.20-writes   [per write]   0.92x
+  verdict  the shipped design wins — 1.09x cheaper
+  ours     write, mark once, recompute at the frame — 20 writes per node per frame
+  floor    write, recompute immediately — 20 writes per node per frame
+  THE FAR END, AND ITS MAGNITUDE IS A PROPERTY OF THE NODE AND NOT OF THE ENGINE. Ours does 20
+  marks and one recompute; eager does 20 recomputes. The ratio is therefore bounded above by
+  20 and reaches it only as the recompute grows large against the marking; the node here is
+  deliberately CHEAP — one field read and a `.length` — so this row is the LOWER end of what
+  coalescing is worth at 20 writes, and the row after it takes the same arrangement with a
+  node worth computing. Quoting a single headline multiple for coalescing without naming the
+  node it was measured over is the error this pair of rows exists to stop. What eager buys,
+  and the correctness argument no ratio prices, are stated in the 1-write row.
+  measured  15,931,162 ops/pass ours, 14,716,168 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 7.1%/12.9%; load 3.07 → 3.07 on 8 cores
+
+alt.coalesce-vs-eager.4-writes   [per write]   1.21x
+  verdict  !  THE REJECTED DESIGN WINS — 1.21x DEARER. This decision came out wrong.
+  ours     write, mark once, recompute at the frame — 4 writes per node per frame
+  floor    write, recompute immediately — 4 writes per node per frame
+  PAST THE BREAK-EVEN, WHICH IS THE CLAIM BEING CHECKED: the remembered statement is that
+  coalescing pays from more than one write per node per frame, so this row is the first that
+  should sit below 1.0x. Ours does four marks — one full and three ending on the stamp's early
+  return — and one recompute. Eager does four recomputes. Two writes to one row between two
+  paints is not exotic: a server patch followed by a local edit, a form field and its
+  validation, an optimistic write and its confirmation. What eager buys, and what no ratio
+  prices, are stated in the 1-write row and are unchanged by the write count. Residuals as
+  there.
+  measured  11,604,856 ops/pass ours, 7,358,429 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 6.1%/9.1%; load 2.99 → 3.07 on 8 cores
+
+alt.dirty-list-vs-scan.1k-50pct   [per frame]   1.52x
+  verdict  !  THE REJECTED DESIGN WINS — 1.52x DEARER. This decision came out wrong.
+  ours     push and deliver the list — 1024 subscribed, 512 dirty
+  floor    stamp only, then scan all 1024 — 512 dirty
+  THE ROW WHERE WE EXPECT TO LOSE, and it is here for that reason. With half the population
+  dirty the scan walks 1024 stamps to find 512 deliveries while we pay per-write bookkeeping
+  512 times, and the remembered figure has the scan ahead by about 1.18x. THAT IS THE WHOLE
+  CASE FOR THE DECISION AND NOT AGAINST IT: the loss is bounded — the scan can never beat us
+  by more than the per-write bookkeeping, because at M = K it is doing our work minus the push
+  — while the win at the sparse end is unbounded in K, since the scan pays for every
+  subscriber that did not move. A design that loses at most ~1.18x and wins up to an order of
+  magnitude is chosen on the shape of the payoff, not on any one of these four numbers. If
+  this row comes back much WORSE than 1.18x, the bookkeeping is heavier than remembered and
+  that is a real finding about the write path. Residuals as in the 1% row.
+  measured  8,178 ops/pass ours, 17,442 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 13.5%/4.9%; load 3.09 → 3.16 on 8 cores
+
+alt.coalesce-vs-eager.1-write   [per write]   2.28x
+  verdict  !  THE REJECTED DESIGN WINS — 2.28x DEARER. This decision came out wrong.
+  ours     write, mark the dependent once, recompute it at the frame — 1 write per node per frame
+  floor    write, recompute the dependent immediately — 1 write per node per frame
+  THE ROW WHERE WE EXPECT TO LOSE, AND THE ONE THAT SPEED CANNOT DECIDE. At one write per node
+  per frame there is nothing to coalesce: both arms recompute once, and ours has additionally
+  paid a stamp, a queue push and a drain to arrange it. Expect somewhere between 1.0x and 2.5x
+  against us, and the closer this row is to 1.0x the cheaper the mechanism is when it is doing
+  nothing. WHAT EAGER BUYS: the value is current the instant the write returns, so a reader
+  needs no flush and no mental model of a frame; there is no queue, no stamp and no drain; and
+  a node that nobody reads is never computed at all. WHAT NO RATIO IN THIS FILE PRICES, and it
+  is the actual reason for the decision: on a diamond — A feeding B and C, D reading both —
+  the eager arm recomputes D once per path and its FIRST run reads one fresh parent and one
+  stale one. That is a value that never should have existed, delivered to whoever is watching,
+  and it is a correctness failure rather than a slow one. Coalescing is what makes the graph
+  settle before anything downstream runs. A reader who takes this row as an argument for eager
+  has taken half the argument. RESIDUALS: both arms write through the same compare-gated field
+  store, written out twice rather than shared, so neither pays a call the other does not; the
+  shipped engine additionally orders the drain by level and gates each node on equality before
+  waking anything downstream, and neither of those is in this arm — so our real mechanism
+  costs MORE than what is measured here, and this ratio understates the loss.
+  measured  5,996,032 ops/pass ours, 14,575,196 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 8.7%/9.0%; load 3.16 → 3.16 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.93x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

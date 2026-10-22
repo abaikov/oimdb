@@ -1,0 +1,78 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 38.01160164611479,
+            "floorNs": 19.295632191245232,
+            "floorAgainNs": 19.314649793338972,
+            "ratio": 1.9699588626778097,
+            "noise": 0.000985591034553854,
+            "oursOperations": 1628562,
+            "floorOperations": 1879890,
+            "oursSpread": 0.08084325389613793,
+            "floorSpread": 0.019193235114421663,
+            "samples": 9,
+            "warmup": 23,
+            "repeat": 1,
+            "oursWarmed": 23,
+            "floorWarmed": 23,
+            "gcAvailable": true,
+            "node": "v24.16.0",
+            "oursAgainNs": 31.58325688552232,
+            "oursNoise": 0.20353647452803406
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "selfAllowance": 2,
+            "start": 4.19189453125,
+            "peak": 4.25634765625,
+            "readings": 4,
+            "foreignPeak": 2.25634765625,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.512653350830078,
+            "floorNs": 19.251455858121584,
+            "floorAgainNs": 19.37758813199202,
+            "ratio": 1.013567674810334,
+            "noise": 0.006551830407009169,
+            "oursOperations": 2097152,
+            "floorOperations": 1844960,
+            "oursSpread": 0.08756811905867412,
+            "floorSpread": 0.09010881924477739,
+            "samples": 9,
+            "warmup": 27,
+            "repeat": 1,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0",
+            "oursAgainNs": 19.0343656539917,
+            "oursNoise": 0.025127587939242784
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "selfAllowance": 2,
+            "start": 4.25634765625,
+            "peak": 4.5556640625,
+            "readings": 4,
+            "foreignPeak": 2.5556640625,
+            "over": true
+        }
+    }
+]

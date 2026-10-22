@@ -4,7 +4,7 @@ export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
     dts: { resolve: false },
-    external: ['@oimdb/core', '@oimdb/core/*'],
+    external: ['@oimdb/core-legacy', '@oimdb/core/*'],
 });
 
 

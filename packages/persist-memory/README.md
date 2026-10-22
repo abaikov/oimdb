@@ -1,49 +1,97 @@
 # @oimdb/persist-memory
 
-In-memory persistence backend for [`@oimdb/persist`](../persist).
-
-Stores snapshots in plain `Map`s — zero external dependencies. Useful for:
-
-- **tests** — assert what was persisted without touching the DOM;
-- **server-side rendering** — fill collections on the server, then dehydrate;
-- a reference implementation of a persist backend.
-
-## Install
+In-memory backend for [`@oimdb/persist`](../persist). It keeps snapshots and records in plain
+`Map`s, with no I/O. Useful for tests (assert what was persisted), for server-side filling before
+a dump (see [`@oimdb/persist-json`](../persist-json), which builds on it), and as the reference
+implementation of a backend.
 
 ```bash
 npm install @oimdb/persist-memory @oimdb/persist @oimdb/core
 ```
 
-## Usage
+## Exports
+
+| export | what it is |
+|---|---|
+| `OIMPersistMemoryBackend` | the backend; `new OIMPersistMemoryBackend()` takes no options |
+| `OIMPersistMemoryWriteBatch` | its write batch: queues every change and applies them in order on `commit()` |
+| `OIMPersistMemoryRecordsStrategy` | records strategy, `new OIMPersistMemoryRecordsStrategy({ storageKey })`: one `Map` of key to entity per `storageKey` |
+| `OIMPersistMemorySnapshotStrategy` | snapshot strategy, `new OIMPersistMemorySnapshotStrategy({ storageKey })`: one value per `storageKey` |
+| `TOIMPersistMemoryStrategyOptions` | `{ storageKey }`, the options of both strategies |
+
+Snapshot values and records live in two separate maps, so a snapshot and a records resource can use
+the same `storageKey` without meeting.
+
+The backend's read methods, `readSnapshotValue(storageKey)` and `readRecords(storageKey)`, are how a
+test asserts what was committed. `readRecords` answers `undefined` for a `storageKey` that holds
+no records, and the records strategy passes that on, so a hydrate over an empty backend applies
+nothing.
+
+`readRecordsOfKeys(storageKey, keys)` is the read behind `persistor.load(persistResourceRecords, keys)`:
+it looks each key up in the `storageKey`'s map and answers the records of the keys the map holds,
+leaving out the rest, with no copy of the other entities. A `storageKey` that holds no records
+answers an empty list.
+
+## Example
 
 ```ts
-import { OIMCollection } from '@oimdb/core';
-import { createMemoryPersistor } from '@oimdb/persist-memory';
+import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import type { TOIMStoreKey } from '@oimdb/core';
+import {
+    OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords,
+    OIMPersistSchedulerMicrotaskDriven, OIMPersistor,
+} from '@oimdb/persist';
+import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsStrategy, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
 
-type User = { id: string; name: string };
+type TUser = { id: string; name: string };
 
-const persistor = createMemoryPersistor();
-const users = new OIMCollection<User, string>();
+const db = new OIMDB();
+const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
+    entityWriter: createOIMEntityWriterInPlace(),
+});
+const userCollectionService = createOIMEntityService<TUser>(db, {
+    keyOf: user => user.id,
+    entityWriter: persistEntityWriter,
+});
+const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
 
-// records strategy → one Map row per entity
-persistor.collection(users).records({ bucketName: 'users' });
+const persistMemoryBackend = new OIMPersistMemoryBackend();
+const persistor = new OIMPersistor<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch>({
+    persistBackend: persistMemoryBackend,
+    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+});
+persistor.addPersistResource(new OIMPersistResourceRecords({
+    persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+        entityCollectionService: userCollectionService,
+        entityStoreSlot: userEntityStoreSlot,
+        persistEntityWriter,
+    }),
+    persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TUser>({ storageKey: 'users' }),
+}));
 
-users.upsertMany([{ id: 'u1', name: 'Ada' }]);
+await persistor.hydrate();
+persistor.start();
+
+userCollectionService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
 await persistor.persist();
 
-// later / elsewhere, against the same storage
-await persistor.hydrate();
+persistMemoryBackend.readRecords('users');
 ```
 
-### Strategies
+Autosave writes a delta into the records map: one `set` per upserted key and one `delete` per
+deleted key. `persist()` replaces the map for that `storageKey` with the full records; while the resource has
+unloaded keys it sets every in-memory record into the map instead and removes nothing.
+`clearPersisted()` deletes it, so the next hydrate applies nothing.
 
-| Builder call | Layout in storage |
-|---|---|
-| `.collection(c).entry({ bucketName })` | whole snapshot under one `entries` key |
-| `.collection(c).records({ bucketName })` | one `recordBuckets` Map, one row per entity — on autosave from a reactive collection, only the changed rows are written (delta), not the whole bucket |
-| `.collection(c).using(strategy, codec?)` | custom strategy |
-| `.object(o).entry({ bucketName })` | object snapshot under one key |
-| `.setIndex(i) / .arrayIndex(i) / .orderedArrayIndex(i)` `.entry()` | index snapshot under one key |
+## Values are kept by reference
 
-The engine (lifecycle, batching, codecs, source adapters) lives in
-[`@oimdb/persist`](../persist); this package only provides the memory backend.
+The backend stores the entity objects and snapshot values it is handed; it copies nothing. With
+`createOIMEntityWriterInPlace()` the stored entity is the live entity object, so an in-place write
+changes what the backend holds before any commit: reading the backend shows the live value whether
+or not a drain has written it yet. Where a
+test must see exactly what was committed, build the entity service over
+`createOIMEntityWriterReplacing()` with a copying insert strategy, or encode a snapshot resource
+through a codec that copies.
+
+The engine (persistor, resources, sources, schedulers, codecs) is
+[`@oimdb/persist`](../persist).

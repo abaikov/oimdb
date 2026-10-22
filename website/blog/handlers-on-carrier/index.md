@@ -39,14 +39,20 @@ public markUpdatedCarrier(carrier: TCarrier): void {
 }
 ```
 
-When only a key is available, `markUpdatedKey` resolves the carrier through an `IOIMCarrierResolver`.
+When only a key is available, `markUpdatedKey` resolves the carrier through `IOIMCarrierProvider.findCarrier` — the same collaborator that mints a carrier for a subscription (`getOrReserveCarrier`) and is told when one loses its last subscriber.
 
-Two numbers, because the micro-win and the end-to-end win are different sizes. In isolation — just the dispatch, nothing around it — the carrier emitter is **55–68% faster** per key than the `Map<key, handlers>` emitter (option A); the range is across key-set sizes (the bigger the map, the more the saved hash+lookup is worth). But dispatch is a small slice of a real operation, so the number that matters end-to-end is the second: inside a full index write, delivery is **~14%** of total time with the map emitter and **~0–3%** with the carrier one. Membership bookkeeping, not delivery, dominates the rest — so once delivery is near-free, little is left to shave, and the 55–68% does not translate into a 55–68% faster operation.
+No figure is stated for the saving: no benchmark in this repository builds a `Map<key, handlers>` arm to compare against (see [How we measure](/docs/performance/)). The mechanism: the writer already holds the carrier, so `markUpdatedCarrier` reads `carrier.subscribers` directly where the map emitter hashes the key and probes a table. That is a hash and a lookup that provably do not happen — whatever they are worth in nanoseconds.
+
+The nearest measured thing is *not* this comparison and must not be read as it:
+
+> [`2026-08-20-alternatives/addressing/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements/2026-08-20-alternatives/addressing) prices the same *principle* on a different operation — per-identity state read off the carrier you already hold, `slot.cache[column]` at 2.7 ns, against `stateByKey.get(row.id)`, a `Map` keyed by the primary key, at 20.5 ns. Ratio 0.13x, noise 0.9%.
+
+That settles addressing-by-identity against addressing-by-key **for a read**. It does not measure an emitter, a mark, or a delivery, and it measures neither engine this post names: `slot.cache[column]` is the pair's own wording for its arm, and the column store on an entity slot is `slot.columns` today. What would settle this post is a pair whose two arms are the two emitters.
 
 ## Cost
 
-The emitter is no longer self-contained: it depends on carrier objects and a resolver. The index case, where the carrier is a standalone per-key object, reintroduces a `Map<key, carrier>` plus an `onCarrierEmptied` hook to prune carriers whose last subscriber left — without it a churning key space leaks carriers. A uniform data structure is traded for a faster one whose correctness depends on prune callbacks firing.
+The emitter is no longer self-contained: it depends on carrier objects and a provider. The index case, where the carrier is a standalone per-key object, reintroduces a `Map<key, carrier>` plus an `onCarrierEmptied` hook to prune carriers whose last subscriber left — without it a churning key space leaks carriers. A uniform data structure is traded for a faster one whose correctness depends on prune callbacks firing.
 
 ## Where it lives
 
-`packages/core/src/core/OIMCarrierKeyedEmitter.ts`, `packages/core/src/types/IOIMSubscribable.ts`, `packages/core/src/core/OIMKeyedCarrierResolver.ts`
+`packages/core-legacy/src/core/OIMCarrierKeyedEmitter.ts`, `packages/core-legacy/src/types/IOIMSubscribable.ts` — the legacy engine, kept at `packages/core-legacy`. The engine shipped today keeps the principle and drops the emitter: subscribers live on the slot as `slot.effects`, and `OIMChannel.write` reads them off the slot the writer already holds.

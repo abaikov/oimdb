@@ -1,0 +1,124 @@
+{
+  "format": 2,
+  "point": {
+    "key": "small",
+    "n": 3200,
+    "window": 32,
+    "processes": 1
+  },
+  "scenario": "patchColumn",
+  "plan": {
+    "repeat": 67,
+    "samples": 5,
+    "warmup": 50
+  },
+  "probes": [
+    {
+      "name": "baseline-array",
+      "runMs": 1.341708
+    },
+    {
+      "name": "baseline-indexed",
+      "runMs": 0.263375
+    },
+    {
+      "name": "oimdb",
+      "runMs": 0.127583
+    },
+    {
+      "name": "oimdb-sorted-index",
+      "runMs": 0.129542
+    },
+    {
+      "name": "oimdb-3.12.1",
+      "runMs": 0.131375
+    },
+    {
+      "name": "tinybase",
+      "runMs": 0.441208
+    },
+    {
+      "name": "signaldb",
+      "runMs": 57.105334
+    },
+    {
+      "name": "tanstack-db",
+      "runMs": 0.952083
+    },
+    {
+      "name": "tanstack-db-eager",
+      "runMs": 0.99625
+    },
+    {
+      "name": "tanstack-db-indexed",
+      "runMs": 0.980667
+    },
+    {
+      "name": "lokijs",
+      "runMs": 0.213708
+    },
+    {
+      "name": "mobx",
+      "runMs": 0.208042
+    },
+    {
+      "name": "jotai",
+      "runMs": 1.98725
+    },
+    {
+      "name": "legend-state",
+      "runMs": 4.81575
+    },
+    {
+      "name": "effector",
+      "runMs": 0.27175
+    },
+    {
+      "name": "nanostores",
+      "runMs": 0.208
+    },
+    {
+      "name": "nanostores-per-row",
+      "runMs": 0.173959
+    },
+    {
+      "name": "redux-toolkit",
+      "runMs": 30.029917
+    },
+    {
+      "name": "preact-signals",
+      "runMs": 0.22825
+    },
+    {
+      "name": "alien-signals",
+      "runMs": 0.147541
+    },
+    {
+      "name": "zustand",
+      "runMs": 20.089542
+    },
+    {
+      "name": "valtio",
+      "runMs": 1.008459
+    },
+    {
+      "name": "xstate-store",
+      "runMs": 19.509666
+    },
+    {
+      "name": "vue-reactivity",
+      "runMs": 0.237917
+    },
+    {
+      "name": "solid-js",
+      "runMs": 0.324833
+    },
+    {
+      "name": "tanstack-store",
+      "runMs": 0.261875
+    }
+  ],
+  "probeFailures": [],
+  "probedAt": "2026-10-22T16:00:16.471Z",
+  "harness": "9f7d83f3c1a40cfe"
+}

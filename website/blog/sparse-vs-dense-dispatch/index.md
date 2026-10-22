@@ -6,7 +6,7 @@ tags: [internals, performance]
 date: 2026-06-12
 ---
 
-When a handful of keys changed out of thousands subscribed, iterate the changed keys. Only when *every* subscribed key changed does iterating the whole map win. The emitter picks at flush time.
+When a handful of keys changed out of thousands subscribed, iterate the changed keys. The emitter switches to the whole map on exactly one condition — every subscribed key dirty — and that condition is an operation count, not a tuned threshold. The section below gives the nearest recorded pair.
 
 {/* truncate */}
 
@@ -38,35 +38,34 @@ inverted.
 Count the lookups. Sparse does `M` map-`get`s; dense does `K` iterations + `K`
 `Set.has`es. Since `M ≤ K`, sparse does fewer for any `M < K`. The exception is
 `M = K` — every subscribed key dirty — where iterating the map in place avoids
-`K` repeated `get()` re-hashes. Both walks, benchmarked across `M/K`
-(min-of-7, `K` = 10 000, ms total — lower is better):
+`K` repeated `get()` re-hashes. That much is an operation count and stands on its
+own.
 
-```
-M/K    sparse   dense    winner
-  1%        6      534    sparse
- 10%       78      631    sparse
- 25%      176      570    sparse
- 50%      330      623    sparse
- 75%      597      779    sparse
-100%      672      606    dense (~10%)
-```
+The nearest recorded pair puts the crossover at 50%. The same choice
+turns up in a different shape — walk the list of what changed, or walk everything
+subscribed and check a stamp — and that pair is recorded:
 
-Dense wins exactly one ratio: `M = K`, by ~7–10% (holds at `K` = 1k and 50k too).
-Below that sparse wins — by orders of magnitude when few keys changed. So a size
-heuristic is doubly wrong with the wrong constant: `* 2` flips to dense at
-`M ≥ K/2`, across a 50–99% band where sparse still wins, and `K/2` has nothing to
-do with the one ratio (`M = K`) where dense actually pays.
+> [`2026-08-20-alternatives/dispatch/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements/2026-08-20-alternatives/dispatch),
+> `alt.dirty-list-vs-scan`, per frame, `K` = 1024: at 10 dirty the list costs
+> 107 ns against the scan's 1.19 µs; at 102 dirty, 723 ns against 1.18 µs; at
+> **512 dirty — `M/K` = 50% — the list costs 3.49 µs and the scan 2.30 µs, so the
+> scan wins by 1.52×**, at a noise of 1.9%.
 
-Be clear about the stake: `M = K` only happens via `markAllUpdated()` / `clear()`,
-not on ordinary partial writes, and the win there is ~10% of an already-cheap
-dispatch. This is a small optimization on an infrequent path. The transferable
-part isn't the speedup — it's the method: the first cut used a `* 2` size
-heuristic on a guessed crossover; a clean min-of-7 sweep showed there is no
-crossover region at all, just a single exact ratio, so the right code is an
-equality check, not a tuned threshold.
+That is not this post's `runSinglePass`: different engine, different containers,
+and its two arms are not the two walks this code switches between. But it is the same question — walk `M` or walk
+`K` — and it puts the crossover somewhere below half, where this post claimed
+sparse still won by a wide margin all the way to 99%. So the specific claim
+*"below `M = K`, sparse wins"* should be read as unproven, not as measured.
+
+The stake is unchanged, and so is the code. `M = K` only happens via the
+emitter's own `markAllUpdated()` — which the collection reaches from `clear()`
+and from nowhere else — not on ordinary partial writes. The transferable
+part was never the speedup: an equality check triggers only on the case it was
+reasoned about, where a tuned threshold has a constant somebody has to defend —
+and, as it turns out, a sweep somebody has to be able to produce.
 
 `runSinglePass` switches on that exact condition — `M = K`, which is what
-`markAllUpdated()` / `clear()` produce — and uses sparse otherwise:
+`markAllUpdated()` produces — and uses sparse otherwise:
 
 ```typescript
 if (flushingKeys.size === this.keyHandlers.size) {
@@ -87,11 +86,16 @@ if (flushingKeys.size === this.keyHandlers.size) {
 
 ## Cost
 
-Two walks and a branch, versus one. But the branch is an exact equality, not a
-tuned threshold, so there is no crossover region to mis-place — it triggers only
-on all-keys-dirty. Both walks probe membership, so either stays correct if a
-subscription changed between mark and flush.
+Two walks and a branch, versus one. The branch is an exact equality, not a tuned
+threshold, so nothing here has a crossover constant to mis-place — it triggers
+only on all-keys-dirty. What the `alt.dirty-list-vs-scan` rows above suggest is
+that a real crossover exists somewhere below `M = K`, and this code does not use
+it: below the equality it always walks the dirty keys. Whether that leaves
+something on the table at high `M/K` is open, and open is what it should be
+called until a pair with these two walks as its arms is recorded. Both walks probe
+for containment, so either stays correct if a subscription changed between mark and
+flush.
 
 ## Where it lives
 
-`packages/core/src/core/OIMUpdateEventEmitter.ts` (`runSinglePass`)
+`packages/core-legacy/src/core/OIMUpdateEventEmitter.ts` (`runSinglePass`) — the legacy engine, kept at `packages/core-legacy`. The engine shipped today faces the question in the shape the `alt.dirty-list-vs-scan` rows measure, not in this one.

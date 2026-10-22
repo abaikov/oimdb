@@ -1,0 +1,239 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 3.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.95x  37 ns  19 ns   0.6%     ~1.9x  control-resolution-2x
+0.98x  19 ns  19 ns   0.3%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.95x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.6% of 1.00 is a reading, and no
+  decision inside 4.9% of it — 3x the error above — is settled either way.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+     ratio         margin     ours      floor  noise  path       decision
+     0.05x  21.4x cheaper  7.61 µs  163.03 µs   3.6%  per frame  alt.memo.a-node-vs-recomputing-in-the-body.dear-body-sixty-four-reads-per-write
+     0.17x  5.91x cheaper  3.31 µs   19.52 µs   4.4%  per frame  alt.memo.a-node-vs-recomputing-in-the-body.dear-body-eight-reads-per-write
+!=±  1.03x      unsettled  2.73 µs    2.65 µs   5.9%  per frame  alt.memo.a-node-vs-recomputing-in-the-body.dear-body-one-read-per-write
+!    1.72x   1.72x DEARER   280 ns     163 ns   1.3%  per frame  alt.memo.a-node-vs-recomputing-in-the-body.mount-a-chain-of-four-and-drop-it
+!    2.50x   2.50x DEARER   669 ns     267 ns   0.8%  per frame  alt.memo.a-node-vs-recomputing-in-the-body.cheap-body-eight-reads-per-write
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` or `±` lost by less than the instrument can resolve: unsettled, not
+     lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ±  the margin clears this run's own error but not by 3x. The scale control above is the
+     largest single item on the row, so the margin is more instrument than design and
+     the decision is UNSETTLED — it prints no verdict and no margin. A quieter run may
+     settle it; this one did not.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not. ON THIS TABLE THAT IS WORSE THAN ON
+     the price table: a ratio here IS the verdict, so a voided one leaves the
+     decision with no reading at all rather than with two absolute figures.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR — the rejected design — timed
+     twice; the shipped design is timed once and never checked against itself. See
+     `ONE SIDE OF THIS ROW IS UNCHECKED` in `formatPriceReport.ts` for what that hides
+     and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  2 of 5 decisions stand on this run, 2 came out wrong, 1 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.memo.a-node-vs-recomputing-in-the-body.dear-body-sixty-four-reads-per-write   [per frame]   0.05x
+  verdict  the shipped design wins — 21.4x cheaper
+  ours     the same node, read sixty-four times per write
+  floor    the same body, walked in full sixty-four times
+  THE FAR END OF THE READ AXIS, and the row that says what the mechanism is worth when it is
+  used for what it is for. It is also the row a reader should distrust as a summary:
+  sixty-four reads between two writes is a quiet list on a busy screen, not a typical one.
+  Read the three dear-body rows as a curve; the number that matters is where it crosses 1.00,
+  not either end of it. RESIDUALS. AGAINST THE NODE: it is the SHIPPED `OIMSingleComputed`, so it is
+  a filed slot carrying `effects`, `holdCount`, `owner` and `key`, and every read pays a call
+  into `anySourceChangedSinceRun`, an `isRevisionAfter` per source, and — when it does run —
+  the comparator and two pairs of stamps. The body arm allocates nothing and carries no state
+  at all. AGAINST THE BODY ARM: nothing. It is a plain call of the same function the node
+  derives through, and both arms write through the same `OIMChannel.write` over the same slot
+  shape, so the write side is identical and cancels in the ratio. WHAT NEITHER ARM PAYS: the
+  frame. No effect is subscribed and `channel.flush()` is never called. WHAT IS NOT VARIED
+  HERE: the comparator cut. Every write moves a row that the filter keeps often enough for the
+  derived sum to move, so the node is never handed the case where its value held and the
+  readers below it are spared — the arrangement in which a node is at its BEST after the read
+  count itself. It is a separate row and it is not in this file yet.
+  measured  4,096 ops/pass ours, 1,024 floor; 9 samples; warm-up 9 planned, 9/9 reached; spread 0.8%/28.1%; load 2.59 → 2.66 on 8 cores
+
+alt.memo.a-node-vs-recomputing-in-the-body.dear-body-eight-reads-per-write   [per frame]   0.17x
+  verdict  the shipped design wins — 5.91x cheaper
+  ours     the same node, read eight times per write — seven reads answered from the cache
+  floor    the same body, walked in full on all eight reads
+  THE ARRANGEMENT PEOPLE REACH FOR A MEMO IN: a list that is expensive to walk, and more
+  re-renders than writes. Eight reads per write is a modest ratio for a screen — a hover, a
+  parent re-render and a sibling update all read without writing. WHAT THE ROW IS ASKING:
+  whether seven skipped walks of 128 rows outweigh eight rounds of a node's bookkeeping. THE
+  ANSWER IS AN ARITHMETIC ONE and the row exists to check it against a clock rather than
+  against a count of operations. RESIDUALS. AGAINST THE NODE: it is the SHIPPED `OIMSingleComputed`,
+  so it is a filed slot carrying `effects`, `holdCount`, `owner` and `key`, and every read
+  pays a call into `anySourceChangedSinceRun`, an `isRevisionAfter` per source, and — when it
+  does run — the comparator and two pairs of stamps. The body arm allocates nothing and
+  carries no state at all. AGAINST THE BODY ARM: nothing. It is a plain call of the same
+  function the node derives through, and both arms write through the same `OIMChannel.write`
+  over the same slot shape, so the write side is identical and cancels in the ratio. WHAT
+  NEITHER ARM PAYS: the frame. No effect is subscribed and `channel.flush()` is never called.
+  WHAT IS NOT VARIED HERE: the comparator cut. Every write moves a row that the filter keeps
+  often enough for the derived sum to move, so the node is never handed the case where its
+  value held and the readers below it are spared — the arrangement in which a node is at its
+  BEST after the read count itself. It is a separate row and it is not in this file yet.
+  measured  10,760 ops/pass ours, 2,048 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 20.8%/2.2%; load 1.90 → 2.59 on 8 cores
+
+alt.memo.a-node-vs-recomputing-in-the-body.dear-body-one-read-per-write   [per frame]   1.03x
+  verdict  UNSETTLED — the difference is inside this run's own error. Neither design is shown to win.
+  ours     a computed over a list of 128, settled once per write — the walk cached
+  floor    the same filter-and-sum called in the consumer body, no node — one read per write
+  THE FLOOR OF WHAT A NODE CAN DO, AND THE ROW IT SHOULD LOSE. One read per write means the
+  derive body runs exactly once on both arms, so everything the node does is overhead and
+  nothing it holds is ever handed back. A node cannot win here and is not meant to; the row
+  exists to price the overhead alone, so that the rows below it can be read as "what the reads
+  bought against this" [FIGURE STATED IN ADVANCE]. IF THIS ROW COMES OUT AT OR BELOW 1.00 THE
+  INSTRUMENT IS WRONG, not the design — there is no mechanism by which a node beats its own
+  body at one call each. RESIDUALS. AGAINST THE NODE: it is the SHIPPED `OIMSingleComputed`, so it
+  is a filed slot carrying `effects`, `holdCount`, `owner` and `key`, and every read pays a
+  call into `anySourceChangedSinceRun`, an `isRevisionAfter` per source, and — when it does
+  run — the comparator and two pairs of stamps. The body arm allocates nothing and carries no
+  state at all. AGAINST THE BODY ARM: nothing. It is a plain call of the same function the
+  node derives through, and both arms write through the same `OIMChannel.write` over the same
+  slot shape, so the write side is identical and cancels in the ratio. WHAT NEITHER ARM PAYS:
+  the frame. No effect is subscribed and `channel.flush()` is never called. WHAT IS NOT VARIED
+  HERE: the comparator cut. Every write moves a row that the filter keeps often enough for the
+  derived sum to move, so the node is never handed the case where its value held and the
+  readers below it are spared — the arrangement in which a node is at its BEST after the read
+  count itself. It is a separate row and it is not in this file yet.
+  measured  17,376 ops/pass ours, 16,366 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 3.4%/17.2%; load 1.98 → 1.98 on 8 cores
+
+alt.memo.a-node-vs-recomputing-in-the-body.mount-a-chain-of-four-and-drop-it   [per frame]   1.72x
+  verdict  !  THE REJECTED DESIGN WINS — 1.72x DEARER. This decision came out wrong.
+  ours     build four computeds over the list, settle the head once, drop the stack
+  floor    build one closure over the same list, call it once, drop it
+  THE `churnChain` SHAPE, PRICED AS ITSELF. That scenario mounts a private stack of four
+  derivations per subscriber, writes one row, reads once and unmounts — so the structure is
+  built, used once and destroyed, and neither of the two things a node buys (a cached walk, a
+  value shared between readers) can occur. THE ROW EXISTS TO SAY WHAT OUR NUMBER THERE IS MADE
+  OF: four allocations, their source lists and their stamps, against one closure. A
+  participant whose adapter builds no stack is not faster on that scenario, it is doing
+  something else — and this row is the size of "something else" [FIGURE STATED IN ADVANCE].
+  WHAT THIS ROW DOES NOT MEASURE: the unmount. Both arms drop their references and let the
+  collector take them, and no `detach` is called on either side, because the body arm has
+  nothing to detach and charging only one arm for a teardown would be the asymmetry this file
+  exists to avoid. RESIDUALS. AGAINST THE NODE: it is the SHIPPED `OIMSingleComputed`, so it is a
+  filed slot carrying `effects`, `holdCount`, `owner` and `key`, and every read pays a call
+  into `anySourceChangedSinceRun`, an `isRevisionAfter` per source, and — when it does run —
+  the comparator and two pairs of stamps. The body arm allocates nothing and carries no state
+  at all. AGAINST THE BODY ARM: nothing. It is a plain call of the same function the node
+  derives through, and both arms write through the same `OIMChannel.write` over the same slot
+  shape, so the write side is identical and cancels in the ratio. WHAT NEITHER ARM PAYS: the
+  frame. No effect is subscribed and `channel.flush()` is never called. WHAT IS NOT VARIED
+  HERE: the comparator cut. Every write moves a row that the filter keeps often enough for the
+  derived sum to move, so the node is never handed the case where its value held and the
+  readers below it are spared — the arrangement in which a node is at its BEST after the read
+  count itself. It is a separate row and it is not in this file yet.
+  measured  157,628 ops/pass ours, 304,138 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 3.4%/3.3%; load 2.76 → 2.86 on 8 cores
+
+alt.memo.a-node-vs-recomputing-in-the-body.cheap-body-eight-reads-per-write   [per frame]   2.50x
+  verdict  !  THE REJECTED DESIGN WINS — 2.50x DEARER. This decision came out wrong.
+  ours     a computed whose body reads ONE field, read eight times per write
+  floor    that one field read in the consumer body, eight times per write
+  THE SAME READ RATIO AS THE ROW TWO ABOVE, WITH THE BODY MADE TRIVIAL — so the pair of rows
+  isolates the other axis. This is `churnChain`'s derive body: one field off one row. WHAT IT
+  DECIDES: whether a node can be worth holding for a body this cheap at a read ratio that
+  would carry a dear one. If it cannot, then the boundary is a fact about the BODY and belongs
+  in the documentation as one — build a node when the body walks something, not when it reads
+  a field [FIGURE STATED IN ADVANCE]. RESIDUALS. AGAINST THE NODE: it is the SHIPPED
+  `OIMSingleComputed`, so it is a filed slot carrying `effects`, `holdCount`, `owner` and `key`, and
+  every read pays a call into `anySourceChangedSinceRun`, an `isRevisionAfter` per source, and
+  — when it does run — the comparator and two pairs of stamps. The body arm allocates nothing
+  and carries no state at all. AGAINST THE BODY ARM: nothing. It is a plain call of the same
+  function the node derives through, and both arms write through the same `OIMChannel.write`
+  over the same slot shape, so the write side is identical and cancels in the ratio. WHAT
+  NEITHER ARM PAYS: the frame. No effect is subscribed and `channel.flush()` is never called.
+  WHAT IS NOT VARIED HERE: the comparator cut. Every write moves a row that the filter keeps
+  often enough for the derived sum to move, so the node is never handed the case where its
+  value held and the readers below it are spared — the arrangement in which a node is at its
+  BEST after the read count itself. It is a separate row and it is not in this file yet.
+  measured  74,530 ops/pass ours, 94,087 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 1.1%/2.0%; load 2.66 → 2.76 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.95x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.98x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

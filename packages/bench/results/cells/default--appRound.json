@@ -1,0 +1,883 @@
+{
+  "format": 2,
+  "cells": {
+    "baseline-array": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "baseline-array"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.22933342857142858,
+        "processMins": [
+          0.22933342857142858,
+          0.23020828571428573,
+          0.26739871428571427
+        ],
+        "drift": 0.16598228156881983,
+        "lost": 0,
+        "spread": 0.2792509222379891,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "oimdb": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "oimdb"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "64ba88b80021654a",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.34129171428571425,
+        "processMins": [
+          0.34129171428571425,
+          0.34448814285714285,
+          0.3563392857142857
+        ],
+        "drift": 0.04409005785582676,
+        "lost": 0,
+        "spread": 0.049653794282394574,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1.4881899965988385
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "oimdb-3.12.1": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "oimdb-3.12.1"
+      },
+      "fingerprint": {
+        "harness": "316e21080fd09879",
+        "adapter": "561cf8b869ffa66f",
+        "subject": "e6938ade924a0448",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-18T13:30:21.078Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "oimdb-3.12.1",
+          "preact-signals",
+          "alien-signals"
+        ],
+        "startedAt": "2026-10-18T13:30:21.078Z",
+        "seconds": 54.865,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 2.97021484375,
+          "peak": 3.25732421875,
+          "readings": 50,
+          "foreignPeak": 0.25732421875,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.294881,
+          "heavyMin": 0.36001785714285717,
+          "gap": 0.22089201115994983,
+          "drift": 0.06081920697307922,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22449999999999998,
+          "drift": 0.014980591791282397
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.5945178571428571,
+        "processMins": [
+          0.5945178571428571,
+          0.5957084285714286,
+          0.604387
+        ],
+        "drift": 0.016600246298020694,
+        "lost": 0,
+        "spread": 0.043342444357672746,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2.6481864460706332
+      },
+      "measuredAt": "2026-10-18T13:31:15.943Z"
+    },
+    "preact-signals": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "preact-signals"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "d1dfa870686ab6cc",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@preact/signals-core": "1.14.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.8574762857142858,
+        "processMins": [
+          0.8574762857142858,
+          0.8945832857142857,
+          0.9409701428571429
+        ],
+        "drift": 0.09737162243887118,
+        "lost": 0,
+        "spread": 0.1269296243761176,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 3.738993879155366
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "alien-signals": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "alien-signals"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "27c7792a7894c384",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "alien-signals": "3.2.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.647863,
+        "processMins": [
+          0.647863,
+          0.6591844285714286,
+          0.6731845714285714
+        ],
+        "drift": 0.039084762408983675,
+        "lost": 0,
+        "spread": 0.06520536418524125,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2.8249828384622764
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "oimdb-sorted-index": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "oimdb-sorted-index"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "e91cee0c6d7338fc",
+        "subject": "8e38b6a0334dc11c",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:12:41.177Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "oimdb-sorted-index"
+        ],
+        "startedAt": "2026-10-22T17:12:41.177Z",
+        "seconds": 5.509,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 3.7744140625,
+          "peak": 3.7744140625,
+          "readings": 19,
+          "foreignPeak": 0.7744140625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.31042857142857144,
+          "heavyMin": 0.36285114285714287,
+          "gap": 0.16887160607455132,
+          "drift": 0.14384905660377345,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.21947614285714284,
+          "drift": 0.6580611104493626
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.3417321428571429,
+        "processMins": [
+          0.3417321428571429,
+          0.3447202857142857,
+          0.3505714285714286
+        ],
+        "drift": 0.025866123216805145,
+        "lost": 0,
+        "spread": 0.0457751998745886,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1.5570354864472744
+      },
+      "measuredAt": "2026-10-22T17:12:46.686Z"
+    },
+    "mobx": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "mobx"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "cf185a6fd0a0b465",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "mobx": "7.0.6"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 2.634988142857143,
+        "processMins": [
+          2.634988142857143,
+          2.6846845714285714,
+          2.7323095714285714
+        ],
+        "drift": 0.036934294689425815,
+        "lost": 0,
+        "spread": 0.015598226871934412,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 11.489769107238743
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "vue-reactivity": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "vue-reactivity"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "422c1f411c74eed1",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@vue/shared": "3.5.43",
+          "@vue/reactivity": "3.5.43"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 1.7614285714285713,
+        "processMins": [
+          1.7614285714285713,
+          1.7798272857142856,
+          1.7913095714285716
+        ],
+        "drift": 0.016964071370640866,
+        "lost": 0,
+        "spread": 0.03181265206812659,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 7.680644650895078
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    },
+    "solid-js": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "appRound",
+        "adapter": "solid-js"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "c9972274dc92b888",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "solid-js": "1.9.15"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 7,
+        "samples": 5,
+        "warmup": 53
+      },
+      "batch": {
+        "id": "default--appRound--2026-10-22T17:34:01.538Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "appRound",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb",
+          "mobx",
+          "preact-signals",
+          "alien-signals",
+          "vue-reactivity",
+          "solid-js"
+        ],
+        "startedAt": "2026-10-22T17:34:01.538Z",
+        "seconds": 19.374,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 4.416015625,
+          "peak": 4.416015625,
+          "readings": 35,
+          "foreignPeak": 1.416015625,
+          "over": false
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.313869,
+          "heavyMin": 0.36527985714285716,
+          "gap": 0.16379718017025302,
+          "drift": 0.14680464961951817,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.22933342857142858,
+          "drift": 0.16598228156881983
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 1.716887,
+        "processMins": [
+          1.716887,
+          1.735523857142857,
+          1.8076012857142858
+        ],
+        "drift": 0.05283649169356268,
+        "lost": 0,
+        "spread": 0.7041224694960786,
+        "repeat": 7,
+        "samples": 5,
+        "warmed": 53,
+        "a": {
+          "deliveries": 20,
+          "distinct": 20,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 7.48642276311347
+      },
+      "measuredAt": "2026-10-22T17:34:20.912Z"
+    }
+  }
+}

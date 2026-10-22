@@ -1,0 +1,777 @@
+OIMDB — THE DESIGNS WE REJECTED, MEASURED BESIDE THE ONE WE SHIPPED
+
+Each row is one architectural decision. `ours` is the design that shipped; `floor` is the design
+that was proposed and refused. Not a primitive — a candidate. The ratio is still ours over the
+floor, and it is a verdict on a decision rather than a price tag.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY VERDICT
+
+ratio   ours  floor  noise  expected  control
+1.95x  38 ns  19 ns   1.4%     ~1.9x  control-resolution-2x
+1.00x  19 ns  20 ns   1.0%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.95x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.2% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.2% of 1.00 is a reading.
+
+  AND IT BITES HARDER HERE THAN ON A PRICE TABLE. A price of 34x survives a 6% noise floor without
+  a scratch — nobody rereads a 34x because the instrument wobbles by a twentieth of it. A decision
+  that wins by 4% does not survive it at all: the margin IS the instrument. Such a row is not a
+  narrow win and it is not a tie either — the decision is UNSETTLED, which is a different sentence
+  from "the two designs are equal". Equal is a claim about the designs; unsettled is a statement
+  about this machine at this moment, and a quieter one may separate them. Those rows print no
+  margin, because a margin the instrument could not resolve is what gets quoted on.
+
+HOW TO READ A ROW HERE — THE OPPOSITE OF THE PRICE TABLE
+
+  ratio = ours / floor, where the floor is THE DESIGN WE REJECTED. So the direction is inverted
+  against every other table in this suite:
+
+    below 1.00   the shipped design wins. The margin column says by how much: it is 1 / ratio,
+                 because 0.40x is the ratio and "2.5x cheaper" is what a person means by it.
+    above 1.00   THE REJECTED DESIGN WON AND THE DECISION WAS WRONG. Marked `!`, and it is a
+                 finding rather than an error in the harness. Several pairs in this catalogue were
+                 written by their authors EXPECTING to lose — a delivery list against a scan at
+                 50% dirty, coalescing at one write per node per frame, a field filter at one in
+                 four skipped — because a comparison that only ever vindicates its author is a
+                 comparison nobody should believe. Those rows are the most valuable in the suite.
+
+THE DECISIONS, the ones we got most right first
+
+    ratio         margin       ours      floor  noise  path               decision
+    0.11x  9.47x cheaper    1.22 µs   11.56 µs   0.0%  per write          alt.prepend-list-vs-positions-map
+    0.11x  8.94x cheaper      17 ns     152 ns   0.0%  per read           alt.memo.node-vs-recompute.dear-body.16-reads-per-write
+    0.17x  5.89x cheaper       9 ns      52 ns   1.8%  per row per write  alt.carrier-emitter-vs-key-handler-map.mark
+~   0.22x  4.59x cheaper       3 ns      15 ns   0.1%  per row per write  alt.frame-dedup.stamp-vs-set.fan-in-3
+~   0.29x  3.40x cheaper      23 ns      79 ns   0.1%  per relationship   alt.identity-store.one-map-vs-two.resolve-a-key-to-an-identity
+~   0.32x  3.08x cheaper       4 ns      11 ns   0.9%  per row per write  alt.frame-dedup.stamp-vs-set.fan-in-8
+~   0.34x  2.96x cheaper       5 ns      15 ns   2.3%  per row per write  alt.enqueue-by-reference-vs-disposer-closure.array-queue
+    0.56x  1.79x cheaper      38 ns      69 ns   0.9%  per relationship   alt.subscription.channel-effect-vs-3.12.1-carrier-handler.mount-and-release
+~   0.76x  1.32x cheaper       7 ns       9 ns   2.3%  per row per write  alt.slot-shape.three-shapes-against-one-at-the-mint
+    0.78x  1.28x cheaper      11 ns      14 ns   0.1%  per frame          alt.subscription.channel-effect-vs-3.12.1-carrier-handler.wake
+    0.78x  1.28x cheaper      25 ns      32 ns   4.9%  per frame          alt.double-buffer-vs-array-from-snapshot.empty-flush
+~   0.87x  1.15x cheaper      28 ns      32 ns   0.0%  per row per write  alt.identity-store.one-map-vs-two.overwrite-while-one-subscriber-stands
+!   1.09x   1.09x DEARER      21 ns      19 ns   0.3%  per read           alt.identity-store.one-map-vs-two.read-the-row-by-key
+!~  1.15x   1.15x DEARER       3 ns       3 ns   0.3%  per read           alt.iterate-members.unordered-vs-ordered
+!~  1.15x   1.15x DEARER      60 ns      52 ns   0.2%  per row per write  alt.identity-store.one-map-vs-two.write-with-nobody-subscribed
+!~  1.28x   1.28x DEARER    6.19 µs    4.86 µs  11.9%  per frame          alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-1
+!   1.37x   1.37x DEARER     213 ns     156 ns   0.7%  per read           alt.memo.node-vs-recompute.dear-body.1-reads-per-write
+!   1.38x   1.38x DEARER    5.65 µs    4.09 µs   1.7%  per frame          alt.double-buffer-vs-array-from-snapshot.1024-queued
+!   1.52x   1.52x DEARER   19.64 µs   12.93 µs   0.0%  per frame          alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-2
+!   1.60x   1.60x DEARER   30.77 µs   19.22 µs   0.1%  per frame          alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-3
+!w  2.20x   2.20x DEARER   4.813 ms   2.184 ms   7.7%  per row per write  alt.remove-member.unordered-vs-ordered.50k
+!   2.42x   2.42x DEARER   70.35 µs   29.06 µs   0.2%  per row per write  alt.remove-member.unordered-vs-ordered.1k
+!   3.69x   3.69x DEARER      15 ns       4 ns   0.0%  per read           alt.memo.node-vs-recompute.cheap-body.1-reads-per-write
+!   4.04x   4.04x DEARER  894.74 µs  221.71 µs   3.7%  per row per write  alt.remove-member.unordered-vs-ordered.10k
+!   4.17x   4.17x DEARER    6.80 µs    1.63 µs   1.3%  per row per write  alt.remove-member.unordered-vs-ordered.100
+!   5.85x   5.85x DEARER       4 ns       1 ns   0.0%  per read           alt.memo.node-vs-recompute.cheap-body.16-reads-per-write
+!   15.2x   15.2x DEARER     117 ns       8 ns   0.1%  per read           alt.position-of-a-member-vs-positions-map
+
+  !  THE REJECTED DESIGN WON THIS ROW. A finding, not a failure of the harness —
+     read the caveat under it before deciding what it settles. A row carrying both
+     `!` and `=` lost by less than the instrument can resolve: unsettled, not lost.
+  =  the claim is no larger than the instrument's own disagreement. Not a reading,
+     and on this table that means the decision is unsettled rather than the two
+     designs being equal.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+  12 of 27 decisions stand on this run, 15 came out wrong, 0 are unsettled.
+
+WHERE THE TWO SIDES ARE NOT DOING THE SAME WORK
+
+On a price table an unequal floor flatters us and that is the whole risk: a primitive doing less
+than our call makes the abstraction look cheaper than it is. HERE THE RISK IS A DIFFERENT AND WORSE
+ONE. A floor that is not the rejected design faithfully built means we may have refused a design we
+never actually measured — and then printed a number saying we were right to. That is the failure this
+catalogue exists to prevent, and it cannot be checked from a ratio.
+
+So it is checked from the caveats, which are printed in full under every row below. Each one names
+what the rejected design would have BOUGHT — the reason somebody proposed it — before it names
+anything else, and states which way each inequality pushes that row's ratio. No claim is summarised
+here that a row does not make for itself.
+
+ONE THING IS STRUCTURAL AND APPLIES WHEREVER BOTH ARMS RUN THE ENGINE: the price tables put our code
+against a `Map` that nothing of ours can spoil, and that is no longer true when both sides call the
+same compiled function through the same inline caches. One side's shapes then reach the other's
+measurement inside one process. The rows where that applies say so, and say which way it leans.
+
+alt.prepend-list-vs-positions-map   [per write]   0.11x
+  verdict  the shipped design wins — 9.47x cheaper
+  ours     bucketCollection.insertBucketMemberSlotAt(bucket, 0, slot) into a list of 1024, membership kept in a Set
+  floor    the same prepend, membership kept in a Map to positions
+  THE OPERATION COUNT IS NOT IN DISPUTE. A prepend splices one member in at the front, which
+  invalidates every position after it: the renumber is exactly `list.length - at` map writes,
+  so 1025 of them here, against one memmove and one `Set.add` on our side. EACH OPERATION IS A
+  PREPEND AND A REMOVAL OF THE TAIL, so the list stays the length it is named for; the removal
+  renumbers nothing on either design. Ours is `OIMBucketSlotsServiceArrayDriven` over
+  `OIMBucketArrayMembershipUnique`; the floor is the same service subclassed to keep a
+  positions map. DIRECTION: the bucket collection's own epilogue — the hold, the unhold, the
+  `channel.writeWithoutFlushCheck` and the emptiness update — is identical on both halves and
+  inside both numbers, which pulls this toward 1.00. A LAZY positions map is a third design
+  and this row does not refute it. The reading in
+  `packages/bench/measurements/2026-08-20-alternatives/positions` was taken on a positional
+  index and bucket mutator that are gone and is not re-attributed here.
+  measured  32,748 ops/pass ours, 4,392 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 0.6%/6.4%; load 4.01 → 4.01 on 8 cores
+
+alt.memo.node-vs-recompute.dear-body.16-reads-per-write   [per read]   0.11x
+  verdict  the shipped design wins — 8.94x cheaper
+  ours     getValueForSlot — a held computed slot of an OIMComputedCollection over the list slot, derived once per write
+  floor    body(list.rows) — the same body, called on every read, no node
+  THE CASE A MEMO IS FOR: the dear body, sixteen reads between two writes — or sixteen
+  consumers reading once each, which is the same axis. Ours derives once and answers fifteen
+  reads from the node; the floor walks the list sixteen times. BOTH ARMS WRITE THE SAME LIST
+  THROUGH `channel.write` before each run of reads, so the stamp is charged equally and only
+  the reads differ. Ours asks the node, which compares its clock, walks its one source's stamp
+  and runs the body once after each write; the floor calls the body on every read. Nothing is
+  subscribed, so no frame runs on either side. The list does not change between writes, so the
+  node's guard finds the value equal and keeps it — the cheapest outcome for ours after a
+  derive. The node is a computed slot resolved before the clock, and every read goes through
+  its owner's `getValueForSlot`, which pays `assertNotReleased` before the clock compare; its
+  derive finds the list by the slot's key, one array index the floor's direct `list.rows` does
+  not pay.
+  measured  2,097,152 ops/pass ours, 327,602 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 0.4%/1.8%; load 2.85 → 2.85 on 8 cores
+
+alt.carrier-emitter-vs-key-handler-map.mark   [per row per write]   0.17x
+  verdict  the shipped design wins — 5.89x cheaper
+  ours     mark a carrier: read its own effects list, compare its stamp, enlist, stamp it
+  floor    mark a key: probe a Map<key, handlers>, dedup the key in a Set, enlist
+  THE MARK, NOT THE DELIVERY. Ours transcribes the prefix of
+  `OIMChannel.writeWithoutFlushCheck` — `slot.effects`, the stamp against the frame, the
+  `isPending` enlist and the stamp store — without the clock wrap and the flush request; the
+  floor is the self-contained emitter the post turned down, one hash to find the handlers and
+  one string-`Set` insertion to dedup the key. Every key carries one standing effect and a
+  frame marks 1024 distinct keys once each, so every mark enlists on both arms; closing the
+  frame is inside both numbers once per 1024 marks. The build throws unless one frame enlists
+  the same count on both. What the floor buys and ours does not: carriers know nothing about
+  subscriptions, and a key with no carrier yet can be subscribed to. THE POST'S ENGINE IS NOT
+  THIS ENGINE. All four posts describe `@oimdb/core` 3.x, which now lives in
+  `packages/core-legacy/`; this row runs hand-written arms shaped after the current engine, so
+  it settles the DECISION and settles NOTHING about the withdrawn table.
+  measured  5,708,220 ops/pass ours, 915,138 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.6%/19.5%; load 3.49 → 3.49 on 8 cores
+
+alt.frame-dedup.stamp-vs-set.fan-in-3   [per row per write]   0.22x
+  verdict  the shipped design wins — 4.59x cheaper
+  ours     the same three lines, at fan-in 3 — two arrivals in three are repeats
+  floor    the same Set, at fan-in 3 — two arrivals in three are repeats
+  THE GEOMETRY THE QUOTED FIGURES WERE TAKEN AT — 200 consumers, fan-in 3, 300 roots — and the
+  row that answers whether 0.95 ns against 5.24 ns, a factor of 5.5x, is what this mechanism
+  costs [NO RUN BEHIND THIS FIGURE]. ONE THING ABOUT THE MIX IS NOT THE SAME AND IS SAID
+  RATHER THAN LEFT TO BE FOUND: the quoted run reported 370 arrivals per frame of which 182
+  were deduplicated, and this row writes EVERY root, so a frame here is 600 arrivals of which
+  400 are repeats [NO RUN BEHIND THIS FIGURE]. The unit is per arrival on both, which is what
+  makes them comparable at all; the repeat FRACTION is higher here, and since a repeat is
+  where the stamp is strongest, this row should read at least as favourably as the quoted one
+  and a reading below it is the interesting outcome [FIGURE STATED IN ADVANCE]. RESIDUALS.
+  WHAT THE `Set` BUYS, and it is not nothing: dedup and containment are ONE operation, there
+  is no per-leaf word to keep in step, and the invariant the stamp design holds by hand — a
+  leaf is on the frame's list iff its stamp says so — cannot be broken, so that arm cannot
+  list a leaf twice or lose one. The stamp buys back two things the `Set` cannot: it is a
+  FRAME NUMBER, so it is stale again at the next frame with nobody clearing it, and it is also
+  the DETACH — a leaf let go of between the write that listed it and the flush is unlisted by
+  writing the same field, and the frame's pass reads it again before calling. A `Set` design
+  needs a second mechanism for that and this arm is not charged for one. WHAT THE ENGINE DOES
+  TODAY IS NEITHER ARM AS PRICED: `TOIMEffect.isRunScheduled` is a BOOLEAN, which the frame's
+  pass clears as it consumes a leaf and `detach` writes false — the same compare and store, so
+  the operation count here stands, and the self-staling property this arm is credited with is
+  one the boolean does not have. The row is a reading of the frame-number arm and owes a run
+  against the boolean [NO RUN BEHIND THIS FIGURE]. AGAINST US: our arm carries a frame number
+  and pays a compare and a store the `Set` arm does not, because the stamp is doing the
+  queue's dedup as well as its own. AGAINST THE `Set` ARM: its `clear()` is proportional to
+  what it held where our `length = 0` is not, and both are inside the operation count here
+  rather than hidden outside it. WHAT NEITHER ARM PAYS: the write that produced the arrival
+  and the walk of `slot.effects` that carried it, which are `OIMChannel.write`'s and identical
+  on both sides.
+  measured  7,474,879 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 35 planned, 35/35 reached; spread 2.7%/113.6%; load 3.64 → 3.93 on 8 cores
+
+alt.identity-store.one-map-vs-two.resolve-a-key-to-an-identity   [per relationship]   0.29x
+  verdict  the shipped design wins — 3.40x cheaper
+  ours     map.get(key) — the identity already exists, the row is on it
+  floor    identities.get(key) ?? mint and file one — the first subscription to that key
+  A SUBSCRIPTION TURNING A KEY INTO AN IDENTITY, the first time each key is asked. Ours minted
+  every identity at the load, so a resolve is one hash; the two-map store mints on demand, so
+  the first resolve of a key is a miss, a mint and a second `Map.set`. The floor's identity
+  map is emptied between passes, untimed, so every pass is that first resolve; a key resolved
+  twice would cost the floor one hash, as ours. The mint ours paid at the load is priced by
+  the write row, not here.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1990 planned, 1990/1990 reached; spread 351.6%/49.6%; load 3.92 → 4.01 on 8 cores
+
+alt.frame-dedup.stamp-vs-set.fan-in-8   [per row per write]   0.32x
+  verdict  the shipped design wins — 3.08x cheaper
+  ours     the same three lines, at fan-in 8 — seven arrivals in eight are repeats
+  floor    the same Set, at fan-in 8 — seven arrivals in eight are repeats
+  THE WIDE END, WHERE ALMOST EVERY ARRIVAL IS A REPEAT AND THE TWO DESIGNS ARE FURTHEST APART
+  PER ARRIVAL. A leaf reading eight roots is an ordinary derived view — a total over a group,
+  a row joined from several records — and a frame that touches all of them offers it eight
+  times. Our arm answers seven of those eight with one field compare and a branch; the `Set`
+  answers each with a hash of the object identity and a bucket probe. THIS IS THE ROW TO
+  DISTRUST IF ANY, and in the direction that flatters us: the frame's own walk and its
+  teardown are shared by both arms and are amortised over 1600 arrivals here against 200 at
+  fan-in 1, so the shared constant is at its smallest exactly where our margin is at its
+  largest. Read the three rows as a table and the trend across them rather than any one of
+  them as the price. RESIDUALS. WHAT THE `Set` BUYS, and it is not nothing: dedup and
+  containment are ONE operation, there is no per-leaf word to keep in step, and the invariant
+  the stamp design holds by hand — a leaf is on the frame's list iff its stamp says so —
+  cannot be broken, so that arm cannot list a leaf twice or lose one. The stamp buys back two
+  things the `Set` cannot: it is a FRAME NUMBER, so it is stale again at the next frame with
+  nobody clearing it, and it is also the DETACH — a leaf let go of between the write that
+  listed it and the flush is unlisted by writing the same field, and the frame's pass reads it
+  again before calling. A `Set` design needs a second mechanism for that and this arm is not
+  charged for one. WHAT THE ENGINE DOES TODAY IS NEITHER ARM AS PRICED:
+  `TOIMEffect.isRunScheduled` is a BOOLEAN, which the frame's pass clears as it consumes a
+  leaf and `detach` writes false — the same compare and store, so the operation count here
+  stands, and the self-staling property this arm is credited with is one the boolean does not
+  have. The row is a reading of the frame-number arm and owes a run against the boolean [NO
+  RUN BEHIND THIS FIGURE]. AGAINST US: our arm carries a frame number and pays a compare and a
+  store the `Set` arm does not, because the stamp is doing the queue's dedup as well as its
+  own. AGAINST THE `Set` ARM: its `clear()` is proportional to what it held where our `length
+  = 0` is not, and both are inside the operation count here rather than hidden outside it.
+  WHAT NEITHER ARM PAYS: the write that produced the arrival and the walk of `slot.effects`
+  that carried it, which are `OIMChannel.write`'s and identical on both sides.
+  measured  9,044,517 ops/pass ours, 4,769,580 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 45.9%/5.6%; load 3.93 → 3.93 on 8 cores
+
+alt.enqueue-by-reference-vs-disposer-closure.array-queue   [per row per write]   0.34x
+  verdict  the shipped design wins — 2.96x cheaper
+  ours     enqueue the effect itself, deduplicated by its own isPending flag
+  floor    enqueue a record and hand back a disposer closure that cancels it
+  OURS IS THE SHAPE `OIMChannel` SHIPS — the private `enlist` pushes the effect by reference
+  and dedups on `effect.isPending` — transcribed rather than called, because the channel
+  offers no enqueue door of its own. The floor allocates a record and a closure per enqueue,
+  which is what the post turned down; its disposers are sunk so neither allocation can be
+  removed. A frame enqueues 1024 distinct effects once each and then drains, and the drain is
+  inside both numbers once per frame. The build throws unless one drain runs the same count on
+  both. THE POST'S ENGINE IS NOT THIS ENGINE. All four posts describe `@oimdb/core` 3.x, which
+  now lives in `packages/core-legacy/`; this row runs hand-written arms shaped after the
+  current engine, so it settles the DECISION and settles NOTHING about the withdrawn table.
+  measured  9,669,272 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 45.5%/20.2%; load 3.29 → 3.29 on 8 cores
+
+alt.subscription.channel-effect-vs-3.12.1-carrier-handler.mount-and-release   [per relationship]   0.56x
+  verdict  the shipped design wins — 1.79x cheaper
+  ours     effectService.createEffect([slot], [], body) then effectService.disposeEffect(effect) — per subscriber
+  floor    emitter.subscribeOnKey(key, body) then the returned unsubscribe — 3.12.1
+  ONE OPERATION IS ONE SUBSCRIBER MOUNTED AND RELEASED, in batches of the churn family's
+  largest count on one identity. Ours allocates a `TOIMEffect` per mount, appends it to the
+  slot's `effects` array, holds the slot, and on dispose swap-removes it and unholds; 3.12.1
+  adds the handler to the carrier's `Set` and the carrier to the emitter's subscribed set, and
+  its unsubscribe closure deletes both. Every body is a distinct closure, because the 3.12.1
+  `Set` collapses one function subscribed many times into one handler. Neither arm writes or
+  flushes.
+  measured  1,110,560 ops/pass ours, 670,126 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 3.0%/2.0%; load 3.16 → 3.16 on 8 cores
+
+alt.slot-shape.three-shapes-against-one-at-the-mint   [per row per write]   0.76x
+  verdict  the shipped design wins — 1.32x cheaper
+  ours     mint one slot of each of the three shipped shapes
+  floor    mint three slots of the one unified shape
+  THE HALF OF THE UNIFIED-SHAPE ARGUMENT THAT PAYS FOR IT. One operation mints three literals;
+  the unified one carries every field of every kind, so it is larger than every shipped kind,
+  and a first load pays that once per entity. Both arms allocate inside the clock and the
+  young-generation collections that follow are charged to whichever arm allocated more, which
+  is the honest direction. Divide this pair's difference by the write pair's difference to get
+  the writes per slot at which the unified shape breaks even.
+  measured  7,046,212 ops/pass ours, 2,775,823 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 14.8%/35.6%; load 3.17 → 3.17 on 8 cores
+
+alt.subscription.channel-effect-vs-3.12.1-carrier-handler.wake   [per frame]   0.78x
+  verdict  the shipped design wins — 1.28x cheaper
+  ours     channel.write(slot); channel.flush() — every effect on the slot runs
+  floor    emitter.markUpdatedKey(key); queue.flush() — every handler on the carrier runs — 3.12.1
+  ONE OPERATION IS ONE SUBSCRIBER WOKEN; a frame wakes the whole standing set, mounted before
+  the clock. Ours stamps the slot, enlists each effect through its pending flag, and at the
+  flush asks each effect whether its source moved since it last ran — a stamp compare — before
+  calling its body. 3.12.1 marks the carrier dirty once, and its flush iterates the carrier's
+  handler `Set` and calls each. Both arms were checked to wake every subscriber exactly once
+  per write before the clock started. Neither arm goes through a collection write: this is the
+  subscription cost alone, not the write stack in front of it.
+  measured  4,389,538 ops/pass ours, 1,755,742 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 1.4%/2.3%; load 3.13 → 3.13 on 8 cores
+
+alt.double-buffer-vs-array-from-snapshot.empty-flush   [per frame]   0.78x
+  verdict  the shipped design wins — 1.28x cheaper
+  ours     push 0 effects, then flush by swapping two lists
+  floor    push 0 effects, then flush by draining an `Array.from` copy
+  ONE POINT OF A TWO-POINT LINE, READ WITH ITS SIBLING. The snapshot is proportional to the
+  queue and the swap is constant, so the empty row is where the rejected design pays its
+  minimum and the loaded row is where the saving is largest in absolute terms. The pushes are
+  the same code on both arms and inside both numbers. NEITHER ARM IS SHIPPED CODE:
+  `OIMChannel` keeps one pending list and empties it in place. The build throws unless one
+  flush walks the same count on both. THE POST'S ENGINE IS NOT THIS ENGINE. All four posts
+  describe `@oimdb/core` 3.x, which now lives in `packages/core-legacy/`; this row runs
+  hand-written arms shaped after the current engine, so it settles the DECISION and settles
+  NOTHING about the withdrawn table.
+  measured  1,969,232 ops/pass ours, 1,562,180 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.7%/3.5%; load 3.10 → 3.10 on 8 cores
+
+alt.identity-store.one-map-vs-two.overwrite-while-one-subscriber-stands   [per row per write]   0.87x
+  verdict  the shipped design wins — 1.15x cheaper
+  ours     slot = map.get(key); slot.entity = row; stamp and deliver
+  floor    rows.set(key, row); then identities.get(key) because that map is no longer empty
+  WHERE THE BILL FOR TWO MAPS ARRIVES. One subscriber stands on one key, mounted before the
+  clock, so the identity map is not empty and EVERY write on the floor pays a second hash to
+  learn whether its key is watched; ours resolved the slot with the one hash it needed to
+  write, and the subscriber list is a field on it. Exactly one write per pass lands on the
+  watched row and is delivered on both sides, so the difference is the per-row probe and not
+  the delivery. Values alternate between two prepared sets, so no write re-sends what the
+  store holds. Below one is the shipped shape winning.
+  measured  1,537,682 ops/pass ours, 1,095,708 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 57.7%/1.7%; load 3.74 → 3.92 on 8 cores
+
+alt.identity-store.one-map-vs-two.read-the-row-by-key   [per read]   1.09x
+  verdict  !  THE REJECTED DESIGN WINS — 1.09x DEARER. This decision came out wrong.
+  ours     map.get(key)?.entity
+  floor    rows.get(key)
+  ONE INDIRECTION MORE ON OUR SIDE: the row sits on the slot, so a read by key is a hash and a
+  field load where the two-map store answers with the hash alone. Every key hits on both
+  sides, and both stores were checked to hand back the same row object for every key before
+  the clock started.
+  measured  2,097,152 ops/pass ours, 2,097,152 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 1.6%/2.3%; load 3.80 → 3.80 on 8 cores
+
+alt.iterate-members.unordered-vs-ordered   [per read]   1.15x
+  verdict  !  THE REJECTED DESIGN WINS — 1.15x DEARER. This decision came out wrong.
+  ours     for (const slot of bucketCollection.getBucketMemberSlots(bucket)) slot.entity — a Set of 10000, per member
+  floor    the same walk of the same members, kept as a list, per member
+  THE SENTENCE UNDER TEST is the one printed above the published removal table: "Both iterate
+  at around [NO RUN BEHIND THIS FIGURE] 2 ns per element, and the difference between them is a
+  fraction of that." It is the half of the bucket service argument that says the choice is NOT
+  an iteration question, and it had no measurement behind it either. THE BODY IS THE SAME ON
+  BOTH HALVES, character for character: one `getBucketMemberSlots`, one for-of, one field load
+  and one store into the sink per member. The only difference in the process is what
+  `getBucketMemberSlots` hands back — a `Set` on ours, the service's own array on the floor —
+  so this row is a property of two JavaScript containers reached through one library, which is
+  exactly what the sentence claims to be about. NOTHING IS WRITTEN, NO MEMBERSHIP IS SET AND
+  NO FRAME IS CLOSED, and neither service orders anything on a read: the list hands back the
+  array `priceGroupIndex` filled, in the order it was written. What a pass pays outside the
+  walk is one service call and one iterator, spread over 10000 members. DIRECTION, three ways:
+  (1) ours is measured on a set that was FILLED and never deleted from, so its entry table has
+  no tombstones to walk — a bucket that has churned iterates worse, and this row therefore
+  flatters the unordered half; (2) `slot.entity` is loaded per member on both halves, because
+  a reader that visits members without looking at them is not a reader, and it is the same
+  monomorphic field load on each side; (3) a pass is a whole walk of the bucket, so the
+  operation count may overshoot what the prober asked for by fewer than 10000 members out of
+  the millions a [NO RUN BEHIND THIS FIGURE] 25 ms pass visits.
+  measured  15,101,732 ops/pass ours, 16,455,568 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 34.1%/12.3%; load 3.81 → 3.81 on 8 cores
+
+alt.identity-store.one-map-vs-two.write-with-nobody-subscribed   [per row per write]   1.15x
+  verdict  !  THE REJECTED DESIGN WINS — 1.15x DEARER. This decision came out wrong.
+  ours     map.set(key, slot) — mint the identity and put the row on it, one map
+  floor    rows.set(key, row) — and skip an identity map that is still empty
+  A FIRST LOAD INTO AN EMPTY STORE, THE ROW THE TWO-MAP SHAPE WINS. Ours mints a slot per row
+  and files it; the floor files the bare row and tests the identity map's size, which is zero,
+  so it mints nothing. Both stores are rebuilt between passes, untimed, and the minted slots
+  are collected outside the clock. Above one is expected and is the case for the rejected
+  shape; read it with the overwrite row.
+  measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1778 planned, 1778/1778 reached; spread 41.9%/81.8%; load 3.70 → 3.80 on 8 cores
+
+alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-1   [per frame]   1.28x
+  verdict  !  THE REJECTED DESIGN WINS — 1.28x DEARER. This decision came out wrong.
+  ours     write 300 roots, then read 200 computeds that walk their 3 sources — chain depth 1
+  floor    the same writes, each marking its dependents dirty; each read is one boolean — depth 1
+  THE ROW THE RECOVERED RUN ACTUALLY COVERED, REBUILT SO THE OTHER TWO HAVE SOMETHING TO BE
+  READ AGAINST. Its figure at this geometry was 0.72x in our favour [NO RUN BEHIND THIS
+  FIGURE], and the whole reason the other two rows exist is that this one was the ONLY depth
+  measured. At depth 1 push is at its strongest: a consumer is one boolean away from knowing
+  it owes a derivation, and the sources under it are roots, which are current by definition —
+  so the arm has nothing to descend and nothing to bring up to date. If the recovered figure
+  is going to reproduce anywhere it is here, and a reading far from it on this row means the
+  two runs are not measuring the same thing and the other two rows should not be quoted either
+  [FIGURE STATED IN ADVANCE]. RESIDUALS. AGAINST US, AND THEY ARE THE MAJORITY: our arm is the
+  SHIPPED `OIMComputedCollection`, one per level, each node a held computed slot read through
+  `getValueForSlot`, so every read pays `assertNotReleased` and a call into
+  `oimRefreshComputedSlot`; every refresh that misses the clock pays
+  `oimRefreshSourceComputeds`, a call into `oimHasSourceChangedSinceLastRun`, a call into
+  `oimIsRevisionAfter` per source, a call into the comparator, `isDeriving` written twice and
+  THREE pairs of stamps written per derivation (`ranAt*`, `checkedAt*` and `changedAt*`) — the
+  rejected arm carries one boolean and writes it once. Above level one the derive reads each
+  source computed through its owner AGAIN, after `oimRefreshSourceComputeds` already brought
+  it current, so each such source costs one more `getValueForSlot` that returns on its
+  `checkedAt` pair, and the derive finds its source list by the slot's key. Our nodes are also
+  filed as slots in a `Map` per level, with `effects`, `holdCount`, `owner` and `key` on every
+  one of them, and the rejected node has none of that. AGAINST THE REJECTED ARM: nothing,
+  except that it walks a recursive `markDependents` where a real engine might flatten it. WHAT
+  NEITHER ARM PAYS: the frame. No effect is subscribed and `channel.flush()` is never called,
+  so the leaf list, the drain and the after-frame phases are on neither side — a frame is
+  priced by `flush.empty-vs-noop` and adding it to both halves of a ratio only pulls it toward
+  1. WHAT IS NOT EXERCISED, and it is the design difference that no timing here can show: push
+  marks the WHOLE transitive cone at the write, while pull stops at the first computed whose
+  value held. Every root moves every frame here and every sum therefore changes, so the
+  comparator never cuts anything on either arm and push is never charged for a mark it did not
+  owe. A graph where a change is absorbed part-way up is the arrangement in which push is at
+  its worst, and it is not measured. NOR IS THE CONSUMER AXIS: the recovered table reported
+  the two converging where ten consumers share one computed, and every node here is read by
+  exactly one consumer.
+  measured  6,808 ops/pass ours, 7,532 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 22.1%/57.8%; load 3.74 → 3.74 on 8 cores
+
+alt.memo.node-vs-recompute.dear-body.1-reads-per-write   [per read]   1.37x
+  verdict  !  THE REJECTED DESIGN WINS — 1.37x DEARER. This decision came out wrong.
+  ours     getValueForSlot — a held computed slot of an OIMComputedCollection over the list slot, derived once per write
+  floor    body(list.rows) — the same body, called on every read, no node
+  THE MEMO WITH NOTHING TO AMORTISE OVER: a filter and a sum over the list, read once per
+  write, so ours derives on every read exactly as the floor does and pays the node on top.
+  Above one is expected; this is the worst cell of the two axes for the shipped design. BOTH
+  ARMS WRITE THE SAME LIST THROUGH `channel.write` before each run of reads, so the stamp is
+  charged equally and only the reads differ. Ours asks the node, which compares its clock,
+  walks its one source's stamp and runs the body once after each write; the floor calls the
+  body on every read. Nothing is subscribed, so no frame runs on either side. The list does
+  not change between writes, so the node's guard finds the value equal and keeps it — the
+  cheapest outcome for ours after a derive. The node is a computed slot resolved before the
+  clock, and every read goes through its owner's `getValueForSlot`, which pays
+  `assertNotReleased` before the clock compare; its derive finds the list by the slot's key,
+  one array index the floor's direct `list.rows` does not pay.
+  measured  224,490 ops/pass ours, 156,463 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 7.0%/1.6%; load 2.92 → 2.92 on 8 cores
+
+alt.double-buffer-vs-array-from-snapshot.1024-queued   [per frame]   1.38x
+  verdict  !  THE REJECTED DESIGN WINS — 1.38x DEARER. This decision came out wrong.
+  ours     push 1024 effects, then flush by swapping two lists
+  floor    push 1024 effects, then flush by draining an `Array.from` copy
+  ONE POINT OF A TWO-POINT LINE, READ WITH ITS SIBLING. The snapshot is proportional to the
+  queue and the swap is constant, so the empty row is where the rejected design pays its
+  minimum and the loaded row is where the saving is largest in absolute terms. The pushes are
+  the same code on both arms and inside both numbers. NEITHER ARM IS SHIPPED CODE:
+  `OIMChannel` keeps one pending list and empties it in place. The build throws unless one
+  flush walks the same count on both. THE POST'S ENGINE IS NOT THIS ENGINE. All four posts
+  describe `@oimdb/core` 3.x, which now lives in `packages/core-legacy/`; this row runs
+  hand-written arms shaped after the current engine, so it settles the DECISION and settles
+  NOTHING about the withdrawn table.
+  measured  7,334 ops/pass ours, 9,342 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 25.1%/12.8%; load 3.01 → 3.09 on 8 cores
+
+alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-2   [per frame]   1.52x
+  verdict  !  THE REJECTED DESIGN WINS — 1.52x DEARER. This decision came out wrong.
+  ours     the same frame over a computed reading a computed — chain depth 2
+  floor    the same frame, marked at the write and descended by the flag — chain depth 2
+  THE FIRST DEPTH THE RECOVERED RUN NEVER REACHED, AND THE ONE WHERE PUSH STARTS PAYING TWICE.
+  A write now marks 200 nodes at level one and 200 more above them, and the walk is recursive;
+  our arm's write is unchanged — it stamps a root and stops — while its READ grows by one
+  level. So the two curves cross somewhere if they cross at all, and this row and the next are
+  what say whether they do. WHAT DOES NOT CHANGE BETWEEN THE ROWS: the population, the fan-in,
+  the number of consumers, the writes per frame and the derive body. Only the number of levels
+  between the roots and the consumers moves, so this row minus the depth-1 row is one level,
+  on both arms, in one process. IF THE RATIO RISES TOWARD 1.00 AS DEPTH GROWS THE VERDICT IS
+  NARROWER THAN THE RECOVERED TABLE CLAIMED [FIGURE STATED IN ADVANCE], and if it crosses 1.00
+  the decision is wrong for deep chains and that is the finding this file was built to be able
+  to report. RESIDUALS. AGAINST US, AND THEY ARE THE MAJORITY: our arm is the SHIPPED
+  `OIMComputedCollection`, one per level, each node a held computed slot read through
+  `getValueForSlot`, so every read pays `assertNotReleased` and a call into
+  `oimRefreshComputedSlot`; every refresh that misses the clock pays
+  `oimRefreshSourceComputeds`, a call into `oimHasSourceChangedSinceLastRun`, a call into
+  `oimIsRevisionAfter` per source, a call into the comparator, `isDeriving` written twice and
+  THREE pairs of stamps written per derivation (`ranAt*`, `checkedAt*` and `changedAt*`) — the
+  rejected arm carries one boolean and writes it once. Above level one the derive reads each
+  source computed through its owner AGAIN, after `oimRefreshSourceComputeds` already brought
+  it current, so each such source costs one more `getValueForSlot` that returns on its
+  `checkedAt` pair, and the derive finds its source list by the slot's key. Our nodes are also
+  filed as slots in a `Map` per level, with `effects`, `holdCount`, `owner` and `key` on every
+  one of them, and the rejected node has none of that. AGAINST THE REJECTED ARM: nothing,
+  except that it walks a recursive `markDependents` where a real engine might flatten it. WHAT
+  NEITHER ARM PAYS: the frame. No effect is subscribed and `channel.flush()` is never called,
+  so the leaf list, the drain and the after-frame phases are on neither side — a frame is
+  priced by `flush.empty-vs-noop` and adding it to both halves of a ratio only pulls it toward
+  1. WHAT IS NOT EXERCISED, and it is the design difference that no timing here can show: push
+  marks the WHOLE transitive cone at the write, while pull stops at the first computed whose
+  value held. Every root moves every frame here and every sum therefore changes, so the
+  comparator never cuts anything on either arm and push is never charged for a mark it did not
+  owe. A graph where a change is absorbed part-way up is the arrangement in which push is at
+  its worst, and it is not measured. NOR IS THE CONSUMER AXIS: the recovered table reported
+  the two converging where ten consumers share one computed, and every node here is read by
+  exactly one consumer.
+  measured  2,048 ops/pass ours, 2,048 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 15.2%/5.6%; load 3.47 → 3.47 on 8 cores
+
+alt.settle.pull-at-the-getter-vs-push-at-the-write.depth-3   [per frame]   1.60x
+  verdict  !  THE REJECTED DESIGN WINS — 1.60x DEARER. This decision came out wrong.
+  ours     the same frame over a computed reading a computed reading a computed — chain depth 3
+  floor    the same frame, marked at the write through three levels — chain depth 3
+  THE DEPTH THE RECOVERY ENTRY NAMES BY HAND — "a computed over a computed over a computed was
+  not measured" — and the far end of the only axis that could reverse the decision. 600 nodes
+  now stand between 300 roots and 200 consumers. THE ARITHMETIC THE ROW IS CHECKING: push pays
+  its marking over the whole cone at every frame's first write and then reads one boolean per
+  node; we pay nothing at the write and one comparison per source at the read. Those are the
+  same order of magnitude, so which wins is a question about constants and not about shapes,
+  which is exactly the kind of question a measurement settles and an operation count does not.
+  THIS IS THE ROW TO DISTRUST IF ANY: three levels of 200 nodes is deeper than most screens
+  go, and a reader taking a verdict from here alone has chosen the extreme of the axis. Read
+  the three rows as a table. RESIDUALS. AGAINST US, AND THEY ARE THE MAJORITY: our arm is the
+  SHIPPED `OIMComputedCollection`, one per level, each node a held computed slot read through
+  `getValueForSlot`, so every read pays `assertNotReleased` and a call into
+  `oimRefreshComputedSlot`; every refresh that misses the clock pays
+  `oimRefreshSourceComputeds`, a call into `oimHasSourceChangedSinceLastRun`, a call into
+  `oimIsRevisionAfter` per source, a call into the comparator, `isDeriving` written twice and
+  THREE pairs of stamps written per derivation (`ranAt*`, `checkedAt*` and `changedAt*`) — the
+  rejected arm carries one boolean and writes it once. Above level one the derive reads each
+  source computed through its owner AGAIN, after `oimRefreshSourceComputeds` already brought
+  it current, so each such source costs one more `getValueForSlot` that returns on its
+  `checkedAt` pair, and the derive finds its source list by the slot's key. Our nodes are also
+  filed as slots in a `Map` per level, with `effects`, `holdCount`, `owner` and `key` on every
+  one of them, and the rejected node has none of that. AGAINST THE REJECTED ARM: nothing,
+  except that it walks a recursive `markDependents` where a real engine might flatten it. WHAT
+  NEITHER ARM PAYS: the frame. No effect is subscribed and `channel.flush()` is never called,
+  so the leaf list, the drain and the after-frame phases are on neither side — a frame is
+  priced by `flush.empty-vs-noop` and adding it to both halves of a ratio only pulls it toward
+  1. WHAT IS NOT EXERCISED, and it is the design difference that no timing here can show: push
+  marks the WHOLE transitive cone at the write, while pull stops at the first computed whose
+  value held. Every root moves every frame here and every sum therefore changes, so the
+  comparator never cuts anything on either arm and push is never charged for a mark it did not
+  owe. A graph where a change is absorbed part-way up is the arrangement in which push is at
+  its worst, and it is not measured. NOR IS THE CONSUMER AXIS: the recovered table reported
+  the two converging where ten consumers share one computed, and every node here is read by
+  exactly one consumer.
+  measured  1,024 ops/pass ours, 2,048 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 1.7%/1.8%; load 3.27 → 3.27 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.50k   [per row per write]   2.20x
+  verdict  !  THE REJECTED DESIGN WINS — 2.20x DEARER. This decision came out wrong.
+  ours     a member leaves a bucket of 50000 and joins another, membership in a Set (OIMBucketSlotsServiceSetDriven)
+  floor    the same move, membership in a list kept in the caller's order (OIMBucketSlotsServiceArrayDriven)
+  A BUCKET OF 50000, and the size is in the id because the answer is a function of it on BOTH
+  halves. THE COUNT THIS PREDICTS, per member moved, through `bucketCollection.writeContent`:
+  on the ordered half, `reconcile` compares the held list against the one handed in up to the
+  swapped band, finds them unequal, drains all 50000 members and pushes all 50000 back, and
+  the collection holds 50000 arrivals and unholds 50000 departures. On the unordered half:
+  `reconcile` builds one Set of the 50000 slots handed in, probes it once per held member,
+  deletes the one departure and adds the one arrival, and one hold is taken and one given
+  back. The ordered half's sequence comparison stops at the swapped band, which is why the
+  sweep over 16 positions (0, 3125, 6250, … 46875) exists: it averages that comparison length.
+  ONE FLUSH IS SPREAD OVER 2 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the
+  engine offers for it — two array stores that exchange the member between the two lists this
+  file holds, `bucketCollection.writeContent` of each of those lists, a flush, and a read of
+  every bucket in the frame through `getBucketMemberSlots`. Both halves run the identical
+  body; the only difference in the process is which bucket service object the collection was
+  constructed with. READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a
+  derived membership source and are not this operation. EVERY OPERATION REALLY MOVES A MEMBER,
+  which is the failure this suite has already published a wrong number for: `writeContent`
+  RETURNS without a wake when `reconcile` finds nothing arrived and nothing departed, and both
+  halves would then time a frame in which no container was touched. Here the two lists handed
+  in differ from what the buckets hold by exactly one member each, and
+  `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly the members this file
+  holds for it before the clock starts. The two rows of a swap are the two members of one
+  band, one in each page of the lane, and the swap exchanges them — which is why this needs no
+  `reset` at all: sizes, positions and the sweep are exactly what they were when the pass
+  started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION,
+  three ways. (1) The two array stores, the mark, the flush and the read call are identical in
+  SHAPE on both halves and inside both numbers, which pulls the RATIO toward 1.00, so the two
+  printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS:
+  `OIMBucketSlotsServiceSetDriven.reconcile` takes the set difference (one Set of the list
+  handed in, one probe per held member) and moves one hold each way, while the ordered half's
+  `reconcile` compares the two sequences up to the first mismatch, then drains the whole list
+  and re-adds every member, so every member it holds is unheld and held again. READINGS
+  RECORDED BEFORE 2026-10-17 timed a set half that drained and refilled the whole set and an
+  ordered half that kept a rank sorter and took a multiset difference, and are not this
+  operation. (3) Both containers are walked every frame and stay in cache, which flatters
+  both. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one
+  page and every position after it would be a lie; so a pass may overshoot the operation count
+  the prober asked for by fewer operations than there are pages, out of the tens of thousands
+  it asks for.
+  measured  1,024 ops/pass ours, 1,024 floor; 5 samples; warm-up 5 planned, 1/2 reached; spread 15.4%/20.7%; load 2.53 → 3.81 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.1k   [per row per write]   2.42x
+  verdict  !  THE REJECTED DESIGN WINS — 2.42x DEARER. This decision came out wrong.
+  ours     a member leaves a bucket of 1000 and joins another, membership in a Set (OIMBucketSlotsServiceSetDriven)
+  floor    the same move, membership in a list kept in the caller's order (OIMBucketSlotsServiceArrayDriven)
+  A BUCKET OF 1000, and the size is in the id because the answer is a function of it on BOTH
+  halves. THE COUNT THIS PREDICTS, per member moved, through `bucketCollection.writeContent`:
+  on the ordered half, `reconcile` compares the held list against the one handed in up to the
+  swapped band, finds them unequal, drains all 1000 members and pushes all 1000 back, and the
+  collection holds 1000 arrivals and unholds 1000 departures. On the unordered half:
+  `reconcile` builds one Set of the 1000 slots handed in, probes it once per held member,
+  deletes the one departure and adds the one arrival, and one hold is taken and one given
+  back. The ordered half's sequence comparison stops at the swapped band, which is why the
+  sweep over 16 positions (0, 62, 124, … 930) exists: it averages that comparison length. ONE
+  FLUSH IS SPREAD OVER 64 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the
+  engine offers for it — two array stores that exchange the member between the two lists this
+  file holds, `bucketCollection.writeContent` of each of those lists, a flush, and a read of
+  every bucket in the frame through `getBucketMemberSlots`. Both halves run the identical
+  body; the only difference in the process is which bucket service object the collection was
+  constructed with. READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a
+  derived membership source and are not this operation. EVERY OPERATION REALLY MOVES A MEMBER,
+  which is the failure this suite has already published a wrong number for: `writeContent`
+  RETURNS without a wake when `reconcile` finds nothing arrived and nothing departed, and both
+  halves would then time a frame in which no container was touched. Here the two lists handed
+  in differ from what the buckets hold by exactly one member each, and
+  `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly the members this file
+  holds for it before the clock starts. The two rows of a swap are the two members of one
+  band, one in each page of the lane, and the swap exchanges them — which is why this needs no
+  `reset` at all: sizes, positions and the sweep are exactly what they were when the pass
+  started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION,
+  three ways. (1) The two array stores, the mark, the flush and the read call are identical in
+  SHAPE on both halves and inside both numbers, which pulls the RATIO toward 1.00, so the two
+  printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS:
+  `OIMBucketSlotsServiceSetDriven.reconcile` takes the set difference (one Set of the list
+  handed in, one probe per held member) and moves one hold each way, while the ordered half's
+  `reconcile` compares the two sequences up to the first mismatch, then drains the whole list
+  and re-adds every member, so every member it holds is unheld and held again. READINGS
+  RECORDED BEFORE 2026-10-17 timed a set half that drained and refilled the whole set and an
+  ordered half that kept a rank sorter and took a multiset difference, and are not this
+  operation. (3) Both containers are walked every frame and stay in cache, which flatters
+  both. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one
+  page and every position after it would be a lie; so a pass may overshoot the operation count
+  the prober asked for by fewer operations than there are pages, out of the tens of thousands
+  it asks for.
+  measured  1,024 ops/pass ours, 1,024 floor; 9 samples; warm-up 19 planned, 19/19 reached; spread 5.4%/3.0%; load 2.58 → 2.58 on 8 cores
+
+alt.memo.node-vs-recompute.cheap-body.1-reads-per-write   [per read]   3.69x
+  verdict  !  THE REJECTED DESIGN WINS — 3.69x DEARER. This decision came out wrong.
+  ours     getValueForSlot — a held computed slot of an OIMComputedCollection over the list slot, derived once per write
+  floor    body(list.rows) — the same body, called on every read, no node
+  THE SHAPE `churnChain` HAS: one field of one row, one read per write. The body is cheaper
+  than the node's own bookkeeping, so ours loses by roughly the bookkeeping; no verdict about
+  derivation can be taken from this cell alone. BOTH ARMS WRITE THE SAME LIST THROUGH
+  `channel.write` before each run of reads, so the stamp is charged equally and only the reads
+  differ. Ours asks the node, which compares its clock, walks its one source's stamp and runs
+  the body once after each write; the floor calls the body on every read. Nothing is
+  subscribed, so no frame runs on either side. The list does not change between writes, so the
+  node's guard finds the value equal and keeps it — the cheapest outcome for ours after a
+  derive. The node is a computed slot resolved before the clock, and every read goes through
+  its owner's `getValueForSlot`, which pays `assertNotReleased` before the clock compare; its
+  derive finds the list by the slot's key, one array index the floor's direct `list.rows` does
+  not pay.
+  measured  2,097,152 ops/pass ours, 11,957,876 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 1.0%/0.5%; load 2.78 → 2.78 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.10k   [per row per write]   4.04x
+  verdict  !  THE REJECTED DESIGN WINS — 4.04x DEARER. This decision came out wrong.
+  ours     a member leaves a bucket of 10000 and joins another, membership in a Set (OIMBucketSlotsServiceSetDriven)
+  floor    the same move, membership in a list kept in the caller's order (OIMBucketSlotsServiceArrayDriven)
+  A BUCKET OF 10000, and the size is in the id because the answer is a function of it on BOTH
+  halves. THE COUNT THIS PREDICTS, per member moved, through `bucketCollection.writeContent`:
+  on the ordered half, `reconcile` compares the held list against the one handed in up to the
+  swapped band, finds them unequal, drains all 10000 members and pushes all 10000 back, and
+  the collection holds 10000 arrivals and unholds 10000 departures. On the unordered half:
+  `reconcile` builds one Set of the 10000 slots handed in, probes it once per held member,
+  deletes the one departure and adds the one arrival, and one hold is taken and one given
+  back. The ordered half's sequence comparison stops at the swapped band, which is why the
+  sweep over 16 positions (0, 625, 1250, … 9375) exists: it averages that comparison length.
+  ONE FLUSH IS SPREAD OVER 8 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the
+  engine offers for it — two array stores that exchange the member between the two lists this
+  file holds, `bucketCollection.writeContent` of each of those lists, a flush, and a read of
+  every bucket in the frame through `getBucketMemberSlots`. Both halves run the identical
+  body; the only difference in the process is which bucket service object the collection was
+  constructed with. READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a
+  derived membership source and are not this operation. EVERY OPERATION REALLY MOVES A MEMBER,
+  which is the failure this suite has already published a wrong number for: `writeContent`
+  RETURNS without a wake when `reconcile` finds nothing arrived and nothing departed, and both
+  halves would then time a frame in which no container was touched. Here the two lists handed
+  in differ from what the buckets hold by exactly one member each, and
+  `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly the members this file
+  holds for it before the clock starts. The two rows of a swap are the two members of one
+  band, one in each page of the lane, and the swap exchanges them — which is why this needs no
+  `reset` at all: sizes, positions and the sweep are exactly what they were when the pass
+  started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION,
+  three ways. (1) The two array stores, the mark, the flush and the read call are identical in
+  SHAPE on both halves and inside both numbers, which pulls the RATIO toward 1.00, so the two
+  printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS:
+  `OIMBucketSlotsServiceSetDriven.reconcile` takes the set difference (one Set of the list
+  handed in, one probe per held member) and moves one hold each way, while the ordered half's
+  `reconcile` compares the two sequences up to the first mismatch, then drains the whole list
+  and re-adds every member, so every member it holds is unheld and held again. READINGS
+  RECORDED BEFORE 2026-10-17 timed a set half that drained and refilled the whole set and an
+  ordered half that kept a rank sorter and took a multiset difference, and are not this
+  operation. (3) Both containers are walked every frame and stay in cache, which flatters
+  both. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one
+  page and every position after it would be a lie; so a pass may overshoot the operation count
+  the prober asked for by fewer operations than there are pages, out of the tens of thousands
+  it asks for.
+  measured  1,024 ops/pass ours, 1,024 floor; 5 samples; warm-up 5 planned, 5/5 reached; spread 6.9%/5.7%; load 2.45 → 2.54 on 8 cores
+
+alt.remove-member.unordered-vs-ordered.100   [per row per write]   4.17x
+  verdict  !  THE REJECTED DESIGN WINS — 4.17x DEARER. This decision came out wrong.
+  ours     a member leaves a bucket of 100 and joins another, membership in a Set (OIMBucketSlotsServiceSetDriven)
+  floor    the same move, membership in a list kept in the caller's order (OIMBucketSlotsServiceArrayDriven)
+  A BUCKET OF 100, and the size is in the id because the answer is a function of it on BOTH
+  halves. THE COUNT THIS PREDICTS, per member moved, through `bucketCollection.writeContent`:
+  on the ordered half, `reconcile` compares the held list against the one handed in up to the
+  swapped band, finds them unequal, drains all 100 members and pushes all 100 back, and the
+  collection holds 100 arrivals and unholds 100 departures. On the unordered half: `reconcile`
+  builds one Set of the 100 slots handed in, probes it once per held member, deletes the one
+  departure and adds the one arrival, and one hold is taken and one given back. The ordered
+  half's sequence comparison stops at the swapped band, which is why the sweep over 16
+  positions (0, 6, 12, … 90) exists: it averages that comparison length. ONE FLUSH IS SPREAD
+  OVER 64 OPERATIONS, since a frame swaps one band in every lane at once;
+  `flush.empty-vs-noop` prices a flush directly, for a reader who wants it out of the figure.
+  WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the
+  engine offers for it — two array stores that exchange the member between the two lists this
+  file holds, `bucketCollection.writeContent` of each of those lists, a flush, and a read of
+  every bucket in the frame through `getBucketMemberSlots`. Both halves run the identical
+  body; the only difference in the process is which bucket service object the collection was
+  constructed with. READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a
+  derived membership source and are not this operation. EVERY OPERATION REALLY MOVES A MEMBER,
+  which is the failure this suite has already published a wrong number for: `writeContent`
+  RETURNS without a wake when `reconcile` finds nothing arrived and nothing departed, and both
+  halves would then time a frame in which no container was touched. Here the two lists handed
+  in differ from what the buckets hold by exactly one member each, and
+  `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly the members this file
+  holds for it before the clock starts. The two rows of a swap are the two members of one
+  band, one in each page of the lane, and the swap exchanges them — which is why this needs no
+  `reset` at all: sizes, positions and the sweep are exactly what they were when the pass
+  started, so an empty reset here is a steady state rather than a forgotten one. DIRECTION,
+  three ways. (1) The two array stores, the mark, the flush and the read call are identical in
+  SHAPE on both halves and inside both numbers, which pulls the RATIO toward 1.00, so the two
+  printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS:
+  `OIMBucketSlotsServiceSetDriven.reconcile` takes the set difference (one Set of the list
+  handed in, one probe per held member) and moves one hold each way, while the ordered half's
+  `reconcile` compares the two sequences up to the first mismatch, then drains the whole list
+  and re-adds every member, so every member it holds is unheld and held again. READINGS
+  RECORDED BEFORE 2026-10-17 timed a set half that drained and refilled the whole set and an
+  ordered half that kept a rank sorter and took a multiset difference, and are not this
+  operation. (3) Both containers are walked every frame and stay in cache, which flatters
+  both. A PASS IS WHOLE FRAMES, because half a swap would leave both members of a band in one
+  page and every position after it would be a lie; so a pass may overshoot the operation count
+  the prober asked for by fewer operations than there are pages, out of the tens of thousands
+  it asks for.
+  measured  3,674 ops/pass ours, 27,228 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 3.6%/5.3%; load 2.78 → 2.78 on 8 cores
+
+alt.memo.node-vs-recompute.cheap-body.16-reads-per-write   [per read]   5.85x
+  verdict  !  THE REJECTED DESIGN WINS — 5.85x DEARER. This decision came out wrong.
+  ours     getValueForSlot — a held computed slot of an OIMComputedCollection over the list slot, derived once per write
+  floor    body(list.rows) — the same body, called on every read, no node
+  THE CHEAP BODY READ SIXTEEN TIMES: what a memo saves is a field load, and what it costs per
+  read is a clock compare, so the reads-per-write axis alone cannot rescue it here. BOTH ARMS
+  WRITE THE SAME LIST THROUGH `channel.write` before each run of reads, so the stamp is
+  charged equally and only the reads differ. Ours asks the node, which compares its clock,
+  walks its one source's stamp and runs the body once after each write; the floor calls the
+  body on every read. Nothing is subscribed, so no frame runs on either side. The list does
+  not change between writes, so the node's guard finds the value equal and keeps it — the
+  cheapest outcome for ours after a derive. The node is a computed slot resolved before the
+  clock, and every read goes through its owner's `getValueForSlot`, which pays
+  `assertNotReleased` before the clock compare; its derive finds the list by the slot's key,
+  one array index the floor's direct `list.rows` does not pay.
+  measured  11,604,214 ops/pass ours, 65,834,312 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 0.9%/12.8%; load 2.58 → 2.78 on 8 cores
+
+alt.position-of-a-member-vs-positions-map   [per read]   15.2x
+  verdict  !  THE REJECTED DESIGN WINS — 15.2x DEARER. This decision came out wrong.
+  ours     bucketCollection.getBucketMemberSlotPosition(bucket, member) in a list of 1024 — a scan
+  floor    the same question answered by a Map to positions — one hash
+  THE ONE ROW IN THIS FILE WHERE THE DESIGN WE REJECTED WINS, and it should: a hash against a
+  scan of five hundred on average. It is here because a pair that only shows a rejected design
+  losing is an argument and not a measurement. WHAT IT DOES NOT SHOW is the call site:
+  `remove` asks for a position and splices with it immediately, and that splice is the same
+  memmove for both designs, so the row above is what it costs to have the hash at all. The
+  members are cycled through with a mask so the scan length is uniform over the list, and the
+  build throws unless both designs place every member at the same position. The reading in
+  `packages/bench/measurements/2026-08-20-alternatives/positions` was taken on the removed
+  positional index and is not re-attributed here.
+  measured  419,122 ops/pass ours, 3,198,520 floor; 9 samples; warm-up 27 planned, 27/27 reached; spread 3.1%/16.9%; load 3.62 → 3.62 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.95x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

@@ -1,0 +1,1 @@
+export const OIM_EFFECT_FLAG_DISPOSED = 2;

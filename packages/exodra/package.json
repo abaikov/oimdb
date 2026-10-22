@@ -1,15 +1,38 @@
 {
   "name": "@oimdb/exodra",
-  "version": "0.7.1",
-  "description": "Exodra integration for OIMDB - adapt selectors, computeds and ordered-list command streams into read-only Exodra bindables",
+  "version": "1.0.0",
+  "description": "Exodra reactivity bridge over @oimdb/core: channel-backed bindables and O(delta) bindable lists. Not published.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "sideEffects": false,
-  "publishConfig": {
-    "access": "public"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
   },
+  "oimdbRelease": {
+    "publish": true
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "test": "jest",
+    "type-check": "tsc --noEmit -p tsconfig.all.json",
+    "clean": "rimraf dist",
+    "prepack": "node -e \"const {copyFileSync,existsSync}=require('fs');if(existsSync('../../llms.txt'))copyFileSync('../../llms.txt','llms.txt')\"",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "dependencies": {
+    "@exodra/reactivity-types": "^0.1.0"
+  },
+  "license": "MIT",
+  "author": "Andrei Baikov",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abaikov/oimdb.git"
@@ -18,28 +41,20 @@
     "url": "https://github.com/abaikov/oimdb/issues"
   },
   "homepage": "https://github.com/abaikov/oimdb#readme",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
-  "scripts": {
-    "build": "tsup --config tsup.config.ts --tsconfig tsconfig.build.json",
-    "test": "jest",
-    "type-check": "tsc --noEmit",
-    "clean": "rimraf dist",
-    "prepublishOnly": "npm run type-check && npm test && npm run build",
-    "prepack": "node -e \"require('fs').copyFileSync('../../llms-full.txt','llms-full.txt')\""
-  },
-  "files": [
-    "dist",
-    "llms.txt",
-    "llms-full.txt"
+  "keywords": [
+    "oimdb",
+    "in-memory",
+    "database",
+    "reactive",
+    "typescript",
+    "type-safe",
+    "indices",
+    "subscriptions",
+    "event-processing",
+    "state-management"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^3.8.0"
+    "@oimdb/core": "^4.0.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",
@@ -49,19 +64,12 @@
     "tsup": "^8.5.0",
     "typescript": "^5.2.2"
   },
-  "keywords": [
-    "oimdb",
-    "exodra",
-    "bindable",
-    "reactive",
-    "typescript",
-    "state-management",
-    "subscriptions",
-    "selection"
-  ],
-  "author": "Andrei Baikov",
-  "license": "MIT",
-  "dependencies": {
-    "@exodra/reactivity-types": "^0.1.0"
-  }
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md"
+  ]
 }

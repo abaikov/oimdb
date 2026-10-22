@@ -1,124 +1,81 @@
-import { createServer, IncomingMessage, ServerResponse } from 'http';
-import { readFileSync } from 'fs';
-import { join, extname } from 'path';
+import type { IncomingMessage, ServerResponse } from 'http';
+import { createServer } from 'http';
 import { exec } from 'child_process';
-import { WebSocketServer, WebSocket } from 'ws';
-import { TOIMBridgeMessage } from '../types/TOIMDevMcpOptions';
-
-export type TOIMDevUIServerOptions = {
-    wsPort?: number;
-    uiPort?: number;
-    uiDir: string;
-    open?: boolean;
-};
-
-type TOIMPendingRequest = {
-    resolve: (data: unknown) => void;
-    reject: (error: Error) => void;
-    timer: ReturnType<typeof setTimeout>;
-};
-
-type TOIMConnectedBrowser = {
-    ws: WebSocket;
-    url: string;
-    title: string;
-};
-
-const MIME: Record<string, string> = {
-    '.html': 'text/html; charset=utf-8',
-    '.js':   'text/javascript; charset=utf-8',
-    '.css':  'text/css; charset=utf-8',
-};
+import { OIMDevBridge } from './OIMDevBridge';
+import { OIMDevLoopbackPolicy } from './OIMDevLoopbackPolicy';
+import { OIMDevUIAssetCatalog } from './OIMDevUIAssetCatalog';
+import type { TOIMDevUIServerOptions } from '../types/TOIMDevUIServerOptions';
 
 export class OIMDevUIServer {
-    private readonly wsPort: number;
     private readonly uiPort: number;
-    private readonly uiDir: string;
     private readonly shouldOpen: boolean;
-    private wss: WebSocketServer | null = null;
-    private latestBrowser: TOIMConnectedBrowser | null = null;
-    private readonly pending = new Map<string, TOIMPendingRequest>();
+    private readonly host: string;
+    private readonly allowedOrigins: ReadonlySet<string>;
+    private readonly devUIAssetCatalog: OIMDevUIAssetCatalog;
+    private readonly bridge: OIMDevBridge;
 
     constructor(options: TOIMDevUIServerOptions) {
-        this.wsPort = options.wsPort ?? 7432;
         this.uiPort = options.uiPort ?? 7433;
-        this.uiDir = options.uiDir;
         this.shouldOpen = options.open ?? true;
-    }
-
-    private async queryBrowser(action: string): Promise<unknown> {
-        if (!this.latestBrowser) return null;
-        return new Promise((resolve, reject) => {
-            const id = Math.random().toString(36).slice(2);
-            const timer = setTimeout(() => {
-                this.pending.delete(id);
-                reject(new Error('timeout'));
-            }, 5000);
-            this.pending.set(id, { resolve, reject, timer });
-            this.latestBrowser!.ws.send(JSON.stringify({ type: 'request', id, action }));
+        this.host = options.host ?? '127.0.0.1';
+        this.allowedOrigins = new Set(options.allowedOrigins ?? []);
+        this.devUIAssetCatalog = new OIMDevUIAssetCatalog(options.uiDir);
+        this.bridge = new OIMDevBridge({
+            wsPort: options.wsPort ?? 7432,
+            host: this.host,
+            allowedOrigins: this.allowedOrigins,
+            logPrefix: '[OIMDB DevTools]',
+            portInUseHint: 'npx @oimdb/mcp devtools',
+            requestTimeoutMessage: 'timeout',
         });
     }
 
-    private setupBridge(): void {
-        this.wss = new WebSocketServer({ port: this.wsPort });
+    /**
+     * While bound to loopback, answer only what was addressed to a loopback
+     * name.
+     *
+     * Without this, a page on any site can point a hostname it controls at
+     * 127.0.0.1 and become same-origin with this server. The `Host` header is
+     * the part of that a browser cannot forge. Binding elsewhere is an explicit
+     * decision, so the check stands down there.
+     */
+    private isRequestAddressedHere(req: IncomingMessage): boolean {
+        if (!OIMDevLoopbackPolicy.isLoopbackHost(this.host)) return true;
+        const host = req.headers.host;
+        return host !== undefined && OIMDevLoopbackPolicy.isLoopbackAuthority(host);
+    }
 
-        this.wss.on('error', (err: NodeJS.ErrnoException) => {
-            if (err.code === 'EADDRINUSE') {
-                process.stderr.write(
-                    `[OIMDB DevTools] Port ${this.wsPort} is already in use.\n` +
-                    `Set a different port: OIMDB_WS_PORT=7433 npx @oimdb/mcp devtools\n`
-                );
-                process.exit(1);
-            }
-            process.stderr.write(`[OIMDB DevTools] Bridge error: ${err.message}\n`);
-            process.exit(1);
-        });
-
-        this.wss.on('connection', (ws) => {
-            ws.on('message', (raw) => {
-                const msg = JSON.parse(raw.toString()) as TOIMBridgeMessage;
-
-                if (msg.type === 'hello') {
-                    this.latestBrowser = { ws, url: msg.url, title: msg.title };
-                    process.stderr.write(`[OIMDB DevTools] Browser connected: ${msg.title} (${msg.url})\n`);
-                    return;
-                }
-
-                if (msg.type === 'response') {
-                    const req = this.pending.get(msg.id);
-                    if (!req) return;
-                    this.pending.delete(msg.id);
-                    clearTimeout(req.timer);
-                    if (msg.error) req.reject(new Error(msg.error));
-                    else req.resolve(msg.data);
-                }
-            });
-
-            ws.on('close', () => {
-                if (this.latestBrowser?.ws === ws) {
-                    this.latestBrowser = null;
-                    process.stderr.write('[OIMDB DevTools] Browser disconnected\n');
-                }
-            });
-        });
-
-        process.stderr.write(`[OIMDB DevTools] Bridge on ws://localhost:${this.wsPort}\n`);
+    private requestBrowser(action: string): Promise<unknown> {
+        if (this.bridge.connectedBrowser === null) return Promise.resolve(null);
+        return this.bridge.request(action);
     }
 
     private setupHTTP(): void {
         const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-            const url = req.url ?? '/';
-            res.setHeader('Access-Control-Allow-Origin', '*');
+            if (!this.isRequestAddressedHere(req)) {
+                res.writeHead(421);
+                res.end('Misdirected request');
+                return;
+            }
 
-            if (url === '/api/inspect') {
-                this.queryBrowser('inspect')
+            const origin = req.headers.origin;
+            if (origin !== undefined && this.allowedOrigins.has(origin)) {
+                res.setHeader('Access-Control-Allow-Origin', origin);
+                res.setHeader('Vary', 'Origin');
+            }
+
+            const url = req.url ?? '/';
+
+            if (url.split('?', 1)[0] === '/api/inspect') {
+                this.requestBrowser('inspect')
                     .then((data) => {
                         res.writeHead(200, { 'Content-Type': 'application/json' });
+                        const connectedBrowser = this.bridge.connectedBrowser;
                         res.end(JSON.stringify({
-                            connected: Boolean(this.latestBrowser),
-                            tab: this.latestBrowser
-                                ? { url: this.latestBrowser.url, title: this.latestBrowser.title }
-                                : null,
+                            connected: connectedBrowser !== null,
+                            tab: connectedBrowser === null
+                                ? null
+                                : { url: connectedBrowser.url, title: connectedBrowser.title },
                             data,
                         }));
                     })
@@ -129,11 +86,15 @@ export class OIMDevUIServer {
                 return;
             }
 
-            const filePath = join(this.uiDir, url === '/' ? 'index.html' : url);
+            const asset = this.devUIAssetCatalog.resolve(url);
+            if (asset === null) {
+                res.writeHead(404);
+                res.end('Not found');
+                return;
+            }
             try {
-                const content = readFileSync(filePath);
-                res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'text/plain' });
-                res.end(content);
+                res.writeHead(200, { 'Content-Type': asset.contentType });
+                res.end(this.devUIAssetCatalog.read(asset));
             } catch {
                 res.writeHead(404);
                 res.end('Not found');
@@ -150,9 +111,9 @@ export class OIMDevUIServer {
             }
         });
 
-        server.listen(this.uiPort, () => {
+        server.listen(this.uiPort, this.host, () => {
             const uiUrl = `http://localhost:${this.uiPort}`;
-            process.stderr.write(`[OIMDB DevTools] UI ready → ${uiUrl}\n`);
+            process.stderr.write(`[OIMDB DevTools] UI ready → ${uiUrl} (bound to ${this.host})\n`);
             if (this.shouldOpen) this.openURL(uiUrl);
         });
     }
@@ -167,10 +128,10 @@ export class OIMDevUIServer {
     }
 
     public start(): void {
-        this.setupBridge();
+        this.bridge.start();
         this.setupHTTP();
         process.stderr.write(
-            `[OIMDB DevTools] Add to debug.ts: registry.connect();\n`
+            `[OIMDB DevTools] Add to debug.ts: oimDevRegistry.connect();\n`
         );
     }
 }

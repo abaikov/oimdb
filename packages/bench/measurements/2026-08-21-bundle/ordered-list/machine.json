@@ -1,0 +1,22 @@
+{
+    "determinism": "Byte counts are deterministic. The same source through the same bundler at the same settings emits the same bytes whatever else this machine was doing, so this run has no foreign-load gate, no refusal and no drift check. What replaces them is the toolchain below: every field of it moves the number.",
+    "toolchain": {
+        "bundler": "esbuild",
+        "bundlerVersion": "0.25.9",
+        "format": "esm",
+        "platform": "browser",
+        "target": "es2020",
+        "minifier": "esbuild 0.25.9",
+        "gzipLevel": 9,
+        "node": "v24.16.0",
+        "sourceBytes": 597227,
+        "sourceFiles": 96
+    },
+    "cpu": "Apple M1",
+    "cores": 8,
+    "arch": "arm64",
+    "platform": "darwin",
+    "release": "25.2.0",
+    "totalMemoryGb": 16,
+    "arms": 4
+}

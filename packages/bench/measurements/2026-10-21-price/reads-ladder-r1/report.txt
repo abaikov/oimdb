@@ -1,0 +1,209 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 99.00   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.90x  37 ns  20 ns   1.5%     ~1.9x  control-resolution-2x
+0.98x  19 ns  20 ns   0.5%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.90x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 1.6% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 1.6% of 1.00 is a reading, and no
+  claim inside 4.7% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+   ratio    ours    floor  noise  path       operation
+   2.47x   70 ns    28 ns   0.6%  per write  graph.dependencies.reads-per-run.r1
+   1.72x   74 ns    43 ns   0.3%  per write  graph.dependencies.reads-per-run.r2
+   1.22x   86 ns    71 ns   1.7%  per write  graph.dependencies.reads-per-run.r4
+   0.87x   98 ns   112 ns   0.5%  per write  graph.dependencies.reads-per-run.r8
+   0.60x  120 ns   199 ns   2.2%  per write  graph.dependencies.reads-per-run.r16
+~  0.35x  447 ns  1.28 µs   0.5%  per write  graph.dependencies.reads-per-run.r128
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+graph.dependencies.reads-per-run.r1   [per write]   2.47x
+  ours   updateEntityColumn on one of 1 roots, then channel.flush(); one effect declaring all 1 root slots sums them
+  floor  one of 1 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 1 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 1 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  729,394 ops/pass ours, 1,989,660 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.5%/0.9%; load 2.90 → 2.90 on 8 cores
+
+graph.dependencies.reads-per-run.r2   [per write]   1.72x
+  ours   updateEntityColumn on one of 2 roots, then channel.flush(); one effect declaring all 2 root slots sums them
+  floor  one of 2 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 2 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 2 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  610,538 ops/pass ours, 1,195,512 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 1.0%/3.3%; load 2.68 → 2.68 on 8 cores
+
+graph.dependencies.reads-per-run.r4   [per write]   1.22x
+  ours   updateEntityColumn on one of 4 roots, then channel.flush(); one effect declaring all 4 root slots sums them
+  floor  one of 4 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 4 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 4 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  524,206 ops/pass ours, 714,628 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 14.1%/1.6%; load 2.54 → 2.58 on 8 cores
+
+graph.dependencies.reads-per-run.r8   [per write]   0.87x
+  ours   updateEntityColumn on one of 8 roots, then channel.flush(); one effect declaring all 8 root slots sums them
+  floor  one of 8 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 8 ROOTS, chosen round-robin, AND ONE SETTLE; one effect
+  reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 8 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  466,920 ops/pass ours, 451,212 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.1%/5.0%; load 2.45 → 2.45 on 8 cores
+
+graph.dependencies.reads-per-run.r16   [per write]   0.60x
+  ours   updateEntityColumn on one of 16 roots, then channel.flush(); one effect declaring all 16 root slots sums them
+  floor  one of 16 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 16 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 16 root slots
+  as the effect's sources once, at build; a run checks each source stamp before the body and
+  the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  355,976 ops/pass ours, 253,604 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.5%/1.0%; load 2.38 → 2.43 on 8 cores
+
+graph.dependencies.reads-per-run.r128   [per write]   0.35x
+  ours   updateEntityColumn on one of 128 roots, then channel.flush(); one effect declaring all 128 root slots sums them
+  floor  one of 128 alien signals written with no batch; one alien effect reads and sums all of them
+  ONE OPERATION IS ONE WRITE TO ONE OF 128 ROOTS, chosen round-robin, AND ONE SETTLE; one
+  effect reads every root and sums them. ARCHITECTURAL POINT: declared against auto-tracked
+  dependencies, measured as what each read inside a run costs. Ours declares the 128 root
+  slots as the effect's sources once, at build; a run checks each source stamp before the body
+  and the body reads each entity, and nothing is re-linked. Alien-signals has no declaration:
+  every run re-tracks, each read of a signal inside the body checks or re-creates its
+  dependency link, and the run is synchronous at the end of the write, so there is no settle
+  call. EXPECTED DIRECTION [FIGURE STATED IN ADVANCE]: the per-read cost of re-tracking grows
+  with the number of roots on alien, so the ratio is expected to fall as the root count grows,
+  if re-tracking costs more per read than the stamp check ours does per source. Ours is
+  @oimdb/core from source: an OIMSingleEntity root written through
+  entityContentService.updateEntityColumn, OIMSingleComputed nodes for anything derived, one
+  effect from OIMEffectService, and channel.flush() as the settle. The floor is alien-signals
+  3.2: signal, computed, effect, and startBatch/endBatch where the row says so. Every write
+  stores a new number from a counter, so no write on either arm is stopped by a same-value
+  check. Each arm runs in its own process.
+  measured  65,536 ops/pass ours, 19,842 floor; 9 samples; warm-up 36 planned, 36/36 reached; spread 3.8%/32.3%; load 2.43 → 2.43 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.90x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   0.98x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

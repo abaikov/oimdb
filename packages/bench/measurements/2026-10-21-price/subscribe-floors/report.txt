@@ -1,0 +1,111 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+2.01x  39 ns  20 ns   1.5%     ~1.9x  control-resolution-2x
+1.07x  21 ns  20 ns   0.6%     1.00x  control-scale-same-body
+
+  The resolution control saw 2.01x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 6.8% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 6.8% of 1.00 is a reading, and no
+  claim inside 20.5% of it — 3x the error above — is mostly about the code.
+
+  ** THE INSTRUMENT WAS 6.8% OUT ON THIS RUN. The scale control times the same body under **
+  ** two names, so that 6.8% is this machine's own error and nothing else. **
+
+  It is not a spread and it does not average out: it is one multiplicative factor sitting under
+  EVERY ratio below, in an unknown direction. The report does not void the table for it, because a
+  30x claim is not disturbed by a twentieth of itself — but a claim of the same order as this
+  figure is mostly this figure. A claim that fails to outrun it by 3x carries ± below, and
+  it lands on no row here: every ratio below clears it. Read them anyway.
+
+THE PRICES, worst ratio first
+
+    ratio   ours  floor  noise  path       operation
+~   5.78x  52 ns   9 ns   4.3%  per frame  subscribe.deliver-vs-queue-at-flush
+=~  1.05x  67 ns  64 ns   0.9%  per frame  subscribe.by-key.deliver-vs-changed-ids-at-flush
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+subscribe.deliver-vs-queue-at-flush   [per frame]   5.78x
+  ours   update the entity, flush, and the subscription fires — per identity delivered
+  floor  each entity a record with its own subscriber list: store the field, queue the record once, and at flush call every subscriber of every queued record
+  Both sides deliver once per flush, after every write of the frame has landed, so no handler
+  sees half an update, and both reach an entity's subscribers through the entity itself —
+  `slot.effects` on ours, `record.subscribers` on the floor — with no lookup by key. One write
+  per identity per frame is the worst case for us: nothing is saved by coalescing. The fixed
+  cost of a frame is divided by a thousand deliveries here; `flush.empty-vs-noop` prices it on
+  its own. The floor holds only for a one-column write that nothing but the subscriber listens
+  to: with an index, a bucket or a timer that flushes synchronously, a hand-written store
+  would need the guard a subframe gives.
+  measured  850,566 ops/pass ours, 5,119,418 floor; 9 samples; warm-up 22 planned, 22/22 reached; spread 41.8%/12.9%; load 3.67 → 3.72 on 8 cores
+
+subscribe.by-key.deliver-vs-changed-ids-at-flush   [per frame]   1.05x
+  ours   collection.updateEntityByKey(id, patch), flush, and the subscription fires — per key delivered
+  floor  map.get(id) and store the field, add the id to a Set of changed ids, and at flush call every handler a Map of id → handlers holds for each changed id
+  Both sides address the entity by its string key on every write and deliver once per flush.
+  Ours resolves the key to the slot and then reaches the subscribers through `slot.effects`;
+  the floor resolves the key twice, once to the row and once at flush to its handlers. One
+  write per key per frame, a thousand keys, one subscriber each. The floor holds only for a
+  one-column write that nothing but the subscriber listens to.
+  measured  719,952 ops/pass ours, 612,878 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 34.1%/7.9%; load 3.72 → 4.07 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   2.01x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.07x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

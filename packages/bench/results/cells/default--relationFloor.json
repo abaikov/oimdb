@@ -1,0 +1,81 @@
+{
+  "format": 2,
+  "cells": {
+    "baseline-array": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "relationFloor",
+        "adapter": "baseline-array"
+      },
+      "fingerprint": {
+        "harness": "316e21080fd09879",
+        "adapter": "e3b0c44298fc1c14",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 512,
+        "samples": 15,
+        "warmup": 127
+      },
+      "batch": {
+        "id": "default--relationFloor--2026-10-18T14:05:25.205Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "relationFloor",
+        "adapterNames": [
+          "baseline-array"
+        ],
+        "startedAt": "2026-10-18T14:05:25.205Z",
+        "seconds": 4.415,
+        "load": {
+          "cores": 8,
+          "gate": 12,
+          "selfAllowance": 3,
+          "start": 4.439453125,
+          "peak": 4.439453125,
+          "readings": 6,
+          "foreignPeak": 1.439453125,
+          "over": false
+        },
+        "gcMissing": false
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.015531494140625,
+        "processMins": [
+          0.015531494140625,
+          0.015560384765625,
+          0.015748779296875
+        ],
+        "drift": 0.013989971234104212,
+        "lost": 0,
+        "spread": 0.04522891679896881,
+        "repeat": 512,
+        "samples": 15,
+        "warmed": 127,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        }
+      },
+      "measuredAt": "2026-10-18T14:05:29.620Z"
+    }
+  }
+}

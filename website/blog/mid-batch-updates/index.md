@@ -42,5 +42,7 @@ One mental model to hold: the batch settles at the flush boundary, not at the in
 
 ## Where it lives
 
-- `packages/core/src/modules/compute/core/OIMComputeRuntime.ts`, `.../computed/core/OIMComputed.ts` — level-ordered, recompute-once-per-flush derivation.
-- `packages/core/src/core/OIMEventQueue.ts` — double-buffered drain; a source write during a flush defers to the next.
+- `packages/core-legacy/src/modules/compute/core/OIMComputeRuntime.ts`, `.../computed/core/OIMComputed.ts` — level-ordered, recompute-once-per-flush derivation.
+- `packages/core-legacy/src/core/OIMEventQueue.ts` — double-buffered drain; a source write during a flush defers to the next.
+
+This is the legacy engine, kept at `packages/core-legacy`. The rule outlives it: in the engine shipped today `OIMChannel.write` throws outright on a write made anywhere inside a flush (`assertNotFlushing`) — not only from the frame body, but from `onBeforeFlush` and from every after-each-frame handler too — so a mid-batch source write is refused rather than deferred.

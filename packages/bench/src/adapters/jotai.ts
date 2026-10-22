@@ -1,838 +1,1068 @@
 import { atom, createStore } from 'jotai/vanilla';
+import type { Atom, Getter, Setter } from 'jotai/vanilla';
 import { atomFamily } from 'jotai-family';
-import type { TAdapter, TComment, TUser } from '../harness/types';
+import type {
+    BenchConsumer,
+    TConsumers,
+    TViewBinding,
+} from '../harness/consumer';
+import { onSecondAxis } from '../harness/dataset';
+import type { TOwner, TPairRow, TPlan, TRow } from '../harness/dataset';
+import {
+    deliver,
+    deliverCells,
+    deliverChurn,
+    deliverPage,
+    deliverRelation,
+    deliverSingle,
+    orderedIdsOfRows,
+} from '../harness/render';
+import {
+    chainLevelOf,
+    diamondJoinOf,
+    diamondLeftOf,
+    diamondRightOf,
+} from '../harness/derivations';
+import { churnShapes, noRowStore, readShapes } from '../harness/types';
+import type {
+    TAdapter,
+    TBinding,
+    TCellConfig,
+    TChurnBinding,
+    TReadBinding,
+    TRelationBinding,
+    TRelationConfig,
+    TSingleBinding,
+    TViewConfig,
+} from '../harness/types';
 
-/**
- * Recipe: `atomFamily` is Jotai's documented answer to "an atom per item, keyed by a parameter",
- * and `createStore` is the framework-free store. Subscribing to one item is `store.sub(family(id))`,
- * which is exactly the per-entity granularity the point-update scenario is about.
- * https://github.com/jotaijs/jotai-family  (jotai 2.20 deprecated the built-in `atomFamily`
- * and points here, so this is the current documented recipe)
- * https://jotai.org/docs/core/store
- *
- * Queries have no built-in index: the documented way to derive is a `atom(get => …)` that reads what
- * it needs. Deriving "users of a team" therefore scans, and that is the library's actual shape —
- * building a side index by hand would be measuring our code, not Jotai's.
- */
+type TStore = ReturnType<typeof createStore>;
 
-/**
- * A derived index, built with Jotai's own primitives rather than as a plain JS Map on the side.
- *
- * This matters for fairness: a `Map` assembled in setup from the raw array is not reactive — it is
- * never maintained, never invalidated by a write, and never even reads the store. Comparing that
- * against a live index that every write has to keep correct flatters Jotai for work it did not do.
- * As a derived atom the index sits inside the reactive graph like everyone else's: it is computed
- * from the entity atoms, cached while nothing changes, and thrown away the moment one of them does.
- *
- * The cost of that invalidation is the honest reason Jotai ships no index: rebuilding it is O(n)
- * over the whole collection, which is what the `query cold` row measures.
- */
-const buildIndexAtom = <TKey extends string>(
-    family: (id: string) => ReturnType<typeof atom<TUser | undefined>>,
-    ids: readonly string[],
-    keyOf: (user: TUser) => TKey
-) =>
-    atom(get => {
-        const byKey = new Map<TKey, TUser[]>();
-        for (const id of ids) {
-            const user = get(family(id));
-            if (!user) continue;
-            const key = keyOf(user);
-            const bucket = byKey.get(key);
-            if (bucket) bucket.push(user);
-            else byKey.set(key, [user]);
+type TStoreAccess = { get: Getter; set: Setter };
+
+type TFramedStore = {
+    access: TStoreAccess;
+    frame: (run: () => void) => void;
+};
+
+// jotai/vanilla/internals.js:495-531 vs 695-709: a write function's `set` defers the flush, `store.set` does not.
+const framedStoreOf = (store: TStore): TFramedStore => {
+    const access: TStoreAccess = { get: store.get, set: store.set };
+    let open = false;
+    const frameAtom = atom(null, (get, set, run: () => void) => {
+        access.get = get;
+        access.set = set;
+        open = true;
+        try {
+            run();
+        } finally {
+            access.get = store.get;
+            access.set = store.set;
+            open = false;
         }
-        return byKey;
     });
+    return {
+        access,
+        frame: run => {
+            if (open) run();
+            else store.set(frameAtom, run);
+        },
+    };
+};
+
+type TRowAtomOf = (id: string) => Atom<TRow | undefined>;
+
+type TGroupIdsAtomOf = (group: string) => Atom<readonly string[]>;
+
+const columnFamiliesOf = (rowAtomOf: TRowAtomOf) => ({
+    group: atomFamily((id: string) => atom(get => get(rowAtomOf(id))?.group)),
+    rank: atomFamily((id: string) => atom(get => get(rowAtomOf(id))?.rank ?? 0)),
+    label: atomFamily((id: string) => atom(get => get(rowAtomOf(id))?.label ?? '')),
+});
+
+type TColumnFamilies = ReturnType<typeof columnFamiliesOf>;
+
+const precedes = (rank: number, id: string, otherRank: number, otherId: string): boolean =>
+    rank < otherRank || (rank === otherRank && id < otherId);
+
+// Never reads a row atom: a write to a column it does not read stops at the column atom.
+const selectIds = (
+    get: Getter,
+    columns: TColumnFamilies,
+    groupIdsAtomOf: TGroupIdsAtomOf,
+    group: string,
+    limit: number,
+    labelsFrom: number,
+    axis: boolean
+): readonly string[] => {
+    const ids = get(groupIdsAtomOf(group));
+    const outIds: string[] = [];
+    const outRanks: number[] = [];
+    let held = 0;
+    for (let i = 0; i < ids.length; i++) {
+        const id = ids[i];
+        if (axis && !onSecondAxis(id)) continue;
+        if (get(columns.group(id)) !== group) continue;
+        const rank = get(columns.rank(id));
+        let at: number;
+        if (held >= limit) {
+            if (!precedes(rank, id, outRanks[held - 1], outIds[held - 1])) continue;
+            at = held - 1;
+        } else {
+            at = held++;
+        }
+        while (at > 0 && precedes(rank, id, outRanks[at - 1], outIds[at - 1])) {
+            outIds[at] = outIds[at - 1];
+            outRanks[at] = outRanks[at - 1];
+            at--;
+        }
+        outIds[at] = id;
+        outRanks[at] = rank;
+    }
+    for (let i = labelsFrom; i < held; i++) get(columns.label(outIds[i]));
+    return outIds;
+};
+
+const rowsOf = (store: TStore, rowAtomOf: TRowAtomOf, ids: readonly string[]): TRow[] => {
+    const rows: TRow[] = [];
+    for (let i = 0; i < ids.length; i++) {
+        const row = store.get(rowAtomOf(ids[i]));
+        if (row !== undefined) rows.push(row);
+    }
+    return rows;
+};
+
+// Recipe: the framework-free store plus the two documented composition primitives — a
+// derived atom for the view, a write-only atom for the batch. The rest: `jotai.md`.
+const bindViews = (
+    bindings: readonly TViewBinding[],
+    view: TViewConfig
+): TBinding => {
+    const store = createStore();
+    const { access, frame } = framedStoreOf(store);
+    const rowFamily = atomFamily((_id: string) =>
+        atom<TRow | undefined>(undefined)
+    );
+    // A jotai atom rather than a plain Map, and it has to be: a row moving into a group
+    // is not a write to anything the destination view already reads, so the bucket
+    // itself is what must invalidate it. The rest: `jotai.md`.
+    const groupIdsFamily = atomFamily((_group: string) =>
+        atom<readonly string[]>([])
+    );
+
+    const columns = columnFamiliesOf(rowFamily);
+
+    // ONE DERIVED ATOM PER VIEW, SUBSCRIBED — two, or fifty. The rest: `jotai.md`.
+    const windows = bindings.map(bound => ({
+        consumer: bound.consumer,
+        ids: atom(get =>
+            selectIds(get, columns, groupIdsFamily, bound.group, view.window, 0, false)
+        ),
+    }));
+    const stop = windows.map(state =>
+        store.sub(state.ids, () =>
+            deliver(
+                state.consumer,
+                rowsOf(store, rowFamily, store.get(state.ids)),
+                view.window
+            )
+        )
+    );
+
+    // `pinned` holds ATOMS: what the pin hoists out of the clock is the family's own
+    // key lookup, which every point write opens with. The rest: `jotai.md`.
+    const pinned: ReturnType<typeof rowFamily>[] = [];
+    const labelAtoms: Atom<string>[] = [];
+    const noteAtoms: Atom<string>[] = [];
+    const cellStop: (() => void)[] = [];
+    let cells: TCellConfig = { ids: [], ranks: [] };
+    const labelText: string[] = [];
+    const noteText: string[] = [];
+    /** The targeted-delivery script is a two-view script and is never bound per group. */
+    const labelConsumer = bindings[0].consumer;
+    const noteConsumer = bindings[1].consumer;
+
+    const renderLabels = (): void => {
+        for (let i = 0; i < labelAtoms.length; i++) {
+            labelText[i] = store.get(labelAtoms[i]);
+        }
+        deliverCells(labelConsumer, cells, labelText);
+    };
+    const renderNotes = (): void => {
+        for (let i = 0; i < noteAtoms.length; i++) {
+            noteText[i] = store.get(noteAtoms[i]);
+        }
+        deliverCells(noteConsumer, cells, noteText);
+    };
+
+    // Every `set` inside a write-only atom's write function is part of ONE transaction,
+    // flushed when the outermost `store.set` returns, so a load of n rows is one
+    // delivery per view rather than n. The rest: `jotai.md`.
+    const writeRows = atom(null, (get, set, incoming: readonly TRow[]) => {
+        let drafts: Map<string, string[]> | undefined;
+        const draftOf = (group: string): string[] => {
+            if (drafts === undefined) drafts = new Map();
+            let draft = drafts.get(group);
+            if (draft === undefined) {
+                draft = get(groupIdsFamily(group)).slice();
+                drafts.set(group, draft);
+            }
+            return draft;
+        };
+        for (let i = 0; i < incoming.length; i++) {
+            const row = incoming[i];
+            const rowAtom = rowFamily(row.id);
+            const stored = get(rowAtom);
+            // Copied so the value the store holds is not the harness's object.
+            set(rowAtom, { ...row });
+            if (stored === undefined) {
+                draftOf(row.group).push(row.id);
+            } else if (stored.group !== row.group) {
+                const leaving = draftOf(stored.group);
+                const at = leaving.indexOf(row.id);
+                if (at >= 0) leaving.splice(at, 1);
+                draftOf(row.group).push(row.id);
+            }
+        }
+        if (drafts !== undefined) {
+            for (const [group, draft] of drafts) {
+                set(groupIdsFamily(group), draft);
+            }
+        }
+    });
+
+    // THE ROW'S ATOM AND ITS GROUP'S, because only emptying the row's would leave the
+    // view reading an atom holding `undefined` for ever — a different store from one
+    // the row has left. The rest: `jotai.md`.
+    const removeRows = atom(null, (get, set, ids: readonly string[]) => {
+        const going = new Set(ids);
+        const touched = new Set<string>();
+        for (let i = 0; i < ids.length; i++) {
+            const rowAtom = rowFamily(ids[i]);
+            const row = get(rowAtom);
+            if (row !== undefined) touched.add(row.group);
+            set(rowAtom, undefined);
+        }
+        for (const group of touched) {
+            const groupAtom = groupIdsFamily(group);
+            set(
+                groupAtom,
+                get(groupAtom).filter(id => !going.has(id))
+            );
+        }
+    });
+
+    // Three atoms, ONE transaction. The rest: `jotai.md`.
+    const moveRow = atom(null, (get, set, id: string, group: string) => {
+        const rowAtom = rowFamily(id);
+        const row = get(rowAtom);
+        if (row === undefined) return;
+        set(rowAtom, { ...row, group });
+        if (row.group === group) return;
+        const from = groupIdsFamily(row.group);
+        set(
+            from,
+            get(from).filter(held => held !== id)
+        );
+        const to = groupIdsFamily(group);
+        set(to, [...get(to), id]);
+    });
+
+    return {
+        write: incoming => {
+            access.set(writeRows, incoming);
+        },
+        remove: ids => {
+            access.set(removeRows, ids);
+        },
+        // A single `store.set` is already its own batch. The rest: `jotai.md`.
+        patchLabel: (id, label) => {
+            const rowAtom = rowFamily(id);
+            const row = access.get(rowAtom);
+            if (row !== undefined) access.set(rowAtom, { ...row, label });
+        },
+        // The row atom changes; the window's column atoms recompute to equal values and stop it.
+        patchNote: (id, note) => {
+            const rowAtom = rowFamily(id);
+            const row = access.get(rowAtom);
+            if (row !== undefined) access.set(rowAtom, { ...row, note });
+        },
+        setGroup: (id, group) => {
+            access.set(moveRow, id, group);
+        },
+        setRank: (id, rank) => {
+            const rowAtom = rowFamily(id);
+            const row = access.get(rowAtom);
+            if (row !== undefined) access.set(rowAtom, { ...row, rank });
+        },
+        // THE ATOMS, RESOLVED ONCE, and ONE DERIVED ATOM PER PINNED CELL: jotai's
+        // `Object.is` on the column's string is what keeps a label write from waking
+        // the note view. The rest: `jotai.md`.
+        pin: config => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            cells = config;
+            pinned.length = 0;
+            labelAtoms.length = 0;
+            noteAtoms.length = 0;
+            for (let i = 0; i < config.ids.length; i++) {
+                const rowAtom = rowFamily(config.ids[i]);
+                pinned.push(rowAtom);
+                labelAtoms.push(
+                    atom(get => {
+                        const row = get(rowAtom);
+                        return row === undefined ? '' : row.label;
+                    })
+                );
+                noteAtoms.push(
+                    atom(get => {
+                        const row = get(rowAtom);
+                        return row === undefined ? '' : row.note;
+                    })
+                );
+            }
+            labelText.length = pinned.length;
+            noteText.length = pinned.length;
+            for (let i = 0; i < pinned.length; i++) {
+                cellStop.push(store.sub(labelAtoms[i], renderLabels));
+                cellStop.push(store.sub(noteAtoms[i], renderNotes));
+            }
+            // Untimed: the state every sample starts from.
+            renderLabels();
+            renderNotes();
+        },
+        patchPinnedLabel: (at, label) => {
+            const rowAtom = pinned[at];
+            const row = access.get(rowAtom);
+            if (row !== undefined) access.set(rowAtom, { ...row, label });
+        },
+        patchPinnedNote: (at, note) => {
+            const rowAtom = pinned[at];
+            const row = access.get(rowAtom);
+            if (row !== undefined) access.set(rowAtom, { ...row, note });
+        },
+        frame,
+        // Nothing to do: the recompute and the listener flush both happen before
+        // the outermost `store.set` returns.
+        settle: () => undefined,
+        // THE FAMILY'S OWN KEYS AND NOT THE GROUP ATOMS, deliberately: the group atoms
+        // are what the views iterate, so an audit reading them could agree with the
+        // views about a row that had fallen out of both. The rest: `jotai.md`.
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const id of rowFamily.getParams()) {
+                const row = store.get(rowFamily(id));
+                if (row !== undefined) held.push(row);
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        // THE GROUP'S IDS ATOM — the structure `readAll` deliberately does not read,
+        // and what `selectIds` derives from. The rest: `jotai.md`.
+        groupOrder: group => {
+            const ids = store.get(groupIdsFamily(group));
+            const held: TRow[] = [];
+            for (let i = 0; i < ids.length; i++) {
+                const row = store.get(rowFamily(ids[i]));
+                if (row !== undefined) held.push(row);
+            }
+            return orderedIdsOfRows(held);
+        },
+        // Unsubscribing unmounts the view atoms and everything they had mounted. The
+        // rest: `jotai.md`.
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            for (let i = 0; i < cellStop.length; i++) cellStop[i]();
+            cellStop.length = 0;
+            pinned.length = 0;
+            labelAtoms.length = 0;
+            noteAtoms.length = 0;
+        },
+    };
+};
+
+
+// `store.sub(atom, listener)` is the documented framework-free surface
+// (https://jotai.org/docs/core/store): subscribing MOUNTS an atom and, transitively,
+// everything it read. The rest: `jotai.md`.
+const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
+    const store = createStore();
+    const { access, frame } = framedStoreOf(store);
+    const rowFamily = atomFamily((_id: string) =>
+        atom<TRow | undefined>(undefined)
+    );
+
+    type TRowAtom = ReturnType<typeof rowFamily>;
+    const churnAtoms: TRowAtom[] = [];
+    const churnRead: (string | undefined)[] = [];
+    const stop: (() => void)[] = [];
+    let churnWoke = 0;
+    let churnId = '';
+    let churnRank = 0;
+
+    const readRowInto = (at: number, first: TRowAtom): void => {
+        const row = store.get(first);
+        churnRead[at] = row === undefined ? '' : row.label;
+    };
+
+    const readHeadInto = (at: number, head: Atom<string>): void => {
+        churnRead[at] = store.get(head);
+    };
+
+    const readerOf = (at: number, first: TRowAtom): (() => void) => () => {
+        churnWoke++;
+        readRowInto(at, first);
+    };
+
+    const headReaderOf = (at: number, head: Atom<string>): (() => void) => () => {
+        churnWoke++;
+        readHeadInto(at, head);
+    };
+
+    /** The window binding's batch, minus the group index no view here needs. */
+    const writeRows = atom(null, (_get, set, incoming: readonly TRow[]) => {
+        for (let i = 0; i < incoming.length; i++) {
+            const row = incoming[i];
+            set(rowFamily(row.id), { ...row });
+        }
+    });
+
+    const removeRows = atom(null, (_get, set, ids: readonly string[]) => {
+        for (let i = 0; i < ids.length; i++) set(rowFamily(ids[i]), undefined);
+    });
+
+    const patch = (id: string, change: Partial<TRow>): void => {
+        const rowAtom = rowFamily(id);
+        const row = access.get(rowAtom);
+        if (row !== undefined) access.set(rowAtom, { ...row, ...change });
+    };
+
+    return {
+        write: incoming => {
+            access.set(writeRows, incoming);
+        },
+        remove: ids => {
+            access.set(removeRows, ids);
+        },
+        patchLabel: (id, label) => patch(id, { label }),
+        patchNote: (id, note) => patch(id, { note }),
+        setGroup: (id, group) => patch(id, { group }),
+        setRank: (id, rank) => patch(id, { rank }),
+        // A churn binding derives no view and no churn script pins anything.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        frame,
+        // Every listener has already run. What is left is the frame boundary: one
+        // delivery if anything woke, none if nothing did.
+        settle: () => {
+            if (churnWoke === 0) return;
+            deliverChurn(
+                churnConsumer,
+                churnId,
+                churnRank,
+                churnWoke,
+                churnRead
+            );
+            churnWoke = 0;
+        },
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const id of rowFamily.getParams()) {
+                const row = store.get(rowFamily(id));
+                if (row !== undefined) held.push(row);
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        /** NOTHING TO READ: no view is derived and there is no `groupIdsFamily`. */
+        groupOrder: () => undefined,
+        // THE ATOMS, RESOLVED ONCE — the family lookup every point write opens with,
+        // hoisted out of the clock.
+        holdChurnRows: (ids, ranks) => {
+            churnId = ids[0];
+            churnRank = ranks[0];
+            for (let i = 0; i < ids.length; i++) {
+                churnAtoms.push(rowFamily(ids[i]));
+                churnRead[i] = undefined;
+            }
+        },
+        // The branch is on the SHAPE the script asked for and not on anything read out
+        // of the store.
+        mountOnRows: (at, from, count) => {
+            const first = churnAtoms[from];
+            if (count === 1) {
+                stop[at] = store.sub(first, readerOf(at, first));
+                readRowInto(at, first);
+                return;
+            }
+            const sources = churnAtoms.slice(from, from + count);
+            const composed = atom(get => {
+                let text = '';
+                for (let i = sources.length - 1; i >= 0; i--) {
+                    const row = get(sources[i]);
+                    if (row !== undefined) text = row.label;
+                }
+                return text;
+            });
+            stop[at] = store.sub(composed, readerOf(at, first));
+            readRowInto(at, first);
+        },
+        mountOnColumn: at => {
+            const first = churnAtoms[0];
+            const column = atom(get => {
+                const row = get(first);
+                return row === undefined ? '' : row.label;
+            });
+            stop[at] = store.sub(column, readerOf(at, first));
+            readRowInto(at, first);
+        },
+        /** Subscribing to the head mounts every level and every root beneath it. */
+        mountOnChain: (at, from, count, depth) => {
+            const sources = churnAtoms.slice(from, from + count);
+            let below: Atom<string> = atom(get => {
+                let text = get(sources[0])?.label ?? '';
+                for (let i = 1; i < sources.length; i++) {
+                    text = `${text},${get(sources[i])?.label ?? ''}`;
+                }
+                return chainLevelOf(text, 1);
+            });
+            for (let level = 2; level <= depth; level++) {
+                const under = below;
+                below = atom(get => chainLevelOf(get(under), level));
+            }
+            stop[at] = store.sub(below, headReaderOf(at, below));
+            readHeadInto(at, below);
+        },
+        mountOnDiamond: (at, from) => {
+            const root = churnAtoms[from];
+            const left = atom(get => diamondLeftOf(get(root)?.label ?? ''));
+            const right = atom(get => diamondRightOf(get(root)?.label ?? ''));
+            const join = atom(get => diamondJoinOf(get(left), get(right)));
+            stop[at] = store.sub(join, headReaderOf(at, join));
+            readHeadInto(at, join);
+        },
+        unmount: at => {
+            const release = stop[at];
+            if (release === undefined) return;
+            release();
+            stop[at] = undefined as unknown as () => void;
+            churnRead[at] = undefined;
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]?.();
+            stop.length = 0;
+            churnAtoms.length = 0;
+            churnRead.length = 0;
+        },
+    };
+};
+
+// WHY THE OFFSET IS AN ATOM: a scroll has to reach the consumer through jotai's own
+// invalidation, and a plain variable would leave this adapter deciding when to render.
+// The rest: `jotai.md`.
+const bindReadStore = (
+    consumers: TConsumers,
+    view: TViewConfig,
+    plan: TPlan
+): TReadBinding => {
+    const store = createStore();
+    const { access, frame } = framedStoreOf(store);
+    const rowFamily = atomFamily((_id: string) =>
+        atom<TRow | undefined>(undefined)
+    );
+    const groupIdsFamily = atomFamily((_group: string) =>
+        atom<readonly string[]>([])
+    );
+    const offsetAtom = atom(0);
+    const pagedGroupAtom = atom(view.groupA);
+    const switchPagedGroup = atom(null, (_get, set, group: string) => {
+        set(pagedGroupAtom, group);
+        set(offsetAtom, 0);
+    });
+    /** Reused only by the pull. */
+    const found: TRow[] = [];
+    const columns = columnFamiliesOf(rowFamily);
+
+    const pagedAtom = atom(get => {
+        const offset = get(offsetAtom);
+        return {
+            offset,
+            ids: selectIds(
+                get,
+                columns,
+                groupIdsFamily,
+                get(pagedGroupAtom),
+                offset + view.window,
+                offset,
+                false
+            ),
+        };
+    });
+    const onAxisAtom = atom(get =>
+        selectIds(get, columns, groupIdsFamily, view.groupA, view.window, 0, true)
+    );
+
+    const stop = [
+        store.sub(pagedAtom, () => {
+            const held = store.get(pagedAtom);
+            deliverPage(
+                consumers.a,
+                rowsOf(store, rowFamily, held.ids),
+                held.offset,
+                view.window
+            );
+        }),
+        store.sub(onAxisAtom, () => {
+            deliverPage(
+                consumers.b,
+                rowsOf(store, rowFamily, store.get(onAxisAtom)),
+                0,
+                view.window
+            );
+        }),
+    ];
+
+    const writeRows = atom(null, (get, set, incoming: readonly TRow[]) => {
+        let drafts: Map<string, string[]> | undefined;
+        const draftOf = (group: string): string[] => {
+            if (drafts === undefined) drafts = new Map();
+            let draft = drafts.get(group);
+            if (draft === undefined) {
+                draft = get(groupIdsFamily(group)).slice();
+                drafts.set(group, draft);
+            }
+            return draft;
+        };
+        for (let i = 0; i < incoming.length; i++) {
+            const row = incoming[i];
+            const rowAtom = rowFamily(row.id);
+            const stored = get(rowAtom);
+            set(rowAtom, { ...row });
+            if (stored === undefined) {
+                draftOf(row.group).push(row.id);
+            } else if (stored.group !== row.group) {
+                const leaving = draftOf(stored.group);
+                const at = leaving.indexOf(row.id);
+                if (at >= 0) leaving.splice(at, 1);
+                draftOf(row.group).push(row.id);
+            }
+        }
+        if (drafts !== undefined) {
+            for (const [group, draft] of drafts) {
+                set(groupIdsFamily(group), draft);
+            }
+        }
+    });
+
+    const removeRows = atom(null, (get, set, ids: readonly string[]) => {
+        const going = new Set(ids);
+        const touched = new Set<string>();
+        for (let i = 0; i < ids.length; i++) {
+            const rowAtom = rowFamily(ids[i]);
+            const row = get(rowAtom);
+            if (row !== undefined) touched.add(row.group);
+            set(rowAtom, undefined);
+        }
+        for (const group of touched) {
+            const groupAtom = groupIdsFamily(group);
+            set(
+                groupAtom,
+                get(groupAtom).filter(id => !going.has(id))
+            );
+        }
+    });
+
+    const moveRow = atom(null, (get, set, id: string, group: string) => {
+        const rowAtom = rowFamily(id);
+        const row = get(rowAtom);
+        if (row === undefined) return;
+        set(rowAtom, { ...row, group });
+        if (row.group === group) return;
+        const from = groupIdsFamily(row.group);
+        set(
+            from,
+            get(from).filter(held => held !== id)
+        );
+        const to = groupIdsFamily(group);
+        set(to, [...get(to), id]);
+    });
+
+    const patch = (id: string, change: Partial<TRow>): void => {
+        const rowAtom = rowFamily(id);
+        const row = access.get(rowAtom);
+        if (row !== undefined) access.set(rowAtom, { ...row, ...change });
+    };
+
+    return {
+        write: incoming => {
+            access.set(writeRows, incoming);
+        },
+        remove: ids => {
+            access.set(removeRows, ids);
+        },
+        patchLabel: (id, label) => patch(id, { label }),
+        patchNote: (id, note) => patch(id, { note }),
+        setGroup: (id, group) => {
+            access.set(moveRow, id, group);
+        },
+        setRank: (id, rank) => patch(id, { rank }),
+        // No read script pins anything.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        // ONE FAMILY LOOKUP AND ONE `store.get` PER KEY. Nothing is hoisted;
+        // `store.get` outside an atom's read function tracks nothing and mounts
+        // nothing.
+        readKeys: (from, count) => {
+            const keys = plan.readKeys;
+            found.length = 0;
+            for (let i = 0; i < count; i++) {
+                const row = store.get(rowFamily(keys[from + i]));
+                if (row !== undefined) found.push(row);
+            }
+            deliverPage(consumers.a, found, 0, count);
+        },
+        // No row is touched; view B has never read this atom and is not recomputed.
+        scrollTo: to => {
+            access.set(offsetAtom, to);
+        },
+        switchGroup: group => {
+            access.set(switchPagedGroup, group);
+        },
+        frame,
+        // A no-op: the recompute and the listener flush both happen inside `set`.
+        settle: () => undefined,
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const id of rowFamily.getParams()) {
+                const row = store.get(rowFamily(id));
+                if (row !== undefined) held.push(row);
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        groupOrder: group => {
+            const ids = store.get(groupIdsFamily(group));
+            const held: TRow[] = [];
+            for (let i = 0; i < ids.length; i++) {
+                const row = store.get(rowFamily(ids[i]));
+                if (row !== undefined) held.push(row);
+            }
+            return orderedIdsOfRows(held);
+        },
+        dispose: () => {
+            for (const release of stop) release();
+            stop.length = 0;
+            found.length = 0;
+        },
+    };
+};
+
+// A second `atomFamily` for the owners, and a third keyed by a JOINED PAIR OF IDS for
+// the records addressed by one identity of each. The rest: `jotai.md`.
+const bindRelationStore = (consumers: TConsumers): TRelationBinding => {
+    const store = createStore();
+    const { access, frame } = framedStoreOf(store);
+    const rowFamily = atomFamily((_id: string) =>
+        atom<TRow | undefined>(undefined)
+    );
+    const ownerFamily = atomFamily((_id: string) =>
+        atom<TOwner | undefined>(undefined)
+    );
+    /** One atom per COMPOSED address. */
+    const pairFamily = atomFamily((_key: string) =>
+        atom<TPairRow | undefined>(undefined)
+    );
+
+    type TOwnerAtom = ReturnType<typeof ownerFamily>;
+    type TPairAtom = ReturnType<typeof pairFamily>;
+
+    let config: TRelationConfig = {
+        ids: [],
+        ranks: [],
+        owners: [],
+        touched: [],
+        names: [],
+        seeds: [],
+    };
+    /** The owners the join script writes, by POSITION in `config.touched`. */
+    const touchedAtoms: TOwnerAtom[] = [];
+    /** The owner atom each rendered line's name comes from, in `ids` order. */
+    const rowOwnerAtoms: TOwnerAtom[] = [];
+    /** The pair atom each rendered line's mark comes from, in `ids` order. */
+    const rowPairAtoms: TPairAtom[] = [];
+    const stop: (() => void)[] = [];
+
+    const pairKey = (owner: string, row: string): string => `${owner} ${row}`;
+
+    const writeRows = atom(null, (_get, set, incoming: readonly TRow[]) => {
+        for (let i = 0; i < incoming.length; i++) {
+            const row = incoming[i];
+            set(rowFamily(row.id), { ...row });
+        }
+    });
+
+    const removeRows = atom(null, (_get, set, ids: readonly string[]) => {
+        for (let i = 0; i < ids.length; i++) set(rowFamily(ids[i]), undefined);
+    });
+
+    const writeOwnerRecords = atom(
+        null,
+        (_get, set, incoming: readonly TOwner[]) => {
+            for (let i = 0; i < incoming.length; i++) {
+                const owner = incoming[i];
+                set(ownerFamily(owner.id), { id: owner.id, name: owner.name });
+            }
+        }
+    );
+
+    /** Untimed: the mint happens here so no timed step pays it. */
+    const seedPairRecords = atom(null, (_get, set, given: TRelationConfig) => {
+        for (let i = 0; i < given.ids.length; i++) {
+            const owner = given.owners[i];
+            const row = given.ids[i];
+            const pairAtom = pairFamily(pairKey(owner, row));
+            set(pairAtom, { owner, row, mark: given.seeds[i] });
+            rowPairAtoms.push(pairAtom);
+        }
+    });
+
+    const namesAtom = atom(get => {
+        const text: string[] = [];
+        for (let i = 0; i < rowOwnerAtoms.length; i++) {
+            const owner = get(rowOwnerAtoms[i]);
+            text.push(owner === undefined ? '' : owner.name);
+        }
+        return text;
+    });
+    const marksAtom = atom(get => {
+        const text: string[] = [];
+        for (let i = 0; i < rowPairAtoms.length; i++) {
+            const pair = get(rowPairAtoms[i]);
+            text.push(pair === undefined ? '' : pair.mark);
+        }
+        return text;
+    });
+
+    const renderNames = (): void => {
+        deliverRelation(consumers.a, config, store.get(namesAtom));
+    };
+    const renderMarks = (): void => {
+        deliverRelation(consumers.b, config, store.get(marksAtom));
+    };
+
+    const patch = (id: string, change: Partial<TRow>): void => {
+        const rowAtom = rowFamily(id);
+        const row = access.get(rowAtom);
+        if (row !== undefined) access.set(rowAtom, { ...row, ...change });
+    };
+
+    return {
+        write: incoming => {
+            access.set(writeRows, incoming);
+        },
+        remove: ids => {
+            access.set(removeRows, ids);
+        },
+        patchLabel: (id, label) => patch(id, { label }),
+        patchNote: (id, note) => patch(id, { note }),
+        setGroup: (id, group) => patch(id, { group }),
+        setRank: (id, rank) => patch(id, { rank }),
+        // No relation script pins: the targeted-delivery script is a two-view
+        // script and is bound by `bind`.
+        pin: () => undefined,
+        patchPinnedLabel: () => undefined,
+        patchPinnedNote: () => undefined,
+        writeOwners: incoming => {
+            access.set(writeOwnerRecords, incoming);
+        },
+        // THE ATOMS BOTH SCRIPTS WORK THROUGH, RESOLVED ONCE — the family lookup a
+        // keyed write would open with, hoisted out of the clock along with the mint.
+        // The rest: `jotai.md`.
+        holdRelation: given => {
+            config = given;
+            for (let at = 0; at < given.touched.length; at++) {
+                touchedAtoms.push(ownerFamily(given.touched[at]));
+            }
+            for (let i = 0; i < given.ids.length; i++) {
+                rowOwnerAtoms.push(ownerFamily(given.owners[i]));
+            }
+            store.set(seedPairRecords, given);
+            stop.push(store.sub(namesAtom, renderNames));
+            stop.push(store.sub(marksAtom, renderMarks));
+            renderNames();
+            renderMarks();
+        },
+        // At a POSITION — no family lookup. It invalidates view A's derived atom
+        // because that atom read this one, and it cannot reach view B, which reads no
+        // owner.
+        patchOwnerName: (at, name) => {
+            const ownerAtom = touchedAtoms[at];
+            const owner = access.get(ownerAtom);
+            if (owner === undefined) return;
+            access.set(ownerAtom, { id: owner.id, name });
+        },
+        // The address string is built fresh every call: caching eight of them would
+        // make the row a measurement of an array read.
+        writePair: (at, mark) => {
+            const pairAtom = pairFamily(
+                pairKey(config.owners[at], config.ids[at])
+            );
+            const pair = access.get(pairAtom);
+            if (pair === undefined) return;
+            access.set(pairAtom, { owner: pair.owner, row: pair.row, mark });
+        },
+        frame,
+        // A no-op: jotai flushes its listeners in the `finally` of the outermost
+        // `store.set`, before the write returns.
+        settle: () => undefined,
+        readAll: () => {
+            const held: TRow[] = [];
+            for (const id of rowFamily.getParams()) {
+                const row = store.get(rowFamily(id));
+                if (row !== undefined) held.push(row);
+            }
+            return held;
+        },
+        deliverableRows: () => undefined,
+        /** NOTHING TO READ: no window, no group, no sort, no group index. */
+        groupOrder: () => undefined,
+        readOwners: () => {
+            const held: TOwner[] = [];
+            for (const id of ownerFamily.getParams()) {
+                const owner = store.get(ownerFamily(id));
+                if (owner !== undefined) held.push(owner);
+            }
+            return held;
+        },
+        // THE ADDRESS IS READ OUT OF THE RECORD ITSELF: the family's keys are this
+        // file's own composition, so answering from them would make the audit agree
+        // with whatever the composition did. The rest: `jotai.md`.
+        readPairs: () => {
+            const held: TPairRow[] = [];
+            for (const key of pairFamily.getParams()) {
+                const pair = store.get(pairFamily(key));
+                if (pair !== undefined) held.push(pair);
+            }
+            return held;
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+            touchedAtoms.length = 0;
+            rowOwnerAtoms.length = 0;
+            rowPairAtoms.length = 0;
+        },
+    };
+};
+
+
+/* ── one value, one subscriber, and a second value beside it ───────────── */
+
+// `atom(initial)` is jotai's own scalar and `store.sub` its own subscriber, both out of
+// `jotai/vanilla` — the entry point every other wiring in this file uses. The rest:
+// `jotai.md`.
+const bindSingleStore = (consumers: TConsumers): TSingleBinding => {
+    const store = createStore();
+    const { access, frame } = framedStoreOf(store);
+    const value = atom('');
+    const bystander = atom('');
+    const stop: (() => void)[] = [];
+    let name = '';
+    let bystanderName = '';
+    let read = '';
+    let readBystander = '';
+    let woke = false;
+    let wokeBystander = false;
+
+    return {
+        ...noRowStore('jotai'),
+        holdSingle: config => {
+            name = config.name;
+            bystanderName = config.bystander;
+            store.set(value, config.seeds[0]);
+            store.set(bystander, config.seeds[1]);
+            read = config.seeds[0];
+            readBystander = config.seeds[1];
+            stop.push(
+                store.sub(value, () => {
+                    read = store.get(value);
+                    woke = true;
+                })
+            );
+            stop.push(
+                store.sub(bystander, () => {
+                    readBystander = store.get(bystander);
+                    wokeBystander = true;
+                })
+            );
+            deliverSingle(consumers.a, name, read);
+            deliverSingle(consumers.b, bystanderName, readBystander);
+        },
+        writeSingle: next => {
+            access.set(value, next);
+        },
+        frame,
+        readSingle: () => store.get(value),
+        readBystander: () => store.get(bystander),
+        // Every listener has already run: jotai flushes a vanilla store's subscribers
+        // inside the write. What is left is the frame boundary.
+        settle: () => {
+            if (woke) {
+                woke = false;
+                deliverSingle(consumers.a, name, read);
+            }
+            if (wokeBystander) {
+                wokeBystander = false;
+                deliverSingle(consumers.b, bystanderName, readBystander);
+            }
+        },
+        dispose: () => {
+            for (let i = 0; i < stop.length; i++) stop[i]();
+            stop.length = 0;
+        },
+    };
+};
 
 export const jotaiAdapter: TAdapter = {
     name: 'jotai',
-    version: '2.20.2',
-    docs: 'https://github.com/jotaijs/jotai-family',
+    version: '3.0.1',
+    docs: 'https://jotai.org/docs/core/store',
+    departure:
+        'a removal rebuilds each touched group\'s ids atom once for the whole batch rather than per ' +
+        'removed row; and the timed teardown unsubscribes the view atoms only, leaving the store and ' +
+        'its atom families to the collector.',
+    admission:
+        'every row lives in its own jotai atom, one per key via `jotai-family`, read and written ' +
+        'through the store — and each consumer is driven by `store.sub` on a derived view atom that ' +
+        'reads per-column derived atoms (group, rank, label) and selects ids, flushed inside the ' +
+        'write, its listener reading the selected rows back through `store.get`. The per-group ids atoms hold keys only, never a value, and the ' +
+        'population audit enumerates the family\'s own `getParams` rather than any list this ' +
+        'adapter keeps.',
 
-    /**
-     * TABLE — the index and the sorted list are both derived atoms over the entity atoms, so they
-     * live in Jotai's graph and a write invalidates them. Jotai has no query layer; this is what
-     * building one out of its own primitives costs.
-     */
-    taskTable: (users, interactions) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const ids = users.map(u => u.id);
-        const indexAtom = buildIndexAtom(family, ids, u => u.teamId);
-        const sortedTeam = atomFamily((team: string) =>
-            atom(get =>
-                [...(get(indexAtom).get(team) ?? [])].sort((x, y) =>
-                    x.name < y.name ? -1 : x.name > y.name ? 1 : 0
-                )
-            )
-        );
-        let page: TUser[] = [];
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    const offset = (i % 5) * 20;
-                    page = store
-                        .get(sortedTeam(`t${i % 50}`))
-                        .slice(offset, offset + 20);
-                }
-            },
-            verify: () => page.length === 20,
-            result: () => page.length,
-        };
+    bind: (consumers, view) =>
+        bindViews(
+            [
+                { group: view.groupA, consumer: consumers.a },
+                { group: view.groupB, consumer: consumers.b },
+            ],
+            view
+        ),
+    // THE SAME BODY, HANDED FIFTY VIEWS INSTEAD OF TWO — the two builders differ
+    // by the view list and nothing else, so this row compares libraries.
+    bindPerGroup: (consumers, view) => bindViews(consumers.views, view),
+    reads: readShapes((consumers, view, plan) =>
+        bindReadStore(consumers, view, plan)
+    ),
+    relations: {
+        build: consumers => bindRelationStore(consumers),
+        absent: '',
     },
-
-    /** FEED PUSH — one write-only atom for the whole push; subscriptions are per row atom. */
-    taskFeedPush: users => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const visible = users.slice(0, 200);
-        let woken = 0;
-        for (const u of visible) store.sub(family(u.id), () => woken++);
-        const pushed = [...users.slice(0, 12), ...users.slice(5_000, 5_988)];
-        let n = 0;
-        const applyPush = atom(null, (get, set) => {
-            for (const u of pushed) {
-                const a = family(u.id);
-                set(a, { ...get(a)!, name: `push-${n}` });
-            }
-            n++;
-        });
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.set(applyPush);
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
+    single: {
+        build: consumers => bindSingleStore(consumers),
+        absent: '',
     },
-
-    /** DETAIL CARD — derived atoms for the comment list, the count and the caption. */
-    taskDetailCard: (users, comments, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const commentFamily = atomFamily((_id: string) =>
-            atom<TComment | undefined>(undefined)
-        );
-        for (const c of comments) store.set(commentFamily(c.id), c);
-        const pk = users[0].id;
-        // ⚠ HAND-ROLLED relation index.
-        const commentIds = comments.filter(c => c.userId === pk).map(c => c.id);
-
-        const rows = atom(get =>
-            commentIds.map(id => get(commentFamily(id))).filter((c): c is TComment => Boolean(c))
-        );
-        const count = atom(get => get(rows).length);
-        const caption = atom(
-            get => `${get(family(pk))?.name ?? ''} — ${get(count)} comments`
-        );
-
-        let sink = '';
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    const a = family(pk);
-                    store.set(a, { ...store.get(a)!, name: `n${n++}` });
-                    sink = store.get(caption);
-                }
-            },
-            verify: () => sink.includes('comments'),
-        };
-    },
-
-    /** FACET SEARCH — the composite index is a derived atom, invalidated by writes like any other. */
-    taskFacetSearch: (users, interactions) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const ids = users.map(u => u.id);
-        const indexAtom = buildIndexAtom(
-            family,
-            ids,
-            u => `${u.teamId}:${u.active}` as const
-        );
-        const facet = atomFamily((key: string) =>
-            atom(get => get(indexAtom).get(key) ?? [])
-        );
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < interactions; i++) {
-                    size = store.get(facet(`t${i % 10}:${Math.floor(i / 10) % 2 === 0}`)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    load: users => {
-        let store: ReturnType<typeof createStore>;
-        let family: ReturnType<typeof atomFamily<string, ReturnType<typeof atom<TUser | undefined>>>>;
-        return {
-            setup: () => {
-                store = createStore();
-                family = atomFamily((_id: string) =>
-                    atom<TUser | undefined>(undefined)
-                );
-            },
-            run: () => {
-                for (const u of users) store.set(family(u.id), u);
-            },
-            verify: () => store.get(family(users[0].id))?.id === users[0].id,
-        };
-    },
-
-    readByPk: (users, reads) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const pk = users[users.length >> 1].id;
-        let sink: TUser | undefined;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < reads; i++) sink = store.get(family(pk));
-            },
-            verify: () => sink?.id === pk,
-        };
-    },
-
-    pointUpdate: users => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let woken = 0;
-        for (const u of users) store.sub(family(u.id), () => woken++);
-
-        const target = users[users.length >> 1].id;
-        let n = 0;
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                const a = family(target);
-                store.set(a, { ...store.get(a)!, name: `renamed-${n++}` });
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /**
-     * COLD: an entity changes between queries, so the derived index atom is invalidated and rebuilt.
-     * That rebuild is O(n) over the whole collection — the structural reason Jotai ships no index,
-     * and the number this row exists to show.
-     */
-    queryColdByField: (users, queries) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const ids = users.map(u => u.id);
-        const indexAtom = buildIndexAtom(family, ids, u => u.teamId);
-        const byTeam = atomFamily((team: string) =>
-            atom(get => get(indexAtom).get(team) ?? [])
-        );
-        const churn = family(users[0].id);
-        let size = 0;
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    store.set(churn, { ...store.get(churn)!, name: `n${n++}` });
-                    size = store.get(byTeam(`t${i % 50}`)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * queryHotByField: intentionally absent.
-     *
-     * "Hot LIVE" means reading a standing index without a memo in front of it. Here the index IS a
-     * derived value, so reading it is memoised by construction — there is no live read to measure,
-     * and reporting the cached lookup under a live label compares this library's cache hit against
-     * another's real work. The memoised number lives in `query cached`; the cost of keeping the
-     * index correct lives in `query cold`.
-     */
-
-
-    // CACHED: a derived atom memoises against its dependencies, so an unchanged read is a hit.
-    queryCachedByField: (users, queries) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const ids = users.map(u => u.id);
-        const byTeam = atomFamily((team: string) =>
-            atom(get =>
-                ids
-                    .map(id => get(family(id)))
-                    .filter((u): u is TUser => u !== undefined && u.teamId === team)
-            )
-        );
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = store.get(byTeam(`t${i % 50}`)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    relatedLookup: (users, comments, queries) => {
-        const store = createStore();
-        const commentFamily = atomFamily((_id: string) =>
-            atom<TComment | undefined>(undefined)
-        );
-        for (const c of comments) store.set(commentFamily(c.id), c);
-        const commentIds = comments.map(c => c.id);
-        const byUser = atomFamily((userId: string) =>
-            atom(get =>
-                commentIds
-                    .map(id => get(commentFamily(id)))
-                    .filter((c): c is TComment => c !== undefined && c.userId === userId)
-            )
-        );
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = store.get(byUser(`u${i % users.length}`)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * Derived atoms are Jotai's computed: `atom(get => …)` memoises against its dependencies and
-     * recomputes only when one of them changed. Chaining them is the documented composition model.
-     * https://jotai.org/docs/core/atom#derived-atoms
-     */
-    computedChain: (users, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const pk = users[users.length >> 1].id;
-
-        const source = family(pk);
-        const level1 = atom(get => get(source)?.name ?? '');
-        const level2 = atom(get => get(level1).toUpperCase());
-        const level3 = atom(get => `${get(level2)}!`);
-
-        let sink = '';
-        let n = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    store.set(source, {
-                        ...store.get(source)!,
-                        name: `n${n++}`,
-                    });
-                    sink = store.get(level3);
-                }
-            },
-            verify: () => sink.endsWith('!'),
-        };
-    },
-
-    /**
-     * Jotai core has no separate effect primitive — a store subscription IS the effect, and that is
-     * what the store docs present for running work on change (`jotai-effect` is a separate opt-in
-     * package, not part of the core measured here).
-     * https://jotai.org/docs/core/store#sub
-     */
-    effectDispatch: users => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let ran = 0;
-        for (const u of users) store.sub(family(u.id), () => ran++);
-
-        const target = family(users[users.length >> 1].id);
-        let n = 0;
-        return {
-            setup: () => {
-                ran = 0;
-            },
-            run: () => {
-                store.set(target, { ...store.get(target)!, name: `n${n++}` });
-            },
-            verify: () => ran > 0,
-            ran: () => ran,
-        };
-    },
-
-    /**
-     * A write-only atom is Jotai's documented way to make several writes one transaction: the
-     * notifications for everything set inside it are flushed together.
-     * https://jotai.org/docs/core/atom#write-only-atoms
-     */
-    batchUpdate: users => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let woken = 0;
-        for (const u of users) store.sub(family(u.id), () => woken++);
-
-        const slice = users.slice(0, Math.max(1, users.length / 10));
-        let n = 0;
-        const writeBatch = atom(null, (get, set, name: string) => {
-            for (const u of slice) {
-                const a = family(u.id);
-                set(a, { ...get(a)!, name });
-            }
-        });
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.set(writeBatch, `n${n++}`);
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    subscriptionChurn: (users, rows) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let stops: (() => void)[] = [];
-        let offset = 0;
-        return {
-            setup: () => {
-                for (const stop of stops) stop();
-                stops = users
-                    .slice(0, rows)
-                    .map(u => store.sub(family(u.id), () => undefined));
-                offset = 0;
-            },
-            run: () => {
-                for (const stop of stops) stop();
-                offset = (offset + rows) % (users.length - rows);
-                stops = users
-                    .slice(offset, offset + rows)
-                    .map(u => store.sub(family(u.id), () => undefined));
-            },
-            verify: () => stops.length === rows,
-        };
-    },
-
-    /**
-     * ⚠ HAND-ROLLED — Jotai has no indexing tooling, in core or in the ecosystem. `jotai-family`
-     * keys atoms by a parameter but does not index their CONTENT, and there is no jotai-* package
-     * that does. The honest fast implementation is therefore ours, not the library's: a Map from
-     * composite key to a member atom, built once and read through `atomFamily`. Its speed is a
-     * property of this file, not of Jotai — what Jotai actually offers here is the derived-atom
-     * scan, which is roughly the `query cold` row.
-     */
-    /**
-     * ⚠ HAND-ROLLED index — Jotai has no indexing tooling in core or in the ecosystem, so the
-     * composite map below is ours. The derived atom in front of it is Jotai's own memoisation, and
-     * it is used because that is how the library is meant to serve a repeated query.
-     */
-    /**
-     * The composite index is a DERIVED ATOM over the entity atoms — Jotai's own machinery — so it is
-     * maintained by the graph and invalidated by writes, exactly like the indexes it is measured
-     * against. Jotai still ships no indexing tooling; what is idiomatic here is the derived atom.
-     */
-    facetedFilter: (users, queries) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const ids = users.map(u => u.id);
-        const indexAtom = buildIndexAtom(
-            family,
-            ids,
-            u => `${u.teamId}:${u.active}` as const
-        );
-        const facet = atomFamily((key: string) =>
-            atom(get => get(indexAtom).get(key) ?? [])
-        );
-        let size = 0;
-        return {
-            setup: () => undefined,
-            run: () => {
-                for (let i = 0; i < queries; i++) {
-                    size = store.get(facet(`t${i % 50}:${Math.floor(i / 50) % 2 === 0}`)).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /**
-     * Jotai has no index and no ordered structure, so the idiomatic ordered list is a derived atom
-     * that sorts. It re-sorts whenever a member changed — that is the library's actual shape, not a
-     * handicap we imposed.
-     */
-    /**
-     * Jotai has no index and no ordered structure, so the idiomatic ordered list is a derived atom
-     * that sorts. Rebuilt in `setup` so repeats do not sort an ever-growing list.
-     */
-    orderedInsert: (users, inserts) => {
-        let store: ReturnType<typeof createStore>;
-        let family: ReturnType<
-            typeof atomFamily<string, ReturnType<typeof atom<TUser | undefined>>>
-        >;
-        let ids: ReturnType<typeof atom<string[]>>;
-        let ordered: ReturnType<typeof atom<TUser[]>>;
-        let size = 0;
-        return {
-            setup: () => {
-                store = createStore();
-                family = atomFamily((_id: string) =>
-                    atom<TUser | undefined>(undefined)
-                );
-                for (const u of users) store.set(family(u.id), u);
-                ids = atom<string[]>(
-                    users.filter(u => u.teamId === 't0').map(u => u.id)
-                );
-                ordered = atom(get =>
-                    get(ids)
-                        .map(id => get(family(id)))
-                        .filter((u): u is TUser => Boolean(u))
-                        .sort((a, b) =>
-                            a.name < b.name ? -1 : a.name > b.name ? 1 : 0
-                        )
-                );
-            },
-            run: () => {
-                for (let i = 0; i < inserts; i++) {
-                    const id = `new-${i}`;
-                    store.set(family(id), {
-                        id,
-                        teamId: 't0',
-                        name: `name-0000${i % 10}`,
-                        active: true,
-                    });
-                    store.set(ids, [...store.get(ids), id]);
-                    size = store.get(ordered).length;
-                }
-            },
-            verify: () => size > 0,
-            result: () => size,
-        };
-    },
-
-    /**
-     * The same burst through a write-only atom. Jotai holds notifications until the write function
-     * returns, so repeated writes to the same atom collapse into one notification per subscriber —
-     * measured, not assumed: 100 notifications for 1,000 writes, the same floor oimdb reaches.
-     * https://jotai.org/docs/core/atom#write-only-atoms
-     */
-    burstCoalescing: (users, rewrites) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let woken = 0;
-        const hot = users.slice(0, 100);
-        for (const u of hot) store.sub(family(u.id), () => woken++);
-
-        let n = 0;
-        const writeBurst = atom(null, (get, set) => {
-            for (let r = 0; r < rewrites; r++) {
-                for (const u of hot) {
-                    const a = family(u.id);
-                    set(a, { ...get(a)!, name: `n${n}` });
-                }
-                n++;
-            }
-        });
-        return {
-            setup: () => {
-                woken = 0;
-            },
-            run: () => {
-                store.set(writeBurst);
-            },
-            verify: () => woken > 0,
-            woken: () => woken,
-        };
-    },
-
-    /** Derived atoms, one per entity, each kept live by a store subscription. */
-    fanOutRecompute: (users, derived, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-
-        let recomputes = 0;
-        let wakeups = 0;
-        for (let i = 0; i < derived; i++) {
-            const source = family(users[i].id);
-            const name = atom(get => {
-                recomputes++;
-                return get(source)?.name ?? '';
-            });
-            store.sub(name, () => {
-                wakeups++;
-                store.get(name);
-            });
-            store.get(name);
-        }
-
-        const target = family(users[0].id);
-        let n = 0;
-        return {
-            setup: () => {
-                store.set(target, { ...store.get(target)!, name: `settle${n++}` });
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    store.set(target, { ...store.get(target)!, name: `n${n++}` });
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    /** Jotai resolves a diamond through its dependency graph, so `c` should compute once. */
-    diamondGlitch: (users, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const source = family(users[0].id);
-
-        const a = atom(get => (get(source)?.name ?? '').length);
-        const b = atom(get => (get(source)?.name ?? '').toUpperCase());
-        let recomputes = 0;
-        const c = atom(get => {
-            recomputes++;
-            return `${get(a)}:${get(b)}`;
-        });
-        let wakeups = 0;
-        store.sub(c, () => {
-            wakeups++;
-            store.get(c);
-        });
-        store.get(c);
-
-        let n = 0;
-        return {
-            setup: () => {
-                store.set(source, { ...store.get(source)!, name: `settle-${n++}` });
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    store.set(source, {
-                        ...store.get(source)!,
-                        name: `name-${n++}`,
-                    });
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    /** Deep diamond — see the oimdb adapter for what this shape is testing. */
-    deepGraphGlitch: (users, depth, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const source = family(users[0].id);
-
-        const chain: ReturnType<typeof atom<string>>[] = [];
-        chain.push(atom(get => get(source)?.name ?? ''));
-        for (let level = 1; level < depth; level++) {
-            const previous = chain[level - 1];
-            chain.push(atom(get => get(previous)));
-        }
-        const tail = chain[depth - 1];
-
-        const faces = chain.filter((_, level) => level % 2 === 1);
-        let recomputes = 0;
-        let inconsistencies = 0;
-        const final = atom(get => {
-            recomputes++;
-            const direct = get(source)?.name ?? '';
-            for (const face of faces) {
-                if (get(face) !== direct) inconsistencies++;
-            }
-            const deep = get(tail);
-            if (direct !== deep) inconsistencies++;
-            return `${direct}|${deep}`;
-        });
-        let wakeups = 0;
-        store.sub(final, () => {
-            wakeups++;
-            store.get(final);
-        });
-        store.get(final);
-
-        let n = 0;
-        return {
-            setup: () => {
-                store.set(source, { ...store.get(source)!, name: `settle-${n++}` });
-                recomputes = 0;
-                wakeups = 0;
-                inconsistencies = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    store.set(source, {
-                        ...store.get(source)!,
-                        name: `name-${n++}`,
-                    });
-                }
-            },
-            verify: () => recomputes > 0,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-            inconsistencies: () => inconsistencies,
-        };
-    },
-
-    /**
-     * The atom holds the whole user, so writing `active` replaces the object the derived atom reads
-     * — it recomputes. The derived VALUE is an unchanged string, and Jotai compares with `Object.is`
-     * before notifying, so nothing downstream should wake.
-     */
-    unrelatedFieldWakeups: (users, updates) => {
-        const store = createStore();
-        const family = atomFamily((_id: string) =>
-            atom<TUser | undefined>(undefined)
-        );
-        for (const u of users) store.set(family(u.id), u);
-        const source = family(users[0].id);
-
-        let recomputes = 0;
-        const name = atom(get => {
-            recomputes++;
-            return get(source)?.name ?? '';
-        });
-        let wakeups = 0;
-        store.sub(name, () => {
-            wakeups++;
-            store.get(name);
-        });
-        store.get(name);
-
-        let flag = false;
-        return {
-            setup: () => {
-                flag = !flag;
-                store.set(source, { ...store.get(source)!, active: flag });
-                recomputes = 0;
-                wakeups = 0;
-            },
-            run: () => {
-                for (let i = 0; i < updates; i++) {
-                    flag = !flag;
-                    store.set(source, { ...store.get(source)!, active: flag });
-                }
-            },
-            verify: () => true,
-            recomputes: () => recomputes,
-            wakeups: () => wakeups,
-        };
-    },
-
-    memoryForEntities: users => ({
-        build: () => {
-            const store = createStore();
-            const family = atomFamily((_id: string) =>
-                atom<TUser | undefined>(undefined)
-            );
-            for (const u of users) store.set(family(u.id), u);
-            return { store, family };
-        },
-    }),
-
-    memoryForSubscriptions: users => ({
-        build: () => {
-            const store = createStore();
-            const family = atomFamily((_id: string) =>
-                atom<TUser | undefined>(undefined)
-            );
-            for (const u of users) store.set(family(u.id), u);
-            const stops = users.map(u =>
-                store.sub(family(u.id), () => undefined)
-            );
-            return { store, family, stops };
-        },
-    }),
+    churn: churnShapes(consumers => bindChurnStore(consumers.a)),
 };

@@ -42,7 +42,11 @@ this.flushing = undefined;
 
 Enqueues during the drain hit the fresh `this.tasks` and run next flush — the snapshot's semantics, with no per-flush allocation. The `flushing` reference is exposed so `cancel(fn)` can delete a task mid-drain; a `Set`'s `for..of` skips entries removed before they're reached, so cancelling a not-yet-run task stops it.
 
-Measured on an **empty flush**, where the array allocation is the *entire* cost: **0.057 µs** with `Array.from`, **0.037 µs** with the double buffer (−35%). That −35% is the headline only because nothing else runs — under real load the tasks themselves dominate flush time, so the snapshot's share (and the relative win) shrinks. What the double buffer removes is a fixed per-flush overhead: `Array.from` allocates proportional to the queue, the swap is O(1), so the *absolute* saving grows with queue size while the *relative* saving is largest exactly when flushes are cheap and frequent — which, under microtask batching, they are.
+No empty-flush figure is stated: no benchmark in this repository builds an `Array.from`-snapshot arm to compare against (see [How we measure](/docs/performance/)).
+
+The mechanism is unaffected and is an operation count. `Array.from` allocates an array proportional to the queue on every flush; the swap is O(1) and allocates nothing, ever. So the *absolute* saving grows with queue size while the *relative* saving is largest exactly when flushes are cheap and frequent — which, under microtask batching, they are. What no longer has a number attached is how large either saving is.
+
+For scale, and it is not this comparison: an empty frame — nothing marked, nobody subscribed — is recorded at **33.8 ns** in [`2026-08-20-price/frame/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements/2026-08-20-price/frame) (`flush.empty-vs-noop`). `db.flush()` is that row's own wording for the door it called; the door today is `db.flush()`. It measures a frame doing more than this queue did, against a counter-bump floor rather than against a snapshot, so it prices the fixed cost of a frame and settles nothing about `Array.from`.
 
 ## Cost
 
@@ -50,4 +54,4 @@ The queue permanently holds two `Set`s instead of one — a fixed idle-memory co
 
 ## Where it lives
 
-`packages/core/src/core/OIMEventQueue.ts`
+`packages/core-legacy/src/core/OIMEventQueue.ts` — the legacy engine, kept at `packages/core-legacy`. The engine shipped today has nothing to double-buffer: a write during a flush is refused outright, so the list of effects a frame owes is never mutated while it is being walked.

@@ -34,7 +34,7 @@ Ordered lists change incrementally: one row inserted, one moved, a span removed.
 - `set` — the element at `index` is replaced in place (one element, not the list).
 - `reset` — the whole list for the key is replaced by `items`.
 
-Each writer method (`pushSlot`, `insertSlotAt`, `removeAt`, `removeRange`, `move`, `moveRange`, `setSlotAt`, `setSlots`) performs the index mutation and emits the matching command, using the clamped index the mutation actually landed at. Commands buffer per key and deliver once on `AFTER_FLUSH`.
+Each writer method (`pushSlot`, `insertSlotAt`, `setSlotAt`, `removeAt`, `removeRange`, `move`, `moveRange`, `setSlots`, `clear`) performs the index mutation and emits the matching command, using the clamped index the mutation actually landed at. Commands buffer per key and deliver once on `AFTER_FLUSH`.
 
 The axis that decides whether this pays is edit-count vs list-length. Emit-and-diff costs O(list length) per change no matter how small the edit — a reconciler walks the whole list to discover that one row moved. Command replay costs O(edits): one moved row is one `move`. So the win scales with how big the list is relative to how much of it changes per tick — large list, small incremental edits is where it matters (a 10k-row virtual list nudged by one insert), and it's a wash or worse when most of the list changes at once.
 
@@ -44,5 +44,7 @@ Consumers implement a small state machine — replay the protocol against their 
 
 ## Where it lives
 
-- `packages/core/src/modules/wrapper/index/TOIMOrderedListCommand.ts`
-- `packages/core/src/modules/wrapper/index/OIMOrderedListCommandStream.ts`
+- `packages/core-legacy/src/modules/wrapper/index/TOIMOrderedListCommand.ts`
+- `packages/core-legacy/src/modules/wrapper/index/OIMOrderedListCommandStream.ts`
+
+This is the legacy engine, kept at `packages/core-legacy`. The protocol survived the rewrite and the wrapper did not: `TOIMOrderedListCommand` in `packages/core/src/engine/bucket/positional/types/` is emitted by the bucket service itself rather than by a stream wrapped around an index, and it is narrower — `insert`, `remove`, `move`, `reset`, with no `set` and no spans, so a replacement in place is a remove and an insert.

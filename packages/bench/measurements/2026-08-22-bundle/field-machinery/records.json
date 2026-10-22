@@ -1,0 +1,702 @@
+{
+    "readings": [
+        {
+            "id": "everything",
+            "file": "packages/bench/src/bundle/consumers/everything.ts",
+            "what": "every name @oimdb/core exports, re-exported so nothing is droppable",
+            "minifiedBytes": 45811,
+            "minifiedGzipBytes": 12835,
+            "bundledBytes": 254303,
+            "bundledGzipBytes": 73977,
+            "retained": [
+                {
+                    "module": "packages/core/src/core/OIMDB.ts",
+                    "bytes": 7440
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMCollection.ts",
+                    "bytes": 4777
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndex.ts",
+                    "bytes": 3204
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketMutatorOrdered.ts",
+                    "bytes": 3119
+                },
+                {
+                    "module": "packages/core/src/core/membersInOrder.ts",
+                    "bytes": 2358
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndexPositional.ts",
+                    "bytes": 1911
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceDerivedMany.ts",
+                    "bytes": 1745
+                },
+                {
+                    "module": "packages/core/src/core/diffOrderedList.ts",
+                    "bytes": 1266
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceDerived.ts",
+                    "bytes": 1086
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketMutatorOrderedUnique.ts",
+                    "bytes": 1001
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketAddressStoreByIdentityChain.ts",
+                    "bytes": 893
+                },
+                {
+                    "module": "packages/core/src/core/OIMSingletonEntitySlot.ts",
+                    "bytes": 874
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMBucketAddressStore.ts",
+                    "bytes": 860
+                },
+                {
+                    "module": "packages/core/src/core/OIMCompositeKeyTreeWalk.ts",
+                    "bytes": 811
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceAll.ts",
+                    "bytes": 791
+                },
+                {
+                    "module": "packages/core/src/core/writeReplacing.ts",
+                    "bytes": 776
+                },
+                {
+                    "module": "packages/core/src/core/assertNoBucketIsHeld.ts",
+                    "bytes": 724
+                },
+                {
+                    "module": "packages/core/src/core/OIMEffectScheduler.ts",
+                    "bytes": 712
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMIndexStrategy.ts",
+                    "bytes": 706
+                },
+                {
+                    "module": "packages/core/src/core/OIMSubscriberStore.ts",
+                    "bytes": 685
+                },
+                {
+                    "module": "packages/core/src/core/OIMSlotByKeyStoreTreeDriven.ts",
+                    "bytes": 632
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketAddressStoreByKey.ts",
+                    "bytes": 616
+                },
+                {
+                    "module": "packages/core/src/core/createEffectNode.ts",
+                    "bytes": 568
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketMutatorUnordered.ts",
+                    "bytes": 562
+                },
+                {
+                    "module": "packages/core/src/core/OIMDisposeScope.ts",
+                    "bytes": 423
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlace.ts",
+                    "bytes": 417
+                },
+                {
+                    "module": "packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts",
+                    "bytes": 390
+                },
+                {
+                    "module": "packages/core/src/groupings/declaredGroups.ts",
+                    "bytes": 362
+                },
+                {
+                    "module": "packages/core/src/groupings/all.ts",
+                    "bytes": 345
+                },
+                {
+                    "module": "packages/core/src/core/OIMEntityCacheCellDriven.ts",
+                    "bytes": 313
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketAddressStoreSingle.ts",
+                    "bytes": 301
+                },
+                {
+                    "module": "packages/core/src/core/createOrderedCommands.ts",
+                    "bytes": 280
+                },
+                {
+                    "module": "packages/core/src/core/createCollectionSlot.ts",
+                    "bytes": 279
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketOwner.ts",
+                    "bytes": 271
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceManual.ts",
+                    "bytes": 244
+                },
+                {
+                    "module": "packages/core/src/core/OIMEntityCacheWeakDriven.ts",
+                    "bytes": 241
+                },
+                {
+                    "module": "packages/core/src/groupings/groupByEach.ts",
+                    "bytes": 221
+                },
+                {
+                    "module": "packages/core/src/groupings/groupBy.ts",
+                    "bytes": 215
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedFields.ts",
+                    "bytes": 195
+                },
+                {
+                    "module": "packages/core/src/core/dropSlotFromPendingSort.ts",
+                    "bytes": 175
+                },
+                {
+                    "module": "packages/core/src/core/moveSlotToBucket.ts",
+                    "bytes": 175
+                },
+                {
+                    "module": "packages/core/src/groupings/groupByCompositeKey.ts",
+                    "bytes": 158
+                },
+                {
+                    "module": "packages/core/src/core/createMovedRowsChannel.ts",
+                    "bytes": 149
+                },
+                {
+                    "module": "packages/core/src/core/OIMCollectionByIdentityChain.ts",
+                    "bytes": 142
+                },
+                {
+                    "module": "packages/core/src/core/hasReferences.ts",
+                    "bytes": 136
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedRow.ts",
+                    "bytes": 117
+                },
+                {
+                    "module": "packages/core/src/core/OIMCollectionByKey.ts",
+                    "bytes": 111
+                },
+                {
+                    "module": "packages/core/src/core/sameSlots.ts",
+                    "bytes": 109
+                },
+                {
+                    "module": "packages/core/src/core/OIMObservable.ts",
+                    "bytes": 92
+                },
+                {
+                    "module": "packages/core/src/groupings/holdBucket.ts",
+                    "bytes": 92
+                },
+                {
+                    "module": "packages/core/src/groupings/groupsOf.ts",
+                    "bytes": 90
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembersObservable.ts",
+                    "bytes": 86
+                },
+                {
+                    "module": "packages/core/src/core/isPlain.ts",
+                    "bytes": 83
+                },
+                {
+                    "module": "packages/core/src/core/leaveBucket.ts",
+                    "bytes": 80
+                },
+                {
+                    "module": "packages/core/src/core/fillSlot.ts",
+                    "bytes": 78
+                },
+                {
+                    "module": "packages/core/src/core/leaveHeldBucket.ts",
+                    "bytes": 77
+                },
+                {
+                    "module": "packages/core/src/core/holdSlot.ts",
+                    "bytes": 74
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembers.ts",
+                    "bytes": 69
+                },
+                {
+                    "module": "packages/core/src/core/joinBucket.ts",
+                    "bytes": 64
+                },
+                {
+                    "module": "packages/core/src/groupings/isStillFiled.ts",
+                    "bytes": 49
+                },
+                {
+                    "module": "packages/core/src/core/sameKey.ts",
+                    "bytes": 44
+                },
+                {
+                    "module": "packages/core/src/core/sameValueZero.ts",
+                    "bytes": 43
+                },
+                {
+                    "module": "packages/core/src/core/isEntityField.ts",
+                    "bytes": 37
+                },
+                {
+                    "module": "packages/core/src/core/clearSlot.ts",
+                    "bytes": 30
+                },
+                {
+                    "module": "packages/core/src/core/nothingMoved.ts",
+                    "bytes": 24
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlaceOnStrictEquality.ts",
+                    "bytes": 12
+                }
+            ]
+        },
+        {
+            "id": "database-only",
+            "file": "packages/bench/src/bundle/consumers/databaseOnly.ts",
+            "what": "new OIMDB() and nothing else — the toll every consumer pays",
+            "minifiedBytes": 10117,
+            "minifiedGzipBytes": 3246,
+            "bundledBytes": 96564,
+            "bundledGzipBytes": 30779,
+            "retained": [
+                {
+                    "module": "packages/core/src/core/OIMDB.ts",
+                    "bytes": 7431
+                },
+                {
+                    "module": "packages/core/src/core/OIMEffectScheduler.ts",
+                    "bytes": 712
+                },
+                {
+                    "module": "packages/core/src/core/OIMSubscriberStore.ts",
+                    "bytes": 685
+                },
+                {
+                    "module": "packages/core/src/core/createEffectNode.ts",
+                    "bytes": 566
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketOwner.ts",
+                    "bytes": 271
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedFields.ts",
+                    "bytes": 195
+                },
+                {
+                    "module": "packages/core/src/core/OIMObservable.ts",
+                    "bytes": 92
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembersObservable.ts",
+                    "bytes": 86
+                },
+                {
+                    "module": "packages/core/src/core/sameValueZero.ts",
+                    "bytes": 43
+                }
+            ]
+        },
+        {
+            "id": "field-lifted",
+            "file": "packages/bench/src/bundle/consumers/fieldFloor.ts",
+            "what": "the identical application against an engine where the field machinery is not reachable — a counterfactual build, not a package anybody can install",
+            "excised": [
+                "abstract/OIMCollection.ts — the column-name → moved-rows-channel map `dependsOn` builds (×1)",
+                "abstract/OIMCollection.ts — the routing loop every write runs twice — the column half of the write path (×1)",
+                "abstract/OIMCollection.ts — the sweep that drops a column channel nothing reads any more (×1)",
+                "abstract/OIMCollection.ts — the four guarded recordings on the population write path (×4)",
+                "abstract/OIMCollection.ts — the three call sites of the routing loop (×3)",
+                "abstract/OIMCollection.ts — the sweep's call site, in removeIndex (×1)",
+                "abstract/OIMCollection.ts — the registration-time refusal of an index that declared no column (×1)",
+                "abstract/OIMCollection.ts — reading the declaration out of the index options (×1)",
+                "abstract/OIMCollection.ts — the declared columns themselves (×1)",
+                "abstract/OIMCollection.ts — the selector's columns and the comparator's, gathered as one routing (×1)",
+                "abstract/OIMCollection.ts — folding the mutator's columns into that set (×1)",
+                "abstract/OIMCollection.ts — minting one channel per declared column at addIndex — `presence` is kept (×1)",
+                "core/OIMDB.ts — the observable over one column of one row — the only caller of subscribeToField (×1)",
+                "core/OIMDB.ts — told only when one named column moved (×1)",
+                "core/OIMDB.ts — the same over several columns (×1)",
+                "core/OIMDB.ts — which columns of this row moved in the frame being delivered (×1)",
+                "core/OIMDB.ts — allocating the recording array, and crediting one born behind a write (×1)",
+                "core/OIMDB.ts — giving the array back once nothing is listening to the row at all (×1)",
+                "core/OIMDB.ts — the set that remembers which arrays are owed a credit this frame (×1)",
+                "core/OIMDB.ts — channel → identity, so a disposer can find the array to free (×1)",
+                "core/OIMDB.ts — the ask on every unsubscribe of every kind, in subscribe's disposer (×1)",
+                "core/OIMDB.ts — emptying the credit set at the end of every frame, in flush (×1)",
+                "core/createCollectionSlot.ts — the recording array's slot on every row of every population (×1)",
+                "core/createCollectionSlot.ts — the frame stamp that array describes (×1)"
+            ],
+            "minifiedBytes": 23851,
+            "minifiedGzipBytes": 7166,
+            "bundledBytes": 192991,
+            "bundledGzipBytes": 59978,
+            "retained": [
+                {
+                    "module": "packages/core/src/core/OIMDB.ts",
+                    "bytes": 6004
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMCollection.ts",
+                    "bytes": 3876
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndex.ts",
+                    "bytes": 3204
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndexPositional.ts",
+                    "bytes": 1911
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMBucketAddressStore.ts",
+                    "bytes": 860
+                },
+                {
+                    "module": "packages/core/src/core/assertNoBucketIsHeld.ts",
+                    "bytes": 723
+                },
+                {
+                    "module": "packages/core/src/core/OIMEffectScheduler.ts",
+                    "bytes": 712
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMIndexStrategy.ts",
+                    "bytes": 706
+                },
+                {
+                    "module": "packages/core/src/core/OIMSubscriberStore.ts",
+                    "bytes": 685
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketAddressStoreByKey.ts",
+                    "bytes": 614
+                },
+                {
+                    "module": "packages/core/src/core/createEffectNode.ts",
+                    "bytes": 566
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketMutatorUnordered.ts",
+                    "bytes": 562
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlace.ts",
+                    "bytes": 415
+                },
+                {
+                    "module": "packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts",
+                    "bytes": 389
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketOwner.ts",
+                    "bytes": 271
+                },
+                {
+                    "module": "packages/core/src/core/createCollectionSlot.ts",
+                    "bytes": 243
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceManual.ts",
+                    "bytes": 243
+                },
+                {
+                    "module": "packages/core/src/core/moveSlotToBucket.ts",
+                    "bytes": 175
+                },
+                {
+                    "module": "packages/core/src/core/createMovedRowsChannel.ts",
+                    "bytes": 148
+                },
+                {
+                    "module": "packages/core/src/core/hasReferences.ts",
+                    "bytes": 135
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedRow.ts",
+                    "bytes": 117
+                },
+                {
+                    "module": "packages/core/src/core/OIMCollectionByKey.ts",
+                    "bytes": 109
+                },
+                {
+                    "module": "packages/core/src/core/OIMObservable.ts",
+                    "bytes": 92
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembersObservable.ts",
+                    "bytes": 86
+                },
+                {
+                    "module": "packages/core/src/core/isPlain.ts",
+                    "bytes": 83
+                },
+                {
+                    "module": "packages/core/src/core/fillSlot.ts",
+                    "bytes": 77
+                },
+                {
+                    "module": "packages/core/src/core/leaveHeldBucket.ts",
+                    "bytes": 77
+                },
+                {
+                    "module": "packages/core/src/core/joinBucket.ts",
+                    "bytes": 64
+                },
+                {
+                    "module": "packages/core/src/core/sameKey.ts",
+                    "bytes": 43
+                },
+                {
+                    "module": "packages/core/src/core/sameValueZero.ts",
+                    "bytes": 43
+                },
+                {
+                    "module": "packages/core/src/core/isEntityField.ts",
+                    "bytes": 37
+                },
+                {
+                    "module": "packages/core/src/core/clearSlot.ts",
+                    "bytes": 30
+                },
+                {
+                    "module": "packages/core/src/core/nothingMoved.ts",
+                    "bytes": 24
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlaceOnStrictEquality.ts",
+                    "bytes": 10
+                }
+            ]
+        },
+        {
+            "id": "field-floor",
+            "file": "packages/bench/src/bundle/consumers/fieldFloor.ts",
+            "what": "a database, a population, a manual index, a batch, two subscriptions and a write — no dependsOn, no subscribeToField",
+            "minifiedBytes": 26421,
+            "minifiedGzipBytes": 7752,
+            "bundledBytes": 197901,
+            "bundledGzipBytes": 61008,
+            "retained": [
+                {
+                    "module": "packages/core/src/core/OIMDB.ts",
+                    "bytes": 7435
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMCollection.ts",
+                    "bytes": 4775
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndex.ts",
+                    "bytes": 3204
+                },
+                {
+                    "module": "packages/core/src/core/OIMIndexPositional.ts",
+                    "bytes": 1911
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMBucketAddressStore.ts",
+                    "bytes": 860
+                },
+                {
+                    "module": "packages/core/src/core/assertNoBucketIsHeld.ts",
+                    "bytes": 723
+                },
+                {
+                    "module": "packages/core/src/core/OIMEffectScheduler.ts",
+                    "bytes": 712
+                },
+                {
+                    "module": "packages/core/src/abstract/OIMIndexStrategy.ts",
+                    "bytes": 706
+                },
+                {
+                    "module": "packages/core/src/core/OIMSubscriberStore.ts",
+                    "bytes": 685
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketAddressStoreByKey.ts",
+                    "bytes": 614
+                },
+                {
+                    "module": "packages/core/src/core/createEffectNode.ts",
+                    "bytes": 568
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketMutatorUnordered.ts",
+                    "bytes": 562
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlace.ts",
+                    "bytes": 415
+                },
+                {
+                    "module": "packages/core/src/core/OIMSlotByKeyStoreMapDriven.ts",
+                    "bytes": 389
+                },
+                {
+                    "module": "packages/core/src/core/createCollectionSlot.ts",
+                    "bytes": 278
+                },
+                {
+                    "module": "packages/core/src/core/OIMBucketOwner.ts",
+                    "bytes": 271
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembershipSourceManual.ts",
+                    "bytes": 244
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedFields.ts",
+                    "bytes": 195
+                },
+                {
+                    "module": "packages/core/src/core/moveSlotToBucket.ts",
+                    "bytes": 175
+                },
+                {
+                    "module": "packages/core/src/core/createMovedRowsChannel.ts",
+                    "bytes": 148
+                },
+                {
+                    "module": "packages/core/src/core/hasReferences.ts",
+                    "bytes": 135
+                },
+                {
+                    "module": "packages/core/src/core/recordMovedRow.ts",
+                    "bytes": 117
+                },
+                {
+                    "module": "packages/core/src/core/OIMCollectionByKey.ts",
+                    "bytes": 109
+                },
+                {
+                    "module": "packages/core/src/core/OIMObservable.ts",
+                    "bytes": 92
+                },
+                {
+                    "module": "packages/core/src/core/OIMMembersObservable.ts",
+                    "bytes": 86
+                },
+                {
+                    "module": "packages/core/src/core/isPlain.ts",
+                    "bytes": 83
+                },
+                {
+                    "module": "packages/core/src/core/leaveHeldBucket.ts",
+                    "bytes": 78
+                },
+                {
+                    "module": "packages/core/src/core/fillSlot.ts",
+                    "bytes": 77
+                },
+                {
+                    "module": "packages/core/src/core/joinBucket.ts",
+                    "bytes": 64
+                },
+                {
+                    "module": "packages/core/src/core/sameKey.ts",
+                    "bytes": 43
+                },
+                {
+                    "module": "packages/core/src/core/sameValueZero.ts",
+                    "bytes": 43
+                },
+                {
+                    "module": "packages/core/src/core/isEntityField.ts",
+                    "bytes": 37
+                },
+                {
+                    "module": "packages/core/src/core/clearSlot.ts",
+                    "bytes": 30
+                },
+                {
+                    "module": "packages/core/src/core/nothingMoved.ts",
+                    "bytes": 24
+                },
+                {
+                    "module": "packages/core/src/core/writeInPlaceOnStrictEquality.ts",
+                    "bytes": 10
+                }
+            ]
+        }
+    ],
+    "findings": [
+        {
+            "id": "control-tree-shaking",
+            "isControl": true,
+            "question": "Is the bundler dropping code nothing reaches?",
+            "fromLabel": "everything (minified)",
+            "toLabel": "database-only (minified)",
+            "fromBytes": 45811,
+            "toBytes": 10117,
+            "fromGzipBytes": 12835,
+            "toGzipBytes": 3246,
+            "deltaBytes": -35694,
+            "deltaGzipBytes": -9589,
+            "requirement": "a database alone under 60% of the whole surface",
+            "holds": true,
+            "caveat": "An application that constructs a database and touches nothing else must not carry the hundred modules of the published surface. If this reads near 1.00 the bundler kept everything, every arm below is the same bundle under four names, and every difference in this report is a rounding of zero — including the one it was written to settle, which would then read as \"the ordered-list diff is free\". That is a conclusion this project would enjoy and has not earned, so it voids the report instead."
+        },
+        {
+            "id": "control-minified",
+            "isControl": true,
+            "question": "Is the minifier running at all?",
+            "fromLabel": "everything (bundled, not minified)",
+            "toLabel": "everything (minified)",
+            "fromBytes": 254303,
+            "toBytes": 45811,
+            "fromGzipBytes": 73977,
+            "toGzipBytes": 12835,
+            "deltaBytes": -208492,
+            "deltaGzipBytes": -61142,
+            "requirement": "minified under 70% of the same bundle unminified",
+            "holds": true,
+            "caveat": "This package ships roughly as many bytes of comment as of code, and a claim about what is SHIPPED is a claim about output a minifier has already been through. If these two numbers are equal the minifier did nothing, and every kilobyte below is mostly prose — in the direction that flatters the decision the claim defends, which is the one to guard hardest."
+        },
+        {
+            "id": "field-machinery-diff",
+            "isControl": false,
+            "question": "What does the field-recording and column-routing apparatus add to an application that declares no dependsOn and calls no subscribeToField?",
+            "fromLabel": "field-lifted (minified)",
+            "toLabel": "field-floor (minified)",
+            "fromBytes": 23851,
+            "toBytes": 26421,
+            "fromGzipBytes": 7166,
+            "toGzipBytes": 7752,
+            "deltaBytes": 2570,
+            "deltaGzipBytes": 586,
+            "share": 0.05610006330357338,
+            "gzipShare": 0.04565640825866771,
+            "requirement": "none — this row is the measurement, not an attestation",
+            "holds": true,
+            "caveat": "READ THE GZIPPED NUMBER. Minified bytes are what a bundle report shows and what an argument gets made with; gzipped bytes are what a user downloads, and it is the gzipped column this row should be quoted from. NO FIGURE WAS PREDICTED FOR EITHER COLUMN [FIGURE STATED IN ADVANCE]: the grouping split measured +10.15 KB minified and +2.55 KB gzipped for the analogous question (measurements/2026-08-21-bundle/groupings, row grouping-layer-diff), and there is no arithmetic that carries that across — the grouping arm pinned eight strategy classes and their closure, this one removes guards, two maps and a short loop. Saying so is the whole of the prediction. THE ROW IS A LOWER BOUND on what a split would save, and every reason points the same way: the excision leaves the `import { recordMovedFields }` lines in place, leaves `assertColumnsAreDeclared` on the membership source the consumer imported, leaves `OIMSingletonEntitySlot` alone, and leaves every doc comment of every member it removed. There is nothing in it that could make the difference larger than a real split would. THE SECOND ARM IS A COUNTERFACTUAL: no published @oimdb/core builds it, and what was taken out is listed under the arm below and in records.json. THE PROOF THE LIST IS COMPLETE is in the module table — the imports were left in, so if any recording site had been missed the bundler would have kept core/recordMovedFields.ts in the lifted arm too. THE DENOMINATOR is every name the package exports with nothing droppable, the largest available and therefore the least flattering to the percentage."
+        }
+    ]
+}

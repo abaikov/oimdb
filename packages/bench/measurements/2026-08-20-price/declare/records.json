@@ -1,0 +1,172 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 37.42068479759064,
+            "floorNs": 19.402424812316895,
+            "floorAgainNs": 19.28927516937256,
+            "ratio": 1.928660214358132,
+            "noise": 0.005865935446034516,
+            "oursOperations": 823455,
+            "floorOperations": 2097152,
+            "oursSpread": 0.07606870198041495,
+            "floorSpread": 0.0973307976631215,
+            "samples": 9,
+            "warmup": 30,
+            "oursWarmed": 30,
+            "floorWarmed": 30,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.55419921875,
+            "peak": 2.55419921875,
+            "readings": 3,
+            "foreignPeak": 1.55419921875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.260525703430176,
+            "floorNs": 19.305268908780036,
+            "floorAgainNs": 19.36871931936822,
+            "ratio": 0.9976823319291082,
+            "noise": 0.003286688773308306,
+            "oursOperations": 2097152,
+            "floorOperations": 1850516,
+            "oursSpread": 0.09254250505975775,
+            "floorSpread": 0.07067002281250223,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.4296875,
+            "peak": 2.4296875,
+            "readings": 3,
+            "foreignPeak": 1.4296875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "new-db.vs-hand-written-frame-state",
+            "path": "per declaration",
+            "ours": "new OIMDB()",
+            "floor": "the object a person keeps instead: a frame number and a queue",
+            "caveat": "NOT A LIKE-FOR-LIKE FLOOR. Nobody hand-writes a database; the nearest thing is the bookkeeping a person keeps beside their `Map`, which is a frame counter and a list of what to repaint. Ours constructs a subscriber store, an effect scheduler, two delivery lists, a frame record, a release set and the bound callbacks that hold them together. Direction: inflates our ratio without limit, and it is paid ONCE per application. It is on the table because a price nobody prints is a price nobody believes, not because the multiple means anything.",
+            "isControl": false,
+            "oursNs": 1124.0872884168602,
+            "floorNs": 5.496526398919499,
+            "floorAgainNs": 5.3205512890408535,
+            "ratio": 204.50866726262467,
+            "noise": 0.03307460079204846,
+            "oursOperations": 42182,
+            "floorOperations": 8914380,
+            "oursSpread": 0.04982557667466333,
+            "floorSpread": 0.05914171205530821,
+            "samples": 9,
+            "warmup": 20,
+            "oursWarmed": 20,
+            "floorWarmed": 20,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.39501953125,
+            "peak": 2.39501953125,
+            "readings": 3,
+            "foreignPeak": 1.39501953125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "new-collection.vs-new-map",
+            "path": "per declaration",
+            "ours": "new OIMCollectionByKey(db, row => row.id)",
+            "floor": "new Map()",
+            "caveat": "A population against the container that would have held it. Ours also builds the identity store, the presence channel, the empty index list, the free-ordinal list, the dependents map and the projection list, and it keeps the key selector — which is the closure a caller passes and which the floor does not need because the caller writes `row.id` at every call site instead. Direction: inflates our ratio; paid once per population.",
+            "isControl": false,
+            "oursNs": 89.4867189609143,
+            "floorNs": 16.103625297546387,
+            "floorAgainNs": 15.747984409332275,
+            "ratio": 5.556930027088302,
+            "noise": 0.022583263925722335,
+            "oursOperations": 266696,
+            "floorOperations": 2097152,
+            "oursSpread": 0.2530945811466223,
+            "floorSpread": 0.1309291937788241,
+            "samples": 9,
+            "warmup": 33,
+            "oursWarmed": 33,
+            "floorWarmed": 33,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.36328125,
+            "peak": 2.36328125,
+            "readings": 3,
+            "foreignPeak": 1.36328125,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "addIndex.over-a-loaded-population-vs-hand-built-map",
+            "path": "per declaration",
+            "ours": "addIndex over a population already holding a thousand rows, then removeIndex",
+            "floor": "build a Map of Sets from the same thousand rows, then drop it",
+            "caveat": "BOTH SIDES BUILD AND THEN GIVE BACK, which is what makes them comparable at all: declaring an index on a live population widens every existing row and files it, so the operation is O(rows) exactly as building the map is, and a body that only ever added would accumulate indexes and price a growing population instead. Ours also widens each row's per-index cell array, registers the index's maintenance node in the effect graph, and mints a hold-counted bucket identity per group where the floor mints a bare `Set`. The teardown differs in kind and both are inside the clock: ours unlinks every row and frees the ordinal, the floor drops a reference and lets the collector deal with it later — so part of the floor's teardown is paid outside this number and part of ours is inside it. Direction: inflates our ratio.",
+            "isControl": false,
+            "oursNs": 213389.9326171875,
+            "floorNs": 48130.37109375,
+            "floorAgainNs": 46483.5205078125,
+            "ratio": 4.433581702529142,
+            "noise": 0.035428697481308745,
+            "oursOperations": 1024,
+            "floorOperations": 1024,
+            "oursSpread": 0.032280373099804756,
+            "floorSpread": 0.10166190867496526,
+            "samples": 5,
+            "warmup": 7,
+            "oursWarmed": 7,
+            "floorWarmed": 7,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 2.5,
+            "start": 2.36328125,
+            "peak": 2.36328125,
+            "readings": 3,
+            "foreignPeak": 1.36328125,
+            "over": false
+        }
+    }
+]

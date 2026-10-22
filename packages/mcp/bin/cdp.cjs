@@ -74,7 +74,7 @@ async function run() {
             if (val === null || val === undefined) {
                 process.stderr.write(
                     '[OIMDB CDP] __OIMDB_DEV__ not found on this page.\n' +
-                    'Make sure debug.ts sets: window.__OIMDB_DEV__ = registry\n'
+                    'Make sure debug.ts sets: window.__OIMDB_DEV__ = oimDevRegistry\n'
                 );
                 process.exit(1);
             }

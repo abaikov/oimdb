@@ -1,0 +1,172 @@
+[
+    {
+        "reading": {
+            "id": "control-resolution-2x",
+            "path": "per read",
+            "ours": "two units of arithmetic per iteration",
+            "floor": "one unit of arithmetic per iteration",
+            "caveat": "NOT A PRICE — an instrument check, and it is printed first because nothing below it means anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit, which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this process could not resolve a deliberate doubling, and the runner voids the report rather than printing prices under it.",
+            "isControl": true,
+            "oursNs": 39.989632215980166,
+            "floorNs": 19.314336110712425,
+            "floorAgainNs": 19.341404495533926,
+            "ratio": 2.0704637211837937,
+            "noise": 0.0014014659715115788,
+            "oursOperations": 804222,
+            "floorOperations": 1853306,
+            "oursSpread": 0.29112665451969066,
+            "floorSpread": 0.08911651295733043,
+            "samples": 9,
+            "warmup": 31,
+            "oursWarmed": 31,
+            "floorWarmed": 31,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.458984375,
+            "peak": 3.7421875,
+            "readings": 3,
+            "foreignPeak": 2.7421875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "control-scale-same-body",
+            "path": "per read",
+            "ours": "one unit of arithmetic per iteration",
+            "floor": "the same body again, over its own copy of the same state",
+            "caveat": "NOT A PRICE — the noise floor. The two sides are identical code over identical, separately-allocated state, so the true ratio is 1.00 exactly and every departure from it printed here was produced by this machine at this moment. The rule that follows is the one the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also bounds the per-row noise figure, which is the same idea measured again inside every pair — each pair times its floor twice, once before our side and once after, and prints how far the two disagreed.",
+            "isControl": true,
+            "oursNs": 19.223392009735107,
+            "floorNs": 20.581523895263672,
+            "floorAgainNs": 19.7962327003479,
+            "ratio": 0.934012083243209,
+            "noise": 0.039668719134725604,
+            "oursOperations": 2097152,
+            "floorOperations": 2097152,
+            "oursSpread": 0.07755504085081323,
+            "floorSpread": 0.08875064106449226,
+            "samples": 9,
+            "warmup": 26,
+            "oursWarmed": 26,
+            "floorWarmed": 26,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.7421875,
+            "peak": 3.7421875,
+            "readings": 3,
+            "foreignPeak": 2.7421875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.reposition-one-vs-full-resort.100",
+            "path": "per frame",
+            "ours": "one member of a bucket of 100 is written and the bucket is read — settled by reposition",
+            "floor": "the same write and the same read, settled by sorting the whole bucket",
+            "caveat": "A BUCKET OF 100, and the size is in the id because the answer depends on it: the repair is one scan plus two splices plus a binary search where the sort is a pass over everything, so a single size would be a pair that picked its own answer. Every operation is one row's sort column written, one frame closed, and one bucket read — the read is where an order is settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that is not tidiness. `reset` puts every member back on the rank it came in with, reads every bucket so both designs put their lists back into that order, and returns the schedule to round zero — all of it outside the clock and the identical call on the two halves. It is there because a write whose value equals the value the row already holds moves no field, marks nothing and reports no member as possibly moved, so the settle these two designs are being told apart by never runs and the pair prints the price of an empty frame under this row's name. Restoring is affordable for the same reason it is needed: a member that did not move is written back the value it holds and takes that early return, so a reset costs the members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small bucket it does and at the large ones it does not — and a member's landing is therefore offset by how many times it has been visited. Without that offset a second visit re-sends the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is everything `membersInOrder` is: the budget arithmetic that decides when repairing one member at a time has stopped being cheaper than sorting, the reproduction of `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not move goes back exactly where it sat, the two rescue paths that put movers back when the caller's comparator throws with them spliced out of the list, and the walk that spots a bulk load which arrived already in order. Five hundred lines against three, and the three cannot be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and the read call are IDENTICAL on both halves and are inside both numbers, which pulls this ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is most of the distance between this row and the 13x/22x/26x our own notes remember for the settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the write-side bookkeeping our design pays for is charged to us and to nothing on the other side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer — whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing against where it sat) and the engine wakes a subscriber only when it says yes; the floor would need a copy of the list and a walk of it, and since nothing here subscribes to these buckets it never pays for one. That flatters the floor.",
+            "isControl": false,
+            "oursNs": 623.1016578355812,
+            "floorNs": 1773.4054563741513,
+            "floorAgainNs": 1809.0347623837063,
+            "ratio": 0.35135882524549983,
+            "noise": 0.020090896800555424,
+            "oursOperations": 49824,
+            "floorOperations": 15908,
+            "oursSpread": 0.13060298078779217,
+            "floorSpread": 0.15019817921407044,
+            "samples": 9,
+            "warmup": 33,
+            "oursWarmed": 33,
+            "floorWarmed": 33,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.6826171875,
+            "peak": 3.6826171875,
+            "readings": 3,
+            "foreignPeak": 2.6826171875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.reposition-one-vs-full-resort.1k",
+            "path": "per frame",
+            "ours": "one member of a bucket of 1000 is written and the bucket is read — settled by reposition",
+            "floor": "the same write and the same read, settled by sorting the whole bucket",
+            "caveat": "A BUCKET OF 1000, and the size is in the id because the answer depends on it: the repair is one scan plus two splices plus a binary search where the sort is a pass over everything, so a single size would be a pair that picked its own answer. Every operation is one row's sort column written, one frame closed, and one bucket read — the read is where an order is settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that is not tidiness. `reset` puts every member back on the rank it came in with, reads every bucket so both designs put their lists back into that order, and returns the schedule to round zero — all of it outside the clock and the identical call on the two halves. It is there because a write whose value equals the value the row already holds moves no field, marks nothing and reports no member as possibly moved, so the settle these two designs are being told apart by never runs and the pair prints the price of an empty frame under this row's name. Restoring is affordable for the same reason it is needed: a member that did not move is written back the value it holds and takes that early return, so a reset costs the members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small bucket it does and at the large ones it does not — and a member's landing is therefore offset by how many times it has been visited. Without that offset a second visit re-sends the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is everything `membersInOrder` is: the budget arithmetic that decides when repairing one member at a time has stopped being cheaper than sorting, the reproduction of `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not move goes back exactly where it sat, the two rescue paths that put movers back when the caller's comparator throws with them spliced out of the list, and the walk that spots a bulk load which arrived already in order. Five hundred lines against three, and the three cannot be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and the read call are IDENTICAL on both halves and are inside both numbers, which pulls this ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is most of the distance between this row and the 13x/22x/26x our own notes remember for the settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the write-side bookkeeping our design pays for is charged to us and to nothing on the other side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer — whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing against where it sat) and the engine wakes a subscriber only when it says yes; the floor would need a copy of the list and a walk of it, and since nothing here subscribes to these buckets it never pays for one. That flatters the floor.",
+            "isControl": false,
+            "oursNs": 2050.893347993403,
+            "floorNs": 30979.0859375,
+            "floorAgainNs": 30045.654296875,
+            "ratio": 0.06620251327398943,
+            "noise": 0.031067109785726472,
+            "oursOperations": 18190,
+            "floorOperations": 1024,
+            "oursSpread": 0.08807065934875989,
+            "floorSpread": 0.5456194236888142,
+            "samples": 9,
+            "warmup": 27,
+            "oursWarmed": 27,
+            "floorWarmed": 27,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.5478515625,
+            "peak": 3.904296875,
+            "readings": 3,
+            "foreignPeak": 2.904296875,
+            "over": false
+        }
+    },
+    {
+        "reading": {
+            "id": "alt.reposition-one-vs-full-resort.10k",
+            "path": "per frame",
+            "ours": "one member of a bucket of 10000 is written and the bucket is read — settled by reposition",
+            "floor": "the same write and the same read, settled by sorting the whole bucket",
+            "caveat": "A BUCKET OF 10000, and the size is in the id because the answer depends on it: the repair is one scan plus two splices plus a binary search where the sort is a pass over everything, so a single size would be a pair that picked its own answer. Every operation is one row's sort column written, one frame closed, and one bucket read — the read is where an order is settled, on both designs. EVERY PASS STARTS FROM THE POPULATION AS IT WAS LOADED, and that is not tidiness. `reset` puts every member back on the rank it came in with, reads every bucket so both designs put their lists back into that order, and returns the schedule to round zero — all of it outside the clock and the identical call on the two halves. It is there because a write whose value equals the value the row already holds moves no field, marks nothing and reports no member as possibly moved, so the settle these two designs are being told apart by never runs and the pair prints the price of an empty frame under this row's name. Restoring is affordable for the same reason it is needed: a member that did not move is written back the value it holds and takes that early return, so a reset costs the members a pass actually moved and one compare for the rest. A PASS MAY GO ROUND THE LIST MORE THAN ONCE — the prober sizes a pass by wall clock and not by the list, so at the small bucket it does and at the large ones it does not — and a member's landing is therefore offset by how many times it has been visited. Without that offset a second visit re-sends the value the first one wrote, which settles nothing at all. WHAT THE FULL RE-SORT BUYS is everything `membersInOrder` is: the budget arithmetic that decides when repairing one member at a time has stopped being cheaper than sorting, the reproduction of `Array.prototype.sort`'s stable tie-breaking so a member reported moved whose key did not move goes back exactly where it sat, the two rescue paths that put movers back when the caller's comparator throws with them spliced out of the list, and the walk that spots a bulk load which arrived already in order. Five hundred lines against three, and the three cannot be got wrong. DIRECTION, three ways, and two of them are ours: (1) the write, the frame and the read call are IDENTICAL on both halves and are inside both numbers, which pulls this ratio toward 1.00 — the settle-only difference is larger than this row shows, and that is most of the distance between this row and the 13x/22x/26x our own notes remember for the settle alone; (2) the floor keeps neither a newcomers list nor a movers list, so the write-side bookkeeping our design pays for is charged to us and to nothing on the other side; (3) against those, the floor is NOT charged for the one thing a sort cannot answer — whether the order actually CHANGED. Ours computes it as a by-product (a mover's landing against where it sat) and the engine wakes a subscriber only when it says yes; the floor would need a copy of the list and a walk of it, and since nothing here subscribes to these buckets it never pays for one. That flatters the floor.",
+            "isControl": false,
+            "oursNs": 13693.8681640625,
+            "floorNs": 461237.548828125,
+            "floorAgainNs": 471426.3916015625,
+            "ratio": 0.029689404513693153,
+            "noise": 0.022090228341826217,
+            "oursOperations": 2048,
+            "floorOperations": 1024,
+            "oursSpread": 0.1201712587914827,
+            "floorSpread": 0.03121661376148682,
+            "samples": 5,
+            "warmup": 5,
+            "oursWarmed": 5,
+            "floorWarmed": 5,
+            "gcAvailable": true,
+            "node": "v24.16.0"
+        },
+        "load": {
+            "cores": 8,
+            "gate": 3.5,
+            "start": 3.904296875,
+            "peak": 3.986328125,
+            "readings": 3,
+            "foreignPeak": 2.986328125,
+            "over": false
+        }
+    }
+]

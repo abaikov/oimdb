@@ -1,0 +1,202 @@
+OIMDB — THE PRICE OF EVERY OPERATION AGAINST THE PRIMITIVE IT REPLACES
+
+Each row is one call this library offers, timed against the plain JavaScript a person would have
+written instead of it. Not against another library — against the floor. The ratio is ours over
+the floor, and it is a price tag rather than a ranking.
+
+node v24.16.0   8 cores   foreign-load gate 2.50   gc exposed
+
+THE INSTRUMENT, BEFORE ANY PRICE
+
+ratio   ours  floor  noise  expected  control
+1.92x  38 ns  20 ns   1.4%     ~1.9x  control-resolution-2x
+1.00x  19 ns  19 ns   0.1%     1.00x  control-scale-same-body
+
+  The resolution control saw 1.92x for a deliberate doubling of work, so this instrument resolves a 2x.
+  The scale control — the same body under two names — came out 0.4% from 1.00.
+  THE RULE FOR THE WHOLE TABLE: no ratio within 0.4% of 1.00 is a reading, and no
+  claim inside 1.1% of it — 3x the error above — is mostly about the code.
+
+THE PRICES, worst ratio first
+
+   ratio   ours  floor  noise  path       operation
+   10.3x  20 ns   2 ns   0.2%  per write  update.column-vs-field-store-a-patch-per-write
+   10.1x  14 ns   1 ns   0.1%  per write  update.column-vs-field-store
+   7.62x  19 ns   3 ns   0.4%  per write  update.column-vs-field-store-and-the-listener-guards
+~  6.65x  14 ns   2 ns   0.3%  per write  update.unchanged-vs-field-store
+   5.91x  29 ns   5 ns   0.2%  per write  update.column-vs-tracked-store
+   2.53x  13 ns   5 ns   0.1%  per write  update.entity-column-vs-tracked-store
+   2.05x  45 ns  22 ns   0.5%  per write  updateByKey.vs-map-get-and-store
+
+  =  the claim is no larger than the instrument's own disagreement. Not a reading.
+  ±  the claim clears this run's own error but not by 3x. The scale control above is the
+     largest single item on this row — more of what it reports is the machine than is
+     any one thing the two designs do differently. Read it as a direction, not a size.
+  ≠  the floor disagreed with itself by more than 10% between the timing before our
+     side and the timing after — the noise column says by how much. Each side's
+     nanoseconds are still readings; the ratio between them divides by a denominator
+     this process never settled on, and is not.
+     THE NOISE COLUMN IS ONE-SIDED. It is the FLOOR timed twice; our side is timed
+     once and never checked against itself. See `ONE SIDE OF THIS ROW IS UNCHECKED`
+     in `formatPriceReport.ts` for what that hides and what it would take to see it.
+  ~  the spread inside the process exceeded 30%: the machine was busy, not the code.
+  L  foreign load rose above the gate while this pair was measured.
+  w  a side reached the warm-up ceiling before the planned count. It entered the
+     clock at a lower V8 tier than its partner; the counts are under each row.
+
+WHERE THE FLOOR AND OUR CALL ARE NOT DOING THE SAME WORK
+
+There is no pair in this suite whose two sides do identical work, and a floor that does less is a
+lie in our favour. Two of these are structural and apply to most rows: a Map-keyed floor pays a
+hash where our identity path does not, which flatters us; and our write additionally marks a channel
+and may route to indexes the floor knows nothing about, which does not. Each row says its own.
+
+A THIRD ONE BELONGS TO THE INSTRUMENT AND APPLIES TO EVERY ROW. Both sides are driven by a loop —
+an increment, a bounds check, an index wrap and one store into a sink — and that loop is charged
+to the numerator and the denominator alike. Adding the same constant to both pulls a ratio toward
+1.00, and it pulls hardest where the operation is cheapest, so the sub-nanosecond rows are the ones
+this understates most. The wrap is a mask rather than a division for exactly that reason. Read
+`find.vs-map-get` as the calibration: it is one call and one Map.get on our side against one Map.get
+on the floor, so whatever it reports above 1.00 is mostly this.
+
+update.column-vs-field-store-a-patch-per-write   [per write]   10.3x
+  ours   collection.updateEntity(slot, patch) — one column, one patch object per row
+  floor  row.title = patch.title
+  THE ROW ABOVE, ARM FOR ARM WITH `update.unchanged-vs-field-store`, AND THAT IS ITS WHOLE
+  REASON. The only handle anybody has on how the row above's gap divides is the unchanged row,
+  which times the same call up to the point where the comparator finds every column equal and
+  returns before marking anything. Subtracting one from the other would give the walk and the
+  tail — except that the two bodies differ in three ways at once: the row above REUSES one
+  patch object where the unchanged row allocates eight thousand and hands a different one to
+  every write, and its floor stores a local where the unchanged row's floor reads the value
+  off the patch first. A fresh patch per write is a fresh receiver for `isPlain` and for the
+  `for…in`, and the extra load is a real instruction on the floor. Both differences push the
+  same way and neither is the thing being priced. THIS ROW REMOVES ALL THREE. The patch supply
+  is the unchanged row's — one object per row, built outside the clock — and the floor is the
+  unchanged row's floor to the character. What is left between this row's `ours` and the
+  unchanged row's `ours` is exactly what a write that MOVES a column does and a write that
+  moves nothing does not: one store into the entity, the moved-names array and its push, two
+  `channel.write` calls — the row and the population — one `columnSlotStoreService.get` probe
+  for the moved column inside `OIMColumnOwner.markColumnsChanged`, and the frame that closes
+  the batch. EIGHT PATCH ARRAYS, ONE PER TITLE, so this row moves the column on exactly the
+  writes the row above moves it on. The title advances by one of eight per batch and every row
+  in a batch is written with the same title, which is the row above's rotation with the shared
+  object unpicked into one object per row. THE FLUSH IS ON THIS SIDE OF THE SUBTRACTION AND
+  NOT ON THE UNCHANGED ROW'S: nothing is marked there, so no frame is asked for.
+  `flush.empty-vs-noop` [2026-08-20-price/frame] prices a frame with nothing queued, and over
+  eight thousand writes it is four thousandths of a nanosecond each — named here because it
+  belongs to the difference, not because it can be seen in it.
+  measured  1,591,260 ops/pass ours, 25,406,684 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 4.9%/1.0%; load 3.54 → 3.54 on 8 cores
+
+update.column-vs-field-store   [per write]   10.1x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  row.title = value
+  THE LOOKUP IS ON NEITHER SIDE — ours holds the slot, the floor holds the object, both
+  resolved outside the clock. That is the comparison this row is for. What ours does that a
+  store cannot: it walks the patch, refuses names a row may not carry, gates each column on
+  the default equality, builds the list of what moved, stamps the slot and the collection, and
+  tests the row's column store and the population's listener list so a column subscriber or an
+  index could be told. THAT DEFAULT IS SAMEVALUEZERO AND WAS AN INLINE `===` WHEN
+  2026-08-20-price/write WAS RECORDED. The call was there under both — the predicate has
+  always been reached through the strategy's captured parameter — so the delta is one
+  comparison, and only on a column that moved, which is one per write here.
+  `update.column-vs-the-strict-equality-default` is that delta on its own and is unrun; until
+  it runs, this row's recorded figure is a figure for the older body. Direction: inflates our
+  ratio; the tracked row below prices the part of that a person would have had to write
+  anyway. The patch object is REUSED rather than written as a literal per call — a caller who
+  writes { title } inline pays one more allocation per write than this row charges us for. The
+  batch closes with one flush per eight thousand writes, which is why every write in it takes
+  the marking path rather than the already-stamped early return. THE REUSED PATCH IS ALSO WHAT
+  STOPS THIS ROW BEING SUBTRACTED FROM `update.unchanged-vs-field-store`, and that subtraction
+  is the only way anyone has to split this number into the walk that decides and the tail that
+  reports. The unchanged row hands `updateEntity` a DIFFERENT patch object per write and its
+  floor reads the value out of that object; this row reuses one patch and its floor reads a
+  local. Two differences, both on the wrong side of the subtraction.
+  `update.column-vs-field-store-a-patch-per-write` is this row with the unchanged row's patch
+  supply and the unchanged row's floor, and it exists so the split can be taken arm for arm
+  instead of across two bodies that differ in three ways.
+  measured  3,450,006 ops/pass ours, 36,591,006 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 15.6%/4.4%; load 3.58 → 3.58 on 8 cores
+
+update.column-vs-field-store-and-the-listener-guards   [per write]   7.62x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  test the row for a column store and the population for listeners, then row.title = value
+  THE TWO "IS ANYBODY LISTENING" GUARDS, PUT ON THE FLOOR. A write that moves a column asks
+  two questions before it can skip the routing: `OIMColumnOwner.markColumnsChanged` tests
+  `carrierSlot.columnSlotStore === undefined` (no column of this row was ever subscribed to),
+  and `OIMSlotAggregate.contentChanged` tests `listeners.length === 0` (no index hears this
+  population). Both hold on every row of this fixture. Inside `update.column-vs-field-store`
+  they are two operations among thirty and nothing separates them; here the floor makes the
+  identical two tests on an identically empty state, so THE ITEM IS THE DIFFERENCE BETWEEN
+  THAT ROW'S GAP AND THIS ROW'S GAP. OUR ARM IS THAT ROW'S ARM TO THE CHARACTER — the same
+  fixture, the same reused patch, the same rotation of eight titles, the same flush per eight
+  thousand writes. OPERATION COUNT, THE DIFFERENCE ONLY: one field load and one `undefined`
+  compare per row, one length load and one compare per row. Expected inside the noise floor.
+  measured  1,643,950 ops/pass ours, 19,507,790 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 2.5%/1.9%; load 3.29 → 3.51 on 8 cores
+
+update.unchanged-vs-field-store   [per write]   6.65x
+  ours   collection.updateEntity(slot, patch) with the value the row already holds
+  floor  row.title = value — a store that always happens
+  THE TWO SIDES DO OPPOSITE THINGS, ON PURPOSE. Ours walks the patch, finds every column
+  equal, returns before marking anything and wakes nobody; the floor stores unconditionally
+  because it has nothing to protect. So this is not "which is faster at the same work" — it is
+  what the comparator gate costs when it fires, against the cheapest possible thing that
+  ignores the question. No flush closes this batch, because nothing was marked and there is
+  nothing for a frame to deliver: that is the point of the row. Direction: inflates our ratio;
+  what the gate buys is that a screen re-sending a server payload it already holds does not
+  repaint.
+  measured  2,097,152 ops/pass ours, 23,140,988 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 70.4%/17.1%; load 3.40 → 3.40 on 8 cores
+
+update.column-vs-tracked-store   [per write]   5.91x
+  ours   collection.updateEntity(slot, patch) — one column, no index reads it
+  floor  gate on !==, store, then queue the entity once per frame by a stamp kept per position
+  THE FLOOR NOW DOES THE JOB. It compares before it writes, so a re-send moves nothing; it
+  keeps a frame stamp per entity position so ten writes to one entity queue it once; and it
+  queues the entity so a frame could deliver it. Four lines. What it still does not do: record
+  WHICH columns moved (so no field-granular subscription is possible), route to an index, or
+  mark the collection separately from the entity. Direction: still inflates our ratio, and
+  this is the number to quote when somebody asks what the engine costs over doing it properly
+  by hand.
+  measured  1,628,211 ops/pass ours, 10,134,922 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 2.4%/4.3%; load 3.51 → 3.51 on 8 cores
+
+update.entity-column-vs-tracked-store   [per write]   2.53x
+  ours   collection.updateEntityColumn(slot, 'title', value) — one column, no index reads it
+  floor  gate on !==, store, then queue the entity once per frame by a stamp kept per position
+  The same floor as update.column-vs-tracked-store, against the column door: no patch object
+  and no walk over it. Both sides hand over one value per write and queue each entity at most
+  once per frame.
+  measured  2,565,240 ops/pass ours, 9,910,694 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 9.7%/6.7%; load 3.47 → 3.47 on 8 cores
+
+updateByKey.vs-map-get-and-store   [per write]   2.05x
+  ours   collection.updateEntityByKey(id, patch)
+  floor  const row = map.get(id); if (row !== undefined) row.title = value
+  THE ONE WRITE ROW WHERE BOTH SIDES PAY THE LOOKUP, which is what makes it the fair
+  comparison for a key that arrived from outside. Ours is one map read and then the identity
+  path priced two rows up; the floor is one map read and a store. The difference between this
+  ratio and the update.column ratio is the price of NOT having held the identity — the
+  engine's own source puts that at 103-132 ns against 36-51 [NO RUN BEHIND THIS FIGURE], and
+  this row is the independent check on that claim.
+  measured  771,406 ops/pass ours, 1,565,040 floor; 9 samples; warm-up 28 planned, 28/28 reached; spread 3.6%/2.7%; load 3.36 → 3.36 on 8 cores
+
+THE CONTROLS, IN FULL
+
+control-resolution-2x   1.92x
+  ours   two units of arithmetic per iteration
+  floor  one unit of arithmetic per iteration
+  NOT A PRICE — an instrument check, and it is printed first because nothing below it means
+  anything until it passes. The true ratio is a little UNDER 2: both sides pay the driving
+  loop once, so the exact expectation is (2u + L) / (u + L) with L the loop and u one unit,
+  which at sixteen dependent steps per unit puts it around 1.9. A reading below 1.5 means this
+  process could not resolve a deliberate doubling, and the runner voids the report rather than
+  printing prices under it.
+
+control-scale-same-body   1.00x
+  ours   one unit of arithmetic per iteration
+  floor  the same body again, over its own copy of the same state
+  NOT A PRICE — the noise floor. The two sides are identical code over identical,
+  separately-allocated state, so the true ratio is 1.00 exactly and every departure from it
+  printed here was produced by this machine at this moment. The rule that follows is the one
+  the whole table is read under: NO RATIO CLOSER TO 1.00 THAN THIS GAP IS A READING. It also
+  bounds the per-row noise figure, which is the same idea measured again inside every pair —
+  each pair times its floor twice, once before our side and once after, and prints how far the
+  two disagreed.
+

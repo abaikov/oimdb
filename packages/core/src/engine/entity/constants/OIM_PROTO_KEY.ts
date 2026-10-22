@@ -1,0 +1,1 @@
+export const OIM_PROTO_KEY = '__proto__';

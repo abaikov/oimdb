@@ -1,43 +1,27 @@
-// Core adapter
-export { OIMDBReduxAdapter } from './core/OIMDBReduxAdapter';
-export type { OIMDBReduxUpdateAction } from './core/OIMDBReduxAdapter';
+export { OIMReduxAdapter } from './core/OIMReduxAdapter';
+export type { TOIMReduxUpdateAction } from './types/TOIMReduxUpdateAction';
 
-// Enums
-export { EOIMDBReduxReducerActionType } from './enums/EOIMDBReduxReducerActionType';
+export { EOIMReduxReducerActionType } from './enums/EOIMReduxReducerActionType';
 
-// Types
-export type { TOIMDBReduxCollectionMapper } from './types/TOIMDBReduxCollectionMapper';
-export type { TOIMDBReduxIndexMapper } from './types/TOIMDBReduxIndexMapper';
-export type { TOIMDBReduxGlobalIndexMapper } from './types/TOIMDBReduxGlobalIndexMapper';
-export type { TOIMDBReduxGlobalIndex } from './types/TOIMDBReduxGlobalIndex';
-export type { TOIMDBReduxAdapterOptions } from './types/TOIMDBReduxAdapterOptions';
-export type { TOIMDBReduxDefaultCollectionState } from './types/TOIMDBReduxDefaultCollectionState';
-export type { TOIMDBReduxDefaultIndexState } from './types/TOIMDBReduxDefaultIndexState';
-export type { TOIMDBReduxDefaultGlobalIndexState } from './types/TOIMDBReduxDefaultGlobalIndexState';
-export type { TOIMDBReduxGlobalIndexReducerChildOptions } from './types/TOIMDBReduxGlobalIndexReducerChildOptions';
-export type {
-    TOIMDBReduxCollectionReducerChildOptions,
-    TOIMDBReduxLinkedIndex,
-} from './types/TOIMDBReduxCollectionReducerChildOptions';
-export type { TOIMDBReduxIndexReducerChildOptions } from './types/TOIMDBReduxIndexReducerChildOptions';
+export type { TOIMReduxCollectionMapper } from './types/TOIMReduxCollectionMapper';
+export type { TOIMReduxIndexMapper } from './types/TOIMReduxIndexMapper';
+export type { TOIMReduxGlobalIndexMapper } from './types/TOIMReduxGlobalIndexMapper';
+export type { TOIMReduxKeyedIndex } from './types/TOIMReduxKeyedIndex';
+export type { TOIMReduxGlobalIndex } from './types/TOIMReduxGlobalIndex';
+export type { TOIMReduxAdapterOptions } from './types/TOIMReduxAdapterOptions';
+export type { TOIMReduxDefaultCollectionState } from './types/TOIMReduxDefaultCollectionState';
+export type { TOIMReduxDefaultIndexState } from './types/TOIMReduxDefaultIndexState';
+export type { TOIMReduxDefaultGlobalIndexState } from './types/TOIMReduxDefaultGlobalIndexState';
+export type { TOIMReduxGlobalIndexReducerChildOptions } from './types/TOIMReduxGlobalIndexReducerChildOptions';
+export type { TOIMReduxCollectionReducerChildOptions } from './types/TOIMReduxCollectionReducerChildOptions';
+export type { TOIMReduxLinkedIndex } from './types/TOIMReduxLinkedIndex';
+export type { TOIMReduxIndexReducerChildOptions } from './types/TOIMReduxIndexReducerChildOptions';
 
-// Default mappers (for advanced usage)
-export {
-    defaultCollectionMapper,
-    defaultIndexMapper,
-    defaultGlobalIndexMapper,
-    createDefaultCollectionMapper,
-    createDefaultIndexMapper,
-} from './core/OIMDBReduxDefaultMappers';
-export type { TOIMReduxKey } from './types/TOIMReduxKey';
+export { oimDefaultCollectionMapper } from './core/oimDefaultCollectionMapper';
+export { oimDefaultKeyedIndexMapper } from './core/oimDefaultKeyedIndexMapper';
+export { oimDefaultGlobalIndexMapper } from './core/oimDefaultGlobalIndexMapper';
 
-// Utils
-export {
-    findUpdatedInRecord,
-    findUpdatedInArray,
-} from './utils/findUpdatedEntities';
-export type {
-    TOIMDBReduxUpdatedEntitiesResult,
-    TOIMDBReduxUpdatedArrayResult,
-} from './utils/findUpdatedEntities';
-export { arraysEqual, arraysEqualPk } from './utils/arraysEqual';
+export { OIMReduxLinkedIndexesUpdater } from './core/OIMReduxLinkedIndexesUpdater';
+
+export { oimDiffEntityKeys } from './utils/oimDiffEntityKeys';
+export type { TOIMReduxEntityKeysDiff } from './types/TOIMReduxEntityKeysDiff';
