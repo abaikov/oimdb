@@ -36,6 +36,10 @@ const createFixture = () => {
 };
 
 describe('what an effect that threw does next', () => {
+    let consoleError: jest.SpyInstance;
+    beforeEach(() => { consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined); });
+    afterEach(() => { consoleError.mockRestore(); });
+
     it('takes the change it failed on again at its next wake, even a wake from an unchanged computed', () => {
         const { db, effectService, updateCard, failing, constantOfOther, constantOfOtherService } = createFixture();
         let throwNext = false;
@@ -65,6 +69,7 @@ describe('what an effect that threw does next', () => {
         db.flush();
 
         expect(runs).toBe(1);
+        expect(consoleError).toHaveBeenCalledTimes(1);
     });
 
     it('a body that succeeds after a wake from an unchanged computed is not run for it', () => {

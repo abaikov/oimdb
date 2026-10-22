@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 import { bundledWorkerPath } from '../src/harness/workerBundle';
 
-const src = join(import.meta.dirname, '..', 'src');
+const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
 describe('what a price worker runs', () => {
     for (const worker of ['price-worker.ts', 'retained-worker.ts']) {
