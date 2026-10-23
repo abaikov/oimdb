@@ -25,7 +25,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnColumn--2026-10-22T20:14:15.843Z",
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -37,45 +37,61 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb"
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
         ],
-        "startedAt": "2026-10-22T20:14:15.843Z",
-        "seconds": 7.487,
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.970703125,
-          "peak": 3.970703125,
-          "readings": 15,
-          "foreignPeak": 0.970703125,
-          "over": false
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.04377082911392405,
-          "heavyMin": 0.07801370886075949,
-          "gap": 0.7823219354084009,
-          "drift": 0.14007797517304957,
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.01961893670886076,
-          "drift": 0.06724902832190034
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.01961893670886076,
+        "min": 0.01889029746835443,
         "processMins": [
-          0.01961893670886076,
-          0.02054087341772152,
-          0.020938291139240506
+          0.01889029746835443,
+          0.020488398734177213,
+          0.020776632911392406
         ],
-        "drift": 0.06724902832190034,
+        "drift": 0.09985737102330024,
         "lost": 0,
-        "spread": 0.09992605955496377,
+        "spread": 0.02285280066419475,
         "repeat": 158,
         "samples": 5,
         "warmed": 50,
@@ -91,7 +107,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T20:14:23.330Z"
+      "measuredAt": "2026-10-23T00:54:04.481Z"
     },
     "oimdb": {
       "format": 2,
@@ -393,7 +409,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "8e38b6a0334dc11c",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -407,7 +423,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--churnColumn--2026-10-22T17:11:54.401Z",
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -419,46 +435,61 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
         ],
-        "startedAt": "2026-10-22T17:11:54.401Z",
-        "seconds": 8.834,
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.74560546875,
-          "peak": 3.765625,
-          "readings": 19,
-          "foreignPeak": 0.765625,
-          "over": false
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
         },
         "gcMissing": false,
         "resolution": {
-          "leanMin": 0.04410258860759494,
-          "heavyMin": 0.07720332278481012,
-          "gap": 0.7505394858277069,
-          "drift": 0.13844340831070354,
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
           "resolved": true
         },
         "anchor": {
           "name": "baseline-array",
-          "min": 0.018138449367088607,
-          "drift": 0.20707741963623683
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.02173470253164557,
+        "min": 0.021955696202531644,
         "processMins": [
-          0.02173470253164557,
-          0.021756329113924052,
-          0.02231461392405063
+          0.021955696202531644,
+          0.02211867088607595,
+          0.0221255253164557
         ],
-        "drift": 0.02668135860432023,
+        "drift": 0.007735082156241147,
         "lost": 0,
-        "spread": 0.10961208567177912,
+        "spread": 0.03550475641395223,
         "repeat": 158,
         "samples": 5,
         "warmed": 50,
@@ -472,9 +503,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 1.198266846949012
+        "ratioToAnchor": 1.1622737142870545
       },
-      "measuredAt": "2026-10-22T17:12:03.235Z"
+      "measuredAt": "2026-10-23T00:54:04.481Z"
     },
     "mobx": {
       "format": 2,
@@ -773,6 +804,1723 @@
         "ratioToAnchor": 3.7551076535065944
       },
       "measuredAt": "2026-10-22T17:34:01.534Z"
+    },
+    "oimdb-3.12.1": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "oimdb-3.12.1"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "2c2db844b7eca5c8",
+        "subject": "e0adc140f93c5505",
+        "libraries": {}
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.04034229746835443,
+        "processMins": [
+          0.04034229746835443,
+          0.04152346835443038,
+          0.04866139240506329
+        ],
+        "drift": 0.20621272110827554,
+        "lost": 0,
+        "spread": 0.21176912820244115,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2.1356094331461435
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "tinybase": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "tinybase"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "bb3071b8659deeb7",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "tinybase": "10.0.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.16774736075949367,
+        "processMins": [
+          0.16774736075949367,
+          0.17087051265822784,
+          0.17860495569620252
+        ],
+        "drift": 0.06472587638666834,
+        "lost": 0,
+        "spread": 0.06234733720083812,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 8.880080424382353
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "signaldb": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "signaldb"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "a2fcb5ab05c6a667",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@signaldb/core": "1.8.1",
+          "fast-sort": "3.4.1",
+          "mingo": "7.2.2",
+          "@preact/signals-core": "1.14.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 45.92409942405064,
+        "processMins": [
+          45.92409942405064,
+          46.493746835443034,
+          46.97576318987342
+        ],
+        "drift": 0.02290004113334926,
+        "lost": 0,
+        "spread": 0.06601716828468145,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 1,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2431.0945606327277
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "tanstack-db": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "tanstack-db"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "time",
+        "reason": "spawnSync /Users/abaikov/.nvm/versions/node/v24.16.0/bin/node ETIMEDOUT"
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "tanstack-db-eager": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "tanstack-db-eager"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "time",
+        "reason": "Command failed: /Users/abaikov/.nvm/versions/node/v24.16.0/bin/node --expose-gc --import tsx /Users/abaikov/work/oimdb/packages/bench/src/worker.ts tanstack-db-eager churnColumn 10000 time 158 5 50 /  / <--- Last few GCs --->"
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "tanstack-db-indexed": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "tanstack-db-indexed"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "be6f6cd29c5e430d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/db": "0.15.0",
+          "@tanstack/db-ivm": "0.2.0",
+          "fractional-indexing": "3.4.0",
+          "@tanstack/pacer-lite": "0.2.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "time",
+        "reason": "Command failed: /Users/abaikov/.nvm/versions/node/v24.16.0/bin/node --expose-gc --import tsx /Users/abaikov/work/oimdb/packages/bench/src/worker.ts tanstack-db-indexed churnColumn 10000 time 158 5 50 /  / <--- Last few GCs --->"
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "jotai": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "jotai"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "efa4d4bab8854ef0",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "jotai": "3.0.1",
+          "jotai-family": "1.1.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.729213082278481,
+        "processMins": [
+          0.729213082278481,
+          0.7403277974683544,
+          0.7421031139240506
+        ],
+        "drift": 0.017676632467006344,
+        "lost": 0,
+        "spread": 0.28547838897638805,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 37,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 38.60251981209294
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "legend-state": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "legend-state"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "947a6c3b263d76a8",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@legendapp/state": "2.1.15"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.5743546962025317,
+        "processMins": [
+          0.5743546962025317,
+          0.5781608607594937,
+          0.5809928797468354
+        ],
+        "drift": 0.011557637794543253,
+        "lost": 0,
+        "spread": 0.1085390690853694,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 30.40474599008868
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "effector": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "effector"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "fec6689750ddf0f6",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "effector": "23.4.4"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 1.4891930379746834,
+        "processMins": [
+          1.4891930379746834,
+          1.5001956772151899,
+          1.6231508481012658
+        ],
+        "drift": 0.08995328792885458,
+        "lost": 0,
+        "spread": 0.2012190528809886,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 20,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 78.83375264309218
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "nanostores": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "nanostores"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "4356a6a6c71e352b",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "nanostores": "1.5.5"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.03009941772151899,
+        "processMins": [
+          0.03009941772151899,
+          0.030221784810126582,
+          0.03131065189873418
+        ],
+        "drift": 0.0402411165698146,
+        "lost": 0,
+        "spread": 0.1645130441145669,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1.5933797639736698
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "nanostores-per-row": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "nanostores-per-row"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "4356a6a6c71e352b",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "nanostores": "1.5.5"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.029736025316455698,
+        "processMins": [
+          0.029736025316455698,
+          0.031050107594936708,
+          0.03340005063291139
+        ],
+        "drift": 0.12321839511039319,
+        "lost": 0,
+        "spread": 0.11399525614840463,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1.5741427770669225
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "redux-toolkit": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "redux-toolkit"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "7e0419fe717519ad",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "redux": "5.0.1",
+          "immer": "11.1.21",
+          "reselect": "5.3.0",
+          "redux-thunk": "3.1.0",
+          "@reduxjs/toolkit": "2.13.0",
+          "react": "19.3.1",
+          "use-sync-external-store": "1.6.0",
+          "react-redux": "9.2.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 53.423743145569624,
+        "processMins": [
+          53.423743145569624,
+          53.63989372151899,
+          53.83467009493671
+        ],
+        "drift": 0.007691841214633529,
+        "lost": 0,
+        "spread": 0.013882815006373764,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 1,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2828.1049165618815
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "zustand": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "zustand"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "bbd4ac9e525164b3",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "zustand": "5.0.15",
+          "reselect": "5.3.0"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 35.630623943037975,
+        "processMins": [
+          35.630623943037975,
+          35.63624841772152,
+          35.65238000632912
+        ],
+        "drift": 0.0006106001210061295,
+        "lost": 0,
+        "spread": 0.014332751172278913,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 1,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1886.1864935016204
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "valtio": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "valtio"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "edf0a2aed536604d",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "proxy-compare": "3.0.1",
+          "valtio": "2.3.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.050690132911392405,
+        "processMins": [
+          0.050690132911392405,
+          0.05124129746835444,
+          0.05169224683544304
+        ],
+        "drift": 0.01976940809767363,
+        "lost": 0,
+        "spread": 0.10724342652260108,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2.683395166026897
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "xstate-store": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "xstate-store"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "aa2be9c54216f9af",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@xstate/store": "4.2.3"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 35.80169250632912,
+        "processMins": [
+          35.80169250632912,
+          35.82860126582278,
+          35.896535075949366
+        ],
+        "drift": 0.0026491085471303127,
+        "lost": 0,
+        "spread": 0.009757195348604732,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 1,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 1895.2423891844555
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
+    },
+    "tanstack-store": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "churnColumn",
+        "adapter": "tanstack-store"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "37346e49a26e0a60",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "@tanstack/store": "0.11.2"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 158,
+        "samples": 5,
+        "warmup": 50
+      },
+      "batch": {
+        "id": "default--churnColumn--2026-10-23T00:23:04.751Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "churnColumn",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1",
+          "tinybase",
+          "signaldb",
+          "tanstack-db",
+          "tanstack-db-eager",
+          "tanstack-db-indexed",
+          "jotai",
+          "legend-state",
+          "effector",
+          "nanostores",
+          "nanostores-per-row",
+          "redux-toolkit",
+          "zustand",
+          "valtio",
+          "xstate-store",
+          "tanstack-store"
+        ],
+        "startedAt": "2026-10-23T00:23:04.751Z",
+        "seconds": 1859.73,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 2.7587890625,
+          "peak": 16.869140625,
+          "readings": 79,
+          "foreignPeak": 13.869140625,
+          "over": true
+        },
+        "gcMissing": false,
+        "resolution": {
+          "leanMin": 0.04214530379746836,
+          "heavyMin": 0.08081566455696203,
+          "gap": 0.9175485113436666,
+          "drift": 0.07157651392304912,
+          "resolved": true
+        },
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.01889029746835443,
+          "drift": 0.09985737102330024
+        }
+      },
+      "outcome": {
+        "status": "measured",
+        "min": 0.05466666455696202,
+        "processMins": [
+          0.05466666455696202,
+          0.05553270253164557,
+          0.06326924683544304
+        ],
+        "drift": 0.15736431604524223,
+        "lost": 0,
+        "spread": 0.21676737483665387,
+        "repeat": 158,
+        "samples": 5,
+        "warmed": 50,
+        "a": {
+          "deliveries": 8,
+          "distinct": 8,
+          "redundant": 0
+        },
+        "b": {
+          "deliveries": 0,
+          "distinct": 0,
+          "redundant": 0
+        },
+        "ratioToAnchor": 2.8939017317509794
+      },
+      "measuredAt": "2026-10-23T00:54:04.481Z"
     }
   }
 }

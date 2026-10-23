@@ -25,7 +25,7 @@
         "warmup": 51
       },
       "batch": {
-        "id": "default--chainFrameWrite--2026-10-22T20:14:32.390Z",
+        "id": "default--chainFrameWrite--2026-10-23T00:54:23.057Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -37,38 +37,39 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb"
+          "oimdb-sorted-index",
+          "oimdb-3.12.1"
         ],
-        "startedAt": "2026-10-22T20:14:32.390Z",
-        "seconds": 3.223,
+        "startedAt": "2026-10-23T00:54:23.057Z",
+        "seconds": 4.875,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.43408203125,
-          "peak": 3.43408203125,
-          "readings": 15,
-          "foreignPeak": 0.43408203125,
+          "start": 3.3759765625,
+          "peak": 3.3759765625,
+          "readings": 20,
+          "foreignPeak": 0.3759765625,
           "over": false
         },
         "gcMissing": false,
         "anchor": {
           "name": "baseline-array",
-          "min": 0.0276375,
-          "drift": 0.018693803708729098
+          "min": 0.02772915,
+          "drift": 0.01900887693997108
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.0276375,
+        "min": 0.02772915,
         "processMins": [
-          0.0276375,
-          0.02769585,
-          0.02815415
+          0.02772915,
+          0.0278271,
+          0.02825625
         ],
-        "drift": 0.018693803708729098,
+        "drift": 0.01900887693997108,
         "lost": 0,
-        "spread": 0.2913469018543647,
+        "spread": 0.06686645641860636,
         "repeat": 20,
         "samples": 5,
         "warmed": 51,
@@ -84,7 +85,7 @@
         },
         "ratioToAnchor": 1
       },
-      "measuredAt": "2026-10-22T20:14:35.613Z"
+      "measuredAt": "2026-10-23T00:54:27.932Z"
     },
     "oimdb": {
       "format": 2,
@@ -179,9 +180,9 @@
         "adapter": "oimdb-3.12.1"
       },
       "fingerprint": {
-        "harness": "10f18461f609bff9",
-        "adapter": "02f8c91d9f28c9b9",
-        "subject": "e6938ade924a0448",
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "2c2db844b7eca5c8",
+        "subject": "e0adc140f93c5505",
         "libraries": {}
       },
       "environment": {
@@ -195,7 +196,7 @@
         "warmup": 51
       },
       "batch": {
-        "id": "default--chainFrameWrite--2026-10-18T14:35:34.307Z",
+        "id": "default--chainFrameWrite--2026-10-23T00:54:23.057Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -207,45 +208,39 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-3.12.1",
-          "mobx",
-          "jotai",
-          "redux-toolkit",
-          "preact-signals",
-          "alien-signals",
-          "solid-js"
+          "oimdb-sorted-index",
+          "oimdb-3.12.1"
         ],
-        "startedAt": "2026-10-18T14:35:34.307Z",
-        "seconds": 51.884,
+        "startedAt": "2026-10-23T00:54:23.057Z",
+        "seconds": 4.875,
         "load": {
           "cores": 8,
-          "gate": 12,
+          "gate": 8,
           "selfAllowance": 3,
-          "start": 3.24560546875,
-          "peak": 3.24560546875,
-          "readings": 43,
-          "foreignPeak": 0.24560546875,
+          "start": 3.3759765625,
+          "peak": 3.3759765625,
+          "readings": 20,
+          "foreignPeak": 0.3759765625,
           "over": false
         },
         "gcMissing": false,
         "anchor": {
           "name": "baseline-array",
-          "min": 0.027652100000000002,
-          "drift": 0.011903255087317067
+          "min": 0.02772915,
+          "drift": 0.01900887693997108
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.23841665,
+        "min": 0.11133335,
         "processMins": [
-          0.23841665,
-          0.23990415,
-          0.2406521
+          0.11133335,
+          0.11564165,
+          0.1157854
         ],
-        "drift": 0.00937623274213441,
+        "drift": 0.03998846706759474,
         "lost": 0,
-        "spread": 0.048759388239034585,
+        "spread": 0.12365252639932232,
         "repeat": 20,
         "samples": 5,
         "warmed": 51,
@@ -259,9 +254,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 8.622008816690233
+        "ratioToAnchor": 4.01502931031063
       },
-      "measuredAt": "2026-10-18T14:36:26.191Z"
+      "measuredAt": "2026-10-23T00:54:27.932Z"
     },
     "preact-signals": {
       "format": 2,
@@ -836,7 +831,7 @@
       "fingerprint": {
         "harness": "9f7d83f3c1a40cfe",
         "adapter": "e91cee0c6d7338fc",
-        "subject": "8e38b6a0334dc11c",
+        "subject": "f614bdd5f4190e90",
         "libraries": {}
       },
       "environment": {
@@ -850,7 +845,7 @@
         "warmup": 51
       },
       "batch": {
-        "id": "default--chainFrameWrite--2026-10-22T17:12:14.409Z",
+        "id": "default--chainFrameWrite--2026-10-23T00:54:23.057Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -862,39 +857,39 @@
           "control-lean",
           "control-heavy",
           "baseline-array",
-          "oimdb",
-          "oimdb-sorted-index"
+          "oimdb-sorted-index",
+          "oimdb-3.12.1"
         ],
-        "startedAt": "2026-10-22T17:12:14.409Z",
-        "seconds": 4.291,
+        "startedAt": "2026-10-23T00:54:23.057Z",
+        "seconds": 4.875,
         "load": {
           "cores": 8,
           "gate": 8,
           "selfAllowance": 3,
-          "start": 3.5283203125,
-          "peak": 3.5283203125,
-          "readings": 19,
-          "foreignPeak": 0.5283203125,
+          "start": 3.3759765625,
+          "peak": 3.3759765625,
+          "readings": 20,
+          "foreignPeak": 0.3759765625,
           "over": false
         },
         "gcMissing": false,
         "anchor": {
           "name": "baseline-array",
-          "min": 0.02744375,
-          "drift": 0.0294547938966068
+          "min": 0.02772915,
+          "drift": 0.01900887693997108
         }
       },
       "outcome": {
         "status": "measured",
-        "min": 0.052268749999999996,
+        "min": 0.05174375,
         "processMins": [
-          0.052268749999999996,
-          0.0527854,
-          0.05301670000000001
+          0.05174375,
+          0.05182705,
+          0.052627049999999995
         ],
-        "drift": 0.014309697476982158,
+        "drift": 0.017070660707814888,
         "lost": 0,
-        "spread": 0.01064211407389695,
+        "spread": 0.14136200024157516,
         "repeat": 20,
         "samples": 5,
         "warmed": 51,
@@ -908,9 +903,9 @@
           "distinct": 0,
           "redundant": 0
         },
-        "ratioToAnchor": 1.9045775449783646
+        "ratioToAnchor": 1.8660416925870427
       },
-      "measuredAt": "2026-10-22T17:12:18.700Z"
+      "measuredAt": "2026-10-23T00:54:27.932Z"
     },
     "vue-reactivity": {
       "format": 2,
@@ -1004,6 +999,73 @@
         "ratioToAnchor": 2.703748913995716
       },
       "measuredAt": "2026-10-21T19:22:15.623Z"
+    },
+    "tinybase": {
+      "format": 2,
+      "key": {
+        "point": "default",
+        "scenario": "chainFrameWrite",
+        "adapter": "tinybase"
+      },
+      "fingerprint": {
+        "harness": "9f7d83f3c1a40cfe",
+        "adapter": "bb3071b8659deeb7",
+        "subject": "e3b0c44298fc1c14",
+        "libraries": {
+          "tinybase": "10.0.1"
+        }
+      },
+      "environment": {
+        "node": "v24.16.0",
+        "machine": "arm64 8× Apple M1",
+        "host": "edade2c7"
+      },
+      "plan": {
+        "repeat": 20,
+        "samples": 5,
+        "warmup": 51
+      },
+      "batch": {
+        "id": "default--chainFrameWrite--2026-10-23T00:54:23.057Z",
+        "point": {
+          "key": "default",
+          "n": 10000,
+          "window": 32,
+          "processes": 3
+        },
+        "scenario": "chainFrameWrite",
+        "adapterNames": [
+          "control-lean",
+          "control-heavy",
+          "baseline-array",
+          "oimdb-sorted-index",
+          "oimdb-3.12.1"
+        ],
+        "startedAt": "2026-10-23T00:54:23.057Z",
+        "seconds": 4.875,
+        "load": {
+          "cores": 8,
+          "gate": 8,
+          "selfAllowance": 3,
+          "start": 3.3759765625,
+          "peak": 3.3759765625,
+          "readings": 20,
+          "foreignPeak": 0.3759765625,
+          "over": false
+        },
+        "gcMissing": false,
+        "anchor": {
+          "name": "baseline-array",
+          "min": 0.02772915,
+          "drift": 0.01900887693997108
+        }
+      },
+      "outcome": {
+        "status": "failed",
+        "phase": "verify",
+        "reason": "the last churn line is \"rd4yv000 1 1:ld4yv000>1>2>3>4#32/a0e0819\", and the script's last delivering frame says \"rd4yv000 1 8:ld4yv000,lqwpk001,l4og9002,lig6y003,lw7xn004,l9zoc005,lnrf1006,sxxxxxxxxxxxxxxx>1>2>3>4#32/f1b8dada\""
+      },
+      "measuredAt": "2026-10-23T00:54:27.932Z"
     }
   }
 }

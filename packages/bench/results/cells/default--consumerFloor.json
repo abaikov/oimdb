@@ -9,7 +9,7 @@
         "adapter": "baseline-array"
       },
       "fingerprint": {
-        "harness": "316e21080fd09879",
+        "harness": "9f7d83f3c1a40cfe",
         "adapter": "e3b0c44298fc1c14",
         "subject": "e3b0c44298fc1c14",
         "libraries": {}
@@ -25,7 +25,7 @@
         "warmup": 50
       },
       "batch": {
-        "id": "default--consumerFloor--2026-10-18T14:05:14.823Z",
+        "id": "default--consumerFloor--2026-10-22T23:09:39.316Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -36,31 +36,31 @@
         "adapterNames": [
           "baseline-array"
         ],
-        "startedAt": "2026-10-18T14:05:14.823Z",
-        "seconds": 5.084,
+        "startedAt": "2026-10-22T23:09:39.316Z",
+        "seconds": 4.913,
         "load": {
           "cores": 8,
-          "gate": 12,
+          "gate": 8,
           "selfAllowance": 3,
-          "start": 4.1689453125,
-          "peak": 4.3154296875,
-          "readings": 6,
-          "foreignPeak": 1.3154296875,
+          "start": 3.55810546875,
+          "peak": 3.55810546875,
+          "readings": 5,
+          "foreignPeak": 0.55810546875,
           "over": false
         },
         "gcMissing": false
       },
       "outcome": {
         "status": "measured",
-        "min": 0.12116217964071856,
+        "min": 0.12258931736526946,
         "processMins": [
-          0.12116217964071856,
-          0.1211938622754491,
-          0.12316641916167664
+          0.12258931736526946,
+          0.12300698802395209,
+          0.12349476047904193
         ],
-        "drift": 0.016541791563186185,
+        "drift": 0.0073859870764643705,
         "lost": 0,
-        "spread": 0.024366855450437118,
+        "spread": 0.1058762190061008,
         "repeat": 167,
         "samples": 15,
         "warmed": 50,
@@ -75,7 +75,7 @@
           "redundant": 0
         }
       },
-      "measuredAt": "2026-10-18T14:05:19.907Z"
+      "measuredAt": "2026-10-22T23:09:44.229Z"
     }
   }
 }

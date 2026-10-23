@@ -9,7 +9,7 @@
         "adapter": "baseline-array"
       },
       "fingerprint": {
-        "harness": "316e21080fd09879",
+        "harness": "9f7d83f3c1a40cfe",
         "adapter": "e3b0c44298fc1c14",
         "subject": "e3b0c44298fc1c14",
         "libraries": {}
@@ -25,7 +25,7 @@
         "warmup": 127
       },
       "batch": {
-        "id": "default--cellFloor--2026-10-18T14:05:10.222Z",
+        "id": "default--cellFloor--2026-10-22T22:52:58.217Z",
         "point": {
           "key": "default",
           "n": 10000,
@@ -36,31 +36,31 @@
         "adapterNames": [
           "baseline-array"
         ],
-        "startedAt": "2026-10-18T14:05:10.222Z",
-        "seconds": 4.6,
+        "startedAt": "2026-10-22T22:52:58.217Z",
+        "seconds": 4.549,
         "load": {
           "cores": 8,
-          "gate": 12,
+          "gate": 8,
           "selfAllowance": 3,
-          "start": 4.1689453125,
-          "peak": 4.1689453125,
-          "readings": 6,
-          "foreignPeak": 1.1689453125,
+          "start": 2.88818359375,
+          "peak": 2.89697265625,
+          "readings": 5,
+          "foreignPeak": 0,
           "over": false
         },
         "gcMissing": false
       },
       "outcome": {
         "status": "measured",
-        "min": 0.0163810234375,
+        "min": 0.01646533203125,
         "processMins": [
-          0.0163810234375,
-          0.016404541015625,
-          0.016428873046875
+          0.01646533203125,
+          0.016540935546875,
+          0.0170322265625
         ],
-        "drift": 0.0029210390643518644,
+        "drift": 0.0344295839387919,
         "lost": 0,
-        "spread": 0.04222754893119004,
+        "spread": 0.044057649535897636,
         "repeat": 512,
         "samples": 15,
         "warmed": 127,
@@ -75,7 +75,7 @@
           "redundant": 0
         }
       },
-      "measuredAt": "2026-10-18T14:05:14.822Z"
+      "measuredAt": "2026-10-22T22:53:02.766Z"
     }
   }
 }
