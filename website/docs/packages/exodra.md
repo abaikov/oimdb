@@ -20,7 +20,9 @@ and no re-renders.
 
 </InShort>
 
-Not yet published. See [Installation](../getting-started/installation.md).
+```bash
+npm install @oimdb/exodra @oimdb/core
+```
 
 The bridge depends only on the type-only `@exodra/reactivity-types`, never on the
 reactivity runtime. Your Exodra app already provides `@exodra/reactivity` for
@@ -142,13 +144,8 @@ and each of them fails **silently**:
 
 ### Lifetime is the caller's
 
-`exoBinding` **holds nothing**. A bindable is lazy (its effect exists only while
-somebody is subscribed), so it outlives its own subscriptions, and a hold scoped
-to one of them buys nothing. The give-back, `slot.owner.unholdSlot(slot)`, ends in
-`releaseSlotIfUnheld`, so returning it at teardown leaves exactly the state the
-teardown would have left anyway.
-
-Whoever **resolved** the identity therefore holds it for as long as the bindable
+`exoBinding` **holds nothing**: a bindable is lazy, its effect exists only while somebody
+is subscribed, and it outlives its subscriptions. Whoever **resolved** the identity therefore holds it for as long as the bindable
 lives, and says so by handing back a `TOIMExoDisposable<TValue>`, which is
 `TExoBindable<TValue> & { readonly dispose: TOIMDisposer }`:
 
@@ -232,13 +229,9 @@ write always does. So a primary key identifies an entity, each key's schema is
 rendered once and cached, and a change to the bucket's slots rebuilds from that
 cache.
 
-`render` returns a `TOIMExoRenderedRow<TSchema>`, which is `{ schema, dispose }`,
-for the same reason `exoFollowKey`'s factory is narrowed. A schema is a tree the
-caller builds, and on every real path that tree holds core references that
-nothing else counts. `exoRows` must never look inside a schema to find out what.
-The `dispose` is the whole row's, so a row holding three derivations gives back
-three holds in one function, and a row that holds nothing writes
-`dispose: () => {}`.
+`render` returns a `TOIMExoRenderedRow<TSchema>`, which is `{ schema, dispose }`. The
+`dispose` gives back whatever the row holds, and runs when the key leaves; a row that holds
+nothing writes `dispose: () => {}`.
 
 Keys must be unique. Uniqueness is decided over the **whole sequence before
 anything is rendered**, so a refused read has rendered nothing, cached nothing and
@@ -286,12 +279,9 @@ Both hand back a `TOIMExoList<TSchema>`, which is a `TExoBindableList` plus a `d
 
 ### One baseline, in one place
 
-Both bridges are **attached from construction**, not from their first subscriber.
-That is what lets `snapshot()` promise the list that every later op is measured
-against. It is the same variable the diff (or the applier) advances, moved in one
-place, so a consumer that starts from the snapshot and applies every op can never
-be one place off. A bridge that armed itself with its first subscriber would hand
-a re-subscriber the list as it stood some frames ago, without saying so.
+Both bridges are **attached from construction**, not from their first subscriber, so
+`snapshot()` is always the list every later op applies to: a consumer that starts from the
+snapshot and applies every op stays in step.
 
 **One baseline, and only one.** If you read the bucket's slots directly *as well as*
 the command stream, you get two baselines over one bucket, and they agree only at

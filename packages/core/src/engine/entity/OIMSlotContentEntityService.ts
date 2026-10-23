@@ -159,16 +159,25 @@ export class OIMSlotContentEntityService<TEntity extends object, TKey, TStore = 
         const slotStoreService = this.slotStoreService;
         const slotOwnerService = this.slotOwnerService;
         const store = storeSlot.store;
+        const isStoreEmptyAtStart = slotStoreService.getSlotCount(store) === 0;
+        const filedEntitySlots: TOIMEntitySlot<TEntity, TKey>[] | undefined = isStoreEmptyAtStart ? [] : undefined;
         let i = 0;
         let filingEntitySlot: TOIMEntitySlot<TEntity, TKey> | undefined;
         try {
             for (; i < entities.length; i++) {
                 filingEntitySlot = undefined;
                 const key = keys === undefined ? this.keyOf(entities[i]) : keys[i];
-                if (slotStoreService.get(store, key) !== undefined) return i;
+                if (filedEntitySlots === undefined && slotStoreService.get(store, key) !== undefined) return i;
                 const entitySlot = slotOwnerService.createSlot(slotStoreService.ownKey(key), storeSlot as TOIMStoreSlot);
                 slotOwnerService.assertWritable(entitySlot);
                 slotOwnerService.fileSlot(storeSlot, entitySlot);
+                if (filedEntitySlots !== undefined) {
+                    if (slotStoreService.getSlotCount(store) === filedEntitySlots.length) {
+                        this.refileRepeatedKey(storeSlot, filedEntitySlots, entitySlot);
+                        return i;
+                    }
+                    filedEntitySlots.push(entitySlot);
+                }
                 filingEntitySlot = entitySlot;
                 this.fillSlotContent(entitySlot, entities[i]);
                 if (oimIsSlotEmpty(entitySlot)) slotOwnerService.releaseSlotIfUnheld(entitySlot);
@@ -183,6 +192,19 @@ export class OIMSlotContentEntityService<TEntity extends object, TKey, TStore = 
             throw refusal;
         }
         return entities.length;
+    }
+
+    private refileRepeatedKey(
+        storeSlot: TOIMStoreSlot<TStore, TOIMEntitySlot<TEntity, TKey>>,
+        filedEntitySlots: readonly TOIMEntitySlot<TEntity, TKey>[], repeatingEntitySlot: TOIMEntitySlot<TEntity, TKey>,
+    ): void {
+        const slotStoreService = this.slotStoreService;
+        for (let j = 0; j < filedEntitySlots.length; j++) {
+            const filedEntitySlot = filedEntitySlots[j];
+            if (!slotStoreService.isSameKey(filedEntitySlot.key, repeatingEntitySlot.key)) continue;
+            this.slotOwnerService.fileSlot(storeSlot, filedEntitySlot);
+            return;
+        }
     }
 
     private insertEntityOnFastPath(

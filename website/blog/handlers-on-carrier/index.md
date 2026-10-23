@@ -41,7 +41,7 @@ public markUpdatedCarrier(carrier: TCarrier): void {
 
 When only a key is available, `markUpdatedKey` resolves the carrier through `IOIMCarrierProvider.findCarrier` — the same collaborator that mints a carrier for a subscription (`getOrReserveCarrier`) and is told when one loses its last subscriber.
 
-No figure is stated for the saving: no benchmark in this repository builds a `Map<key, handlers>` arm to compare against (see [How we measure](/docs/performance/)). The mechanism: the writer already holds the carrier, so `markUpdatedCarrier` reads `carrier.subscribers` directly where the map emitter hashes the key and probes a table. That is a hash and a lookup that provably do not happen — whatever they are worth in nanoseconds.
+No figure is stated for the saving: no benchmark in this repository builds a `Map<key, handlers>` arm to compare against (see [How we measure](https://github.com/abaikov/oimdb/blob/master/packages/bench/HOW-WE-MEASURE.md)). The mechanism: the writer already holds the carrier, so `markUpdatedCarrier` reads `carrier.subscribers` directly where the map emitter hashes the key and probes a table. That is a hash and a lookup that provably do not happen — whatever they are worth in nanoseconds.
 
 The nearest measured thing is *not* this comparison and must not be read as it:
 

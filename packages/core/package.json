@@ -1,7 +1,7 @@
 {
     "name": "@oimdb/core",
-    "version": "4.0.0",
-    "description": "Identity-addressed rewrite of the OIMDB core. Not published: it replaces @oimdb/core only once every consumer is migrated and the differential suite is green.",
+    "version": "4.0.1",
+    "description": "Identity-addressed reactive in-memory store: entities, indexes, computed values and effects batched into frames.",
     "type": "module",
     "main": "./dist/index.cjs",
     "module": "./dist/index.js",

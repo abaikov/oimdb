@@ -46,8 +46,8 @@ describe('an effect reaching a root through a derivation', () => {
         const { db, effectService, cardsService, cards, slot, rankSlot } = createFixture();
         const held = cardsService.holdSlotByKey(cards, 'c1');
         const effect = effectService.createEffect(db, [held], [rankSlot], () => undefined);
-        expect(slot.holdCount).toBe(4);
-        expect(slot.effects?.length).toBe(2);
+        expect(slot.holdCount).toBe(3);
+        expect(slot.effects?.length).toBe(1);
 
         held.owner.unholdSlot(held);
         cardsService.slotContentService.deleteEntity(slot);

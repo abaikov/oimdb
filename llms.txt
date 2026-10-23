@@ -39,8 +39,7 @@
 >
 > Check every symbol you write against [the full export list](#full-export-list).
 >
-> **Nothing in this repository is published to npm and nothing consumes it.**
-> Backwards compatibility, semver and migration paths are not costs here.
+> Install: `npm install @oimdb/core` (4.x). The 3.x line is the previous engine with a different API.
 >
 > `packages/core/src/index.ts` is the entire public surface.
 

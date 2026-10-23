@@ -328,8 +328,9 @@ export class OIMIndexService<
     ): void {
         const indexKeysService = this.indexKeysService;
         const indexKeysPosition = indexStoreSlot.indexKeysPosition;
-        let arrivingByKey: Map<TKey, TOIMEntitySlot<TEntity>[]> | undefined;
-        let leavingByKey: Map<TKey, TOIMEntitySlot<TEntity>[]> | undefined;
+        let arrivingByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null> | undefined;
+        let leavingByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null> | undefined;
+        const bucketSlotsByKey = new Map<TKey, TBucketSlot>();
         let isRefused = false;
         let refusal: unknown;
         for (let i = 0; i < entitySlotChannelQueue.getEntryCount(); i++) {
@@ -343,23 +344,45 @@ export class OIMIndexService<
             }
             const nextKey = indexKeysService.get<TKey>(entitySlot, indexKeysPosition);
             if (nextKey === prevKey) continue;
-            if (nextKey !== undefined) groupUnderKey(arrivingByKey ??= new Map(), nextKey, entitySlot);
-            if (prevKey !== undefined) groupUnderKey(leavingByKey ??= new Map(), prevKey, entitySlot);
+            if (nextKey !== undefined) {
+                this.groupUnderMintedBucketKey(indexStoreSlot, bucketSlotsByKey, arrivingByKey ??= new Map(), nextKey, entitySlot);
+            }
+            if (prevKey !== undefined) {
+                this.groupUnderMintedBucketKey(indexStoreSlot, bucketSlotsByKey, leavingByKey ??= new Map(), prevKey, entitySlot);
+            }
         }
         const slotContentService = this.slotContentBucketService;
         if (arrivingByKey !== undefined) {
             for (const [key, arriving] of arrivingByKey) {
-                const bucketSlot = this.findSlotByKey(indexStoreSlot, key);
-                if (bucketSlot !== undefined) slotContentService.addBucketMemberSlots(bucketSlot, arriving);
+                if (arriving !== null) slotContentService.addBucketMemberSlots(bucketSlotsByKey.get(key) as TBucketSlot, arriving);
             }
         }
         if (leavingByKey !== undefined) {
             for (const [key, leaving] of leavingByKey) {
-                const bucketSlot = this.findSlotByKey(indexStoreSlot, key);
-                if (bucketSlot !== undefined) slotContentService.removeBucketMemberSlots(bucketSlot, leaving);
+                if (leaving !== null) slotContentService.removeBucketMemberSlots(bucketSlotsByKey.get(key) as TBucketSlot, leaving);
             }
         }
         if (isRefused) throw refusal;
+    }
+
+    private groupUnderMintedBucketKey(
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        bucketSlotsByKey: Map<TKey, TBucketSlot>, entitySlotsByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null>,
+        key: TKey, entitySlot: TOIMEntitySlot<TEntity>,
+    ): void {
+        const grouped = entitySlotsByKey.get(key);
+        if (grouped === null) return;
+        if (grouped !== undefined) {
+            grouped.push(entitySlot);
+            return;
+        }
+        const bucketSlot = bucketSlotsByKey.get(key) ?? this.findSlotByKey(indexStoreSlot, key);
+        if (bucketSlot === undefined) {
+            entitySlotsByKey.set(key, null);
+            return;
+        }
+        bucketSlotsByKey.set(key, bucketSlot);
+        entitySlotsByKey.set(key, [entitySlot]);
     }
 
     private decideIndexKeyForSlot(
@@ -433,11 +456,3 @@ export class OIMIndexService<
 }
 
 function takeNothing(): void { return; }
-
-function groupUnderKey<TKey, TEntity extends object>(
-    entitySlotsByKey: Map<TKey, TOIMEntitySlot<TEntity>[]>, key: TKey, entitySlot: TOIMEntitySlot<TEntity>,
-): void {
-    const grouped = entitySlotsByKey.get(key);
-    if (grouped === undefined) entitySlotsByKey.set(key, [entitySlot]);
-    else grouped.push(entitySlot);
-}

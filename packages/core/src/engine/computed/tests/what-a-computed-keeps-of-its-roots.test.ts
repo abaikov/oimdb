@@ -51,7 +51,7 @@ describe('what a computed keeps of its roots', () => {
         for (const slot of slots) expect(subscriberCount(slot)).toBe(0);
     });
 
-    it('a root two branches share is subscribed once per branch, wakes the effect once, and leaves nothing behind', () => {
+    it('a root two branches share is subscribed once, wakes the effect once, and leaves nothing behind', () => {
         const { db, effectService, slots, computedOver } = createFixture();
         const left = computedOver([slots[0], slots[1]], []);
         const right = computedOver([slots[1], slots[2]], []);
@@ -60,7 +60,7 @@ describe('what a computed keeps of its roots', () => {
         db.flush();
         const runsAfterMount = runs;
 
-        expect(subscriberCount(slots[1])).toBe(2);
+        expect(subscriberCount(slots[1])).toBe(1);
         OIMChannelService.INSTANCE.write(db.defaultChannelSlot, slots[1]);
         db.flush();
         expect(runs).toBe(runsAfterMount + 1);

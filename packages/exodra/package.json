@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/exodra",
   "version": "1.0.0",
-  "description": "Exodra reactivity bridge over @oimdb/core: channel-backed bindables and O(delta) bindable lists. Not published.",
+  "description": "Exodra reactivity bridge over @oimdb/core: channel-backed bindables and O(delta) bindable lists.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

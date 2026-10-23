@@ -1,8 +1,3 @@
----
-sidebar_position: 2
-description: The checklist a state-management benchmark must pass before its numbers are believed, covering real work, a fair comparison and sound measurement.
----
-
 # How a benchmark earns belief
 
 Most state-management benchmarks are worthless, including ours until we started

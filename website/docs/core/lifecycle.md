@@ -113,12 +113,8 @@ listed in the table in
 [releasing an identity on a clock](#releasing-an-identity-on-a-clock--opt-in-and-off-it-costs-nothing).
 
 ### Released — the slot is dead and its key can be minted again
-Releasing a slot does the following, in order: it lets the content strategy release the slot's content
-(an entity's value is cleared, a bucket gives back its members, a computed gives back its sources), marks it
-empty, cancels any release the policy had scheduled, removes the slot from the store, and sets the RELEASED
-flag in `slotFlags`.
-
-After that, the object you still hold is a dead identity: every door that works
+Releasing a slot clears its content (an entity's value, a bucket's members, a computed's sources)
+and removes it from the store. After that, the object you still hold is a dead identity: every door that works
 with it (`holdSlot`, `unholdSlot`, a write, a subscription) throws
 "This identity was released". The key is not dead: the next door for it mints a new
 slot. So the long-lived things to keep in your code are the services and their store slots (entity,
@@ -149,13 +145,10 @@ policy, handed in at construction. A policy decides whether and when a slot
 goes. It does no work itself, and the slot still goes only when nothing holds it
 and nothing refers to it.
 
-There is no `release(slot)` door. A slot that the caller could release by hand
-could be released under a subscriber that somebody else took, so the decision is
-the owner's. The owner asks the policy at the moments a slot could go (a write, the last
-subscriber leaving, the last hold given back), and a hold always outranks the
-answer. Picking the policy once at construction is the
-[strategy rule](/docs/core/model#forks-are-strategies-chosen-at-construction): no branch on
-a flag runs per write.
+There is no `release(slot)` door: a slot you could release by hand could be released
+under a subscriber somebody else took. The policy is asked at the moments a slot could
+go (a write, the last subscriber leaving, the last hold given back), and a hold always
+outranks its answer.
 
 | Policy | A slot goes | Take it for |
 |---|---|---|
@@ -215,7 +208,7 @@ interface IOIMSlotReleasePolicy {
 }
 ```
 
-The owner (`OIMSlotOwnerService`) calls these, and nothing else does:
+Implement it to write a policy of your own. The engine calls:
 
 | Method | Called when | What the answer does |
 |---|---|---|
@@ -226,12 +219,9 @@ The owner (`OIMSlotOwnerService`) calls these, and nothing else does:
 | `isEmptySlotReleasable` | the same, for a slot with no value | only `OIMSlotReleasePolicyNever` answers `false` |
 | `cancelSlotRelease` | the slot is being released | takes it off the policy's queue |
 
-`releasesWrittenSlots` says whether the policy can ever release a slot that holds data; a content service reads it once at construction and skips the after-write release check when it is false. `OIMSlotReleasePolicyAtEmpty` and `OIMSlotReleasePolicyNever` answer `false`, every timed policy and `OIMSlotReleasePolicyAtUnhold` answer `true`, and `OIMSlotReleasePolicyEarliest` answers `true` when any policy it combines does.
-
-`schedulesReleaseOnWrite` says whether a write can make the policy schedule a release. The slot owner reads it once at construction; when it is `false` and the db has no `slotStamp`, a write skips `onSlotWritten` and the first-fill `onSlotIdle`, two calls that do nothing under such a policy. `OIMSlotReleasePolicyAfterWrite` and `OIMSlotReleasePolicyAfterIdle` answer `true`; `OIMSlotReleasePolicyAtEmpty`, `OIMSlotReleasePolicyNever`, `OIMSlotReleasePolicyAtUnhold` and `OIMSlotReleasePolicyAfterUnhold` answer `false`; `OIMSlotReleasePolicyEarliest` answers `true` when any policy it combines does. `onSlotIdle` is still called when the last subscriber leaves.
-
-A zero window never touches a release queue or a timer. A window above zero is
-filed in that policy's own queue. The owner never asks how much time is left.
+`releasesWrittenSlots`: whether the policy can ever release a slot that holds data. `false`
+lets writes skip the release check. `schedulesReleaseOnWrite`: whether a write can schedule
+a release. `false` lets writes skip `onSlotWritten`. Both are read once, at construction.
 
 ### Controlling the clock
 
@@ -256,70 +246,33 @@ OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(testDb.collectorSlot.afte
 ```
 
 `flush(releaseSlotCollectorSlot)` releases everything due up to now; `cancelAllSlotReleases(releaseSlotCollectorSlot)`
-empties the queue and disarms the timer. The queue (`OIMReleaseSlotQueueService.INSTANCE`) files
-slots into slices of `OIM_SLICE_LENGTH_MS` (1024 ms) and the timer is armed for
-the end of the earliest filed slice, so a slot goes at the first sweep at or after
-its deadline: up to one slice late, never early. A slice is swept as a whole,
-which is why many slots on one clock cost only one timer.
+empties the queue and disarms the timer. Deadlines are swept in slices of `OIM_SLICE_LENGTH_MS`
+(1024 ms), so a slot goes up to one slice after its deadline, never before, and many slots on one
+clock cost one timer.
 
-### Three markers, one per timed policy
+### What restarts each window
 
-A slot carries three deadlines, and each policy moves its own and no other.
-`-1` means unset; under `OIMSlotReleasePolicyEarliest` a slot goes on the soonest
-of those that are set, and a hold outranks all of them.
+Each timed policy keeps its own deadline on the slot. Under `OIMSlotReleasePolicyEarliest` a slot
+goes on the soonest one, and a hold outranks all of them.
 
-| Marker | Moved by | Not moved by |
+| Policy | Window restarts on | Not on |
 |---|---|---|
-| `releaseDueAfterWriteMs` | every write that leaves a value, under `OIMSlotReleasePolicyAfterWrite` | a subscriber arriving or leaving |
-| `releaseDueAfterIdleMs` | the first value of a slot nobody subscribes to, and the last subscriber leaving, under `OIMSlotReleasePolicyAfterIdle` | a later write, or an unhold |
-| `releaseDueAfterUnholdMs` | every last unhold, under `OIMSlotReleasePolicyAfterUnhold` | a write |
+| `OIMSlotReleasePolicyAfterWrite` | every write that leaves a value, `updateEntity` included | a subscriber arriving or leaving |
+| `OIMSlotReleasePolicyAfterIdle` | the first value of a slot nobody subscribes to, and the last subscriber leaving | a later write, or an unhold |
+| `OIMSlotReleasePolicyAfterUnhold` | every last unhold | a write |
 
-A single field could not say which event is allowed to move it: a write arriving
-after the subscriber left would destroy the idle policy's verdict, and the last
-subscriber leaving after a write would destroy the write policy's.
-
-The earliest deadline wins. `OIMSlotReleasePolicyEarliest` asks every member
-and releases when any of them answers `true`. Each member keeps its own queue and
-timer.
-
-The policy answers "release it now". Once a marker has come due, the release
-queue calls `slot.owner.releaseSlotIfUnheld(slot)`. For a non-empty slot with
-nothing left keeping it, the owner asks the policy's `isSlotReleasable(slot)`.
-`true` releases the slot. `false` keeps it, and a finite-deadline policy has
-already filed it into its queue itself. For an empty slot, the owner asks
-`isEmptySlotReleasable(slot)`, and only `OIMSlotReleasePolicyNever` answers
-`false`. With no policy, the owner is built with
-`OIMSlotReleasePolicyAtEmpty`, so a non-empty slot is kept and an empty one goes.
-
-Any update renews the write window, `slotContentService.updateEntity(slot, patch)`
-included. The policy runs on every write door that leaves the slot with content,
-just after emptiness is settled, not only on a whole-entity write. An entity already
-on the queue stays where it is filed; the sweep re-reads its deadline when that
-slice comes due and files it again then. A write window says "this data is
-good until the next query", so the clock starts again where the query lands. A
-refetch arriving before the sweep reached the old entities must not leave them due a
-second later.
+A refetch that lands before the sweep restarts the write window of the entities it rewrote.
 
 ### An idle window opens twice, and a held slot is off the clock
 
-An idle window opens in exactly two places:
+An idle window opens in exactly two places: when the slot first gets content and nobody
+subscribes to it, and when its last subscriber leaves. An empty slot gets no window; it goes
+as soon as nothing holds it. An unhold opens no idle window.
 
-1. when the slot first gets content and nobody subscribes to it (a slot minted
-   empty by a read that found nothing is on no clock at all);
-2. when the last subscriber leaves, that is, when `unsubscribeFromSlot` takes the last entry out
-   of `slot.effects`.
-
-Both ask the policy's `onSlotIdle(slot)`. Under `OIMSlotReleasePolicyAfterIdle`
-it stamps `releaseDueAfterIdleMs = now + keepAfterIdleMs` and files the slot into
-the policy's queue. An empty slot gets no window at all: the release guard takes it
-without asking a clock. `unholdSlot` opens no idle window and stamps nothing.
-
-A held slot is off the clock. A sweep that meets one decides nothing
-about it and does not re-file it. Two consequences follow:
+A held slot is off the clock. Two consequences follow:
 
 - A hold defers the verdict; it does not restart the clock. An entity whose window
-  ran out while it was held goes at the give-back itself, because `unholdSlot` asks
-  the owner whether the slot may go.
+  ran out while it was held goes at the give-back itself.
 
   ```typescript
   const heldSlot = cardService.holdSlotByKey(cards, 'c1');
@@ -328,31 +281,19 @@ about it and does not re-file it. Two consequences follow:
   oimIsSlotReleased(heldSlot); // true — the give-back settles what the sweep could not
   ```
 
-  A subscriber leaving is the other case: `unsubscribeFromSlot` stamps a whole fresh window
-  first, so the last `disposeEffect(effect)` grants a full one.
+  The last subscriber leaving is the other case: the last `disposeEffect(effect)` grants a full
+  fresh idle window.
 
-- A cascade takes one sweep. A stale index goes on its
-  own window, and giving back the hold it had on each entity is a departure that those entities'
-  own expired windows already answer for, so they go in the same sweep.
+- A cascade takes one sweep: a stale bucket that goes gives back its entities, and those whose own
+  windows ran out go in the same sweep.
 
-### What a subscriber does
+A subscriber is a hold, so a watched slot is off the clock and never loses data mid-read. No read is
+reported to the clock. After the last dispose, `OIMSlotReleasePolicyAfterIdle` grants a whole fresh
+window, while `OIMSlotReleasePolicyAfterWrite` grants only what is left of the write window, so an
+already-stale entity goes on that call.
 
-A subscriber is a hold. An effect takes a hold on each root it reads, and
-`disposeEffect(effect)` gives it back, so a watched slot is a held slot, off the
-clock like any other. The idle window therefore does not count subscribers; it
-opens at the moment the last one leaves, as described above.
-
-Neither window means unread: no read is reported to the clock. A subscriber
-never loses data mid-read, because the hold refuses the release while the effect
-is there. The last dispose has a different effect on each marker, which is why both ship:
-`releaseDueAfterIdleMs` is re-stamped by that departure, so the slot gets a whole
-fresh window, while `releaseDueAfterWriteMs` is not, so the slot gets only
-what is left of the write window and an already-stale entity goes on that same call.
-A hold blocks clearing the value as well as removing the identity.
-
-A bucket runs its own window, given to its own collection. An index nothing
-holds goes when that window runs out; an index something holds keeps every entity in
-it whatever the entities' own age.
+A bucket runs its own window, given to its own collection. A bucket something holds keeps every
+entity in it whatever the entities' own age.
 
 ## Where to next
 

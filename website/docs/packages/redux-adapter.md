@@ -42,7 +42,9 @@ truth and Redux gets a projection of it. Two stores that both accept writes woul
 need a merge rule for every field. A projection needs none, and a write-back from
 a child reducer is an ordinary OIMDB write that the next frame projects again.
 
-Not yet published. See [Installation](/docs/getting-started/installation).
+```bash
+npm install @oimdb/redux-adapter @oimdb/core redux
+```
 
 ## How it works
 
@@ -83,10 +85,6 @@ const byTeam = byTeamService.createStoreSlot(db);
 
 const adapter = new OIMReduxAdapter({ channelMap: db });
 
-// The entity comes from the service. `TPk` is the caller's own declaration
-// about the Redux state's key type — a population addressed by a scalar is
-// addressed by `TOIMStoreKey`, so nothing else can hold "this state is keyed by
-// `string`, not `string | number`".
 const usersReducer = adapter.createCollectionReducer<
   TUser, string, TOIMReduxDefaultCollectionState<TUser, string>
 >(userService, users);
@@ -136,24 +134,12 @@ population satisfies.
 registration keyed by `'red' | 'blue'` is not silently accepted where one keyed
 by `'green'` was asked for.
 
-Internally the adapter watches with ordinary effects, made with `OIMEffectService.INSTANCE` on the
-`db` it was given, and a content-change listener on the store slot. Nothing is patched, so a store slot
-written to from anywhere (your own code, a hydrating persistor) is mirrored the
-same way. When a store slot is first registered, the adapter walks
-`entityService.getSlots(entityStoreSlot)` once and puts an effect on every entity that holds a value.
-From then on the listener it adds with
-`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, listener, undefined)` tells it, synchronously at the
-write, about every slot whose content moved, and an entity that has no effect yet
-gets one. The effect records the entity's key each time the entity changes. When
-the entity's value is gone, the effect records the key one last time and then disposes
-itself, so a removed entity is reported before the adapter lets go of it. A bucket
-store slot is watched the same way, with one effect per bucket that holds
-something. After each frame (`OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, …)`),
-if anything registered here actually moved,
-the adapter dispatches one `OIMDB_UPDATE` action
-(`EOIMReduxReducerActionType.UPDATE`). Reducers then read current OIMDB state
-through their mapper and return the new Redux slice. A frame that touched
-nothing registered dispatches nothing.
+The adapter watches with ordinary effects and a content-change listener on each registered store
+slot, so a store slot written from anywhere (your own code, a hydrating persistor) is mirrored the
+same way. After each frame in which anything registered moved, it dispatches one `OIMDB_UPDATE`
+action (`EOIMReduxReducerActionType.UPDATE`); reducers then read the current OIMDB state through
+their mapper and return the new Redux slice. A frame that touched nothing registered dispatches
+nothing.
 
 ```typescript
 userService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', teamId: 'team1' });
@@ -162,22 +148,14 @@ db.flush();
 store.getState().users; // { entities: { u1: {...} }, ids: ['u1'] }
 ```
 
-`setStore` dispatches immediately if anything moved *before* a store existed.
-Redux's own creation order forces that gap, because reducers must exist before the
-store does. Without this dispatch, state accumulated in between would wait for the
-next frame that happens to change something else, and would never arrive if nothing
-ever does.
+`setStore` dispatches at once if anything moved before the store existed, since reducers must
+exist before the store does.
 
 ## Default state shapes
 
 - **Collection** → `{ entities: Record<TPk, TEntity>, ids: TPk[] }` (RTK Entity
-  Adapter shape). Built from `entityService.getSlots(entityStoreSlot)` the first time, then
-  updated only for the keys that actually changed. The incremental path uses
-  `entityService.getSlotByKey(entityStoreSlot, pk)`, never `entityService.holdSlotByKey(entityStoreSlot, pk)`. A hold is a
-  counted reference the mapper would have to give back, while a read's mint goes
-  to the unused-slot collector and is given back at the next `flush()`. A key
-  that reached that loop may have just been removed, and the mint it costs lasts
-  only to the end of the turn.
+  Adapter shape). Built from the whole store slot the first time, then updated only for the
+  keys that changed.
 - **Keyed index**: a bucket store slot whose buckets are filed by a scalar →
   `{ entities: Record<TIndexKey, { id, ids: TPk[] }> }`, one entry per bucket
   that currently holds something.
@@ -210,14 +188,9 @@ const recentReducer = adapter.createGlobalIndexReducer<
 // store.getState().recent -> { ids: [...] }
 ```
 
-In a keyed index, a bucket is watched while it holds something and let go of
-when it empties. An empty bucket is not watched at all, and a watched one that
-empties is unsubscribed, because a bucket really is released, by
-`slot.owner.releaseSlotIfUnheld(slot)`, so subscribing once per bucket and never
-disposing would watch identities the engine had already unfiled (and the
-effect's own hold would keep every emptied bucket alive). The bucket of a keyless
-index is the exception: it is watched for the adapter's whole life, since the
-caller holds it and it is not released while held.
+In a keyed index, a bucket is watched while it holds something and let go of when it empties,
+so the adapter does not keep emptied buckets alive. The bucket of a keyless index is watched for
+the adapter's whole life, since the caller holds it.
 
 Your application fills that bucket. A `userService.slotContentService.upsertEntity(users, user)` puts nothing in
 `recent`; `recentService.slotContentService.writeBucketMemberSlots(recent, slots)` does, and whatever list you
@@ -347,19 +320,11 @@ const linkedIndexes: ReadonlyArray<TOIMReduxLinkedIndex<TDeck, TCard>> = [
 
 :::danger[A linked index on a reducer this adapter flushes is currently refused]
 
-`OIMDB_UPDATE` is dispatched from an after-each-frame handler, which runs
-**inside** `OIMChannelService.flush`. The frame is over there, but the channel slot's
-`isFlushing` is still up and `OIMChannelService.assertNotFlushing` refuses every write
-for the whole of a flush. Handling that action with `linkedIndexes` configured
-reaches `OIMReduxLinkedIndexesUpdater.updateLinkedIndexesForEntities`, so its
-`writeBucketMemberSlots` throws, the throw goes to the channel's error policy (logged by default, thrown out
-of `flush()` under `OIMErrorPolicyThrowAtOnce`), and the Redux slice keeps its
-previous value. A later frame cannot recover it:
-`updatedKeys` is cleared before the linked-index block runs.
-
-Driving `OIMReduxLinkedIndexesUpdater` yourself, from your own code outside a
-flush, is unaffected. `packages/redux-adapter/tests/what-a-dispatch-after-a-frame-is-allowed-to-write.test.ts`
-records the whole outcome.
+`OIMDB_UPDATE` is dispatched from inside the flush, where every write is refused. A reducer with
+`linkedIndexes` handling it tries to write the linked buckets, the write throws, the throw goes to
+the channel's error policy (logged by default), and the Redux slice keeps its previous value; a
+later frame does not recover it. Driving `OIMReduxLinkedIndexesUpdater` yourself, outside a flush,
+works.
 
 :::
 
@@ -367,21 +332,12 @@ records the whole outcome.
 directly. Its constructor takes one **required** argument,
 `keyOf: (entity: TEntity) => TOIMStoreKey`, and its two methods are
 `updateLinkedIndexesForEntities(linkedIndexes, updatedEntities)` and
-`removeLinkedIndexesByKeys(linkedIndexes, removedPks)`. Neither takes the
-channel: the entity service resolves a pk to an identity and the bucket
-collection writes the bucket's slots
-(`bucketService.slotContentService.writeBucketMemberSlots(bucketService.getSlotByKey(bucketStoreSlot, key), slots)`),
-so each half is asked of the thing it belongs to. `writeBucketMemberSlots` already compares against what the bucket holds and
-no-ops when nothing moved, so there is no add/remove diffing here either.
+`removeLinkedIndexesByKeys(linkedIndexes, removedPks)`. A write that changes nothing in a bucket
+wakes nobody.
 
-The update method takes entities. The keys of a plain Redux record
-are strings, even for a numerically keyed population, so a caller passing
-them would name a string bucket address beside the numeric bucket the engine
-filed the entities in. A deck with a numeric id would get a second, parallel
-bucket per Redux frame while its real one was never written. An entity carries
-its own key, and `keyOf` is what turns it back into the value the bucket
-service files by, so no key of this package's making crosses into the engine.
-It is the same `keyOf` the child-reducer options declare, defaulted to `.id`.
+The update method takes entities, not Redux record keys: those keys are strings even for a
+numerically keyed population, and `'1'` would name a different bucket than `1`. `keyOf` reads the
+real key off each entity; it is the same `keyOf` the child-reducer options declare, defaulted to `.id`.
 
 ### What each child option does
 
@@ -418,11 +374,9 @@ extractor does its own writing, so which entities moved is not something the
 adapter can know afterwards, and a linked index would be maintained from a guess.
 Maintain the linked buckets inside the extractor, or drop the extractor.
 
-A write-back is not echoed. While a child's state is being written back,
-an `OIMDB_UPDATE` reaching the same reducer returns the state unchanged, so the
-reducer's own output is not overwritten by a mapper run halfway through the
-write-back (`OIMReduxChildAwareReducer`). The flag is lowered in a `finally`, so
-an extractor that throws does not leave the reducer deaf. The throw is not caught.
+A write-back is not echoed: while a child's state is being written back, an `OIMDB_UPDATE`
+reaching the same reducer returns the state unchanged. An extractor that throws does not leave
+the reducer deaf; the throw is not caught.
 
 ### When a reducer builds its first state
 
@@ -493,29 +447,9 @@ That is redundant only for the store slot whose own child did the writing. For a
 index over that store slot, a keyless index, or a store slot fed by a derivation,
 that dispatch is the only way the change reaches Redux at all.
 
-There is no adapter-side re-entrancy guard either, because the nested flush is
-already a no-op: the after-each-frame dispatch comes back through this
-middleware, and `OIMChannelService.flush` returns at `if (channelSlot.isFlushing) return;`
-having done nothing. It is not a deferral and nothing is queued. One flush
-spends exactly one frame however many handlers ask for another, which core's
-`a-write-during-a-flush-is-refused.test.ts` pins. A guard here would duplicate
-a refusal the engine already makes.
-
-The engine does *not* permit a write from that dispatch; see the
-linked-index warning above. `isFlushing` is still up through the whole
-after-each-frame phase, so `OIMDB_UPDATE` may only read the runtime.
-
-A registration carries the bucket store slot and never the raw store inside it.
-The store slot is the instance and carries its store; the service is the only
-thing that reads that store. The adapter asks the registration's `bucketService`,
-handed the `bucketStoreSlot` (`getSlots`, `getSlotByKey`, `holdSlotByKey`), asks
-`OIMContentChangeListenerService.INSTANCE` to add and remove its listener on that store
-slot, asks `bucketService.slotContentService` handed a bucket slot
-(`getBucketMemberSlots`, `getBucketMemberSlotCount`, `writeBucketMemberSlots`),
-and the slot's `owner.unholdSlot`, and never touches `bucketStoreSlot.store`.
-
-The adapter reads buckets by key, which every bucket collection offers, so they all
-register the same way.
+The `OIMDB_UPDATE` dispatch comes back through the middleware from inside the flush; that nested
+flush does nothing, so there is no loop. `OIMDB_UPDATE` may only read the runtime; see the
+linked-index warning above.
 
 ## Composite primary keys
 
@@ -563,8 +497,6 @@ const flatReducer = adapter.createCollectionReducer<TFlatProgress, string, TFlat
 `TOIMReduxDefaultGlobalIndexState`, `TOIMReduxCollectionReducerChildOptions`,
 `TOIMReduxIndexReducerChildOptions`, `TOIMReduxGlobalIndexReducerChildOptions`,
 `TOIMReduxEntityKeysDiff`.
-
-That is the whole of `packages/redux-adapter/src/index.ts`.
 
 ## See also
 

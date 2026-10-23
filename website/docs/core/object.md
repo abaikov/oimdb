@@ -124,12 +124,9 @@ db.flush();
 | `writeEntity(slot, next)` | `putEntity` (PUT) | the columns that differ, plus the columns the record had and `next` does not |
 
 These are the slot doors of the entity content service, the same ones a collection's slots take: none of
-them takes a store slot, because the slot carries the one it is filed in.
-Each method hands the list the writer returned to the column owner and then writes
-the record to the channel once. A write
-that moved nothing reaches no channel — the list is empty, the method returns,
-and nobody is woken. Whether a column moved is the writer's `sameValueGuard`,
-`oimSameValueZeroGuard` by default. Delivery happens at the next `db.flush()`.
+them takes a store slot, because the slot carries the one it is filed in. A write that moved nothing
+wakes nobody. Whether a column moved is the writer's `sameValueGuard`, `oimSameValueZeroGuard` by
+default. Delivery happens at the next `db.flush()`.
 
 `writeEntity` is what restoring a saved state needs: a patch alone leaves behind
 every key that was deleted before the snapshot was taken, so a plain load quietly
@@ -171,8 +168,6 @@ reader decides "did it change?" by comparing the slot's `entity` to the last one
 saw. Name no writer and the db's answers, then `OIMDefaults.ENTITY_WRITER.getValue()`, which is
 `createOIMEntityWriterInPlace()` unless it was set at startup.
 
-A writer moves columns and reaches no channel.
-
 ## The object you hand it is stored as handed — by default
 
 The first value, upserted while no slot is filed, goes through the writer's `fillEntity`. Both writer factories
@@ -199,16 +194,9 @@ key from the copy; for later writes take the guarded walk arms
 
 ## The frame guard
 
-Every write here goes through one ask — `updateEntity`, `deleteEntityColumns` and `writeEntity`
-all begin by asking the channel slot whether a flush is in progress and then checking
-that the identity is not released (`slot.owner.assertWritable`). The ask comes before the writer runs, so a
-write refused by a flush in progress has changed no column.
-
-`assertNotFlushing` covers the whole of a flush — `onBeforeFlush` and every
-after-each-frame handler, not only the frame body — so a write in response to a
-change happens after `flush()` has returned. Neither a `subscribeAfterEachFrame` handler
-nor `onBeforeFlush` is a door for one. See
-[the frame](/docs/core/model#the-frame).
+A write during a flush, or to a released slot, throws before any column changes. The flush
+includes `onBeforeFlush` and the after-each-frame handlers, so a write in response to a change
+happens after `flush()` has returned. See [the frame](/docs/core/model#the-frame).
 
 ## Where to next
 

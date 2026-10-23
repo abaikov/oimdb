@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/persist",
   "version": "4.0.0",
-  "description": "Storage-agnostic persistence engine ported onto the identity-addressed OIMDB core. Not published: replaces @oimdb/persist only once the core replacement lands.",
+  "description": "Storage-agnostic persistence engine for @oimdb/core.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

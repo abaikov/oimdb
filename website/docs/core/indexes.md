@@ -64,9 +64,6 @@ store of each bucket store slot. Together they answer "which entities belong to 
 | One list under no key | `createOIMSingleBucketService(db)` | [A single bucket](#a-single-bucket) |
 | A diff between two lists you hold yourself | `oimOrderedListCommandsOfTransition` | [Rendering an ordered bucket](#rendering-an-ordered-bucket) |
 
-Each entry of this table is a different thing you construct. You choose once, at
-construction, and nothing on the write path branches on it.
-
 ## A bucket's slots are the caller's
 
 A bucket collection is manual. Which slots a bucket holds is a fact about the
@@ -163,9 +160,9 @@ red.owner.unholdSlot(red);
 ```
 
 `addBucketMemberSlot` / `removeBucketMemberSlot` are the one-slot forms. There are no by-key writes: a
-write by key resolves the bucket first (`getSlotByKey` mints it, `findSlotByKey` does not), and a change
-that matters only to a bucket somebody already asked for writes through `findSlotByKey` and does nothing on
-`undefined` — which is how an index keeps a key with no bucket at zero cost.
+write by key resolves the bucket first (`getSlotByKey` mints it, `findSlotByKey` does not). A change that
+matters only to a bucket somebody already asked for goes through `findSlotByKey` and does nothing on
+`undefined`.
 
 ### Which door: you hold the answer, or you hold the delta
 
@@ -183,12 +180,9 @@ entity was deleted. The standing slots keep the holds they already have. Both wa
 subscribers once, and neither wakes anybody when nothing actually joined or left.
 
 Adding costs what you name. Removing from a set-driven bucket costs what you name;
-removing k slots from an ordered bucket of n is one pass over the list, n + k,
-through the content service's `removeSlots` — the erase–remove idiom (std::remove_if + erase in C++,
-ArrayList.removeAll in Java). Removing them one call at a time instead is k scans and k splices, up to k·n.
-The `remove` commands it records are in list order, each at the position it had
-when the removals before it were already applied, so a consumer replaying them
-draws the same list.
+removing k slots from an ordered bucket of n is one pass over the list, n + k.
+Removing them one call at a time instead is up to k·n. The `remove` commands it records
+replay in order to the same list.
 
 `addBucketMemberSlots` removes nothing. If the authoritative list *shrank* and you call
 `addBucketMemberSlots`, the slots that left stay in the bucket, held. Not knowing
@@ -196,46 +190,15 @@ what left is exactly when `writeBucketMemberSlots` is the right door; its cost i
 
 `writeBucketMemberSlots(bucketSlot, slots)` returns `true` when anything arrived or departed. It:
 
-- **is idempotent.** Re-sending an unchanged list evicts nothing and wakes
-  nobody. The *content service* answers whether the list is the one it already holds,
-  because only that strategy knows whether the caller's order is part of what the
-  bucket holds at all.
-- **commits through the content service.** The commit is that strategy's, through its protected
-  `reconcileSlots` — the reconciliation pattern, diff then patch. The set-driven service takes the set
-  difference and never rebuilds. The array-driven service compares the sequence:
-  the same slots in the same order change nothing, and any other sequence — a
-  reordered one included — is drained and re-added whole, because the caller's
-  *sequence* is what the bucket holds.
-- **empties in one call**, not one slot at a time. Per-slot eviction on
-  an array-driven bucket is quadratic: each removal closes the gap with a `splice`,
-  so evicting a thousand slots one at a time costs 499 500 element moves, which
-  is n(n-1)/2.
+- **is idempotent.** Re-sending an unchanged list evicts nothing and wakes nobody.
+- **follows the strategy.** A set-driven bucket takes the set difference. An array-driven
+  bucket compares the sequence: the same slots in the same order change nothing, and any
+  other sequence, a reordered one included, is written whole, because the sequence is what
+  that bucket holds.
+- **keeps the slots both lists name.** A slot in the old and the new list keeps its
+  identity and its subscribers through the write.
 
-  > That count is an operation count, not a timing: element moves performed by
-  > `Array.prototype.splice`. Emptying in one call does zero element writes.
-- **joins before it evicts.** A slot named by both the old and the new list
-  (which is what re-sending a page with one entity added amounts to) never reaches
-  zero references between the two loops. If it were given back first, its owner
-  would unfile it and the rejoin would put an orphan into the bucket. The next
-  write for that id would then mint a *second* identity, and every consumer
-  of this bucket would keep reading the first one forever. A rebuild of the array-driven
-  service names every survivor in both lists, so it holds every arrival before it
-  gives back any departure.
-
-### No frame number anywhere
-
-No frame number is handed to a content service per call, and none is stamped on a script.
-`reconcileSlots` and `drainSlots` carry none. A command script lives for exactly one frame:
-`OIMBucketCommands` records onto the bucket slot (`bucket.commands`) as the writes land, stamped with the
-clock reading it started at, and the after-flush reset empties every script that is stale — every script
-started before a frame that has since opened. A bucket written again since that frame closed keeps its new
-script for the frame those writes will be delivered in. So a consumer reads the script inside the frame —
-from its own effect, or from a `subscribeAfterEachFrame` handler — and what it reads can only
-describe the writes of the frame it was woken for.
-
-`clearBucketMemberSlots` asks whether the bucket is empty before it touches the store,
-and not after, so a bucket that was already empty records nothing for a call that
-reports nothing and wakes nobody.
+`clearBucketMemberSlots` on an empty bucket records nothing and wakes nobody.
 
 A slot in a bucket is a counted reference, a hold. Joining a bucket takes a
 hold on the slot; leaving gives it back. So a bucket you never emptied keeps its
@@ -305,9 +268,6 @@ new OIMSlotContentBucketServiceArrayDriven<
 });
 ```
 
-The set beside the list is an argument, not a subclass: one array-driven service
-takes whichever `IOIMBucketArrayMembership` you hand it.
-
 The bucket's own type says which storage it carries, so the pairing is checked:
 
 ```ts signature
@@ -316,11 +276,8 @@ TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>>        // OIMSlo
 TOIMBucketSlot<TOIMBucketSlotsArrayUniqueStore<TOIMEntitySlot<Card>>>  // ...with OIMBucketArrayMembershipUnique
 ```
 
-Handing a set-driven bucket to the array-driven service is a compile error.
-
-The content service is passed in already constructed, for bundling reasons: a factory
-that picked between the two at run time would name both on every branch, because a bundler cannot see past
-a runtime test. The one you do not import stays out of your bundle.
+Handing a set-driven bucket to the array-driven service is a compile error. The content
+service you do not import stays out of your bundle.
 
 ## Positions the caller decides
 
@@ -363,30 +320,10 @@ The default membership records one place per **mention**, so
 Build the content service with an `OIMBucketArrayMembershipUnique` when a position must name
 exactly one entity.
 
-The content service's protected `removeSlot` hands back a `number`: WHERE
-the slot was. A removal already has to find the slot, so nothing asks for a position the removal itself
-computed. Two of the answers are not positions, and both are exported:
-
-| Returns | Means |
-|---|---|
-| `0` and up | the index the slot occupied, now vacated |
-| `OIM_NOTHING_WAS_REMOVED` (`-1`) | the bucket did not hold it; nothing changed |
-| `OIM_REMOVED_WITHOUT_A_POSITION` (`-2`) | removed from a store that keeps no positions, which is the set-driven service |
-
-A removal answering the third is recorded as `recordWholeList`: a set has no index to
-patch, so the consumer is told to re-read the bucket rather than handed a
-fabricated one.
-
-An insert answers the same way: the index the slot landed on — `at` clamped to the ends of the list — or
-`OIM_NOTHING_WAS_INSERTED` (`-1`) when nothing was inserted, which is a repeat on an
-`OIMBucketArrayMembershipUnique`.
-
-The landing can differ from `getBucketMemberSlotPosition`. The default list keeps one
-place per **mention**, so inserting a slot the bucket already holds gives it a
-second position, and a position lookup names the *first* one. Recording that
-lookup would tell a consumer to patch at an index the slot is not at, and its rendered list
-would diverge from the bucket's permanently. That is why the command carries the
-landing the insert itself computed.
+`insertBucketMemberSlotAt` answers the index the slot landed on (`at` clamped to the ends of
+the list), or `OIM_NOTHING_WAS_INSERTED` (`-1`) for a repeat on an
+`OIMBucketArrayMembershipUnique`. Under the default membership the landing can differ from
+`getBucketMemberSlotPosition`, which names a repeated slot's first position.
 
 ### Per strategy
 
@@ -441,14 +378,10 @@ an animation, a focus and a scroll anchor are attached to. Take it for a positio
 list a renderer patches; leave it out for a bucket that is only iterated.
 
 **The recorder is chosen when the content service is built**, as `bucketCommands` in
-its options, and read once into a readonly field. It records for the buckets of
-every store slot that content service serves. Left out of a content service built with `new`, it is
-`OIMBucketCommandsNone`, whose methods are empty and take positions rather
-than a command object, so a bucket nobody renders positionally allocates no
-command. There is no setter: a second recorder cannot silently replace the first. The recorder is
-stateless — `new OIMBucketCommands({ maxCommandsPerSlot })` holds only its ratio — and nothing has to be
-disposed: the after-flush reset is subscribed once per channel slot, on the first script that channel ever
-sees.
+its options (`new OIMBucketCommands({ maxCommandsPerSlot })`). It records for the buckets of
+every store slot that content service serves. A content service built with `new` and no
+`bucketCommands` records nothing, so a bucket nobody renders positionally allocates no
+command. Nothing has to be disposed.
 
 ```ts
 const bucket = pageService.holdSlotByKey(page, 'results');
@@ -569,9 +502,6 @@ returns a `reset` at all, which is the arm an animating consumer wants.
 
 It is the diff itself and does not subscribe for you: read the two
 lists inside your own effect and call this.
-
-It is a free function, not a method on `OIMChannelService`, because every consumer
-imports the channel and a bundler cannot drop a class's methods one at a time.
 
 ## Giving a bucket store slot back
 

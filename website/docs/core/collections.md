@@ -66,8 +66,8 @@ same key always resolves to the same object for as long as anything refers to it
 
 ## Building one
 
-`createOIMEntityService(db, options)` is the convenience door for the common case, a
-collection keyed by one `TOIMStoreKey` and filed in a Map store. Its options are `keyOf` (required),
+`createOIMEntityService(db, options)` is the convenience door. Its options are `keyOf` (required),
+`entitySlotStoreService` (a Map store when left out; a tree store for a composite key),
 `entityWriter`, `slotEmptiness`, `slotReleasePolicy`, and `columnSlotStoreService` or `columnNames`. Each
 optional one falls back to the `OIMDB`'s value, then to the `OIMDefaults` entry.
 
@@ -317,18 +317,6 @@ enrollmentService.slotContentService.upsertEntity(enrollments, { user: alice, gr
 enrollmentService.getSlotByKey(enrollments, [alice, admins]);
 ```
 
-The two walks are one store class and two stateless instances of
-`OIMKeyTreeWalkScalar` and `OIMKeyTreeWalkComposite` — both subclasses of
-`OIMKeyTreeWalk`, which implements `IOIMKeyTreeWalk` — each minted by the first
-read of its `OIMDefaults` entry and handed back unchanged after that. Only the composite walk
-holds: `mintNodeAt` calls `holdCompositeKeyPart` when it creates an edge, which runs
-`entitySlot.owner.holdSlot(entitySlot)`, and `deleteKey` calls `unholdCompositeKeyPart` on
-exactly the edges it unlinked, which runs `entitySlot.owner.unholdSlot(entitySlot)` unless
-`oimIsSlotReleased(entitySlot)`. The tree itself is a `TOIMSlotStoreTree` — a root
-`TOIMCompositeKeyNode` plus a `Set` of every filed slot, which is what `getSlots` and
-`getSlotCount` read, in filing order. A node gets its `childNodes` map only when a
-longer key is first filed under it.
-
 ### Comparing two chains
 
 `oimSameSlotSequence` compares two lists of slots by reference, so it suits a chain
@@ -347,15 +335,10 @@ The key's shape is what `TKey` carries and what the store is built from:
 `OIMSlotStoreServiceSingleSlotDriven.INSTANCE` for no key. Pass the store you want.
 
 Each is an `IOIMSlotStoreService<TKey, TSlot, TStore>`: a stateless service with
-`createStore`, `ownKey`, `isSameKey`, `get`, `set`, `remove`, `getSlots` and `getSlotCount`, where the store
-object it creates is carried by the collection's store slot and reached only through the collection's
-services. `ownKey(key)` is the key a new slot is minted with — the key itself for the map store, a copy of the
-composite key for the tree store — so the slot owner writes a slot's key and the
-store never touches a slot. The collection service answers `isSameKey(key, otherKey)` by asking
-its store service; an index uses it to tell whether an entity's key moved. The store service holds no
-state, so one instance can serve every collection; the store is per collection. A store of
-your own is that interface — nothing reaches past it, which is why neither the services nor the key
-walk branch on what kind of key it has.
+`createStore`, `ownKey`, `isSameKey`, `get`, `set`, `remove`, `getSlots` and `getSlotCount`.
+`ownKey(key)` is the key a new slot is minted with: the key itself for the map store, a copy of the
+composite key for the tree store. To file slots your own way, implement that interface and pass it
+as `slotStoreService`.
 
 ## Emptiness is a strategy
 
@@ -396,10 +379,6 @@ unused-slot collector holds until then. That is why the example above names
 flush and the stored post would be unreachable. Hold the key, or pick a policy
 that keeps empty slots, when an "empty" entity still has to be read.
 
-The checker is a strategy object, not a flag, because a flag would mean a branch
-on every write. The object you inject is the answer, and the engine runs it once
-per write.
-
 ## How long an identity stays
 
 `slotReleasePolicy` answers one question for every slot of the collection type: once
@@ -414,13 +393,8 @@ policy all agree.
 
 ## Column slots
 
-**Every collection type has its own column owner.** It is stateless configuration built with the slot
-owner, over `columnSlotStoreService` (or the ordinal store `columnNames` names). The column slots of a
-carrier slot live in that slot's `columnSlotStore`; the column state — the column groups, and which
-columns are referenced — lives on the store slot. The column owner has two strategies, chosen by the
-factory: write-driven column slots, woken by the marks a write makes (`OIMColumnOwnerPushDriven`, for
-entity and bucket collections), and derive-driven column slots, each a computed slot over
-its carrier (`OIMColumnOwnerPullDriven`, for computeds; see
+An entity or bucket collection's column slots are woken by the writes that change
+their column; a computed's column slots are derived from it (see
 [Computed columns](/docs/core/computed-effects#computed-columns)).
 The doors are on the collection service:
 `holdColumn(slot, columnName)` / `unholdColumn(columnSlot)`, `getColumn(slot, columnName)`,
@@ -490,9 +464,9 @@ cardService.unholdColumn(renderedOfCard);
 card.owner.unholdSlot(card);
 ```
 
-`getColumnGroup` returns a `TOIMColumnGroup` — `{ key, columnNames }`, the names
-deduplicated and sorted — and returns the same frozen object for the same set of
-names, so get it once per view, not once per entity. A write
+`getColumnGroup` returns a frozen `TOIMColumnGroup` — `{ key, columnNames }`, the names
+deduplicated and sorted. Get it once per view and reuse that object for every entity:
+a group the store already knows by that object is filed without re-checking its key. A write
 wakes the group's slot once if it changes any of its columns and not at all if
 it changes only others.
 

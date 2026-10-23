@@ -5,9 +5,9 @@ description: The source layout of @oimdb/core by layer and domain, the slot and 
 
 # Architecture
 
-This page describes `@oimdb/core` as its source stands. Paths are relative to
-`packages/core/src/` unless they start with `tests/`, and `index.ts` is the whole
-public surface: nothing outside it is reachable from a consumer.
+This page is for reading or contributing to the source of `@oimdb/core`. Paths are
+relative to `packages/core/src/`, and `index.ts` is the whole public surface: nothing
+outside it is reachable from a consumer.
 
 <InShort>
 
@@ -180,10 +180,9 @@ allocates goes through any of these.
 - Holds, unholds, effects attaching and detaching, a move between buckets, a
   release deadline written into `releaseDueAfterUnholdMs`, and a patch all leave a
   slot on the map its literal gave it.
-- `tests/how-many-shapes-reach-the-write-door.test.ts` counts the shapes reaching
-  the channel's write door at three, one below V8's polymorphic ceiling of four, and
-  `holdSlot` at four (the three plus the computed slot). A single's slot comes from
-  the same literal as a keyed one and adds no shape.
+- Three shapes reach the channel's write door, one below V8's polymorphic ceiling of
+  four, and four reach `holdSlot` (the three plus the computed slot). A single's slot
+  comes from the same literal as a keyed one and adds no shape.
 - Neither entity writer deletes a column or builds an entity key by key. A column a
   PUT drops, or `deleteColumns` takes away, is written `undefined` and its key
   stays. `createOIMEntityWriterInPlace` writes into the stored object;
@@ -193,12 +192,6 @@ allocates goes through any of these.
   column holding `undefined` counts as absent: it reads `undefined`, a later write
   that leaves it out does not report it again, and taking the entity away does not
   wake its readers.
-
-`tests/what-v8-keeps-on-fast-properties.test.ts` checks this through V8's own
-natives ("is this object on fast properties", "do these two share a map"): every
-slot kind after a full scenario, under no release policy and under one that writes
-a deadline, and an entity under each writer after a column leaves, after one is
-added, after a column delete, and at forty columns.
 
 An entity handed in with a few hundred fields is already in dictionary mode when
 `JSON.parse` or a literal produces it, and so is its copy. That case is outside

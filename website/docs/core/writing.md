@@ -101,21 +101,13 @@ A one-column write (`updateEntityColumn`) of the value the column already holds 
 wakes nobody: the writer's `patchColumn` compares and reports no change. It still passes through the
 door's checks first, so during a flush it is refused like any other write.
 
-The map read is explicit on purpose: there is no `updateEntityByKey`. Resolve a key when it arrives from
-outside; if you already had the slot and went back for it, that is a defect. The slot-first doors exist
-because the engine resolves a key to its identity once and then works through the identity. The write
-that returned the slot already paid for the lookup.
+There is no `updateEntityByKey`: resolve a key once when it arrives from outside, and keep the slot.
+The write that returned the slot already paid for the lookup.
 
-The batch forms are for many entities at once. `upsertEntities`, `insertEntities`, `fillEntities`,
-`deleteEntities` and `clearAllEntities` open one content subframe around the whole batch, so no frame can
-close in the middle of it. The content service holds the store slot's content-change notifications until
-its own outermost content subframe closes: each listener (an index, for instance) is called once, with
-every slot of the batch, through `onContentChangedMany`, and only then are the slots of the batch checked
-for release. A single write delivers one `onContentChanged` when its own subframe closes. A subframe the
-caller opened on the channel slot does not hold them, so an index is current as soon as the content
-service's door returns. The per-entity doors inside still open a subframe each, which the outer one
-absorbs. The channel is still told per slot: 100 entities upserted are 100 channel writes, and a batch
-that changed no value is zero.
+The batch forms (`upsertEntities`, `insertEntities`, `fillEntities`, `deleteEntities`,
+`clearAllEntities`) are for many entities at once. No frame can close in the middle of a batch, and an
+index over the collection is told once, with every slot of the batch. An index is current as soon as
+the door returns.
 
 ### What a write wakes
 
@@ -177,30 +169,13 @@ comes out as the list of entities a re-indexing pass owes anything, rather than
 the list of entities that arrived. `insertEntity(cards, key, entity, changed)`
 takes the same parameter.
 
-`sameValueGuard` already refused those writes column by column, and this array is how that
-verdict leaves the engine. Without it, a consumer that owns an index this engine
-does not maintain has to re-report every entity of every re-sent payload. It is an
-out-parameter rather than a return value because the return value is the
-identity (see [The four doors](/docs/core/model#the-four-doors)), and a
-`{ slot, changed }` record would allocate once per write on the path this exists
-to make cheaper. A caller who does not want it pays one `undefined` compare per
-write.
+The slot doors `cardContentService.writeEntity(slot, entity)` and
+`bucketService.slotContentService.writeBucketMemberSlots(bucket, members)` return a boolean: whether
+the content changed. `false` does not mean the slot may go; that is decided by emptiness and the
+release policy.
 
-One layer down this is the slot door's write (`cardContentService.writeEntity(slot, entity)`,
-`bucketService.slotContentService.writeBucketMemberSlots(bucket, members)`), which returns a boolean. That boolean
-says whether the content landed, which is a fact about the content, not about
-the identity: `false` does not mean "this slot may go". An empty bucket written an empty
-list answers `false` and is a perfectly good identity its caller was just handed.
-Whether the content keeps the slot is settled separately, by `IOIMSlotEmptiness`
-writing the slot's EMPTY flag and by the release policy.
-
-Emptiness decides lifetime and leaves the write path alone. An `upsertEntity` onto an
-entity slot that still carries an entity merges into it even when emptiness calls it
-empty — a soft delete, a seed — so a column the new entity drops is woken, an
-unchanged one is not, and an upsert that repeats the entity exactly wakes nothing.
-Only a slot with no entity at all is filled whole: the write tests
-`slot.entity === undefined`, and `oimIsSlotEmpty(slot)` plays no part in choosing between
-fill and PUT.
+An `upsertEntity` onto a slot that holds an entity your `slotEmptiness` calls empty (a soft delete)
+is still a PUT onto that entity, not a fresh fill: only the columns that moved wake.
 
 ### The bulk loads check their precondition rather than declaring it
 
@@ -315,11 +290,8 @@ before that return, so even `[]` is refused during a flush.
 Both of the reporting forms write the entity slot too, so an effect on the slot
 sees a hand mutation, not only an effect on a column.
 
-Emptiness is re-stamped for you, and indexes are told. `markEntityChanged`
-hands the names to the content-change listeners that read one of them, settles the slot's
-EMPTY flag (when no names are given, when the entity is gone, and on every call when the
-content service's `slotEmptiness` is not the default presence check), and then asks the release check. Without this, a hand mutation that emptied the entity would leave
-the flag claiming content, and the identity would outlive its value.
+Indexes are told and emptiness is settled again, so a hand mutation that empties the
+entity is seen by the release policy.
 
 It is refused during a flush, like every other write, and it throws on a released
 identity.
@@ -343,22 +315,14 @@ reference".
 `slot.data` belongs to the consumer: the core never reads or writes it, and clearing or
 removing the slot (`deleteEntity(slot)`) does not reset it. The identity survives a
 removal, so whatever you wrote there is handed to the first reader after a
-re-`upsertEntity` unless you clear it yourself.
-
-Each index keeps its last key for an entity in a field of its own, `slot.indexKeys`, read and
-written only by the index through the db's `IOIMIndexKeysService`. Nothing in it is yours to claim.
+re-`upsertEntity` unless you clear it yourself. `slot.indexKeys` belongs to the indexes; do not
+write it.
 
 ### A write that changes nothing wakes nobody
 
-The writer reports which columns actually moved, and zero moved columns
-short-circuits before any channel write or routing: `putEntity` and
-`patchEntity` answer `false` and the content service writes nothing to the channel, `writeEntity`
-returns `false` and skips the content-change listeners and the emptiness stamp,
-and `updateEntity` returns the slot before any channel write.
-
-`markEntityChanged` follows the same rule from the other side: there the caller
-reports what moved, so an empty list means the caller is saying nothing moved, and it
-returns before opening the subframe.
+When no column moved, nothing is written to the channel and no index is told:
+`writeEntity` returns `false`, `updateEntity` returns the slot, and nobody wakes.
+`markEntityChanged(slot, [])` is the same from the other side.
 
 ## The two writers
 
@@ -384,10 +348,8 @@ createOIMEntityWriterReplacing(options?) // every write that changed something p
 
 A writer moves columns and nothing else: it reaches no channel, takes no holds,
 and knows nothing about lifetime. `deleteColumns` hands back the names that
-actually moved, a frozen empty array when nothing did. `putEntity` and
-`patchEntity` answer whether anything moved and push the moved names only into
-the array they are handed; the content service hands one only when somebody reads
-columns, so a write nobody reads by column builds no list.
+actually moved. `putEntity` and `patchEntity` answer whether anything moved and push
+the moved names into the array they are handed, when they are handed one.
 
 `putEntity` is PUT and `patchEntity` is PATCH, as in HTTP. In one call, PUT makes the stored
 entity the value you hand in: the columns that changed are written and the
@@ -421,8 +383,6 @@ Left out everywhere, the writer is `OIMDefaults.ENTITY_WRITER.getValue()`, which
 `createOIMEntityWriterInPlace()` unless replaced at startup. Replacing it after
 anything has read it throws (`OIMDefaults.ENTITY_WRITER has already been handed
 out`), because every object built before would keep the old one.
-
-Which object you inject settles the fork, so no write path branches on a flag.
 
 ### Writing your own writer
 
@@ -497,12 +457,8 @@ Readers must be subscription-driven: `slot.entity` before and after an update is
 fire. Your effect running is what tells you something happened.
 
 Neither writer `delete`s a column. A column taken away — dropped by a PUT, or
-named in `deleteEntityColumns` — is written `undefined`: the in-place writer
-writes it into the stored object, the replacing writer into its copy. Deleting keys,
-or building a copy key by key, moves an object out of its hidden class and can
-push it into dictionary mode; writing `undefined` keeps every entity of a
-kind on one shape. A test checks it: a forty-column entity stays on fast properties under both writers after a PUT
-that drops a column and after a column delete. Under both writers the key stays in `Object.keys` and `in`, the
+named in `deleteEntityColumns` — is written `undefined`, which keeps every entity of a
+kind on one V8 shape. The key stays in `Object.keys` and `in`, the
 column reads `undefined`, and a column holding `undefined` counts as absent: a PUT
 does not count it as leaving and a removal does not count it as removed, so neither
 wakes anyone for it.
@@ -512,10 +468,6 @@ by reference (a memoised render, a shallow-equality selector, a library that
 diffs props) sees the change without being told. The new object is a spread copy
 (`oimCopyEntity`), and a column it takes away is
 `undefined` on it, as above. A write that changed nothing keeps the old object.
-
-The writer is chosen once, at construction, so no write path
-branches on it. The two strategies have no measured price of their own; see
-[Benchmark methodology](/docs/benchmarks/methodology) for what is measured.
 
 ### `sameValueGuard`
 
@@ -572,45 +524,18 @@ See [Standalone records](/docs/core/object) for the rest of its surface.
 
 ## Writes and the frame
 
-Every write first asks the runtime one question: is a flush in progress? If one
-is, the write is refused. That covers more than the frame body: `assertNotFlushing`
-throws on `isFlushing` as well as on a running frame, and `isFlushing` is up
-from before `onBeforeFlush` until the flush's `finally`.
-
-Every write door of every content service, for a collection and for a single alike, asks the channel
-slot (`slot.owner.assertWritable`) before it touches anything, so no door can forget to.
-
-A write is refused rather than queued because subscribers are told during the
-frame, after the delivery list has already been taken. A write from there would
-land in a frame that is no longer collecting. See
+A write during a flush throws. That covers the effect bodies, `onBeforeFlush` and the
+after-each-frame handlers (`subscribeAfterEachFrame`, `subscribeOnceAfterFrame`): subscribers
+are told after the delivery list was taken, so a write from there would land in a frame
+that is no longer collecting. To write in response to a change, hand the work to a
+microtask or a later callback, or use `OIMChannelService.INSTANCE.subscribeAfterEachFlush`,
+whose handlers run after the flush and may write. See
 [The channel](/docs/core/channel#the-rules).
 
-To write in response to a change, the write has to happen after the flush has
-ended. `subscribeAfterEachFrame`, `subscribeOnceAfterFrame` (both on `OIMChannelService.INSTANCE`, taking the
-channel slot) and `onBeforeFlush` all run inside the flush, so a write from any of them is
-refused by name; what they can do is hand the work to a microtask or a callback
-that runs later. A `subscribeAfterEachFlush` handler is called from the flush's
-`finally` after `isFlushing` is lowered and the unused-slot collector has swept,
-so a write from it is accepted and asks for a frame of its own.
-
-A write also owes the runtime the *subframe* it belongs to.
-`OIMChannelService.INSTANCE.openSubframe(channelSlot)` and `closeSubframe(channelSlot)` bracket one logical
-change, and the frame cannot close between them, however many writes ask for one. `flush()` throws
-meanwhile, and the `closeSubframe` that brings the count to zero pays the debt. A content service's own
-content subframe opens one of these too. A change is bigger than any single write: `writeEntity` moves the
-entity's columns and hands it to every content-change listener — an index files it in its bucket there —
-and *then* settles emptiness, and a synchronous scheduler that flushed in that gap would settle an index
-over a bucket the entity had not joined yet.
-
-User code runs inside a write's subframe — an index's `keyOf`,
-`slotEmptiness.isEmpty`, a writer — and a `flush()` called from any of it throws
-`a subframe is open`, with the write in progress left whole.
-
-A write that is exactly **one** channel write has no gap to guard and nothing to batch,
-so it opens no subframe: `insertEntity` of a new key, `writeEntity` onto a slot that holds an entity,
-`updateEntity` and `updateEntityColumn`, when the slot has no changed-column readers (no column slot on it,
-no content-change listener on its store slot) and emptiness is not recomputed on a column write.
-`deleteEntityColumns` always opens one, because it always names the columns it took.
+To group several writes so no frame closes between them, bracket them with
+`OIMChannelService.INSTANCE.openSubframe(channelSlot)` and `closeSubframe(channelSlot)`.
+`flush()` throws while a subframe is open, and that includes a `flush()` called from your
+own code running inside a write: an index's `keyOf`, `slotEmptiness.isEmpty`, a writer.
 
 ## Where to next
 

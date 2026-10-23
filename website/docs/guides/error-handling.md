@@ -175,23 +175,12 @@ reach the caller at the call: it goes to the error policy like any other handler
 throw (logged by default, thrown out of `flush()` under
 `OIMErrorPolicyThrowAtOnce`) rather than out of the `upsertEntity` that made it.
 
-Whatever you are writing (an entity in a store slot, a single entity, a bucket),
-one body raises it: `OIMSlotOwnerService.assertWritable(slot)`, which every content service write door calls.
-It calls `OIMChannelService.INSTANCE.assertNotFlushing(channelSlot)`, then asks whether the identity has been
-released. `OIMIndexService.disposeIndexStoreSlot` asks the channel directly, through the same
-`assertNotFlushing`, before it takes an index store slot down.
+The same refusal comes from every write door, for an entity in a store slot, a single entity and
+a bucket alike, and from `disposeIndexStoreSlot`. A write to a released identity throws too.
 
-**A refused write does not leave a filed, valueless slot behind.**
-`insertEntity` (and `upsertEntity`, which is it under `keyOf`), for a key that has no identity, mints one, writes
-inside a guard, and on a throw asks `releaseSlotIfUnheld` on what it just minted
-before re-raising, so the only thing that leaves the call is the refusal you
-asked for.
-
-The unwind is `releaseSlotIfUnheld` rather than a store remove because the write
-may have half landed (a value that did arrive, a hold a derivation took on its own
-sources), and its guards (`holdCount`, `oimIsSlotReleased(slot)`, `slot.owner !== this`,
-`hasReference(slot)`, then the release policy's `isSlotReleasable` or
-`isEmptySlotReleasable`) are what already decide whether an identity may go. The hit path is unchanged and stays outside the guard.
+**A refused write does not leave a filed, valueless slot behind.** When `insertEntity` or
+`upsertEntity` minted an identity for the write and the write throws, the new identity is
+released again before the throw leaves the call, unless something already holds it.
 
 **Refused is not the same as unchanged**, and only one of them unwinds anything:
 
@@ -209,15 +198,10 @@ that rule, because they return `void` and hand out no reference at all. On a key
 they throw and roll back only the entities that call filed; on a throw from `keyOf` or a writer they release the
 slots that call filed and nothing holds.
 
-When a computed collection mints a computed slot, the computed content strategy calls `createSources`, then
-`OIMComputedSourcesService` holds `sourceSlots` and `sourceComputeds` in two plain loops, with no `try` around
-either. A `createSources` that throws leaves nothing held. A hold that throws part-way through those loops, for
-example on a source that has already been released, leaves the holds already taken
-standing, with no derivation filed to give them back through, and nothing gives
-them back. Keep `createSources` total, and pass only sources that are alive.
-
-`OIMComputedSourcesService` is also what gives those holds back on the ordinary path, when
-the derivation itself goes.
+When a computed slot is minted, a `createSources` that throws leaves nothing held. A source that
+cannot be held, for example one already released, throws part-way through, and the holds already
+taken on the sources before it are never given back. Keep `createSources` total, and pass only
+sources that are alive.
 
 ### `flush()` during a frame
 
@@ -225,9 +209,7 @@ the derivation itself goes.
 OIMChannelService.flush: a frame is already running, and a second one inside it would end the first. …
 ```
 
-The inner run would reset the frame's opening clock and mark the frame done while
-the outer one is still delivering, so every "changed in this frame" question after
-that is asked against a frame that has already closed.
+A frame inside a frame would close the outer one while it is still delivering.
 
 From the **tail** of a flush (`onBeforeFlush`, an after-each-frame handler, or
 anything either of them called), `flush()` does not throw and does not defer: it

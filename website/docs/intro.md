@@ -23,14 +23,12 @@ It is not worth it for a few global values with no collections behind them, wher
 signal library or a bare store is enough. [Why OIMDB](/docs/why-oimdb) works through the
 same task with zustand and with OIMDB.
 
-:::warning[The versions here are not the versions on npm]
+```bash
+npm install @oimdb/core
+```
 
-Older releases already use the `@oimdb` names on npm, so running `npm install` on
-any of them gives you the engine this one replaced instead of failing. These
-pages describe the source in this repository. See
-[Installation](/docs/getting-started/installation).
-
-:::
+These pages describe `@oimdb/core` 4.x. See
+[Installation](/docs/getting-started/installation) for the other packages.
 
 ## The one idea
 
@@ -124,9 +122,8 @@ See [Writing](/docs/core/writing).
 | [`@oimdb/persist`](/docs/packages/persist) | Storage-agnostic persistence, with five backends: `persist-idb`, `persist-localstorage`, `persist-async-kv`, `persist-json`, `persist-memory`. |
 | [`@oimdb/exodra`](/docs/packages/exodra) | Bridge into an Exodra reactive surface. |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Mirrors entity and bucket store slots into Redux. |
-| `@oimdb/devtools` | A debug registry: name store slots and indexes, inspect runtime state. No page here; see [Packages](/docs/packages/). |
+| `@oimdb/devtools` | A debug registry: name store slots and indexes, inspect runtime state. |
 | `@oimdb/mcp` | An MCP server and CDP inspector that connects AI assistants to live browser state. |
-| `@oimdb/async` | Deprecated stub. Its `src/index.ts` is `export {}`. |
 
 See [Packages](/docs/packages/) for what each one imports from the core.
 
@@ -135,7 +132,7 @@ See [Packages](/docs/packages/) for what each one imports from the core.
 ### Start
 
 <DocCards>
-  <DocCard to="/docs/getting-started/installation" title="Installation">Get it running in this repository.</DocCard>
+  <DocCard to="/docs/getting-started/installation" title="Installation">npm or a CDN.</DocCard>
   <DocCard to="/docs/getting-started/quick-start" title="Quick Start">A collection, an index, a sorted view, a subscription and a flush in one program.</DocCard>
   <DocCard to="/docs/why-oimdb" title="Why OIMDB">Decide whether it fits your application.</DocCard>
   <DocCard to="/docs/recipes" title="Recipes">The code for a common task.</DocCard>

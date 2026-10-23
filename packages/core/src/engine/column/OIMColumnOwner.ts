@@ -110,16 +110,17 @@ export abstract class OIMColumnOwner<
     }
 
     private mintColumnGroupSlot(carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
-        if (columnGroup.key !== oimColumnGroupKeyOfColumnNames(columnGroup.columnNames)
-            || columnGroup.key === OIM_ANY_COLUMN_KEY) {
+        const storeSlot = carrierSlot.storeSlot as TOIMSlotEditable<TOIMStoreSlot>;
+        const columnGroupsByKey = (storeSlot.columnGroupsByKey ??= new Map<string, TOIMColumnGroup>());
+        const registeredColumnGroup = columnGroupsByKey.get(columnGroup.key);
+        if (registeredColumnGroup !== columnGroup && (columnGroup.key !== oimColumnGroupKeyOfColumnNames(columnGroup.columnNames)
+            || columnGroup.key === OIM_ANY_COLUMN_KEY)) {
             throw new Error(
                 `OIMColumnOwner.holdColumnGroup: "${columnGroup.key}" is not the key of its columns. A column group `
                 + 'comes from getColumnGroup, which builds the key from the names.',
             );
         }
-        const storeSlot = carrierSlot.storeSlot as TOIMSlotEditable<TOIMStoreSlot>;
-        const columnGroupsByKey = (storeSlot.columnGroupsByKey ??= new Map<string, TOIMColumnGroup>());
-        if (!columnGroupsByKey.has(columnGroup.key)) {
+        if (registeredColumnGroup === undefined) {
             columnGroupsByKey.set(columnGroup.key, columnGroup);
             const columnNames = columnGroup.columnNames;
             for (let i = 0; i < columnNames.length; i++) getColumnReaders(storeSlot, columnNames[i]).columnGroups.push(columnGroup);

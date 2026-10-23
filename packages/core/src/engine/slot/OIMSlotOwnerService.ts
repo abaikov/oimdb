@@ -108,7 +108,8 @@ export class OIMSlotOwnerService<
     public isAnyColumnReferenced(slot: TOIMSlot, changedColumns: readonly string[]): boolean {
         const storeSlot = slot.storeSlot;
         if (storeSlot === undefined) return false;
-        return this.columnOwner.isAnyColumnReferenced(storeSlot, changedColumns) || this.isAnyColumnRead(storeSlot, changedColumns);
+        return (slot.columnSlotStore !== undefined && this.columnOwner.isAnyColumnReferenced(storeSlot, changedColumns))
+            || this.isAnyColumnRead(storeSlot, changedColumns);
     }
 
     private isAnyColumnRead(storeSlot: TOIMStoreSlot, changedColumns: readonly string[]): boolean {

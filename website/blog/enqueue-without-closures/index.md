@@ -42,7 +42,7 @@ public cancel(fn: () => void): void {
 
 Zero allocation per enqueue, and idempotent — the same `fn` enqueued twice runs once, because the `Set` keys on identity. Each emitter holds one stable `onFlush` method and enqueues that, so its scheduling dedup is just the `Set`.
 
-No artifact under [`packages/bench/measurements/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements) covers this comparison, so no timing is stated (see [How we measure](/docs/performance/)).
+No artifact under [`packages/bench/measurements/`](https://github.com/oimdb/oimdb/tree/master/packages/bench/measurements) covers this comparison, so no timing is stated (see [How we measure](https://github.com/abaikov/oimdb/blob/master/packages/bench/HOW-WE-MEASURE.md)).
 
 What survives without a stopwatch is the allocation count, which is the actual argument. Per enqueue, the disposer shape allocates one closure and the wrapper shape allocates one object; the by-reference shape allocates **zero**, and adds the reference to a `Set` that dedups on identity. Every one of those allocations is also garbage the moment the task runs. How many nanoseconds a closure allocation costs on a given machine is exactly the part this post can no longer tell you — what it can tell you is that on this path there isn't one.
 

@@ -1,7 +1,7 @@
 {
   "name": "@oimdb/redux-adapter",
   "version": "3.0.0",
-  "description": "Redux adapter for the identity-addressed OIMDB core. Not published: replaces @oimdb/redux-adapter only once the core replacement lands.",
+  "description": "Redux adapter for @oimdb/core.",
   "type": "module",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",

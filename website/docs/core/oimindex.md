@@ -313,39 +313,22 @@ first `getAnyBucketColumnByKey` / `holdAnyBucketColumnByKey`. A
 
 ### The content-change hook and `indexKeys`
 
-`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)` and
-`removeContentChangeListener(storeSlot, listener)` file and unfile a listener on one store slot, by the
-listener object. An `IOIMContentChangeListener` has `onContentChanged(slot, patch, changedColumns)` and
-`onContentChangedMany(slotChannelQueue, patchChannelQueue, changedColumnsChannelQueue)`: three
-parallel queues read with `getEntryCount()` / `getEntryAt(i)` and valid only during the call. A content
-service holds a store slot's notifications until its own outermost content subframe closes, so the
-many-entity doors (`upsertEntities`, `insertEntities`/`fillEntities`, `deleteEntities`, `clearAllEntities`)
-call `onContentChangedMany` ONCE when they return; the index groups entities by key and moves
-each group with one bucket write. Which columns a listener reads is declared when it is
-added: `readColumnNames`, and `undefined` means every column; removing the listener gives them back. The
-index declares its key `columns` (every column for an opaque `keyOf`), and adds the columns its
-bucket column slots watch (`addReadColumn`), and every column once a bucket any-column slot was asked for
-(`addReadAnyColumn`). Column slots on entities are not in it — a write finds those on the entity. A write to
-a column no listener reads is one `Map.has` per name: no listener call, no buffer, no
-array (the content service reuses one array of changed names). A listener of your own that needs
-every column write is added with `readColumnNames` `undefined`. The filter is the union of every
-listener on that store slot, not each listener's own list: once a write touches a column any of
-them reads, all of them are called, so a listener with a narrower list still checks
-`changedColumns` itself, as the index does against its key columns. Implement the listener yourself only for a
-derivation that has to be pushed per write the way an index is; anything that can be
-pulled belongs in a computed.
+An index is a content-change listener on its source store slot. To push a derivation per
+write the way an index does, add your own with
+`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)`
+and remove it with `removeContentChangeListener(storeSlot, listener)`. An `IOIMContentChangeListener`
+has `onContentChanged(slot, patch, changedColumns)` and `onContentChangedMany(...)`, which a batch
+write calls once. `readColumnNames` `undefined` means every column. Listeners on one store slot share
+one column filter, so a listener still checks `changedColumns` itself. Anything that can be pulled
+belongs in a computed instead.
 
-Each indexable slot carries, per index, the key it is filed under now, so a moved entity
-leaves its old bucket in O(1), also under the in-place writer. Only the index writes it, through the
-`IOIMIndexKeysService` (`get(slot, position)`, `set(slot, position, indexKey)`) at the position
-`createIndexStoreSlot` allocated (`indexStoreSlot.indexKeysPosition`); positions are allocated per source store
-slot. The strategy is chosen once per db, `new OIMDB({ indexKeysService })` (default
-`OIMDefaults.INDEX_KEYS_SERVICE.getValue()`):
+Each entity slot remembers, per index, the key it is filed under, so a moved entity leaves its old
+bucket in O(1). How that memory is kept is chosen once per db, `new OIMDB({ indexKeysService })`:
 
 | strategy | on `disposeIndexStoreSlot` | cost |
 |---|---|---|
-| `OIMIndexKeysServiceAppending` (default) | the position is never reused; its stale entry stays on each slot | a slot's `indexKeys` grows to the highest position any index wrote on it (K indexes made and disposed → an array of K on a slot the last one filed), and a stale entry keeps its key reachable. Writes pay nothing for a disposed index: only live listeners are kept |
-| `OIMIndexKeysServiceReclaiming` | wipes that position on every slot of the source and reuses it | O(N) per dispose |
+| `OIMIndexKeysServiceAppending` (default) | the index's position is not reused | each index ever created on a source leaves one entry on the slots it filed |
+| `OIMIndexKeysServiceReclaiming` | the position is wiped on every slot of the source and reused | O(N) per dispose |
 
 ```ts
 const dbWithShortLivedIndexes = new OIMDB({ indexKeysService: new OIMIndexKeysServiceReclaiming() });
@@ -474,18 +457,13 @@ cardsByDeckService.slotContentService.getBucketMemberSlotAt(spades, 0);
 
 - **Reads come back in order.** `getBucketMemberSlots`, `getBucketMemberSlotAt` and
   `getBucketMemberSlotPosition` answer in `sortColumns` order.
-- **A lazy insertion buffer.** A write appends the arrival to an unsorted tail of the
-  bucket's array (`TOIMBucketSlotsSortedArrayStore` is the array store plus a count of the
-  sorted prefix). The first read settles the tail: binary insertion for a short tail, one
-  sort for a long one. A bucket nobody reads is not sorted.
+- **Sorted on the first read.** A write appends the arrival to an unsorted tail, and the
+  first read settles it. A bucket nobody reads is not sorted.
 - **A member is re-filed when one of its sort columns changes, and only then.** A write to
   a column that is neither the key nor a sort column neither reorders the bucket nor wakes it.
 - **There are no positional writes** on this bucket. The order belongs to the comparator,
   so `insertBucketMemberSlotAt` and the other position writes stay on `OIMSlotContentBucketServiceArrayDriven`.
-- **Bucket commands are always `OIMBucketCommandsNone`**: the strategy records no render script.
-- **Parts.** `OIMSlotContentBucketServiceSortedArrayDriven` (options
-  `TOIMSlotContentBucketServiceSortedArrayDrivenOptions`: `compareBucketMemberSlots`; it adds
-  `repositionBucketMemberSlot(bucketSlot, bucketMemberSlot)`) under `OIMIndexServiceSortedArrayDriven`.
+- **No render script.** The strategy records no bucket commands.
 
 Which arm to take: sort-at-write suits point updates, where a rank change re-files one
 member. Sort-at-read suits bulk loads. Both ship; neither is the default.

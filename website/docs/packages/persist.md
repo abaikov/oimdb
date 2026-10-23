@@ -23,7 +23,9 @@ collection for server-side rendering with the core alone, see
 
 </InShort>
 
-Not yet published. See [Installation](/docs/getting-started/installation).
+```bash
+npm install @oimdb/persist @oimdb/persist-idb @oimdb/core
+```
 
 Every example on this page starts from these declarations. The entity collection is
 built over an `OIMPersistEntityWriter`, which is what lets a collection source
@@ -178,8 +180,7 @@ and every write batch that carries it rewrites the whole collection.
 
 **The scheduler rule.** `OIMPersistSchedulerFrameDriven` drains after a frame
 the channel runs; it never asks the channel for a frame itself. A write to a slot
-nobody holds causes no frame (`OIMChannelService.INSTANCE.writeWithoutFlushCheck` returns at once
-when the slot's `holdCount` is zero), and the slots of a collection persisted through a collection source
+nobody holds causes no frame, and the slots of a collection persisted through a collection source
 are usually held by nobody. So:
 
 - pair either collection source with `OIMPersistSchedulerMicrotaskDriven`;
@@ -382,9 +383,8 @@ see [Versioned schemas](/docs/packages/persist-storage#versioned-schemas).
 
 ## Schedulers
 
-`persistScheduler` is required and has no default. A default would have to be one
-of the two arms, and a persistor built without the runtime it was meant to follow
-would go on working on the other one, with nothing to say so.
+`persistScheduler` is required and has no default: the right one depends on the sources, as
+[the scheduler rule](#choosing-a-source-a-resource-and-a-scheduler) says.
 
 - `OIMPersistSchedulerMicrotaskDriven` drains on the first microtask after the
   first dirty report, and coalesces every report before it into that one drain.
@@ -556,12 +556,8 @@ Each shipped source makes its mark from state it already has:
 | `OIMPersistRecordSourceCollectionWriteDriven` | `OIMPersistSourceChangeMarkSubscriptionDriven` over its own change subscription | a flag the subscription sets on the first report after the mark |
 | `OIMPersistRecordSourceCollectionChangeDriven` | `OIMPersistSourceChangeMarkSubscriptionDriven` over its own change subscription, which holds the content-change listener for as long as the mark lives | the same flag, set also by an in-place edit announced with `markEntityChanged` |
 
-A slot's stamps are set by the channel's write (`writeWithoutFlushCheck`), not by
-a frame, and the collection's reports arrive
-inside the write, so a change made during the read is seen even when no frame
-runs before the read is back. The mark works whether or not the persistor is
-started, and it is not a resource subscription: it never reports a mount as a
-change.
+A change made during the read is seen even when no frame runs before the read is back. The
+mark works whether or not the persistor is started, and never reports a mount as a change.
 
 A source of your own implements `markSourceChanges()` too. Both shipped marks are
 exported for it: `new OIMPersistSourceChangeMarkSlotDriven({ slots })` when the
@@ -583,7 +579,7 @@ ones after it. The failures are reported afterwards, see
 | `start()` / `stop()` | Subscribe and unsubscribe every resource, and start and stop the scheduler; `start()` skips a quarantined resource. A resource whose subscribe throws does not stop the others: each failure goes to `onPersistError` with `persistOperation: 'start'`, or, with no handler, all of them are thrown as one `AggregateError` after every resource was tried. A resource whose start failed stays registered and unsubscribed, with no autosave, until `stop()` and `start()` again. A bucket or single-entity source reports its current value when its resource subscribes, so the first drain after `start()` writes it (except a value a hydrate restored); a collection source reports nothing at subscribe time |
 | `hydrate()` | Read every resource and apply it, one at a time, always to the end; ends the upsert-only mode an `unload` put a records resource in |
 | `persist()` | Write every resource whole in one write batch, quarantined ones included; a resource whose write succeeds leaves quarantine. A records resource with unloaded keys writes its in-memory records as upserts over the stored table instead of replacing it, plus the deletions it already heard; a deletion it never heard is not written then |
-| `unload(persistResourceRecords, keys)` | Write the current values of the keys, plus what that resource has pending, in one write batch, and repeat that write until the keys have no unwritten change: unload holds the keys' entity slots while it writes and compares their revision stamps (a slot's stamp moves only on a real write), and it also checks the resource's pending set and whether a key's slot was replaced; it repeats until none of those moved, so an edit made during any commit (and, on a bucket source, one the channel has not flushed yet) reaches the backend; then take the keys out of memory and leave them on the backend. See [the limit on deletions](/docs/packages/persist-storage#a-release-is-a-deletion-unload-is-the-other-door) |
+| `unload(persistResourceRecords, keys)` | Write the current values of the keys, plus what that resource has pending, repeating until the keys have no unwritten change (so an edit made during the write is not lost); then take the keys out of memory and leave them on the backend. See [the limit on deletions](/docs/packages/persist-storage#a-release-is-a-deletion-unload-is-the-other-door) |
 | `load(persistResourceRecords, keys)` | The pair of `unload`. Queued after the pending writes, it reads only those keys from the backend through the strategy's `readRecordsOfKeys` and puts the stored entities back into the source with the resource's reports switched off, so they are not written back. A key that holds a value in memory, or has a change the resource has not written yet, is skipped, so a write or a heard deletion made during the read is not overwritten. The keys stop counting as unloaded: once none is, `persist()` replaces the table again. See [Loading keys back](/docs/packages/persist-storage#loading-keys-back) |
 | `clearPersisted()` | Delete every resource from the backend in one write batch; memory is not touched; ends the upsert-only mode an `unload` put a records resource in |
 | `whenIdle()` | Resolve once everything queued so far has finished; never rejects |

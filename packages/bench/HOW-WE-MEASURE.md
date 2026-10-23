@@ -1,40 +1,15 @@
----
-sidebar_position: 1
-description: How OIMDB performance is measured with two harnesses and controls, why the machine is part of the number, and how to read a measurement artifact.
----
-
 # How we measure
 
-:::warning[The suite has not been run against the current engine]
-
-Every artifact under `packages/bench/measurements/` predates the engine
-documented under [`@oimdb/core`](/docs/core/model). So the pages in this section
-describe a real suite that was run honestly. They are kept for the **method and the
-evidence**, not as a price list for the code documented here.
-
 Measurements against the current engine are collected cell by cell and published
-under [Benchmarks](/docs/benchmarks), where every number carries its date, its
-fingerprint and whether it is still fresh. No page in this section quotes them.
+under [Benchmarks](https://oimdb.org/docs/benchmarks), where every number carries its
+date, its fingerprint and whether it is still fresh.
 
-The method below is what that suite has to meet.
-
-:::
-
-Every performance figure on this site names a directory under
+Every performance figure names a directory under
 [`packages/bench/measurements/`](https://github.com/abaikov/oimdb/tree/master/packages/bench/measurements).
 If a figure does not name one, treat it as a bug in these docs and open an issue.
 
 That rule exists because this project already published a number that was not
 real.
-
-<InShort>
-
-- Every performance figure names the measurement directory it came from.
-- The controls come first, and they can void the report.
-- The machine is part of the number.
-- The page lists what is not claimed and how to read a measurement artifact.
-
-</InShort>
 
 ## What the measurement work shows
 
@@ -87,7 +62,7 @@ floor cannot be tuned in our favour: it is `map.set(id, row)`, it is
 There is a third harness, `npm run alternatives`, whose other side is neither a
 primitive nor a competitor but another design for the same work: one that was
 rejected, or a second shipped strategy. Its pairs are on
-[Shipped against the alternatives](/docs/performance/shipped-against-the-alternatives).
+[Shipped against the alternatives](https://oimdb.org/docs/performance/shipped-against-the-alternatives).
 
 ## The controls come first, and they can void the report
 
@@ -137,7 +112,7 @@ it has to say what they accept, and the number they accepted is written into
 
 ## What we do not claim
 
-The [price tables](./the-price-of-a-call.md) print every pair the catalogue
+The [price tables](https://oimdb.org/docs/performance/the-price-of-a-call) print every pair the catalogue
 measures, including the ones far above the floor, and each carries its caveat.
 A price measured against an older core is marked as such.
 

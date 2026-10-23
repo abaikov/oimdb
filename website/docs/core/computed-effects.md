@@ -95,16 +95,9 @@ rankSlot.computedValueService.getValueForSlot(rankSlot);      // settles, then a
 
 `createSources` returns `sourceSlots` (the root slots it reads) and `sourceComputeds` (the derivations it reads). Both keys are optional; a missing one means none.
 
-A computed is the plain data type `TOIMComputedSlot<TValue, TKey>`: `value`,
-`sourceSlots`, `sourceComputeds`, `owner`, `computedValueService` and the usual slot fields. Its owner is
-the slot owner of the collection that minted it, and the owner is the only writer of the slot. The
-value service (`OIMComputedValueService`) holds the `sameValueGuard` once, the store slot
-holds its own `derive` and `createSources` (or the service does, for every store
-slot that was given none) and its channel slot's clock, and the value service serves the value:
-`computedSlot.computedValueService.getValueForSlot(computedSlot)`. Every computed value service
-implements `IOIMComputedValueService<TValue>`, whose one method is
-`getValueForSlot(computedSlot)` — that is how a reader that holds only the slot
-(an effect, another computed) settles it.
+A computed is a `TOIMComputedSlot<TValue, TKey>`. Its value is read through the value
+service it carries: `computedSlot.computedValueService.getValueForSlot(computedSlot)`, which
+settles it first.
 
 Read the value through the value service, not as `computedSlot.value`. The field
 compiles, but reading it settles nothing: it is whatever the last read left there.
@@ -115,19 +108,9 @@ Nothing schedules or marks a computed, and no frame walks to it. Whoever wants
 its value asks it: an effect deciding whether to run its body, or another
 computed doing the same. That is the whole lifecycle.
 
-Creating a service or a store slot takes no hold. The owner takes the holds when it mints a slot:
-it takes `owner.holdSlot` on each slot in `computedSlot.sourceSlots` and
-`computedSlot.sourceComputeds`, and it gives exactly those back when it releases
-that slot. The slot goes when nothing holds it; the store slot lives on and mints a
-fresh slot into it on the next read or hold.
-
-So the owner holds every root and every derivation the computed names, as
-declared, with no transitive walk. A source
-derivation whose only reader is another derivation is held because it is in that
-reader's `sourceComputeds`, and the hold comes back when that reader is released.
-The only things filed on a slot's `effects` list are effects, which the effect service
-files through the slot's owner, so a source derivation that no effect names stays
-filed because of that hold.
+A computed slot holds every source it names while it lives, and gives them back when it
+is released. The slot goes when nothing holds it; the store slot lives on and mints a
+fresh one on the next read or hold.
 
 ## Why a computed is pulled
 
@@ -332,18 +315,8 @@ comes apart, one level at a time, driven by the same call.
 An effect has no `dispose` of its own; a detached disposer is `() => effectService.disposeEffect(effect)`,
 or the one `subscribeEffect` hands back — see [giving handles back](/docs/core/reading-subscribing#giving-many-handles-back-at-once).
 
-Two things about how an effect is filed:
-
-- The derivation list is deduplicated. Naming one computed slot twice in the
-  `sourceComputeds` argument gets it one edge, so unfiling the effect later cannot
-  disturb a different subscriber.
-- `disposeEffect` unfiles by a remembered position rather than by scanning. Each
-  effect records where it sits in every list it is on, and a removal moves the
-  last effect of the list into the vacated place. That
-  keeps taking N subscribers off one identity linear in N. The slot's owner is the only writer of the
-  `effects` list, and does so when the effect service asks it to subscribe or
-  unsubscribe. The consequence you can observe: a slot's `effects` is not in
-  subscription order.
+Naming one computed slot twice in `sourceComputeds` files the effect on it once.
+`disposeEffect` is O(1) per source, so a slot's `effects` list is not in subscription order.
 
 The body's type is `TOIMEffectBody` — `() => (() => void) | void`. Return a
 function and it is run before the next run of the body and by `disposeEffect`, so a body
@@ -495,13 +468,10 @@ pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on `computedCollectionServ
 (so on the sorted and memo services too); for a single computed, the slot is the one
 `getSlotByKey(storeSlot, undefined)` hands out. Column names are typed as the keys of the value.
 
-A computed's column owner is the derive-driven strategy: each column slot is a computed slot over the
-carrier computed, its value `carrier.value[column]` (a tuple of the group's fields, ordered by the sorted column names, for a group, the whole
-value for the any-column slot), compared with `Object.is`. It is a `TOIMComputedColumnSlot`
-(`TOIMComputedSlot<unknown, string>`), so it goes in the `sourceComputeds` list of `createEffect`, and it
-wakes an effect only when that field of the derived value changes. Entity and bucket columns, keyed or
-single, are the write-driven strategy: plain column slots woken by the marks a write makes, and they go in
-the root list.
+A computed's column slot is itself a computed, `TOIMComputedColumnSlot`, whose value is
+`carrier.value[column]` compared with `Object.is`. It goes in the `sourceComputeds` list of
+`createEffect` and wakes an effect only when that field of the derived value changes. Entity
+and bucket column slots go in the root list instead.
 
 ```ts
 type CardSummary = { top: number; count: number };
@@ -595,13 +565,6 @@ On a membership change the previous order is kept for the members that stayed an
 the arrivals are appended before the sort runs; with no membership change the
 previous array is copied and sorted again. An entity slot whose entity is gone sorts
 last. Its slots are filed in a Map store unless the factory is given a `computedSlotStoreService`.
-
-## The two kinds of node
-
-A value is a computed slot. A side effect is an effect created with
-`effectService.createEffect`, over a column slot when it watches one field of one
-slot. Derivations such as `createOIMComputedServiceBucketMemo` are settled by the read
-that asks, so there is nothing to settle early.
 
 ## Where to next
 

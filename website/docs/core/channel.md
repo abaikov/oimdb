@@ -187,22 +187,11 @@ all three phases are refused: `onBeforeFlush`, every effect body, and every
 after-each-frame handler. The after-each-frame phase is the one that catches people
 out: the frame is over by then, and the write is still refused.
 
-A door asks the channel slot once per entity it writes, before it touches the entity.
-User code runs inside a door — `keyOf`, an index's `keyOf`,
-`slotEmptiness.isEmpty`, any `IOIMEntityWriter` — and any of them may call
-`flush()`, so each entity is a fresh question.
+A subscriber is told after the delivery list was taken, so a write from there would
+land in a frame that is no longer collecting; it is refused rather than half honoured.
 
-A subscriber is told during the frame, while the world is half built: the graph has not
-advanced, the indexes have not settled, and the delivery list has already been
-taken. A write from there would land in a frame that is no longer collecting, so
-it is refused rather than half honoured. A handler in the tail is past that, but
-the frame it would ask for cannot be opened from inside the flush that is still
-running.
-
-`flush()` inside a frame is refused for a stronger reason: a frame inside a
-frame is not nested, it takes the outer one apart. The inner run would reset the
-frame's opening clock while the outer is still delivering, so every later
-per-frame comparison would use an opening clock that has already moved.
+`flush()` inside a frame is refused too: a frame inside a frame would take the outer
+one apart.
 
 ```
 OIMChannelService.flush: a frame is already running, and a second one inside it would
@@ -236,13 +225,9 @@ and the refusal goes to the error policy. It is logged by default and thrown out
 
 ### The subframe
 
-A subframe is one logical change: the span in which a write is still landing.
-Every write door opens one and closes it in a `finally`; a batch door opens one around
-the whole batch, and the doors inside it nest. It exists because a `keyOf`, a
-content-change listener or a sorter runs inside a write, and a frame closed from there
-would deliver a half-applied write, with an entity out of one bucket and not yet in the
-other. It is a counter, so nesting costs nothing and an outer door absorbs the inner
-ones. Open one yourself to make several writes one change:
+A subframe is one logical change: the span in which a write is still landing. Write
+doors open one, so a `keyOf` or a listener that runs inside a write cannot deliver a
+half-applied write. Subframes nest. Open one yourself to make several writes one change:
 
 ```ts
 const jack = cardContentService.upsertEntity(cards, { id: 'j', title: 'Jack', rank: 11 });
@@ -256,35 +241,14 @@ try {
 db.flush();
 ```
 
-The frame cannot close while a subframe is open. A frame is everything
-delivered together; a subframe is one logical change inside it.
-`openSubframe(channelSlot)` and `closeSubframe(channelSlot)` bracket it, and a write
-that asks for a frame while one is open is owed it by the `closeSubframe` that
-brings the count to zero. `flush()` called while a subframe is open throws
-(`a subframe is open`), whether it comes from a `keyOf` or a listener that a write runs, or
-from between your own open and close. Nothing is delivered and the write in progress
-stays whole. The subframe is counted because it is routinely inside another one,
-and it is closed from a `finally`, so a subframe that threw part-way still delivers what
-landed. This is not the write guard seen from the other side: that guard refuses a *write*
-made while a frame closes, and this one refuses a *frame* asked for while a subframe is open.
+The frame cannot close while a subframe is open: a frame asked for meanwhile is run by the
+`closeSubframe` that closes the outermost one. `flush()` called while a subframe is open throws
+(`a subframe is open`), and the write in progress stays whole. Close from a `finally`, so a
+subframe that threw part-way still delivers what landed. `isSubframeOpen(channelSlot)` says whether
+one is open.
 
-A subframe is also where per-entity work collapses into per-batch work.
-`isSubframeOpen(channelSlot)` says whether one is open right now, and
-`listChangedStoreSlot(channelSlot, storeSlot, subframeCloseListener)` lists a store slot together with the
-`IOIMSubframeCloseListener` (`onStoreSlotSubframeClosed(storeSlot)`) that delivers its changes; the outermost
-`closeSubframe` calls each listed listener with its store slot. The drain happens *before* the open count
-drops, so a listener is still inside the subframe and still cannot close the frame. A store slot listed
-during the drain is picked up by the same drain, and every listed entry runs. See
-[Error handling](/docs/guides/error-handling) for what a throwing listener costs.
-The bucket content services use this: a join or a leave records the bucket slot on its store slot's write
-queues and lists that store slot, so filing a batch of entities touches each bucket's tail (the channel
-write, the emptiness stamp, the release check) once per bucket instead of once per entity. Every bucket door
-works this way (adds, removes, positional inserts and removes, moves, `writeBucketMemberSlots`,
-`clearBucketMemberSlots`), and each opens a subframe of its own, so a lone door pays its tail at its own
-close. The bucket's EMPTY flag is set at the door, so `hasSlotContentByKey` gives the right answer inside an
-open batch. A move tells the release policy it was written, a door that changed nothing stamps nothing, and
-a release asked for while the bucket has a pending change waits for the close. Commands are still recorded
-at the door, where the position is true.
+Inside a subframe, bucket writes are batched: filing many entities into one bucket wakes and
+checks that bucket once, at the close, instead of once per entity.
 
 ### Work that needs the whole settled frame
 
@@ -333,19 +297,9 @@ nothing to deliver. Use it for state that must live exactly one frame:
 `exoPositionalList` in `@oimdb/exodra` resets its applied-command count. A throw
 from a handler goes to the error policy, and the handlers after it still run.
 
-A derivation is asked and receives no delivery. Nothing schedules a
-computed slot and no frame walks to one. An effect that reads it settles it on
+A derivation is asked and receives no delivery: an effect that reads it settles it on
 its way to deciding whether to run. See
 [The compute graph](/docs/core/computed-effects).
-
-Nothing is settled ahead of an arriving consumer, because nothing defers. An
-ordered bucket's order is produced by the read that asks for it, so every
-identity is current at every instant, and a subscriber who arrives after this
-frame's write sees the same thing as one who subscribed before it.
-
-For a filtered wake on an ordered bucket, use
-`createOIMComputedServiceBucketMemo`, which asks the same question where the answer
-is known.
 
 By default, one throwing handler does not abort the frame. The throw goes to
 the error policy. Under the default policy it is logged and handed to `onError`, and the
@@ -370,49 +324,15 @@ channelService.dropChannelSlot(channelSlot);
 // then drop your own references; every slot, store and derivation goes with them
 ```
 
-The precondition is yours to hold: nothing may be subscribed to anything on
-this channel slot. The engine does not check it, because asking "is anybody watching"
-means asking every slot for its `effects` list, which is the walk this method
-exists to skip.
+The precondition is yours to hold: nothing may still be subscribed on this channel
+slot. The engine does not check it, because checking would walk every slot, which is
+what this call skips. It empties the pending effects and every handler list, gives
+back the unused-slot collector's holds, and stops the channel from asking for frames;
+a flush already scheduled arrives and does nothing.
 
-What the call does: it sets a flag, cancels the schedule it armed, gives back the
-unused-slot collector's holds, empties the list of pending effects, the
-after-each-frame handlers and the after-each-flush handlers, and returns.
-Nothing walks a slot to ask who is subscribed to it: an effect filed on a slot before
-the call is still filed on it after, and every one of those objects is garbage
-together once you drop your references.
-
-The unused-slot collector is the one thing it does hand back, because that
-one is the channel's own debt rather than part of your graph. A getter that mints an
-identity files a hold with the collector, and the only thing that ever gave those
-holds back was the `finally` of a flush. A dropped channel never reaches it,
-since `flush()` returns on the flag first. Skipping the give-back would pin every identity
-minted since the last frame for as long as the db's collector slot lives. The
-list it walks is only what this frame minted, not every slot you own. A drop made
-from inside a flush leaves the give-back to that flush's `finally`, which still
-runs.
-
-The flag is there because a frame already asked for cannot be recalled.
-`TOIMChannelScheduler` takes a callback and hands back no handle, so a flush this
-channel asked for before the call still arrives afterwards. `flush()` returns
-on the flag rather than delivering to a torn-down screen. Writes also stop asking
-for new frames, so a dropped screen does not schedule work on its host while
-anything still writes to it.
-
-A write after the call is not refused. It advances the clock, stamps the slot and
-schedules the dependents it finds, and then asks for no frame, so nothing it
-scheduled is ever delivered.
-
-Called with subscribers still standing, their bodies never run again, and nothing
-is thrown or reported. Calling it a second time is safe.
-
-There is no checked variant of this call: a checked destroy would pay exactly the
-walk this one skips.
-
-Dropping a channel releases no single slot: a slot goes when a subscriber, a value
-and a bucket have all left, and nothing may ask for one slot to go. This is the
-level above: the whole channel, and everything filed under it, at once. See
-[a slot goes when nothing refers to it](/docs/core/model#a-slot-goes-when-nothing-refers-to-it).
+A write after the call is not refused, but nothing it schedules is ever delivered.
+Subscribers still standing never run again, and nothing is reported. Calling it a
+second time is safe.
 
 ## Where to next
 

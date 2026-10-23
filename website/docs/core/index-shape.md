@@ -30,7 +30,7 @@ This page explains why membership cannot be a computed and why the order should 
 ## A computed is pull
 
 A computed slot is refreshed by its owner when its value is read
-(`getValueForSlot` → `oimRefreshComputedSlot`). The refresh asks one question of every
+(`getValueForSlot`). The refresh asks one question of every
 source: *did you change since my last run?* If any did, `derive` runs again from the top.
 
 Two things follow from this:
@@ -101,6 +101,10 @@ these sources:
 
 A write that changes neither membership nor a sort column — a title edit — moves none of
 these sources, and the order is not derived again.
+
+For point updates into large buckets the other arm ships too: an index that keeps its own
+buckets sorted at write, `createOIMIndexServiceSortedArrayDriven`
+([Sorted at write](/docs/core/oimindex#sorted-at-write)).
 
 ## Derive is a reconcile
 

@@ -5,13 +5,11 @@ description: Why @oimdb/snapshot-manager exports nothing, why there is no shared
 
 # Snapshot Manager
 
-`@oimdb/snapshot-manager` exports nothing. `src/index.ts` is `export {}`, the
-package is marked `private` in its `package.json`, and no other package in this
-repository depends on it. Do not add it to a new project.
+`@oimdb/snapshot-manager` exports nothing. Do not add it to a new project.
 
 <InShort>
 
-- The package exports nothing and is marked `private`.
+- The package exports nothing.
 - A list of changed entities that is cleared when read is the wrong shape for a store with several consumers.
 - Each job such a list is taken for is answered by a door that exists for that job.
 
@@ -85,9 +83,8 @@ OIMContentChangeListenerService.INSTANCE.removeContentChangeListener(cards, move
 **Why a listener rather than an effect here.** An effect is per slot: watching a
 whole collection with effects means one effect per entity, and an entity written
 for the first time has no effect on it yet. The listener is per store slot and
-sees every write to it, including the first. Registered with every column (`readColumnNames` `undefined`), it
-takes every write to that store slot off the content service's fast path for as long as it is registered — the
-same hook an index uses, described at the link in the table.
+sees every write to it, including the first. Registered with every column (`readColumnNames` `undefined`),
+it makes every write to that store slot a little slower for as long as it is registered.
 
 **Why not inside the frame.** The listener runs during the write, before the
 frame has delivered anything. The after-each-frame handler runs once the frame's
@@ -100,6 +97,5 @@ handler is refused because it is still inside `flush()`, so act on the list afte
 The versions published on npm are untouched and keep working for anything that
 installed them. Nothing was unpublished. They were built against the
 `@oimdb/core` this tree replaced — the latest, 2.2.0, declares `@oimdb/core`
-`^3.8.0` as its peer, as the registry reads. See
-[Installation](/docs/getting-started/installation) for what an `npm install` of
-any `@oimdb` package hands you today.
+`^3.8.0` as its peer, as the registry reads, so it does not work with
+`@oimdb/core` 4.x.

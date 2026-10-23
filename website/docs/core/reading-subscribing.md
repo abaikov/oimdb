@@ -118,19 +118,10 @@ A computed slot is read through the value service it carries — `slot.computedV
 
 ### The unused-slot collector
 
-The unused-slot collector is the one place a getter's mint is held. Its state is a
-`TOIMUnusedSlotCollectorSlot` (the db's is `db.collectorSlot.unusedSlotCollectorSlot`), and its code is
-`OIMUnusedSlotCollectorService.INSTANCE`: `holdSlotUntilFlush(collectorSlot, slot)` takes a hold on the slot
-and remembers it; `flush(collectorSlot)` gives every remembered hold back, skipping a slot that has already
-been released. The channel's flush calls it from its `finally`, so the give-back happens even when an effect
-threw.
-
-A read that found no identity and returned
-`undefined` would leave the caller with nothing to subscribe to, and the next
-write would mint a different object under the same key. Minting on read means a
-subscription taken right after the read lands on the identity every later write
-uses. Holding the mint until the frame ends, rather than releasing it on return,
-is what lets the caller subscribe or hold in the same turn.
+The unused-slot collector holds what a getter minted until the next `flush()` ends, even when an
+effect threw. That is what lets a caller read a key that has no value yet and subscribe to it or hold
+it in the same turn: the subscription lands on the identity every later write uses. The db's collector
+is `db.collectorSlot.unusedSlotCollectorSlot`, run by `OIMUnusedSlotCollectorService.INSTANCE`.
 
 A scope defers the give-back past a frame:
 
@@ -196,16 +187,10 @@ lists are fixed at construction — a cycle therefore cannot be built, and a
 derivation's sources cannot include itself. `createEffectWithSourceTracking(db, body)` is the other arm:
 its body is handed an `OIMEffectSourceTracker` and names its sources as it reads.
 
-With the fixed lists, nothing records what a body reads
-while it runs. The lists you hand in are the whole dependency set, so a run costs
-no bookkeeping and the graph is the same shape on every run; the price is that a
-slot read in the body but not named in a list does not wake it.
-
-What `createEffect` does: it subscribes to every
-root slot you named, to every computed you named, and to every root slot those
-computeds read, through `owner.subscribeToSlot`, and takes a hold on each. `disposeEffect(effect)` gives each of those
-back. The effect is filed on the slot's own `effects` list, so a write finds its
-dependents without a lookup.
+With the fixed lists, the lists you hand in are the whole dependency set: a run costs no
+tracking, and a slot read in the body but not named in a list does not wake it. `createEffect`
+subscribes to and holds every slot you named, every computed you named and every root under
+those computeds; `disposeEffect(effect)` gives each back.
 
 ### Reading a computed from an effect
 
@@ -251,15 +236,11 @@ effectService.createEffectImmediate(db, [cardSlot], [], () => { render(cardSlot.
 ```
 
 A first value is `createEffectImmediate`'s job. `createEffect` answers "tell me when this
-changes"; `createEffectImmediate` answers "give me it now, and then tell me". Both
-doors exist so neither has to guess which one you meant. If the immediate run
+changes"; `createEffectImmediate` answers "give me it now, and then tell me". If the immediate run
 throws, `createEffectImmediate` disposes the effect it built and rethrows, so a failed
 subscription leaves no hold behind.
 
-A write made *later in that same batch* IS delivered. What separates "before my
-subscription" from "after it" is the revision — `db.clock.revision` advances
-on every write — and not the frame, whose opening clock is one reading for the
-whole batch and so cannot tell the two apart.
+A write made *later in that same batch* is delivered.
 
 Anything that is a slot can be a source: an entity slot, a bucket slot,
 a column slot, the slot of a standalone record (`getSingleSlot(storeSlot)`). A computed slot goes in the
@@ -282,10 +263,8 @@ const effect = effectService.createEffect(db, [slot], [], () => {
 });
 ```
 
-Returning nothing is the ordinary case. What is returned is checked with
-`typeof`, not for truthiness, because an expression-bodied arrow hands back
-whatever the expression evaluated to — `() => set.add(key)` returns the `Set` —
-and anything that is not a function is discarded.
+Returning nothing is the ordinary case. Anything returned that is not a function is
+ignored, so an expression-bodied arrow such as `() => set.add(key)` is safe.
 
 ### Subscribing to one column
 
@@ -305,25 +284,15 @@ collection or of a single alike, or
 `holdBucketColumnByKey(indexStoreSlot, key, columnName)` on an index service for a column across a bucket's
 members. Each has its give-back — `unholdColumn(columnSlot)` on the same service.
 
-Each entity and bucket collection type has its own write-driven column owner, over its
-`columnSlotStoreService` (`OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` unless you give one) or the
-ordinal store its `columnNames` option names. A computed collection has real columns too, single or
-collection, through a derive-driven column owner: `computedCollectionService.holdColumn(computedSlot, 'field')`
-returns a `TOIMComputedColumnSlot`, a computed slot over the carrier whose value is that field of the
-derived value, compared with `Object.is`, kept in the store its factory passes
-(`OIMDefaults.COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue()` unless you give one). It goes in the
-`sourceComputeds` list of `createEffect` and wakes the effect only when that field changes (see
-[Computed columns](/docs/core/computed-effects#computed-columns)). Every collection service
-also has `getAnyColumn(slot)` / `holdAnyColumn(slot)`, a column slot that wakes on any column
-write to its carrier.
+A computed has columns too: `computedCollectionService.holdColumn(computedSlot, 'field')` returns a
+`TOIMComputedColumnSlot`, which goes in the `sourceComputeds` list and wakes the effect only when that
+field of the derived value changes (see
+[Computed columns](/docs/core/computed-effects#computed-columns)). Every collection service also has
+`getAnyColumn(slot)` / `holdAnyColumn(slot)`, a column slot that wakes on any column write to its carrier.
 
-A column slot is filed under its carrier slot, and the carrier is kept while it
-has any: the owner does not release a carrier while a column slot is filed on it. A column slot goes when
-nothing holds it and nothing subscribes to it, and its leaving asks the carrier whether it can go too.
-
-It hands back the effect, because a column holds no value.
-What moved is on the slot you already have (`slot.entity?.rank`); the effect says
-*when* to go and look.
+A carrier slot is not released while a column slot is filed on it. A column slot goes when nothing
+holds it and nothing subscribes to it. A column holds no value: what moved is on the slot you already
+have (`slot.entity?.rank`); the effect says *when* to look.
 
 Column names are type-checked. `holdColumn` takes the collection's column name type,
 which `createOIMEntityService<Card>` sets to `TOIMEntityColumnName<Card>`, the
@@ -342,16 +311,9 @@ slot.owner.holdSlot(slot);
 slot.owner.unholdSlot(slot);
 ```
 
-`disposeEffect` gives back the hold the effect took on each root,
-through `root.owner.unholdSlot(root)`, and `unholdSlot` ends in
-`releaseSlotIfUnheld` — so without a hold of your own, an identity whose only
-reference was your subscription is unfiled when you leave.
-
-A hold is `holdCount++` on the slot, through its
-owner (`holdSlot`), and a give-back is `holdCount--`. Any number of
-readers can stand on one identity without knowing about each other, and the slot
-goes only when the last of them leaves and nothing else refers to it. Nothing
-outside the owner writes `holdCount`.
+Without a hold of your own, an identity whose only reference was your subscription is
+unfiled when `disposeEffect` gives the effect's hold back. Any number of readers can hold one
+identity without knowing about each other; the slot goes when the last of them leaves.
 
 To hold by key, use the keyed form of the same door, which hands back the
 slot and nothing else:
@@ -413,21 +375,6 @@ decides "did it change?" by comparing values will never fire. What tells you
 something happened is your effect running, so such a binding needs a counter
 bumped *inside* the handler. Under `createOIMEntityWriterReplacing`, the entity
 reference does move on every write, which is the whole reason that strategy ships.
-
-## What a collection is given
-
-Optional behaviour comes from small interfaces handed to a factory once.
-Nothing is wrapped, and there is no chain to order. The things a collection type is
-given are `IOIMSlotStoreService`, `IOIMEntityWriter`, `IOIMSlotEmptiness` and
-`IOIMSlotReleasePolicy`, plus the column slot store service (`columnSlotStoreService`, or the column names
-`columnNames`) its column owner is built over; the db gives `IOIMSlotStamp` and `IOIMIndexKeysService`.
-Every store slot of the type is served by those same objects. Each answers one question the engine asks
-but does not decide. There is no flag and no per-call option.
-
-Where two behaviours are both defensible there are two objects and the
-construction picks one: `OIMSlotReleasePolicyAfterIdle` and
-`OIMSlotReleasePolicyAfterWrite` are two classes, and neither is one class handed
-a flag.
 
 ## Where to next
 

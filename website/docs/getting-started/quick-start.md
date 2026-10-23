@@ -11,8 +11,7 @@ that covers that piece in full.
 
 The steps add up to one program. The blocks marked `setup` hold its declarations, in
 order, and every example builds on them and on the writes the earlier steps made.
-The comment after a call shows what it logs. Every name comes from `@oimdb/core`'s
-current source.
+The comment after a call shows what it logs.
 
 ## 1. The runtime
 

@@ -11,7 +11,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CORE_ENTRY = join(ROOT, 'packages', 'core', 'src', 'index.ts');
 const DOCS_WITH_THE_TABLE = [
     join(ROOT, 'packages', 'core', 'README.md'),
-    join(ROOT, 'website', 'docs', 'getting-started', 'installation.md'),
+    join(ROOT, 'website', 'docs', 'performance', 'bundle-size.md'),
+    join(ROOT, 'website', 'docs', 'why-oimdb.md'),
 ];
 
 const SCENARIOS = [

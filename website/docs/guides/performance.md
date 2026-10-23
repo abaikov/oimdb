@@ -5,7 +5,7 @@ description: Where the engine spends work, covering identity versus key paths, c
 
 # Performance
 
-No timings are published on this page yet. It describes where the engine spends work. The method a figure has to meet before it appears on this site is in [How we measure](../performance/index.md).
+This page describes where the engine spends work. The measured cost of each call is in [The price of a call](/docs/performance/the-price-of-a-call).
 
 <InShort>
 
@@ -115,20 +115,14 @@ that yields the same sequence keeps the previous array.
 **Not measured:** the cost of a re-sort against keeping the order at the write, at
 several bucket sizes.
 
-## One count that needs no measurement, because it is arithmetic
+## Emptying a bucket
 
-A bucket content service's `writeBucketMemberSlots` empties a bucket with one `drainSlots` call, rather than removing slots one at
-a time. On an array-driven service each removal closes the gap with a `splice`, so
-evicting *n* slots one at a time costs n(n-1)/2 element moves — **499 500** for a
-thousand.
+`writeBucketMemberSlots` and `clearBucketMemberSlots` empty a bucket in one call, with zero
+element moves. Removing slots one at a time from an array-driven bucket closes the gap with a
+`splice` each time, so evicting *n* slots that way costs n(n-1)/2 element moves: **499 500** for
+a thousand.
 
-> **Scope.** An operation count, not a timing: element moves, counted rather
-> than asserted, in
-> `packages/core/src/engine/bucket/array/tests/everyone-out-at-once-and-not-one-at-a-time.test.ts`,
-> which also pins `drainSlots` at **zero** element writes. No machine and no date apply,
-> because arithmetic has neither.
-
-## Fast properties, which need no timing because V8 reports them
+## Fast properties
 
 A field read is a fixed-offset load only while the object is on fast properties
 and every object reaching the read shares one hidden class. An object in
@@ -144,19 +138,13 @@ checked as facts, not timed:
   buckets, patches and release deadlines;
 - neither writer `delete`s a column: a column that leaves is written `undefined`,
   in place or into a spread copy, so an entity keeps its hidden class when a
-  column leaves, which the test checks on a forty-column entity under both
-  writers;
-- the number of slot shapes reaching the write door is pinned at four, V8's
-  polymorphic ceiling; `holdSlot` is pinned at five, one above it, so a hold is a
-  megamorphic site — the one place the layout does not reach the ceiling.
+  column leaves, checked on a forty-column entity under both writers;
+- three slot shapes reach the write door, one below V8's polymorphic ceiling of four,
+  and four reach `holdSlot`.
 
-> **Scope.** Facts about object layout, not timings, read from V8 with
-> V8's own natives for "fast properties" and "same map" in
-> `packages/core/tests/what-v8-keeps-on-fast-properties.test.ts`, and the shape
-> count in `packages/core/tests/how-many-shapes-reach-the-write-door.test.ts`.
-> They hold for the V8 the suite runs on; what they save per read is
-> **not measured**. The one case outside the engine: an entity handed in with a
-> few hundred fields is in dictionary mode before it arrives.
+These are facts about object layout read from V8 itself, not timings. The one case outside
+the engine: an entity handed in with a few hundred fields is in dictionary mode before it
+arrives.
 
 See [Object shapes](../core/architecture.md#object-shapes) for how each part of
 the engine is laid out to keep this.
@@ -183,6 +171,6 @@ kind make a site megamorphic. See
 ## Where to next
 
 <DocCards>
-<DocCard to="/docs/performance" title="How we measure">What a figure has to survive.</DocCard>
+<DocCard to="/docs/performance/the-price-of-a-call" title="The price of a call">What each door costs against hand-written code.</DocCard>
 <DocCard to="/docs/performance/the-price-of-a-call" title="The price of a call">The price suite, and what bounds each figure.</DocCard>
 </DocCards>

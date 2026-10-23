@@ -70,4 +70,6 @@ question.
 
 Long-form notes kept beside the code: [PARTICIPANTS.md](PARTICIPANTS.md),
 [SCENARIOS.md](SCENARIOS.md), and [WHY-EACH-ROW.md](WHY-EACH-ROW.md) — every result
-explanation with its evidence, refuted ones included.
+explanation with its evidence, refuted ones included. The standard the suite is held to:
+[HOW-WE-MEASURE.md](HOW-WE-MEASURE.md) and
+[HOW-A-BENCHMARK-EARNS-BELIEF.md](HOW-A-BENCHMARK-EARNS-BELIEF.md).

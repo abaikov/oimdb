@@ -42,7 +42,7 @@ this.flushing = undefined;
 
 Enqueues during the drain hit the fresh `this.tasks` and run next flush — the snapshot's semantics, with no per-flush allocation. The `flushing` reference is exposed so `cancel(fn)` can delete a task mid-drain; a `Set`'s `for..of` skips entries removed before they're reached, so cancelling a not-yet-run task stops it.
 
-No empty-flush figure is stated: no benchmark in this repository builds an `Array.from`-snapshot arm to compare against (see [How we measure](/docs/performance/)).
+No empty-flush figure is stated: no benchmark in this repository builds an `Array.from`-snapshot arm to compare against (see [How we measure](https://github.com/abaikov/oimdb/blob/master/packages/bench/HOW-WE-MEASURE.md)).
 
 The mechanism is unaffected and is an operation count. `Array.from` allocates an array proportional to the queue on every flush; the swap is O(1) and allocates nothing, ever. So the *absolute* saving grows with queue size while the *relative* saving is largest exactly when flushes are cheap and frequent — which, under microtask batching, they are. What no longer has a number attached is how large either saving is.
 

@@ -6,11 +6,6 @@ description: When to choose OIMDB, what a small state manager leaves to you, the
 
 # Why OIMDB
 
-:::caution[Draft]
-Every `TODO` on this page marks a claim that has no artifact yet. A figure goes in
-only once a directory under `packages/bench/measurements/` produced it.
-:::
-
 ## When to take it
 
 OIMDB is for applications built around collections: cards, messages, tasks,
@@ -22,7 +17,7 @@ read what changed.
 If the state is a handful of global values, such as a theme or the signed-in user,
 with no collections behind them, use a signal library or a bare store. OIMDB's
 slot machinery and its bundle (see
-[Installation](/docs/getting-started/installation#bundle-size)) buy nothing there.
+[Bundle size](/docs/performance/bundle-size)) buy nothing there.
 If the only job is to remember request responses, use a query cache.
 
 Without a collection layer, teams usually end up in one of four places. Some
@@ -88,9 +83,6 @@ Cards belong to decks. Each implementation below does the same six things:
 
 Each ends with the same script: load three cards into the red deck, edit the title
 of the first, move the second to the black deck, and remove the third.
-
-> **TODO:** line count of each version, measured with the bench's code-volume
-> boundary, not `wc -l`.
 
 ### zustand
 
@@ -491,9 +483,6 @@ sort at read or at write. The hot path then has no branch on the choice. The ful
 list is in
 [Where a strategy is picked at construction](/docs/core/architecture#where-a-strategy-is-picked-at-construction).
 
-> **TODO:** `map.get(k)` against a field read on a slot, with its artifact under
-> `packages/bench/measurements/`.
-
 ## The trade
 
 The work moves to the moment an entity is created. An insert does more than a map
@@ -505,9 +494,6 @@ That does not make every update cheaper than every insert. In the current
 measurements both kinds of task have cases at or below hand-written code and cases
 above it. The [results](/docs/benchmarks/results) show where each task lands
 against hand-written code and every library in the benchmark.
-
-> **TODO:** break-even, after how many reads or deliveries the creation price is
-> returned, from the bench's `readByKey` and `patchColumn` cells.
 
 ## OIMDB and signal libraries
 
@@ -558,13 +544,6 @@ without a batch to remember; in exchange nothing is delivered until the flush, s
 consumer that needs a value after every single write has to flush after every
 write.
 
-> **TODO:** the figures for these four choices, from the `graph.*` price pairs
-> (OIMDB against alien-signals, each arm in its own process):
-> `graph.revision-clock.*`, `graph.subscription.build.*` /
-> `graph.subscription.run.*`, `graph.dependencies.*`, and the graph.coalescing
-> pairs, where many writes in one frame collapse into one run. Each is a sweep over
-> graph size, with its artifact under `packages/bench/measurements/`.
-
 ### What a signal library gives that OIMDB does not
 
 A signal library ships the reactive graph and nothing else, so its bundle is
@@ -590,17 +569,18 @@ over-subscribes.
 ## Bundle size
 
 OIMDB is heavier than a bare store, because it contains the collection layer you
-would otherwise write yourself. The comparison that matters is OIMDB against
-zustand plus that layer, as in the example above.
+would otherwise write yourself. What `@oimdb/core` adds to a bundle, minified and
+tree-shaken:
 
-The OIMDB side is measured. `npm run size:write`, run from the repository root,
-writes the table in [Installation](/docs/getting-started/installation), and
-`npm run size` fails when the table stops matching the build. The table covers one
-entity store slot, the same with one effect and a flush, the same with one index,
-an ordered bucket with commands, and everything the package exports.
-
-> **TODO:** the other side, zustand plus the hand-written layer from the example
-> above, bundled the same way.
+{/* bundle-size:begin */}
+| Consumer | Minified | Minified + gzip |
+|---|---:|---:|
+| Everything `@oimdb/core` exports | 103361 B | 25288 B |
+| One entity store slot: `OIMDB`, `createOIMEntityService`, `upsertEntity`, `getSlotByKey` | 41485 B | 10710 B |
+| The same, plus one effect and `db.flush()` | 50131 B | 12876 B |
+| The same, plus one index: `createOIMIndexService` | 71765 B | 17728 B |
+| An ordered bucket with commands: `createOIMBucketService`, `OIMSlotContentBucketServiceArrayDriven`, `OIMBucketCommands` | 56072 B | 13880 B |
+{/* bundle-size:end */}
 
 ## Next steps
 

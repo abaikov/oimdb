@@ -207,9 +207,9 @@ This page indexes every export of `@oimdb/core`: all 200 names that the package 
 | `TOIMCollectorSlotOptions` | type | `{ getNowMs, releaseTimer, errorPolicy }`. | [Controlling the clock](./lifecycle.md#controlling-the-clock) |
 | `createOIMCollectorSlot` | function | Builds a collector slot. | [Controlling the clock](./lifecycle.md#controlling-the-clock) |
 | `OIMReleaseSlotCollectorService` | abstract class | Sweeps the slots whose marker has come due: `flush`, `cancelAllSlotReleases`, `isSlotReleasable`, `markSlotReleaseDue`. | [The collectors](./architecture.md#the-collectors) |
-| `OIMReleaseSlotCollectorServiceAfterWrite` | class | `INSTANCE`: reads `releaseDueAfterWriteMs`. | [Three markers, one per timed policy](./lifecycle.md#three-markers-one-per-timed-policy) |
-| `OIMReleaseSlotCollectorServiceAfterIdle` | class | `INSTANCE`: reads `releaseDueAfterIdleMs`. | [Three markers, one per timed policy](./lifecycle.md#three-markers-one-per-timed-policy) |
-| `OIMReleaseSlotCollectorServiceAfterUnhold` | class | `INSTANCE`: reads `releaseDueAfterUnholdMs`. | [Three markers, one per timed policy](./lifecycle.md#three-markers-one-per-timed-policy) |
+| `OIMReleaseSlotCollectorServiceAfterWrite` | class | `INSTANCE`: reads `releaseDueAfterWriteMs`. | [What restarts each window](./lifecycle.md#what-restarts-each-window) |
+| `OIMReleaseSlotCollectorServiceAfterIdle` | class | `INSTANCE`: reads `releaseDueAfterIdleMs`. | [What restarts each window](./lifecycle.md#what-restarts-each-window) |
+| `OIMReleaseSlotCollectorServiceAfterUnhold` | class | `INSTANCE`: reads `releaseDueAfterUnholdMs`. | [What restarts each window](./lifecycle.md#what-restarts-each-window) |
 | `TOIMReleaseSlotCollectorSlot` | type | One release collector's state: its queue and its scheduled run. | [Controlling the clock](./lifecycle.md#controlling-the-clock) |
 | `createOIMReleaseSlotCollectorSlot` | function | Builds a release collector slot. | [Controlling the clock](./lifecycle.md#controlling-the-clock) |
 | `OIMReleaseSlotQueueService` | class | `INSTANCE`: files slots into slices of `OIM_SLICE_LENGTH_MS` and releases the due slices. | [Controlling the clock](./lifecycle.md#controlling-the-clock) |

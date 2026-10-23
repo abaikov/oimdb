@@ -66,15 +66,10 @@ There are three, and no others:
 | bucket | other slots | `TOIMBucketSlot` |
 | computed | a value derived from other slots | `TOIMComputedSlot` |
 
-Every slot, whatever its kind, carries the same twelve fields — `effects`, `effectEdges`,
-`changedAtRevision`, `changedAtEpoch`, `holdCount`,
-`releaseDueAfterWriteMs`, `releaseDueAfterIdleMs`, `releaseDueAfterUnholdMs`, `slotFlags`,
-`columnSlotStore`, `storeSlot`, `owner` — and that shape is `TOIMSlot`. A field belongs there only if the frame machinery
-reads it without knowing which kind it holds. `storeSlot` is the store slot the slot
-is filed in, `undefined` on a column slot; it is why a door handed a slot needs no store slot of its own.
-
-Every field of `TOIMSlot` is `readonly` in the type a consumer is handed: a
-consumer reads fields, and asks `slot.owner` for holds, subscriptions and releases.
+Every slot, whatever its kind, has the shape `TOIMSlot`. Its fields are `readonly`
+in the type you are handed: you read them, and ask `slot.owner` for holds,
+subscriptions and releases. `slot.storeSlot` is the store slot the slot is filed in,
+which is why a door handed a slot needs no store slot of its own.
 
 Each kind comes in two shapes: one of it, with no key; or many of it, filed by
 key. The store service decides which: a single is built over
@@ -164,10 +159,6 @@ rankService.computedCollectionService.getSlotByKey(ranks, key)  // a computed co
 What a content service adds is its own vocabulary for its own content: `upsertEntity`, `updateEntity`
 and `deleteEntity` on an entity content service; `addBucketMemberSlots`, `removeBucketMemberSlots`
 and `getBucketMemberSlots` on a bucket content service; `getValueForSlot` on a computed value service.
-
-The rules about identities — mint once per key, hand back the same object,
-release only through the owner — are written in one class, `OIMSlotOwnerService`, so no kind of slot
-can get them slightly different.
 
 ## The root: `OIMDB`
 
@@ -294,9 +285,6 @@ identity nothing keeps is worth keeping is the owner's question, asked through
 `releaseSlotIfUnheld`. The bulk loads `insertEntities` and `fillEntities` do not hand out a
 reference: they return `void`, and on a key that is taken or named twice they throw and roll
 back only the entities that call filed.
-
-There is no fifth door. A helper over an existing door is a second spelling of
-it, and two spellings of a mint make the rule hard to check.
 
 ## A slot goes when nothing refers to it
 
@@ -446,9 +434,6 @@ The forks a consumer meets first:
 
 The whole list, keys and stores included, is in
 [Architecture](/docs/core/architecture#where-a-strategy-is-picked-at-construction).
-
-There is no `if (inPlace)` anywhere in the engine, and no `order?:` option a call
-site branches on: the strategy object is the answer.
 
 ## Every collection has a channel
 

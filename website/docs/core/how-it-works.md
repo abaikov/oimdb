@@ -45,20 +45,11 @@ and never set a field.
 Two reasons, one about correctness and one about speed:
 
 - **One mutator per field.** A count, a stamp and a flag are data like any other. A
-  field that several places can write is a field whose invariants nobody owns. Tests
-  enforce the rule, not convention:
-  `which-side-of-a-slot-owns-which-part.test.ts` and
-  `a-write-through-a-local-is-still-a-write.test.ts` pin which source files may write
-  which slot fields.
+  field that several places can write is a field whose invariants nobody owns.
 - **Few shapes at the hot doors.** V8 reads a field at a fixed offset when every
   object reaching a call site shares a hidden class, and gives up past four shapes.
-  A slot born whole, never grown and never `delete`d keeps one hidden class per kind.
-  `how-many-shapes-reach-the-write-door.test.ts` counts the shapes that reach each
-  door in a scenario that drives every kind of write: the channel's write door sees
-  three (the entity, bucket and column slot shapes, one below the ceiling), and
-  `holdSlot` sees four (those three plus the computed slot, at the ceiling).
-  `what-v8-keeps-on-fast-properties.test.ts` asks V8 itself that every slot kind
-  stays on fast properties.
+  A slot born whole, never grown and never `delete`d keeps one hidden class per kind,
+  so the hottest doors see at most four.
 
 [Architecture — a slot and object shapes](/docs/core/architecture#a-slot)
 
