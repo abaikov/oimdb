@@ -1,28 +1,26 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import type { TOIMSingleSlotStore } from '../../store/types/TOIMSingleSlotStore';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
 import type { TOIMComputedStoreSlot } from '../types/TOIMComputedStoreSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
+import type { OIMSingleComputedService } from '../../../facade/computed/OIMSingleComputedService';
 
 type TRow = { id: string; n: number };
-type TSingleComputedStore = TOIMSingleSlotStore<TOIMComputedSlot<number, void>>;
-type TSingleComputedService = ReturnType<typeof createOIMComputedService<void, number, TSingleComputedStore>>;
-type TSingleComputedStoreSlot = TOIMComputedStoreSlot<TSingleComputedStore, number, void>;
+type TSingleComputedStore = TOIMSingleSlotStore<TOIMComputedContentSlot<number>>;
+type TSingleComputedService = OIMSingleComputedService<number>;
+type TSingleComputedStoreSlot = TOIMComputedStoreSlot<TSingleComputedStore, number, TOIMComputedContentSlot<number>>;
 
-const createSingleComputedService = (): TSingleComputedService => createOIMComputedService<void, number, TSingleComputedStore>({
-    computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    sameValueGuard: oimSameValueZeroGuard,
-});
+const createSingleComputedService = (): TSingleComputedService => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
 
 const readsOf = (service: TSingleComputedService) => ({
-    getSlotByKey: (storeSlot: TSingleComputedStoreSlot, key: undefined) => service.computedCollectionService.getSlotByKey(storeSlot, key),
-    getValueByKey: (storeSlot: TSingleComputedStoreSlot, key: undefined) => {
-        const computedSlot = service.computedCollectionService.getSlotByKey(storeSlot, key);
+    getSingleSlot: (storeSlot: TSingleComputedStoreSlot) => service.computedSingleSlotService.getSingleSlot(storeSlot),
+    getSingleValue: (storeSlot: TSingleComputedStoreSlot) => {
+        const computedSlot = service.computedSingleSlotService.getSingleSlot(storeSlot);
         return computedSlot.computedValueService.getValueForSlot(computedSlot);
     },
 });
@@ -30,9 +28,9 @@ const readsOf = (service: TSingleComputedService) => ({
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 0 });
+    rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 0 });
     db.flush();
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -70,7 +68,7 @@ const chainOver = (
             body,
             () => below === undefined
                 ? { sourceSlots: [source] }
-                : { sourceComputeds: [belowService.computedCollectionService.getSlotByKey(below, undefined)] },
+                : { sourceComputeds: [belowService.computedSingleSlotService.getSingleSlot(below)] },
         ));
     }
     if (nodes.length === 0) throw new Error('chainOver: depth must be at least 1');
@@ -97,7 +95,7 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
 
         let chainDepthAtBody = -1;
         let ran = 0;
-        effectService.createEffect(db, [slot], [deepestService.getSlotByKey(deepest, undefined)], () => {
+        effectService.createEffect(db, [slot], [deepestService.getSingleSlot(deepest)], () => {
             ran++;
             chainDepthAtBody = recomputed.length;
         });
@@ -131,7 +129,7 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
 
         let woken = 0;
         let seenAtWake = -1;
-        effectService.createEffect(db, [], [deepestService.getSlotByKey(deepest, undefined)], () => { woken++; seenAtWake = deepestService.getValueByKey(deepest, undefined); });
+        effectService.createEffect(db, [], [deepestService.getSingleSlot(deepest)], () => { woken++; seenAtWake = deepestService.getSingleValue(deepest); });
         updateRow('r1', { n: 1 });
         db.flush();
         recomputed.length = 0;
@@ -144,14 +142,14 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
         expect(recomputed).toEqual([1, 2, 3]);
         // The value the body read is the one this frame produced, not the one
         // the frame started with.
-        expect(seenAtWake).toBe(deepestService.getValueByKey(deepest, undefined));
+        expect(seenAtWake).toBe(deepestService.getSingleValue(deepest));
     });
 
     it('stops settling a chain nothing reads, and still settles the one built after it', () => {
         const { db, effectService, updateRow, slot } = createFixture();
         const recomputed: number[] = [];
         const { deepestService, deepest } = chainOver(slot, 5,(level) => { recomputed.push(level); }, db);
-        const reader = effectService.createEffect(db, [], [deepestService.getSlotByKey(deepest, undefined)], () => { /* reads the chain */ });
+        const reader = effectService.createEffect(db, [], [deepestService.getSingleSlot(deepest)], () => { /* reads the chain */ });
         updateRow('r1', { n: 1 });
         db.flush();
         // The chain's only reader lets go, so nothing asks it for a value again.
@@ -184,7 +182,7 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
             () => ({ sourceSlots: [slot] }),
         );
         let shallowAtBody = -1;
-        effectService.createEffect(db, [], [shallowService.getSlotByKey(shallow, undefined)], () => { shallowAtBody = shallowRan; });
+        effectService.createEffect(db, [], [shallowService.getSingleSlot(shallow)], () => { shallowAtBody = shallowRan; });
         updateRow('r1', { n: 2 });
         db.flush();
         shallowRan = 0;

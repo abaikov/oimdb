@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { OIMDB } from '../OIMDB';
-import { createOIMEntityService } from '../createOIMEntityService';
+import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../engine/entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; title: string };
 
@@ -16,38 +18,34 @@ const codeOf = (path: string): string =>
 const ROOT = 'factories/OIMDB.ts';
 const DEFAULTS = 'factories/OIMDefaults.ts';
 
-const ENTITY_DOOR = 'factories/createOIMEntityService.ts';
+const ENTITY_DOOR = 'factories/createOIMSlotContentEntityService.ts';
 const DOORS = [
     ENTITY_DOOR,
-    'factories/createOIMSingleEntityService.ts',
-    'factories/createOIMBucketService.ts',
-    'factories/createOIMSingleBucketService.ts',
-    'factories/createOIMIndexService.ts',
-    'factories/createOIMIndexServiceByCompositeKey.ts',
-    'factories/createOIMIndexServiceSortedArrayDriven.ts',
+    'factories/createOIMSlotCollectionIndexService.ts',
+    'factories/createOIMSlotCollectionSortedArrayIndexService.ts',
     'factories/createOIMComputedService.ts',
-    'factories/createOIMComputedServiceSorted.ts',
-    'factories/createOIMComputedServiceBucketMemo.ts',
+    'factories/createOIMSingleComputedService.ts',
+    'factories/createOIMSortedComputedService.ts',
+    'factories/createOIMBucketMemoComputedService.ts',
     'factories/createOIMSlotCollectionService.ts',
     'factories/createOIMSingleSlotService.ts',
-    'factories/createOIMSlotContentEntityService.ts',
 ] as const;
 
 const OPTION_TYPES_A_DOOR_TAKES: Readonly<Record<string, readonly string[]>> = {
-    'factories/createOIMIndexService.ts': ['facade/index/types/TOIMIndexKeyOptions.ts'],
+    'factories/createOIMSlotCollectionIndexService.ts': ['facade/index/types/TOIMIndexKeyOptions.ts'],
 };
 
 const HELPERS_A_DOOR_CALLS: Readonly<Record<string, string>> = {
     'return createOIMSlotCollectionService': 'factories/createOIMSlotCollectionService.ts',
     'return createOIMSingleSlotService': 'factories/createOIMSingleSlotService.ts',
     'slotContentService: createOIMSlotContentEntityService': 'factories/createOIMSlotContentEntityService.ts',
-    'createOIMBucketSlotOwnerService(': 'factories/utils/createOIMBucketSlotOwnerService.ts',
+    'oimSlotOwnerOptionsWithDefault(': 'factories/utils/oimSlotOwnerOptionsWithDefault.ts',
     'oimSlotStoreServiceWithDefault(': 'factories/utils/oimSlotStoreServiceWithDefault.ts',
     'oimColumnOwnerOptionsWithDefault(': 'factories/utils/oimColumnOwnerOptionsWithDefault.ts',
-    'oimIndexServiceOptionsWithDefault(': 'factories/utils/oimIndexServiceOptionsWithDefault.ts',
+    'oimSlotCollectionIndexServiceOptionsWithDefault(': 'factories/utils/oimSlotCollectionIndexServiceOptionsWithDefault.ts',
 };
 
-const GLOBAL_DEFAULTS_NOBODY_PASSES = ['KEY_TREE_WALK_COMPOSITE', 'STANDALONE_SLOT_OWNER'] as const;
+const GLOBAL_DEFAULTS_NOBODY_PASSES = ['KEY_TREE_WALK_COMPOSITE', 'KEY_TREE_WALK_SCALAR', 'STANDALONE_SLOT_OWNER'] as const;
 
 const occurrencesOf = (pattern: RegExp, text: string): number => (text.match(pattern) ?? []).length;
 
@@ -87,7 +85,7 @@ const optionKeysOf = (door: string): string[] => {
 const readsOptionKey = (text: string, key: string): boolean => new RegExp(String.raw`options\.${key}\b`).test(text);
 
 const helpersHandedTheOptions = (doorText: string): string[] => Object.entries(HELPERS_A_DOOR_CALLS)
-    .filter(([call]) => new RegExp(String.raw`${call.replace('(', String.raw`\(`)}[^;]*\boptions,`).test(doorText))
+    .filter(([call]) => new RegExp(String.raw`${call.replace('(', String.raw`\(`)}[^;]*\boptions[,)]`).test(doorText))
     .map(([, path]) => codeOf(path));
 
 const isCarried = (door: string, body: string, key: string): boolean =>
@@ -99,22 +97,25 @@ const constructorlessMintedBy = (door: string): string[] =>
         .filter(className => !codeOf(classPathOf(className)).includes('constructor('));
 
 const CLASS_PATHS: Readonly<Record<string, string>> = {
-    OIMSlotStoreServiceMapDriven: 'engine/store/OIMSlotStoreServiceMapDriven.ts',
-    OIMSlotStoreServiceSingleSlotDriven: 'engine/store/OIMSlotStoreServiceSingleSlotDriven.ts',
-    OIMSlotStoreServiceTreeDriven: 'engine/store/OIMSlotStoreServiceTreeDriven.ts',
-    OIMSlotReleasePolicyAtUnhold: 'engine/collector/OIMSlotReleasePolicyAtUnhold.ts',
+    OIMSlotMapStoreService: 'engine/store/OIMSlotMapStoreService.ts',
+    OIMSingleSlotStoreService: 'engine/store/OIMSingleSlotStoreService.ts',
+    OIMSlotTreeStoreService: 'engine/store/OIMSlotTreeStoreService.ts',
+    OIMSlotAtUnholdReleasePolicy: 'engine/collector/OIMSlotAtUnholdReleasePolicy.ts',
     OIMSlotOwnerService: 'engine/slot/OIMSlotOwnerService.ts',
     OIMSlotContentEntityService: 'engine/entity/OIMSlotContentEntityService.ts',
     OIMSlotCollectionService: 'facade/slot/OIMSlotCollectionService.ts',
+    OIMWritableSlotCollectionService: 'facade/slot/OIMSlotCollectionService.ts',
+    OIMWritableSingleSlotService: 'facade/slot/OIMSingleSlotService.ts',
+    OIMSingleComputedService: 'facade/computed/OIMSingleComputedService.ts',
     OIMSingleSlotService: 'facade/slot/OIMSingleSlotService.ts',
     OIMBucketCommands: 'facade/bucket/OIMBucketCommands.ts',
-    OIMSlotContentBucketServiceArrayDriven: 'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
-    OIMSlotContentBucketServiceSortedArrayDriven: 'facade/bucket/OIMSlotContentBucketServiceSortedArrayDriven.ts',
-    OIMIndexService: 'facade/index/OIMIndexService.ts',
-    OIMIndexServiceSortedArrayDriven: 'facade/index/OIMIndexServiceSortedArrayDriven.ts',
+    OIMSlotContentPositionalArrayBucketService: 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+    OIMSlotContentSortedArrayBucketService: 'facade/bucket/OIMSlotContentSortedArrayBucketService.ts',
+    OIMSlotCollectionIndexService: 'facade/index/OIMSlotCollectionIndexService.ts',
+    OIMSlotCollectionSortedArrayIndexService: 'facade/index/OIMSlotCollectionSortedArrayIndexService.ts',
     OIMComputedService: 'facade/computed/OIMComputedService.ts',
-    OIMComputedServiceSorted: 'facade/computed/OIMComputedServiceSorted.ts',
-    OIMComputedServiceBucketMemo: 'facade/computed/OIMComputedServiceBucketMemo.ts',
+    OIMSortedComputedService: 'facade/computed/OIMSortedComputedService.ts',
+    OIMBucketMemoComputedService: 'facade/computed/OIMBucketMemoComputedService.ts',
 };
 
 const classPathOf = (className: string): string => {
@@ -125,18 +126,18 @@ const classPathOf = (className: string): string => {
 
 type TInjected = {
     entityWriter: unknown;
-    slotEmptiness: unknown;
+    slotEmptinessPolicy: unknown;
     columnSlotStoreService: unknown;
 };
 
-const injectedInto = (cardsService: ReturnType<typeof createOIMEntityService<TCard>>, db: OIMDB): TInjected => {
+const injectedInto = (cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>, db: OIMDB): TInjected => {
     const cards = cardsService.createStoreSlot(db);
-    cardsService.getColumn(cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 't' }), 'title');
-    const slotOwnerService = Reflect.get(cardsService, 'slotOwnerService') as { columnOwner: object };
+    cardsService.columnSlotService.getColumn(cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: 'c1', title: 't' }), { id: 'c1', title: 't' }), 'title');
+    const slotOwnerService = Reflect.get(cardsService, 'slotOwnerService') as { columnSlotOwner: object };
     return {
         entityWriter: Reflect.get(cardsService.slotContentService, 'entityWriter'),
-        slotEmptiness: Reflect.get(cardsService.slotContentService, 'slotEmptiness'),
-        columnSlotStoreService: Reflect.get(slotOwnerService.columnOwner, 'columnSlotStoreService'),
+        slotEmptinessPolicy: Reflect.get(cardsService.slotContentService, 'slotEmptinessPolicy'),
+        columnSlotStoreService: Reflect.get(slotOwnerService.columnSlotOwner, 'columnSlotStoreService'),
     };
 };
 
@@ -155,7 +156,7 @@ describe('which answer a collection the root mints gets', () => {
 
     it('the entity door answers from the globals the options a caller may leave out', () => {
         expect(namesAfter(/options\.(\w+)\s*\?\?[^;\n]*OIM_DEFAULT_\w+\.getValue\(\)/g, codeOfDoor(ENTITY_DOOR)))
-            .toEqual(['entityWriter', 'slotEmptiness']);
+            .toEqual(['entityWriter', 'slotEmptinessPolicy']);
     });
 
     it('the root mints only its channel slot and its collector slot, and names no global default', () => {
@@ -197,21 +198,21 @@ describe('which answer a collection the root mints gets', () => {
 
     it('hands a collection its own answer and never lets the class reach for one', () => {
         const db = new OIMDB();
-        const injected = injectedInto(createOIMEntityService<TCard>(db, { keyOf: card => card.id }), db);
+        const injected = injectedInto(createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) }), db);
 
         expect(injected.entityWriter).toBeDefined();
         expect(injected.columnSlotStoreService).toBeDefined();
-        expect(injected.slotEmptiness).toBeDefined();
+        expect(injected.slotEmptinessPolicy).toBeDefined();
     });
 
     it('reads each global once, so two roots in one process hand out the same answer', () => {
         const oneDb = new OIMDB();
         const otherDb = new OIMDB();
-        const one = injectedInto(createOIMEntityService<TCard>(oneDb, { keyOf: card => card.id }), oneDb);
-        const other = injectedInto(createOIMEntityService<TCard>(otherDb, { keyOf: card => card.id }), otherDb);
+        const one = injectedInto(createOIMSlotCollectionService(oneDb, { slotContentService: createOIMSlotContentEntityService<TCard, string>(oneDb) }), oneDb);
+        const other = injectedInto(createOIMSlotCollectionService(otherDb, { slotContentService: createOIMSlotContentEntityService<TCard, string>(otherDb) }), otherDb);
 
         expect(other.entityWriter).toBe(one.entityWriter);
         expect(other.columnSlotStoreService).toBe(one.columnSlotStoreService);
-        expect(other.slotEmptiness).toBe(one.slotEmptiness);
+        expect(other.slotEmptinessPolicy).toBe(one.slotEmptinessPolicy);
     });
 });

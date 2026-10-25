@@ -1,15 +1,11 @@
-import {
-    OIMDB,
-    OIMReleaseSlotCollectorServiceAfterIdle,
-    OIMSlotReleasePolicyAfterIdle,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotMapStoreService, oimMintAfterIdleSlotReleaseWheel } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMDisposer } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TIdleEntity = { readonly id: string; readonly title: string };
 
@@ -44,19 +40,14 @@ const oursSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[]
         getNowMs: () => idleClock.nowMs,
         releaseTimer: (): TOIMDisposer => () => undefined,
     });
-    const entityService = createOIMEntityService<TIdleEntity>(db, {
-        keyOf: idleEntity => idleEntity.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TIdleEntity>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const slotContentService = entityService.slotContentService;
-    const afterIdleReleaseSlotCollectorSlot = db.collectorSlot.afterIdleReleaseSlotCollectorSlot;
+    const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
     const runSweep = (entityCount: number): void => {
-        for (let i = 0; i < entityCount; i++) priceSink.ours = slotContentService.upsertEntity(entityStoreSlot, idleEntities[i]);
+        for (let i = 0; i < entityCount; i++) priceSink.ours = entityService.writeSlotContentByKey(entityStoreSlot, idleEntities[i].id, idleEntities[i]);
         db.flush();
         idleClock.nowMs += STEP_PAST_WINDOW_MS;
-        OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot);
+        afterIdleSlotReleaseWheel.flush();
     };
     runSweep(entitiesPerSweep);
     if (entityService.getSlotCount(entityStoreSlot) !== 0) {
@@ -99,18 +90,18 @@ const floorSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[
 const pairOf = (entitiesPerSweep: number): TPricePair => ({
     id: `release-after-idle.${entitiesPerSweep}-per-sweep`,
     path: EPricePath.PerRowPerWrite,
-    ours: `entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for ${entitiesPerSweep} new keys under OIMSlotReleasePolicyAfterIdle; `
-        + 'db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)',
+    ours: `entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity) for ${entitiesPerSweep} new keys under OIMSlotAfterIdleReleasePolicy; `
+        + 'db.flush(); the clock moved past the window; oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush()',
     floor: 'the same entities set into a Map, each key and its due time pushed onto a FIFO queue, the clock moved past '
         + 'the window, and the queue drained from its head deleting every due key from the Map',
     caveat: 'One operation is one entity inserted under a new key and later released when its idle window has passed; '
         + `the id names how many entities one sweep inserts before the clock jumps. Both sides read one fake clock that `
         + 'jumps by twice the window per sweep, so every entity is due at the sweep that follows its insert and none '
-        + 'survives it; the collector timer is a no-op and the sweep is driven by OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(). '
+        + 'survives it; the wheel timer is a no-op and the sweep is driven by oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(). '
         + 'Ours mints a slot per insert, files it in the slot store, stamps it on the channel, records its due time on '
-        + 'the slot and files it in a slice Set of the release queue with a Map entry per slot, then flushes an empty '
+        + 'the slot and pushes it onto a slice array of the release wheel with a bit in its slotFlags, then flushes an empty '
         + 'channel frame; the sweep walks the due slices, asks the policy whether each slot is releasable and releases '
-        + 'it through its owner, unfiling it from the store and from the queue Map. The floor keeps no slot, no '
+        + 'it through its owner, unfiling it from the store. The floor keeps no slot, no '
         + 'channel and no per-key queue index: one FIFO is enough for it only because every key here shares one '
         + 'window, which the slice queue does not assume. All of that pushes the ratio up, against ours.',
     build: () => {

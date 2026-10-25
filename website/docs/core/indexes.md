@@ -7,23 +7,7 @@ description: How to build a bucket collection whose slots the caller states, wri
 # Buckets
 
 ```ts setup
-import {
-    OIMBucketArrayMembershipUnique,
-    OIMBucketCommands,
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMSingleBucketService,
-    oimOrderedListCommandsOfTransition,
-    type TOIMBucketSlotsArrayUniqueStore,
-    type TOIMBucketSlotsSetStore,
-    type TOIMEntitySlot,
-    type TOIMOrderedListCommand,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMBucketCommands, OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService, OIMSlotContentSetBucketService, oimOrderedListCommandsOfTransition, type TOIMBucketSlotsArrayStore, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -33,10 +17,10 @@ declare function applyToTheRenderedList(commands: readonly TOIMOrderedListComman
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 
-const orderedDeckService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const orderedDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const orderedDecks = orderedDeckService.createStoreSlot(db);
 ```
 
@@ -56,12 +40,12 @@ store of each bucket store slot. Together they answer "which entities belong to 
 
 | Your situation | Take | Section |
 |---|---|---|
-| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMBucketService(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
-| Membership is a function of the entity (`card.deck`) | an index, `createOIMIndexService` | [Indexes](/docs/core/oimindex) |
-| A list sorted by columns | `createOIMComputedServiceSorted` over an index service | [Ordering](/docs/core/oimindex#ordering) |
-| A list whose order the user decides (drag, reorder) | `createOIMBucketService(db)` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
+| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
+| Membership is a function of the entity (`card.deck`) | an index, `createOIMSlotCollectionIndexService` | [Indexes](/docs/core/oimindex) |
+| A list sorted by columns | `createOIMSortedComputedService` over an index service | [Ordering](/docs/core/oimindex#ordering) |
+| A list whose order the user decides (drag, reorder) | `createOIMSlotCollectionService(db)` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
 | ...and a renderer that patches instead of rebuilding | the same: its default content service records `OIMBucketCommands` | [The commands, on the bucket slot](#the-commands-on-the-bucket-slot) |
-| One list under no key | `createOIMSingleBucketService(db)` | [A single bucket](#a-single-bucket) |
+| One list under no key | `createOIMSingleSlotService(db)` | [A single bucket](#a-single-bucket) |
 | A diff between two lists you hold yourself | `oimOrderedListCommandsOfTransition` | [Rendering an ordered bucket](#rendering-an-ordered-bucket) |
 
 ## A bucket's slots are the caller's
@@ -80,10 +64,7 @@ factory you call.
 ## Building one
 
 ```ts setup
-const byDeckService = createOIMBucketService<
-    TOIMEntitySlot<Card>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>,
-    OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>() });
+const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 const byDeck = byDeckService.createStoreSlot(db);
 const deckContentService = byDeckService.slotContentService;
 ```
@@ -95,7 +76,7 @@ bucket's type parameter is the type of its bucket member slots, `TBucketMemberSl
 A bucket collection is two stateless objects, like an entity collection:
 
 1. **How a bucket holds its slots, and in what order** — the bucket content service, the strategy:
-   `OIMSlotContentBucketServiceArrayDriven` (the default), `OIMSlotContentBucketServiceSetDriven`, or the
+   `OIMSlotContentPositionalArrayBucketService` (the default), `OIMSlotContentSetBucketService`, or the
    sorted one an index builds for itself. It has every write and member read of a bucket.
 2. **Where its buckets live** — the collection service over it, `OIMSlotCollectionService`, with an
    ordinary slot store service (a Map store unless you pass `bucketSlotStoreService`). A store is chosen by
@@ -103,14 +84,14 @@ A bucket collection is two stateless objects, like an entity collection:
 
 The bucket store slot carries the channel slot, so who is told is decided at `createStoreSlot(db)`.
 
-The options of `createOIMBucketService(db, options?)`:
+The options of `createOIMSlotCollectionService(db, options?)`:
 
 | Option | Default | What it decides |
 |---|---|---|
-| `slotContentService` | `new OIMSlotContentBucketServiceArrayDriven({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }) })` | how a bucket holds its slots |
+| `slotContentService` | `new OIMSlotContentPositionalArrayBucketService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }) })` | how a bucket holds its slots |
 | `maxCommandsPerSlot` | `OIM_MAX_COMMANDS_PER_SLOT` | the recorder of the default content service — see [the commands](#the-commands-on-the-bucket-slot) |
-| `bucketSlotStoreService` | a Map store; required when `TKey` is an array (an `OIMSlotStoreServiceTreeDriven`), because a Map store compares arrays by reference | where buckets are filed |
-| `slotReleasePolicy` | the db's, then `OIMSlotReleasePolicyAtEmpty.INSTANCE` — an unheld bucket stays while it has members and goes once it is empty | whether and when an unheld bucket goes |
+| `bucketSlotStoreService` | a Map store; required when `TKey` is an array (an `OIMSlotTreeStoreService`), because a Map store compares arrays by reference | where buckets are filed |
+| `slotReleasePolicy` | the db's, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` — an unheld bucket stays while it has members and goes once it is empty | whether and when an unheld bucket goes |
 | `columnSlotStoreService` / `columnNames` | `OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` | where bucket column slots live |
 
 `createStoreSlot(db)` creates one bucket store slot: one keyed store of buckets.
@@ -151,10 +132,10 @@ const cardSlot1 = cardService.getSlotByKey(cards, 'c1');
 const cardSlot2 = cardService.getSlotByKey(cards, 'c2');
 const cardSlot3 = cardService.getSlotByKey(cards, 'c3');
 
-deckContentService.writeBucketMemberSlots(red, [cardSlot1, cardSlot2]);   // the whole list, stated
+deckContentService.writeSlotContent(red, [cardSlot1, cardSlot2]);   // the whole list, stated
 deckContentService.addBucketMemberSlots(red, [cardSlot3]);                // this one joins, nothing else moves
 deckContentService.removeBucketMemberSlots(red, [cardSlot1]);             // this one leaves, nothing else moves
-deckContentService.clearBucketMemberSlots(red);                           // everyone out
+deckContentService.clearSlotContent(red);                           // everyone out
 
 red.owner.unholdSlot(red);
 ```
@@ -166,7 +147,7 @@ matters only to a bucket somebody already asked for goes through `findSlotByKey`
 
 ### Which door: you hold the answer, or you hold the delta
 
-`writeBucketMemberSlots` is for a caller who has the list that should be there and does not
+`writeSlotContent` is for a caller who has the list that should be there and does not
 know what changed: a search result, a page from a server, a filter re-run. One
 call, and the engine works out the arrivals and the departures for you.
 
@@ -186,9 +167,9 @@ replay in order to the same list.
 
 `addBucketMemberSlots` removes nothing. If the authoritative list *shrank* and you call
 `addBucketMemberSlots`, the slots that left stay in the bucket, held. Not knowing
-what left is exactly when `writeBucketMemberSlots` is the right door; its cost is the price of not knowing.
+what left is exactly when `writeSlotContent` is the right door; its cost is the price of not knowing.
 
-`writeBucketMemberSlots(bucketSlot, slots)` returns `true` when anything arrived or departed. It:
+`writeSlotContent(bucketSlot, slots)` returns `true` when anything arrived or departed. It:
 
 - **is idempotent.** Re-sending an unchanged list evicts nothing and wakes nobody.
 - **follows the strategy.** A set-driven bucket takes the set difference. An array-driven
@@ -198,11 +179,11 @@ what left is exactly when `writeBucketMemberSlots` is the right door; its cost i
 - **keeps the slots both lists name.** A slot in the old and the new list keeps its
   identity and its subscribers through the write.
 
-`clearBucketMemberSlots` on an empty bucket records nothing and wakes nobody.
+`clearSlotContent` on an empty bucket records nothing and wakes nobody.
 
 A slot in a bucket is a counted reference, a hold. Joining a bucket takes a
 hold on the slot; leaving gives it back. So a bucket you never emptied keeps its
-slots alive, and `cardService.slotContentService.deleteEntity(slot)` does not take the slot out
+slots alive, and `cardService.slotContentService.clearSlotContent(slot)` does not take the slot out
 of your buckets. It takes the *value* away and leaves a valueless slot in the
 bucket, just like the valueless slots a bucket holds when it was resolved before its
 entities arrived.
@@ -239,11 +220,12 @@ The bucket slot is written when its membership or its order changes, and only th
 
 | Content service | Storage | What one add records | Take it when |
 |---|---|---|---|
-| `OIMSlotContentBucketServiceSetDriven({ bucketCommands? })` | `Set` | one entry per slot; a slot named twice is one | order does not matter, or a sorted view will impose one |
-| `OIMSlotContentBucketServiceArrayDriven({ bucketCommands?, bucketArrayMembership? })` | list, plus whatever the membership adds | whatever the membership records | the caller's order is part of the answer |
+| `OIMSlotContentSetBucketService({ bucketCommands? })` | `Set` | one entry per slot; a slot named twice is one | order does not matter, or a sorted view will impose one |
+| `OIMSlotContentPositionalArrayBucketService({ bucketCommands? })` | list | one per **mention**; a slot named twice is two | the caller's order is part of the answer, and the list may repeat a slot (a playlist) or the caller never repeats one |
+| `OIMBucketUniqueMemberSlotsArrayService({ bucketCommands? })` | list + `Set` | one per slot, order kept | the caller's order is part of the answer, and a position must name exactly one entity; a repeated add or insert is refused |
 
-The array-driven service is the default of `createOIMBucketService` (with a recorder) and of
-`createOIMIndexService` (without one). The set-driven service's membership test and removal are a hash
+The array-driven service is the default of `createOIMSlotCollectionService` (with a recorder) and of
+`createOIMSlotCollectionIndexService` (without one). The set-driven service's membership test and removal are a hash
 lookup. It keeps insertion order for iteration, but has no positions: it has no
 `insertBucketMemberSlotAt`, `removeBucketMemberSlotAt`, `removeBucketMemberSlotRange` or moves, and no
 `getBucketMemberSlotAt` / `getBucketMemberSlotPosition` either — asking a set for a place
@@ -253,27 +235,22 @@ The array-driven service is what makes positions the caller's: nothing re-decide
 and [the position doors](#the-doors) are the whole of how the list moves. Its membership test and a
 removal of one named slot scan the list.
 
-### And what naming a slot records: the membership
-
-| Membership | Storage it builds | What one add records | Take it when |
-|---|---|---|---|
-| `OIMBucketArrayMembershipNonUnique.INSTANCE` (the default) | `TOIMBucketSlotsArrayStore` | one per **mention**; a slot named twice is two | the list may repeat a slot (a playlist), or the caller never repeats one and no set is worth keeping |
-| `new OIMBucketArrayMembershipUnique()` | `TOIMBucketSlotsArrayUniqueStore` (list + `Set`) | one per slot, order kept | a position must name exactly one entity; a repeated add or insert is refused |
+### And what naming a slot records: one per mention or one per slot
 
 ```ts
-new OIMSlotContentBucketServiceArrayDriven<
-    TOIMEntitySlot<Card>, TOIMBucketSlotsArrayUniqueStore<TOIMEntitySlot<Card>>
->({
-    bucketArrayMembership: new OIMBucketArrayMembershipUnique<TOIMEntitySlot<Card>>(),
+new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({
+    bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService<TOIMEntitySlot<Card>>(),
 });
 ```
+
+The member slots service is the only writer of an array bucket's list and the `Set` beside it, so the two
+never disagree. With the unique one the membership test is a `Set` lookup; with the default it scans the list.
 
 The bucket's own type says which storage it carries, so the pairing is checked:
 
 ```ts signature
-TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>>          // OIMSlotContentBucketServiceSetDriven
-TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>>        // OIMSlotContentBucketServiceArrayDriven
-TOIMBucketSlot<TOIMBucketSlotsArrayUniqueStore<TOIMEntitySlot<Card>>>  // ...with OIMBucketArrayMembershipUnique
+TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>>          // OIMSlotContentSetBucketService
+TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>>        // OIMSlotContentPositionalArrayBucketService
 ```
 
 Handing a set-driven bucket to the array-driven service is a compile error. The content
@@ -282,11 +259,11 @@ service you do not import stays out of your bundle.
 ## Positions the caller decides
 
 Take this when the order is the user's: a kanban column, a playlist, a priority
-queue someone reorders by hand. `createOIMBucketService(db)` builds an array-driven bucket collection with
+queue someone reorders by hand. `createOIMSlotCollectionService(db)` builds an array-driven bucket collection with
 a recorder, and you decide the positions:
 
 ```ts setup
-const pageService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const pageService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const page = pageService.createStoreSlot(db);
 const pageContentService = pageService.slotContentService;
 ```
@@ -295,7 +272,7 @@ const pageContentService = pageService.slotContentService;
 
 An **index** is only valid until the next write; a **slot** is stable across
 frames. Reach for a position when the position is what you already have (a drag
-handle reports one), and for `addBucketMemberSlots` / `removeBucketMemberSlots` / `writeBucketMemberSlots`
+handle reports one), and for `addBucketMemberSlots` / `removeBucketMemberSlots` / `writeSlotContent`
 otherwise. The two reads are on the array-based content services (array-driven and sorted), the five writes
 on the array-driven one only; a set-driven bucket has no positions. Each takes the bucket slot and no store
 slot.
@@ -315,14 +292,14 @@ before anything moves. `±Infinity` passes that check and is treated as any othe
 out-of-range position by the door it reaches: clamped by an insert and by a range
 move's landing, refused by `removeBucketMemberSlotAt` and `moveBucketMemberSlotToPosition`.
 
-The default membership records one place per **mention**, so
+The array-driven service records one place per **mention**, so
 `insertBucketMemberSlotAt` of a slot the bucket already holds gives it a second position.
-Build the content service with an `OIMBucketArrayMembershipUnique` when a position must name
+Take `OIMBucketUniqueMemberSlotsArrayService` when a position must name
 exactly one entity.
 
-`insertBucketMemberSlotAt` answers the index the slot landed on (`at` clamped to the ends of
-the list), or `OIM_NOTHING_WAS_INSERTED` (`-1`) for a repeat on an
-`OIMBucketArrayMembershipUnique`. Under the default membership the landing can differ from
+The recorded insert names the index the slot landed on (`at` clamped to the ends of
+the list); a repeat on `OIMBucketUniqueMemberSlotsArrayService` inserts and records nothing
+(`OIM_NOTHING_WAS_INSERTED`, `-1`). On the array-driven service the landing can differ from
 `getBucketMemberSlotPosition`, which names a repeated slot's first position.
 
 ### Per strategy
@@ -358,13 +335,13 @@ pageContentService.moveBucketMemberSlotToPosition(
 ```
 
 **A whole list handed in at once** — a server response, a restored draft.
-`writeBucketMemberSlots` replaces the lot:
+`writeSlotContent` replaces the lot:
 
 ```ts
 declare const slotsInTheOrderTheServerSent: readonly TOIMEntitySlot<Card>[];
 
 const bucket = pageService.holdSlotByKey(page, 'results');
-pageContentService.writeBucketMemberSlots(bucket, slotsInTheOrderTheServerSent);
+pageContentService.writeSlotContent(bucket, slotsInTheOrderTheServerSent);
 ```
 
 **A reorder a renderer has to animate.** Read the commands, not the list — below.
@@ -407,8 +384,8 @@ they exist only in an effect body or a `subscribeAfterEachFrame` handler; after 
 that did not read this frame's script reads the list instead.
 
 A positional write is always recorded as a position, and `addBucketMemberSlots`
-as an `insert` at the end. `isWholeListRecorded` is set by a write of the whole bucket — `writeBucketMemberSlots`,
-`clearBucketMemberSlots`, `moveBucketMemberSlotRangeToPosition` — by a removal from a bucket whose
+as an `insert` at the end. `isWholeListRecorded` is set by a write of the whole bucket — `writeSlotContent`,
+`clearSlotContent`, `moveBucketMemberSlotRangeToPosition` — by a removal from a bucket whose
 content service keeps no positions, which has no index to patch, and by the script
 outgrowing the list it describes. `maxCommandsPerSlot` is the
 commands-per-slot ratio above which that happens; it defaults to
@@ -427,19 +404,19 @@ One bucket under no address: the current search result, the visible window, a
 selection. Take it for a hand-curated list that nothing looks up by key; take a keyed
 bucket collection as soon as there is more than one such list and a key tells them apart.
 
-A single bucket is a store slot of `createOIMSingleBucketService(db, options?)`, an `OIMSingleSlotService` over
-a bucket content service with `OIMSlotStoreServiceSingleSlotDriven.INSTANCE` as its store. Its options are
-those of `createOIMBucketService` without a store. `createStoreSlot(db)` mints nothing; its one bucket slot is
+A single bucket is a store slot of `createOIMSingleSlotService(db, options?)`, an `OIMSingleSlotService` over
+a bucket content service with `OIMSingleSlotStoreService.INSTANCE` as its store. Its options are
+those of `createOIMSlotCollectionService` without a store. `createStoreSlot(db)` mints nothing; its one bucket slot is
 read through the single doors: `getSingleSlot(storeSlot)` hands it out (minting it on the first read, or a
 fresh one if the last was released, and the unused-slot collector holds that mint until the next flush),
 `holdSingleSlot(storeSlot)` hands it out held, and `findSingleSlot(storeSlot)` answers it without minting.
 
 ```ts
-const searchResultService = createOIMSingleBucketService<TOIMEntitySlot<Card>>(db);
+const searchResultService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const searchResult = searchResultService.createStoreSlot(db);
 const searchResultSlot = searchResultService.holdSingleSlot(searchResult);
 
-searchResultService.slotContentService.writeBucketMemberSlots(searchResultSlot, [cardService.getSlotByKey(cards, 'c1')]);
+searchResultService.slotContentService.writeSlotContent(searchResultSlot, [cardService.getSlotByKey(cards, 'c1')]);
 effectService.createEffect(db, [searchResultSlot], [], () => {
     render(Array.from(searchResultService.slotContentService.getBucketMemberSlots(searchResultSlot)));
 });
@@ -452,8 +429,8 @@ for its buckets.
 
 The single bucket slot is what an effect subscribes to. It lives under the release policy like any bucket:
 while an effect or a hold keeps it, it stays; once it is unheld and empty under the default
-`OIMSlotReleasePolicyAtEmpty` it is released, and the next `getSingleSlot` or `holdSingleSlot` mints a fresh,
-empty one. Pass `OIMSlotReleasePolicyNever.INSTANCE` as `slotReleasePolicy` for a bucket slot that is never
+`OIMSlotAtEmptyReleasePolicy` it is released, and the next `getSingleSlot` or `holdSingleSlot` mints a fresh,
+empty one. Pass `OIMSlotNeverReleasePolicy.INSTANCE` as `slotReleasePolicy` for a bucket slot that is never
 released.
 
 ## Rendering an ordered bucket
@@ -486,11 +463,10 @@ value `getBucketMemberSlots` handed you. `getBucketMemberSlots` returns the buck
 is typed `Iterable` and not an array. A `prev` kept live is the same array as
 `next` on the following frame, so the diff comes back empty, no reorder is ever
 drawn, and nothing throws. Keep the `Array.from(...)` copy, or subscribe to
-`createOIMComputedServiceBucketMemo`, whose value is a fresh array on every write
+`createOIMBucketMemoComputedService`, whose value is a fresh array on every write
 that changed the list and the same array while it did not.
 
-A list **may name one slot twice** — `OIMBucketArrayMembershipNonUnique`, the default
-membership of the array-driven content service, records every mention. The diff matches the
+A list **may name one slot twice** — the array-driven content service records every mention. The diff matches the
 mentions of one identity in the order they appear, and the script reproduces the
 new list mention for mention. Its minimal move count is claimed for lists whose
 identities are distinct.
@@ -511,7 +487,7 @@ the last of those lets go. A caller who means to empty a bucket store slot
 clears each bucket in it:
 
 ```ts
-for (const bucket of Array.from(byDeckService.getSlots(byDeck))) deckContentService.clearBucketMemberSlots(bucket);
+for (const bucket of Array.from(byDeckService.getSlots(byDeck))) deckContentService.clearSlotContent(bucket);
 ```
 
 ## Where to next

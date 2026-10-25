@@ -466,7 +466,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
                 effects.push(effectService.createEffect(
-                    fixture.db, [fixture.entityService.holdColumn(fixture.slots[i], 'title')], [], handler,
+                    fixture.db, [fixture.entityService.columnSlotService.holdColumn(fixture.slots[i], 'title')], [], handler,
                 ));
             }
             priceSink.flag = effects.length > 0;
@@ -565,7 +565,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
                     const entity = entitySlots[computedSlot.key].entity;
                     return entity === undefined ? 0 : entity.title.length;
                 },
-                at => ({ sourceSlots: [entitySlots[at]] }),
+                ({ key: at }) => ({ sourceSlots: [entitySlots[at]] }),
             );
             const titleLengthSlots: TOIMComputedSlot<number, number>[] = [];
             for (let i = 0; i < entitySlots.length; i++) {
@@ -585,7 +585,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
                         const slots = fixture.slots;
                         const slotContentService = fixture.entityService.slotContentService;
                         const db = fixture.db;
-                        const computedValueService = titleLengthComputedCollectionService.slotContentService;
+                        const computedValueService = titleLengthSlots[0].computedValueService;
                         let done = 0;
                         while (done < times) {
                             const upTo = Math.min(slots.length, times - done);

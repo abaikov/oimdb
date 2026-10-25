@@ -1,20 +1,8 @@
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMSingleEntityService,
-    createOIMEntityWriterInPlace,
-    oimPatchEntityColumnsGuarded,
-    oimPatchEntityColumnGuarded,
-    oimPutEntityColumnsGuarded,
-    oimIsSlotEmpty,
-    oimIsSlotReleased,
-} from '../../../index';
-import type {
-    TOIMEntitySlot, TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore,
-} from '../../../index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, oimPatchEntityColumnsGuarded, oimPatchEntityColumnGuarded, oimPutEntityColumnsGuarded, oimIsSlotEmpty, oimIsSlotReleased } from '../../../index';
+import type { TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TCard = { id: string; deckId: string };
 type TSettings = { theme: string };
@@ -31,16 +19,14 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
  */
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     // Positions are the caller's here, which is what these
     // writes are.
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const listService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'kept', deckId: 'spades' });
+    cardsService.writeSlotContentByKey(cards, 'kept', { id: 'kept', deckId: 'spades' });
     db.flush();
     // Held, so the list itself cannot be unfiled by a write that empties it —
     // what these cases are about is the SLOT's departure, not the bucket's.
@@ -71,8 +57,8 @@ const DEPARTURES: readonly { name: string; take: (s: TSetup) => void }[] = [
     { name: 'removeSlotAt', take: s => { s.membersService.removeBucketMemberSlotAt(s.bucket, 0); } },
     { name: 'removeSlotRange', take: s => { s.membersService.removeBucketMemberSlotRange(s.bucket, 0, 1); } },
     { name: 'removeSlots', take: s => { s.membersService.removeBucketMemberSlots(s.bucket, [s.ghost]); } },
-    { name: 'clear', take: s => { s.membersService.clearBucketMemberSlots(s.bucket); } },
-    { name: 'write, replacing the list', take: s => { s.membersService.writeBucketMemberSlots(s.bucket, [s.kept]); } },
+    { name: 'clear', take: s => { s.membersService.clearSlotContent(s.bucket); } },
+    { name: 'write, replacing the list', take: s => { s.membersService.writeSlotContent(s.bucket, [s.kept]); } },
 ];
 
 describe('one owner for a departure', () => {
@@ -113,14 +99,14 @@ describe('one owner for a departure', () => {
     it('keeps a slot whose value was taken away, until the bucket lets it go too', () => {
         const { db, cardsService, cards, membersService, bucket, kept } = createFixture();
         membersService.removeBucketMemberSlotAt(bucket, 0);
-        cardsService.slotContentService.deleteEntity(kept);
+        cardsService.slotContentService.clearSlotContent(kept);
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'kept')).toBe(kept);
         expect(oimIsSlotEmpty(kept)).toBe(true);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(1);
 
-        membersService.clearBucketMemberSlots(bucket);
+        membersService.clearSlotContent(bucket);
         db.flush();
         expect(oimIsSlotReleased(kept)).toBe(true);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(0);
@@ -130,17 +116,15 @@ describe('one owner for a departure', () => {
 describe('what may be a column of a stored entity', () => {
     it('leaves the prototype alone when a standalone record is replaced from a payload under the guarded writer', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleEntityService<TSettings>(db, {
-            entityWriter: createOIMEntityWriterInPlace({
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMEntityWriterInPlace({
                 putEntityColumns: oimPutEntityColumnsGuarded,
                 patchEntityColumns: oimPatchEntityColumnsGuarded,
                 patchEntityColumn: oimPatchEntityColumnGuarded,
-            }),
-        });
+            }) }) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark' });
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
 
-        settingsService.slotContentService.writeEntity(settingsService.getSingleSlot(settings), JSON.parse('{"theme":"light","__proto__":{"polluted":true}}') as TSettings);
+        settingsService.slotContentService.writeSlotContent(settingsService.getSingleSlot(settings), JSON.parse('{"theme":"light","__proto__":{"polluted":true}}') as TSettings);
         db.flush();
 
         const held = settingsService.getSingleSlot(settings).entity as TSettings;
@@ -153,10 +137,8 @@ describe('what may be a column of a stored entity', () => {
 
 describe('reaching a bucket\'s slots', () => {
     const byDeckOver = (db: OIMDB) => {
-        const membersService = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
-        const byDeckService = createOIMBucketService<
-            TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-        >(db, { slotContentService: membersService });
+        const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: membersService });
         return { byDeckService, membersService };
     };
 
@@ -168,13 +150,13 @@ describe('reaching a bucket\'s slots', () => {
      */
     it('hands a reader the slots just written, at both reading doors', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const { byDeckService, membersService } = byDeckOver(db);
         const byDeck = byDeckService.createStoreSlot(db);
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'spades' });
-        membersService.writeBucketMemberSlots(spadesSlot, [cardsService.getSlotByKey(cards, 'c1')]);
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades' });
+        membersService.writeSlotContent(spadesSlot, [cardsService.getSlotByKey(cards, 'c1')]);
 
         // No flush: the write is still in the open batch and no frame has run.
         expect(Array.from(membersService.getBucketMemberSlots(spadesSlot)).length).toBe(1);
@@ -199,7 +181,7 @@ describe('reaching a bucket\'s slots', () => {
      */
     it('drops a bucket let go while empty, and keeps one that still holds a slot', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const { byDeckService, membersService } = byDeckOver(db);
         const byDeck = byDeckService.createStoreSlot(db);
@@ -213,9 +195,9 @@ describe('reaching a bucket\'s slots', () => {
         expect(oimIsSlotReleased(before)).toBe(true);
         expect(byDeckService.holdSlotByKey(byDeck, 'spades')).not.toBe(before);
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'hearts' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'hearts' });
         const filledSlot = byDeckService.holdSlotByKey(byDeck, 'hearts');
-        membersService.writeBucketMemberSlots(filledSlot, [cardsService.getSlotByKey(cards, 'c1')]);
+        membersService.writeSlotContent(filledSlot, [cardsService.getSlotByKey(cards, 'c1')]);
         db.flush();
         filledSlot.owner.unholdSlot(filledSlot);
         db.flush();

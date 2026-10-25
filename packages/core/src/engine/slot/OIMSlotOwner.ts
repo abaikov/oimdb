@@ -30,6 +30,7 @@ export class OIMSlotOwner implements IOIMSlotOwner {
         const subscribers = (slotEditable.effects ??= []);
         subscribers.push(effect);
         (slotEditable.effectEdges ??= []).push(edge);
+        if (subscribers.length === 1) this.onSlotFirstSubscribed(slot);
         return subscribers.length - 1;
     }
 
@@ -46,12 +47,23 @@ export class OIMSlotOwner implements IOIMSlotOwner {
         subscribers.pop();
         effectEdges.pop();
         if (last !== positionInSlot) tailEffect.effectService.setPositionInSubscribedSlot(tailEffect, tailEdge, positionInSlot);
-        if (last === 0) this.onSlotIdle(slot);
+        if (last === 0) {
+            this.onSlotIdle(slot);
+            this.onSlotLastUnsubscribed(slot);
+        }
         this.unholdSlot(slot);
         return true;
     }
 
     public releaseSlotIfUnheld(_slot: TOIMSlot): void { return; }
+
+    public unsafeMutateSlot(slot: TOIMSlot, mutateSlot: (slotEditable: TOIMSlotEditable<TOIMSlot>) => void): void {
+        mutateSlot(slot as TOIMSlotEditable<TOIMSlot>);
+    }
+
+    public onSlotFirstSubscribed(_slot: TOIMSlot): void { return; }
+
+    public onSlotLastUnsubscribed(_slot: TOIMSlot): void { return; }
 
     protected onSlotIdle(_slot: TOIMSlot): void { return; }
 

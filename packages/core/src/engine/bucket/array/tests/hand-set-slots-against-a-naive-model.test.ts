@@ -1,13 +1,12 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import { OIMEffectService } from '../../../computed/OIMEffectService';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../../entity/types/TOIMEntityColumnName';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
 import { assertConsistent, bucketsUnderTest, entitiesUnderTest } from '../../../../../tests/support/assertConsistent';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; rank: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
@@ -28,21 +27,19 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, string>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TRowSlot>();
-    const searchService = createOIMBucketService<
-        TRowSlot, string, TSlots, OIMSlotContentBucketServiceArrayDriven<TRowSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot, string>();
+    const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const search = searchService.createStoreSlot(db);
-    const upsertEntity = (row: TRow): void => { rowsService.slotContentService.upsertEntity(rows, row); };
+    const upsertEntity = (row: TRow): void => { rowsService.writeSlotContentByKey(rows, row.id, row); };
     const updateEntityByKey = (id: string, patch: Partial<TRow>): void => {
         const slot = rowsService.findSlotByKey(rows, id);
         if (slot !== undefined) rowsService.slotContentService.updateEntity(slot, patch);
     };
     const deleteEntityByKey = (id: string): void => {
         const slot = rowsService.findSlotByKey(rows, id);
-        if (slot !== undefined) rowsService.slotContentService.deleteEntity(slot);
+        if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
     };
     const searchBucketService = {
         getSlots: (storeSlot: typeof search) => searchService.getSlots(storeSlot),
@@ -86,7 +83,7 @@ const run = (seed: number, steps: number): void => {
      */
     const writeOf = (name: string, ids: readonly string[]): void => {
         slots.set(name, ids.slice());
-        membersService.writeBucketMemberSlots(
+        membersService.writeSlotContent(
             buckets.get(name) as TDeck,
             ids.map((id) => rowsService.getSlotByKey(rows, id)!));
     };
@@ -190,15 +187,15 @@ describe('a bucket collection whose slots are not the engine\'s', () => {
         const {
             db, effectService, rowsService, rows, membersService, searchService, search, updateEntityByKey,
         } = createFixture();
-        rowsService.slotContentService.upsertEntities(rows, [
+        rowsService.writeInBatch(rows, () => ([
             { id: 'k1', rank: 3, label: 'a' },
             { id: 'k2', rank: 2, label: 'b' },
             { id: 'k3', rank: 1, label: 'c' },
             { id: 'k4', rank: 9, label: 'd' },
-        ]);
+        ]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
         const bucket = searchService.holdSlotByKey(search, 'q0');
-        membersService.writeBucketMemberSlots(bucket, ['k1', 'k2', 'k3'].map((key) => rowsService.getSlotByKey(rows, key)!));
+        membersService.writeSlotContent(bucket, ['k1', 'k2', 'k3'].map((key) => rowsService.getSlotByKey(rows, key)!));
         db.flush();
         const ids = (): string[] => Array.from(membersService.getBucketMemberSlots(bucket)).map((slot) => slot.key as string);
         return { db, effectService, rowsService, rows, membersService, searchService, search, bucket, ids, updateEntityByKey };
@@ -230,7 +227,7 @@ describe('a bucket collection whose slots are not the engine\'s', () => {
     it('keeps the caller\'s order through writes to the slots it holds', () => {
         const { db, effectService, rowsService, rows, membersService, searchService, search, updateEntityByKey } = fill();
         const plain = searchService.holdSlotByKey(search, 'q1');
-        membersService.writeBucketMemberSlots(plain, ['k2', 'k1'].map((key) => rowsService.getSlotByKey(rows, key)!));
+        membersService.writeSlotContent(plain, ['k2', 'k1'].map((key) => rowsService.getSlotByKey(rows, key)!));
         db.flush();
         expect(Array.from(membersService.getBucketMemberSlots(plain)).map((slot) => slot.key)).toEqual(['k2', 'k1']);
 
@@ -263,7 +260,7 @@ describe('a bucket collection whose slots are not the engine\'s', () => {
         effectService.createEffect(db, [bucket], [], () => { wokeHere++; });
         effectService.createEffect(db, [other], [], () => { wokeThere++; });
 
-        membersService.writeBucketMemberSlots(other, [rowsService.getSlotByKey(rows, 'k2')!]);
+        membersService.writeSlotContent(other, [rowsService.getSlotByKey(rows, 'k2')!]);
         db.flush();
 
         expect(ids()).toEqual(['k1', 'k2', 'k3']);
@@ -279,7 +276,7 @@ describe('a bucket collection whose slots are not the engine\'s', () => {
         const { db, effectService, rowsService, rows, membersService, bucket, ids } = fill();
         let runCount = 0;
         effectService.createEffect(db, [bucket], [], () => { runCount++; });
-        membersService.writeBucketMemberSlots(bucket, ids().map((key) => rowsService.getSlotByKey(rows, key)!));
+        membersService.writeSlotContent(bucket, ids().map((key) => rowsService.getSlotByKey(rows, key)!));
         db.flush();
 
         expect(runCount).toBe(0);

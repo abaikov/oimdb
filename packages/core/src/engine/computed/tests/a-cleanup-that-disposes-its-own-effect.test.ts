@@ -1,4 +1,6 @@
-import { OIMDB, OIMEffectService, createOIMEntityService } from '../../../index';
+import { OIMDB, OIMEffectService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; n: number };
 
@@ -6,9 +8,9 @@ describe('a cleanup that disposes its own effect', () => {
     it('stops the body that would have run after it', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 's', n: 0 });
+        const card = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
         const bodies: number[] = [];
         const effect = effectService.createEffect(db, [card], [], () => {
             const n = card.entity?.n ?? -1;

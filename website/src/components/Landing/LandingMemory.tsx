@@ -96,7 +96,7 @@ function useUser(id: string) {
 
 const CODE_OIMDB = `const userService = createOIMEntityService<User>(db, {
   keyOf: (user) => user.id,
-  slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 30_000 }),
+  slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 const users = userService.createStoreSlot(db);
 

@@ -1,20 +1,18 @@
 import { IDBDatabase, IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import type { TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import type { TOIMPersistOperation } from '@oimdb/persist';
 import {
     OIMPersistEntityWriter,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy } from '../src';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string; onGreet?: () => string };
 
@@ -23,28 +21,25 @@ function buildPersistedUsers(databaseName: string) {
         entityWriter: createOIMEntityWriterInPlace(),
     });
     const db = new OIMDB();
-    const entityService = createOIMEntityService<TUser>(db, {
-        keyOf: user => user.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName, indexedDb: new IDBFactory() });
     const persistOperations: TOIMPersistOperation[] = [];
     const persistor = new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
         persistBackend: persistIndexedDbBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError: (_error, persistErrorContext) => persistOperations.push(persistErrorContext.persistOperation),
     });
-    const persistResourceRecords = persistor.addPersistResource(new OIMPersistResourceRecords<
+    const persistRecordsResource = persistor.addPersistResource(new OIMPersistRecordsResource<
         OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TOIMStoreKey, TUser
     >({
-        persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TUser>({
+        persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
             entityCollectionService: entityService, entityStoreSlot,
             persistEntityWriter,
         }),
-        persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TUser>({ tableName: 'users' }),
+        persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TUser>({ tableName: 'users' }),
     }));
-    return { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistResourceRecords, persistOperations };
+    return { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistRecordsResource, persistOperations };
 }
 
 describe('persistor.unload on an IndexedDB records resource', () => {
@@ -65,18 +60,18 @@ describe('persistor.unload on an IndexedDB records resource', () => {
         transactionSpy.mock.calls.filter(transactionCall => transactionCall[1] === 'readonly').length;
 
     test('writes the pending delta in one readwrite transaction, and the unloaded key stays on the backend', async () => {
-        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistResourceRecords } =
+        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistRecordsResource } =
             buildPersistedUsers('unload-one-transaction-db');
         startedPersistors.push(persistor);
         persistor.start();
-        entityService.slotContentService.upsertEntities(entityStoreSlot,[{ id: 'u1', name: 'Ada' }, { id: 'u2', name: 'Grace' }]);
+        entityService.writeInBatch(entityStoreSlot, () => ([{ id: 'u1', name: 'Ada' }, { id: 'u2', name: 'Grace' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
         await Promise.resolve();
         await persistor.whenIdle();
         transactionSpy.mockClear();
 
-        entityService.slotContentService.upsertEntity(entityStoreSlot,{ id: 'u2', name: 'Grace Hopper' });
-        entityService.slotContentService.upsertEntity(entityStoreSlot,{ id: 'u3', name: 'Edsger' });
-        await persistor.unload(persistResourceRecords, ['u1']);
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u2', { id: 'u2', name: 'Grace Hopper' });
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u3', { id: 'u3', name: 'Edsger' });
+        await persistor.unload(persistRecordsResource, ['u1']);
         await Promise.resolve();
         await persistor.whenIdle();
 
@@ -90,16 +85,16 @@ describe('persistor.unload on an IndexedDB records resource', () => {
     });
 
     test('an unload with nothing pending writes the unloaded keys as they are, in one readwrite transaction', async () => {
-        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistResourceRecords } =
+        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistRecordsResource } =
             buildPersistedUsers('unload-nothing-pending-db');
         startedPersistors.push(persistor);
         persistor.start();
-        entityService.slotContentService.upsertEntities(entityStoreSlot,[{ id: 'u1', name: 'Ada' }, { id: 'u2', name: 'Grace' }]);
+        entityService.writeInBatch(entityStoreSlot, () => ([{ id: 'u1', name: 'Ada' }, { id: 'u2', name: 'Grace' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
         await Promise.resolve();
         await persistor.whenIdle();
         transactionSpy.mockClear();
 
-        await persistor.unload(persistResourceRecords, ['u1', 'u2']);
+        await persistor.unload(persistRecordsResource, ['u1', 'u2']);
         await Promise.resolve();
         await persistor.whenIdle();
 
@@ -112,17 +107,17 @@ describe('persistor.unload on an IndexedDB records resource', () => {
     });
 
     test('a commit that fails leaves the table exactly as it was, and keeps the key in memory', async () => {
-        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistResourceRecords, persistOperations } =
+        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistRecordsResource, persistOperations } =
             buildPersistedUsers('unload-failed-commit-db');
         startedPersistors.push(persistor);
         persistor.start();
-        entityService.slotContentService.upsertEntity(entityStoreSlot,{ id: 'u1', name: 'Ada' });
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
         await Promise.resolve();
         await persistor.whenIdle();
 
-        entityService.slotContentService.upsertEntity(entityStoreSlot,{ id: 'u1', name: 'Ada Lovelace' });
-        entityService.slotContentService.upsertEntity(entityStoreSlot,{ id: 'u2', name: 'Grace', onGreet: () => 'hello' });
-        const unloadRejection: unknown = await persistor.unload(persistResourceRecords, ['u1']).then(
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u1', { id: 'u1', name: 'Ada Lovelace' });
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u2', { id: 'u2', name: 'Grace', onGreet: () => 'hello' });
+        const unloadRejection: unknown = await persistor.unload(persistRecordsResource, ['u1']).then(
             () => undefined,
             (error: unknown) => error,
         );
@@ -138,23 +133,23 @@ describe('persistor.unload on an IndexedDB records resource', () => {
     });
 
     test('a load reads only the requested keys in one readonly transaction and puts them back into memory', async () => {
-        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistResourceRecords } =
+        const { entityService, entityStoreSlot, persistIndexedDbBackend, persistor, persistRecordsResource } =
             buildPersistedUsers('load-requested-keys-db');
         startedPersistors.push(persistor);
         persistor.start();
-        entityService.slotContentService.upsertEntities(entityStoreSlot,[
+        entityService.writeInBatch(entityStoreSlot, () => ([
             { id: 'u1', name: 'Ada' }, { id: 'u2', name: 'Grace' }, { id: 'u3', name: 'Edsger' },
-        ]);
+        ]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
         await Promise.resolve();
         await persistor.whenIdle();
-        await persistor.unload(persistResourceRecords, ['u1', 'u2']);
+        await persistor.unload(persistRecordsResource, ['u1', 'u2']);
         await Promise.resolve();
         await persistor.whenIdle();
         transactionSpy.mockClear();
         const objectStoreGetSpy = jest.spyOn(IDBObjectStore.prototype, 'get');
 
         try {
-            await persistor.load(persistResourceRecords, ['u1']);
+            await persistor.load(persistRecordsResource, ['u1']);
             await Promise.resolve();
             await persistor.whenIdle();
 

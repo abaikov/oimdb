@@ -1,11 +1,4 @@
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMIndexService,
-    oimInsertEntityWithoutCopy,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     TOIMEntitySlot,
@@ -21,6 +14,8 @@ import type { TPriceSide } from './TPriceSide';
 import { priceRoundSide } from './priceRoundSide';
 import { priceCloseTrackedFrame, priceQueueOnce, priceTrackedFrame } from './priceTrackedFrame';
 import type { TPriceTrackedFrame } from './priceTrackedFrame';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const strictEquality = (a: unknown, b: unknown): boolean => a === b;
 
@@ -176,7 +171,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.insert-vs-map-set',
         path: EPricePath.PerRowPerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) — a key this population has never seen',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) — a key this population has never seen',
         floor: 'map.set(row.id, { ...row })',
         caveat:
             'THE FLOOR DOES LESS, AND KNOWABLY SO. Ours mints an identity (a slot and an entry in ' +
@@ -195,8 +190,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
-            const slotContentService = entityService.slotContentService;
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
             return {
@@ -209,7 +203,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         entityStoreSlot = entityService.createStoreSlot(db);
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                         // The frame the batch closes with — see `priceDataset.batch`.
                         db.flush();
                     },
@@ -233,7 +227,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.insert-by-reference-vs-map-set',
         path: EPricePath.PerRowPerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) with the entity stored without a copy (oimInsertEntityWithoutCopy) — a key this population has never seen',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) with the entity stored without a copy (oimInsertEntityWithoutCopy) — a key this population has never seen',
         floor: 'if (map.get(row.id) === undefined) map.set(row.id, row)',
         caveat:
             'Neither side copies the row: both store the object they were handed, and both probe the key before '
@@ -243,9 +237,8 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityWriter = createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithoutCopy });
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id, entityWriter });
-            const slotContentService = entityService.slotContentService;
+            const entityWriter = createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithoutCopy });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
             return {
@@ -255,7 +248,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         entityStoreSlot = entityService.createStoreSlot(db);
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                         db.flush();
                     },
                 },
@@ -279,7 +272,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.insert-vs-tracked-store',
         path: EPricePath.PerRowPerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) — a key this population has never seen',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) — a key this population has never seen',
         floor: 'map.set(id, copy) into a store that also queues what changed',
         caveat:
             'THE FAIRER FLOOR, and it is still not equal. The floor now keeps a per-row frame ' +
@@ -293,8 +286,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
-            const slotContentService = entityService.slotContentService;
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let store = makeTrackedStore();
             return {
@@ -304,7 +296,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         entityStoreSlot = entityService.createStoreSlot(db);
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                         db.flush();
                     },
                 },
@@ -428,7 +420,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'exactly what a write that MOVES a column does and a write that moves nothing does ' +
             'not: one store into the entity, the moved-names array and its push, two ' +
             '`OIMChannelService.write` calls — the row and the population — one `columnSlotStoreService.get` ' +
-            'probe for the moved column inside `OIMColumnOwner.markColumnsChanged`, and the frame ' +
+            'probe for the moved column inside `OIMColumnSlotOwner.markColumnsChanged`, and the frame ' +
             'that closes the ' +
             'batch. ' +
             'EIGHT PATCH ARRAYS, ONE PER TITLE, so this row moves the column on exactly the ' +
@@ -607,10 +599,10 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const side = (strategy: IOIMEntityWriter | undefined): TPriceSide => {
                 const rows = priceDataset.makeRows(priceDataset.batch);
                 const db = new OIMDB();
-                const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id, entityWriter: strategy });
+                const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: strategy }) });
                 const slotContentService = entityService.slotContentService;
                 const entityStoreSlot = entityService.createStoreSlot(db);
-                const slots = slotContentService.upsertEntities(entityStoreSlot, rows);
+                const slots = entityService.writeInBatch(entityStoreSlot, () => rows.map(row => entityService.writeSlotContentByKey(entityStoreSlot, row.id, row)));
                 db.flush();
                 const patch: { title: string } = { title: '' };
                 let round = 0;
@@ -768,7 +760,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.whole-row-vs-five-stores',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) — a key that already carries a value',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) — a key that already carries a value',
         floor: 'copy five columns onto the stored object, one store each',
         caveat:
             'THE FLOOR CANNOT EXPRESS ONE HALF OF WHAT UPSERT PROMISES. An upsert of an existing ' +
@@ -810,14 +802,14 @@ export const pricePairsWrite: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        const slotContentService = fixture.entityService.slotContentService;
+                        const entityService = fixture.entityService;
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const db = fixture.db;
                         let done = 0;
                         while (done < times) {
                             const source = variants[round++ & 1];
                             const upTo = Math.min(source.length, times - done);
-                            for (let i = 0; i < upTo; i++) slotContentService.upsertEntity(entityStoreSlot, source[i]);
+                            for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, source[i].id, source[i]);
                             db.flush();
                             done += upTo;
                         }
@@ -851,10 +843,10 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.whole-row-vs-map-get-and-five-stores',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) — a key that already carries a value',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) — a key that already carries a value',
         floor: 'const stored = map.get(row.id); then copy five columns onto it',
         caveat:
-            'THE ROW ABOVE, WITH THE LOOKUP PUT BACK ON THE FLOOR. `upsertEntity` is handed a ROW and not ' +
+            'THE ROW ABOVE, WITH THE LOOKUP PUT BACK ON THE FLOOR. `writeSlotContentByKey` is handed a ROW and not ' +
             'an identity, so it calls `keyOf` and then `writeContentByKey` — a `Map.get` over eight ' +
             'thousand string keys — before it can write anything. The floor of ' +
             '`upsert.whole-row-vs-five-stores` is handed `held[i]` by its loop index and never ' +
@@ -894,14 +886,14 @@ export const pricePairsWrite: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        const slotContentService = fixture.entityService.slotContentService;
+                        const entityService = fixture.entityService;
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const db = fixture.db;
                         let done = 0;
                         while (done < times) {
                             const source = variants[round++ & 1];
                             const upTo = Math.min(source.length, times - done);
-                            for (let i = 0; i < upTo; i++) slotContentService.upsertEntity(entityStoreSlot, source[i]);
+                            for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, source[i].id, source[i]);
                             db.flush();
                             done += upTo;
                         }
@@ -939,7 +931,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'upsert.whole-row-vs-five-stores-and-a-departure-walk',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.upsertEntity(entityStoreSlot, row) — a key that already carries a value',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) — a key that already carries a value',
         floor: 'walk the stored row for columns the new one does not carry, then five stores',
         caveat:
             'THE DEPARTURE WALK, PUT ON THE FLOOR, WHICH IS THE ONLY WAY THIS HARNESS CAN PRICE ' +
@@ -967,7 +959,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'and an `undefined` write per departing name to our side and a `delete` to the floor. ' +
             'WHAT THIS ROW IS NOT. It is not a merge-versus-replace comparison — the floor here ' +
             'is not the rejected design, it is the shipped design with one item lifted out of it ' +
-            'and set beside a hand-written store. The rejected design is `upsertEntity` WITHOUT the ' +
+            'and set beside a hand-written store. The rejected design is `writeSlotContentByKey` WITHOUT the ' +
             'walk, which is `upsert.whole-row-vs-five-stores` with a floor that does less, and ' +
             'no row in this suite is that. Read this one as the price of the item, not as a ' +
             'verdict on the consequence.',
@@ -985,14 +977,14 @@ export const pricePairsWrite: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        const slotContentService = fixture.entityService.slotContentService;
+                        const entityService = fixture.entityService;
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const db = fixture.db;
                         let done = 0;
                         while (done < times) {
                             const source = variants[round++ & 1];
                             const upTo = Math.min(source.length, times - done);
-                            for (let i = 0; i < upTo; i++) slotContentService.upsertEntity(entityStoreSlot, source[i]);
+                            for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, source[i].id, source[i]);
                             db.flush();
                             done += upTo;
                         }
@@ -1036,10 +1028,10 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'update.indexed-column-vs-hand-index',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.updateEntity(slot, { group }) — an OIMIndexService store slot over `group` re-files the row',
+        ours: 'slotContentService.updateEntity(slot, { group }) — an OIMSlotCollectionIndexService store slot over `group` re-files the row',
         floor: 'delete from the old Set, store the column, add to the new Set',
         caveat:
-            'THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. The `OIMIndexService` store slot hears its ' +
+            'THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. The `OIMSlotCollectionIndexService` store slot hears its ' +
             'source collection through a content-change listener: `updateEntity` marks the row, the ' +
             'listener reads the key the row was last filed under from the row\'s own ' +
             '`indexKeys` cell, compares it with `keyOf(entity)` and moves the slot with ' +
@@ -1058,9 +1050,9 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'by nothing else. Direction: inflates our ratio.',
         build: () => {
             const fixture = priceFixture(priceDataset.batch);
-            const indexService = createOIMIndexService(fixture.db, {
+            const indexService = createOIMSlotCollectionIndexService(fixture.db, {
                 entityService: fixture.entityService,
-                slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
             });
             const names = priceDataset.groupNames();
@@ -1139,11 +1131,11 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'remove.vs-map-delete',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.deleteEntity(slot) — through the identity, no index registered',
+        ours: 'slotContentService.clearSlotContent(slot) — through the identity, no index registered',
         floor: 'map.delete(id)',
         caveat:
             'THE HASH IS ON THE FLOOR\'S SIDE ONLY: ours is handed the identity and the floor ' +
-            'hashes a string, which flatters us — the deleteEntityByKey path is not priced here and ' +
+            'hashes a string, which flatters us — a by-key clear (findSlotByKey, then clearSlotContent) is not priced here and ' +
             'would cost us that lookup too. Against that, ours clears the value through the ' +
             'writer, reports it on the channel, recomputes emptiness and asks whether anything ' +
             'holds or references the identity before it unfiles it from the store — an unheld, ' +
@@ -1153,7 +1145,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             const slotContentService = entityService.slotContentService;
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
             let map = new Map<string, TPriceDataRow>();
@@ -1161,11 +1153,12 @@ export const pricePairsWrite: readonly TPricePair[] = [
                 ours: {
                     operationsPerPass: rows.length,
                     reset: () => {
-                        slots = slotContentService.upsertEntities(entityService.createStoreSlot(db), rows);
+                        const entityStoreSlot = entityService.createStoreSlot(db);
+                        slots = entityService.writeInBatch(entityStoreSlot, () => rows.map(row => entityService.writeSlotContentByKey(entityStoreSlot, row.id, row)));
                         db.flush();
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.deleteEntity(slots[i]);
+                        for (let i = 0; i < times; i++) slotContentService.clearSlotContent(slots[i]);
                         db.flush();
                     },
                 },
@@ -1187,7 +1180,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'remove.indexed-vs-hand-index',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.deleteEntity(slot) with one OIMIndexService store slot over `group`',
+        ours: 'slotContentService.clearSlotContent(slot) with one OIMSlotCollectionIndexService store slot over `group`',
         floor: 'map.delete(id) and Set.delete(row) from the group it was in',
         caveat:
             'Ours finds the bucket to leave through the key the row\'s own `indexKeys` cell ' +
@@ -1202,11 +1195,11 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(priceDataset.batch);
             const names = priceDataset.groupNames();
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             const slotContentService = entityService.slotContentService;
-            const indexService = createOIMIndexService(db, {
+            const indexService = createOIMSlotCollectionIndexService(db, {
                 entityService,
-                slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
             });
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
@@ -1217,7 +1210,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                     operationsPerPass: rows.length,
                     reset: () => {
                         const entityStoreSlot = entityService.createStoreSlot(db);
-                        slots = slotContentService.upsertEntities(entityStoreSlot, rows);
+                        slots = entityService.writeInBatch(entityStoreSlot, () => rows.map(row => entityService.writeSlotContentByKey(entityStoreSlot, row.id, row)));
                         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
                         const buckets = indexService.holdSlotsByKeys(indexStoreSlot, names);
                         if (indexService.slotContentService.getBucketMemberSlotCount(buckets[0]) !== rows.length / names.length) {
@@ -1226,7 +1219,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         db.flush();
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.deleteEntity(slots[i]);
+                        for (let i = 0; i < times; i++) slotContentService.clearSlotContent(slots[i]);
                         db.flush();
                     },
                 },

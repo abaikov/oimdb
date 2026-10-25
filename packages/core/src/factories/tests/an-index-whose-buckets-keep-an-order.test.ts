@@ -1,10 +1,11 @@
 import { OIMDB } from '../OIMDB';
-import { createOIMEntityService } from '../createOIMEntityService';
-import { createOIMIndexService } from '../createOIMIndexService';
-import { createOIMComputedServiceSorted } from '../createOIMComputedServiceSorted';
-import type { OIMSlotContentBucketServiceArrayDriven } from '../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
+import { createOIMSortedComputedService } from '../createOIMSortedComputedService';
+import type { OIMSlotContentPositionalArrayBucketService } from '../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMEntitySlot } from '../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMSortColumn } from '../../facade/computed/types/TOIMSortColumn';
+import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -15,19 +16,19 @@ type TSorter = {
 };
 
 const createFixture = (
-    slotContentService?: OIMSlotContentBucketServiceArrayDriven<TCardSlot>,
+    slotContentService?: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
     sorter?: TSorter,
 ) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
         ...(slotContentService === undefined ? {} : { slotContentService }),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    const ordersService = createOIMComputedServiceSorted({ indexService: byDeckService, ...sorter });
+    const ordersService = createOIMSortedComputedService({ indexService: byDeckService, ...sorter });
     const orders = ordersService.createSortedStoreSlot(byDeck);
     const idsIn = (deck: string): string[] =>
         Array.from(byDeckService.slotContentService.getBucketMemberSlots(byDeckService.getSlotByKey(byDeck, deck))).map(slot => slot.entity?.id ?? '');
@@ -37,11 +38,11 @@ const createFixture = (
 describe('an index whose buckets are array-driven', () => {
     it('files entity slots in arrival order when no service is passed', () => {
         const { db, cards, cardsService, idsIn } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c3', deck: 'spades', rank: 3 },
             { id: 'c1', deck: 'spades', rank: 1 },
             { id: 'c2', deck: 'clubs', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         expect(idsIn('spades')).toEqual(['c3', 'c1']);
         expect(idsIn('clubs')).toEqual(['c2']);
@@ -52,11 +53,11 @@ describe('an index whose buckets are array-driven', () => {
             comparator: (left, right) => left.rank - right.rank,
         });
         const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'spades');
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c3', deck: 'spades', rank: 3 },
             { id: 'c1', deck: 'spades', rank: 1 },
             { id: 'c2', deck: 'spades', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         expect(order.computedValueService.getValueForSlot(order).map(slot => slot.entity?.id)).toEqual(['c1', 'c2', 'c3']);
         expect(idsIn('spades')).toEqual(['c3', 'c1', 'c2']);
@@ -65,12 +66,12 @@ describe('an index whose buckets are array-driven', () => {
 
     it('moves an entity slot to its new bucket when its key changes', () => {
         const { db, cards, cardsService, idsIn } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'spades', rank: 1 },
             { id: 'c2', deck: 'spades', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'clubs', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'clubs', rank: 1 });
         db.flush();
         expect(idsIn('spades')).toEqual(['c2']);
         expect(idsIn('clubs')).toEqual(['c1']);

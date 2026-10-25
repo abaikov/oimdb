@@ -1,23 +1,22 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIM_NOTHING_WAS_REMOVED } from '../../../engine/bucket/constants/OIM_NOTHING_WAS_REMOVED';
 import { OIM_REMOVED_WITHOUT_A_POSITION } from '../../../engine/bucket/constants/OIM_REMOVED_WITHOUT_A_POSITION';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsArrayStore } from '../../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TOrderedSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 type TUnorderedSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 
-class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMSlotContentBucketServiceArrayDriven<TCardSlot> {
+class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMSlotContentPositionalArrayBucketService<TCardSlot> {
     public positionsAsked = 0;
 
     public override getBucketMemberSlotPosition(
@@ -32,7 +31,7 @@ class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMSlotContentBucket
     }
 }
 
-class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSlotContentBucketServiceSetDriven<TCardSlot> {
+class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSlotContentSetBucketService<TCardSlot> {
     public override removeSlot(bucketSlot: TOIMBucketSlot<TUnorderedSlots>, slot: TCardSlot): number {
         return super.removeSlot(bucketSlot, slot);
     }
@@ -40,16 +39,16 @@ class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSlotContentBucketSe
 
 const buildOrdered = (withCommands: boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentBucketServiceArrayDrivenCounted({
         bucketCommands: withCommands ? new OIMBucketCommands({}) : undefined,
     });
-    const listService = createOIMBucketService(db, { slotContentService: membersService });
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
     const slotOf = (id: string): TOIMEntitySlot<TCard> => {
-        cardsService.slotContentService.upsertEntity(cards, { id, title: id });
+        cardsService.writeSlotContentByKey(cards, id, { id, title: id });
         const holding = cardsService.holdSlotByKey(cards, id);
         holding.owner.unholdSlot(holding);
         return holding;
@@ -65,17 +64,15 @@ const buildOrdered = (withCommands: boolean) => {
 
 const buildUnordered = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentBucketServiceSetDrivenExposed({ bucketCommands: new OIMBucketCommands({}) });
-    const bagService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TUnorderedSlots, OIMSlotContentBucketServiceSetDrivenExposed
-    >(db, { slotContentService: membersService });
+    const bagService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const bag = bagService.createStoreSlot(db);
     const bucket = bagService.holdSlotByKey(bag, 'deck');
     const filled = (ids: readonly string[]): TOIMEntitySlot<TCard>[] => {
         const slots = ids.map(id => {
-            cardsService.slotContentService.upsertEntity(cards, { id, title: id });
+            cardsService.writeSlotContentByKey(cards, id, { id, title: id });
             const holding = cardsService.holdSlotByKey(cards, id);
             holding.owner.unholdSlot(holding);
             return holding;

@@ -1,27 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
+import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
 
 type TLabel = { text: string };
 type TSwitch = { isOn: boolean };
-type TLabelService = ReturnType<typeof createOIMSingleEntityService<TLabel>>;
+type TLabelService = ReturnType<typeof createOIMSingleSlotService<OIMSlotContentEntityService<TLabel>>>;
 
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const firstService = createOIMSingleEntityService<TLabel>(db);
+    const firstService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TLabel>(db) });
     const first = firstService.createStoreSlot(db);
-    firstService.slotContentService.upsertEntity(first, { text: 'dark' });
-    const secondService = createOIMSingleEntityService<TLabel>(db);
+    firstService.writeSingleSlotContent(first, { text: 'dark' });
+    const secondService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TLabel>(db) });
     const second = secondService.createStoreSlot(db);
-    secondService.slotContentService.upsertEntity(second, { text: 'red' });
-    const toggleService = createOIMSingleEntityService<TSwitch>(db);
+    secondService.writeSingleSlotContent(second, { text: 'red' });
+    const toggleService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSwitch>(db) });
     const toggle = toggleService.createStoreSlot(db);
-    toggleService.slotContentService.upsertEntity(toggle, { isOn: true });
+    toggleService.writeSingleSlotContent(toggle, { isOn: true });
     db.flush();
     return { db, effectService, first, firstService, second, secondService, toggle, toggleService };
 };
@@ -97,9 +97,7 @@ describe('what an effect with source tracking depends on', () => {
 
     it('wakes through a computed when its value moves, and not when it re-derives to the same value', () => {
         const { db, effectService, first, firstService } = createFixture();
-        const textLengthService = createOIMComputedService<void, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        });
+        const textLengthService = createOIMSingleComputedService<number>();
         const textLength = textLengthService.createComputedStoreSlot(
             db,
             () => firstService.getSingleSlot(first).entity?.text.length ?? 0,
@@ -107,7 +105,7 @@ describe('what an effect with source tracking depends on', () => {
         );
         const seen: number[] = [];
         effectService.createEffectWithSourceTracking(db, effectSourceTracker => {
-            seen.push(effectSourceTracker.readSourceComputedValue(textLengthService.computedCollectionService.getSlotByKey(textLength, undefined)));
+            seen.push(effectSourceTracker.readSourceComputedValue(textLengthService.computedSingleSlotService.getSingleSlot(textLength)));
         });
         writeText(db, firstService, first, 'blue');
         expect(seen).toEqual([4]);
@@ -117,15 +115,13 @@ describe('what an effect with source tracking depends on', () => {
 
     it('takes every subscription off on dispose', () => {
         const { db, effectService, first, firstService, second, secondService } = createFixture();
-        const textLengthService = createOIMComputedService<void, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        });
+        const textLengthService = createOIMSingleComputedService<number>();
         const textLength = textLengthService.createComputedStoreSlot(
             db,
             () => secondService.getSingleSlot(second).entity?.text.length ?? 0,
             () => ({ sourceSlots: [secondService.getSingleSlot(second)] }),
         );
-        const computedSlot = textLengthService.computedCollectionService.holdSlotByKey(textLength, undefined);
+        const computedSlot = textLengthService.computedSingleSlotService.holdSingleSlot(textLength);
         let runCount = 0;
         const effect = effectService.createEffectWithSourceTracking(db, effectSourceTracker => {
             effectSourceTracker.readSourceSlot(firstService.getSingleSlot(first));

@@ -3,7 +3,7 @@ import { oimIsSlotReleased } from '@oimdb/core';
 import type { TOIMPersistRecord } from '../types/TOIMPersistRecord';
 import type { TOIMPersistRecordsDelta } from '../types/TOIMPersistRecordsDelta';
 
-export function oimReadRecordsDeltaOfEntitySlots<TKey, TEntity extends object>(
+export function oimReadRecordsDeltaOfEntitySlots<TKey extends NonNullable<unknown>, TEntity extends object>(
     entitySlots: ReadonlySet<TOIMEntitySlot<TEntity, TKey>>,
     isSourceEntitySlot: (entitySlot: TOIMEntitySlot<TEntity, TKey>) => boolean,
 ): TOIMPersistRecordsDelta<TKey, TEntity> {

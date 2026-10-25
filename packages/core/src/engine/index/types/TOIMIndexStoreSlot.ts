@@ -4,8 +4,8 @@ import type { IOIMContentChangeListener } from '../../slot/interfaces/IOIMConten
 
 export type TOIMIndexStoreSlot<
     TStore = unknown, TBucketSlot extends TOIMSlot = TOIMSlot, TBucketPatch = unknown,
-    TSourceSlot extends TOIMSlot = TOIMSlot, TSourcePatch = unknown, TKey = unknown, TSourceStore = unknown,
-> = TOIMStoreSlot<TStore, TBucketSlot, TBucketPatch> & {
+    TSourceSlot extends TOIMSlot = TOIMSlot, TSourcePatch = unknown, TKey = unknown, TSourceStore = unknown, TSlotService = unknown,
+> = TOIMStoreSlot<TStore, TBucketSlot, TBucketPatch, TSlotService> & {
     readonly sourceStoreSlot: TOIMStoreSlot<TSourceStore, TSourceSlot, TSourcePatch>;
     readonly indexKeysPosition: number;
     readonly contentChangeListener: IOIMContentChangeListener<TSourceSlot, TSourcePatch>;

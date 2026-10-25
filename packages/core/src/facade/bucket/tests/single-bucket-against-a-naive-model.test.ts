@@ -1,21 +1,16 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    createOIMEntityService,
-    createOIMSingleBucketService,
-    oimIsSlotReleased,
-} from '../../../index';
-import type {
-    TOIMBucketSlot,
-    TOIMEntityColumnName,
-    TOIMEntitySlot,
-} from '../../../index';
+import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../../index';
+import type { TOIMBucketSlot, TOIMBucketContentSlot, TOIMEntitySlot } from '../../../index';
 import { assertConsistent, entitiesUnderTest } from '../../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../../tests/support/assertConsistent';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMBucketCommands } from '../OIMBucketCommands';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TRow = { id: string; rank: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
-type TSingleBucketService = ReturnType<typeof createOIMSingleBucketService<TRowSlot>>;
+type TSingleBucketService = ReturnType<typeof createOIMSingleSlotService<OIMSlotContentPositionalArrayBucketService<TRowSlot>>>;
 type TSingleBucket = ReturnType<TSingleBucketService['createStoreSlot']>;
 
 const KEYS = 10;
@@ -31,11 +26,11 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, string>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
     // No sorter: the caller places the slots, so their order is part of
     // what the bucket holds and the model is simply the last list sent.
-    const singleService: TSingleBucketService = createOIMSingleBucketService<TRowSlot>(db);
+    const singleService: TSingleBucketService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const single = singleService.createStoreSlot(db);
     return { db, effectService, rowsService, rows, singleService, single };
 };
@@ -63,7 +58,7 @@ const asCollectionOfOne = (singleService: TSingleBucketService, single: TSingleB
 
 /** The permanence while an effect reads it, asked directly: never released, still the one the service reads, and owned by the single itself. */
 const assertPermanentBucket = (
-    singleService: TSingleBucketService, single: TSingleBucket, watchedSingleSlot: TOIMBucketSlot, where: string,
+    singleService: TSingleBucketService, single: TSingleBucket, watchedSingleSlot: TOIMBucketContentSlot, where: string,
 ): void => {
     if (oimIsSlotReleased(watchedSingleSlot) || singleService.getSingleSlot(single) !== watchedSingleSlot) {
         throw new Error(
@@ -91,7 +86,7 @@ const run = (seed: number, steps: number): void => {
     /** And the hand-filled list, which is simply whatever the script last set. */
     let handModel: string[] = [];
     const send = (): void => {
-        singleContentService.writeBucketMemberSlots(singleService.getSingleSlot(single), handModel.map((key) => rowsService.getSlotByKey(rows, key)));
+        singleContentService.writeSlotContent(singleService.getSingleSlot(single), handModel.map((key) => rowsService.getSlotByKey(rows, key)));
     };
 
     let wokeHand = 0;
@@ -116,7 +111,7 @@ const run = (seed: number, steps: number): void => {
 
         if (has === undefined || choice < 0.3) {
             const row: TRow = { id, rank: Math.floor(random() * 20), label: `l${Math.floor(random() * 5)}` };
-            rowsContentService.upsertEntity(rows, { ...row });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...row }), { ...row });
             model.set(id, row);
         } else if (choice < 0.45) {
             // A column nothing reads. Nothing in this collection reads any
@@ -138,7 +133,7 @@ const run = (seed: number, steps: number): void => {
             send();
         } else if (choice < 0.95) {
             mayWakeHand = handModel.includes(id);
-            rowsContentService.deleteEntity(rowsService.getSlotByKey(rows, id));
+            rowsContentService.clearSlotContent(rowsService.getSlotByKey(rows, id));
             model.delete(id);
             // The value went; the bucket's slots are the caller's, so the caller
             // takes it out. Left in, the row would sit in the list holding no
@@ -149,10 +144,10 @@ const run = (seed: number, steps: number): void => {
         } else {
             // Emptied entirely — the case the single bucket has to survive.
             mayWakeHand = handModel.length > 0;
-            rowsContentService.clearAllEntities(rows);
+            rowsService.writeInBatch(rows, () => { for (const entitySlot of [...rowsService.getSlots(rows)]) rowsService.slotContentService.clearSlotContent(entitySlot); });
             model.clear();
             handModel = [];
-            singleContentService.clearBucketMemberSlots(singleService.getSingleSlot(single));
+            singleContentService.clearSlotContent(singleService.getSingleSlot(single));
         }
 
         db.flush();
@@ -192,18 +187,18 @@ describe('the single bucket, with nobody watching it', () => {
     it('is released when its hand-filled list is set to nothing, and the refill goes into a fresh bucket', () => {
         const { db, rowsService, rows, singleService, single } = createFixture();
         const singleContentService = singleService.slotContentService;
-        rowsService.slotContentService.upsertEntities(rows, [
+        rowsService.writeInBatch(rows, () => ([
             { id: 'k1', rank: 2, label: 'a' },
             { id: 'k2', rank: 1, label: 'b' },
-        ]);
+        ]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
         const filledSingleSlot = singleService.getSingleSlot(single);
-        singleContentService.writeBucketMemberSlots(filledSingleSlot, [rowsService.getSlotByKey(rows, 'k1'), rowsService.getSlotByKey(rows, 'k2')]);
+        singleContentService.writeSlotContent(filledSingleSlot, [rowsService.getSlotByKey(rows, 'k1'), rowsService.getSlotByKey(rows, 'k2')]);
         db.flush();
         expect(singleService.getSingleSlot(single)).toBe(filledSingleSlot);
         expect(singleContentService.getBucketMemberSlotCount(filledSingleSlot)).toBe(2);
 
-        singleContentService.writeBucketMemberSlots(filledSingleSlot, []);
+        singleContentService.writeSlotContent(filledSingleSlot, []);
         db.flush();
 
         expect(oimIsSlotReleased(filledSingleSlot)).toBe(true);
@@ -211,7 +206,7 @@ describe('the single bucket, with nobody watching it', () => {
         expect(freshSingleSlot).not.toBe(filledSingleSlot);
         expect(singleContentService.getBucketMemberSlotCount(freshSingleSlot)).toBe(0);
 
-        singleContentService.writeBucketMemberSlots(singleService.getSingleSlot(single), [rowsService.getSlotByKey(rows, 'k2')]);
+        singleContentService.writeSlotContent(singleService.getSingleSlot(single), [rowsService.getSlotByKey(rows, 'k2')]);
         db.flush();
         expect(Array.from(singleContentService.getBucketMemberSlots(singleService.getSingleSlot(single))).map((slot) => (slot.entity as TRow).id)).toEqual(['k2']);
     });
@@ -221,16 +216,16 @@ describe('the single bucket, with nobody watching it', () => {
     it('keeps the slots its caller set when the population is emptied', () => {
         const { db, rowsService, rows, singleService, single } = createFixture();
         const singleContentService = singleService.slotContentService;
-        rowsService.slotContentService.upsertEntities(rows, [
+        rowsService.writeInBatch(rows, () => ([
             { id: 'k1', rank: 2, label: 'a' },
             { id: 'k2', rank: 1, label: 'b' },
-        ]);
+        ]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
         const filledSingleSlot = singleService.getSingleSlot(single);
-        singleContentService.writeBucketMemberSlots(filledSingleSlot, [rowsService.getSlotByKey(rows, 'k1'), rowsService.getSlotByKey(rows, 'k2')]);
+        singleContentService.writeSlotContent(filledSingleSlot, [rowsService.getSlotByKey(rows, 'k1'), rowsService.getSlotByKey(rows, 'k2')]);
         db.flush();
 
-        rowsService.slotContentService.clearAllEntities(rows);
+        rowsService.writeInBatch(rows, () => { for (const entitySlot of [...rowsService.getSlots(rows)]) rowsService.slotContentService.clearSlotContent(entitySlot); });
         db.flush();
 
         expect(singleContentService.getBucketMemberSlotCount(singleService.getSingleSlot(single))).toBe(2);
@@ -240,7 +235,7 @@ describe('the single bucket, with nobody watching it', () => {
         expect(rowsService.getSlotCount(rows)).toBe(2);
 
         // And the caller taking the list away is what lets them go.
-        singleContentService.clearBucketMemberSlots(singleService.getSingleSlot(single));
+        singleContentService.clearSlotContent(singleService.getSingleSlot(single));
         db.flush();
         expect(rowsService.getSlotCount(rows)).toBe(0);
         expect(oimIsSlotReleased(filledSingleSlot)).toBe(true);

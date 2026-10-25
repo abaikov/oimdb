@@ -1,25 +1,25 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
-    const decksService = createOIMBucketService(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
     const spades = decksService.holdSlotByKey(decks, 'spades');
     const slotOf = (id: string, title: string): TOIMEntitySlot<TCard, TOIMStoreKey> => {
-        const slot = cardsService.slotContentService.upsertEntity(cards, { id, title });
+        const slot = cardsService.writeSlotContentByKey(cards, id, { id, title });
         return slot;
     };
     return { db, membersService, spades, slotOf };
@@ -81,7 +81,7 @@ describe('what the command slot carries until the flush ends', () => {
             wholeListWasAsked = fixture.spades.isWholeListRecorded;
         });
 
-        fixture.membersService.writeBucketMemberSlots(fixture.spades, [fixture.slotOf('c1', 'ace'), fixture.slotOf('c2', 'two')]);
+        fixture.membersService.writeSlotContent(fixture.spades, [fixture.slotOf('c1', 'ace'), fixture.slotOf('c2', 'two')]);
         fixture.db.flush();
 
         expect(wholeListWasAsked).toBe(true);

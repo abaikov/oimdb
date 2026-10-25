@@ -1,47 +1,47 @@
 import { IDBFactory } from 'fake-indexeddb';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import {
-    OIMDB,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '@oimdb/core';
-import {
-    OIMPersistRecordSourceBucketDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerFrameDriven,
+    OIMPersistBucketRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistFrameScheduler,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy } from '../src';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; title: string };
 
 function buildSeededSearch() {
     const db = new OIMDB();
-    const entityService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>(db);
+    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
-    const cardSlots = entityService.slotContentService.upsertEntities(entityStoreSlot, [{ id: 'c1', title: 'alpha' }, { id: 'c2', title: 'beta' }]);
+    const cardSlots = entityService.writeInBatch(entityStoreSlot, () => ([{ id: 'c1', title: 'alpha' }, { id: 'c2', title: 'beta' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
     db.flush();
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'results');
-    bucketService.slotContentService.writeBucketMemberSlots(bucketSlot, cardSlots);
+    bucketService.slotContentService.writeSlotContent(bucketSlot, cardSlots);
     db.flush();
-    const persistResourceRecords = new OIMPersistResourceRecords<
+    const persistRecordsResource = new OIMPersistRecordsResource<
         OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TOIMStoreKey, TCard
     >({
-        persistRecordSource: new OIMPersistRecordSourceBucketDriven({
+        persistRecordSource: new OIMPersistBucketRecordSource({
             channelMap: db,
             entityCollectionService: entityService,
             entityStoreSlot,
             slotContentBucketService: bucketService.slotContentService,
             bucketSlot,
         }),
-        persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TCard>({ tableName: 'cards' }),
+        persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TCard>({ tableName: 'cards' }),
     });
     const readMemberKeys = (): unknown[] =>
         Array.from(bucketService.slotContentService.getBucketMemberSlots(bucketSlot), entitySlot => entitySlot.key);
-    return { db, entityService, entityStoreSlot, persistResourceRecords, readMemberKeys };
+    return { db, entityService, entityStoreSlot, persistRecordsResource, readMemberKeys };
 }
 
 function createPersistor(
@@ -50,7 +50,7 @@ function createPersistor(
 ): OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch> {
     return new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
         persistBackend: persistIndexedDbBackend,
-        persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+        persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
     });
 }
 
@@ -61,7 +61,7 @@ describe('the records strategy on a table that was never written', () => {
             new OIMPersistIndexedDbBackend({ databaseName: 'fresh-install-db', indexedDb: new IDBFactory() }),
             seededSearch.db,
         );
-        persistor.addPersistResource(seededSearch.persistResourceRecords);
+        persistor.addPersistResource(seededSearch.persistRecordsResource);
 
         await persistor.hydrate();
         seededSearch.db.flush();
@@ -86,14 +86,14 @@ describe('the records strategy on a table that was never written', () => {
 
         const sourceSearch = buildSeededSearch();
         const sourcePersistor = createPersistor(new OIMPersistIndexedDbBackend({ databaseName, indexedDb }), sourceSearch.db);
-        sourcePersistor.addPersistResource(sourceSearch.persistResourceRecords);
+        sourcePersistor.addPersistResource(sourceSearch.persistRecordsResource);
         await sourcePersistor.persist();
         await sourcePersistor.clearPersisted();
         sourcePersistor.destroy();
 
         const targetSearch = buildSeededSearch();
         const targetPersistor = createPersistor(new OIMPersistIndexedDbBackend({ databaseName, indexedDb }), targetSearch.db);
-        targetPersistor.addPersistResource(targetSearch.persistResourceRecords);
+        targetPersistor.addPersistResource(targetSearch.persistRecordsResource);
         await targetPersistor.hydrate();
         targetSearch.db.flush();
 

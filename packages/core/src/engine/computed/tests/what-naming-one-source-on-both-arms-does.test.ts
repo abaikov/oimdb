@@ -1,31 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TCard = { id: string; rank: number };
 
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 1 });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1 });
     db.flush();
     const card = cardsService.getSlotByKey(cards, 'c1');
-    const doubledService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
+    const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
     const doubledStore = doubledService.createComputedStoreSlot(
         db,
         () => (card.entity?.rank ?? 0) * 2,
         () => ({ sourceSlots: [card] }),
     );
-    const doubled = doubledService.computedCollectionService.holdSlotByKey(doubledStore, undefined);
+    const doubled = doubledService.computedSingleSlotService.holdSingleSlot(doubledStore);
     return { db, effectService, cardsService, cards, card, doubled };
 }
 
@@ -37,13 +33,13 @@ describe('what naming one source on both arms does', () => {
         db.flush();
         const before = ran;
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 2 });
         db.flush();
 
         expect(ran).toBe(before + 1);
 
         effectService.disposeEffect(watching);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 3 });
         db.flush();
 
         expect(ran).toBe(before + 1);
@@ -58,7 +54,7 @@ describe('what naming one source on both arms does', () => {
         const before = ran;
 
         effectService.disposeEffect(watching);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 2 });
         db.flush();
 
         expect(ran).toBe(before);
@@ -74,13 +70,13 @@ describe('what naming one source on both arms does', () => {
         });
         db.flush();
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 2 });
         db.flush();
 
         expect(order).toEqual(['body']);
 
         effectService.disposeEffect(watching);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 3 });
         db.flush();
 
         expect(order).toEqual(['body', 'cleanup']);

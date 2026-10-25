@@ -1,44 +1,64 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceSetDriven, createOIMEntityService, createOIMIndexService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../../index';
 import type { TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 
 describe('what clearing every slot at once wakes', () => {
-    it('runs an effect over every row once, not once per row, under a scheduler that runs at once', () => {
+    it('runs an effect over every slot once per clear, on the half-cleared state, under a scheduler that runs at once', () => {
         const db = new OIMDB({ channelScheduler: run => { run(); } });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const ids =['a', 'b', 'c', 'd'];
-        for (const id of ids) cardsService.slotContentService.upsertEntity(cards, { id, deck: 'x' });
-        const rowSlots = ids.map(id => cardsService.holdSlotByKey(cards, id));
+        const ids = ['a', 'b', 'c', 'd'];
+        for (const id of ids) cardsService.writeSlotContentByKey(cards, id, { id, deck: 'x' });
+        const cardSlots = ids.map(id => cardsService.holdSlotByKey(cards, id));
+        const seen: string[] = [];
+        OIMEffectService.INSTANCE.createEffect(db, cardSlots, [], () => {
+            seen.push(cardSlots.map(cardSlot => (cardSlot.entity === undefined ? '-' : cardSlot.key)).join(''));
+        });
+        seen.length = 0;
+
+        cardsService.writeInBatch(cards, () => { for (const entitySlot of [...cardsService.getSlots(cards)]) cardsService.slotContentService.clearSlotContent(entitySlot); });
+
+        expect(seen).toEqual(['-bcd', '--cd', '---d', '----']);
+    });
+
+    it('runs an effect over every slot once when the clears are flushed by hand', () => {
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cards = cardsService.createStoreSlot(db);
+        const ids = ['a', 'b', 'c', 'd'];
+        for (const id of ids) cardsService.writeSlotContentByKey(cards, id, { id, deck: 'x' });
+        const cardSlots = ids.map(id => cardsService.holdSlotByKey(cards, id));
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db, rowSlots, [], () => { runs++; });
+        OIMEffectService.INSTANCE.createEffect(db, cardSlots, [], () => { runs++; });
+        db.flush();
         runs = 0;
 
-        cardsService.slotContentService.clearAllEntities(cards);
+        cardsService.writeInBatch(cards, () => { for (const entitySlot of [...cardsService.getSlots(cards)]) cardsService.slotContentService.clearSlotContent(entitySlot); });
+        db.flush();
 
         expect(runs).toBe(1);
     });
 
     it('shows an index bucket emptied in the one frame it wakes', () => {
         const db = new OIMDB({ channelScheduler: run => { run(); } });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
-        for (const id of ['a', 'b']) cardsService.slotContentService.upsertEntity(cards, { id, deck: 'x' });
+        for (const id of ['a', 'b']) cardsService.writeSlotContentByKey(cards, id, { id, deck: 'x' });
         const deck = byDeckService.holdSlotByKey(byDeck, 'x');
         const seen: number[] = [];
         OIMEffectService.INSTANCE.createEffect(db, [deck], [], () => { seen.push(byDeckService.getEntitiesByKey(byDeck, 'x').length); });
         seen.length = 0;
 
-        cardsService.slotContentService.clearAllEntities(cards);
+        cardsService.writeInBatch(cards, () => { for (const entitySlot of [...cardsService.getSlots(cards)]) cardsService.slotContentService.clearSlotContent(entitySlot); });
 
         expect(seen).toEqual([0]);
     });

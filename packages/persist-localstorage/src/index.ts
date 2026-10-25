@@ -1,2 +1,2 @@
-export { OIMPersistLocalStorageBackend } from './OIMPersistLocalStorageBackend';
-export type { TOIMPersistLocalStorageBackendOptions } from './types/TOIMPersistLocalStorageBackendOptions';
+export { OIMPersistLocalStorageKeyValueBackend } from './OIMPersistLocalStorageKeyValueBackend';
+export type { TOIMPersistLocalStorageKeyValueBackendOptions } from './types/TOIMPersistLocalStorageKeyValueBackendOptions';

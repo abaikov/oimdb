@@ -6,7 +6,7 @@ const sourceRoot = join(__dirname, '..', 'src');
 const CHANNEL = 'engine/channel/OIMChannelService.ts';
 
 const engineLayersThatWriteForACallerWhoAsked = [
-    'engine/column/OIMColumnOwnerPushDriven.ts',
+    'engine/column/OIMPushColumnSlotOwner.ts',
     'engine/slot/OIMSlotOwnerService.ts',
 ].sort();
 

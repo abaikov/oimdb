@@ -3,7 +3,7 @@ import {
     OIMChannelService,
     OIMDB,
     OIMDefaults,
-    OIMSlotStoreServiceMapDriven,
+    OIMSlotMapStoreService,
     createOIMComputedService,
     oimSameValueZeroGuard,
 } from '../../../core/src/index';
@@ -74,19 +74,19 @@ const memoPair = (bodyName: string, body: TBody, readsPerWrite: number, caveat: 
         const lists: TListRoot[] = [];
         for (let i = 0; i < LISTS; i++) lists.push(makeList(i));
         const memoComputedService = createOIMComputedService<number, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedSlot<number, number>, number>(),
+            computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
             sameValueGuard: oimSameValueZeroGuard,
-            columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+            columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
         });
         const memoComputedCollectionService = memoComputedService.computedCollectionService;
         const memoComputedStoreSlot = memoComputedService.createComputedStoreSlot(
             db,
             computedSlot => body(lists[computedSlot.key].rows),
-            at => ({ sourceSlots: [lists[at]] }),
+            ({ key: at }) => ({ sourceSlots: [lists[at]] }),
         );
         const memoSlots: TOIMComputedSlot<number, number>[] = [];
         for (let i = 0; i < LISTS; i++) memoSlots.push(memoComputedCollectionService.holdSlotByKey(memoComputedStoreSlot, i));
-        const computedValueService = memoComputedCollectionService.slotContentService;
+        const computedValueService = memoSlots[0].computedValueService;
         for (let i = 0; i < LISTS; i++) {
             if (computedValueService.getValueForSlot(memoSlots[i]) === body(lists[i].rows)) continue;
             throw new Error(`price: the memo and the recompute disagree on list ${i}.`);

@@ -1,33 +1,30 @@
-import {
-    OIMDB,
-    OIM_FROZEN_EMPTY_SLOTS,
-    createOIMSingleEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
+import { OIMDB, OIM_FROZEN_EMPTY_SLOTS, oimIsSlotReleased } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TCard = { id: string; title: string };
 
 describe('a held column is given back through the same door that held it', () => {
     it('an entity collection hands back the column it held', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
-        const titleColumn = cardsService.holdColumn(card, 'title');
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
+        const titleColumn = cardsService.columnSlotService.holdColumn(card, 'title');
         expect(titleColumn.holdCount).toBe(1);
-        cardsService.unholdColumn(titleColumn);
+        cardsService.columnSlotService.unholdColumn(titleColumn);
         expect(oimIsSlotReleased(titleColumn)).toBe(true);
     });
 
     it('a single entity hands back the column it held', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleEntityService<{ theme: string }>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string }>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark' });
-        const themeColumn = settingsService.holdColumn(settingsService.getSingleSlot(settings), 'theme');
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
+        const themeColumn = settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'theme');
         expect(themeColumn.holdCount).toBe(1);
-        settingsService.unholdColumn(themeColumn);
+        settingsService.columnSlotService.unholdColumn(themeColumn);
         expect(oimIsSlotReleased(themeColumn)).toBe(true);
     });
 

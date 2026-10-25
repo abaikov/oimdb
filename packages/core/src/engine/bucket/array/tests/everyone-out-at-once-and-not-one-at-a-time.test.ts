@@ -1,11 +1,10 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../../entity/types/TOIMEntityColumnName';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
@@ -54,22 +53,20 @@ const watchedList = (
 /** An ordered bucket already holding `size` slots. */
 const filledBucket = (size: number) => {
     const db = new OIMDB();
-    const rowsService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, string>(db, { keyOf: row => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TRowSlot>();
-    const indexService = createOIMBucketService<
-        TRowSlot, string, TSlots, OIMSlotContentBucketServiceArrayDriven<TRowSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot, string>();
+    const indexService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
 
-    for (let i = 0; i < size; i++) rowsService.slotContentService.upsertEntity(rows, { id: `r${i}` });
+    for (let i = 0; i < size; i++) rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}` });
 
     const slots: TRowSlot[] = [];
     for (let i = 0; i < size; i++) slots.push(rowsService.getSlotByKey(rows, `r${i}`)!);
     // HELD, so that emptying it cannot unfile it under the measurement: the
     // last departure asks the bucket's owner, and a hold is the answer.
     const bucket = indexService.holdSlotByKey(index, 'page');
-    membersService.writeBucketMemberSlots(bucket, slots);
+    membersService.writeSlotContent(bucket, slots);
 
     return { rowsService, rows, membersService, indexService, index, bucket, slots };
 };
@@ -80,7 +77,7 @@ const strangers = (
     rows: ReturnType<typeof filledBucket>['rows'],
     size: number,
 ): TRowSlot[] => {
-    for (let i = 0; i < size; i++) rowsService.slotContentService.upsertEntity(rows, { id: `s${i}` });
+    for (let i = 0; i < size; i++) rowsService.writeSlotContentByKey(rows, `s${i}`, { id: `s${i}` });
     const slots: TRowSlot[] = [];
     for (let i = 0; i < size; i++) slots.push(rowsService.getSlotByKey(rows, `s${i}`)!);
     return slots;
@@ -109,7 +106,7 @@ describe('what emptying a bucket costs, element by element', () => {
         const { membersService, bucket } = filledBucket(size);
         const tally = watch(bucket);
 
-        membersService.writeBucketMemberSlots(bucket, []);
+        membersService.writeSlotContent(bucket, []);
 
         expect(tally.indexWrites).toBe(0);
         expect(tally.indexDeletes).toBe(0);
@@ -176,7 +173,7 @@ describe('what emptying a bucket costs, element by element', () => {
         const arriving = strangers(rowsService, rows, size);
         const tally = watch(bucket);
 
-        membersService.writeBucketMemberSlots(bucket, arriving);
+        membersService.writeSlotContent(bucket, arriving);
 
         expect(tally.indexWrites).toBe(size);
         expect(tally.indexReads).toBeLessThan(3 * size);

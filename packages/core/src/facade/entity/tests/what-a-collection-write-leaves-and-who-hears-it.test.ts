@@ -2,18 +2,16 @@ import type { TOIMColumnSlot } from '../../../engine/column/types/TOIMColumnSlot
 
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import type { IOIMEntityWriter } from '../../../engine/entity/interfaces/IOIMEntityWriter';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TRow = { id: string; n: number; label?: string };
 
@@ -26,12 +24,9 @@ type TRow = { id: string; n: number; label?: string };
 const createFixture = (write?: () => IOIMEntityWriter) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, TOIMStoreKey>(db, {
-        keyOf: (row: TRow) => row.id,
-        entityWriter: write === undefined
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>(db, { entityWriter: write === undefined
             ? createOIMEntityWriterInPlace()
-            : write(),
-    });
+            : write() }) });
     const rows = rowsService.createStoreSlot(db);
     return { db, effectService, rowsService, rowsContentService: rowsService.slotContentService, rows };
 };
@@ -43,7 +38,7 @@ const replacing = (): IOIMEntityWriter =>
 describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remove', () => {
     it('upsert of a new key adds a slot reachable by that key', () => {
         const { db,rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         expect(rowsService.getSlotByKey(rows,'r1').entity).toEqual({ id: 'r1', n: 1 });
@@ -51,9 +46,9 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('upsert over a live key replaces the value', () => {
         const { db,rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1, label: 'a' });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1, label: 'a' });
         db.flush();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 2 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 });
         db.flush();
 
         // The whole value was replaced: the old column is gone, not merged.
@@ -72,7 +67,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('upsertMany writes every item', () => {
         const { db,rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntities(rows,[{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }, { id: 'r3', n: 3 }]);
+        rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }, { id: 'r3', n: 3 }]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
 
         expect(rowsService.getSlotByKey(rows,'r1').entity).toEqual({ id: 'r1', n: 1 });
@@ -82,7 +77,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('a write that changes nothing does not wake an effect', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const slot = rowsService.getSlotByKey(rows,'r1');
@@ -99,7 +94,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('a write that changes nothing does not allocate a new object (replacing strategy)', () => {
         const { db,rowsService, rows } = createFixture(replacing);
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const before = rowsService.getSlotByKey(rows,'r1').entity;
@@ -112,7 +107,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('the in-place strategy keeps the entity reference stable across a real change', () => {
         const { db,rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const before = rowsService.getSlotByKey(rows,'r1').entity;
@@ -126,7 +121,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('the replacing strategy allocates a new object when a column actually moved', () => {
         const { db,rowsService, rows } = createFixture(replacing);
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const before = rowsService.getSlotByKey(rows,'r1').entity;
@@ -140,7 +135,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('update through the identity behaves the same as update by key', () => {
         const byKey = createFixture();
-        byKey.rowsService.slotContentService.upsertEntity(byKey.rows, { id: 'r1', n: 1 });
+        byKey.rowsService.writeSlotContentByKey(byKey.rows, 'r1', { id: 'r1', n: 1 });
         byKey.db.flush();
         let wokeByKey = 0;
         byKey.effectService.createEffect(byKey.db, [byKey.rowsService.getSlotByKey(byKey.rows, 'r1')], [], () => { wokeByKey++; });
@@ -149,7 +144,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         byKey.db.flush();
 
         const bySlot = createFixture();
-        bySlot.rowsService.slotContentService.upsertEntity(bySlot.rows, { id: 'r1', n: 1 });
+        bySlot.rowsService.writeSlotContentByKey(bySlot.rows, 'r1', { id: 'r1', n: 1 });
         bySlot.db.flush();
         const held = bySlot.rowsService.getSlotByKey(bySlot.rows, 'r1');
         let wokeBySlot = 0;
@@ -165,7 +160,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('remove clears the slot\'s value', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         // An effect on the slot, so the identity survives the removal — this
@@ -174,7 +169,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         const slot = rowsService.getSlotByKey(rows,'r1');
         effectService.createEffect(db, [slot], [], () => { /* nothing */ });
 
-        rowsService.slotContentService.deleteEntity(rowsService.getSlotByKey(rows,'r1'));
+        rowsService.slotContentService.clearSlotContent(rowsService.getSlotByKey(rows,'r1'));
         db.flush();
 
         expect(oimIsSlotEmpty(slot)).toBe(true);
@@ -182,14 +177,14 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('remove keeps the effects on the slot, which still run on the next write', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const slot = rowsService.getSlotByKey(rows,'r1');
         let runCount = 0;
         effectService.createEffect(db, [slot], [], () => { runCount++; });
 
-        rowsService.slotContentService.deleteEntity(rowsService.getSlotByKey(rows,'r1'));
+        rowsService.slotContentService.clearSlotContent(rowsService.getSlotByKey(rows,'r1'));
         db.flush();
 
         expect(slot.effects?.length).toBe(1);
@@ -198,7 +193,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
         // write below reaches the same slot rather than a second one.
         expect(rowsService.getSlotByKey(rows,'r1')).toBe(slot);
 
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 2 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 });
         db.flush();
 
         expect(runCount).toBe(2);
@@ -206,9 +201,9 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('a single entity is a standalone record written through update()', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleEntityService<{ theme: string; volume: number }>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark', volume: 5 });
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
 
         settingsService.slotContentService.updateEntity(settingsService.getSingleSlot(settings), { volume: 8 });
         db.flush();
@@ -220,11 +215,11 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
     it('a single entity\'s columns are watchable one by one: an unrelated write wakes nobody', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleEntityService<{ theme: string; volume: number }>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark', volume: 5 });
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
-        effectService.createEffect(db, [settingsService.holdColumn(settingsService.getSingleSlot(settings), 'volume')], [], () => { volumeWoke++; });
+        effectService.createEffect(db, [settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'volume')], [], () => { volumeWoke++; });
 
         settingsService.slotContentService.updateEntity(settingsService.getSingleSlot(settings), { theme: 'light' });
         db.flush();
@@ -235,11 +230,11 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
     it('a single entity\'s columns are watchable one by one: the matching write does wake it', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleEntityService<{ theme: string; volume: number }>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark', volume: 5 });
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
-        effectService.createEffect(db, [settingsService.holdColumn(settingsService.getSingleSlot(settings), 'volume')], [], () => { volumeWoke++; });
+        effectService.createEffect(db, [settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'volume')], [], () => { volumeWoke++; });
 
         settingsService.slotContentService.updateEntity(settingsService.getSingleSlot(settings), { volume: 11 });
         db.flush();
@@ -254,17 +249,17 @@ describe('upsert over a slot that already has a value routes like an update', ()
 
     const createFixture =() => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, { keyOf: (card: TCard) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
         const cards = cardsService.createStoreSlot(db);
         return { db, cardsService, cards };
     };
 
     it('still takes away a column the new entity does not carry', () => {
         const { db,cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1', rank: 1, title: 'kept' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', rank: 1, title: 'kept' });
         db.flush();
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', rank: 1 });
         db.flush();
 
         expect((cardsService.getSlotByKey(cards,'c1').entity as { title?: string }).title).toBeUndefined();
@@ -278,10 +273,7 @@ describe('the replacing write strategy, when a column goes away', () => {
 
     const createFixture =() => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, {
-            keyOf: (card: TCard) => card.id,
-            entityWriter: createOIMEntityWriterReplacing(),
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { entityWriter: createOIMEntityWriterReplacing() }) });
         const effectService = OIMEffectService.INSTANCE;
         const cards = cardsService.createStoreSlot(db);
         return { db, effectService, cardsService, cards };
@@ -289,11 +281,11 @@ describe('the replacing write strategy, when a column goes away', () => {
 
     it('hands a reference-comparing reader a NEW object when a column is removed', () => {
         const { db,cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1', title: 'kept' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'kept' });
         db.flush();
 
         const before = cardsService.getSlotByKey(cards,'c1').entity;
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1' });
         db.flush();
 
         const after = cardsService.getSlotByKey(cards,'c1').entity;
@@ -306,11 +298,11 @@ describe('the replacing write strategy, when a column goes away', () => {
 
     it('does not allocate when the column was not there to begin with', () => {
         const { db,cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1' });
         db.flush();
 
         const before = cardsService.getSlotByKey(cards,'c1').entity;
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1' });
         db.flush();
 
         // Nothing moved and nothing was removed, so nobody may be handed a new
@@ -320,17 +312,17 @@ describe('the replacing write strategy, when a column goes away', () => {
 
     it('tells a column subscriber that the column it watches has gone', () => {
         const { db,effectService, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1' });
         db.flush();
         const slot = cardsService.getSlotByKey(cards,'c1');
 
         let deckWoke = 0;
-        effectService.createEffect(db, [cardsService.holdColumn(slot, 'deckId')], [], () => { deckWoke++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.holdColumn(slot, 'deckId')], [], () => { deckWoke++; });
 
         // The column LEAVES rather than changing: a whole-entity write that no
         // longer carries it. A reader watching that column is owed the same
         // report either way, which is what the rebuild in `deleteColumns` owes.
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1' });
         db.flush();
 
         expect(deckWoke).toBe(1);
@@ -341,25 +333,22 @@ describe('the replacing write strategy, when a column goes away', () => {
 describe('a collection\'s narrow identities: a column per slot, and a slot a bucket still holds', () => {
     it('reports a slot vanishing, while a bucket still holds it', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        const everythingService = createOIMBucketService<
-            TOIMEntitySlot<TRow>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>() });
+        const everythingService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
         const everything = everythingService.createStoreSlot(db);
         let runCount = 0;
         const row = rowsService.holdSlotByKey(rows, 'r1');
         effectService.createEffect(db, [row], [], () => { runCount++; });
 
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         // A bucket's slots are the caller's, so the slot is put in a bucket by
         // hand, and the slot in it is what keeps the bucket from here on.
         const heldSlot = everythingService.holdSlotByKey(everything, 'all');
-        everythingService.slotContentService.writeBucketMemberSlots(heldSlot, [row]);
+        everythingService.slotContentService.writeSlotContent(heldSlot, [row]);
         heldSlot.owner.unholdSlot(heldSlot);
         db.flush();
         expect(runCount).toBe(1);
 
-        rowsService.slotContentService.deleteEntity(rowsService.getSlotByKey(rows,'r1'));
+        rowsService.slotContentService.clearSlotContent(rowsService.getSlotByKey(rows,'r1'));
         db.flush();
         expect(runCount).toBe(2);
         // And the slot is still an identity, holding no value: `remove` takes
@@ -381,14 +370,14 @@ describe('a collection\'s narrow identities: a column per slot, and a slot a buc
      */
     it('mints a column identity on the first ask, tells it when that column moved, and takes it back', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 1, label: 'a' });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1, label: 'a' });
         db.flush();
         const slot = rowsService.getSlotByKey(rows,'r1');
         // Nothing has been asked for, so the slot carries nothing.
         expect(slot.columnSlotStore).toBeUndefined();
 
         let runCount = 0;
-        const column = rowsService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
         const columnEffect = effectService.createEffect(db, [column], [], () => { runCount++; });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.has('n')).toBe(true);
         // And only the column that was asked for.
@@ -407,7 +396,7 @@ describe('a collection\'s narrow identities: a column per slot, and a slot a buc
         // carrying the column — and the map with it, because its absence is
         // what the write path's one field read is asking about.
         effectService.disposeEffect(columnEffect);
-        rowsService.unholdColumn(column);
+        rowsService.columnSlotService.unholdColumn(column);
         expect(slot.columnSlotStore).toBeUndefined();
     });
 });

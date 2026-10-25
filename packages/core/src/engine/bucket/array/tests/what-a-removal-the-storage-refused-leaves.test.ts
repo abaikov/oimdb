@@ -1,27 +1,20 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import { OIMBucketArrayMembershipUnique } from '../OIMBucketArrayMembershipUnique';
+import { OIMBucketUniqueMemberSlotsArrayService } from '../../../../engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../types/TOIMBucketSlotsArrayUniqueStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TCardSlots = TOIMBucketSlotsArrayUniqueStore<TCardSlot>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const cardSlot = (id: string, rank: number): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id, rank });
-    const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TCardSlots>({
-        bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
-    });
-    const decksService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TCardSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot, TCardSlots>
-    >(db, { slotContentService: service });
+    const cardSlot = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
+    const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: service });
     const decks = decksService.createStoreSlot(db);
     const bucket = decksService.holdSlotByKey(decks, 'deck');
     return { cardSlot, service, bucket, slots: bucket.bucketSlotsStore };
@@ -40,7 +33,7 @@ describe('a removal the storage has nothing to give up for', () => {
         const listed = Array.from(fixture.slots.bucketMemberSlots);
         expect(listed.length).toBe(1);
         expect(listed[0] === held).toBe(true);
-        expect(fixture.slots.uniqueBucketMemberSlots.has(held)).toBe(true);
+        expect(fixture.slots.uniqueBucketMemberSlots!.has(held)).toBe(true);
     });
 
     it('leaves a departure it does hold exactly as it was', () => {
@@ -55,6 +48,6 @@ describe('a removal the storage has nothing to give up for', () => {
         const listed = Array.from(fixture.slots.bucketMemberSlots);
         expect(listed.length).toBe(1);
         expect(listed[0] === first).toBe(true);
-        expect(fixture.slots.uniqueBucketMemberSlots.has(second)).toBe(false);
+        expect(fixture.slots.uniqueBucketMemberSlots!.has(second)).toBe(false);
     });
 });

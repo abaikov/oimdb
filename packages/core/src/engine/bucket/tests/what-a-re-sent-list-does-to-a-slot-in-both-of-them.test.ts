@@ -1,23 +1,20 @@
-import {
-    OIMDB, OIMSlotContentBucketServiceSetDriven, createOIMBucketService, createOIMEntityService,
-} from '../../../index';
-import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
+import { OIMDB, OIMSlotContentSetBucketService } from '../../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<Card, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: Card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
-    const byDeckService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const byDeck = byDeckService.createStoreSlot(db);
-    const card = (id: string): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id, title: id.toUpperCase() });
+    const card = (id: string): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });
     return { cardsService, cards, membersService, byDeckService, byDeck, card };
 };
 
@@ -33,7 +30,7 @@ describe('a whole-bucket write by hand never lets a slot reach zero', () => {
         const held = reserve(cardsService, cards, 'r');
         const bucket = byDeckService.holdSlotByKey(byDeck, 'page-1');
 
-        membersService.writeBucketMemberSlots(bucket,[held]);
+        membersService.writeSlotContent(bucket,[held]);
         // AND ONLY NOW. From this line its place in the bucket is the whole of
         // what holds it: no value, no listener.
         held.owner.unholdSlot(held);
@@ -43,7 +40,7 @@ describe('a whole-bucket write by hand never lets a slot reach zero', () => {
         // The same page re-sent with one row added. `r` LEAVES AND ARRIVES in
         // this one call, so its references must never touch zero.
         const arrived = card('a');
-        membersService.writeBucketMemberSlots(bucket,[held, arrived]);
+        membersService.writeSlotContent(bucket,[held, arrived]);
 
         expect(cardsService.getSlotByKey(cards, 'r')).toBe(held);
         expect(held.holdCount).toBe(1);
@@ -54,11 +51,11 @@ describe('a whole-bucket write by hand never lets a slot reach zero', () => {
         const held = reserve(cardsService, cards, 'r');
         const bucket = byDeckService.holdSlotByKey(byDeck, 'page-1');
 
-        membersService.writeBucketMemberSlots(bucket,[held]);
+        membersService.writeSlotContent(bucket,[held]);
         // The bucket has it, so this give-back leaves it filed — which is
         // what makes the assertions below about the SECOND write.
         held.owner.unholdSlot(held);
-        membersService.writeBucketMemberSlots(bucket,[card('a')]);
+        membersService.writeSlotContent(bucket,[card('a')]);
 
         // Nothing holds a valueless slot no list names, so it goes — this is the
         // release the order above must not make EARLY, not one it must not make.
@@ -76,7 +73,7 @@ describe('a list that names a slot twice buys one place and pays for one', () =>
         // An unordered service holds a SET, so the second mention records
         // nothing — and a hold taken for a place that was not recorded is
         // never handed back, because the departure hands back one per place.
-        membersService.writeBucketMemberSlots(bucket,[a, a]);
+        membersService.writeSlotContent(bucket,[a, a]);
 
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(1);
         expect(a.holdCount).toBe(1);
@@ -87,8 +84,8 @@ describe('a list that names a slot twice buys one place and pays for one', () =>
         const a = card('a');
         const bucket = byDeckService.holdSlotByKey(byDeck, 'page-1');
 
-        membersService.writeBucketMemberSlots(bucket,[a, a]);
-        membersService.clearBucketMemberSlots(bucket);
+        membersService.writeSlotContent(bucket,[a, a]);
+        membersService.clearSlotContent(bucket);
 
         expect(a.holdCount).toBe(0);
     });

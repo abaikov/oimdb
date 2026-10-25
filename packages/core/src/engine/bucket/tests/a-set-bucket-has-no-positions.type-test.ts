@@ -1,36 +1,33 @@
-import {
-    OIMDB, OIMSlotContentBucketServiceArrayDriven, OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService, createOIMEntityService, createOIMIndexService, createOIMSingleBucketService,
-} from '../../../index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../../index';
 import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
+import { OIMBucketCommands } from '../../../facade/bucket/OIMBucketCommands';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
 
 export function aSetBucketIsAskedForNoPosition(): void {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1' });
-    const decksService = createOIMBucketService<TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>>(
-        db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() },
-    );
+    const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1' });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const decks = decksService.createStoreSlot(db);
     const deck = decksService.getSlotByKey(decks, 'd1');
-    const singleDeckService = createOIMSingleBucketService<TCardSlot, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>>(
-        db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() },
-    );
+    const singleDeckService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const singleDeck = singleDeckService.getSingleSlot(singleDeckService.createStoreSlot(db));
-    const byDeckService = createOIMIndexService<
+    const byDeckService = createOIMSlotCollectionIndexService<
         TCard, string, readonly TOIMEntityColumnName<TCard>[], string, unknown,
-        TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
+        TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentSetBucketService<TCardSlot, string>
     >(db, {
         entityService: cardsService,
         keyOf: (entity: TCard) => entity.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    const setDriven = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
+    const setDriven = new OIMSlotContentSetBucketService<TCardSlot>();
 
     // @ts-expect-error a Set has no place to name
     decksService.slotContentService.getBucketMemberSlotAt(deck, 0);
@@ -50,15 +47,15 @@ export function aSetBucketIsAskedForNoPosition(): void {
 
 export function anArrayBucketStillAnswersBoth(): void {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1' });
-    const pagesService = createOIMBucketService<TCardSlot, string>(db);
+    const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1' });
+    const pagesService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const pages = pagesService.createStoreSlot(db);
     const page = pagesService.getSlotByKey(pages, 'p1');
-    const singlePageService = createOIMSingleBucketService<TCardSlot>(db);
+    const singlePageService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const singlePage = singlePageService.getSingleSlot(singlePageService.createStoreSlot(db));
-    const arrayDriven = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
+    const arrayDriven = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
 
     pagesService.slotContentService.getBucketMemberSlotAt(page, 0);
     pagesService.slotContentService.getBucketMemberSlotPosition(page, card);

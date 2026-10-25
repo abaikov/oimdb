@@ -21,27 +21,22 @@ import { render, screen, act } from '@testing-library/react';
 import type {
     TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey, TOIMBucketSlotsArrayStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMUnusedSlotCollectorService,
-    createOIMBucketService,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '@oimdb/core';
-import type { OIMSlotContentBucketServiceArrayDriven } from '@oimdb/core';
+import { OIMDB, OIMUnusedSlotCollectorService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
 import { OIMDBProvider, useOIMBucketSlotsByKey } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TByDeckSlot = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, TOIMStoreKey>;
 type TByDeck = TOIMStoreSlot<Map<TOIMStoreKey, TByDeckSlot>, TByDeckSlot, readonly TCardSlot[]>;
 
-const createCardsService = (db: OIMDB) => createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 type TCardsService = ReturnType<typeof createCardsService>;
 
-const createByDeckService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
->(db);
+const createByDeckService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 type TByDeckService = ReturnType<typeof createByDeckService>;
 
 function build(): {
@@ -67,14 +62,14 @@ function build(): {
             touched.add(row.deckId);
             present.set(row.id, row);
         }
-        cardsService.slotContentService.upsertEntities(cards, rows);
+        cardsService.writeInBatch(cards, () => (rows).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         for (const deck of touched) {
             const inDeck: TOIMEntitySlot<TCard>[] = [];
             for (const row of present.values()) {
                 if (row.deckId === deck) inDeck.push(cardsService.getSlotByKey(cards, row.id));
             }
             const heldSlot = byDeckService.holdSlotByKey(byDeck, deck);
-            byDeckService.slotContentService.writeBucketMemberSlots(heldSlot, inDeck);
+            byDeckService.slotContentService.writeSlotContent(heldSlot, inDeck);
             heldSlot.owner.unholdSlot(heldSlot);
         }
     };

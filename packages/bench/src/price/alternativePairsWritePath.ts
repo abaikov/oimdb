@@ -1,17 +1,10 @@
 // Prose: ./README.md#alternativepairswritepath
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    oimSameValueZeroGuard,
-} from '../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimSameValueZeroGuard } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     IOIMSlotOwner,
     TOIMColumnSlot,
+    TOIMEntityContentSlot,
     TOIMEntitySlot,
     TOIMSameValueGuard,
     TOIMSlotEditable,
@@ -34,6 +27,8 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const WIDE_COLUMN_COUNT = 16;
 
@@ -74,11 +69,7 @@ const makeWideRows = (count: number): TWideRow[] => {
 };
 
 const makeWideEntityService = (db: OIMDB, entityWriter?: IOIMEntityWriter): TWideEntityService =>
-    createOIMEntityService<TWideRow>(db, {
-        keyOf: selectWideKey,
-        entityWriter,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TWideRow>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
 const shippedDefault: TMakeWideEntityService = db => makeWideEntityService(db);
 
@@ -103,7 +94,7 @@ const wideWorld = (
     const effectService = OIMEffectService.INSTANCE;
     const entityService = makeEntityService(db);
     const entityStoreSlot = entityService.createStoreSlot(db);
-    entityService.slotContentService.upsertEntities(entityStoreSlot, rows);
+    entityService.writeInBatch(entityStoreSlot, () => (rows).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, (selectWideKey)(entity), entity)));
     db.flush();
     const slots: TWideSlot[] = [];
     for (let i = 0; i < rows.length; i++) slots.push(entityService.getSlotByKey(entityStoreSlot, rows[i].id));
@@ -191,7 +182,7 @@ const primedUpdateSide = (
 const shippedInPlace = createOIMEntityWriterInPlace();
 const shippedReplacing = createOIMEntityWriterReplacing();
 
-type TColumnWalk = (slot: TOIMEntitySlot, patch: object) => string[] | undefined;
+type TColumnWalk = (slot: TOIMEntityContentSlot, patch: object) => string[] | undefined;
 
 const writeInPlaceWalking = (walk: TColumnWalk): IOIMEntityWriter => ({
     fillEntity: shippedInPlace.fillEntity,
@@ -316,8 +307,8 @@ const caseInsensitiveEquality: TOIMSameValueGuard = (a, b) => {
     return a.toLowerCase() === b.toLowerCase();
 };
 
-const storeEntity = (slot: TOIMEntitySlot, entity: Record<string, unknown>): void => {
-    (slot as TOIMSlotEditable<TOIMEntitySlot>).entity = entity;
+const storeEntity = (slot: TOIMEntityContentSlot, entity: Record<string, unknown>): void => {
+    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = entity;
 };
 
 const writeReplacingBuildingAsItWalks = (): IOIMEntityWriter => ({
@@ -415,7 +406,7 @@ const writeInPlaceBlanking = (): IOIMEntityWriter => {
     };
 };
 
-type TGrowingSlotContentStrategy = {
+type TGrowingKeyedSlotCreator = {
     createSlot: (key: TOIMStoreKey, storeSlot: TOIMStoreSlot | undefined, owner: IOIMSlotOwner) => TWideSlot;
 };
 
@@ -434,8 +425,7 @@ const createGrowingSlot = (key: TOIMStoreKey, storeSlot: TOIMStoreSlot | undefin
 
 const grownSlots: TMakeWideEntityService = db => {
     const entityService = makeWideEntityService(db);
-    (entityService as unknown as { slotOwnerService: { slotContentStrategy: TGrowingSlotContentStrategy } })
-        .slotOwnerService.slotContentStrategy.createSlot = createGrowingSlot;
+    (entityService.slotContentService as unknown as TGrowingKeyedSlotCreator).createSlot = createGrowingSlot;
     return entityService;
 };
 
@@ -456,7 +446,7 @@ const ONE_COMPILED_WALK =
 
 const THE_WRITE_AROUND_THE_WALK =
     'THE WRITE AROUND THE WALK IS IDENTICAL ON BOTH ARMS AND IS INSIDE BOTH NUMBERS: ' +
-    '`assertWritable` with the channel\'s `assertNotFlushing`, `openSubframe`/`closeSubframe`, the ' +
+    '`assertWritable` with the channel\'s `assertNotFlushing`, the ' +
     'writer dispatch, the `length > 0` test, and — on a write that moves something — the ' +
     'changed-names array, `markColumnsChanged`\'s column-store probe per moved column, ' +
     '`OIMChannelService.writeWithoutFlushCheck` and `markContentChanged`. That is a large constant added to ' +
@@ -471,7 +461,7 @@ const READ_ARMS_ARE_SEPARATE_BODIES =
     'code is entered by either, so there is no shared compiled function whose inline caches the ' +
     'two arms could spoil for each other. Each loop\'s property access therefore sees exactly the ' +
     'row shape its own design produces, for the life of the process, which is the whole thing ' +
-    'being measured. The populations ARE built through the shipped `upsertEntity` with two different ' +
+    'being measured. The populations ARE built through the shipped `writeSlotContentByKey` with two different ' +
     'writers, and that build is outside the clock; nothing timed here touches it. Keeping the ' +
     'ordinary single-process form buys the floor-twice bracket, which is the stronger drift ' +
     'check and is what these rows want.';
@@ -489,7 +479,7 @@ const populationThatLostAColumn = (
         if (i % takeEveryNth !== 0) continue;
         const short: Record<string, unknown> = { ...world.rows[i] };
         delete short.c15;
-        world.entityService.slotContentService.upsertEntity(world.entityStoreSlot, short as TWideRow);
+        world.entityService.writeSlotContentByKey(world.entityStoreSlot, (selectWideKey)(short as TWideRow), short as TWideRow);
     }
     world.db.flush();
     const stored: TWideRow[] = [];
@@ -852,7 +842,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
     {
         id: 'alt.slot-literal.complete-vs-grown.mint-a-population',
         path: EPricePath.PerRelationship,
-        ours: 'upsertEntity of a key that has none — the shipped fifteen-field entity slot literal',
+        ours: 'writeSlotContentByKey of a key that has none — the shipped fifteen-field entity slot literal',
         floor: 'REJECTED: a slot minted with its ten valued fields, the rest added on first use',
         caveat:
             'THE FIRST OF THE TWO READINGS THIS DECISION ASKS FOR, AND IT IS THE ONE THAT SHOULD GO ' +
@@ -862,7 +852,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'engine add each on first assignment. So ours pays five stores per identity the floor ' +
             'does not, and if this row does not come back ABOVE 1.00 the two designs do not differ ' +
             'where the argument says they do. ' +
-            'ONE OPERATION IS ONE `upsertEntity` OF A KEY THAT HAS NO VALUE — the whole first-load path: ' +
+            'ONE OPERATION IS ONE `writeSlotContentByKey` OF A KEY THAT HAS NO VALUE — the whole first-load path: ' +
             '`writeContentByKey` minting the identity, the copying writer strategy, the store, the marks. ' +
             'The pass CONSUMES its fixture, so both sides declare `operationsPerPass` and rebuild an ' +
             'empty population in the untimed `reset`. ' +
@@ -887,7 +877,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
                     },
                     operationsPerPass: rows.length,
                     run: times => {
-                        for (let i = 0; i < times; i++) entityService.slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, (selectWideKey)(rows[i]), rows[i]);
                         db.flush();
                         priceSink.number = entityService.getSlotCount(entityStoreSlot);
                     },
@@ -1057,7 +1047,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
     {
         id: 'alt.replacement-rebuild.survivors-vs-spread-and-delete.the-removal',
         path: EPricePath.PerWrite,
-        ours: 'upsertEntity of a row missing one column — the replacement is built from the survivors',
+        ours: 'writeSlotContentByKey of a row missing one column — the replacement is built from the survivors',
         floor: 'REJECTED: { ...entity }, then delete the departing column off the copy',
         caveat:
             'The shipped side is the replacing `putEntity`: one pass over the stored row with a ' +
@@ -1065,10 +1055,10 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'survivors. The rejected side keeps the two-step put the engine used to run — its ' +
             'spread-and-`delete` removal, then the shipped replacing `patchEntity`, which spreads a ' +
             'second copy — so it pays two objects where ours pays one. ' +
-            'ONE OPERATION IS ONE `upsertEntity` OF A ROW THE POPULATION ALREADY HAS, and the passes ' +
+            'ONE OPERATION IS ONE `writeSlotContentByKey` OF A ROW THE POPULATION ALREADY HAS, and the passes ' +
             'ALTERNATE: a value without `c15`, then the whole value again — a column can only leave ' +
             'a row once. Both sides write the row to the channel once per upsert. ' +
-            'THE SURROUNDING `upsertEntity` IS INSIDE BOTH NUMBERS — the marks and the ' +
+            'THE SURROUNDING `writeSlotContentByKey` IS INSIDE BOTH NUMBERS — the marks and the ' +
             'content-change call — so the ratio is a LOWER BOUND on the difference between the two ' +
             'rebuilds. READINGS TAKEN BEFORE THE ENGINE HAD `putEntity` priced a different shipped ' +
             'side and do not describe this one. ' +
@@ -1085,8 +1075,8 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
                     delete short.c15;
                     shortRows.push(short as TWideRow);
                 }
-                world.entityService.slotContentService.upsertEntity(world.entityStoreSlot, shortRows[0]);
-                world.entityService.slotContentService.upsertEntity(world.entityStoreSlot, world.rows[0]);
+                world.entityService.writeSlotContentByKey(world.entityStoreSlot, (selectWideKey)(shortRows[0]), shortRows[0]);
+                world.entityService.writeSlotContentByKey(world.entityStoreSlot, (selectWideKey)(world.rows[0]), world.rows[0]);
                 world.db.flush();
                 if (world.slots[0].entity?.c15 !== world.rows[0].c15) {
                     throw new Error('alternatives: a column that left and came back did not come back.');
@@ -1103,9 +1093,9 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
                             const upTo = Math.min(rows.length, times - done);
                             whole = !whole;
                             if (whole) {
-                                for (let i = 0; i < upTo; i++) entityService.slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                                for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, (selectWideKey)(rows[i]), rows[i]);
                             } else {
-                                for (let i = 0; i < upTo; i++) entityService.slotContentService.upsertEntity(entityStoreSlot, shortRows[i]);
+                                for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, (selectWideKey)(shortRows[i]), shortRows[i]);
                             }
                             db.flush();
                             done += upTo;
@@ -1132,7 +1122,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'for the life of the row. ' +
             'ONE OPERATION IS ONE PROPERTY READ of a SURVIVING column (`c07`) off one stored row, ' +
             'walked through the whole population with a mask. Every row of both populations has been ' +
-            'through the same whole-row `upsertEntity` missing `c15`; ours built the replacement in the ' +
+            'through the same whole-row `writeSlotContentByKey` missing `c15`; ours built the replacement in the ' +
             'shipped replacing `putEntity`, the rejected one spread it and `delete`d `c15`. THE WORK IS ' +
             'IDENTICAL AND THE SHAPES ARE NOT. A SURVIVING COLUMN AND NOT THE REMOVED ONE, ' +
             'deliberately: `c15` reads `undefined` on both sides and would measure a miss. EVERY ROW ' +
@@ -1157,11 +1147,11 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'read pays for it. ' +
             'ONE OPERATION IS ONE PROPERTY READ of a SURVIVING column (`c07`) off one stored row, ' +
             'walked through the whole population with a mask. Both populations were loaded ' +
-            'identically and given the same whole-row `upsertEntity` missing `c15`; ours ran the shipped ' +
+            'identically and given the same whole-row `writeSlotContentByKey` missing `c15`; ours ran the shipped ' +
             'in-place `putEntity`, which `delete`s it, the rejected one set it to `undefined`. The stored ' +
             'object is the SAME OBJECT on the in-place path on both arms. ' +
             'WHAT THE BLANKED FORM CANNOT DO, and it is not visible in this number: `c15` stays an ' +
-            'own property, so the next whole-row `upsertEntity` finds the same column leaving again, ' +
+            'own property, so the next whole-row `writeSlotContentByKey` finds the same column leaving again, ' +
             'reports it removed again and wakes its subscribers again — and a column a caller ' +
             'deliberately stored as `undefined` would stop being distinguishable from one that left. ' +
             `${READ_ARMS_ARE_SEPARATE_BODIES}`,

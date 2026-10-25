@@ -10,7 +10,7 @@ export function oimEntityWriterOptionsWithDefault(
 ): { [TOption in keyof TOIMEntityWriterOptions]-?: NonNullable<TOIMEntityWriterOptions[TOption]> } {
     return {
         sameValueGuard: options?.sameValueGuard ?? oimSameValueZeroGuard,
-        entityInsertStrategy: options?.entityInsertStrategy ?? oimInsertEntityWithoutCopy,
+        entityInserter: options?.entityInserter ?? oimInsertEntityWithoutCopy,
         putEntityColumns: options?.putEntityColumns ?? oimPutEntityColumns,
         patchEntityColumns: options?.patchEntityColumns ?? oimPatchEntityColumns,
         patchEntityColumn: options?.patchEntityColumn ?? oimPatchEntityColumn,

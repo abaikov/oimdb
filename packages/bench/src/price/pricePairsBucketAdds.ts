@@ -1,12 +1,4 @@
-import {
-    OIMChannelService,
-    OIMContentChangeListenerService,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotReleasePolicyNever,
-    OIMSlotStoreServiceMapDriven,
-    createOIMBucketService,
-    oimIsSlotReleased,
-} from '../../../core/src/index';
+import { OIMContentChangeListenerService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
 import type {
     IOIMContentChangeListener,
     OIMDB,
@@ -21,6 +13,7 @@ import { priceCollectionFixture } from './priceFixture';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TBucketMember = { id: string };
 
@@ -48,7 +41,7 @@ type TBucketAddsScenario = {
     readonly name: string;
     readonly what: string;
     readonly caveat: string;
-    readonly addsPerSubframe: number;
+    readonly addsPerBatch: number;
     readonly bucketCount: number;
     readonly hasListener: boolean;
     readonly isHeld: boolean;
@@ -69,34 +62,27 @@ const bucketKeysOf = (bucketCount: number): string[] =>
 const bucketMembersOf = (memberCount: number): TBucketMember[] =>
     Array.from({ length: memberCount }, (_, at) => ({ id: `member-${at}` }));
 
-const sideOfPasses = (addsPerSubframe: number, runPass: (adds: number) => void): TPriceSide => {
+const sideOfPasses = (addsPerBatch: number, runPass: (adds: number) => void): TPriceSide => {
     const side: TPriceSide = {
         reset: () => undefined,
         run: times => {
             let remaining = times;
-            while (remaining >= addsPerSubframe) {
-                runPass(addsPerSubframe);
-                remaining -= addsPerSubframe;
+            while (remaining >= addsPerBatch) {
+                runPass(addsPerBatch);
+                remaining -= addsPerBatch;
             }
             if (remaining !== 0) runPass(remaining);
         },
     };
-    side.run(addsPerSubframe * 256);
+    side.run(addsPerBatch * 256);
     return side;
 };
 
 const oursSide = (
     bucketAddsScenario: TBucketAddsScenario, db: OIMDB, entitySlots: readonly TMemberEntitySlot[],
 ): TPriceSide => {
-    const { addsPerSubframe, bucketCount } = bucketAddsScenario;
-    const bucketService = createOIMBucketService<
-        TMemberEntitySlot, string, TMemberSlotsSetStore, OIMSlotContentBucketServiceSetDriven<TMemberEntitySlot>
-    >(db, {
-        bucketSlotStoreService: new OIMSlotStoreServiceMapDriven<TMemberBucketSlot, string>(),
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TMemberEntitySlot>(),
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-        slotReleasePolicy: OIMSlotReleasePolicyNever.INSTANCE,
-    });
+    const { addsPerBatch, bucketCount } = bucketAddsScenario;
+    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TMemberEntitySlot, string>(), slotStoreService: new OIMSlotMapStoreService<TMemberBucketSlot, string>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
     const slotContentService = bucketService.slotContentService;
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketKeys = bucketKeysOf(bucketCount);
@@ -109,14 +95,14 @@ const oursSide = (
     }
     db.flush();
     const addPass = (adds: number): void => {
-        OIMChannelService.INSTANCE.openSubframe(db.defaultChannelSlot);
+        bucketService.openBatch(bucketStoreSlot);
         for (let i = 0; i < adds; i++) {
             slotContentService.addBucketMemberSlot(bucketService.getSlotByKey(bucketStoreSlot, bucketKeys[i % bucketCount]), entitySlots[i]);
         }
-        OIMChannelService.INSTANCE.closeSubframe(db.defaultChannelSlot);
+        bucketService.closeBatch(bucketStoreSlot);
     };
     const clearPass = (): void => {
-        for (let b = 0; b < bucketCount; b++) slotContentService.clearBucketMemberSlots(bucketSlots[b]);
+        for (let b = 0; b < bucketCount; b++) slotContentService.clearSlotContent(bucketSlots[b]);
         priceSink.ours = bucketSlots[0];
     };
     const assertBucketsFiled = (bucketMemberSlotCount: number): void => {
@@ -134,11 +120,11 @@ const oursSide = (
             );
         }
     };
-    addPass(addsPerSubframe);
-    assertBucketsFiled(addsPerSubframe);
+    addPass(addsPerBatch);
+    assertBucketsFiled(addsPerBatch);
     clearPass();
     assertBucketsFiled(0);
-    const side = sideOfPasses(addsPerSubframe, adds => {
+    const side = sideOfPasses(addsPerBatch, adds => {
         addPass(adds);
         clearPass();
     });
@@ -147,7 +133,7 @@ const oursSide = (
 };
 
 const floorSide = (bucketAddsScenario: TBucketAddsScenario, bucketMembers: readonly TBucketMember[]): TPriceSide => {
-    const { addsPerSubframe, bucketCount } = bucketAddsScenario;
+    const { addsPerBatch, bucketCount } = bucketAddsScenario;
     const floorClock: TFloorClock = { revision: 0 };
     const floorContentChangeListeners: TFloorContentChangeListener[] =
         bucketAddsScenario.hasListener ? [floorCountingContentChangeListener] : [];
@@ -176,7 +162,7 @@ const floorSide = (bucketAddsScenario: TBucketAddsScenario, bucketMembers: reado
         floorBucket.isReleased = true;
         floorBucketsByKey.delete(floorBucket.key);
     };
-    return sideOfPasses(addsPerSubframe, adds => {
+    return sideOfPasses(addsPerBatch, adds => {
         for (let i = 0; i < adds; i++) {
             const floorBucket = floorBucketsByKey.get(bucketKeys[i % bucketCount]);
             if (floorBucket === undefined) continue;
@@ -208,44 +194,37 @@ const UNHELD_CAVEAT =
     + 'guards its stamp by the same hold count and stamps nothing either.';
 
 const IMMEDIATE_CAVEAT =
-    'With a hold and no content-change listener the shipped door takes its immediate path on every add: it writes '
-    + 'the bucket to the channel, settles it and calls dispatchContentChange, which finds no listener; nothing is pushed for '
-    + 'the close and no release check runs there, nor after the clear, which takes the same immediate path. The '
-    + 'floor stamps and settles on every add too, so per add the two sides do the same observable work; the floor '
-    + 'alone runs a release check per bucket at the close and after each clear, which returns at its hold count and '
-    + 'pushes the ratio down by those tests.';
+    'With a hold and no content-change listener every add writes the bucket to the channel, settles it, calls '
+    + 'dispatchContentChange, which finds no listener, and runs the release check, which returns at the hold count. '
+    + 'The floor stamps and settles on every add too, so per add the two sides do the same observable work; the floor '
+    + 'alone runs a release check per bucket at the close and after each clear.';
 
 const LISTENER_CAVEAT =
-    'With a content-change listener the shipped door takes its batch path whether or not the bucket is held: the '
-    + 'first add of a pass writes, settles and announces the bucket (the announce is buffered by the door\'s own '
-    + 'subframe and delivered at its close) and pushes the bucket once for the outermost close; every later add only '
-    + 'flags it; the outermost close writes, settles and announces it once more and runs its release check. The '
-    + 'listener therefore hears a bucket at most twice per pass, where the floor stamps, settles and announces on '
-    + 'every add. Whenever a bucket takes more than one add in a pass the floor does more work than ours, and that '
-    + 'pushes the ratio down, in our favour, the more so the more adds a bucket takes.';
+    'With a content-change listener every add writes the bucket to the channel and settles it, and its announce is '
+    + 'queued on the store slot\'s batch: the listener hears every add of the pass in one onContentChangedMany at '
+    + 'closeBatch, one entry per add. The release check after each add returns early while the bucket is the last '
+    + 'queued slot. The floor stamps, settles and announces on every add.';
 
 const UNHELD_SILENT_CAVEAT =
-    'With no listener and no hold the shipped door settles the first add of a pass at once and pushes the bucket '
-    + 'once for the outermost close; every later add only flags it; the close settles it once more and runs its '
-    + 'release check. The floor settles on every add and runs the release check for every bucket at the close. '
-    + 'Whenever a bucket takes more than one add in a pass the floor does more settles than ours, which pushes the '
-    + 'ratio down, in our favour.';
+    'With no listener and no hold every add writes the bucket to the channel, settles it and runs the release check, '
+    + 'which keeps it under OIMSlotNeverReleasePolicy. The floor settles on every add and runs the release check for '
+    + 'every bucket at the close.';
 
 const COMMON_CAVEAT =
-    'One operation is one member add. Both sides open one outer subframe per pass (ours through OIMChannelService.openSubframe '
-    + 'and closeSubframe on the default channel slot), find each bucket by key (ours bucketService.getSlotByKey, '
+    'One operation is one member add. Ours opens one batch per pass (bucketService.openBatch '
+    + 'and closeBatch on the bucket store slot), both sides find each bucket by key (ours bucketService.getSlotByKey, '
     + 'a store get plus an undefined test, followed by the public slotContentService.addBucketMemberSlot — there is no by-key add door now, so the '
     + 'lookup and the add are two calls here; the floor Map.get), add the member to a Set, and after the close empty every bucket of the pass, ours through '
-    + 'slotContentService.clearBucketMemberSlots: the clear is timed on both sides alike and carries its own stamp, '
+    + 'slotContentService.clearSlotContent: the clear is timed on both sides alike and carries its own stamp, '
     + 'settle, announce and release check. Ours additionally, per add, asserts that the channel is not flushing and '
-    + 'that neither slot is released, opens and closes the owner\'s and the channel\'s subframe, holds the member '
+    + 'that neither slot is released, holds the member '
     + 'slot and records the append on the no-op command recorder; per clear it copies the members into a fresh '
     + 'array, gives back each member\'s hold and runs each member\'s release check. The floor keeps plain objects '
     + 'and holds nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the channel '
     + 'has no scheduler and the bucket no effect, so nothing asks for a frame and the clock only advances.';
 
 const POLICY_CAVEAT =
-    'The bucket collection is built with OIMSlotReleasePolicyNever and the floor\'s release check mirrors it, keeping '
+    'The bucket collection is built with OIMSlotNeverReleasePolicy and the floor\'s release check mirrors it, keeping '
     + 'an empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is released and '
     + 'unfiled, and the next pass\'s adds would find no bucket and land nowhere. The release check is therefore '
     + 'priced as its tests, never as a release.';
@@ -258,8 +237,8 @@ const behaviourCaveatOf = (bucketAddsScenario: TBucketAddsScenario): string => {
 const pairOf = (bucketAddsScenario: TBucketAddsScenario): TPricePair => ({
     id: `bucket-adds.${bucketAddsScenario.name}`,
     path: EPricePath.PerRowPerWrite,
-    ours: `OIMChannelService.openSubframe(defaultChannelSlot); slotContentService.addBucketMemberSlot(bucketService.getSlotByKey(bucketStoreSlot, key), entitySlot) for `
-        + `${bucketAddsScenario.what}; OIMChannelService.closeSubframe(defaultChannelSlot); then slotContentService.clearBucketMemberSlots(bucketSlot) `
+    ours: `bucketService.openBatch(bucketStoreSlot); slotContentService.addBucketMemberSlot(bucketService.getSlotByKey(bucketStoreSlot, key), entitySlot) for `
+        + `${bucketAddsScenario.what}; bucketService.closeBatch(bucketStoreSlot); then slotContentService.clearSlotContent(bucketSlot) `
         + 'per bucket',
     floor: 'the same adds into a Set per bucket found by Map.get, each landed add stamped when the bucket is held, '
         + `settled${bucketAddsScenario.hasListener ? ' and announced to the listener' : ''}; a release check per bucket `
@@ -272,7 +251,7 @@ const pairOf = (bucketAddsScenario: TBucketAddsScenario): TPricePair => ({
         POLICY_CAVEAT,
     ].join(' '),
     build: () => {
-        const bucketMembers = bucketMembersOf(bucketAddsScenario.addsPerSubframe);
+        const bucketMembers = bucketMembersOf(bucketAddsScenario.addsPerBatch);
         const { db, slots } = priceCollectionFixture(bucketMembers);
         const floorBucketMembers = bucketMembers.map(bucketMember => ({ ...bucketMember }));
         return {
@@ -284,32 +263,32 @@ const pairOf = (bucketAddsScenario: TBucketAddsScenario): TPricePair => ({
 
 const oneBucketScenario = (adds: number): Omit<TBucketAddsScenario, 'isHeld'> => ({
     name: `one-bucket-${adds}-adds`,
-    what: `${adds} adds to one bucket in one outer subframe`,
-    caveat: 'Every add of a pass goes to ONE bucket inside one outer subframe opened on the channel; the id names how '
+    what: `${adds} adds to one bucket in one batch`,
+    caveat: 'Every add of a pass goes to ONE bucket inside one batch opened on the bucket store slot; the id names how '
         + 'many adds a pass makes. No content-change listener.',
-    addsPerSubframe: adds,
+    addsPerBatch: adds,
     bucketCount: 1,
     hasListener: false,
 });
 
 const listenerScenario = (adds: number): Omit<TBucketAddsScenario, 'isHeld'> => ({
     name: `one-bucket-${adds}-adds-with-a-listener`,
-    what: `${adds} adds to one bucket in one outer subframe, one content-change listener`,
-    caveat: 'Every add of a pass goes to ONE bucket inside one outer subframe opened on the channel, with one '
+    what: `${adds} adds to one bucket in one batch, one content-change listener`,
+    caveat: 'Every add of a pass goes to ONE bucket inside one batch opened on the bucket store slot, with one '
         + 'content-change listener added through OIMContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, …); the id names how many '
         + 'adds a pass makes.',
-    addsPerSubframe: adds,
+    addsPerBatch: adds,
     bucketCount: 1,
     hasListener: true,
 });
 
 const spreadScenario = (adds: number): Omit<TBucketAddsScenario, 'isHeld'> => ({
     name: `${adds}-buckets-one-add-each`,
-    what: `${adds} adds, one to each of ${adds} buckets, in one outer subframe`,
-    caveat: 'Each add of a pass goes to a DIFFERENT bucket inside one outer subframe opened on the channel, so every '
+    what: `${adds} adds, one to each of ${adds} buckets, in one batch`,
+    caveat: 'Each add of a pass goes to a DIFFERENT bucket inside one batch opened on the bucket store slot, so every '
         + 'bucket takes exactly one add and there is nothing to coalesce; the id names how many buckets. No '
         + 'content-change listener.',
-    addsPerSubframe: adds,
+    addsPerBatch: adds,
     bucketCount: adds,
     hasListener: false,
 });

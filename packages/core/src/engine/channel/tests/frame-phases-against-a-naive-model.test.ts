@@ -1,9 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMChannelService } from '../OIMChannelService';
 import type { TOIMEntitySlot, TOIMDisposer } from '../../../index';
 import { OIMEffectService } from '../../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -30,7 +31,7 @@ const makeRandom = (seed: number): (() => number) => {
     };
 };
 
-const makeCollection = (db: OIMDB) => createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;
@@ -42,7 +43,7 @@ const updateEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key:
 
 const deleteEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key: string): void => {
     const slot = rowsService.findSlotByKey(rows, key);
-    if (slot !== undefined) rowsService.slotContentService.deleteEntity(slot);
+    if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
 };
 
 type TEvent = { phase: TPhase; who: string; frameOpen: boolean };
@@ -79,7 +80,7 @@ const run = (seed: number, steps: number): void => {
 
     for (const key of KEYS) {
         const row: TRow = { id: key, n: 0, label: 'l0' };
-        rowsService.slotContentService.upsertEntity(rows, { ...row });
+        rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...row }), { ...row });
         model.set(key, row);
     }
     db.flush();
@@ -102,9 +103,9 @@ const run = (seed: number, steps: number): void => {
         let after: TRow | undefined;
         if (before === undefined || choice < 0.3) {
             after = { id: key, n: Math.floor(random() * 4), label: `l${Math.floor(random() * 3)}` };
-            rowsService.slotContentService.upsertEntity(rows, { ...after });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...after }), { ...after });
         } else if (choice < 0.45) {
-            rowsService.slotContentService.upsertEntity(rows, { ...before });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...before }), { ...before });
             after = before;
         } else if (choice < 0.75) {
             const n = Math.floor(random() * 4);
@@ -249,7 +250,7 @@ const fixture = (): TFixture => {
     const effectService = OIMEffectService.INSTANCE;
     const rowsService = makeCollection(db);
     const rows = rowsService.createStoreSlot(db);
-    rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 0, label: 'l' });
+    rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id: 'r1', n: 0, label: 'l' }), { id: 'r1', n: 0, label: 'l' });
     db.flush();
     const slot = rowsService.getSlotByKey(rows, 'r1')!;
     effectService.createEffect(db, [slot], [], () => undefined);

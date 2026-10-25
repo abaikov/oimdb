@@ -1,4 +1,4 @@
-import { OIMSlotContentBucketServiceSetDriven } from '../../../core/src/index';
+import { OIMSlotContentSetBucketService } from '../../../core/src/index';
 import type {
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
@@ -41,7 +41,7 @@ const groupedFixture = () => {
     // body below READS this bucket collection and none of them writes `group`,
     // so the snapshot it builds stays correct for the life of the fixture.
     const { bucketService, bucketStoreSlot, bucketOf } = priceGroupIndex<TGroupSlots>(
-        fixture.db, fixture.slots, new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+        fixture.db, fixture.slots, new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
     );
     fixture.db.flush();
 
@@ -99,10 +99,10 @@ export const pricePairsRead: readonly TPricePair[] = [
     {
         id: 'find.vs-map-get',
         path: EPricePath.PerRead,
-        ours: 'entityService.slotContentService.findEntityByKey(entityStoreSlot, id) — the entity of a key, or undefined',
+        ours: 'entityService.findSlotByKey(entityStoreSlot, id)?.entity — the entity of a key, or undefined',
         floor: 'map.get(id)',
         caveat:
-            'THE CALIBRATION ROW. `slotContentService.findEntityByKey` is a `Map.get` through the slot store ' +
+            'THE CALIBRATION ROW. `entityService.findSlotByKey` is a `Map.get` through the slot store ' +
             'service and one `.entity` load off the slot, ' +
             'so if this reads much above 1 the instrument is measuring call overhead rather than ' +
             'the library, and every other ratio in this table should be read with that in mind. ' +
@@ -118,7 +118,7 @@ export const pricePairsRead: readonly TPricePair[] = [
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const mask = rows.length - 1;
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = entityService.slotContentService.findEntityByKey(entityStoreSlot, rows[i & mask].id);
+                            priceSink.ours = entityService.findSlotByKey(entityStoreSlot, rows[i & mask].id)?.entity;
                         }
                     },
                 },
@@ -246,7 +246,7 @@ export const pricePairsRead: readonly TPricePair[] = [
             'into its slot store service\'s get, one `Map.get` and the `=== undefined` compare ' +
             'against the floor\'s one `Map.get`. Both sides cycle ' +
             'through all sixty-four addresses. ' +
-            'The store `OIMSlotStoreServiceMapDriven` reads is one `Map` and nothing else, so there is no cell to ' +
+            'The store `OIMSlotMapStoreService` reads is one `Map` and nothing else, so there is no cell to ' +
             'hit or miss.',
         build: () => {
             const grouped = groupedFixture();

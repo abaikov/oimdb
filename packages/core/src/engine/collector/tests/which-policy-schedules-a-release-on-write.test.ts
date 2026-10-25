@@ -1,30 +1,21 @@
-import {
-    OIMDB,
-    OIMSlotReleasePolicyAfterIdle,
-    OIMSlotReleasePolicyAfterUnhold,
-    OIMSlotReleasePolicyAfterWrite,
-    OIMSlotReleasePolicyAtEmpty,
-    OIMSlotReleasePolicyAtUnhold,
-    OIMSlotReleasePolicyEarliest,
-    OIMSlotReleasePolicyNever,
-} from '../../../index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy } from '../../../index';
 import type { IOIMSlotReleasePolicy, TOIMSlot } from '../../../index';
 
 const getNowMs = (): number => 1_000_000;
 const releaseTimer = (): (() => void) => () => undefined;
 
 const POLICIES: [string, () => IOIMSlotReleasePolicy, boolean][] = [
-    ['at empty', () => new OIMSlotReleasePolicyAtEmpty(), false],
-    ['never', () => new OIMSlotReleasePolicyNever(), false],
-    ['at unhold', () => new OIMSlotReleasePolicyAtUnhold(), false],
-    ['after unhold', () => new OIMSlotReleasePolicyAfterUnhold({ keepAfterUnholdMs: 1_000 }), false],
-    ['after write', () => new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: 1_000 }), true],
-    ['after idle', () => new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 1_000 }), true],
-    ['earliest of at empty and never', () => new OIMSlotReleasePolicyEarliest([
-        new OIMSlotReleasePolicyAtEmpty(), new OIMSlotReleasePolicyNever(),
+    ['at empty', () => new OIMSlotAtEmptyReleasePolicy(), false],
+    ['never', () => new OIMSlotNeverReleasePolicy(), false],
+    ['at unhold', () => new OIMSlotAtUnholdReleasePolicy(), false],
+    ['after unhold', () => new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 1_000 }), false],
+    ['after write', () => new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 1_000 }), true],
+    ['after idle', () => new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 1_000 }), true],
+    ['earliest of at empty and never', () => new OIMSlotEarliestReleasePolicy([
+        new OIMSlotAtEmptyReleasePolicy(), new OIMSlotNeverReleasePolicy(),
     ]), false],
-    ['earliest of at empty and after write', () => new OIMSlotReleasePolicyEarliest([
-        new OIMSlotReleasePolicyAtEmpty(), new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: 1_000 }),
+    ['earliest of at empty and after write', () => new OIMSlotEarliestReleasePolicy([
+        new OIMSlotAtEmptyReleasePolicy(), new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 1_000 }),
     ]), true],
 ];
 

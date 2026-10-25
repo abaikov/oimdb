@@ -21,25 +21,13 @@ that store slot first.
 </InShort>
 
 ```typescript setup
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotReleasePolicyNever,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-    createOIMSlotCollectionService,
-    createOIMSlotContentEntityService,
-    oimIsSlotEmpty,
-    type IOIMSlotEmptiness,
-    type TOIMEntitySlot,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, createOIMSlotCollectionService, createOIMSlotContentEntityService, oimIsSlotEmpty, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMStoreKey } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 
 declare const pk: TOIMStoreKey;
@@ -53,8 +41,8 @@ declare const render: (card: Card | undefined) => void;
 
 | You have | Build | Why not the others |
 |---|---|---|
-| many entities of one type, each with its own key, and readers who must be woken | `createOIMEntityService(db, { keyOf })`, or the base layer by hand, then `createStoreSlot(db)` per collection | — |
-| one record with no key — settings, a session | `createOIMSingleEntityService(db)`, its `createStoreSlot(db)` and an `upsertEntity` | a collection would make you invent a key and a store for one value — see [Standalone records](/docs/core/object) |
+| many entities of one type, each with its own key, and readers who must be woken | `createOIMSlotCollectionService(db, { keyOf })`, or the base layer by hand, then `createStoreSlot(db)` per collection | — |
+| one record with no key — settings, a session | `createOIMSingleSlotService(db)`, its `createStoreSlot(db)` and an `writeSlotContentByKey` | a collection would make you invent a key and a store for one value — see [Standalone records](/docs/core/object) |
 | a value computed from entities | a computed — see [Computed and effects](/docs/core/computed-effects) | an entity is written by you; a computed is written only by its derive |
 | "which entities belong to group X" | an index or a bucket collection — see [Indexes](/docs/core/oimindex) and [Buckets](/docs/core/indexes) | a collection keeps no membership list of its own |
 
@@ -66,27 +54,22 @@ same key always resolves to the same object for as long as anything refers to it
 
 ## Building one
 
-`createOIMEntityService(db, options)` is the convenience door. Its options are `keyOf` (required),
-`entitySlotStoreService` (a Map store when left out; a tree store for a composite key),
-`entityWriter`, `slotEmptiness`, `slotReleasePolicy`, and `columnSlotStoreService` or `columnNames`. Each
+`createOIMSlotCollectionService(db, options)` is the convenience door. Its options are `keyOf` (required),
+`slotStoreService` (a Map store when left out; a tree store for a composite key),
+`entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`, and `columnSlotStoreService` or `columnNames`. Each
 optional one falls back to the `OIMDB`'s value, then to the `OIMDefaults` entry.
 
 ```typescript
-const archiveService = createOIMEntityService<Card>(db, {
-    keyOf: (card) => card.id,
-    slotReleasePolicy: OIMSlotReleasePolicyNever.INSTANCE,
-});
+const archiveService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const archive = archiveService.createStoreSlot(db);
 ```
 
 The base layer it wraps is two calls:
 
 ```typescript
-const baseCardService = createOIMSlotCollectionService({
-    slotContentService: createOIMSlotContentEntityService<Card>(db, {
-        keyOf: (card) => card.id,
-        slotStoreService: new OIMSlotStoreServiceMapDriven<TOIMEntitySlot<Card, TOIMStoreKey>>(),
-    }),
+const baseCardService = createOIMSlotCollectionService(db, {
+    slotContentService: createOIMSlotContentEntityService<Card>(db),
+    slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(),
 });
 const baseCards = baseCardService.createStoreSlot(db);
 ```
@@ -98,12 +81,12 @@ path branches on it:
 | Option of `createOIMSlotContentEntityService` | Default when left out | What it decides |
 |---|---|---|
 | `keyOf` | required for a key; left out for a single | how a key comes out of an entity |
-| `slotStoreService` | a Map store; required for any other store, and for a single (`OIMSlotStoreServiceSingleSlotDriven.INSTANCE`) | how identities are filed in a store slot |
+| `slotStoreService` | a Map store; required for any other store, and for a single (`OIMSingleSlotStoreService.INSTANCE`) | how identities are filed in a store slot |
 | `entityWriter` | the db's, then `OIMDefaults.ENTITY_WRITER.getValue()` | how a write lands on the stored object — see [The two writers](/docs/core/writing#the-two-writers) |
 | `columnSlotStoreService` | `OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` | where column slots live — see [Column slots](#column-slots) |
 | `columnNames` | none | the column names, filed in an ordinal store — see [Naming the columns up front](#naming-the-columns-up-front) |
-| `slotEmptiness` | `OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue()` | what counts as "no value" — see [Emptiness is a strategy](#emptiness-is-a-strategy) |
-| `slotReleasePolicy` | the db's, then `OIMSlotReleasePolicyAtEmpty.INSTANCE` | how long an identity stays filed — see [How long an identity stays](#how-long-an-identity-stays) |
+| `slotEmptinessPolicy` | `OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue()` | what counts as "no value" — see [Emptiness is a strategy](#emptiness-is-a-strategy) |
+| `slotReleasePolicy` | the db's, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` | how long an identity stays filed — see [How long an identity stays](#how-long-an-identity-stays) |
 
 Two more strategies are the db's, for every collection of it: `slotStamp` (an `IOIMSlotStamp` whose
 `stamp(slot)` runs each time emptiness is settled) and `indexKeysService` (how per-index keys are kept on
@@ -115,7 +98,7 @@ to replace the default afterwards. Replace a default at startup or not at all.
 
 ## Name the entity
 
-`TEntity` types the whole surface: `upsertEntity` refuses anything that is not a card,
+`TEntity` types the whole surface: `writeSlotContentByKey` refuses anything that is not a card,
 `updateEntity` takes a `Partial<Card>`, and `slot.entity` is `Card | undefined`. Note
 the `undefined`: an identity outlives its value.
 
@@ -151,16 +134,16 @@ cardContentService.findEntityByKey(cards, key)                // the entity or u
 cardContentService.updateEntity(slot, patch)                  // a door handed a slot takes no store slot
 ```
 
-A door that works on one slot it is handed (`updateEntity`, `writeEntity`,
-`updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `deleteEntity`) takes no store slot:
+A door that works on one slot it is handed (`updateEntity`, `writeSlotContent`,
+`updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`) takes no store slot:
 the slot carries the store slot it is filed in. There are no by-key write doors.
 
 `hasSlotContentByKey` is the key question that files nothing: it looks the key
 up, and answers from `oimIsSlotEmpty(slot)` when there is a slot. Use it for "is there a
 value" where a mint would be wasted work.
 
-`upsertEntity` and `insertEntity` are **total**: the slot comes back whatever the write changed. Their
-optional last argument is a caller-owned array that they append the slot to
+`writeSlotContentByKey` is **total**: the slot comes back whatever the write changed. Its
+optional last argument is a caller-owned array that it appends the slot to
 exactly when the content that landed was different. See
 [Writing](/docs/core/writing#which-entities-actually-changed).
 
@@ -186,7 +169,7 @@ const effect = effectService.createEffect(db, [reserved], [], () => {
     render(reserved.entity);                   // undefined, then the card
 });
 
-cardService.slotContentService.upsertEntity(cards, { id: 'c2', title: 'Two', rank: 2 });
+cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Two', rank: 2 });
 db.flush();
 
 effectService.disposeEffect(effect);
@@ -205,7 +188,7 @@ back for you.
 
 ## Scalar keys
 
-`OIMSlotStoreServiceMapDriven<TSlot, TKey = TOIMStoreKey>` files by one key, and
+`OIMSlotMapStoreService<TSlot, TKey = TOIMStoreKey>` files by one key, and
 `TOIMStoreKey` is `string | number`. It is a `Map`, and it files by SameValueZero:
 `NaN` finds `NaN`, `0` and `-0` are one key, `1` and `'1'` are two. `oimSameValueZeroGuard`
 applies the same rule if you need to compare two scalar keys yourself.
@@ -215,8 +198,8 @@ applies the same rule if you need to compare two scalar keys yourself.
 ```typescript setup
 import {
     OIMDefaults,
-    OIMSlotStoreServiceTreeDriven,
-    createOIMIndexService,
+    OIMSlotTreeStoreService,
+    createOIMSlotCollectionIndexService,
     type TOIMSlotStoreTree,
 } from '@oimdb/core';
 
@@ -228,7 +211,7 @@ declare const admins: TOIMEntitySlot<Group, TOIMStoreKey>;
 ```
 
 A composite key is a **chain of composite key parts**, descended with one `Map` lookup per
-composite key part. One store files it, `OIMSlotStoreServiceTreeDriven`, and the **descent you pass to
+composite key part. One store files it, `OIMSlotTreeStoreService`, and the **descent you pass to
 its constructor** decides what your key MEANS. This is a fork, not a default with
 an escape hatch: you choose the walk once, statically, and nothing branches on it
 at run time.
@@ -257,17 +240,15 @@ type TScalarChain = readonly TOIMStoreKey[];
 type Tally = { deck: string; day: string; count: number };
 type TTallyStore = TOIMSlotStoreTree<TOIMEntitySlot<Tally, TScalarChain>, TOIMStoreKey>;
 
-const tallyService = createOIMSlotCollectionService({
-    slotContentService: createOIMSlotContentEntityService<Tally, keyof Tally, TScalarChain, TTallyStore>(db, {
-        slotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMStoreKey, TOIMEntitySlot<Tally, TScalarChain>>(
-            OIMDefaults.KEY_TREE_WALK_SCALAR.getValue(),
-        ),
-        keyOf: (t) => [t.deck, t.day],   // the two names, in order
-    }),
+const tallyService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<Tally, TScalarChain>>, TTallyStore>(db, {
+    slotContentService: createOIMSlotContentEntityService<Tally, TScalarChain>(db),
+    slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<Tally, TScalarChain>>(
+        OIMDefaults.KEY_TREE_WALK_SCALAR.getValue(),
+    ),
 });
 const tallies = tallyService.createStoreSlot(db);
 
-tallyService.slotContentService.upsertEntity(tallies, { deck: 'spades', day: 'mon', count: 1 });
+tallyService.writeSlotContentByKey(tallies, ['spades', 'mon'], { deck: 'spades', day: 'mon', count: 1 });
 tallyService.getSlotByKey(tallies, ['spades', 'mon']);
 ```
 
@@ -303,17 +284,15 @@ type Enrollment = {
 type TChain = readonly TOIMEntitySlot[];
 type TEnrollmentStore = TOIMSlotStoreTree<TOIMEntitySlot<Enrollment, TChain>, TOIMEntitySlot>;
 
-const enrollmentService = createOIMSlotCollectionService({
-    slotContentService: createOIMSlotContentEntityService<Enrollment, keyof Enrollment, TChain, TEnrollmentStore>(db, {
-        slotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TOIMEntitySlot<Enrollment, TChain>>(
-            OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
-        ),
-        keyOf: (e) => [e.user, e.group], // the two identities, in order
-    }),
+const enrollmentService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<Enrollment, TChain>>, TEnrollmentStore>(db, {
+    slotContentService: createOIMSlotContentEntityService<Enrollment, TChain>(db),
+    slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TOIMEntitySlot<Enrollment, TChain>>(
+        OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
+    ),
 });
 const enrollments = enrollmentService.createStoreSlot(db);
 
-enrollmentService.slotContentService.upsertEntity(enrollments, { user: alice, group: admins, since: 2026 });
+enrollmentService.writeSlotContentByKey(enrollments, [alice, admins], { user: alice, group: admins, since: 2026 });
 enrollmentService.getSlotByKey(enrollments, [alice, admins]);
 ```
 
@@ -329,10 +308,10 @@ encoded into a string: the tree descends one composite key part at a time, so `[
 ## How a collection is keyed is the store's business
 
 The key's shape is what `TKey` carries and what the store is built from:
-`OIMSlotStoreServiceMapDriven` for one value, `OIMSlotStoreServiceTreeDriven` for a chain, given
+`OIMSlotMapStoreService` for one value, `OIMSlotTreeStoreService` for a chain, given
 `OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()` for a chain of values or
 `OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()` for a chain of identities, and
-`OIMSlotStoreServiceSingleSlotDriven.INSTANCE` for no key. Pass the store you want.
+`OIMSingleSlotStoreService.INSTANCE` for no key. Pass the store you want.
 
 Each is an `IOIMSlotStoreService<TKey, TSlot, TStore>`: a stateless service with
 `createStore`, `ownKey`, `isSameKey`, `get`, `set`, `remove`, `getSlots` and `getSlotCount`.
@@ -342,7 +321,7 @@ as `slotStoreService`.
 
 ## Emptiness is a strategy
 
-The slot's EMPTY flag (`oimIsSlotEmpty(slot)`) is settled once per write by the injected `IOIMSlotEmptiness`,
+The slot's EMPTY flag (`oimIsSlotEmpty(slot)`) is settled once per write by the injected `IOIMSlotEmptinessPolicy`,
 never recomputed at the read. An entity content service's default is
 `OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue()` — "the entity is `undefined`". `hasSlotContentByKey`,
 the population walk below and the release policy all read that one flag.
@@ -354,28 +333,24 @@ tombstone your server sends:
 type Post = { id: string; title: string; deleted: boolean };
 type PostSlot = TOIMEntitySlot<Post, TOIMStoreKey>;
 
-const softDeleted: IOIMSlotEmptiness<PostSlot> = {
+const softDeleted: IOIMSlotEmptinessPolicy<PostSlot> = {
     isEmpty: (slot) => slot.entity === undefined || slot.entity.deleted,
 };
 
-const postService = createOIMEntityService<Post>(db, {
-    keyOf: (post) => post.id,
-    slotEmptiness: softDeleted,
-    slotReleasePolicy: OIMSlotReleasePolicyNever.INSTANCE,
-});
+const postService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Post>(db, { slotEmptinessPolicy: softDeleted }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const posts = postService.createStoreSlot(db);
 
-postService.slotContentService.upsertEntity(posts, { id: 'p1', title: 'Draft', deleted: true });
+postService.writeSlotContentByKey(posts, 'p1', { id: 'p1', title: 'Draft', deleted: true });
 db.flush();
 postService.hasSlotContentByKey(posts, 'p1');   // false
 postService.getSlotCount(posts);                // 1
 ```
 
 **An empty answer is a release question.** Under the default
-`OIMSlotReleasePolicyAtEmpty`, an empty slot nothing holds is unfiled — at once
+`OIMSlotAtEmptyReleasePolicy`, an empty slot nothing holds is unfiled — at once
 for a write onto a filed slot, at the next flush for a fresh mint, which the
 unused-slot collector holds until then. That is why the example above names
-`OIMSlotReleasePolicyNever`: without it `getSlotCount(posts)` would be `0` after the
+`OIMSlotNeverReleasePolicy`: without it `getSlotCount(posts)` would be `0` after the
 flush and the stored post would be unreachable. Hold the key, or pick a policy
 that keeps empty slots, when an "empty" entity still has to be read.
 
@@ -383,7 +358,7 @@ that keeps empty slots, when an "empty" entity still has to be read.
 
 `slotReleasePolicy` answers one question for every slot of the collection type: once
 nothing holds it and nothing references it, may it go? With none named, it is
-`OIMSlotReleasePolicyAtEmpty.INSTANCE`: an identity with a value stays, an empty one goes.
+`OIMSlotAtEmptyReleasePolicy.INSTANCE`: an identity with a value stays, an empty one goes.
 
 The policies, when to take each, their options and how the deadlines combine are on
 [releasing an identity on a clock](/docs/core/lifecycle#releasing-an-identity-on-a-clock--opt-in-and-off-it-costs-nothing).
@@ -411,11 +386,11 @@ write to `title` does not wake a reader of `rank`:
 
 ```typescript
 const card = cardService.holdSlotByKey(cards, 'c1');
-const rank = cardService.holdColumn(card, 'rank');
+const rank = cardService.columnSlotService.holdColumn(card, 'rank');
 const onRank = effectService.createEffect(db, [rank], [], () => render(card.entity));
 
 effectService.disposeEffect(onRank);
-cardService.unholdColumn(rank);
+cardService.columnSlotService.unholdColumn(rank);
 card.owner.unholdSlot(card);
 ```
 
@@ -440,11 +415,11 @@ write to its carrier, where `holdColumn` wakes on one named column. Give it back
 
 ```typescript
 const anyColumnCard = cardService.holdSlotByKey(cards, 'c1');
-const anyColumn = cardService.holdAnyColumn(anyColumnCard);
+const anyColumn = cardService.columnSlotService.holdAnyColumn(anyColumnCard);
 const onAnyColumn = effectService.createEffect(db, [anyColumn], [], () => render(anyColumnCard.entity));
 
 effectService.disposeEffect(onAnyColumn);
-cardService.unholdColumn(anyColumn);
+cardService.columnSlotService.unholdColumn(anyColumn);
 anyColumnCard.owner.unholdSlot(anyColumnCard);
 ```
 
@@ -454,13 +429,13 @@ A column group is one column slot standing for several columns, for a view that
 renders `rank` and `title` and should wake once when either changes:
 
 ```typescript
-const rendered = cardService.getColumnGroup(['rank', 'title']);
+const rendered = cardService.columnSlotService.getColumnGroup(['rank', 'title']);
 const card = cardService.holdSlotByKey(cards, 'c1');
-const renderedOfCard = cardService.holdColumnGroup(card, rendered);
+const renderedOfCard = cardService.columnSlotService.holdColumnGroup(card, rendered);
 const onRendered = effectService.createEffect(db, [renderedOfCard], [], () => render(card.entity));
 
 effectService.disposeEffect(onRendered);
-cardService.unholdColumn(renderedOfCard);
+cardService.columnSlotService.unholdColumn(renderedOfCard);
 card.owner.unholdSlot(card);
 ```
 
@@ -473,15 +448,12 @@ it changes only others.
 ### Naming the columns up front
 
 ```typescript
-const namedCardService = createOIMEntityService<Card, 'rank' | 'title'>(db, {
-    keyOf: (card) => card.id,
-    columnNames: ['rank', 'title'],
-});
+const namedCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), columnNames: ['rank', 'title'] });
 const namedCards = namedCardService.createStoreSlot(db);
 ```
 
 With `columnNames`, each entity's column slots sit in an array by column
-number (`OIMColumnSlotStoreServiceOrdinalDriven`) instead of a `Map` per entity. Creating
+number (`OIMColumnSlotOrdinalStoreService`) instead of a `Map` per entity. Creating
 and giving back an entity's store costs less, which is what a scrolling
 view pays for every entity that enters and leaves it. `holdColumn` and `getColumnGroup`
 are typed on the named columns, and a slot for any other column throws. Without
@@ -502,7 +474,7 @@ joins it or leaves it — or a content-change listener on the store slot
 [the content-change hook](/docs/core/oimindex#the-content-change-hook-and-indexkeys)):
 
 ```typescript
-const cardsByConstantService = createOIMIndexService(db, {
+const cardsByConstantService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (_card: Card) => 'all',
 });
@@ -533,14 +505,14 @@ for (const slot of cardService.getSlots(cards)) {
 
 An empty slot is filed only while something keeps it — a hold, a column slot,
 the unused-slot collector until the next flush — or under a policy that keeps
-empty slots, such as `OIMSlotReleasePolicyNever`. See
+empty slots, such as `OIMSlotNeverReleasePolicy`. See
 [Emptiness is a strategy](#emptiness-is-a-strategy) for what decides `oimIsSlotEmpty(slot)`.
 
 To have that answer maintained and subscribable instead of walked, declare an
 index keyed on the entity's own id:
 
 ```typescript
-const byIdService = createOIMIndexService(db, {
+const byIdService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.id,
 });

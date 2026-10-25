@@ -6,29 +6,13 @@ description: Which write door of an entity content service to call, what each wr
 # Writing
 
 ```ts setup
-import {
-    OIMDB,
-    OIMEffectService,
-    oimInsertEntityWithCopy,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    createOIMSingleEntityService,
-    oimPatchEntityColumn,
-    oimPatchEntityColumns,
-    oimPutEntityColumns,
-    oimSameValueZeroGuard,
-    type IOIMEntityWriter,
-    type TOIMEntitySlot,
-    type TOIMSlotEditable,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMSlotEditable, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -66,35 +50,35 @@ with `cardService.getSlotByKey(cards, key)` (or `findSlotByKey`, which mints not
 
 | Call | What it does |
 |---|---|
-| `upsertEntity(storeSlot, entity, changed?)` | Write a whole value under `keyOf(entity)`. A key with no value gets one and every column counts as new; a key that has one is brought to the value given — columns that moved are written, columns the new value does not carry are taken away. The slot always comes back, whatever the write changed. |
-| `insertEntity(storeSlot, key, entity, changed?)` | The same under a key you name. `upsertEntity` is `insertEntity(storeSlot, keyOf(entity), …)`. |
-| `upsertEntities(storeSlot, entities, changed?)` | The loop. Returns the slot of every entity, in input order, whether or not its write changed anything — so `bucketService.slotContentService.writeBucketMemberSlots(bucketSlot, cardContentService.upsertEntities(cards, payload))` files every entity. |
+| `writeSlotContentByKey(storeSlot, entity, changed?)` | Write a whole value under `keyOf(entity)`. A key with no value gets one and every column counts as new; a key that has one is brought to the value given — columns that moved are written, columns the new value does not carry are taken away. The slot always comes back, whatever the write changed. |
+| `writeSlotContentByKey(storeSlot, key, entity, changed?)` | The same under a key you name. `writeSlotContentByKey` is `writeSlotContentByKey(storeSlot, keyOf(entity), …)`. |
+| `upsertEntities(storeSlot, entities, changed?)` | The loop. Returns the slot of every entity, in input order, whether or not its write changed anything — so `bucketService.slotContentService.writeSlotContent(bucketSlot, cardContentService.upsertEntities(cards, payload))` files every entity. |
 | `insertEntities(storeSlot, entities)` | A bulk load of new keys. No `changed`: a bulk load changes every entity. |
 | `fillEntities(storeSlot, keys, entities)` | The same under keys you name, into an empty collection only. |
 | `updateEntity(slot, patch)` | Patch through an identity you hold. The columns named move, the ones not named stay. Returns the slot. |
 | `updateEntityColumn(slot, columnName, value)` | One column through an identity you hold, with no patch object to build and walk. Returns the slot. |
-| `writeEntity(slot, entity)` | A whole value onto a slot you hold (PUT). Answers whether the content landed. |
-| `deleteEntity(slot)` | The value leaves; the identity stays for as long as anything still refers to it. |
+| `writeSlotContent(slot, entity)` | A whole value onto a slot you hold (PUT). Answers whether the content landed. |
+| `clearSlotContent(slot)` | The value leaves; the identity stays for as long as anything still refers to it. |
 | `deleteEntities(storeSlot, slots)` | The batch form. |
 | `clearAllEntities(storeSlot)` | Every value out. Identities something still holds survive without one. |
 | `deleteEntityColumns(slot, names)` | Take named columns away from an identity you hold. Returns the slot. |
 | `markEntityChanged(slot, changedColumns?)` | Report a change you made to `slot.entity` yourself. |
-| `findEntityByKey(storeSlot, key)` | Not a write: the entity or `undefined`, minting nothing. |
+| `findSlotByKey(storeSlot, key)?.entity` | Not a write: the entity or `undefined`, minting nothing. |
 
 `deleteEntityColumns` is a slot door, so it takes a column away from a slot of a collection
 as it does from a [standalone record](#writing-a-standalone-record). A column also leaves
-an entity through a PUT — `upsertEntity` of a value that does not carry it.
+an entity through a PUT — `writeSlotContentByKey` of a value that does not carry it.
 
 ### Which door to take
 
 ```ts
 declare const keyFromTheServer: string;
 
-const held = cardContentService.upsertEntity(cards, { id: 'c2', title: 'Two', rank: 2 });
+const held = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Two', rank: 2 });
 cardContentService.updateEntity(held, { rank: 3 });
 const fromTheServer = cardService.findSlotByKey(cards, keyFromTheServer);
 if (fromTheServer !== undefined) cardContentService.updateEntity(fromTheServer, { rank: 4 });
-cardContentService.deleteEntity(held);
+cardService.slotContentService.clearSlotContent(held);
 ```
 
 A one-column write (`updateEntityColumn`) of the value the column already holds stores nothing and
@@ -130,9 +114,9 @@ of the store slot it is filed in, which is how an index re-files the entity — 
 [Indexes](/docs/core/oimindex).
 
 ```ts
-const slot = cardContentService.upsertEntity(cards, { id: 'c3', title: 'Three', rank: 3 });
+const slot = cardService.writeSlotContentByKey(cards, 'c3', { id: 'c3', title: 'Three', rank: 3 });
 let rankRuns = 0;
-const rankColumn = cardService.holdColumn(slot, 'rank');
+const rankColumn = cardService.columnSlotService.holdColumn(slot, 'rank');
 const rankEffect = effectService.createEffect(db, [rankColumn], [], () => { rankRuns++; });
 db.flush();
 rankRuns = 0;
@@ -143,7 +127,7 @@ cardContentService.updateEntity(slot, { rank: 4 });
 db.flush();   // rankRuns === 1
 
 effectService.disposeEffect(rankEffect);
-cardService.unholdColumn(rankColumn);
+cardService.columnSlotService.unholdColumn(rankColumn);
 ```
 
 Delivery is per column because the writer already knows which columns moved (it
@@ -157,7 +141,7 @@ declare const payload: readonly Card[];
 declare function reindex(slot: TOIMEntitySlot<Card, TOIMStoreKey>): void;
 
 const changed: TOIMEntitySlot<Card, TOIMStoreKey>[] = [];
-cardContentService.upsertEntities(cards, payload, changed);
+cardService.writeInBatch(cards, () => (payload).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity, changed)));
 for (const slot of changed) reindex(slot);   // the re-sent entities are not in here
 changed.length = 0;
 ```
@@ -166,25 +150,25 @@ The array is optional, yours, and appended to; the engine never reads it and
 never clears it. A slot is pushed exactly when the write put in content different
 from what that entity already held, so one array reused across a whole batch
 comes out as the list of entities a re-indexing pass owes anything, rather than
-the list of entities that arrived. `insertEntity(cards, key, entity, changed)`
+the list of entities that arrived. `writeSlotContentByKey(cards, key, entity, changed)`
 takes the same parameter.
 
-The slot doors `cardContentService.writeEntity(slot, entity)` and
-`bucketService.slotContentService.writeBucketMemberSlots(bucket, members)` return a boolean: whether
+The slot doors `cardContentService.writeSlotContent(slot, entity)` and
+`bucketService.slotContentService.writeSlotContent(bucket, members)` return a boolean: whether
 the content changed. `false` does not mean the slot may go; that is decided by emptiness and the
 release policy.
 
-An `upsertEntity` onto a slot that holds an entity your `slotEmptiness` calls empty (a soft delete)
+An `writeSlotContentByKey` onto a slot that holds an entity your `slotEmptinessPolicy` calls empty (a soft delete)
 is still a PUT onto that entity, not a fresh fill: only the columns that moved wake.
 
 ### The bulk loads check their precondition rather than declaring it
 
 ```ts
 const freshCards = cardService.createStoreSlot(db);
-cardContentService.insertEntities(freshCards, [
+cardService.writeInBatch(freshCards, () => ([
     { id: 'c1', title: 'Ace', rank: 1 },
     { id: 'c2', title: 'Two', rank: 2 },
-]);
+]).map(entity => cardService.writeSlotContentByKey(freshCards, entity.id, entity)));
 ```
 
 `insertEntities` is a bulk load with the keys taken from `keyOf`; `fillEntities(storeSlot, keys, entities)`
@@ -213,7 +197,7 @@ They do not save the two allocations an entity costs: the slot and, under a copy
 Under the default `oimInsertEntityWithoutCopy`, the store keeps the object you hand
 in, and that object is what is stored and handed to readers. From then on, change it
 only through the content service: `updateEntity`, or `markEntityChanged` after you edit it
-by hand. If you edit it and call `upsertEntity` with the same object again, nobody is
+by hand. If you edit it and call `writeSlotContentByKey` with the same object again, nobody is
 told: the store already holds those values, so no column reads as changed. It is the
 same mistake as editing a stored entity without `markEntityChanged`. With the in-place writer a
 later update edits that same object; with the replacing writer it leaves your object
@@ -221,20 +205,17 @@ alone and stores a new one. `oimInsertEntityWithCopy` stores `{ ...entity }` ins
 mutating the object you passed afterwards does nothing. `oimInsertEntityWithSanitizedCopy`
 stores a copy with an own `__proto__` key removed: pick it when you insert untrusted JSON
 (for example `JSON.parse` of data from other users). You pass any one to a writer factory
-as `entityInsertStrategy`, and it decides only the first value a slot gets (`fillEntity`):
+as `entityInserter`, and it decides only the first value a slot gets (`fillEntity`):
 
 ```ts
-const copyingCardService = createOIMEntityService<Card>(db, {
-    keyOf: (card) => card.id,
-    entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }),
-});
+const copyingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
 const copiedCards = copyingCardService.createStoreSlot(db);
 
 const mine = { id: 'c9', title: 'Nine', rank: 9 };
-copyingCardService.slotContentService.upsertEntity(copiedCards, mine).entity === mine;   // false
+copyingCardService.writeSlotContentByKey(copiedCards, mine.id, mine).entity === mine;   // false
 ```
 
-Pass `entityInsertStrategy: oimInsertEntityWithCopy` whenever the caller must keep its
+Pass `entityInserter: oimInsertEntityWithCopy` whenever the caller must keep its
 object untouched, or anything else may still hold it. The default suits an object
 already yours to give away (freshly parsed, never shared), where a copy is pure cost.
 
@@ -305,7 +286,7 @@ type are each a compile error, because the parameter is
 A slot does not know which buckets it is in, and nothing can enumerate them, so
 a removal cannot take it out of them. What a bucket holds is a fact about the
 response a caller is composing, and the caller who put a slot in a bucket takes it out,
-with the bucket content service's `clearBucketMemberSlots`, `writeBucketMemberSlots`, or a positional removal.
+with the bucket content service's `clearSlotContent`, `writeSlotContent`, or a positional removal.
 
 What that leaves behind is a bucket holding a slot with no value, just like
 a bucket that was resolved before its slots arrived. The cost is that the bucket's hold on the slot (`holdCount`) keeps the identity alive until you
@@ -313,15 +294,15 @@ empty the bucket. That is the same thing as saying "a slot in a bucket is a
 reference".
 
 `slot.data` belongs to the consumer: the core never reads or writes it, and clearing or
-removing the slot (`deleteEntity(slot)`) does not reset it. The identity survives a
+removing the slot (`clearSlotContent(slot)`) does not reset it. The identity survives a
 removal, so whatever you wrote there is handed to the first reader after a
-re-`upsertEntity` unless you clear it yourself. `slot.indexKeys` belongs to the indexes; do not
+re-`writeSlotContentByKey` unless you clear it yourself. `slot.indexKeys` belongs to the indexes; do not
 write it.
 
 ### A write that changes nothing wakes nobody
 
 When no column moved, nothing is written to the channel and no index is told:
-`writeEntity` returns `false`, `updateEntity` returns the slot, and nobody wakes.
+`writeSlotContent` returns `false`, `updateEntity` returns the slot, and nobody wakes.
 `markEntityChanged(slot, [])` is the same from the other side.
 
 ## The two writers
@@ -343,7 +324,7 @@ interface IOIMEntityWriter {
 
 createOIMEntityWriterInPlace(options?)   // the stored object keeps its identity
 createOIMEntityWriterReplacing(options?) // every write that changed something produces a new object
-// TOIMEntityWriterOptions = { sameValueGuard?; entityInsertStrategy?; putEntityColumns?; patchEntityColumns?; patchEntityColumn? }
+// TOIMEntityWriterOptions = { sameValueGuard?; entityInserter?; putEntityColumns?; patchEntityColumns?; patchEntityColumn? }
 ```
 
 A writer moves columns and nothing else: it reaches no channel, takes no holds,
@@ -354,8 +335,8 @@ the moved names into the array they are handed, when they are handed one.
 `putEntity` is PUT and `patchEntity` is PATCH, as in HTTP. In one call, PUT makes the stored
 entity the value you hand in: the columns that changed are written and the
 columns the value does not have leave. PATCH writes only the columns the
-patch names. `upsertEntity` of a key that already has a value and
-`writeEntity` are PUT, so a whole-value write that drops a column
+patch names. `writeSlotContentByKey` of a key that already has a value and
+`writeSlotContent` are PUT, so a whole-value write that drops a column
 wakes the slot's readers through one channel write per slot, and the replacing
 writer builds one new object. `clearEntity` sets `slot.entity` to `undefined`
 under both writers.
@@ -365,18 +346,15 @@ or of `OIMDB` for every collection of that db. Every store slot of one collectio
 
 ```ts
 const replacingDb = new OIMDB({ entityWriter: createOIMEntityWriterReplacing() });
-const deckService = createOIMEntityService<Card>(replacingDb, { keyOf: (card) => card.id });
+const deckService = createOIMSlotCollectionService(replacingDb, { slotContentService: createOIMSlotContentEntityService<Card>(replacingDb) });
 const decks = deckService.createStoreSlot(replacingDb);
 
-const aceSlot = deckService.slotContentService.upsertEntity(decks, { id: 'c1', title: 'Ace', rank: 1 });
+const aceSlot = deckService.writeSlotContentByKey(decks, 'c1', { id: 'c1', title: 'Ace', rank: 1 });
 const before = aceSlot.entity;
 deckService.slotContentService.updateEntity(aceSlot, { rank: 2 });
 aceSlot.entity !== before;   // true
 
-const oneReplacingCardService = createOIMEntityService<Card>(db, {
-    keyOf: (card) => card.id,
-    entityWriter: createOIMEntityWriterReplacing(),
-});
+const oneReplacingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMEntityWriterReplacing() }) });
 ```
 
 Left out everywhere, the writer is `OIMDefaults.ENTITY_WRITER.getValue()`, which is
@@ -421,9 +399,9 @@ This one stores every value frozen:
 ```ts
 const copyColumns = (entity: Record<string, unknown>): Record<string, unknown> => ({ ...entity });
 
-function storeFrozen(slot: TOIMEntitySlot, next: Record<string, unknown> | undefined): boolean {
+function storeFrozen(slot: TOIMEntityContentSlot, next: Record<string, unknown> | undefined): boolean {
     if (next === undefined) return false;
-    (slot as TOIMSlotEditable<TOIMEntitySlot>).entity = Object.freeze(next);
+    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = Object.freeze(next);
     return true;
 }
 
@@ -445,7 +423,7 @@ const freezingWriter: IOIMEntityWriter = {
     },
 };
 
-const frozenCardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id, entityWriter: freezingWriter });
+const frozenCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: freezingWriter }) });
 const frozenCards = frozenCardService.createStoreSlot(db);
 ```
 
@@ -488,32 +466,30 @@ PUT and PATCH, so its cost is paid per column per write.
 ```ts
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
-const settingsService = createOIMSingleEntityService<Settings>(db, {
-    entityWriter: createOIMEntityWriterInPlace(),
-});
+const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMEntityWriterInPlace() }) });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
-settingsContentService.upsertEntity(settings, { theme: 'dark', fontSize: 14, sidebar: true });
+settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, sidebar: true });
 const settingsSlot = settingsService.getSingleSlot(settings);
 
 settingsContentService.updateEntity(settingsSlot, { theme: 'light' });
 settingsContentService.deleteEntityColumns(settingsSlot, ['sidebar']);                // the thing a patch cannot say
-settingsContentService.writeEntity(settingsSlot, { theme: 'dark', fontSize: 16 });   // columns it had and this does not, go
+settingsService.slotContentService.writeSlotContent(settingsSlot, { theme: 'dark', fontSize: 16 });   // columns it had and this does not, go
 ```
 
 A standalone record is a store slot of a single entity service, an `OIMSingleSlotService` over an entity
-content service keyed by `void` over `OIMSlotStoreServiceSingleSlotDriven.INSTANCE`. `createStoreSlot(db)` mints
-nothing; the first value arrives through `upsertEntity(storeSlot, entity)`, an ordinary write that wakes its
+content service keyed by `void` over `OIMSingleSlotStoreService.INSTANCE`. `createStoreSlot(db)` mints
+nothing; the first value arrives through `writeSlotContentByKey(storeSlot, entity)`, an ordinary write that wakes its
 readers like any other, and the slot is read through `getSingleSlot(storeSlot)`. `updateEntity` is PATCH,
-`writeEntity` is PUT, `deleteEntityColumns` is the writer's `deleteColumns`; `updateEntity` and
-`deleteEntityColumns` return the slot, and `writeEntity` answers whether the content landed.
-`entityWriter`, `slotEmptiness`, `slotReleasePolicy`, `columnSlotStoreService` and `columnNames` are
+`writeSlotContent` is PUT, `deleteEntityColumns` is the writer's `deleteColumns`; `updateEntity` and
+`deleteEntityColumns` return the slot, and `writeSlotContent` answers whether the content landed.
+`entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`, `columnSlotStoreService` and `columnNames` are
 optional and come from the db and the defaults when left out; `columnNames` names the columns and files
 their slots in the ordinal store. The record owns one slot, with no key, filed in its store slot under
 its release policy: what it wakes is that slot and the column slots filed on it that moved, and nothing
 when no column moved.
 
-Use `writeEntity` to restore a saved state. A patch alone leaves behind
+Use `writeSlotContent` to restore a saved state. A patch alone leaves behind
 every key that was deleted before the snapshot was taken, so a plain load quietly
 resurrects them.
 
@@ -535,7 +511,7 @@ whose handlers run after the flush and may write. See
 To group several writes so no frame closes between them, bracket them with
 `OIMChannelService.INSTANCE.openSubframe(channelSlot)` and `closeSubframe(channelSlot)`.
 `flush()` throws while a subframe is open, and that includes a `flush()` called from your
-own code running inside a write: an index's `keyOf`, `slotEmptiness.isEmpty`, a writer.
+own code running inside a write: an index's `keyOf`, `slotEmptinessPolicy.isEmpty`, a writer.
 
 ## Where to next
 

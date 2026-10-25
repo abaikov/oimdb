@@ -13,24 +13,7 @@ a selection, drag-and-drop reordering, a count or a sum per group, and minting s
 groups in one call.
 
 ```ts setup
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotReleasePolicyAtUnhold,
-    createOIMBucketService,
-    createOIMComputedServiceBucketMemo,
-    createOIMComputedService,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-    createOIMSingleBucketService,
-    oimSameValueZeroGuard,
-    type TOIMBucketSlotsSetStore,
-    type TOIMEntitySlot,
-    type TOIMOrderedListCommand,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands, createOIMSingleSlotService } from '@oimdb/core';
 
 type Card = {
     id: string;
@@ -47,28 +30,25 @@ declare function applyToTheRenderedList(commands: readonly TOIMOrderedListComman
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
 function createSetBucketService() {
-    return createOIMBucketService<
-        TOIMEntitySlot<Card>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>,
-        OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>() });
+    return createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 }
 ```
 
 ## Group entities by a field
 
-Take: `createOIMIndexService` with a `keyOf` that returns the field, and its
+Take: `createOIMSlotCollectionIndexService` with a `keyOf` that returns the field, and its
 `createIndexStoreSlot(cards)` for the index store slot. Its buckets keep arrival order and read by position;
-pass `slotContentService: new OIMSlotContentBucketServiceSetDriven()` when you need neither. Do not take a
+pass `slotContentService: new OIMSlotContentSetBucketService()` when you need neither. Do not take a
 manual bucket collection here: it never looks at the entity, so it cannot follow a card that moves to another
 deck.
 
 ```ts
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
@@ -79,7 +59,7 @@ const onRed = effectService.createEffectImmediate(db, [red], [], () => {
     for (const cardSlot of cardsByDeckService.slotContentService.getBucketMemberSlots(red)) render(cardSlot.entity);
 });
 
-const ace = cardContentService.upsertEntity(cards, { id: 'c1', deck: 'red', title: 'Ace', rank: 1, points: 11, archived: false });
+const ace = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'red', title: 'Ace', rank: 1, points: 11, archived: false });
 cardContentService.updateEntity(ace, { deck: 'blue' });
 db.flush();
 
@@ -96,7 +76,7 @@ that card's own subscribers and not the list. The set-driven content service mak
 tests and removals a hash lookup. The array-driven one keeps the order cards arrived
 in, and is the only one with `getBucketMemberSlotAt` and
 `getBucketMemberSlotPosition`: a set has no positions to read. Left without a policy, an unheld
-bucket stays while it has members (`OIMSlotReleasePolicyAtEmpty`).
+bucket stays while it has members (`OIMSlotAtEmptyReleasePolicy`).
 
 Reference: [Indexes](/docs/core/oimindex),
 [How a bucket holds its slots](/docs/core/indexes#how-a-bucket-holds-its-slots-the-content-services),
@@ -104,25 +84,25 @@ Reference: [Indexes](/docs/core/oimindex),
 
 ## A sorted list per group
 
-Take: `createOIMComputedServiceSorted` over an index service, with `sortColumns` naming the
+Take: `createOIMSortedComputedService` over an index service, with `sortColumns` naming the
 columns the order depends on, and its `createSortedStoreSlot(indexStoreSlot)`. Add `comparator` when the order is not a plain column
 comparison. Do not sort inside an effect on the bucket: it re-sorts on every wake,
 including the ones where no sort column moved.
 
 ```ts
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 
-const byRankService = createOIMComputedServiceSorted({
+const byRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
 const byRank = byRankService.createSortedStoreSlot(cardsByDeck);
 
-const byTitleService = createOIMComputedServiceSorted({
+const byTitleService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
     sortColumns: [{ column: 'title', direction: 'asc' }],
     comparator: (left: Card, right: Card) => left.title.localeCompare(right.title),
@@ -159,7 +139,7 @@ store slot's `getSlots` for a list: nothing tells you when that iteration would 
 differently, and it can include slots that were minted by a read and hold no entity.
 
 ```ts
-const everyCardService = createOIMIndexService(db, {
+const everyCardService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: () => 'all',
 });
@@ -168,7 +148,7 @@ const everyCard = everyCardService.createIndexStoreSlot(cards);
 const all = everyCardService.holdSlotByKey(everyCard, 'all');
 effectService.createEffectImmediate(db, [all], [], () => render(everyCardService.slotContentService.getBucketMemberSlotCount(all)));
 
-const allByRankService = createOIMComputedServiceSorted({
+const allByRankService = createOIMSortedComputedService({
     indexService: everyCardService,
     sortColumns: [{ column: 'rank', direction: 'desc' }],
 });
@@ -194,7 +174,7 @@ filter as a computed that scans the store slot: a computed learns that something
 changed, never what, so it would rescan every card on every write.
 
 ```ts
-const cardsByStatusService = createOIMIndexService(db, {
+const cardsByStatusService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => (card.archived ? 'archived' : 'active'),
 });
@@ -202,12 +182,12 @@ const cardsByStatus = cardsByStatusService.createIndexStoreSlot(cards);
 const active = cardsByStatusService.holdSlotByKey(cardsByStatus, 'active');
 effectService.createEffectImmediate(db, [active], [], () => render(cardsByStatusService.getEntitiesByKey(cardsByStatus, 'active')));
 
-const cardsByDeckAndStatusService = createOIMIndexService(db, {
+const cardsByDeckAndStatusService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => `${card.deck}:${card.archived ? 'archived' : 'active'}`,
 });
 const cardsByDeckAndStatus = cardsByDeckAndStatusService.createIndexStoreSlot(cards);
-const activeRedByRankService = createOIMComputedServiceSorted({
+const activeRedByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckAndStatusService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -229,9 +209,9 @@ Reference: [What a write costs, and how long a bucket lives](/docs/core/oimindex
 
 ## A page or an infinite list in server order
 
-Take: a manual, array-driven bucket collection, `createOIMBucketService(db)`, and one
+Take: a manual, array-driven bucket collection, `createOIMSlotCollectionService(db)`, and one
 store slot of it: the server decides which cards are on the list and in what order, and
-the bucket keeps the sequence it is handed. `writeBucketMemberSlots` for the first page or a refresh,
+the bucket keeps the sequence it is handed. `writeSlotContent` for the first page or a refresh,
 `addBucketMemberSlots` for the next page. Do not take an index: no column of a card can
 say "the server did not return this one", and do not take a set-driven bucket: on a
 rewrite it keeps the old order of the survivors.
@@ -239,24 +219,24 @@ rewrite it keeps the old order of the survivors.
 ```ts
 declare function fetchCardPage(cursor: string | undefined): Promise<{ cards: Card[]; nextCursor: string | undefined }>;
 
-const feedService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const feedService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const feed = feedService.createStoreSlot(db);
 const inbox = feedService.holdSlotByKey(feed, 'inbox');
 let nextCursor: string | undefined;
 
 async function loadFirstPage(): Promise<void> {
     const page = await fetchCardPage(undefined);
-    feedService.slotContentService.writeBucketMemberSlots(inbox, cardContentService.upsertEntities(cards, page.cards));
+    feedService.slotContentService.writeSlotContent(inbox, cardService.writeInBatch(cards, () => (page.cards).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
     nextCursor = page.nextCursor;
 }
 
 async function loadNextPage(): Promise<void> {
     const page = await fetchCardPage(nextCursor);
-    feedService.slotContentService.addBucketMemberSlots(inbox, cardContentService.upsertEntities(cards, page.cards));
+    feedService.slotContentService.addBucketMemberSlots(inbox, cardService.writeInBatch(cards, () => (page.cards).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
     nextCursor = page.nextCursor;
 }
 
-const feedOrderService = createOIMComputedServiceBucketMemo({
+const feedOrderService = createOIMBucketMemoComputedService({
     bucketCollectionService: feedService,
 });
 const feedOrder = feedOrderService.createBucketMemoStoreSlot(feed);
@@ -266,14 +246,14 @@ effectService.createEffectImmediate(db, [], [inboxOrder], () => render(inboxOrde
 
 Why this way: `upsertEntities` hands back the slots it wrote, in the order of the
 response, so the list is built from identities without a second lookup by id.
-`writeBucketMemberSlots` is for a caller holding the whole answer: it works out arrivals and
+`writeSlotContent` is for a caller holding the whole answer: it works out arrivals and
 departures, and an unchanged list wakes nobody. `addBucketMemberSlots` is for a caller
 holding the delta: the standing slots are not touched and its cost is the page, not
-the list; the default content service of `createOIMBucketService` records each arrival as an insert at the
+the list; the default content service of `createOIMSlotCollectionService` records each arrival as an insert at the
 end, which a renderer can append without rebuilding. The default array-driven content service
 records one entry per mention, so a card sent on two overlapping pages appears twice;
-build it with an `OIMBucketArrayMembershipUnique` when pages can overlap, and a
-repeated add is refused. `createOIMComputedServiceBucketMemo` with its
+take `OIMBucketUniqueMemberSlotsArrayService` when pages can overlap, and a
+repeated add is refused. `createOIMBucketMemoComputedService` with its
 `createBucketMemoStoreSlot(bucketStoreSlot)` turns the bucket into an
 array that keeps its identity while the list does not change.
 
@@ -284,11 +264,11 @@ Reference: [A bucket's slots are the caller's](/docs/core/indexes#a-buckets-slot
 ## Search results, or one ad-hoc list
 
 Take: a manual bucket store slot with one bucket under a constant key, rewritten
-with `writeBucketMemberSlots` on every search; the default array-driven one keeps the ranking the server
-returned. When the list has no address at all, a single bucket, `createOIMSingleBucketService(db)` and the store
+with `writeSlotContent` on every search; the default array-driven one keeps the ranking the server
+returned. When the list has no address at all, a single bucket, `createOIMSingleSlotService(db)` and the store
 slot from its `createStoreSlot(db)`, makes a bucket under no key. The store slot mints nothing; its one
 bucket slot is minted and read through `getSingleSlot(storeSlot)` or `holdSingleSlot(storeSlot)`, written
-with the content service's `writeBucketMemberSlots`, and subscribed to through that slot. It is released like any
+with the content service's `writeSlotContent`, and subscribed to through that slot. It is released like any
 bucket once it is empty and nothing holds it, and the next `getSingleSlot` mints a fresh one. Do not keep the
 result as a plain array of entities: nothing can subscribe to it, and it goes stale when one of the
 cards in it is edited.
@@ -296,17 +276,17 @@ cards in it is edited.
 ```ts
 declare function searchCardIds(query: string): Promise<readonly string[]>;
 
-const searchService = createOIMSingleBucketService<TOIMEntitySlot<Card>>(db);
+const searchService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const search = searchService.createStoreSlot(db);
 const results = searchService.holdSingleSlot(search);
 
 async function runSearch(query: string): Promise<void> {
     const ids = await searchCardIds(query);
-    searchService.slotContentService.writeBucketMemberSlots(results, ids.map((id) => cardService.getSlotByKey(cards, id)));
+    searchService.slotContentService.writeSlotContent(results, ids.map((id) => cardService.getSlotByKey(cards, id)));
 }
 
 function closeSearch(): void {
-    searchService.slotContentService.clearBucketMemberSlots(results);
+    searchService.slotContentService.clearSlotContent(results);
     results.owner.unholdSlot(results);
 }
 
@@ -318,7 +298,7 @@ entities, so the caller states it and the engine does not guess. `getSlotByKey` 
 back a slot even for a card that has not been loaded yet; the bucket holds that slot,
 and an item subscribed to it renders once the card's entity is written into that same
 identity. Every member
-of a bucket is held, so `clearBucketMemberSlots` is what gives those holds back when the search
+of a bucket is held, so `clearSlotContent` is what gives those holds back when the search
 closes. The array-driven content service compares the sequence: the same ids in the same order
 change nothing, and a reordered result is drained and re-added whole.
 
@@ -348,21 +328,21 @@ effectService.createEffectImmediate(db, [selected], [], () => render(selection.g
 
 toggleSelected('c1');
 toggleSelected('c2');
-selection.clearBucketMemberSlots(selected);
+selection.clearSlotContent(selected);
 ```
 
 Why this way: the set-driven content service makes a membership test and a removal a hash
 lookup, and adding a slot that is already there changes nothing and wakes nobody. The
 selection holds the card slots, not copies of the cards, so an edit to a selected card
 is seen through its own slot and does not touch the selection. Bulk selection is one
-call: `addBucketMemberSlots` with every slot, or `writeBucketMemberSlots` with the full set.
+call: `addBucketMemberSlots` with every slot, or `writeSlotContent` with the full set.
 
 Reference: [Writing a bucket's slots](/docs/core/indexes#writing-a-buckets-slots),
 [How a bucket holds its slots](/docs/core/indexes#how-a-bucket-holds-its-slots-the-content-services).
 
 ## Reorder by drag and drop
 
-Take: `createOIMBucketService(db)`: an array-driven bucket collection whose positions
+Take: `createOIMSlotCollectionService(db)`: an array-driven bucket collection whose positions
 are the caller's, built with a recorder of what each frame's writes did (a frame
 is the delivery of every write since the previous one; see the
 [glossary](/docs/core/model#glossary)). Use the
@@ -372,16 +352,16 @@ sorted computed with a `rank` column for an order the user decides: the order wo
 then be a column you compute and write on every drop.
 
 ```ts
-const boardService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const boardService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const board = boardService.createStoreSlot(db);
 const boardContentService = boardService.slotContentService;
 const todo = boardService.holdSlotByKey(board, 'todo');
 const done = boardService.holdSlotByKey(board, 'done');
 
-boardContentService.writeBucketMemberSlots(todo, cardContentService.upsertEntities(cards, [
+boardContentService.writeSlotContent(todo, cardService.writeInBatch(cards, () => ([
     { id: 'c1', deck: 'todo', title: 'Write', rank: 0, points: 3, archived: false },
     { id: 'c2', deck: 'todo', title: 'Review', rank: 0, points: 1, archived: false },
-]));
+]).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
 
 rebuildFrom(boardContentService.getBucketMemberSlots(todo));
 const onTodo = effectService.createEffect(db, [todo], [], () => {
@@ -404,7 +384,7 @@ bucket slot the commands this frame's writes did (`insert`, `remove`, `move`), s
 renderer moves the existing nodes instead of rebuilding them, and focus, scroll anchors
 and animations stay attached. Read `commands` and `isWholeListRecorded` inside the effect
 body: they are reset once the flush has ended. `isWholeListRecorded` is set by a write of
-the whole list (`writeBucketMemberSlots`, `clearBucketMemberSlots`) and when the script outgrows the list
+the whole list (`writeSlotContent`, `clearSlotContent`) and when the script outgrows the list
 it describes; a renderer that animates every move
 passes `maxCommandsPerSlot: Infinity` to the factory and always gets the script. If the
 card's column is also stored on the entity, write it as well; the bucket does not.
@@ -421,7 +401,7 @@ one `createComputedStoreSlot(db)` of it. Read it through the slot's value servic
 effect's result has no slot, so nothing else in the graph can name it as a source.
 
 ```ts
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
@@ -429,7 +409,7 @@ const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const deckReads = cardsByDeckService.slotContentService;
 
 const cardCountByDeckService = createOIMComputedService<string, number>({
-    createSources: (deck: string) => ({ sourceSlots: [cardsByDeckService.getSlotByKey(cardsByDeck, deck)] }),
+    createSources: ({ key: deck }) => ({ sourceSlots: [cardsByDeckService.getSlotByKey(cardsByDeck, deck)] }),
     derive: (computedSlot) => deckReads.getBucketMemberSlotCount(
         cardsByDeckService.getSlotByKey(cardsByDeck, computedSlot.key),
     ),
@@ -439,7 +419,7 @@ const cardCountByDeckService = createOIMComputedService<string, number>({
 const cardCountByDeck = cardCountByDeckService.createComputedStoreSlot(db);
 
 const pointsByDeckService = createOIMComputedService<string, number>({
-    createSources: (deck: string) => ({
+    createSources: ({ key: deck }) => ({
         sourceSlots: [
             cardsByDeckService.getSlotByKey(cardsByDeck, deck),
             cardsByDeckService.getBucketColumnByKey(cardsByDeck, deck, 'points'),
@@ -473,7 +453,7 @@ column slots only after one has been asked for, so a deck nobody sums pays nothi
 them. A computed's `sameValueGuard` decides whether a re-derived total counts as
 unchanged, and an unchanged total wakes nothing above it; with none given the guard is
 `Object.is`, and `oimSameValueZeroGuard` also treats `NaN` as equal to `NaN`. A
-computed's default release policy is `OIMSlotReleasePolicyAtUnhold`: a slot only read
+computed's default release policy is `OIMSlotAtUnholdReleasePolicy`: a slot only read
 goes at the next flush, a held one at its last unhold, and its holds on the bucket go
 with it.
 
@@ -488,10 +468,10 @@ turn) with every key the screen shows. Do not call `holdSlotByKey` once per key 
 loop: each new bucket is filled by its own scan of the source store slot.
 
 ```ts
-const cardsByColumnService = createOIMIndexService(db, {
+const cardsByColumnService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
-    slotReleasePolicy: OIMSlotReleasePolicyAtUnhold.INSTANCE,
+    slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
 });
 const cardsByColumn = cardsByColumnService.createIndexStoreSlot(cards);
 
@@ -508,7 +488,7 @@ Why this way: a bucket minted after its entities were written is filled from the
 source when it is minted, and that fill is the only scan an index ever does. Minting
 several keys in one call fills all the new buckets in one pass over the source instead
 of one pass per key. The slots come back in the order of the keys you passed. With
-`OIMSlotReleasePolicyAtUnhold` each column goes at its last unhold, and the next hold
+`OIMSlotAtUnholdReleasePolicy` each column goes at its last unhold, and the next hold
 builds it again with one scan; leave the policy out when the same columns are opened
 over and over.
 

@@ -46,8 +46,8 @@ describe('exoFollowKey', () => {
         const hearts = world.bucketOf(world.rankedService, world.ranked,'hearts');
         const one = world.slotOf({ id: 'c1', deckId: 'spades', rank: 1, title: 'one' });
         const two = world.slotOf({ id: 'c2', deckId: 'hearts', rank: 2, title: 'two' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(spades, [one]);
-        world.rankedService.slotContentService.writeBucketMemberSlots(hearts, [two]);
+        world.rankedService.slotContentService.writeSlotContent(spades, [one]);
+        world.rankedService.slotContentService.writeSlotContent(hearts, [two]);
         world.db.flush();
 
         const selected = makeLocalBindable<TOIMStoreKey>('spades');
@@ -63,13 +63,13 @@ describe('exoFollowKey', () => {
         expect(followed.getValue().map(slot => slot.entity?.id)).toEqual(['c2']);
 
         const three = world.slotOf({ id: 'c3', deckId: 'hearts', rank: 3, title: 'three' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(hearts, [two, three]);
+        world.rankedService.slotContentService.writeSlotContent(hearts, [two, three]);
         world.db.flush();
         expect(runCount).toBe(2);
         expect(followed.getValue()).toHaveLength(2);
 
         // A change to the deck that is no longer selected must not wake it.
-        world.rankedService.slotContentService.writeBucketMemberSlots(spades, []);
+        world.rankedService.slotContentService.writeSlotContent(spades, []);
         world.db.flush();
         expect(runCount).toBe(2);
 
@@ -134,7 +134,7 @@ describe('exoFollowKey', () => {
         const world = build();
         const spades = world.bucketOf(world.rankedService, world.ranked,'spades');
         const one = world.slotOf({ id: 'c1', deckId: 'spades', rank: 1, title: 'one' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(spades, [one]);
+        world.rankedService.slotContentService.writeSlotContent(spades, [one]);
         world.db.flush();
 
         const factory = makeDeckFactory(world);

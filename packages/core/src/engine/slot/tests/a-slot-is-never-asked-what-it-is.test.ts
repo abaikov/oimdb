@@ -1,10 +1,11 @@
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
-import { createOIMComputedServiceSorted } from '../../../factories/createOIMComputedServiceSorted';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
+import { createOIMSortedComputedService } from '../../../factories/createOIMSortedComputedService';
 import { OIM_SLOT_FLAG_EMPTY } from '../constants/OIM_SLOT_FLAG_EMPTY';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TEntity = { id: string; queue: string; rank: number };
 
@@ -41,24 +42,24 @@ describe('subscribing to an identity the engine did not mint', () => {
 
     it('throws the sorter at the read that asks for the order, not at the subscribe', () => {
         const db = new OIMDB();
-        const entitiesService = createOIMEntityService<TEntity>(db, { keyOf: entity => entity.id });
+        const entitiesService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity, string>(db) });
         const entities = entitiesService.createStoreSlot(db);
-        const byQueueService = createOIMIndexService(db, {
+        const byQueueService = createOIMSlotCollectionIndexService(db, {
             entityService: entitiesService,
             keyOf: (entity: TEntity) => entity.queue,
         });
         const byQueue = byQueueService.createIndexStoreSlot(entities);
-        const byQueueOrdersService = createOIMComputedServiceSorted({
+        const byQueueOrdersService = createOIMSortedComputedService({
             indexService: byQueueService,
             comparator: () => { throw new Error('the sorter cannot rank these'); },
         });
         const byQueueOrders = byQueueOrdersService.createSortedStoreSlot(byQueue);
         const heldSlot = byQueueOrdersService.computedCollectionService.holdSlotByKey(byQueueOrders, 'q0');
-        entitiesService.slotContentService.upsertEntities(entities, [{ id: 'k1', queue: 'q0', rank: 1 }, { id: 'k2', queue: 'q0', rank: 2 }]);
+        entitiesService.writeInBatch(entities, () => ([{ id: 'k1', queue: 'q0', rank: 1 }, { id: 'k2', queue: 'q0', rank: 2 }]).map(entity => entitiesService.writeSlotContentByKey(entities, entity.id, entity)));
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, [], [heldSlot], () => { /* never reached */ });
 
-        expect(() => byQueueOrdersService.computedCollectionService.slotContentService.getValueForSlot(heldSlot)).toThrow(/cannot rank these/);
+        expect(() => heldSlot.computedValueService.getValueForSlot(heldSlot)).toThrow(/cannot rank these/);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);

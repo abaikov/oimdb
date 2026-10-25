@@ -24,8 +24,12 @@
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import type { TOIMEntitySlot } from '@oimdb/core';
-import { OIMDB, createOIMBucketService, createOIMEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import { OIMDBProvider, useOIMField, useOIMBucketSlots } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -39,9 +43,9 @@ type TCardSlot = TOIMEntitySlot<TCard>;
  */
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMBucketService<TCardSlot>(db);
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, cardsService, cards, byDeckService, byDeck };
 }
@@ -64,10 +68,10 @@ const wrapStrict = (db: OIMDB) =>
     };
 
 const seed = (cardsService: TFixture['cardsService'], cards: TFixture['cards'], db: OIMDB): void => {
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deckId: 'd1', title: 'alpha', rank: 2 },
         { id: 'c2', deckId: 'd1', title: 'beta', rank: 1 },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
 };
 
@@ -112,8 +116,8 @@ describe('useOIMBucketSlots, on a bucket somebody else resolved', () => {
         expect(byDeckService.getSlotByKey(byDeck, 'later')).toBe(laterSlot);
 
         act(() => {
-            const ninthSlot = cardsService.slotContentService.upsertEntity(cards, { id: 'c9', deckId: 'later', title: 'ninth', rank: 1 });
-            byDeckService.slotContentService.writeBucketMemberSlots(laterSlot, [ninthSlot]);
+            const ninthSlot = cardsService.writeSlotContentByKey(cards, 'c9', { id: 'c9', deckId: 'later', title: 'ninth', rank: 1 });
+            byDeckService.slotContentService.writeSlotContent(laterSlot, [ninthSlot]);
             db.flush();
         });
 
@@ -146,7 +150,7 @@ describe('useOIMField, on a row somebody else resolved', () => {
 
         // And the collection still means this identity by that key: the value
         // lands on the object the caller is holding, not on a second one.
-        cardsService.slotContentService.upsertEntity(cards, { id: 'reserved', deckId: 'd1', title: 'arrived', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'reserved', { id: 'reserved', deckId: 'd1', title: 'arrived', rank: 1 });
         db.flush();
         expect(slot.entity?.title).toBe('arrived');
         reservedSlot.owner.unholdSlot(reservedSlot);
@@ -167,7 +171,7 @@ describe('useOIMField, on a row somebody else resolved', () => {
         const view = render(<Title />, { wrapper: wrap(db) });
         expect(screen.getByTestId('t').textContent).toBe('alpha');
 
-        act(() => { cardsService.slotContentService.deleteEntity(cardsService.getSlotByKey(cards, 'c1')); db.flush(); });
+        act(() => { cardsService.slotContentService.clearSlotContent(cardsService.getSlotByKey(cards, 'c1')); db.flush(); });
         expect(screen.getByTestId('t').textContent).toBe('-');
 
         view.unmount();
@@ -175,7 +179,7 @@ describe('useOIMField, on a row somebody else resolved', () => {
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(slot);
 
         // Re-hydrating the key writes to the identity the caller still holds.
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'back again', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'back again', rank: 2 });
         db.flush();
         expect(slot.entity?.title).toBe('back again');
         keptSlot.owner.unholdSlot(keptSlot);
@@ -194,7 +198,7 @@ describe('useOIMField, on a row somebody else resolved', () => {
         expect(screen.getByTestId('t').textContent).toBe('-');
 
         act(() => {
-            cardsService.slotContentService.upsertEntity(cards, { id: 'reserved', deckId: 'd1', title: 'arrived', rank: 1 });
+            cardsService.writeSlotContentByKey(cards, 'reserved', { id: 'reserved', deckId: 'd1', title: 'arrived', rank: 1 });
             db.flush();
         });
 

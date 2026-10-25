@@ -1,10 +1,10 @@
-import type { TOIMEntitySlot } from '../../../core/src/engine/entity/types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../../../core/src/engine/entity/types/TOIMEntityContentSlot';
 import type { TOIMSameValueGuard } from '../../../core/src/engine/slot/types/TOIMSameValueGuard';
 import { oimIsProtoKey } from '../../../core/src/engine/entity/utils/oimIsProtoKey';
 import { oimIsPlain } from '../../../core/src/engine/entity/utils/oimIsPlain';
 
 export function changedColumns(
-    slot: TOIMEntitySlot,
+    slot: TOIMEntityContentSlot,
     patch: object,
     sameValueGuard: TOIMSameValueGuard,
 ): string[] | undefined {

@@ -38,7 +38,7 @@ each one the identity of an entity; a subscription is a handler hanging on an
 identity; a bucket is an identity whose content is other identities.
 
 That is why every write takes the identity (`updateEntity(slot, patch)`,
-`deleteEntity(slot)`), and there is no write door that takes a key: a caller holding
+`clearSlotContent(slot)`), and there is no write door that takes a key: a caller holding
 only a key resolves it first with `getSlotByKey`, so the lookup is a call you can see.
 
 <SlotDiagram />
@@ -47,7 +47,7 @@ Three sentences carry the rest:
 
 1. Four doors mint an identity: writing a value, subscribing, taking a
    hold, and `getSlotByKey`, whose mint the unused-slot collector holds for the
-   turn. `findSlotByKey`, `hasSlotContentByKey` and `findEntityByKey` read without minting.
+   turn. `findSlotByKey`, `hasSlotContentByKey` and `findSlotByKey` read without minting.
 2. A slot goes when nothing refers to it, and whatever took a reference
    gives it back.
 3. Where a trade-off has two defensible strategies, both ship and you pick one
@@ -58,36 +58,30 @@ See [The model](/docs/core/model).
 ## A small example
 
 ```typescript
-import {
-    OIMDB,
-    OIMEffectService,
-    createOIMBucketService,
-    createOIMEntityService,
-    type TOIMEntitySlot,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
 
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 
-const byDeckService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
-const first = cardService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', title: 'alpha' });
+const first = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', title: 'alpha' });
 const deckOne = byDeckService.holdSlotByKey(byDeck, 'd1');
-byDeckService.slotContentService.writeBucketMemberSlots(deckOne, [first]);
+byDeckService.slotContentService.writeSlotContent(deckOne, [first]);
 db.flush();
 
 const effect = effectService.createEffect(db, [deckOne], [], () => {
     console.log('deck d1 now has', byDeckService.slotContentService.getBucketMemberSlotCount(deckOne), 'card(s)');
 });
 
-const second = cardService.slotContentService.upsertEntity(cards, { id: 'c2', deck: 'd1', title: 'beta' });
-byDeckService.slotContentService.writeBucketMemberSlots(deckOne, [first, second]);
+const second = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'd1', title: 'beta' });
+byDeckService.slotContentService.writeSlotContent(deckOne, [first, second]);
 db.flush();              // -> "deck d1 now has 2 card(s)"
 
 effectService.disposeEffect(effect);
@@ -101,7 +95,7 @@ factories that take `db` pass them to what they build. A service holds no
 data: `cardService` is made once for the `Card` type, and `cards` is one store slot
 of it, an instance carrying its own store. The collection service reads; its
 `slotContentService` writes. A door that works on the store takes the
-store slot first (`upsertEntity(cards, …)`); a door that works on a slot takes only
+store slot first (`writeSlotContentByKey(cards, …)`); a door that works on a slot takes only
 the slot. `byDeck` is a
 manual bucket store slot: you write what a bucket holds, because no column
 can express "the server did not return these". When membership follows from a
@@ -109,7 +103,7 @@ column, an index fills the buckets instead. [Quick Start](/docs/getting-started/
 builds that version, with a sorted view on top.
 
 Every write is reported to the channel slot of the store slot it lands in.
-`createOIMEntityService` is a convenience wrapper: the base layer is
+`createOIMSlotCollectionService` is a convenience wrapper: the base layer is
 `createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService(db, { keyOf }) })`.
 See [Writing](/docs/core/writing).
 

@@ -3,7 +3,7 @@ import type { TOIMPersistErrorContext } from '../error/types/TOIMPersistErrorCon
 import type { TOIMPersistErrorHandler } from '../error/types/TOIMPersistErrorHandler';
 import type { TOIMPersistOperation } from '../error/types/TOIMPersistOperation';
 import type { IOIMPersistResource } from '../resource/interfaces/IOIMPersistResource';
-import type { OIMPersistResourceRecords } from '../resource/OIMPersistResourceRecords';
+import type { OIMPersistRecordsResource } from '../resource/OIMPersistRecordsResource';
 import type { IOIMPersistScheduler } from '../schedule/interfaces/IOIMPersistScheduler';
 import { oimNoop } from '../utils/oimNoop';
 import type { IOIMPersistBackend } from './interfaces/IOIMPersistBackend';
@@ -135,37 +135,37 @@ export class OIMPersistor<
         });
     }
 
-    public unload<TKey, TEntity extends object>(
-        persistResourceRecords: OIMPersistResourceRecords<TPersistBackend, TWriteBatch, TKey, TEntity>,
+    public unload<TKey extends NonNullable<unknown>, TEntity extends object>(
+        persistRecordsResource: OIMPersistRecordsResource<TPersistBackend, TWriteBatch, TKey, TEntity>,
         keys: readonly TKey[],
     ): Promise<void> {
-        this.dirtyPersistResources.delete(persistResourceRecords);
+        this.dirtyPersistResources.delete(persistRecordsResource);
         this.flushDirtyPersistResources();
         return this.enqueue(async () => {
-            this.dirtyPersistResources.delete(persistResourceRecords);
+            this.dirtyPersistResources.delete(persistRecordsResource);
             try {
                 do {
                     await this.writeInOneWriteBatch(
-                        [persistResourceRecords],
-                        (_persistResource, writeBatch) => { persistResourceRecords.writeKeys(writeBatch, keys); },
+                        [persistRecordsResource],
+                        (_persistResource, writeBatch) => { persistRecordsResource.writeKeys(writeBatch, keys); },
                     );
-                } while (persistResourceRecords.hasUnwrittenChangeOfKeys(keys));
+                } while (persistRecordsResource.hasUnwrittenChangeOfKeys(keys));
             } catch (error) {
-                if (this.isStarted && persistResourceRecords.hasPendingWrite()) this.dirtyPersistResources.add(persistResourceRecords);
+                if (this.isStarted && persistRecordsResource.hasPendingWrite()) this.dirtyPersistResources.add(persistRecordsResource);
                 throw error;
             } finally {
-                persistResourceRecords.disposeWrittenKeysChangeMark();
+                persistRecordsResource.disposeWrittenKeysChangeMark();
             }
-            persistResourceRecords.unloadKeys(keys);
+            persistRecordsResource.unloadKeys(keys);
         });
     }
 
-    public load<TKey, TEntity extends object>(
-        persistResourceRecords: OIMPersistResourceRecords<TPersistBackend, TWriteBatch, TKey, TEntity>,
+    public load<TKey extends NonNullable<unknown>, TEntity extends object>(
+        persistRecordsResource: OIMPersistRecordsResource<TPersistBackend, TWriteBatch, TKey, TEntity>,
         keys: readonly TKey[],
     ): Promise<void> {
         this.flushDirtyPersistResources();
-        return this.enqueue(() => persistResourceRecords.loadKeys(this.persistBackend, keys));
+        return this.enqueue(() => persistRecordsResource.loadKeys(this.persistBackend, keys));
     }
 
     private startPersistResource(persistResource: IOIMPersistResource<TPersistBackend, TWriteBatch>): void {

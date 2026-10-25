@@ -368,7 +368,7 @@ chain-address.resolve-vs-nested-map-get   [per read]   0.87x
   ours   buckets.getSlotByKey([deckSlot, shelfSlot]) on a tree-driven bucket store
   floor  byDeck.get(deck).get(shelf)
   AN ADDRESS OF TWO IDENTITIES AGAINST AN ADDRESS OF TWO STRINGS. Ours walks the composite key
-  tree `OIMSlotStoreServiceTreeDriven` keeps: one `Map.get` keyed by the deck slot, one keyed
+  tree `OIMSlotTreeStoreService` keeps: one `Map.get` keyed by the deck slot, one keyed
   by the shelf slot, then the bucket on the node — object-keyed hashes, no string hashing. The
   floor makes two string-keyed `Map.get`s and an `undefined` test. The key arrays are built
   outside the clock, as a caller holding the two segment identities would hold the pair. Every

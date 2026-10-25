@@ -1,7 +1,5 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
@@ -11,12 +9,14 @@ import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMKeyedSlot } from '../types/TOIMKeyedSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string };
 
 type TCardSlot = TOIMEntitySlot<Card, TOIMStoreKey>;
 
-class MapStore<TKey, TSlot extends TOIMKeyedSlot<TKey>>
+class MapStore<TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>>
 implements IOIMSlotStoreService<TKey, TSlot, Map<TKey, TSlot>> {
     public createStore(): Map<TKey, TSlot> { return new Map<TKey, TSlot>(); }
     public ownKey<TOwnedKey extends TKey>(key: TOwnedKey): TOwnedKey { return key; }
@@ -24,6 +24,8 @@ implements IOIMSlotStoreService<TKey, TSlot, Map<TKey, TSlot>> {
     public get(store: Map<TKey, TSlot>, key: TKey): TSlot | undefined { return store.get(key); }
     public set(store: Map<TKey, TSlot>, key: TKey, slot: TSlot): void { store.set(key, slot); }
     public remove(store: Map<TKey, TSlot>, key: TKey): void { store.delete(key); }
+    public fileSlot(store: Map<TKey, TSlot>, slot: TSlot): void { store.set(slot.key, slot); }
+    public unfileSlot(store: Map<TKey, TSlot>, slot: TSlot): void { store.delete(slot.key); }
     public getSlots(store: Map<TKey, TSlot>): IterableIterator<TSlot> { return store.values(); }
     public getSlotCount(store: Map<TKey, TSlot>): number { return store.size; }
 }
@@ -33,19 +35,14 @@ const createFixture =() => {
     // real owner to be asked when the last bucket lets it go, and the two answers
     // to `hasContent` meet in one test.
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, {
-        entitySlotStoreService: new MapStore<TOIMStoreKey, TCardSlot>(),
-        keyOf: card => card.id,
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotStoreService: new MapStore<TOIMStoreKey, TCardSlot>() });
     const cards = cardsService.createStoreSlot(db);
 
     // And the decks: buckets of those cards, filed by the same aggregate. A
     // channel of its own with nothing subscribed to it and no flush, which is
     // the whole of "this collection has no effects": the buckets are filed, held
     // and released exactly as below, and nobody is woken.
-    const byDeckService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const decks = byDeckService.createStoreSlot(db);
     return { db, cardsService, cards, byDeckService, decks };
 };
@@ -56,14 +53,14 @@ const writeBucket = (
     byDeckService: TFixture['byDeckService'], decks: TFixture['decks'], key: TOIMStoreKey, slots: readonly TCardSlot[],
 ): TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey> => {
     const bucket = byDeckService.holdSlotByKey(decks, key);
-    byDeckService.slotContentService.writeBucketMemberSlots(bucket, slots);
+    byDeckService.slotContentService.writeSlotContent(bucket, slots);
     bucket.owner.unholdSlot(bucket);
     return bucket;
 };
 
 /** A card with a value: its own service keeps its slot, whatever buckets do. */
 const card = (cardsService: TFixture['cardsService'], cards: TFixture['cards'], id: string): TCardSlot =>
-    cardsService.slotContentService.insertEntity(cards, id, { id, title: id.toUpperCase() });
+    cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });
 
 /**
  * A key with no value yet — the reserved identity a bucket's hold is all that keeps.
@@ -140,7 +137,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
     it('lets an empty bucket that nothing points at go', () => {
         const { db, byDeckService, decks } = createFixture();
         const bucket = byDeckService.getSlotByKey(decks, 'd1');
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, []);
+        byDeckService.slotContentService.writeSlotContent(bucket, []);
         expect(byDeckService.getSlotCount(decks)).toBe(1);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
@@ -176,7 +173,7 @@ describe('the slots it holds keep their bucket, and that is the asymmetry', () =
     it('empties and asks in one call, through delete', () => {
         const { cardsService, cards, byDeckService, decks } = createFixture();
         const bucket = writeBucket(byDeckService, decks, 'd1', [card(cardsService, cards, 'a')]);
-        byDeckService.slotContentService.clearBucketMemberSlots(bucket);
+        byDeckService.slotContentService.clearSlotContent(bucket);
         expect(byDeckService.getSlotCount(decks)).toBe(0);
         expect(oimIsSlotReleased(bucket)).toBe(true);
         expect(byDeckService.getSlotByKey(decks, 'd1')).not.toBe(bucket);
@@ -205,9 +202,9 @@ describe('what a bucket costs the slot it holds, and that it is paid back', () =
         const second = writeBucket(byDeckService, decks, 'd2', [a]);
         expect(a.holdCount).toBe(2);
 
-        byDeckService.slotContentService.clearBucketMemberSlots(first);
+        byDeckService.slotContentService.clearSlotContent(first);
         expect(a.holdCount).toBe(1);
-        byDeckService.slotContentService.clearBucketMemberSlots(second);
+        byDeckService.slotContentService.clearSlotContent(second);
         // Still filed: its own value is what keeps it, never a bucket.
         expect(a.holdCount).toBe(0);
         expect(cardsService.getSlotByKey(cards, 'a')).toBe(a);
@@ -220,7 +217,7 @@ describe('what a bucket costs the slot it holds, and that it is paid back', () =
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(bucket)).toBe(1);
         expect(a.holdCount).toBe(1);
 
-        byDeckService.slotContentService.clearBucketMemberSlots(bucket);
+        byDeckService.slotContentService.clearSlotContent(bucket);
         expect(a.holdCount).toBe(0);
     });
 
@@ -256,7 +253,7 @@ describe('what a bucket costs the slot it holds, and that it is paid back', () =
         ghost.owner.unholdSlot(ghost);
         expect(ghost.holdCount).toBe(1);
 
-        byDeckService.slotContentService.clearBucketMemberSlots(bucket);
+        byDeckService.slotContentService.clearSlotContent(bucket);
         expect(ghost.holdCount).toBe(0);
         expect(oimIsSlotReleased(ghost)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);

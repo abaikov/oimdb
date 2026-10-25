@@ -1,23 +1,18 @@
-import { OIMBucketArrayMembershipUnique } from '../OIMBucketArrayMembershipUnique';
+import { OIMBucketUniqueMemberSlotsArrayService } from '../../../../engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { createOIMIndexService } from '../../../../factories/createOIMIndexService';
-import { createOIMComputedServiceSorted } from '../../../../factories/createOIMComputedServiceSorted';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { createOIMSlotCollectionIndexService } from '../../../../factories/createOIMSlotCollectionIndexService';
+import { createOIMSortedComputedService } from '../../../../factories/createOIMSortedComputedService';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../types/TOIMBucketSlotsArrayUniqueStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<Card>;
-type TSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
-type TUniqueSlots = TOIMBucketSlotsArrayUniqueStore<TCardSlot>;
 
 const createContext = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -29,25 +24,19 @@ beforeEach(() => {
 });
 
 function cardSlot(id: string, rank: number): TCardSlot {
-    return context.cardsService.slotContentService.upsertEntity(context.cards, { id, rank });
+    return context.cardsService.writeSlotContentByKey(context.cards, id, { id, rank });
 }
 
 function makePositional() {
-    const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const decksService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-    >(context.db, { slotContentService: service });
+    const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const decksService = createOIMSlotCollectionService(context.db, { slotContentService: service });
     const decks = decksService.createStoreSlot(context.db);
     return { service, bucket: decksService.holdSlotByKey(decks, 'group') };
 }
 
 function makeUnique() {
-    const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TUniqueSlots>({
-        bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
-    });
-    const decksService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TUniqueSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot, TUniqueSlots>
-    >(context.db, { slotContentService: service });
+    const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const decksService = createOIMSlotCollectionService(context.db, { slotContentService: service });
     const decks = decksService.createStoreSlot(context.db);
     return { service, bucket: decksService.holdSlotByKey(decks, 'group') };
 }
@@ -82,14 +71,14 @@ function refusing(id: string): (left: Card, right: Card) => void {
 function makeIndexOrder() {
     const during: TDuringCompare = { current: passThrough, compared: 0 };
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byGroupService = createOIMIndexService(db, {
+    const byGroupService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (_card: Card): string => 'group',
     });
     const byGroup = byGroupService.createIndexStoreSlot(cards);
-    const ordersService = createOIMComputedServiceSorted({
+    const ordersService = createOIMSortedComputedService({
         indexService: byGroupService,
         sortColumns: [{ column: 'rank', direction: 'asc' }],
         comparator: (left: Card, right: Card) => {
@@ -100,13 +89,13 @@ function makeIndexOrder() {
     });
     const orders = ordersService.createSortedStoreSlot(byGroup);
     const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'group');
-    const getOrderValue = () => ordersService.computedCollectionService.slotContentService.getValueForSlot(order);
+    const getOrderValue = () => order.computedValueService.getValueForSlot(order);
     const ids = (): (string | undefined)[] => getOrderValue().map(slot => slot.entity?.id);
     const upsertEntities = (entities: readonly Card[]): void => {
-        cardsService.slotContentService.upsertEntities(cards, entities);
+        cardsService.writeInBatch(cards, () => (entities).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     };
     const upsertEntity = (entity: Card): void => {
-        cardsService.slotContentService.upsertEntity(cards, entity);
+        cardsService.writeSlotContentByKey(cards, entity.id, entity);
     };
     const updateEntityByKey = (id: string, patch: Partial<Card>): void => {
         const slot = cardsService.findSlotByKey(cards, id);
@@ -155,7 +144,7 @@ describe('a slot arriving and a slot leaving', () => {
 function reconcileFindsNothing(held: readonly TCardSlot[], slots: readonly TCardSlot[]): boolean {
     const { service, bucket } = makePositional();
     for (const slot of held) service.addBucketMemberSlot(bucket, slot);
-    return !service.writeBucketMemberSlots(bucket, slots);
+    return !service.writeSlotContent(bucket, slots);
 }
 
 describe('whether the caller\'s list is the slots already held', () => {
@@ -254,7 +243,7 @@ describe('what the deduplicating service keeps that the plain one does not', () 
         expect(idsOf(service.getBucketMemberSlots(bucket))).toEqual(['c', 'a']);
 
         expect(service.getBucketMemberSlotCount(bucket)).toBe(2);
-        service.clearBucketMemberSlots(bucket);
+        service.clearSlotContent(bucket);
         expect(service.getBucketMemberSlotCount(bucket)).toBe(0);
         service.addBucketMemberSlot(bucket, a);
         expect(idsOf(service.getBucketMemberSlots(bucket))).toEqual(['a']);
@@ -270,19 +259,19 @@ describe('what the deduplicating service keeps that the plain one does not', () 
         service.addBucketMemberSlot(bucket, b);
         expect(bucket.changedAtRevision).toBe(changedAtRevision);
         expect(service.getBucketMemberSlotCount(bucket)).toBe(2);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots.size).toBe(2);
+        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.size).toBe(2);
 
         service.removeBucketMemberSlot(bucket, b);
 
         expect(service.getBucketMemberSlotCount(bucket)).toBe(1);
         expect(idsOf(service.getBucketMemberSlots(bucket))).toEqual(['a']);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots.size).toBe(1);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots.has(a)).toBe(true);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots.has(b)).toBe(false);
+        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.size).toBe(1);
+        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.has(a)).toBe(true);
+        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.has(b)).toBe(false);
 
-        service.clearBucketMemberSlots(bucket);
+        service.clearSlotContent(bucket);
         expect(service.getBucketMemberSlotCount(bucket)).toBe(0);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots.size).toBe(0);
+        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.size).toBe(0);
     });
 });
 

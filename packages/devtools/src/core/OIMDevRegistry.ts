@@ -2,7 +2,9 @@ import {
     OIMChannelService,
     type IOIMChannelMap,
     type IOIMStoreSlotListener,
-    type OIMComputedService,
+    type OIMSingleComputedService,
+    type TOIMComputedContentSlot,
+    type TOIMSingleSlotStore,
     type OIMSlotCollectionService,
     type TOIMBucketSlot,
     type TOIMComputedStoreSlot,
@@ -44,7 +46,7 @@ export class OIMDevRegistry implements IOIMStoreSlotListener {
     }
 
     public collection<
-        TKey, TEntity extends object, TStore,
+        TKey extends NonNullable<unknown>, TEntity extends object, TStore,
         TBucketStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMBucketSlot<unknown, TOIMStoreKey>>,
     >(
         name: string,
@@ -65,18 +67,17 @@ export class OIMDevRegistry implements IOIMStoreSlotListener {
         return this;
     }
 
-    public computed<TValue, TStore>(
+    public computed<TValue>(
         name: string,
-        computedService: OIMComputedService<void, TValue, TStore>,
-        computedStoreSlot: TOIMComputedStoreSlot<TStore, TValue, void>,
+        computedService: OIMSingleComputedService<TValue>,
+        computedStoreSlot: TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue>,
     ): this {
         const computedStoreSlotWeakRef = new WeakRef(computedStoreSlot);
         this.computedEntries.set(name, () => {
             const liveComputedStoreSlot = computedStoreSlotWeakRef.deref();
             if (liveComputedStoreSlot === undefined) return undefined;
-            const computedCollectionService = computedService.computedCollectionService;
-            const computedSlot = computedCollectionService.getSlotByKey(liveComputedStoreSlot, undefined);
-            return { currentValue: computedCollectionService.slotContentService.getValueForSlot(computedSlot) };
+            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(liveComputedStoreSlot);
+            return { currentValue: computedSlot.computedValueService.getValueForSlot(computedSlot) };
         });
         return this;
     }

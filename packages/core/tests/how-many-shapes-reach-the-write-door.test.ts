@@ -1,17 +1,17 @@
 import { OIMBucketCommands } from '../src/facade/bucket/OIMBucketCommands';
-import { OIMSlotContentBucketServiceArrayDriven } from '../src/facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import { OIMChannelService } from '../src/engine/channel/OIMChannelService';
 import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
 import { OIMSlotOwner } from '../src/engine/slot/OIMSlotOwner';
 import { OIMDB } from '../src/factories/OIMDB';
-import { createOIMBucketService } from '../src/factories/createOIMBucketService';
 import { createOIMComputedService } from '../src/factories/createOIMComputedService';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
-import { createOIMSingleEntityService } from '../src/factories/createOIMSingleEntityService';
 import { oimSameValueZeroGuard } from '../src/engine/slot/utils/oimSameValueZeroGuard';
 import type { TOIMChannelSlot } from '../src/engine/channel/types/TOIMChannelSlot';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../src/engine/slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../src/factories/createOIMSingleSlotService';
 
 /**
  * HOW MANY HIDDEN CLASSES REACH THE WRITE DOOR, AND WHERE THE THREE FIELDS IT
@@ -91,17 +91,15 @@ const spyOnTheDoor = (defaultChannelSlot: TOIMChannelSlot) => {
 
 /** Every door of the engine driven once, so no arrival depends on which call the test happened to make. */
 const driveEveryDoor = (db: OIMDB) => {
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const deckService = createOIMBucketService<TOIMEntitySlot<TCard>>(db, {
-        slotContentService: new OIMSlotContentBucketServiceArrayDriven<TOIMEntitySlot<TCard>>({
+    const deckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
             bucketCommands: new OIMBucketCommands({}),
-        }),
-    });
+        }) });
     const deck = deckService.createStoreSlot(db);
-    const singleService = createOIMSingleEntityService<TCard>(db);
+    const singleService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const single = singleService.createStoreSlot(db);
-    singleService.slotContentService.upsertEntity(single, { id: 'solo', title: 'solo', rank: 0 });
+    singleService.writeSingleSlotContent(single, { id: 'solo', title: 'solo', rank: 0 });
     const singleSlot = singleService.holdSingleSlot(single);
     const doubledService = createOIMComputedService<string, number>({
         sameValueGuard: oimSameValueZeroGuard,
@@ -109,22 +107,22 @@ const driveEveryDoor = (db: OIMDB) => {
     const doubled = doubledService.createComputedStoreSlot(
         db,
         computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
-        (id: string) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+        ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
     );
     const doubledCollectionService = doubledService.computedCollectionService;
 
     const bucket = deckService.holdSlotByKey(deck, 'deck');
 
-    cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'first', rank: 1 });
-    cardsService.slotContentService.upsertEntity(cards, { id: 'b', title: 'second', rank: 2 });
+    cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'first', rank: 1 });
+    cardsService.writeSlotContentByKey(cards, 'b', { id: 'b', title: 'second', rank: 2 });
     db.flush();
 
     const a = cardsService.getSlotByKey(cards, 'a');
-    cardsService.holdColumn(a, 'title');
-    cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'renamed', rank: 1 });
+    cardsService.columnSlotService.holdColumn(a, 'title');
+    cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'renamed', rank: 1 });
     db.flush();
 
-    deckService.slotContentService.writeBucketMemberSlots(bucket, [a, cardsService.getSlotByKey(cards, 'b')]);
+    deckService.slotContentService.writeSlotContent(bucket, [a, cardsService.getSlotByKey(cards, 'b')]);
     db.flush();
 
     deckService.slotContentService.removeBucketMemberSlots(bucket, [a]);
@@ -134,12 +132,12 @@ const driveEveryDoor = (db: OIMDB) => {
     db.flush();
 
     const derived = doubledCollectionService.holdSlotByKey(doubled, 'a');
-    doubledCollectionService.holdAnyColumn(derived);
-    OIMEffectService.INSTANCE.createEffect(db, [], [derived], () => { void doubledCollectionService.slotContentService.getValueForSlot(derived); });
+    doubledCollectionService.columnSlotService.holdAnyColumn(derived);
+    OIMEffectService.INSTANCE.createEffect(db, [], [derived], () => { void derived.computedValueService.getValueForSlot(derived); });
     OIMEffectService.INSTANCE.createEffect(db, [cardsService.getSlotByKey(cards, 'b')], [], () => { void cardsService.getSlotCount(cards); });
     OIMEffectService.INSTANCE.createEffect(db, [singleSlot], [], () => { void singleSlot.entity; });
     db.flush();
-    cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'renamed', rank: 9 });
+    cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'renamed', rank: 9 });
     db.flush();
 
     return { cards, deck, single, derived };
@@ -150,8 +148,8 @@ const V8_POLYMORPHIC_CEILING = 4;
 const THREE_SLOT_LITERALS: TArrivingShape[] = [
     { label: 'literal{effectEdges,columnSlotStore,carrierSlot}', keyCount: 14, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
     {
-        label: 'literal{effectEdges,columnSlotStore,indexKeys,bucketSlotsStore,commands,isWholeListRecorded,commandsStartedAtRevision,commandsStartedAtEpoch,wasEmptyBeforeChange,isChangedAgainInSubframe}',
-        keyCount: 21,
+        label: 'literal{effectEdges,columnSlotStore,indexKeys,bucketSlotsStore,commands,isWholeListRecorded,commandsStartedAtRevision,commandsStartedAtEpoch}',
+        keyCount: 19,
         whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
     },
     {

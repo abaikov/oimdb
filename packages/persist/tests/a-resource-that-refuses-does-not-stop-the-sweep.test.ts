@@ -1,9 +1,9 @@
 import type { IOIMPersistSnapshotSource, TOIMPersistErrorContext } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -21,7 +21,7 @@ function createVariableSource(initialValue: TValue): {
             readSnapshot: () => value,
             writeSnapshot: snapshot => { value = snapshot; },
             subscribeSnapshotChanged: () => () => undefined,
-            markSourceChanges: () => new OIMPersistSourceChangeMarkSubscriptionDriven({ subscribeSourceChanged: () => () => undefined }),
+            markSourceChanges: () => new OIMPersistSubscriptionSourceChangeMark({ subscribeSourceChanged: () => () => undefined }),
         },
         readCurrentValue: () => value,
     };
@@ -44,7 +44,7 @@ function createAnnouncingVariableSource(initialValue: TValue, subscribeError?: E
                 snapshotChangedListeners.add(onSnapshotChanged);
                 return () => { snapshotChangedListeners.delete(onSnapshotChanged); };
             },
-            markSourceChanges: () => new OIMPersistSourceChangeMarkSubscriptionDriven({ subscribeSourceChanged: () => () => undefined }),
+            markSourceChanges: () => new OIMPersistSubscriptionSourceChangeMark({ subscribeSourceChanged: () => () => undefined }),
         },
         changeValue: value => {
             currentValue = value;
@@ -63,10 +63,10 @@ function addSweepResource(
         storageKey: name,
         storedSnapshot: { text: `${name}-stored` },
     });
-    persistor.addPersistResource(new OIMPersistResourceSnapshot({
+    persistor.addPersistResource(new OIMPersistSnapshotResource({
         persistSnapshotSource,
-        persistSnapshotStrategy: testPersistSnapshotStrategy,
-        persistCodec: new OIMPersistCodecIdentity<TValue>(),
+        persistSnapshotService: testPersistSnapshotStrategy,
+        persistCodec: new OIMPersistIdentityCodec<TValue>(),
     }));
     return testPersistSnapshotStrategy;
 }
@@ -78,7 +78,7 @@ function buildTwo(
     const testPersistBackend = new OIMTestPersistBackend();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError: onPersistErrorContext === undefined
             ? undefined
             : (_error, persistErrorContext) => { onPersistErrorContext(persistErrorContext); },
@@ -125,7 +125,7 @@ describe('a hydrate sweep in which one resource fails', () => {
         const testPersistBackend = new OIMTestPersistBackend();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         for (const name of ['first', 'second']) {
             addSweepResource(persistor, testPersistBackend, createVariableSource({ text: `${name}-live` }).persistSnapshotSource, name)
@@ -157,7 +157,7 @@ describe('a start in which one resource refuses', () => {
         const testPersistBackend = new OIMTestPersistBackend();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: onPersistErrorContext === undefined
                 ? undefined
                 : (_error, persistErrorContext) => { onPersistErrorContext(persistErrorContext); },
@@ -215,18 +215,18 @@ describe('a resource registered on a started persistor whose start throws', () =
         const testPersistBackend = new OIMTestPersistBackend();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistor.start();
         const firstTestPersistSnapshotStrategy = testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'first' });
-        const persistResourceSnapshot = new OIMPersistResourceSnapshot({
+        const persistSnapshotResource = new OIMPersistSnapshotResource({
             persistSnapshotSource: createAnnouncingVariableSource({ text: 'first-live' }, new Error('first refuses to start'))
                 .persistSnapshotSource,
-            persistSnapshotStrategy: firstTestPersistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: firstTestPersistSnapshotStrategy,
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         });
 
-        expect(() => persistor.addPersistResource(persistResourceSnapshot)).toThrow('first refuses to start');
+        expect(() => persistor.addPersistResource(persistSnapshotResource)).toThrow('first refuses to start');
         const secondTestPersistSnapshotStrategy = addSweepResource(
             persistor, testPersistBackend, createAnnouncingVariableSource({ text: 'second-live' }).persistSnapshotSource, 'second',
         );

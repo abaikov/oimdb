@@ -1,5 +1,5 @@
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 
 export interface IOIMComputedValueService<TValue = unknown> {
-    getValueForSlot(computedSlot: TOIMComputedSlot<TValue>): TValue;
+    getValueForSlot(computedSlot: TOIMComputedContentSlot<TValue>): TValue;
 }

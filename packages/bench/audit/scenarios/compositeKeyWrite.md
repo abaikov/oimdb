@@ -7,7 +7,7 @@ verdict: "narrow"
 models: "A record that exists per pair of entities (a reaction per (user, message), a read receipt, a membership role per (team, member)) being updated, one pair per frame, while a joined view over the same rows must stay quiet."
 measures: "Composing a two-part key from two identities per call, resolving it to an existing record, writing one field, settling, and delivering an 8-line view; plus whether the joined view is woken."
 favours:
-  - "Stores whose composite lookup is cheap relative to a settle: a joined string into a Map (anchor, `pairKey`, adapters/baseline-array.ts:735, used at :852), a trie over scalar tuples (adapters/oimdb-legacy.ts:747, 766-775, `OIMCollectionStoreTrieDriven`), or a tree over entity slots (adapters/oimdb.ts:882-888, `OIMSlotStoreServiceTreeDriven` in `bindRelationViews`)."
+  - "Stores whose composite lookup is cheap relative to a settle: a joined string into a Map (anchor, `pairKey`, adapters/baseline-array.ts:735, used at :852), a trie over scalar tuples (adapters/oimdb-legacy.ts:747, 766-775, `OIMCollectionStoreTrieDriven`), or a tree over entity slots (adapters/oimdb.ts:882-888, `OIMSlotTreeStoreService` in `bindRelationViews`)."
   - "Stores that route the pair write to the pair view only; the anchor's single `dirty` flag wakes the joined view redundantly every step."
 biases:
   - "One key composition per step against one settle and one 8-line delivery per step (scenarios.ts:5004-5007); the composite-key cost the row is named for is likely a small share of each step. That share is unverified by measurement here; `relationFloor` gives the delivery share."

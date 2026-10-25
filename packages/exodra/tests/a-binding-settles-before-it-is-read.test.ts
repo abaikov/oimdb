@@ -1,14 +1,11 @@
-import {
-    OIMSlotStoreServiceMapDriven, OIMSlotStoreServiceSingleSlotDriven, createOIMComputedService, oimSameValueZeroGuard,
-} from '@oimdb/core';
-import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMSingleSlotStore } from '@oimdb/core';
+import { OIMSlotMapStoreService, createOIMSingleComputedService, oimSameValueZeroGuard } from '@oimdb/core';
+import type { TOIMComputedColumnSlot } from '@oimdb/core';
 import { exoBinding } from '../src/exoBinding';
 import { build } from './support/build';
 
-const createTitleService = () => createOIMComputedService<void, string, TOIMSingleSlotStore<TOIMComputedSlot<string, void>>>({
-    computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<string, void>>(),
+const createTitleService = () => createOIMSingleComputedService<string>({
     sameValueGuard: oimSameValueZeroGuard,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+    columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
 });
 
 /**
@@ -21,7 +18,7 @@ describe('exoBinding', () => {
         const world = build();
         const slot = world.slotOf({ id: 'c1', deckId: 'd1', rank: 1, title: 'alpha' });
         const bucket = world.bucketOf(world.byDeckService, world.byDeck, 'd1');
-        world.byDeckService.slotContentService.writeBucketMemberSlots(bucket, [slot]);
+        world.byDeckService.slotContentService.writeSlotContent(bucket, [slot]);
         world.db.flush();
 
         const row = exoBinding(world.db, {
@@ -37,9 +34,9 @@ describe('exoBinding', () => {
             () => (slot.entity?.title ?? '').toUpperCase(),
             () => ({ sourceSlots: [slot] }),
         );
-        const titleSlot = titleService.computedCollectionService.holdSlotByKey(title, undefined);
+        const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
         const shouted = exoBinding(world.db, {
-            sourceComputeds: [titleSlot], derive: () => titleService.computedCollectionService.slotContentService.getValueForSlot(titleSlot),
+            sourceComputeds: [titleSlot], derive: () => titleSlot.computedValueService.getValueForSlot(titleSlot),
         });
 
         expect(row.getValue()?.title).toBe('alpha');
@@ -63,9 +60,9 @@ describe('exoBinding', () => {
             () => { derivations++; return slot.entity?.title ?? ''; },
             () => ({ sourceSlots: [slot] }),
         );
-        const titleSlot = titleService.computedCollectionService.holdSlotByKey(title, undefined);
+        const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
         const bound = exoBinding(world.db, {
-            sourceComputeds: [titleSlot], derive: () => titleService.computedCollectionService.slotContentService.getValueForSlot(titleSlot),
+            sourceComputeds: [titleSlot], derive: () => titleSlot.computedValueService.getValueForSlot(titleSlot),
         });
 
         expect(bound.getValue()).toBe('alpha');
@@ -178,10 +175,10 @@ describe('exoBinding', () => {
     it('binds the order of a bucket, and holds the array still while the order holds', () => {
         const world = build();
         const deckSlot = world.rankedOrdersService.holdSlotByKey(world.rankedOrders, 'spades');
-        world.cardsService.slotContentService.upsertEntities(world.cards, [
+        world.cardsService.writeInBatch(world.cards, () => ([
             { id: 'c2', deckId: 'spades', rank: 2, title: 'two' },
             { id: 'c1', deckId: 'spades', rank: 1, title: 'one' },
-        ]);
+        ]).map(entity => world.cardsService.writeSlotContentByKey(world.cards, entity.id, entity)));
         world.db.flush();
 
         const bound = exoBinding(world.db, {

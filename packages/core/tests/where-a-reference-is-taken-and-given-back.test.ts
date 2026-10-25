@@ -7,7 +7,6 @@ import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
 import type { TOIMEffect } from '../src/engine/computed/types/TOIMEffect';
 import { OIMUnusedSlotCollectorService } from '../src/engine/collector/OIMUnusedSlotCollectorService';
 import { OIMDB } from '../src/factories/OIMDB';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
 import type { IOIMSlotStamp } from '../src/engine/slot/interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
@@ -15,6 +14,8 @@ import type { TOIMStoreSlot } from '../src/engine/slot/types/TOIMStoreSlot';
 import type { TOIMSlot } from '../src/engine/slot/types/TOIMSlot';
 import { oimIsSlotEmpty } from '../src/engine/slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../src/engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
 
 describe('a subscribed column keeps its slot', () => {
     type TCard = { status?: string; title?: string; assignee?: string };
@@ -36,10 +37,7 @@ describe('a subscribed column keeps its slot', () => {
     const createFixture = () => {
         const db = new OIMDB({ slotStamp: plantAnEmptyRow });
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, {
-            keyOf: (card: TCard) => card.title ?? '',
-            slotEmptiness: carriesNoColumn,
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: carriesNoColumn }) });
         const cards = cardsService.createStoreSlot(db);
         return { db, cardsService, cards, effectService };
     };
@@ -59,7 +57,7 @@ describe('a subscribed column keeps its slot', () => {
         cards: TOIMStoreSlot<Map<TOIMStoreKey, TCardSlot>, TCardSlot, Partial<TCard>>,
         key: string,
     ): TCardSlot =>
-        cardsService.slotContentService.insertEntity(cards, key, { status: 'open' });
+        cardsService.writeSlotContentByKey(cards, key, { status: 'open' });
 
     /**
      * THE FAILING SEQUENCE, IN ORDER. Every other term is asserted to be silent
@@ -72,10 +70,10 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.getColumn(card, 'status');
+        const status = cardsService.columnSlotService.getColumn(card, 'status');
         aDependentOn(db, effectService, status);
 
-        cardsService.slotContentService.deleteEntity(card);
+        cardsService.slotContentService.clearSlotContent(card);
 
         expect(oimIsSlotEmpty(card)).toBe(true);
         expect(card.holdCount).toBe(0);
@@ -93,9 +91,9 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.getColumn(card, 'status');
+        const status = cardsService.columnSlotService.getColumn(card, 'status');
         const effect = aDependentOn(db, effectService, status);
-        cardsService.slotContentService.deleteEntity(card);
+        cardsService.slotContentService.clearSlotContent(card);
         expect(cardsService.getSlotByKey(cards, 'card-1')).toBe(card);
 
         effectService.disposeEffect(effect);
@@ -116,14 +114,14 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        cardsService.getColumn(card, 'status');
-        cardsService.getColumn(card, 'title');
+        cardsService.columnSlotService.getColumn(card, 'status');
+        cardsService.columnSlotService.getColumn(card, 'title');
 
         expect((card.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(card.columnSlotStore !== undefined).toBe(false);
 
-        cardsService.slotContentService.deleteEntity(card);
+        cardsService.slotContentService.clearSlotContent(card);
         expect(oimIsSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
@@ -138,14 +136,14 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        const status = cardsService.holdColumn(card, 'status');
-        cardsService.slotContentService.deleteEntity(card);
+        const status = cardsService.columnSlotService.holdColumn(card, 'status');
+        cardsService.slotContentService.clearSlotContent(card);
 
         expect(status.effects).toBeUndefined();
         expect(card.columnSlotStore !== undefined).toBe(true);
         expect(cardsService.getSlotByKey(cards, 'card-1')).toBe(card);
 
-        cardsService.unholdColumn(status);
+        cardsService.columnSlotService.unholdColumn(status);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(oimIsSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
@@ -161,12 +159,12 @@ describe('a subscribed column keeps its slot', () => {
         const { db, cardsService, cards, effectService } = createFixture();
         const card = aCardIn(cardsService, cards, 'card-1');
 
-        cardsService.getColumn(card, 'status');
-        cardsService.getColumn(card, 'title');
-        const assignee = cardsService.getColumn(card, 'assignee');
+        cardsService.columnSlotService.getColumn(card, 'status');
+        cardsService.columnSlotService.getColumn(card, 'title');
+        const assignee = cardsService.columnSlotService.getColumn(card, 'assignee');
         aDependentOn(db, effectService, assignee);
 
-        cardsService.slotContentService.deleteEntity(card);
+        cardsService.slotContentService.clearSlotContent(card);
         // Without this the predicate is `columnSlotStore !== undefined` over a map
         // nothing has swept, which is true whichever column was subscribed.
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
@@ -198,7 +196,7 @@ describe('a subscribed column keeps its slot', () => {
     it('does not unfile the live identity when a stale one is released', () => {
         const { cardsService, cards } = createFixture();
         const first = aCardIn(cardsService, cards, 'card-1');
-        cardsService.slotContentService.deleteEntity(first);
+        cardsService.slotContentService.clearSlotContent(first);
         expect(oimIsSlotReleased(first)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);
 

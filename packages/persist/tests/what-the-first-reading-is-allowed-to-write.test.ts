@@ -1,28 +1,27 @@
-import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentBucketServiceSetDriven, createOIMBucketService, createOIMEntityService } from '@oimdb/core';
+import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
 import type { TOIMPersistRecords } from '../src';
 import {
-    OIMPersistRecordSourceBucketDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistBucketRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TUserSlot = TOIMEntitySlot<TUser, TOIMStoreKey>;
-type TUserSlots = TOIMBucketSlotsSetStore<TUserSlot>;
 type TUserPersistRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 
 const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0); });
 
 function buildUsers() {
     const db = new OIMDB();
-    const userEntityService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+    const userEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
     const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-    const userBucketService = createOIMBucketService<
-        TUserSlot, TOIMStoreKey, TUserSlots, OIMSlotContentBucketServiceSetDriven<TUserSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TUserSlot>() });
+    const userBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const userBucketStoreSlot = userBucketService.createStoreSlot(db);
     const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
     const fileEveryUser = (): void => {
@@ -30,9 +29,9 @@ function buildUsers() {
         for (const userSlot of userEntityService.getSlots(userEntityStoreSlot)) {
             if (userSlot.entity !== undefined) userSlots.push(userSlot);
         }
-        userBucketService.slotContentService.writeBucketMemberSlots(bucketSlot, userSlots);
+        userBucketService.slotContentService.writeSlotContent(bucketSlot, userSlots);
     };
-    const createPersistRecordSourceBucketDriven = () => new OIMPersistRecordSourceBucketDriven({
+    const createPersistRecordSourceBucketDriven = () => new OIMPersistBucketRecordSource({
         channelMap: db,
         entityCollectionService: userEntityService,
         entityStoreSlot: userEntityStoreSlot,
@@ -45,16 +44,16 @@ function buildUsers() {
 describe('starting to watch a bucket in the middle of a batch', () => {
     it('reports each key exactly once', () => {
         const { db,userEntityService, userEntityStoreSlot, fileEveryUser, createPersistRecordSourceBucketDriven } = buildUsers();
-        const persistRecordSourceBucketDriven = createPersistRecordSourceBucketDriven();
+        const persistBucketRecordSource = createPersistRecordSourceBucketDriven();
 
-        userEntityService.slotContentService.upsertEntities(userEntityStoreSlot, [
+        userEntityService.writeInBatch(userEntityStoreSlot, () => ([
             { id: 'u1', name: 'Ada' },
             { id: 'u2', name: 'Grace' },
-        ]);
+        ]).map(entity => userEntityService.writeSlotContentByKey(userEntityStoreSlot, entity.id, entity)));
         fileEveryUser();
 
         const reportedKeys: TOIMStoreKey[] = [];
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(userSlot => { reportedKeys.push(userSlot.key); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(userSlot => { reportedKeys.push(userSlot.key); });
         db.flush();
 
         expect(reportedKeys.sort()).toEqual(['u1', 'u2']);
@@ -62,15 +61,15 @@ describe('starting to watch a bucket in the middle of a batch', () => {
 
     it('still reports an entity written after the watch began, in the same batch', () => {
         const { db,userEntityService, userEntityStoreSlot, fileEveryUser, createPersistRecordSourceBucketDriven } = buildUsers();
-        const persistRecordSourceBucketDriven = createPersistRecordSourceBucketDriven();
+        const persistBucketRecordSource = createPersistRecordSourceBucketDriven();
 
-        userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
+        userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
         fileEveryUser();
 
         const reportedKeys: TOIMStoreKey[] = [];
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(userSlot => { reportedKeys.push(userSlot.key); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(userSlot => { reportedKeys.push(userSlot.key); });
 
-        userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u2', name: 'Grace' });
+        userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u2', { id: 'u2', name: 'Grace' });
         fileEveryUser();
         db.flush();
 
@@ -82,7 +81,7 @@ describe('starting to watch a bucket in the middle of a batch', () => {
         const firstPersistRecordSourceBucketDriven = createPersistRecordSourceBucketDriven();
         const secondPersistRecordSourceBucketDriven = createPersistRecordSourceBucketDriven();
 
-        userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
+        userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
         fileEveryUser();
 
         const firstReportedKeys: TOIMStoreKey[] = [];
@@ -98,14 +97,14 @@ describe('starting to watch a bucket in the middle of a batch', () => {
 
     it('reports the members to a second listener of an already watched source, once', () => {
         const { db,userEntityService, userEntityStoreSlot, fileEveryUser, createPersistRecordSourceBucketDriven } = buildUsers();
-        const persistRecordSourceBucketDriven = createPersistRecordSourceBucketDriven();
+        const persistBucketRecordSource = createPersistRecordSourceBucketDriven();
 
-        userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
+        userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
         fileEveryUser();
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(() => undefined);
+        persistBucketRecordSource.subscribeEntitySlotChanged(() => undefined);
 
         const secondReportedKeys: TOIMStoreKey[] = [];
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(userSlot => { secondReportedKeys.push(userSlot.key); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(userSlot => { secondReportedKeys.push(userSlot.key); });
         db.flush();
 
         expect(secondReportedKeys).toEqual(['u1']);
@@ -119,11 +118,11 @@ describe('hydrate, then start autosave', () => {
         testPersistBackend.storeRecords(storedUserPersistRecords);
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
-        persistor.addPersistResource(new OIMPersistResourceRecords({
+        persistor.addPersistResource(new OIMPersistRecordsResource({
             persistRecordSource: users.createPersistRecordSourceBucketDriven(),
-            persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+            persistRecordsService: testPersistBackend.createRecordsStrategy(),
         }));
         return { ...users, persistor, testPersistBackend };
     }
@@ -143,8 +142,8 @@ describe('hydrate, then start autosave', () => {
 
         expect(testPersistBackend.readWrittenDeltaKeys()).toEqual([]);
         expect(testPersistBackend.writtenPersistRecordsList).toEqual([]);
-        expect(userEntityService.slotContentService.findEntityByKey(userEntityStoreSlot,'u1')?.name).toBe('Ada');
-        expect(userEntityService.slotContentService.findEntityByKey(userEntityStoreSlot,'u2')?.name).toBe('Grace');
+        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Ada');
+        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u2')?.entity?.name).toBe('Grace');
 
         persistor.destroy();
     });
@@ -200,7 +199,7 @@ describe('hydrate, then start autosave', () => {
         db.flush();
         await tick();
 
-        userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u2', name: 'Grace' });
+        userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u2', { id: 'u2', name: 'Grace' });
         fileEveryUser();
         db.flush();
         await tick();
@@ -224,7 +223,7 @@ describe('hydrate, then start autosave', () => {
         await tick();
 
         const deletedUserSlot = userEntityService.findSlotByKey(userEntityStoreSlot, 'u2');
-        if (deletedUserSlot !== undefined) userEntityService.slotContentService.deleteEntity(deletedUserSlot);
+        if (deletedUserSlot !== undefined) userEntityService.slotContentService.clearSlotContent(deletedUserSlot);
         fileEveryUser();
         db.flush();
         await tick();

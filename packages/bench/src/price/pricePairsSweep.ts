@@ -1,13 +1,4 @@
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    createOIMIndexService,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     OIMSlotContentBucketService,
@@ -25,6 +16,8 @@ import { priceGroupIndex } from './priceGroupIndex';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 /**
  * THE STRATEGY SWEEP — one task, one floor, and every shipped combination that
@@ -58,7 +51,7 @@ import type { TPricePair } from './TPricePair';
  *     HONEST LIMIT. The second owes a gap decomposition.
  *
  * WHY NO ROW HERE DECLARES `isolate`: the hazard is real and would be fatal —
- * every arm enters one compiled `upsertEntity`/`updateEntity` and reaches its strategies
+ * every arm enters one compiled `writeSlotContentByKey`/`updateEntity` and reaches its strategies
  * through one call site each — BUT TWO ARMS ARE NEVER IN ONE PROCESS. Every
  * timing is a fresh Node process per pair and `price-worker.ts` calls `build` on
  * THAT PAIR ONLY, so the isolation is already there structurally. That OBLIGES
@@ -168,19 +161,19 @@ const GROUPED_FLOOR_CAVEAT =
  * WHAT VARIES IS THE WRITE STRATEGY, and the job here is to find out whether the
  * fork is FREE rather than to find a winner: both shipped writers fill a fresh
  * slot through the same `oimInsertEntityWithoutCopy`, and the insert branch of
- * `OIMSlotContentEntityService.insertEntity` (reached by `upsertEntity`) calls `fillEntity` and nothing else of the
+ * `OIMSlotContentEntityService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and nothing else of the
  * writer.
  */
 const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPricePair => ({
     id,
     path: EPricePath.PerRowPerWrite,
-    ours: `entityService.slotContentService.upsertEntity(entityStoreSlot, row) into an empty population, then slotContentService.findEntityByKey(entityStoreSlot, key) — ${arm}`,
+    ours: `entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) into an empty population, then entityService.findSlotByKey(entityStoreSlot, key)?.entity — ${arm}`,
     floor: 'map.set(row.id, { ...row }) per row, then map.get(key)',
     caveat:
         `THE ARM IS ${arm.toUpperCase()}, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER THE ` +
         'FORK COSTS ANYTHING AT ALL HERE. `createOIMEntityWriterInPlace` and ' +
         '`createOIMEntityWriterReplacing` both default `fillEntity` to `oimInsertEntityWithoutCopy`, and ' +
-        'the insert branch of `OIMSlotContentEntityService.insertEntity` (reached by `upsertEntity`) calls `fillEntity` and no other ' +
+        'the insert branch of `OIMSlotContentEntityService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and no other ' +
         'member of the writer — so the two arms should run the same code on this path. [FIGURE ' +
         'STATED IN ADVANCE] Expect the two arms to differ by less than each row\'s own noise; a ' +
         'difference larger than that is the finding. ' +
@@ -200,11 +193,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
             ? createOIMEntityWriterReplacing()
             : createOIMEntityWriterInPlace();
         const build = () =>
-            createOIMEntityService<TPriceDataRow>(db, {
-                keyOf: row => row.id,
-                entityWriter,
-                columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-            });
+            createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         let entityService = build();
         let entityStoreSlot = entityService.createStoreSlot(db);
         let map = new Map<string, TPriceDataRow>();
@@ -216,10 +205,9 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
                     entityStoreSlot = entityService.createStoreSlot(db);
                 },
                 run: times => {
-                    const slotContentService = entityService.slotContentService;
-                    for (let i = 0; i < times; i++) slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                    for (let i = 0; i < times; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                     db.flush();
-                    priceSink.ours = slotContentService.findEntityByKey(entityStoreSlot, readKey);
+                    priceSink.ours = entityService.findSlotByKey(entityStoreSlot, readKey)?.entity;
                 },
             },
             floor: {
@@ -245,7 +233,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
  *
  * WHAT VARIES IS WHO MOVES THE ROW: the auto-index (`OIMIndex`, which hears the
  * write and re-files the row itself), or the caller through one of the two
- * bucket doors — the whole-bucket `writeBucketMemberSlots`, or the positional pair
+ * bucket doors — the whole-bucket `writeSlotContent`, or the positional pair
  * `removeBucketMemberSlotAt` + `insertBucketMemberSlotAt` on an array-driven service. Plus
  * the write strategy, on the index arm.
  */
@@ -302,11 +290,11 @@ const groupedManualWorld = <TSlots>(
 };
 
 const groupIndexOf = (fixture: ReturnType<typeof priceFixture>, names: readonly string[]) => {
-    const indexService = createOIMIndexService(fixture.db, {
+    const indexService = createOIMSlotCollectionIndexService(fixture.db, {
         entityService: fixture.entityService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+        slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
         keyOf: (row: TPriceDataRow) => row.group,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(),
     });
     const indexStoreSlot = indexService.createIndexStoreSlot(fixture.entityStoreSlot);
     indexService.holdSlotsByKeys(indexStoreSlot, names);
@@ -396,7 +384,7 @@ const groupedManualPositionalPair: TPricePair = {
     caveat: joined(
         'THE ARM IS THE POSITIONAL DOOR, IN PLACE. ',
         MANUAL_MEMBERSHIP_CAVEAT,
-        'THIS ARM TAKES THE POSITIONAL DOOR on an `OIMSlotContentBucketServiceArrayDriven`, so ',
+        'THIS ARM TAKES THE POSITIONAL DOOR on an `OIMSlotContentPositionalArrayBucketService`, so ',
         'the caller owns the order: `getBucketMemberSlotPosition` finds the member in the bucket it is leaving — ',
         'an `indexOf` over that group — `removeBucketMemberSlotAt` splices it out, and `insertBucketMemberSlotAt` at ',
         '`getBucketMemberSlotCount` appends it to the one it joins. It is O(members of the group being left) ',
@@ -404,7 +392,7 @@ const groupedManualPositionalPair: TPricePair = {
         GROUPED_FLOOR_CAVEAT,
     ),
     build: () => {
-        const slotContentService = new OIMSlotContentBucketServiceArrayDriven<TOIMEntitySlot<TPriceDataRow>>();
+        const slotContentService = new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TPriceDataRow>>();
         const { world, bucketService, bucketStoreSlot } = groupedManualWorld<TOrderedGroupSlots>(slotContentService);
         assertSameReadGroup(slotContentService.getBucketMemberSlots(world.readBucket), world.readSet);
         const patch: TGroupPatch = { group: '' };
@@ -457,12 +445,12 @@ const groupedManualPositionalPair: TPricePair = {
 const groupedManualSetMembersPair: TPricePair = {
     id: 'sweep.grouped-column.manual-set-members',
     path: EPricePath.PerWrite,
-    ours: 'entityService.slotContentService.updateEntity(slot, { group }), slotContentService.writeBucketMemberSlots on both buckets, then slotContentService.getBucketMemberSlots(bucket)',
+    ours: 'entityService.slotContentService.updateEntity(slot, { group }), slotContentService.writeSlotContent on both buckets, then slotContentService.getBucketMemberSlots(bucket)',
     floor: 'move the row between two Sets, write the column, iterate one Set',
     caveat: joined(
         'THE ARM IS THE WHOLE-BUCKET DOOR, IN PLACE. ',
         MANUAL_MEMBERSHIP_CAVEAT,
-        '`writeBucketMemberSlots` is handed each bucket\'s new membership, asks the bucket content service whether the ' +
+        '`writeSlotContent` is handed each bucket\'s new membership, asks the bucket content service whether the ' +
         'bucket already holds exactly those slots, and — since it does not — replaces the set and ' +
         'reports who arrived and who left. Moving one row is therefore TWO FULL BUCKET REWRITES, ' +
         'plus the caller\'s own `indexOf` and `splice` on the array it keeps beside them, on ' +
@@ -472,7 +460,7 @@ const groupedManualSetMembersPair: TPricePair = {
         GROUPED_FLOOR_CAVEAT,
     ),
     build: () => {
-        const slotContentService = new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>();
+        const slotContentService = new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>();
         const { world, bucketService, bucketStoreSlot } = groupedManualWorld<TUnorderedGroupSlots>(slotContentService);
         assertSameReadGroup(slotContentService.getBucketMemberSlots(world.readBucket), world.readSet);
         const patch: TGroupPatch = { group: '' };
@@ -505,8 +493,8 @@ const groupedManualSetMembersPair: TPricePair = {
                             const at = left.indexOf(slot);
                             if (at >= 0) left.splice(at, 1);
                             arrivedAt.push(slot);
-                            slotContentService.writeBucketMemberSlots(bucketService.getSlotByKey(bucketStoreSlot, was), left);
-                            slotContentService.writeBucketMemberSlots(bucketService.getSlotByKey(bucketStoreSlot, next), arrivedAt);
+                            slotContentService.writeSlotContent(bucketService.getSlotByKey(bucketStoreSlot, was), left);
+                            slotContentService.writeSlotContent(bucketService.getSlotByKey(bucketStoreSlot, next), arrivedAt);
                         }
                         db.flush();
                         for (const member of slotContentService.getBucketMemberSlots(world.readBucket)) {
@@ -535,11 +523,11 @@ const pollUnchangedPair = (
 ): TPricePair => ({
     id,
     path: EPricePath.PerWrite,
-    ours: `entityService.slotContentService.upsertEntity(entityStoreSlot, row) with the values the row already holds — ${arm}`,
+    ours: `entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) with the values the row already holds — ${arm}`,
     floor: 'map.get(id), then compare each column and assign only what moved',
     caveat:
         `THE ARM IS ${arm.toUpperCase()}. NOTHING MOVES ON EITHER SIDE, which is the point of the ` +
-        'task: `upsertEntity` finds the key populated, `insertEntity` hands it to `writeEntity`, ' +
+        'task: `writeSlotContentByKey` finds the key populated, `writeSlotContentByKey` hands it to `writeSlotContent`, ' +
         'whose writer `putEntity` patches the columns the row carries, walks the stored row for columns it does not carry ' +
         '(there are none), is told nothing moved, and returns before it marks anything or tells any listener. The ' +
         'floor gets the row and compares. ' +
@@ -553,7 +541,7 @@ const pollUnchangedPair = (
         'THE HASH IS ON BOTH SIDES: ours calls `keyOf` and the store\'s `get`, the floor calls ' +
         '`byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes a batch that queued nothing. ' +
         `${indexed
-            ? 'AN INDEX LISTENS AND IS NEVER REACHED. This arm carries one `OIMIndexService` store slot over `group` ' +
+            ? 'AN INDEX LISTENS AND IS NEVER REACHED. This arm carries one `OIMSlotCollectionIndexService` store slot over `group` ' +
               'with every bucket held, so the collection has a content-change listener; a write ' +
               'that lands nothing never calls it. [FIGURE STATED IN ADVANCE] Expect this arm to be ' +
               'indistinguishable from the un-indexed one within both rows\' noise. The floor keeps ' +
@@ -572,13 +560,13 @@ const pollUnchangedPair = (
                 reset: () => undefined,
                 run: times => {
                     const rows = fixture.rows;
-                    const slotContentService = fixture.entityService.slotContentService;
+                    const entityService = fixture.entityService;
                     const entityStoreSlot = fixture.entityStoreSlot;
                     const db = fixture.db;
                     let done = 0;
                     while (done < times) {
                         const upTo = Math.min(rows.length, times - done);
-                        for (let i = 0; i < upTo; i++) slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                         db.flush();
                         done += upTo;
                     }

@@ -1,6 +1,6 @@
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMEffectService } from './interfaces/IOIMEffectService';
-import type { TOIMComputedSlot } from './types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import type { TOIMEffect } from './types/TOIMEffect';
 import type { TOIMEffectBody } from './types/TOIMEffectBody';
 import type { TOIMEffectBodyWithSourceTracking } from './types/TOIMEffectBodyWithSourceTracking';
@@ -25,10 +25,10 @@ export class OIMEffectService implements IOIMEffectService {
     public createEffect(
         channelMap: IOIMChannelMap,
         sourceSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedSlot[],
+        sourceComputeds: readonly TOIMComputedContentSlot[],
         body: TOIMEffectBody,
     ): TOIMEffect {
-        let distinctSourceComputeds: readonly TOIMComputedSlot[] = sourceComputeds;
+        let distinctSourceComputeds: readonly TOIMComputedContentSlot[] = sourceComputeds;
         if (sourceComputeds.length > 1) {
             const distinctSourceComputedSet = new Set(sourceComputeds);
             if (distinctSourceComputedSet.size !== sourceComputeds.length) distinctSourceComputeds = [...distinctSourceComputedSet];
@@ -77,7 +77,7 @@ export class OIMEffectService implements IOIMEffectService {
     public subscribeEffect(
         channelMap: IOIMChannelMap,
         sourceSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedSlot[],
+        sourceComputeds: readonly TOIMComputedContentSlot[],
         body: TOIMEffectBody,
     ): TOIMDisposer {
         const effect = this.createEffect(channelMap, sourceSlots, sourceComputeds, body);
@@ -87,7 +87,7 @@ export class OIMEffectService implements IOIMEffectService {
     public createEffectImmediate(
         channelMap: IOIMChannelMap,
         sourceSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedSlot[],
+        sourceComputeds: readonly TOIMComputedContentSlot[],
         body: TOIMEffectBody,
     ): TOIMEffect {
         const effect = this.createEffect(channelMap, sourceSlots, sourceComputeds, body);
@@ -276,7 +276,7 @@ export class OIMEffectService implements IOIMEffectService {
 
     private getSubscribedSlotAtEdge(
         allRootSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedSlot[],
+        sourceComputeds: readonly TOIMComputedContentSlot[],
         edge: number,
     ): TOIMSlot {
         return edge < allRootSlots.length ? allRootSlots[edge] : sourceComputeds[edge - allRootSlots.length];

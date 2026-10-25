@@ -1,10 +1,9 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../../collector/OIMReleaseSlotCollectorServiceAfterIdle';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotReleasePolicyAfterIdle } from '../../collector/OIMSlotReleasePolicyAfterIdle';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
+import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
+import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string };
 
@@ -13,17 +12,11 @@ const KEEP_AFTER_IDLE_MS = 1_000;
 function worldWithAReleaseClock() {
     let nowMs = 10_000;
     const db = new OIMDB({ getNowMs: () => nowMs });
-    const byDeckService = createOIMBucketService<
-        TOIMEntitySlot<TCard>, string, TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>,
-        OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>
-    >(db, {
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
-    });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }) });
     const byDeck = byDeckService.createStoreSlot(db);
     const sweepTheReleaseClock = (): void => {
         nowMs += KEEP_AFTER_IDLE_MS * 4;
-        OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+        oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
     };
     return { db, byDeckService, byDeck, sweepTheReleaseClock };
 }

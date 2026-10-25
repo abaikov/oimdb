@@ -1,8 +1,8 @@
-import { OIMReleaseSlotQueueService } from '../OIMReleaseSlotQueueService';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../OIMReleaseSlotCollectorServiceAfterIdle';
-import { createOIMReleaseSlotCollectorSlot } from '../utils/createOIMReleaseSlotCollectorSlot';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
-import type { TOIMReleaseSlotCollectorSlot } from '../types/TOIMReleaseSlotCollectorSlot';
+import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
+import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
+import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 
 const slotDueAt = (dueMs: number): TOIMSlot => {
@@ -12,44 +12,38 @@ const slotDueAt = (dueMs: number): TOIMSlot => {
     }) as unknown as TOIMSlot;
 };
 
-const createReleaseSlotCollectorSlot = (clock: { nowMs: number }): TOIMReleaseSlotCollectorSlot => createOIMReleaseSlotCollectorSlot({
+const createSlotReleaseWheel = (clock: { nowMs: number }): OIMSlotReleaseWheel => new OIMSlotReleaseWheel({
     getNowMs: () => clock.nowMs,
-    releaseTimer: () => () => undefined,
-    errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+    timer: () => () => undefined,
+    errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
+    getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
+    setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+    releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
 });
-
-const scheduleSlotRelease = (releaseSlotCollectorSlot: TOIMReleaseSlotCollectorSlot, slot: TOIMSlot): void => {
-    OIMReleaseSlotQueueService.INSTANCE.scheduleSlotRelease(
-        releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE, slot, releaseSlotCollectorSlot.getNowMs(),
-    );
-};
 
 describe('what the queue answers about a slot it holds', () => {
     it('is nothing for a slot it was never handed', () => {
-        const clock = { nowMs: 0 };
-        const releaseSlotCollectorSlot = createReleaseSlotCollectorSlot(clock);
+        const slotReleaseWheel = createSlotReleaseWheel({ nowMs: 0 });
 
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(releaseSlotCollectorSlot, slotDueAt(5_000))).toBe(false);
+        expect(slotReleaseWheel.isSlotReleaseScheduled(slotDueAt(5_000))).toBe(false);
     });
 
     it('holds a slot once it is handed one', () => {
-        const clock = { nowMs: 0 };
-        const releaseSlotCollectorSlot = createReleaseSlotCollectorSlot(clock);
+        const slotReleaseWheel = createSlotReleaseWheel({ nowMs: 0 });
         const slot = slotDueAt(100);
 
-        scheduleSlotRelease(releaseSlotCollectorSlot, slot);
+        slotReleaseWheel.scheduleSlotRelease(slot, slotReleaseWheel.getNowMs());
 
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(releaseSlotCollectorSlot, slot)).toBe(true);
+        expect(slotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(true);
     });
 
     it('is nothing again once the slot is taken off the queue', () => {
-        const clock = { nowMs: 0 };
-        const releaseSlotCollectorSlot = createReleaseSlotCollectorSlot(clock);
+        const slotReleaseWheel = createSlotReleaseWheel({ nowMs: 0 });
         const slot = slotDueAt(100);
-        scheduleSlotRelease(releaseSlotCollectorSlot, slot);
+        slotReleaseWheel.scheduleSlotRelease(slot, slotReleaseWheel.getNowMs());
 
-        OIMReleaseSlotQueueService.INSTANCE.cancelSlotRelease(releaseSlotCollectorSlot, slot);
+        slotReleaseWheel.cancelSlotRelease(slot);
 
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(releaseSlotCollectorSlot, slot)).toBe(false);
+        expect(slotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(false);
     });
 });

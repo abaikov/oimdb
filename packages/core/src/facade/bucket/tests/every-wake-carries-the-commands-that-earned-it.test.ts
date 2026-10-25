@@ -1,32 +1,32 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMOrderedListCommand } from '../../../engine/bucket/commands/types/TOIMOrderedListCommand';
 import type { TOIMBucketSlotsArrayStore } from '../../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
-type TMembersService = OIMSlotContentBucketServiceArrayDriven<TCardSlot>;
+type TMembersService = OIMSlotContentPositionalArrayBucketService<TCardSlot>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
-    const listService = createOIMBucketService(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
     const slotOf = (id: string): TOIMEntitySlot<TCard> => {
-        cardsService.slotContentService.upsertEntity(cards, { id, title: id });
+        cardsService.writeSlotContentByKey(cards, id, { id, title: id });
         const holdingSlot = cardsService.holdSlotByKey(cards, id);
         holdingSlot.owner.unholdSlot(holdingSlot);
         return holdingSlot;
@@ -75,7 +75,7 @@ describe('every wake carries the commands that earned it', () => {
         const fixture = drawnList();
 
         fixture.membersService.moveBucketMemberSlotToPosition(fixture.bucket, 0, 3);
-        fixture.membersService.clearBucketMemberSlots(fixture.bucket);
+        fixture.membersService.clearSlotContent(fixture.bucket);
         fixture.db.flush();
 
         expect(fixture.wholeListWasAsked()).toBe(true);
@@ -87,7 +87,7 @@ describe('every wake carries the commands that earned it', () => {
     it('does not tell a consumer it is up to date with a list that has been cleared', () => {
         const fixture = drawnList();
 
-        fixture.membersService.clearBucketMemberSlots(fixture.bucket);
+        fixture.membersService.clearSlotContent(fixture.bucket);
         fixture.db.flush();
 
         expect(fixture.wholeListWasAsked()).toBe(true);
@@ -98,7 +98,7 @@ describe('every wake carries the commands that earned it', () => {
         const fixture = drawnList();
         const next = ['e', 'a', 'f'].map(id => fixture.slotOf(id));
 
-        fixture.membersService.writeBucketMemberSlots(fixture.bucket, next);
+        fixture.membersService.writeSlotContent(fixture.bucket, next);
         fixture.db.flush();
 
         expect(fixture.wholeListWasAsked()).toBe(true);
@@ -109,11 +109,11 @@ describe('every wake carries the commands that earned it', () => {
     it('leaves the script alone for a door that reports nothing', () => {
         const fixture = drawnList();
 
-        fixture.membersService.clearBucketMemberSlots(fixture.bucket);
+        fixture.membersService.clearSlotContent(fixture.bucket);
         fixture.db.flush();
 
-        fixture.membersService.clearBucketMemberSlots(fixture.bucket);
-        fixture.membersService.writeBucketMemberSlots(fixture.bucket, []);
+        fixture.membersService.clearSlotContent(fixture.bucket);
+        fixture.membersService.writeSlotContent(fixture.bucket, []);
         fixture.db.flush();
 
         expect(fixture.wholeListWasAsked()).toBe(false);
@@ -127,17 +127,17 @@ describe('every wake carries the commands that earned it', () => {
         const abcd = ['a', 'b', 'c', 'd'].map(id => slotOf(id));
 
         const steps: [string, () => void][] = [
-            ['writeBucketMemberSlots abcd', () => membersService.writeBucketMemberSlots(bucket, abcd)],
+            ['writeBucketMemberSlots abcd', () => membersService.writeSlotContent(bucket, abcd)],
             ['moveBucketMemberSlotToPosition 0 → 3', () => void membersService.moveBucketMemberSlotToPosition(bucket, 0, 3)],
-            ['clearBucketMemberSlots', () => membersService.clearBucketMemberSlots(bucket)],
-            ['writeBucketMemberSlots abcd again', () => membersService.writeBucketMemberSlots(bucket, abcd)],
+            ['clearBucketMemberSlots', () => membersService.clearSlotContent(bucket)],
+            ['writeBucketMemberSlots abcd again', () => membersService.writeSlotContent(bucket, abcd)],
             ['insertBucketMemberSlotAt the end: e', () => append(membersService, bucket, slotOf('e'))],
             ['moveBucketMemberSlotToPosition then clearBucketMemberSlots', () => {
                 membersService.moveBucketMemberSlotToPosition(bucket, 4, 0);
-                membersService.clearBucketMemberSlots(bucket);
+                membersService.clearSlotContent(bucket);
             }],
             ['writeBucketMemberSlots then removeBucketMemberSlotAt', () => {
-                membersService.writeBucketMemberSlots(bucket, abcd);
+                membersService.writeSlotContent(bucket, abcd);
                 membersService.removeBucketMemberSlotAt(bucket, 1);
             }],
         ];

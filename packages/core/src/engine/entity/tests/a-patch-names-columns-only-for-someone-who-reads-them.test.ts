@@ -1,8 +1,7 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceSetDriven, createOIMEntityService, createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing, createOIMIndexService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService } from '../../../index';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
 
@@ -24,9 +23,9 @@ describe('a patch names its columns only for someone who reads them', () => {
         ['replacing', createOIMEntityWriterReplacing()],
     ])('the %s writer answers whether anything changed, and names nothing when handed no list', (_arm, writer) => {
         const db = new OIMDB({ entityWriter: writer });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'x', title: 'ace', rank: 1 }) as TOIMEntitySlot;
+        const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 }) as TOIMEntitySlot;
 
         expect(writer.patchEntity(card, { title: 'two', rank: 1 }, undefined)).toBe(true);
         expect(writer.patchEntity(card, { title: 'two' }, undefined)).toBe(false);
@@ -39,9 +38,9 @@ describe('a patch names its columns only for someone who reads them', () => {
     it('hands the writer no list when nothing watches the slot by column and nothing listens to the collection', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMEntityWriterInPlace());
         const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'x', title: 'ace', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
         cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { title: 'two' });
 
@@ -51,10 +50,10 @@ describe('a patch names its columns only for someone who reads them', () => {
     it('hands it a list once a column of the slot is watched', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMEntityWriterInPlace());
         const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'x', title: 'ace', rank: 1 });
-        const title = cardsService.holdColumn(card, 'title');
+        const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
+        const title = cardsService.columnSlotService.holdColumn(card, 'title');
         let woke = 0;
         OIMEffectService.INSTANCE.createEffect(db, [title], [], () => { woke++; });
         db.flush();
@@ -70,15 +69,15 @@ describe('a patch names its columns only for someone who reads them', () => {
     it('hands it a list while an index listens to the collection', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMEntityWriterInPlace());
         const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
         });
         byDeckService.createIndexStoreSlot(cards);
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'x', title: 'ace', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
         cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { deck: 'y' });
 

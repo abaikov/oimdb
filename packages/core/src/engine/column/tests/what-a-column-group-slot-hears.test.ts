@@ -1,18 +1,19 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number; label: string; note: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const slot = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 1, label: 'ace', note: '' });
+    const slot = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1, label: 'ace', note: '' });
     db.flush();
-    const rowColumns = cardsService.getColumnGroup(['rank', 'label']);
-    const groupSlot = cardsService.holdColumnGroup(slot, rowColumns);
+    const rowColumns = cardsService.columnSlotService.getColumnGroup(['rank', 'label']);
+    const groupSlot = cardsService.columnSlotService.holdColumnGroup(slot, rowColumns);
     let runs = 0;
     const effect = OIMEffectService.INSTANCE.createEffect(db, [groupSlot], [], () => { runs++; });
     return { db, cardsService, cards, slot, rowColumns, groupSlot, effect, runs: () => runs };
@@ -21,7 +22,7 @@ const createFixture = () => {
 describe('what a column group slot hears', () => {
     it('is one key per set of names, whatever their order or repeats', () => {
         const { cardsService, rowColumns } = createFixture();
-        const sameColumns = cardsService.getColumnGroup(['label', 'rank', 'label']);
+        const sameColumns = cardsService.columnSlotService.getColumnGroup(['label', 'rank', 'label']);
         expect(sameColumns.key).toBe(rowColumns.key);
         expect(sameColumns.columnNames).toEqual(['label', 'rank']);
         expect(rowColumns.columnNames).toEqual(['label', 'rank']);
@@ -29,7 +30,7 @@ describe('what a column group slot hears', () => {
 
     it('holds one slot per key, whichever descriptor of that key is handed in', () => {
         const { cardsService, slot, groupSlot } = createFixture();
-        expect(cardsService.holdColumnGroup(slot, cardsService.getColumnGroup(['rank', 'label']))).toBe(groupSlot);
+        expect(cardsService.columnSlotService.holdColumnGroup(slot, cardsService.columnSlotService.getColumnGroup(['rank', 'label']))).toBe(groupSlot);
     });
 
     it('wakes once for a patch of one of its columns', () => {
@@ -55,23 +56,23 @@ describe('what a column group slot hears', () => {
 
     it('wakes for a whole-value write that carries one of its columns', () => {
         const { db, cardsService, cards, runs } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 2, label: 'ace', note: '' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 2, label: 'ace', note: '' });
         db.flush();
         expect(runs()).toBe(1);
     });
 
     it('is a slot of its own, beside the column slots of the same row', () => {
         const { cardsService, slot, groupSlot } = createFixture();
-        const labelSlot = cardsService.holdColumn(slot, 'label');
+        const labelSlot = cardsService.columnSlotService.holdColumn(slot, 'label');
         expect(labelSlot).not.toBe(groupSlot);
         expect(groupSlot.carrierSlot).toBe(slot);
-        cardsService.unholdColumn(labelSlot);
+        cardsService.columnSlotService.unholdColumn(labelSlot);
     });
 
     it('is given back like a column slot and leaves the row unheld', () => {
         const { db, cardsService, groupSlot, effect } = createFixture();
         OIMEffectService.INSTANCE.disposeEffect(effect);
-        cardsService.unholdColumn(groupSlot);
+        cardsService.columnSlotService.unholdColumn(groupSlot);
         db.flush();
         expect(oimIsSlotReleased(groupSlot)).toBe(true);
     });

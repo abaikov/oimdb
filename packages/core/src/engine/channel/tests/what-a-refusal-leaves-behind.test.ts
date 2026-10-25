@@ -1,22 +1,23 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import type { TOIMComputedSlot } from '../../computed/types/TOIMComputedSlot';
-import { OIMSlotStoreServiceMapDriven } from '../../store/OIMSlotStoreServiceMapDriven';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
+import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; n: number };
 
 const effectService = OIMEffectService.INSTANCE;
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -48,7 +49,7 @@ describe('a throw out of onBeforeFlush', () => {
             onBeforeFlush: () => { if (handlerThrows) throw new Error('before-flush blew up'); },
         });
         const { rowsService, rows } = rowsOf(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 0 });
         db.flush();
         let runCount = 0;
         effectService.createEffect(db, [rowsService.getSlotByKey(rows, 'r1')!], [], () => { runCount++; });
@@ -98,7 +99,7 @@ describe('a throw out of onBeforeFlush', () => {
         const slot = rowsService.holdSlotByKey(rows, 'r1');
         let seen: number | undefined;
         effectService.createEffect(db, [slot], [], () => { seen = slot.entity?.n; });
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 0 });
 
         db.flush();
 
@@ -121,7 +122,7 @@ describe('a throw out of the scheduler', () => {
             },
         });
         const { rowsService, rows } = rowsOf(db);
-        rowsService.slotContentService.upsertEntities(rows, [{ id: 'r1', n: 0 }, { id: 'r2', n: 0 }]);
+        rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 0 }, { id: 'r2', n: 0 }]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         // Nothing is listening, so the fill asked for no frame at all: every arm
         // in these tests is one a write of the test's own made.
         db.flush();
@@ -159,7 +160,7 @@ describe('an effect a released source refuses part-way', () => {
     const createFixture =() => {
         const db = new OIMDB();
         const { rowsService, rows } = rowsOf(db);
-        rowsService.slotContentService.upsertEntities(rows, [{ id: 'r1', n: 0 }, { id: 'r2', n: 0 }]);
+        rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 0 }, { id: 'r2', n: 0 }]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
         return { db, rowsService, rows };
     };
@@ -189,20 +190,16 @@ describe('an effect a released source refuses part-way', () => {
     it('leaves no edge on a derivation it had already taken', () => {
         const { db, rowsService, rows } = createFixture();
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const doubledService = createOIMComputedService<void, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-            sameValueGuard: oimSameValueZeroGuard,
-            columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
-        });
+        const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
         const doubled = doubledService.createComputedStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [slot] }),
         );
-        const doubledSlot = doubledService.computedCollectionService.holdSlotByKey(doubled, undefined);
+        const doubledSlot = doubledService.computedSingleSlotService.holdSingleSlot(doubled);
         const derivationsService = createOIMComputedService<TOIMStoreKey, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedSlot<number, TOIMStoreKey>>(),
-            columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+            computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, TOIMStoreKey>>(),
+            columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
             createSources: () => ({}),
             derive: () => 0,
             sameValueGuard: oimSameValueZeroGuard,

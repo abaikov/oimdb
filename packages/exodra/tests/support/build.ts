@@ -1,50 +1,29 @@
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMBucketCommands,
-    OIMSlotStoreServiceMapDriven,
-    createOIMBucketService,
-    createOIMComputedServiceBucketMemo,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMBucketCommands, OIMSlotMapStoreService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '@oimdb/core';
 import type {
     TOIMBucketSlot,
     TOIMColumnSlot,
     TOIMEntitySlot,
     TOIMStoreKey,
     TOIMBucketSlotsArrayStore,
-    TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 export type TCard = { id: string; deckId: string; rank: number; title: string };
 
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createCardsService = (db: OIMDB) => createOIMEntityService<TCard>(db, {
-    keyOf: card => card.id,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createByDeckService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+const createByDeckService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
-const createRankedService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlot>() });
+const createRankedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
 
-const createBoardService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
->(db, {
-    slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({
+const createBoardService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
         bucketCommands: new OIMBucketCommands({}),
-    }),
-});
+    }) });
 
-const createRankedByDeckService = (cardsService: TCardsService) => (db: OIMDB) => createOIMIndexService(db, {
+const createRankedByDeckService = (cardsService: TCardsService) => (db: OIMDB) => createOIMSlotCollectionIndexService(db, {
     entityService: cardsService,
     keyOf: (card: TCard) => card.deckId,
 });
@@ -53,12 +32,12 @@ type TCardsService = ReturnType<typeof createCardsService>;
 type TRankedService = ReturnType<typeof createRankedService>;
 type TRankedByDeckService = ReturnType<ReturnType<typeof createRankedByDeckService>>;
 
-const createRankedOrdersService = (rankedByDeckService: TRankedByDeckService) => createOIMComputedServiceSorted({
+const createRankedOrdersService = (rankedByDeckService: TRankedByDeckService) => createOIMSortedComputedService({
     indexService: rankedByDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
 
-const createOrderService = (rankedService: TRankedService) => createOIMComputedServiceBucketMemo({
+const createOrderService = (rankedService: TRankedService) => createOIMBucketMemoComputedService({
     bucketCollectionService: rankedService,
 });
 
@@ -133,7 +112,7 @@ export function build(): TExoTestWorld {
             slotContentService.insertBucketMemberSlotAt(bucket, slotContentService.getBucketMemberSlotCount(bucket), slot);
         },
         slotOf: (card: TCard): TOIMEntitySlot<TCard, TOIMStoreKey> => {
-            cardsService.slotContentService.upsertEntity(cards, card);
+            cardsService.writeSlotContentByKey(cards, card.id, card);
             return find(card.id);
         },
         find,

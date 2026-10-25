@@ -5,43 +5,30 @@
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import type {
-    TOIMBucketSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMStoreKey,
-    TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore, TOIMSingleSlotStore, TOIMSlotStoreTree, TOIMStoreSlot,
+    TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey,
+    TOIMBucketSlotsSetStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMDefaults,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceSingleSlotDriven,
-    OIMSlotStoreServiceTreeDriven,
-    OIMUnusedSlotCollectorService,
-    createOIMBucketService,
-    createOIMComputedService,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    oimSameValueZeroGuard,
-} from '@oimdb/core';
-import type { OIMSlotContentBucketServiceArrayDriven } from '@oimdb/core';
+import { OIMDB, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
 import type { TOIMBinding } from '../src/index';
 import {
     OIMDBProvider, useOIMEntity, useOIMField, useOIMBucketSlotsByKey, useOIMBucketSlots, useOIMValue,
 } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TDeck = { id: string };
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TCards = TOIMStoreSlot<Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMEntitySlot<TCard, TOIMStoreKey>, Partial<TCard>>;
 
-const createCardsService = (db: OIMDB) => createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 type TCardsService = ReturnType<typeof createCardsService>;
 
-const createByDeckArrayService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
->(db);
+const createByDeckArrayService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 
-const createByDeckSetService = (db: OIMDB) => createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+const createByDeckSetService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 function build(): { db: OIMDB; cardsService: TCardsService; cards: TCards } {
     const db = new OIMDB();
@@ -67,10 +54,10 @@ const wrap = (db: OIMDB) =>
 describe('binding one row', () => {
     it('re-renders that row and no other', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 },
             { id: 'c2', deckId: 'd1', title: 'beta', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
         const renders: Record<string, number> = { c1: 0, c2: 0 };
@@ -95,7 +82,7 @@ describe('binding one row', () => {
         // never moves and anything comparing values would conclude nothing
         // happened.
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         const stored = slotOf(cardsService, cards, 'c1').entity;
 
@@ -113,7 +100,7 @@ describe('binding one row', () => {
 
     it('renders once for many writes in one frame', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'a', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'a', rank: 1 });
         db.flush();
         let renders = 0;
         function Row(): React.ReactElement {
@@ -135,7 +122,7 @@ describe('binding one row', () => {
 
     it('does not render for a write that changed nothing', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'a', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'a', rank: 1 });
         db.flush();
         let renders = 0;
         function Row(): React.ReactElement {
@@ -170,7 +157,7 @@ describe('binding one row', () => {
 describe('binding one field', () => {
     it('re-renders for that field and not for a sibling', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         const slot = slotOf(cardsService, cards, 'c1');
 
@@ -198,21 +185,21 @@ describe('binding a list', () => {
         const { db, cardsService, cards } = build();
         const byDeckService = createByDeckArrayService(db);
         const byDeck = byDeckService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', rank: 2 },
             { id: 'c2', deckId: 'd1', title: 'beta', rank: 1 },
             { id: 'c3', deckId: 'd2', title: 'gamma', rank: 1 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         // Held for the whole test: this is the caller resolving a bucket outside
         // React, which `useOIMBucketSlots` is the hook for.
         const heldSlot = byDeckService.holdSlotByKey(byDeck, 'd1');
         const bucket = heldSlot;
         const file = (...ids: readonly string[]): void => {
-            byDeckService.slotContentService.writeBucketMemberSlots(bucket, ids.map(id => slotOf(cardsService, cards, id)));
+            byDeckService.slotContentService.writeSlotContent(bucket, ids.map(id => slotOf(cardsService, cards, id)));
         };
         file('c2', 'c1');
         const d2Slot = byDeckService.holdSlotByKey(byDeck, 'd2');
-        byDeckService.slotContentService.writeBucketMemberSlots(d2Slot, [slotOf(cardsService, cards, 'c3')]);
+        byDeckService.slotContentService.writeSlotContent(d2Slot, [slotOf(cardsService, cards, 'c3')]);
         db.flush();
 
         let renders = 0;
@@ -239,7 +226,7 @@ describe('binding a list', () => {
         // collection and leaves the bucket's slots alone, so the departure is one
         // call about the row and one about the bucket.
         act(() => {
-            cardsService.slotContentService.upsertEntity(cards, { id: 'c4', deckId: 'd1', title: 'delta', rank: 5 });
+            cardsService.writeSlotContentByKey(cards, 'c4', { id: 'c4', deckId: 'd1', title: 'delta', rank: 5 });
             file('c1', 'c2', 'c4');
             db.flush();
         });
@@ -247,7 +234,7 @@ describe('binding a list', () => {
         act(() => {
             const c2 = slotOf(cardsService, cards, 'c2');
             file('c1', 'c4');
-            cardsService.slotContentService.deleteEntity(c2);
+            cardsService.slotContentService.clearSlotContent(c2);
             db.flush();
         });
         expect(screen.getByTestId('list').textContent).toBe('c1,c4');
@@ -267,9 +254,9 @@ describe('what a hook needs above it', () => {
         const { db, cardsService, cards } = build();
         const byDeckService = createByDeckSetService(db);
         const byDeck = byDeckService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         const everyCardSlot = byDeckService.holdSlotByKey(byDeck, 'all');
-        byDeckService.slotContentService.writeBucketMemberSlots(everyCardSlot, [slotOf(cardsService, cards, 'c1')]);
+        byDeckService.slotContentService.writeSlotContent(everyCardSlot, [slotOf(cardsService, cards, 'c1')]);
         db.flush();
         const slot = slotOf(cardsService, cards, 'c1');
 
@@ -311,12 +298,12 @@ describe('binding a group resolved outside React', () => {
         const byDeck = byDeckService.createStoreSlot(db);
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
         const heartsSlot = byDeckService.holdSlotByKey(byDeck, 'hearts');
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'spades', title: 'ace', rank: 1 },
             { id: 'c2', deckId: 'hearts', title: 'king', rank: 2 },
-        ]);
-        byDeckService.slotContentService.writeBucketMemberSlots(spadesSlot, [slotOf(cardsService, cards, 'c1')]);
-        byDeckService.slotContentService.writeBucketMemberSlots(heartsSlot, [slotOf(cardsService, cards, 'c2')]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        byDeckService.slotContentService.writeSlotContent(spadesSlot, [slotOf(cardsService, cards, 'c1')]);
+        byDeckService.slotContentService.writeSlotContent(heartsSlot, [slotOf(cardsService, cards, 'c2')]);
         db.flush();
 
         let renders = 0;
@@ -337,8 +324,8 @@ describe('binding a group resolved outside React', () => {
         // one it joined.
         act(() => {
             updateCard(cardsService, cards, 'c2', { deckId: 'spades' });
-            byDeckService.slotContentService.clearBucketMemberSlots(heartsSlot);
-            byDeckService.slotContentService.writeBucketMemberSlots(
+            byDeckService.slotContentService.clearSlotContent(heartsSlot);
+            byDeckService.slotContentService.writeSlotContent(
                 spadesSlot, [slotOf(cardsService, cards, 'c1'), slotOf(cardsService, cards, 'c2')],
             );
             db.flush();
@@ -359,10 +346,10 @@ describe('one key, one identity', () => {
      */
     it('tells two components on one key, and follows a key that moves', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 },
             { id: 'c2', deckId: 'd1', title: 'beta', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
         let moving = 0;
@@ -405,7 +392,7 @@ describe('one key, one identity', () => {
 /**
  * A KEY THAT IS REBUILT ON EVERY RENDER.
  *
- * A bucket collection over an `OIMSlotStoreServiceTreeDriven` is keyed by a
+ * A bucket collection over an `OIMSlotTreeStoreService` is keyed by a
  * `readonly TOIMEntitySlot[]`, and the natural call site builds it inline —
  * there is no spelling of `[deckSlot, daySlot]` that keeps its identity across
  * renders.
@@ -430,24 +417,18 @@ describe('a composite key, rebuilt inline on every render', () => {
     const setup = () => {
         const db = new OIMDB();
         const write = createOIMEntityWriterInPlace();
-        const decksService = createOIMEntityService<TDeck>(db, { keyOf: deck => deck.id });
+        const decksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDeck>(db) });
         const decks = decksService.createStoreSlot(db);
-        const daysService = createOIMEntityService<TDay>(db, { keyOf: day => day.id });
+        const daysService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDay>(db) });
         const days = daysService.createStoreSlot(db);
-        const datedService = createOIMEntityService<TDated>(db, { keyOf: card => card.id, entityWriter: write });
+        const datedService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDated>(db, { entityWriter: write }) });
         const dated = datedService.createStoreSlot(db);
-        const byDeckAndDayService = createOIMBucketService<
-            TDatedSlot, TChain, TOIMBucketSlotsSetStore<TDatedSlot>, OIMSlotContentBucketServiceSetDriven<TDatedSlot>,
-            TOIMSlotStoreTree<TByDeckAndDaySlot, TOIMEntitySlot>
-        >(db, {
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TDatedSlot>(),
-            bucketSlotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TByDeckAndDaySlot>(
+        const byDeckAndDayService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
                 OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
-            ),
-        });
+            ) });
         const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
-        decksService.slotContentService.upsertEntities(decks, [{ id: 'spades' }, { id: 'hearts' }, { id: 'clubs' }]);
-        daysService.slotContentService.upsertEntities(days, [{ id: 'mon' }, { id: 'tue' }, { id: 'sat' }]);
+        decksService.writeInBatch(decks, () => ([{ id: 'spades' }, { id: 'hearts' }, { id: 'clubs' }]).map(entity => decksService.writeSlotContentByKey(decks, entity.id, entity)));
+        daysService.writeInBatch(days, () => ([{ id: 'mon' }, { id: 'tue' }, { id: 'sat' }]).map(entity => daysService.writeSlotContentByKey(days, entity.id, entity)));
 
         const chain = (deckId: string, day: string): TChain =>
             [decksService.getSlotByKey(decks, deckId), daysService.getSlotByKey(days, day)];
@@ -459,7 +440,7 @@ describe('a composite key, rebuilt inline on every render', () => {
         const holds = new Map<string, TByDeckAndDaySlot>();
         const put = (...rows: readonly TDated[]): void => {
             for (const row of rows) present.set(row.id, row);
-            datedService.slotContentService.upsertEntities(dated, rows);
+            datedService.writeInBatch(dated, () => (rows).map(entity => datedService.writeSlotContentByKey(dated, entity.id, entity)));
             const touched = new Map<string, readonly [string, string]>();
             for (const row of rows) touched.set(`${row.deckId}/${row.day}`, [row.deckId, row.day]);
             for (const [deckId, day] of touched.values()) {
@@ -471,7 +452,7 @@ describe('a composite key, rebuilt inline on every render', () => {
                 // Held for the life of the test, so an empty bucket is not
                 // unfiled between two writes of the same run.
                 if (!holds.has(at)) holds.set(at, byDeckAndDayService.holdSlotByKey(byDeckAndDay, chain(deckId, day)));
-                byDeckAndDayService.slotContentService.writeBucketMemberSlots(
+                byDeckAndDayService.slotContentService.writeSlotContent(
                     byDeckAndDayService.getSlotByKey(byDeckAndDay, chain(deckId, day)), matching,
                 );
             }
@@ -559,13 +540,12 @@ describe('a composite key, rebuilt inline on every render', () => {
 describe('binding a derived value', () => {
     it('renders a computed and only when its value moved', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         // Held for the life of the test: the computed takes no hold of its
         // own, so the row is kept by whoever resolved it.
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
-        const lengthService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
+        const lengthService = createOIMSingleComputedService<number>({
             sameValueGuard: oimSameValueZeroGuard,
         });
         const length = lengthService.createComputedStoreSlot(
@@ -573,10 +553,10 @@ describe('binding a derived value', () => {
             () => (cardSlot.entity?.title ?? '').length,
             () => ({ sourceSlots: [cardSlot] }),
         );
-        const lengthSlot = lengthService.computedCollectionService.holdSlotByKey(length, undefined);
+        const lengthSlot = lengthService.computedSingleSlotService.holdSingleSlot(length);
         const binding: TOIMBinding<number> = {
             sourceComputeds: [lengthSlot],
-            derive: () => lengthService.computedCollectionService.slotContentService.getValueForSlot(lengthSlot),
+            derive: () => lengthSlot.computedValueService.getValueForSlot(lengthSlot),
         };
 
         let renders = 0;

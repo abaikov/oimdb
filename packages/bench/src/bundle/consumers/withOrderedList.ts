@@ -3,19 +3,13 @@
 // The difference contains the diff module AND the call site below; the call site is NOT
 // subtracted, because the comparison is between two applications, not two module graphs.
 // `held` is exported because an entry point's exports are the one thing tree-shaking may not remove.
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-} from '../../../../core/src/index';
-import type { TOIMColumnSlot, TOIMStoreKey } from '../../../../core/src/index';
-import {
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-} from '../../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotMapStoreService } from '../../../../core/src/index';
+import type { TOIMBucketSlot, TOIMColumnSlot, TOIMStoreKey } from '../../../../core/src/index';
+import { OIMSlotContentSetBucketService } from '../../../../core/src/index';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot } from '../../../../core/src/index';
 import { oimOrderedListCommandsOfTransition } from '../../../../core/src/index';
+import { createOIMSlotContentEntityService } from '../../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../../core/src/index';
 
 type TCard = { id: string; deckId: string; rank: number; title: string };
 
@@ -25,24 +19,15 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMEntityService<TCard>(db, {
-    keyOf: card => card.id,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
-const bucketService = createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, {
-    bucketSlotStoreService: new OIMSlotStoreServiceMapDriven(),
-    slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const bucketStoreSlot = bucketService.createStoreSlot(db);
 bucketService.holdSlotByKey(bucketStoreSlot, 'spades');
 const spadesSlot = bucketService.getSlotByKey(bucketStoreSlot, 'spades');
-const ace = entityService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
+const ace = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
 db.flush();
-bucketService.slotContentService.writeBucketMemberSlots(spadesSlot, [ace]);
+bucketService.slotContentService.writeSlotContent(spadesSlot, [ace]);
 
 held.push(effectService.createEffect(db, [spadesSlot], [], () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);

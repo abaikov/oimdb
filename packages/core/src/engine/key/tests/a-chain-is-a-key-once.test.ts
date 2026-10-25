@@ -1,32 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceTreeDriven } from '../../store/OIMSlotStoreServiceTreeDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
+import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMSlotStoreTree } from '../../store/types/TOIMSlotStoreTree';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; day: string; title: string };
 type TNamed = { id: string };
 type TChain = readonly TOIMEntitySlot[];
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TChainBucket = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TChain>;
-type TChainBucketStore = TOIMSlotStoreTree<TChainBucket, TOIMEntitySlot>;
-type TTallySlot = TOIMEntitySlot<TTally, TScalarChain>;
-type TTallyStore = TOIMSlotStoreTree<TTallySlot, TOIMStoreKey>;
 
 /** The other arm's key, and the row it addresses. */
 type TScalarChain = readonly TOIMStoreKey[];
 type TTally = { deck: TOIMStoreKey; day: TOIMStoreKey; count: number };
 
-const createNamedService = (db: OIMDB) => createOIMEntityService<TNamed>(db, { keyOf: (item) => item.id });
+const createNamedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed>(db) });
 type TNamedService = ReturnType<typeof createNamedService>;
 type TNamedStoreSlot = ReturnType<TNamedService['createStoreSlot']>;
 
@@ -54,12 +49,7 @@ const createFixture =() => {
  * aggregate every keyed question is asked of.
  */
 const chainBucketsOver = (db: OIMDB) => {
-    const indexService = createOIMBucketService<
-        TCardSlot, TChain, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>, TChainBucketStore
-    >(db, {
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
-        bucketSlotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TChainBucket>(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()),
-    });
+    const indexService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TChainBucket>(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()) });
     const index = indexService.createStoreSlot(db);
     // Kept for the reason `segment` keeps its own: an empty bucket nothing holds
     // is unfiled the moment it is made.
@@ -158,7 +148,7 @@ describe('a chain is a key once', () => {
  * A CHAIN OF SCALARS IS AN ADDRESS ONCE — the OTHER arm of the same fork, asked
  * the same questions.
  *
- * `OIMSlotStoreServiceTreeDriven` over `OIMDefaults.KEY_TREE_WALK_SCALAR` files a key made of VALUES,
+ * `OIMSlotTreeStoreService` over `OIMDefaults.KEY_TREE_WALK_SCALAR` files a key made of VALUES,
  * `['spades', 'mon']`, and it is a second WALK rather than a widening of the
  * first because the two differ in what keeps a branch: an identity segment is
  * HELD, because another collection owns it and may forget it, and a value
@@ -199,24 +189,20 @@ describe('a chain of scalars is a key once', () => {
 
     const tallies = () => {
         const db = new OIMDB();
-        const rowsService = createOIMEntityService<TTally, TOIMEntityColumnName<TTally>, TScalarChain, TTallyStore>(db, {
-            entitySlotStoreService:
-                new OIMSlotStoreServiceTreeDriven<TOIMStoreKey, TOIMEntitySlot<TTally, TScalarChain>>(
+        const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTally, TScalarChain>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<TTally, TScalarChain>>(
                     OIMDefaults.KEY_TREE_WALK_SCALAR.getValue(),
-                ),
-            keyOf: (tally: TTally) => [tally.deck, tally.day],
-        });
+                ) });
         return { rowsService, rows: rowsService.createStoreSlot(db) };
     };
 
     it('answers with the same slot for a list rebuilt from the same values', () => {
         const { rowsService, rows } = tallies();
-        const first = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: 'mon', count: 1 });
+        const first = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: 'mon', count: 1 }), { deck: 'spades', day: 'mon', count: 1 });
 
         // A freshly built list of the same values — no interning anywhere.
         expect(rowsService.getSlotByKey(rows,['spades', 'mon'])).toBe(first);
 
-        const other = rowsService.slotContentService.upsertEntity(rows, { deck: 'hearts', day: 'mon', count: 1 });
+        const other = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'hearts', day: 'mon', count: 1 }), { deck: 'hearts', day: 'mon', count: 1 });
         expect(other).not.toBe(first);
         expect(rowsService.getSlotByKey(rows,['spades', 'mon'])).toBe(first);
         expect(rowsService.getSlotCount(rows)).toBe(2);
@@ -229,9 +215,9 @@ describe('a chain of scalars is a key once', () => {
      */
     it('keeps a chain, its prefix and a same-looking segment apart', () => {
         const { rowsService, rows } = tallies();
-        const pair = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: 'mon', count: 1 });
-        const numbered = rowsService.slotContentService.upsertEntity(rows, { deck: 1, day: 'mon', count: 1 });
-        const stringy = rowsService.slotContentService.upsertEntity(rows, { deck: '1', day: 'mon', count: 1 });
+        const pair = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: 'mon', count: 1 }), { deck: 'spades', day: 'mon', count: 1 });
+        const numbered = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 1, day: 'mon', count: 1 }), { deck: 1, day: 'mon', count: 1 });
+        const stringy = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: '1', day: 'mon', count: 1 }), { deck: '1', day: 'mon', count: 1 });
 
         expect(numbered).not.toBe(stringy);
 
@@ -251,11 +237,11 @@ describe('a chain of scalars is a key once', () => {
     it('is not moved by a caller refilling the array it was resolved from', () => {
         const { rowsService, rows } = tallies();
         const buffer: TOIMStoreKey[] = ['spades', 'mon'];
-        const onMonday = rowsService.slotContentService.insertEntity(rows, buffer, { deck: 'spades', day: 'mon', count: 1 });
+        const onMonday = rowsService.writeSlotContentByKey(rows, buffer, { deck: 'spades', day: 'mon', count: 1 });
 
         // The caller reuses their buffer, which is the supported thing to do.
         buffer[1] = 'tue';
-        const onTuesday = rowsService.slotContentService.insertEntity(rows, buffer, { deck: 'spades', day: 'tue', count: 1 });
+        const onTuesday = rowsService.writeSlotContentByKey(rows, buffer, { deck: 'spades', day: 'tue', count: 1 });
         expect(onTuesday).not.toBe(onMonday);
 
         expect(rowsService.getSlotByKey(rows,['spades', 'mon'])).toBe(onMonday);
@@ -264,7 +250,7 @@ describe('a chain of scalars is a key once', () => {
 
     it('finds a slot only at the chain it is at', () => {
         const { rowsService, rows } = tallies();
-        const onMonday = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: 'mon', count: 1 });
+        const onMonday = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: 'mon', count: 1 }), { deck: 'spades', day: 'mon', count: 1 });
 
         expect(rowsService.getSlotByKey(rows,['spades', 'mon'])).toBe(onMonday);
 
@@ -286,7 +272,7 @@ describe('a chain of scalars is a key once', () => {
      */
     it('files a NaN segment where a reference comparison would lose it', () => {
         const { rowsService, rows } = tallies();
-        const unknownDay = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: Number.NaN, count: 1 });
+        const unknownDay = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: Number.NaN, count: 1 }), { deck: 'spades', day: Number.NaN, count: 1 });
 
         expect(rowsService.getSlotByKey(rows,['spades', Number.NaN])).toBe(unknownDay);
         expect(byReference(unknownDay.key, ['spades', Number.NaN])).toBe(false);
@@ -294,7 +280,7 @@ describe('a chain of scalars is a key once', () => {
 
         // And `-0` is `0` here, as it is to a `Map` — the value `Object.is`
         // would have separated, trading this defect for the same one elsewhere.
-        const zeroDay = rowsService.slotContentService.upsertEntity(rows, { deck: 'clubs', day: 0, count: 1 });
+        const zeroDay = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'clubs', day: 0, count: 1 }), { deck: 'clubs', day: 0, count: 1 });
         expect(rowsService.getSlotByKey(rows,['clubs', -0])).toBe(zeroDay);
     });
 
@@ -302,17 +288,17 @@ describe('a chain of scalars is a key once', () => {
     // private; it is measured on the service in what-a-composite-key-resolves-to.
     it('keeps a shared prefix while a sibling needs it, and lets the last key go', () => {
         const { rowsService, rows } = tallies();
-        const monday = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: 'mon', count: 1 });
-        const tuesday = rowsService.slotContentService.upsertEntity(rows, { deck: 'spades', day: 'tue', count: 1 });
+        const monday = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: 'mon', count: 1 }), { deck: 'spades', day: 'mon', count: 1 });
+        const tuesday = rowsService.writeSlotContentByKey(rows, ((tally: TTally) => [tally.deck, tally.day])({ deck: 'spades', day: 'tue', count: 1 }), { deck: 'spades', day: 'tue', count: 1 });
         expect(rowsService.getSlotCount(rows)).toBe(2);
 
-        rowsService.slotContentService.deleteEntity(monday);
+        rowsService.slotContentService.clearSlotContent(monday);
         expect(oimIsSlotReleased(monday)).toBe(true);
         // The shared prefix is still standing, because the other key needs it.
         expect(rowsService.getSlotByKey(rows,['spades', 'tue'])).toBe(tuesday);
         expect(rowsService.getSlotCount(rows)).toBe(1);
 
-        rowsService.slotContentService.deleteEntity(tuesday);
+        rowsService.slotContentService.clearSlotContent(tuesday);
         expect(oimIsSlotReleased(tuesday)).toBe(true);
         expect(rowsService.getSlotCount(rows)).toBe(0);
     });

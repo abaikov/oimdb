@@ -106,7 +106,7 @@ update.column-vs-field-store-a-patch-per-write   [per write]   7.82x
   unchanged row's `ours` is exactly what a write that MOVES a column does and a write that
   moves nothing does not: one store into the entity, the moved-names array and its push, two
   `channel.write` calls — the row and the population — one `columnSlotStoreService.get` probe
-  for the moved column inside `OIMColumnOwner.markColumnsChanged`, and the frame that closes
+  for the moved column inside `OIMColumnSlotOwner.markColumnsChanged`, and the frame that closes
   the batch. EIGHT PATCH ARRAYS, ONE PER TITLE, so this row moves the column on exactly the
   writes the row above moves it on. The title advances by one of eight per batch and every row
   in a batch is written with the same title, which is the row above's rotation with the shared
@@ -146,7 +146,7 @@ update.column-vs-field-store-and-the-listener-guards   [per write]   5.27x
   ours   collection.updateEntity(slot, patch) — one column, no index reads it
   floor  test the row for a column store and the population for listeners, then row.title = value
   THE TWO "IS ANYBODY LISTENING" GUARDS, PUT ON THE FLOOR. A write that moves a column asks
-  two questions before it can skip the routing: `OIMColumnOwner.markColumnsChanged` tests
+  two questions before it can skip the routing: `OIMColumnSlotOwner.markColumnsChanged` tests
   `carrierSlot.columnSlotStore === undefined` (no column of this row was ever subscribed to),
   and `OIMSlotAggregate.contentChanged` tests `listeners.length === 0` (no index hears this
   population). Both hold on every row of this fixture. Inside `update.column-vs-field-store`

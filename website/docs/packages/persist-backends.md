@@ -20,14 +20,12 @@ and what a backend of your own owes.
 </InShort>
 
 ```ts setup
-import {
-  OIMDB, createOIMEntityService, createOIMEntityWriterInPlace, createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
-  OIMPersistCodecIdentity, OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven,
-  OIMPersistResourceRecords, OIMPersistResourceSnapshot, OIMPersistSchedulerMicrotaskDriven,
-  OIMPersistSnapshotSourceSingleEntityDriven, OIMPersistor,
+  OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource,
+  OIMPersistRecordsResource, OIMPersistSnapshotResource, OIMPersistMicrotaskScheduler,
+  OIMPersistSingleEntitySnapshotSource, OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistRecords } from '@oimdb/persist';
 
@@ -41,26 +39,23 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
   entityWriter: createOIMEntityWriterInPlace(),
 });
-const cardCollectionService = createOIMEntityService<TCard>(db, {
-  keyOf: card => card.id,
-  entityWriter: persistEntityWriter,
-});
+const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 
-const settingsSingleEntityService = createOIMSingleEntityService<TSettings>(db);
+const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
-settingsSingleEntityService.slotContentService.upsertEntity(settingsEntityStoreSlot, { theme: 'dark' });
+settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'dark' });
 ```
 
 ## Choosing a backend
 
 | package | backend | snapshot strategies | records strategy | one commit is |
 |---|---|---|---|---|
-| `@oimdb/persist-idb` | `OIMPersistIndexedDbBackend` | `OIMPersistIndexedDbSnapshotStrategy` | `OIMPersistIndexedDbRecordsStrategy` | one `readwrite` transaction over every table the batch touched |
-| `@oimdb/persist-localstorage` | `OIMPersistLocalStorageBackend` | `OIMPersistKeyValueEntryStrategy`, `OIMPersistKeyValuePathStrategy` | none | one `setItem` per storage key the batch wrote, one `removeItem` per key it removed, plus one `getItem` per stored root a path strategy needs |
+| `@oimdb/persist-idb` | `OIMPersistIndexedDbBackend` | `OIMPersistIndexedDbSnapshotService` | `OIMPersistIndexedDbRecordsService` | one `readwrite` transaction over every table the batch touched |
+| `@oimdb/persist-localstorage` | `OIMPersistLocalStorageKeyValueBackend` | `OIMPersistKeyValueEntrySnapshotService`, `OIMPersistKeyValuePathSnapshotService` | none | one `setItem` per storage key the batch wrote, one `removeItem` per key it removed, plus one `getItem` per stored root a path strategy needs |
 | `@oimdb/persist-async-kv` | `OIMPersistKeyValueBackend` over `OIMPersistAsyncKVStorage` | the same two | none | one `multiSet` and one `multiRemove`, plus one `multiGet` when a path strategy needs a stored root |
-| `@oimdb/persist-memory` | `OIMPersistMemoryBackend` | `OIMPersistMemorySnapshotStrategy` | `OIMPersistMemoryRecordsStrategy` | the batch's changes applied in order, synchronously |
-| `@oimdb/persist-json` | `OIMPersistJsonBackend` | the memory ones | the memory one | the same as memory |
+| `@oimdb/persist-memory` | `OIMPersistMemoryBackend` | `OIMPersistMemorySnapshotService` | `OIMPersistMemoryRecordsService` | the batch's changes applied in order, synchronously |
+| `@oimdb/persist-json` | `OIMPersistJsonMemoryBackend` | the memory ones | the memory one | the same as memory |
 
 The key-value strategies, the key-value backend and the item-driven storage live in
 `@oimdb/persist` itself, because `@oimdb/persist-localstorage` and
@@ -69,38 +64,38 @@ store.
 
 **There is no key-value records strategy.** Nothing keeps one storage key per
 entity on `localStorage` or an async key-value store, so a collection there goes
-into `OIMPersistResourceSnapshot` and every write batch that carries it rewrites
+into `OIMPersistSnapshotResource` and every write batch that carries it rewrites
 the whole collection, O(entities). For a large collection that changes a few
-entities at a time, take IndexedDB with `OIMPersistResourceRecords`.
+entities at a time, take IndexedDB with `OIMPersistRecordsResource`.
 
 ## IndexedDB
 
 ```ts
 import {
-  OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy, OIMPersistIndexedDbSnapshotStrategy,
+  OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService, OIMPersistIndexedDbSnapshotService,
 } from '@oimdb/persist-idb';
 
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'app' }),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
   onPersistError: (error, { persistOperation }) => console.error(persistOperation, error),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TCard>({ tableName: 'cards' }),
+  persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TCard>({ tableName: 'cards' }),
 }));
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource({
     channelMap: db,
     singleSlotService: settingsSingleEntityService,
     entityStoreSlot: settingsEntityStoreSlot,
   }),
-  persistSnapshotStrategy: new OIMPersistIndexedDbSnapshotStrategy<TSettings>({ tableName: 'settings', primaryKey: 'current' }),
-  persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+  persistSnapshotService: new OIMPersistIndexedDbSnapshotService<TSettings>({ tableName: 'settings', primaryKey: 'current' }),
+  persistCodec: new OIMPersistIdentityCodec<TSettings>(),
 }));
 
 await persistor.hydrate();
@@ -112,7 +107,7 @@ and an optional `indexedDb` (an `IDBFactory`, for example `fake-indexeddb` in a
 test). Without `indexedDb` it uses `globalThis.indexedDB`, and the constructor
 throws where there is none.
 
-- `OIMPersistIndexedDbRecordsStrategy({ tableName })` keeps one IndexedDB record per
+- `OIMPersistIndexedDbRecordsService({ tableName })` keeps one IndexedDB record per
   entity, under the entity's key. Autosave puts each changed entity and deletes
   each removed key: O(changed keys) per write batch. `persist()` clears the table
   and puts every entity, or, while the resource has unloaded keys, only puts every
@@ -120,7 +115,7 @@ throws where there is none.
   O(entities). A `load` reads only its keys, through `readRecordsOfKeys`: one
   `readonly` transaction with one `get` per key, O(keys loaded); a key the table
   does not hold is left out.
-- `OIMPersistIndexedDbSnapshotStrategy({ tableName, primaryKey })` keeps one value under
+- `OIMPersistIndexedDbSnapshotService({ tableName, primaryKey })` keeps one value under
   one primary key. A plain-object primary key is stored as a string address built
   with its property names sorted, so the same object key matches whichever order
   its properties were written in.
@@ -140,34 +135,34 @@ write with a `DataCloneError`.
 ## localStorage
 
 ```ts
-import { OIMPersistKeyValuePathStrategy } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '@oimdb/persist-localstorage';
+import { OIMPersistKeyValuePathSnapshotService } from '@oimdb/persist';
+import { OIMPersistLocalStorageKeyValueBackend } from '@oimdb/persist-localstorage';
 
 const persistor = new OIMPersistor({
-  persistBackend: new OIMPersistLocalStorageBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistBackend: new OIMPersistLocalStorageKeyValueBackend(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValuePathStrategy<TCardRecords>({ storageKey: 'app', path: ['cards'] }),
-  persistCodec: new OIMPersistCodecIdentity<TCardRecords>(),
+  persistSnapshotService: new OIMPersistKeyValuePathSnapshotService<TCardRecords>({ storageKey: 'app', path: ['cards'] }),
+  persistCodec: new OIMPersistIdentityCodec<TCardRecords>(),
 }));
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource({
     channelMap: db,
     singleSlotService: settingsSingleEntityService,
     entityStoreSlot: settingsEntityStoreSlot,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: ['settings'] }),
-  persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+  persistSnapshotService: new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: ['settings'] }),
+  persistCodec: new OIMPersistIdentityCodec<TSettings>(),
 }));
 ```
 
-`OIMPersistLocalStorageBackend` takes an optional `persistKeyValueItemStorage`, a
+`OIMPersistLocalStorageKeyValueBackend` takes an optional `persistKeyValueItemStorage`, a
 `TOIMPersistKeyValueItemStorage` (any object with `getItem`, `setItem` and
 `removeItem`; by default `globalThis.localStorage`, and the constructor throws
 where there is none, such as on a server), and an optional
@@ -177,9 +172,9 @@ cycle or a `BigInt`, fails the write.
 
 The two key-value strategies:
 
-- `OIMPersistKeyValueEntryStrategy({ storageKey })` owns its key: the whole value
+- `OIMPersistKeyValueEntrySnapshotService({ storageKey })` owns its key: the whole value
   under one storage key. A batch that writes it does not read what is stored there.
-- `OIMPersistKeyValuePathStrategy({ storageKey, path })` writes the value at a
+- `OIMPersistKeyValuePathSnapshotService({ storageKey, path })` writes the value at a
   nested `path` inside a root object that other resources may share, as both
   resources above share `app`. The batch reads each such root once, applies every
   path change aimed at it in order, and writes it once, so two resources in one
@@ -194,7 +189,7 @@ A hydrate of a path strategy reads the whole root and walks the path.
 ## An async key-value store
 
 ```ts
-import { OIMPersistKeyValueBackend, OIMPersistKeyValueEntryStrategy } from '@oimdb/persist';
+import { OIMPersistKeyValueBackend, OIMPersistKeyValueEntrySnapshotService } from '@oimdb/persist';
 import { OIMPersistAsyncKVStorage } from '@oimdb/persist-async-kv';
 import type { TOIMPersistAsyncKVMultiStorage } from '@oimdb/persist-async-kv';
 
@@ -204,16 +199,16 @@ const persistor = new OIMPersistor({
   persistBackend: new OIMPersistKeyValueBackend({
     persistKeyValueStorage: new OIMPersistAsyncKVStorage({ persistAsyncKVMultiStorage }),
   }),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TCardRecords>({ storageKey: 'cards' }),
-  persistCodec: new OIMPersistCodecIdentity<TCardRecords>(),
+  persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TCardRecords>({ storageKey: 'cards' }),
+  persistCodec: new OIMPersistIdentityCodec<TCardRecords>(),
 }));
 ```
 
@@ -226,30 +221,30 @@ and the same optional `persistKeyValueSerializer` on `OIMPersistKeyValueBackend`
 ## Memory
 
 ```ts
-import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsStrategy } from '@oimdb/persist-memory';
+import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
 
 const persistMemoryBackend = new OIMPersistMemoryBackend();
 const persistor = new OIMPersistor({
   persistBackend: persistMemoryBackend,
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 
-cardCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'one' });
+cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'one' });
 await persistor.persist();
 const storedPersistRecords = persistMemoryBackend.readRecords('cards');
 ```
 
 `OIMPersistMemoryBackend` keeps a snapshot value per storage key
-(`OIMPersistMemorySnapshotStrategy({ storageKey })`) and a map of entities per storage key
-(`OIMPersistMemoryRecordsStrategy({ storageKey })`), and `readSnapshotValue` and
+(`OIMPersistMemorySnapshotService({ storageKey })`) and a map of entities per storage key
+(`OIMPersistMemoryRecordsService({ storageKey })`), and `readSnapshotValue` and
 `readRecords` read them back. A `load` goes through `readRecordsOfKeys`, which
 looks each key up in the storage key's map and copies nothing else. It is the
 backend for tests, and the base of the JSON backend.
@@ -262,7 +257,7 @@ that moment.
 
 ## JSON, for server-side rendering
 
-`OIMPersistJsonBackend` is the memory backend plus a way out and a way in:
+`OIMPersistJsonMemoryBackend` is the memory backend plus a way out and a way in:
 `dehydrate()` returns a `TOIMPersistJsonDump`
 (`{ snapshotValues, recordsByStorageKey }`), and `initialPersistJsonDump` hands
 the same shape back at construction. It takes the memory strategies.
@@ -271,50 +266,50 @@ On the server, a persistor needs no `start()`: `persist()` writes every resource
 once.
 
 ```ts
-import { OIMPersistMemoryRecordsStrategy } from '@oimdb/persist-memory';
-import { OIMPersistJsonBackend } from '@oimdb/persist-json';
+import { OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
+import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
 
-const persistJsonBackend = new OIMPersistJsonBackend();
+const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
 const persistor = new OIMPersistor({
-  persistBackend: persistJsonBackend,
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistBackend: persistJsonMemoryBackend,
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 
-cardCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'one' });
+cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'one' });
 await persistor.persist();
-const jsonPersistDumpText = JSON.stringify(persistJsonBackend.dehydrate());
+const jsonPersistDumpText = JSON.stringify(persistJsonMemoryBackend.dehydrate());
 ```
 
 On the client, the same resources over a backend built from the dump:
 
 ```ts
-import { OIMPersistMemoryRecordsStrategy } from '@oimdb/persist-memory';
-import { OIMPersistJsonBackend } from '@oimdb/persist-json';
+import { OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
+import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
 import type { TOIMPersistJsonDump } from '@oimdb/persist-json';
 
 declare const jsonPersistDumpText: string;
 
 const persistor = new OIMPersistor({
-  persistBackend: new OIMPersistJsonBackend({
+  persistBackend: new OIMPersistJsonMemoryBackend({
     initialPersistJsonDump: JSON.parse(jsonPersistDumpText) as TOIMPersistJsonDump,
   }),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 
 await persistor.hydrate();
@@ -337,9 +332,9 @@ A backend is three things:
   delta as upserts, then deletions;
 - the backend, `IOIMPersistBackend<TWriteBatch>`: `createWriteBatch()`, plus
   whatever its strategies read through;
-- strategies: `IOIMPersistSnapshotStrategy` (`readSnapshot`, `writeSnapshot`,
+- strategies: `IOIMPersistSnapshotService` (`readSnapshot`, `writeSnapshot`,
   `deleteSnapshot`), and, for a backend that can store one value per key,
-  `IOIMPersistRecordsStrategy` (`readRecords`, `readRecordsOfKeys`, `writeRecords`,
+  `IOIMPersistRecordsService` (`readRecords`, `readRecordsOfKeys`, `writeRecords`,
   `writeRecordsDelta`, `deleteRecords`). `readRecordsOfKeys(persistBackend, keys)`
   serves `load`: it reads only those keys and resolves the records the backend
   holds, leaving out a key it does not. Both are typed by the backend and its write
@@ -355,7 +350,7 @@ retries each resource alone, see
 A backend over a `Map`, with a snapshot strategy:
 
 ```ts
-import type { IOIMPersistBackend, IOIMPersistSnapshotStrategy, IOIMPersistWriteBatch } from '@oimdb/persist';
+import type { IOIMPersistBackend, IOIMPersistSnapshotService, IOIMPersistWriteBatch } from '@oimdb/persist';
 
 class MapPersistWriteBatch implements IOIMPersistWriteBatch {
   private readonly valueByStorageKey: Map<string, unknown>;
@@ -387,7 +382,7 @@ class MapPersistBackend implements IOIMPersistBackend<MapPersistWriteBatch> {
 }
 
 class MapPersistSnapshotStrategy<TSnapshot>
-implements IOIMPersistSnapshotStrategy<MapPersistBackend, MapPersistWriteBatch, TSnapshot> {
+implements IOIMPersistSnapshotService<MapPersistBackend, MapPersistWriteBatch, TSnapshot> {
   private readonly storageKey: string;
 
   public constructor(options: { storageKey: string }) {
@@ -409,16 +404,16 @@ implements IOIMPersistSnapshotStrategy<MapPersistBackend, MapPersistWriteBatch, 
 
 const persistor = new OIMPersistor({
   persistBackend: new MapPersistBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource({
     channelMap: db,
     singleSlotService: settingsSingleEntityService,
     entityStoreSlot: settingsEntityStoreSlot,
   }),
-  persistSnapshotStrategy: new MapPersistSnapshotStrategy<TSettings>({ storageKey: 'settings' }),
-  persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+  persistSnapshotService: new MapPersistSnapshotStrategy<TSettings>({ storageKey: 'settings' }),
+  persistCodec: new OIMPersistIdentityCodec<TSettings>(),
 }));
 ```
 
@@ -432,14 +427,14 @@ For a store that holds one string per key, write no backend: hand the store to
 
 - A store with `getItem`, `setItem` and `removeItem`, each returning a value or a
   promise (`TOIMPersistKeyValueItemStorage`), goes through
-  `OIMPersistKeyValueStorageItemDriven`, which calls them one key at a time.
+  `OIMPersistItemKeyValueStorage`, which calls them one key at a time.
 - A store that can read, write and remove many keys in one call implements
   `IOIMPersistKeyValueStorage` (`readItems`, `writeItems`, `removeItems`) itself,
   as `OIMPersistAsyncKVStorage` does.
 
 ```ts
 import {
-  OIMPersistKeyValueBackend, OIMPersistKeyValueEntryStrategy, OIMPersistKeyValueStorageItemDriven,
+  OIMPersistKeyValueBackend, OIMPersistKeyValueEntrySnapshotService, OIMPersistItemKeyValueStorage,
 } from '@oimdb/persist';
 import type { TOIMPersistKeyValueItemStorage } from '@oimdb/persist';
 
@@ -452,18 +447,18 @@ const persistKeyValueItemStorage: TOIMPersistKeyValueItemStorage = {
 
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistKeyValueBackend({
-    persistKeyValueStorage: new OIMPersistKeyValueStorageItemDriven({ persistKeyValueItemStorage }),
+    persistKeyValueStorage: new OIMPersistItemKeyValueStorage({ persistKeyValueItemStorage }),
   }),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TCardRecords>({ storageKey: 'cards' }),
-  persistCodec: new OIMPersistCodecIdentity<TCardRecords>(),
+  persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TCardRecords>({ storageKey: 'cards' }),
+  persistCodec: new OIMPersistIdentityCodec<TCardRecords>(),
 }));
 ```
 

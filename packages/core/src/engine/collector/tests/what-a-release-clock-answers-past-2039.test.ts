@@ -1,10 +1,11 @@
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../OIMReleaseSlotCollectorServiceAfterIdle';
-import { OIMSlotReleasePolicyAfterIdle } from '../OIMSlotReleasePolicyAfterIdle';
+import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { oimSliceOfMs } from '../utils/oimSliceOfMs';
+import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -26,20 +27,17 @@ describe('what a release clock answers past 2039', () => {
     it('lets a row go on a clock reading past that instant, instead of sweeping it at once', () => {
         let nowMs = WHERE_A_32_BIT_SLICE_OVERFLOWS_MS;
         const db = new OIMDB({ getNowMs: () => nowMs });
-        const afterIdleReleaseSlotCollectorSlot = db.collectorSlot.afterIdleReleaseSlotCollectorSlot;
-        const cardsService = createOIMEntityService<TCard>(db, {
-            keyOf: card => card.id,
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
-        });
+        const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
 
-        OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot);
+        afterIdleSlotReleaseWheel.flush();
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(card);
 
         nowMs += KEEP_AFTER_IDLE_MS * 4;
         db.flush();
-        OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot);
+        afterIdleSlotReleaseWheel.flush();
 
         expect(oimIsSlotReleased(card)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);

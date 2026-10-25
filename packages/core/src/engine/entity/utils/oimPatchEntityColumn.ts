@@ -1,8 +1,8 @@
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
 
 export function oimPatchEntityColumn(
-    slot: TOIMEntitySlot,
+    slot: TOIMEntityContentSlot,
     columnName: string,
     value: unknown,
     sameValueGuard: TOIMSameValueGuard,

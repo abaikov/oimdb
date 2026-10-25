@@ -93,7 +93,7 @@ describe('a throw out of a child reducer sync-back', () => {
                     throwsOnce = false;
                     throw new Error('extractor blew up');
                 }
-                entityService.slotContentService.upsertEntities(entityStoreSlot, [{ id: '2', name: 'Bob', department: 'eng' }]);
+                entityService.writeInBatch(entityStoreSlot, () => ([{ id: '2', name: 'Bob', department: 'eng' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
             },
         });
 
@@ -105,7 +105,7 @@ describe('a throw out of a child reducer sync-back', () => {
         // The frame after the throw must still arrive. A latched guard would
         // hand `initial` straight back here — the store one write behind the
         // collection, and every write after it too.
-        usersService.slotContentService.upsertEntity(users, { id: '1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, '1', { id: '1', name: 'Alice', department: 'eng' });
         db.flush();
         const afterThrow = reducer(initial, { type: EOIMReduxReducerActionType.UPDATE }) as TCollectionState;
         expect(afterThrow).not.toBe(initial);
@@ -144,7 +144,7 @@ describe('a throw out of a child reducer sync-back', () => {
         const initial = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TIndexState;
         expect(() => reducer(initial, { type: SYNC_BACK })).toThrow('index extractor blew up');
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         // A bucket's slots are the caller's to write: a write does not re-file a row.
         setBucketSlots(byDepartmentService, byDepartment, usersService, users, 'eng', ['u1']);
         db.flush();
@@ -179,7 +179,7 @@ describe('a throw out of a child reducer sync-back', () => {
         const initial = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TGlobalIndexState;
         expect(() => reducer(initial, { type: SYNC_BACK })).toThrow('global extractor blew up');
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         // The whole-population list is written by the caller.
         setSingleBucketSlots(singleBucket, usersService, users, ['u1']);
         db.flush();

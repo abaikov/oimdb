@@ -1,14 +1,6 @@
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceMapDriven,
-    oimInsertEntityWithSanitizedCopy,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMSingleBucketService,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type {
-    TOIMBucketSlot,
+    TOIMBucketContentSlot,
     TOIMBucketSlotsSetStore,
     TOIMColumnSlot,
     TOIMEntitySlot,
@@ -21,6 +13,9 @@ import { priceDataset } from './priceDataset';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
+import { createOIMSingleSlotService } from '../../../core/src/index';
 
 /**
  * THE FIRST LOAD, TAKEN APART — what an inserted row costs, part by part, so a
@@ -63,11 +58,7 @@ type TRowSlotEditable = TOIMSlotEditable<TRowSlot>;
 
 const reportingEntityFixture = () => {
     const db = new OIMDB();
-    const entityService = createOIMEntityService<TPriceDataRow>(db, {
-        keyOf: row => row.id,
-        entityWriter: createOIMEntityWriterInPlace(),
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: createOIMEntityWriterInPlace() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
 
@@ -79,14 +70,9 @@ const slotOwner = (() => {
 type TRowBucketSlots = TOIMBucketSlotsSetStore<TRowSlot>;
 
 const holdSingleBucketSlot = (
-    db: OIMDB, slotContentService: OIMSlotContentBucketServiceSetDriven<TRowSlot>,
-): TOIMBucketSlot<TRowBucketSlots, void> => {
-    const singleBucketService = createOIMSingleBucketService<
-        TRowSlot, TRowBucketSlots, OIMSlotContentBucketServiceSetDriven<TRowSlot>
-    >(db, {
-        slotContentService,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    db: OIMDB, slotContentService: OIMSlotContentSetBucketService<TRowSlot>,
+): TOIMBucketContentSlot<TRowBucketSlots> => {
+    const singleBucketService = createOIMSingleSlotService(db, { slotContentService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return singleBucketService.holdSingleSlot(singleBucketService.createStoreSlot(db));
 };
 
@@ -104,7 +90,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
     {
         id: 'insert-gap.whole-row-vs-the-baseline-floor',
         path: EPricePath.PerRowPerWrite,
-        ours: 'entityService.slotContentService.upsertEntity(entityStoreSlot, row) into an empty entity store slot',
+        ours: 'entityService.writeSlotContentByKey(entityStoreSlot, row.id, row) into an empty entity store slot',
         floor: 'const held = byId.get(row.id); if (held === undefined) byId.set(row.id, { ...row })',
         caveat:
             'THE ANCHOR ROW, AND THE ONLY ONE HERE WHOSE RATIO MEANS ANYTHING: the floor is '
@@ -127,8 +113,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                     },
                     operationsPerPass: ROWS,
                     run: times => {
-                        const slotContentService = entityService.slotContentService;
-                        for (let i = 0; i < times; i++) priceSink.ours = slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+                        for (let i = 0; i < times; i++) priceSink.ours = entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
                     },
                 },
                 floor: {
@@ -144,51 +129,6 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                                 priceSink.floor = stored;
                             } else priceSink.floor = held;
                         }
-                    },
-                },
-            };
-        },
-    },
-    {
-        id: 'insert-gap.the-probe-one-hash-against-two',
-        path: EPricePath.PerRowPerWrite,
-        ours: 'entityService.slotContentService.fillEntities(entityStoreSlot, keys, rows) — mint and set, no probe',
-        floor: 'entityService.slotContentService.upsertEntities(entityStoreSlot, rows) — probe, then mint and set',
-        caveat:
-            'BOTH ARMS ARE OURS AND THE FIGURE IS THE DIFFERENCE, NOT THE RATIO. `fillEntities` files '
-            + 'every key without asking whether it is taken, on a precondition — this collection '
-            + 'holds nothing — checked once per call rather than per row; `upsertEntities` asks per '
-            + 'row through `writeByKey`. So the difference is one string hash on a `Map` that grows '
-            + 'to the population size, plus `fillEntities`\'s own duplicate check — which is a second '
-            + '`get` per row on `fillEntities`\'s side, so the two arms hash equally often and THIS ROW '
-            + 'NOW PRICES THE WRITE DOOR\'S FRAMING, NOT A HASH: `writeByKey`\'s per-row change '
-            + 'window and `keyOf` call against `fillEntities`\'s one window per call. The key array '
-            + '`fillEntities` consumes is built outside the clock, which the shipped `insertEntities` does not '
-            + 'do — it builds one per call. Both arms report through one channel each.',
-        build: () => {
-            const rows = rowsOf();
-            const keys: TOIMStoreKey[] = rows.map(row => row.id);
-            let { entityService: filledEntityService, entityStoreSlot: filledEntityStoreSlot } = reportingEntityFixture();
-            let { entityService: upsertedEntityService, entityStoreSlot: upsertedEntityStoreSlot } = reportingEntityFixture();
-            return {
-                ours: {
-                    reset: () => {
-                        ({ entityService: filledEntityService, entityStoreSlot: filledEntityStoreSlot } = reportingEntityFixture());
-                    },
-                    operationsPerPass: ROWS,
-                    run: () => {
-                        filledEntityService.slotContentService.fillEntities(filledEntityStoreSlot, keys, rows);
-                        priceSink.ours = filledEntityStoreSlot;
-                    },
-                },
-                floor: {
-                    reset: () => {
-                        ({ entityService: upsertedEntityService, entityStoreSlot: upsertedEntityStoreSlot } = reportingEntityFixture());
-                    },
-                    operationsPerPass: ROWS,
-                    run: () => {
-                        upsertedEntityService.slotContentService.upsertEntities(upsertedEntityStoreSlot, rows);
-                        priceSink.floor = upsertedEntityStoreSlot;
                     },
                 },
             };
@@ -241,7 +181,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
     {
         id: 'insert-gap.the-bucket-join',
         path: EPricePath.PerRowPerWrite,
-        ours: 'slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSlotContentBucketServiceSetDriven',
+        ours: 'slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSlotContentSetBucketService',
         floor: 'the same loop with no row set kept at all',
         caveat:
             'WHAT A ROW SET OF EVERY INSERTED SLOT COSTS TO MAINTAIN, and it is charged to us '
@@ -257,7 +197,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
             + 'consumer keeping one.',
         build: () => {
             const rows = rowsOf();
-            const slotContentService = new OIMSlotContentBucketServiceSetDriven<TRowSlot>();
+            const slotContentService = new OIMSlotContentSetBucketService<TRowSlot>();
             let joinedStore = new Map<string, TRowSlot>();
             const db = new OIMDB();
             let bucketSlot = holdSingleBucketSlot(db, slotContentService);

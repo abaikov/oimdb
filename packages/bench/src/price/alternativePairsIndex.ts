@@ -1,14 +1,9 @@
 // Prose: ./README.md#alternativepairsindex
-import {
-    OIMBucketArrayMembershipUnique,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotStoreServiceMapDriven,
-    OIM_NOTHING_WAS_REMOVED,
-    createOIMBucketService,
-} from '../../../core/src/index';
+import { OIMBucketMemberSlotsArrayService, OIMBucketUniqueMemberSlotsArrayService, OIMSlotContentPositionalArrayBucketService, OIMSlotMapStoreService, OIM_NOTHING_WAS_INSERTED, OIM_NOTHING_WAS_REMOVED } from '../../../core/src/index';
 import type {
-    IOIMBucketArrayMembership,
-    TOIMBucketSlotsArrayUniqueStore,
+    OIMChannelQueue,
+    TOIMSlot,
+    TOIMBucketContentSlot,
     TOIMBucketSlotsArrayStore,
     TOIMBucketSlot,
     TOIMColumnSlot,
@@ -20,139 +15,130 @@ import { priceFixture } from './priceFixture';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TRowSlot = TOIMEntitySlot<TPriceDataRow>;
 
-type TPositionedSlots = TOIMBucketSlotsArrayStore<TRowSlot> & { positions: Map<TRowSlot, number> };
+type TPositionedStore = TOIMBucketSlotsArrayStore<TRowSlot> & { positions: Map<TRowSlot, number> };
 
-class OIMBucketArrayMembershipByPositions implements IOIMBucketArrayMembership<TRowSlot, TPositionedSlots> {
-    public createStore(): TPositionedSlots {
-        return {
-            bucketMemberSlots: [],
-            positions: new Map<TRowSlot, number>(),
+const positionsOf = (bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>): Map<TRowSlot, number> =>
+    (bucketSlotsArrayStore as TPositionedStore).positions;
+
+const renumberFrom = (bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, at: number): void => {
+    const list = bucketSlotsArrayStore.bucketMemberSlots;
+    const positions = positionsOf(bucketSlotsArrayStore);
+    for (let i = at < 0 ? 0 : at; i < list.length; i++) positions.set(list[i], i);
+};
+
+class PositionsMapMemberSlotsArrayService extends OIMBucketMemberSlotsArrayService<TRowSlot> {
+    public override createBucketSlotsArrayStore(): TOIMBucketSlotsArrayStore<TRowSlot> {
+        const positionedStore: TPositionedStore = {
+            bucketMemberSlots: [], uniqueBucketMemberSlots: undefined, sortedCount: 0, positions: new Map<TRowSlot, number>(),
         };
+        return positionedStore;
     }
 
-    public addSlot(positionedSlots: TPositionedSlots, slot: TRowSlot): boolean {
-        return !positionedSlots.positions.has(slot);
+    public override hasBucketMemberSlot(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, slot: TRowSlot): boolean {
+        return positionsOf(bucketSlotsArrayStore).has(slot);
     }
 
-    public hasSlot(positionedSlots: TPositionedSlots, slot: TRowSlot): boolean {
-        return positionedSlots.positions.has(slot);
-    }
-
-    public removeSlot(positionedSlots: TPositionedSlots, slot: TRowSlot): boolean {
-        return positionedSlots.positions.delete(slot);
-    }
-
-    public clearSlots(positionedSlots: TPositionedSlots): void {
-        positionedSlots.positions.clear();
-    }
-
-    public containsTheSameSequence(positionedSlots: TPositionedSlots, slots: readonly TRowSlot[]): boolean {
-        const list = positionedSlots.bucketMemberSlots;
-        if (list.length !== slots.length) return false;
-        for (let i = 0; i < list.length; i++) if (list[i] !== slots[i]) return false;
-        return true;
-    }
-}
-
-class OIMSlotContentBucketServiceArrayDrivenByPositionsMap
-    extends OIMSlotContentBucketServiceArrayDriven<TRowSlot, TPositionedSlots> {
-    public constructor() {
-        super({ bucketArrayMembership: new OIMBucketArrayMembershipByPositions() });
-    }
-
-    private renumberFrom(positionedSlots: TPositionedSlots, at: number): void {
-        const list = positionedSlots.bucketMemberSlots;
-        const positions = positionedSlots.positions;
-        for (let i = at < 0 ? 0 : at; i < list.length; i++) positions.set(list[i], i);
-    }
-
-    protected override addSlot(bucketSlot: TOIMBucketSlot<TPositionedSlots>, slot: TRowSlot): boolean {
-        if (!super.addSlot(bucketSlot, slot)) return false;
-        const positionedSlots = bucketSlot.bucketSlotsStore;
-        positionedSlots.positions.set(slot, positionedSlots.bucketMemberSlots.length - 1);
+    public override appendBucketMemberSlot(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, slot: TRowSlot): boolean {
+        const positions = positionsOf(bucketSlotsArrayStore);
+        if (positions.has(slot)) return false;
+        super.appendBucketMemberSlot(bucketSlotsArrayStore, slot);
+        positions.set(slot, bucketSlotsArrayStore.bucketMemberSlots.length - 1);
         return true;
     }
 
-    protected override removeSlot(bucketSlot: TOIMBucketSlot<TPositionedSlots>, slot: TRowSlot): number {
-        const positionedSlots = bucketSlot.bucketSlotsStore;
-        const at = positionedSlots.positions.get(slot);
+    public override insertBucketMemberSlotAt(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, at: number, slot: TRowSlot): number {
+        if (positionsOf(bucketSlotsArrayStore).has(slot)) return OIM_NOTHING_WAS_INSERTED;
+        const landing = super.insertBucketMemberSlotAt(bucketSlotsArrayStore, at, slot);
+        renumberFrom(bucketSlotsArrayStore, landing);
+        return landing;
+    }
+
+    public override removeBucketMemberSlot(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, slot: TRowSlot): number {
+        const positions = positionsOf(bucketSlotsArrayStore);
+        const at = positions.get(slot);
         if (at === undefined) return OIM_NOTHING_WAS_REMOVED;
-        positionedSlots.positions.delete(slot);
-        positionedSlots.bucketMemberSlots.splice(at, 1);
-        this.renumberFrom(positionedSlots, at);
+        positions.delete(slot);
+        bucketSlotsArrayStore.bucketMemberSlots.splice(at, 1);
+        renumberFrom(bucketSlotsArrayStore, at);
         return at;
     }
 
-    public override hasBucketMemberSlot(bucketSlot: TOIMBucketSlot<TPositionedSlots>, slot: TRowSlot): boolean {
-        return bucketSlot.bucketSlotsStore.positions.has(slot);
-    }
-
-    public override getBucketMemberSlotPosition(bucketSlot: TOIMBucketSlot<TPositionedSlots>, slot: TRowSlot): number {
-        const at = bucketSlot.bucketSlotsStore.positions.get(slot);
-        return at === undefined ? -1 : at;
-    }
-
-    public override insertBucketMemberSlotAt(bucketSlot: TOIMBucketSlot<TPositionedSlots>, at: number, slot: TRowSlot): void {
-        const positionedSlots = bucketSlot.bucketSlotsStore;
-        const length = positionedSlots.bucketMemberSlots.length;
-        super.insertBucketMemberSlotAt(bucketSlot, at, slot);
-        if (positionedSlots.bucketMemberSlots.length !== length) this.renumberFrom(positionedSlots, Math.min(at, length));
-    }
-
-    public override removeBucketMemberSlotAt(bucketSlot: TOIMBucketSlot<TPositionedSlots>, at: number): TRowSlot | undefined {
-        const removedSlot = super.removeBucketMemberSlotAt(bucketSlot, at);
-        if (removedSlot === undefined) return undefined;
-        this.renumberFrom(bucketSlot.bucketSlotsStore, at);
+    public override removeBucketMemberSlotAt(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, at: number): TRowSlot {
+        const removedSlot = super.removeBucketMemberSlotAt(bucketSlotsArrayStore, at);
+        positionsOf(bucketSlotsArrayStore).delete(removedSlot);
+        renumberFrom(bucketSlotsArrayStore, at);
         return removedSlot;
     }
 
-    public override removeBucketMemberSlotRange(
-        bucketSlot: TOIMBucketSlot<TPositionedSlots>, at: number, count: number,
-    ): readonly TRowSlot[] {
-        const removedSlots = super.removeBucketMemberSlotRange(bucketSlot, at, count);
-        if (removedSlots.length > 0) this.renumberFrom(bucketSlot.bucketSlotsStore, at);
+    public override removeBucketMemberSlotRange(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, at: number, count: number): TRowSlot[] {
+        const removedSlots = super.removeBucketMemberSlotRange(bucketSlotsArrayStore, at, count);
+        const positions = positionsOf(bucketSlotsArrayStore);
+        for (let i = 0; i < removedSlots.length; i++) positions.delete(removedSlots[i]);
+        if (removedSlots.length > 0) renumberFrom(bucketSlotsArrayStore, at);
         return removedSlots;
     }
 
-    public override moveBucketMemberSlotToPosition(
-        bucketSlot: TOIMBucketSlot<TPositionedSlots>, from: number, to: number,
-    ): TRowSlot | undefined {
-        const movedSlot = super.moveBucketMemberSlotToPosition(bucketSlot, from, to);
-        if (movedSlot !== undefined) this.renumberFrom(bucketSlot.bucketSlotsStore, from < to ? from : to);
-        return movedSlot;
+    public override removeBucketMemberSlots(
+        bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, slots: readonly TRowSlot[],
+        removedChannelQueue: OIMChannelQueue<TOIMSlot>, removedAtChannelQueue: OIMChannelQueue<number>,
+    ): void {
+        const removedBefore = removedChannelQueue.getEntryCount();
+        super.removeBucketMemberSlots(bucketSlotsArrayStore, slots, removedChannelQueue, removedAtChannelQueue);
+        const positions = positionsOf(bucketSlotsArrayStore);
+        for (let i = removedBefore; i < removedChannelQueue.getEntryCount(); i++) positions.delete(removedChannelQueue.getEntryAt(i) as TRowSlot);
+        renumberFrom(bucketSlotsArrayStore, 0);
     }
 
-    public override moveBucketMemberSlotRangeToPosition(
-        bucketSlot: TOIMBucketSlot<TPositionedSlots>, from: number, count: number, to: number,
+    public override moveBucketMemberSlotRange(
+        bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, from: number, count: number, landing: number,
+    ): boolean {
+        const isMoved = super.moveBucketMemberSlotRange(bucketSlotsArrayStore, from, count, landing);
+        if (isMoved) renumberFrom(bucketSlotsArrayStore, from < landing ? from : landing);
+        return isMoved;
+    }
+
+    public override sortBucketMemberSlots(
+        bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>, compareBucketMemberSlots: (left: TRowSlot, right: TRowSlot) => number,
     ): void {
-        super.moveBucketMemberSlotRangeToPosition(bucketSlot, from, count, to);
-        this.renumberFrom(bucketSlot.bucketSlotsStore, from < to ? from : to);
+        super.sortBucketMemberSlots(bucketSlotsArrayStore, compareBucketMemberSlots);
+        renumberFrom(bucketSlotsArrayStore, 0);
+    }
+
+    public override clearBucketMemberSlots(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TRowSlot>): void {
+        super.clearBucketMemberSlots(bucketSlotsArrayStore);
+        positionsOf(bucketSlotsArrayStore).clear();
+    }
+}
+
+class PositionsMapPositionalArrayBucketService extends OIMSlotContentPositionalArrayBucketService<TRowSlot> {
+    public constructor() {
+        super({ bucketMemberSlotsArrayService: new PositionsMapMemberSlotsArrayService() });
+    }
+
+    public override getBucketMemberSlotPosition(
+        bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsArrayStore<TRowSlot>>, slot: TRowSlot,
+    ): number {
+        const at = positionsOf(bucketSlot.bucketSlotsStore).get(slot);
+        return at === undefined ? -1 : at;
     }
 }
 
 const LIST_SIZE = 1024;
 
-type TListWorld<TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>> = {
+type TListWorld = {
     readonly fixture: ReturnType<typeof priceFixture>;
-    readonly slotContentService: OIMSlotContentBucketServiceArrayDriven<TRowSlot, TSlots>;
-    readonly bucket: TOIMBucketSlot<TSlots, TOIMStoreKey>;
+    readonly slotContentService: OIMSlotContentPositionalArrayBucketService<TRowSlot>;
+    readonly bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>;
     spare: TRowSlot;
 };
 
-const listWorld = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(
-    slotContentService: OIMSlotContentBucketServiceArrayDriven<TRowSlot, TSlots>,
-): TListWorld<TSlots> => {
+const listWorld = (slotContentService: OIMSlotContentPositionalArrayBucketService<TRowSlot>): TListWorld => {
     const fixture = priceFixture(LIST_SIZE + 1);
-    const bucketService = createOIMBucketService<
-        TRowSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceArrayDriven<TRowSlot, TSlots>
-    >(fixture.db, {
-        bucketSlotStoreService: new OIMSlotStoreServiceMapDriven(),
-        slotContentService,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const bucketService = createOIMSlotCollectionService(fixture.db, { slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(fixture.db);
     const bucket = bucketService.holdSlotByKey(bucketStoreSlot, 'list');
     for (let i = 0; i < LIST_SIZE; i++) slotContentService.insertBucketMemberSlotAt(bucket, i, fixture.slots[i]);
@@ -161,12 +147,7 @@ const listWorld = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(
     return { fixture, slotContentService, bucket, spare };
 };
 
-const assertSamePositions = <
-    TOurSlots extends TOIMBucketSlotsArrayStore<TRowSlot>, TFloorSlots extends TOIMBucketSlotsArrayStore<TRowSlot>,
->(
-    ourWorld: TListWorld<TOurSlots>,
-    floorWorld: TListWorld<TFloorSlots>,
-): void => {
+const assertSamePositions = (ourWorld: TListWorld, floorWorld: TListWorld): void => {
     for (let i = 0; i < LIST_SIZE; i++) {
         const ours = ourWorld.slotContentService.getBucketMemberSlotPosition(ourWorld.bucket, ourWorld.fixture.slots[i]);
         const floor = floorWorld.slotContentService.getBucketMemberSlotPosition(floorWorld.bucket, floorWorld.fixture.slots[i]);
@@ -175,7 +156,7 @@ const assertSamePositions = <
     }
 };
 
-const prependSide = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(world: TListWorld<TSlots>) => ({
+const prependSide = (world: TListWorld) => ({
     reset: () => undefined,
     run: (times: number): void => {
         const slotContentService = world.slotContentService;
@@ -193,7 +174,7 @@ const prependSide = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(world: 
     },
 });
 
-const positionSide = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(world: TListWorld<TSlots>) => ({
+const positionSide = (world: TListWorld) => ({
     reset: () => undefined,
     run: (times: number): void => {
         const slotContentService = world.slotContentService;
@@ -204,9 +185,7 @@ const positionSide = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(world:
     },
 });
 
-const uniqueService = () => new OIMSlotContentBucketServiceArrayDriven<TRowSlot, TOIMBucketSlotsArrayUniqueStore<TRowSlot>>({
-    bucketArrayMembership: new OIMBucketArrayMembershipUnique<TRowSlot>(),
-});
+const uniqueService = () => new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService<TRowSlot>() });
 
 const listPairs: readonly TPricePair[] = [
     {
@@ -220,8 +199,8 @@ const listPairs: readonly TPricePair[] = [
             `\`list.length - at\` map writes, so ${LIST_SIZE + 1} of them here, against one memmove ` +
             'and one `Set.add` on our side. EACH OPERATION IS A PREPEND AND A REMOVAL OF THE TAIL, ' +
             'so the list stays the length it is named for; the removal renumbers nothing on either ' +
-            'design. Ours is `OIMSlotContentBucketServiceArrayDriven` over `OIMBucketArrayMembershipUnique`; ' +
-            'the floor is the same service subclassed to keep a positions map. ' +
+            'design. Ours is `OIMSlotContentPositionalArrayBucketService` with `OIMBucketUniqueMemberSlotsArrayService`; ' +
+            'the floor is the same bucket with a member slots service that keeps a positions map. ' +
             'DIRECTION: the bucket collection\'s own epilogue — the hold, the unhold, the ' +
             '`OIMChannelService.writeWithoutFlushCheck` and the emptiness update — is identical on both halves ' +
             'and inside both numbers, which pulls this toward 1.00. A LAZY positions map is a third ' +
@@ -230,7 +209,7 @@ const listPairs: readonly TPricePair[] = [
             'positional index and bucket mutator that are gone and is not re-attributed here.',
         build: () => {
             const ourWorld = listWorld(uniqueService());
-            const floorWorld = listWorld(new OIMSlotContentBucketServiceArrayDrivenByPositionsMap());
+            const floorWorld = listWorld(new PositionsMapPositionalArrayBucketService());
             assertSamePositions(ourWorld, floorWorld);
             return { ours: prependSide(ourWorld), floor: prependSide(floorWorld) };
         },
@@ -254,7 +233,7 @@ const listPairs: readonly TPricePair[] = [
             'removed positional index and is not re-attributed here.',
         build: () => {
             const ourWorld = listWorld(uniqueService());
-            const floorWorld = listWorld(new OIMSlotContentBucketServiceArrayDrivenByPositionsMap());
+            const floorWorld = listWorld(new PositionsMapPositionalArrayBucketService());
             assertSamePositions(ourWorld, floorWorld);
             return { ours: positionSide(ourWorld), floor: positionSide(floorWorld) };
         },

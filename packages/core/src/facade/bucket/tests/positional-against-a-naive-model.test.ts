@@ -1,16 +1,10 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '../../../index';
-import type {
-    TOIMBucketSlot,
-    TOIMEntityColumnName,
-    TOIMEntitySlot,
-    TOIMBucketSlotsArrayStore,
-} from '../../../index';
+import { OIMDB, OIMEffectService } from '../../../index';
+import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../../index';
 import { assertConsistent, bucketsUnderTest, entitiesUnderTest } from '../../../../tests/support/assertConsistent';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMBucketCommands } from '../OIMBucketCommands';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -49,9 +43,9 @@ const run = (seed: number, steps: number): TFrame[] => {
 
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const listService = createOIMBucketService<TCardSlot, string>(db);
+    const listService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const listContentService = listService.slotContentService;
     const list = listService.createStoreSlot(db);
     const listsUnderTest = {
@@ -60,7 +54,7 @@ const run = (seed: number, steps: number): TFrame[] => {
         getBucketMemberSlots: (bucketSlot: TList) => listContentService.getBucketMemberSlots(bucketSlot),
         getBucketMemberSlotCount: (bucketSlot: TList) => listContentService.getBucketMemberSlotCount(bucketSlot),
     };
-    for (const id of VALUED) cardsService.slotContentService.upsertEntity(cards, { id });
+    for (const id of VALUED) cardsService.writeSlotContentByKey(cards, id, { id });
     db.flush();
 
     const woken: Record<TSide, number> = { left: 0, right: 0 };
@@ -216,7 +210,7 @@ const run = (seed: number, steps: number): TFrame[] => {
             }
             did = `clear ${side} then append [${refill.join(',')}]`;
             rebuilt = side;
-            listContentService.clearBucketMemberSlots(buckets[side]);
+            listContentService.clearSlotContent(buckets[side]);
             modelClear(side);
             for (const id of refill) {
                 append(side, slotFor(id));
@@ -224,7 +218,7 @@ const run = (seed: number, steps: number): TFrame[] => {
             }
         } else if (choice < 0.98) {
             did = `clear ${side}`;
-            listContentService.clearBucketMemberSlots(buckets[side]);
+            listContentService.clearSlotContent(buckets[side]);
             modelClear(side);
         } else {
             const wanted = Math.floor(random() * 5);
@@ -235,7 +229,7 @@ const run = (seed: number, steps: number): TFrame[] => {
                 if (!next.includes(id)) next.push(id);
             }
             did = `write ${side} = [${next.join(',')}]`;
-            listContentService.writeBucketMemberSlots(buckets[side], next.map(slotFor));
+            listContentService.writeSlotContent(buckets[side], next.map(slotFor));
             modelSetSlots(side, next);
         }
 
@@ -315,11 +309,11 @@ describe('a refused move wakes nobody', () => {
     const place = () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: (card) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const listService = createOIMBucketService<TCardSlot, string>(db);
+        const listService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const listContentService = listService.slotContentService;
-        for (const id of ['a', 'b', 'c']) cardsService.slotContentService.upsertEntity(cards, { id });
+        for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id });
         db.flush();
         const list = listService.createStoreSlot(db);
         const bucket = listService.holdSlotByKey(list, 'l');

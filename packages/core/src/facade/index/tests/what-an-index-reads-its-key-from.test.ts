@@ -1,33 +1,35 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../../engine/entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TCardsService = ReturnType<typeof createOIMEntityService<TCard>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 type TCardsStore = Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>;
 
 const createCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades', title: 'ace', rank: 1 });
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c2', deck: 'spades', title: 'two', rank: 2 });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'ace', rank: 1 });
+    cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'spades', title: 'two', rank: 2 });
     db.flush();
     return { db, cards, cardsService };
 };
 
-const setDrivenByColumn = (db: OIMDB, cardsService: TCardsService) => createOIMIndexService<
+const setDrivenByColumn = (db: OIMDB, cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly ['deck'], string, TCardsStore, TOIMBucketSlotsSetStore<TCardSlot>,
-    OIMSlotContentBucketServiceSetDriven<TCardSlot>
+    OIMSlotContentSetBucketService<TCardSlot, string>
 >(db, {
     entityService: cardsService,
-    slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+    slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
     columns: ['deck'],
 });
 
@@ -52,7 +54,7 @@ describe('what an index reads its key from', () => {
     it('does not ask its key function about a write that changed none of its columns', () => {
         const { db, cards, cardsService } = createCards();
         let keyOfCalls = 0;
-        const byDeckService = createOIMIndexService<
+        const byDeckService = createOIMSlotCollectionIndexService<
             TCard, TOIMStoreKey, readonly ['deck'], string, TCardsStore
         >(db, {
             entityService: cardsService,
@@ -67,7 +69,7 @@ describe('what an index reads its key from', () => {
         db.flush();
         const callsBeforeWrites = keyOfCalls;
         updateByKey(cardsService, cards, 'c1', { title: 'king' });
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c2', deck: 'spades', title: 'queen', rank: 2 }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c2', deck: 'spades', title: 'queen', rank: 2 }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         expect(keyOfCalls).toBe(callsBeforeWrites);
         updateByKey(cardsService, cards, 'c1', { deck: 'clubs' });
         expect(keyOfCalls).toBe(callsBeforeWrites + 1);
@@ -76,12 +78,12 @@ describe('what an index reads its key from', () => {
     it('asks its key function about every write when it names no columns', () => {
         const { db, cards, cardsService } = createCards();
         let keyOfCalls = 0;
-        const byDeckService = createOIMIndexService<
+        const byDeckService = createOIMSlotCollectionIndexService<
             TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string, TCardsStore,
-            TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
+            TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentSetBucketService<TCardSlot, string>
         >(db, {
             entityService: cardsService,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+            slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
             keyOf: card => {
                 keyOfCalls++;
                 return card.deck;

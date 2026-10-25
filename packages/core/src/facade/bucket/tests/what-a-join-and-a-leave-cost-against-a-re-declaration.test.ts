@@ -1,12 +1,12 @@
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -14,17 +14,15 @@ type TGroupSlot = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKe
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
-    const groupsService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+    const groupsService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const groups = groupsService.createStoreSlot(db);
     const rows = (from: number, count: number): TOIMEntitySlot<TCard, TOIMStoreKey>[] => {
         const made: TOIMEntitySlot<TCard, TOIMStoreKey>[] = [];
         for (let i = from; i < from + count; i++) {
-            cardsService.slotContentService.upsertEntity(cards, { id: `c${i}`, title: `C${i}` });
+            cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, title: `C${i}` });
             made.push(cardsService.getSlotByKey(cards, `c${i}`));
         }
         db.flush();
@@ -43,7 +41,7 @@ describe('what a join and a leave cost against a whole re-declaration', () => {
         const fixture = createFixture();
         const bucket = fixture.groupsService.holdSlotByKey(fixture.groups, 'g');
         const first = fixture.rows(0, 3);
-        fixture.membersService.writeBucketMemberSlots(bucket, first);
+        fixture.membersService.writeSlotContent(bucket, first);
         fixture.db.flush();
 
         let runCount = 0;
@@ -74,7 +72,7 @@ describe('what a join and a leave cost against a whole re-declaration', () => {
         const fixture = createFixture();
         const bucket = fixture.groupsService.holdSlotByKey(fixture.groups, 'g');
         const all = fixture.rows(0, 4);
-        fixture.membersService.writeBucketMemberSlots(bucket, all);
+        fixture.membersService.writeSlotContent(bucket, all);
         fixture.db.flush();
         const held = all[0].holdCount;
 
@@ -92,7 +90,7 @@ describe('what a join and a leave cost against a whole re-declaration', () => {
         const fixture = createFixture();
         const bucket = fixture.groupsService.holdSlotByKey(fixture.groups, 'g');
         const all = fixture.rows(0, 2);
-        fixture.membersService.writeBucketMemberSlots(bucket, all);
+        fixture.membersService.writeSlotContent(bucket, all);
         fixture.db.flush();
 
         let runCount = 0;
@@ -109,8 +107,8 @@ describe('what a join and a leave cost against a whole re-declaration', () => {
         const addDoor = fixture.groupsService.holdSlotByKey(fixture.groups, 'add');
         const setDoor = fixture.groupsService.holdSlotByKey(fixture.groups, 'set');
         const standing = fixture.rows(0, 20);
-        fixture.membersService.writeBucketMemberSlots(addDoor, standing);
-        fixture.membersService.writeBucketMemberSlots(setDoor, standing);
+        fixture.membersService.writeSlotContent(addDoor, standing);
+        fixture.membersService.writeSlotContent(setDoor, standing);
         fixture.db.flush();
         const heldBefore = standing.map(slot => slot.holdCount);
 

@@ -1,26 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import type { IOIMEntityWriter } from '../../../engine/entity/interfaces/IOIMEntityWriter';
-import type { IOIMSlotEmptiness } from '../../../engine/slot/interfaces/IOIMSlotEmptiness';
+import type { IOIMSlotEmptinessPolicy } from '../../../engine/slot/interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TPost = { id: string; deleted?: boolean; title?: string; body?: string; deck?: string };
 type TPostSlot = TOIMEntitySlot<TPost, TOIMStoreKey>;
 
-const softDeleted: IOIMSlotEmptiness<TPostSlot> = {
+const softDeleted: IOIMSlotEmptinessPolicy<TPostSlot> = {
     isEmpty: slot => slot.entity === undefined || slot.entity.deleted === true,
 };
 
-const nothingThere: IOIMSlotEmptiness<TPostSlot> = {
+const nothingThere: IOIMSlotEmptinessPolicy<TPostSlot> = {
     isEmpty: slot => slot.entity === undefined,
 };
 
@@ -32,21 +33,17 @@ const WRITERS: readonly [string, () => IOIMEntityWriter][] = [
 const openPosts = (entityWriter: IOIMEntityWriter, emptiness = softDeleted) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const postsService = createOIMEntityService<TPost, TOIMEntityColumnName<TPost>, TOIMStoreKey>(db, {
-        keyOf: (post: TPost) => post.id,
-        entityWriter,
-        slotEmptiness: emptiness,
-    });
+    const postsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPost, TOIMStoreKey>(db, { entityWriter, slotEmptinessPolicy: emptiness }) });
     const posts = postsService.createStoreSlot(db);
     const upsertHeld = (post: TPost): TPostSlot => {
-        postsService.slotContentService.upsertEntity(posts, post);
+        postsService.writeSlotContentByKey(posts, post.id, post);
         return postsService.holdSlotByKey(posts, post.id);
     };
     const wakesOf = (slot: TPostSlot, names: readonly TOIMEntityColumnName<TPost>[]): Record<string, number> => {
         const wakes: Record<string, number> = { row: 0 };
         for (const name of names) {
             wakes[name] = 0;
-            const columnSlot = postsService.holdColumn(slot, name);
+            const columnSlot = postsService.columnSlotService.holdColumn(slot, name);
             effectService.createEffect(db, [columnSlot], [], () => { wakes[name]++; });
         }
         effectService.createEffect(db, [slot], [], () => { wakes.row++; });
@@ -62,7 +59,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         db.flush();
         const wakes = wakesOf(post, ['title']);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false });
         db.flush();
 
         expect(post.entity).toEqual({ id: 'p1', deleted: false });
@@ -76,7 +73,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         db.flush();
         const wakes = wakesOf(post, ['deleted', 'body']);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false, title: 'a', body: 'same' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false, title: 'a', body: 'same' });
         db.flush();
 
         expect(wakes.deleted).toBe(1);
@@ -89,7 +86,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         db.flush();
         const wakes = wakesOf(post, ['title']);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false, title: 'new' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false, title: 'new' });
         db.flush();
 
         expect(post.entity?.title).toBe('new');
@@ -103,7 +100,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         const wakes = wakesOf(post, ['title', 'deleted']);
         const changed: TPostSlot[] = [];
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: true, title: 'a' }, changed);
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: true, title: 'a' }, changed);
         db.flush();
 
         expect(changed.length).toBe(0);
@@ -116,7 +113,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         db.flush();
         const changed: TPostSlot[] = [];
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false }, changed);
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false }, changed);
 
         expect(changed).toHaveLength(1);
         expect(changed[0] === post).toBe(true);
@@ -128,11 +125,11 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         expect(oimIsSlotEmpty(post)).toBe(true);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(false);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false, title: 'a' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false, title: 'a' });
         expect(oimIsSlotEmpty(post)).toBe(false);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(true);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: true, title: 'a' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: true, title: 'a' });
         expect(oimIsSlotEmpty(post)).toBe(true);
         expect(postsService.hasSlotContentByKey(posts, 'p1')).toBe(false);
         db.flush();
@@ -147,7 +144,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         const firstWakes = wakesOf(first, ['title']);
         const secondWakes = wakesOf(second, ['title']);
 
-        postsService.slotContentService.upsertEntities(posts, [{ id: 'p1', deleted: false }, { id: 'p2', deleted: false }]);
+        postsService.writeInBatch(posts, () => ([{ id: 'p1', deleted: false }, { id: 'p2', deleted: false }]).map(entity => postsService.writeSlotContentByKey(posts, entity.id, entity)));
         db.flush();
 
         expect(firstWakes.title).toBe(1);
@@ -156,13 +153,13 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
 
     it('refiles the row in an index when the revival moves the key the index reads', () => {
         const { db, posts, postsService, upsertHeld } = openPosts(makeWriter());
-        const byDeckService = createOIMIndexService<
+        const byDeckService = createOIMSlotCollectionIndexService<
             TPost, TOIMStoreKey, readonly TOIMEntityColumnName<TPost>[], string,
             Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TOIMEntitySlot<TPost>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPost>>
+            OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>
         >(db, {
             entityService: postsService,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPost>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>(),
             keyOf: (post: TPost) => post.deck ?? 'none',
         });
         const byDeck = byDeckService.createIndexStoreSlot(posts);
@@ -172,7 +169,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         db.flush();
         expect(byDeckService.getEntitiesByKey(byDeck, 'a').map(entity => entity?.id)).toEqual(['p1']);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', deleted: false, deck: 'b' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', deleted: false, deck: 'b' });
         db.flush();
 
         expect(byDeckService.getEntitiesByKey(byDeck, 'a')).toEqual([]);
@@ -192,7 +189,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         const upsertWakes = viaUpsert.wakesOf(upserted, ['deleted', 'body']);
         const updateWakes = viaUpdate.wakesOf(updated, ['deleted', 'body']);
 
-        viaUpsert.postsService.slotContentService.upsertEntity(viaUpsert.posts, { id: 'p1', deleted: false, title: 'a', body: 'same' });
+        viaUpsert.postsService.writeSlotContentByKey(viaUpsert.posts, 'p1', { id: 'p1', deleted: false, title: 'a', body: 'same' });
         viaUpdate.postsService.slotContentService.updateEntity(updated, { deleted: false });
         viaUpsert.db.flush();
         viaUpdate.db.flush();
@@ -204,12 +201,12 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
     it('still fills a row that has nothing in it, waking every column the new row carries', () => {
         const { db, posts, postsService, upsertHeld, wakesOf } = openPosts(makeWriter(), nothingThere);
         const post = upsertHeld({ id: 'p1', title: 'a' });
-        postsService.slotContentService.deleteEntity(post);
+        postsService.slotContentService.clearSlotContent(post);
         db.flush();
         expect(post.entity).toBeUndefined();
         const wakes = wakesOf(post, ['id', 'title']);
 
-        postsService.slotContentService.upsertEntity(posts, { id: 'p1', title: 'a' });
+        postsService.writeSlotContentByKey(posts, 'p1', { id: 'p1', title: 'a' });
         db.flush();
 
         expect(post.entity).toEqual({ id: 'p1', title: 'a' });

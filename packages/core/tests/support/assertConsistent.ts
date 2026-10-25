@@ -1,8 +1,6 @@
+import type { TOIMEntityContentSlot } from '../../src/engine/entity/types/TOIMEntityContentSlot';
 import type { TOIMColumnSlot } from '../../src/engine/column/types/TOIMColumnSlot';
-import type {
-    TOIMBucketSlot,
-    TOIMEntitySlot,
-} from '../../src/index';
+import type { TOIMBucketSlot, TOIMBucketContentSlot, TOIMEntitySlot } from '../../src/index';
 
 /**
  * Is the engine still internally consistent?
@@ -21,7 +19,7 @@ import type {
  *
  * `holdCount` is every counted reference nothing else
  * records — a hold taken by hand (`hold`), a composite-key edge
- * (`OIMKeyTreeWalkComposite`) and a slot's place in a bucket — and the first
+ * (`OIMCompositeKeyTreeWalk`) and a slot's place in a bucket — and the first
  * two leave NO structure anywhere for a walk to find them in. So there is no
  * walk that rebuilds the number, and a reconstruction that pretended otherwise
  * would report every hand-held slot and every composite-key segment as
@@ -57,18 +55,18 @@ import type {
  * asks about one a bucket is already carrying, so the ask can never mint.
  */
 export type TBucketsUnderTest = {
-    readonly bucketSlots: Iterable<TOIMBucketSlot>;
-    getBucketSlotByKey(key: never): TOIMBucketSlot;
-    getBucketMemberSlots(bucketSlot: TOIMBucketSlot): Iterable<TOIMEntitySlot>;
-    getBucketMemberSlotCount(bucketSlot: TOIMBucketSlot): number;
+    readonly bucketSlots: Iterable<TOIMBucketContentSlot>;
+    getBucketSlotByKey(key: never): TOIMBucketContentSlot;
+    getBucketMemberSlots(bucketSlot: TOIMBucketContentSlot): Iterable<TOIMEntitySlot>;
+    getBucketMemberSlotCount(bucketSlot: TOIMBucketContentSlot): number;
 };
 
-export type TEntitiesUnderTest<TKey, TEntity extends object> = {
+export type TEntitiesUnderTest<TKey extends NonNullable<unknown>, TEntity extends object> = {
     readonly entitySlots: Iterable<TOIMEntitySlot<TEntity, TKey>>;
     getEntitySlotByKey(key: TKey): TOIMEntitySlot<TEntity, TKey>;
 };
 
-export const entitiesUnderTest = <TKey, TEntity extends object, TStoreSlot>(
+export const entitiesUnderTest = <TKey extends NonNullable<unknown>, TEntity extends object, TStoreSlot>(
     entityService: {
         getSlots(storeSlot: TStoreSlot): Iterable<TOIMEntitySlot<TEntity, TKey>>;
         getSlotByKey(storeSlot: TStoreSlot, key: TKey): TOIMEntitySlot<TEntity, TKey>;
@@ -95,7 +93,7 @@ export const bucketsUnderTest = <TKey, TBucketSlot extends TOIMBucketSlot, TStor
 });
 
 /** Is anything at all pointing at this identity — `hasReference`, from outside. */
-const hasReference = (entitySlot: TOIMEntitySlot): boolean =>
+const hasReference = (entitySlot: TOIMEntityContentSlot<object>): boolean =>
     entitySlot.holdCount > 0 || (entitySlot.effects !== undefined && entitySlot.effects.length > 0);
 
 /**
@@ -103,7 +101,7 @@ const hasReference = (entitySlot: TOIMEntitySlot): boolean =>
  * `OIMSlotOwnerService.isReleasable` asks beside the value, written out here
  * because that method is private.
  */
-const hasReferencedColumn = (entitySlot: TOIMEntitySlot): boolean => {
+const hasReferencedColumn = (entitySlot: TOIMEntityContentSlot<object>): boolean => {
     const columnSlotStore = entitySlot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined;
     if (columnSlotStore === undefined) return false;
     for (const columnSlot of columnSlotStore.values()) {
@@ -113,7 +111,7 @@ const hasReferencedColumn = (entitySlot: TOIMEntitySlot): boolean => {
     return false;
 };
 
-export const assertConsistent = <TKey, TEntity extends object>(
+export const assertConsistent = <TKey extends NonNullable<unknown>, TEntity extends object>(
     entities: TEntitiesUnderTest<TKey, TEntity>,
     bucketsList: readonly TBucketsUnderTest[] = [],
     label = 'after this step',
@@ -126,10 +124,11 @@ export const assertConsistent = <TKey, TEntity extends object>(
             // Only a bucket with a key can be looked up by that key. One minted
             // under no key — a single bucket — has none, which is the point of
             // it, and its slots are still checked below.
-            if (bucketSlot.key !== undefined
-                && buckets.getBucketSlotByKey(bucketSlot.key as never) !== bucketSlot) {
+            const bucketKey = (bucketSlot as Partial<TOIMBucketSlot>).key;
+            if (bucketKey !== undefined
+                && buckets.getBucketSlotByKey(bucketKey as never) !== bucketSlot) {
                 problems.push(
-                    `a bucket named ${String(bucketSlot.key)} is in the collection's own store but asking `
+                    `a bucket named ${String(bucketKey)} is in the collection's own store but asking `
                     + 'that store for the key answers with something else. Two live buckets under one '
                     + 'name is a view that renders empty for whoever resolves it late.',
                 );

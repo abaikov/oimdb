@@ -61,9 +61,9 @@ const files: TFile[] = sourceFiles().map(path => ({
     code: codeOnly(readFileSync(path).toString('latin1')),
 }));
 
-const MUTATING_CALL = /[sS]lotStoreService\s*\??\.\s*(set|remove)\s*\(/g;
+const MUTATING_CALL = /(?:[sS]lotStoreService|[sS]lotFilingService)\s*\??\.\s*(set|remove|fileSlot|unfileSlot)\s*\(/g;
 
-const READING_CALL = /[sS]lotStoreService\s*\??\.\s*(get|getSlots|getSlotCount|isSameKey)\s*\(/g;
+const READING_CALL = /[sS]lotStoreService\s*\??\.\s*(get|getSingleSlot|getSlots|getSlotCount|isSameKey)\s*\(/g;
 
 const callsIn = (pattern: RegExp): string[] => {
     const found: string[] = [];
@@ -85,14 +85,14 @@ const callsIn = (pattern: RegExp): string[] => {
 const SLOT_OWNER_SERVICE = 'engine/slot/OIMSlotOwnerService.ts';
 
 const PINNED_WRITERS: readonly string[] = [
-    'engine/column/OIMColumnOwner.ts remove×1 set×1',
-    `${SLOT_OWNER_SERVICE} remove×1 set×1`,
+    'engine/column/OIMColumnSlotOwner.ts remove×1 set×1',
+    `${SLOT_OWNER_SERVICE} fileSlot×1 unfileSlot×1`,
 ];
 
 const READING_SERVICES: readonly string[] = [
-    'engine/entity/OIMSlotContentEntityService.ts',
     'facade/slot/OIMSingleSlotService.ts',
     'facade/slot/OIMSlotCollectionService.ts',
+    'facade/slot/OIMWritableSlotCollectionService.ts',
 ];
 
 describe('who may write the slot store', () => {

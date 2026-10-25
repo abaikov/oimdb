@@ -16,7 +16,7 @@ collection for server-side rendering with the core alone, see
 <InShort>
 
 - An `OIMPersistor` takes a backend, a scheduler and an optional error handler, and holds resources.
-- A resource pairs one source with one strategy: `OIMPersistResourceRecords` writes per-key deltas, `OIMPersistResourceSnapshot` writes one whole value through a codec.
+- A resource pairs one source with one strategy: `OIMPersistRecordsResource` writes per-key deltas, `OIMPersistSnapshotResource` writes one whole value through a codec.
 - A source is a whole collection (write-driven or change-driven), the members of one bucket (flush-driven) or a single entity.
 - Every flush builds one write batch and commits it once.
 - `hydrate()` reads every resource back and replaces the source, or merges through `persistHydrateReconcile`.
@@ -32,19 +32,16 @@ built over an `OIMPersistEntityWriter`, which is what lets a collection source
 learn what changed:
 
 ```ts setup
-import {
-  OIMDB, OIMSlotContentBucketServiceSetDriven,
-  createOIMBucketService, createOIMEntityService, createOIMEntityWriterInPlace, createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
-  OIMPersistCodecIdentity, OIMPersistEntityWriter, OIMPersistRecordSourceBucketDriven,
-  OIMPersistRecordSourceCollectionChangeDriven, OIMPersistRecordSourceCollectionWriteDriven,
-  OIMPersistResourceRecords, OIMPersistResourceSnapshot, OIMPersistSchedulerFrameDriven, OIMPersistSchedulerMicrotaskDriven, OIMPersistSnapshotSourceSingleEntityDriven,
+  OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistBucketRecordSource,
+  OIMPersistCollectionChangeWriteRecordSource, OIMPersistCollectionWriteRecordSource,
+  OIMPersistRecordsResource, OIMPersistSnapshotResource, OIMPersistFrameScheduler, OIMPersistMicrotaskScheduler, OIMPersistSingleEntitySnapshotSource,
   OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistRecords } from '@oimdb/persist';
-import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsStrategy, OIMPersistMemorySnapshotStrategy } from '@oimdb/persist-memory';
+import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsService, OIMPersistMemorySnapshotService } from '@oimdb/persist-memory';
 
 type TCard = { id: string; title: string; draft?: boolean };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
@@ -56,53 +53,48 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
   entityWriter: createOIMEntityWriterInPlace(),
 });
-const cardCollectionService = createOIMEntityService<TCard>(db, {
-  keyOf: card => card.id,
-  entityWriter: persistEntityWriter,
-});
+const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 
-const deckBucketService = createOIMBucketService<
-  TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+const deckBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 const deckBucketStoreSlot = deckBucketService.createStoreSlot(db);
 const keptBucketSlot = deckBucketService.holdSlotByKey(deckBucketStoreSlot, 'kept');
 
-const settingsSingleEntityService = createOIMSingleEntityService<TSettings>(db);
+const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
-settingsSingleEntityService.slotContentService.upsertEntity(settingsEntityStoreSlot, { theme: 'dark' });
+settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'dark' });
 ```
 
 Save the whole collection to `localStorage` and load it on start:
 
 ```ts
-import { OIMPersistKeyValueEntryStrategy } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '@oimdb/persist-localstorage';
+import { OIMPersistKeyValueEntrySnapshotService } from '@oimdb/persist';
+import { OIMPersistLocalStorageKeyValueBackend } from '@oimdb/persist-localstorage';
 
 const persistor = new OIMPersistor({
-  persistBackend: new OIMPersistLocalStorageBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistBackend: new OIMPersistLocalStorageKeyValueBackend(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
   onPersistError: (error, { persistOperation }) => console.error(persistOperation, error),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TCardRecords>({ storageKey: 'app:cards' }),
-  persistCodec: new OIMPersistCodecIdentity<TCardRecords>(),
+  persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TCardRecords>({ storageKey: 'app:cards' }),
+  persistCodec: new OIMPersistIdentityCodec<TCardRecords>(),
 }));
 
 await persistor.hydrate();
 persistor.start();
 
-cardCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'Ace' });
+cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'Ace' });
 ```
 
 `localStorage` holds one string per key, so this resource writes the whole
 collection under `app:cards` on every write batch. For a collection that writes
-only the entities that changed, use IndexedDB with `OIMPersistResourceRecords`,
+only the entities that changed, use IndexedDB with `OIMPersistRecordsResource`,
 see [Records: per-key deltas](#records-per-key-deltas).
 
 ## Pages in this section
@@ -134,12 +126,12 @@ Do not take it for:
 | part | what it is | shipped |
 |---|---|---|
 | **persistor** | the resources of one backend, one scheduler, one ordered chain of storage work, the error policy | `OIMPersistor` |
-| **resource** | one source paired with one strategy | `OIMPersistResourceRecords`, `OIMPersistResourceSnapshot` |
-| **source** | how the engine reads, writes and watches one thing in memory | `OIMPersistRecordSourceCollectionWriteDriven`, `OIMPersistRecordSourceCollectionChangeDriven`, `OIMPersistRecordSourceBucketDriven`, `OIMPersistSnapshotSourceSingleEntityDriven` |
+| **resource** | one source paired with one strategy | `OIMPersistRecordsResource`, `OIMPersistSnapshotResource` |
+| **source** | how the engine reads, writes and watches one thing in memory | `OIMPersistCollectionWriteRecordSource`, `OIMPersistCollectionChangeWriteRecordSource`, `OIMPersistBucketRecordSource`, `OIMPersistSingleEntitySnapshotSource` |
 | **strategy** | where one resource lives on its backend, and how it is read, written and deleted there | per backend, see [Persist: backends](/docs/packages/persist-backends) |
 | **backend** | the storage itself; reads go to it directly, writes go into a write batch it creates | one per backend package |
-| **scheduler** | when the changes the resources collected become a write batch | `OIMPersistSchedulerMicrotaskDriven`, `OIMPersistSchedulerFrameDriven` |
-| **codec** | how a snapshot resource's value is encoded on the way out and decoded on the way in | `OIMPersistCodecIdentity`, `OIMPersistCodecVersioned` |
+| **scheduler** | when the changes the resources collected become a write batch | `OIMPersistMicrotaskScheduler`, `OIMPersistFrameScheduler` |
+| **codec** | how a snapshot resource's value is encoded on the way out and decoded on the way in | `OIMPersistIdentityCodec`, `OIMPersistVersionedCodec` |
 
 The persistor takes one options object, `TOIMPersistorOptions`: `persistBackend`
 and `persistScheduler` are required, `onPersistError` is optional. Both resources
@@ -157,41 +149,41 @@ on it.
 
 | source | what it persists | learns a change from | pair with | resource kinds |
 |---|---|---|---|---|
-| `OIMPersistRecordSourceCollectionWriteDriven` | every entity of an entity store slot that holds a value | the `OIMPersistEntityWriter` the entity collection was built with, inside the write; no channel | `OIMPersistSchedulerMicrotaskDriven` | records or snapshot |
-| `OIMPersistRecordSourceCollectionChangeDriven` | every entity of an entity store slot that holds a value | the same writer, plus a content-change listener on the store slot, both inside the write; no channel | `OIMPersistSchedulerMicrotaskDriven` | records or snapshot |
-| `OIMPersistRecordSourceBucketDriven` | the member slots of one bucket, which you write | effects on the bucket and on each member, run at the frame | `OIMPersistSchedulerFrameDriven` | records or snapshot |
-| `OIMPersistSnapshotSourceSingleEntityDriven` | the single slot of a single entity service | an effect on its entity slot, run at the frame | `OIMPersistSchedulerFrameDriven` | snapshot only |
+| `OIMPersistCollectionWriteRecordSource` | every entity of an entity store slot that holds a value | the `OIMPersistEntityWriter` the entity collection was built with, inside the write; no channel | `OIMPersistMicrotaskScheduler` | records or snapshot |
+| `OIMPersistCollectionChangeWriteRecordSource` | every entity of an entity store slot that holds a value | the same writer, plus a content-change listener on the store slot, both inside the write; no channel | `OIMPersistMicrotaskScheduler` | records or snapshot |
+| `OIMPersistBucketRecordSource` | the member slots of one bucket, which you write | effects on the bucket and on each member, run at the frame | `OIMPersistFrameScheduler` | records or snapshot |
+| `OIMPersistSingleEntitySnapshotSource` | the single slot of a single entity service | an effect on its entity slot, run at the frame | `OIMPersistFrameScheduler` | snapshot only |
 
 What one flush costs, by resource kind:
 
 | resource | strategy it takes | what one write batch carries |
 |---|---|---|
-| `OIMPersistResourceRecords` | a records strategy: `OIMPersistIndexedDbRecordsStrategy`, `OIMPersistMemoryRecordsStrategy` | the changed entities only: one upsert or one deletion per changed key, O(changed keys) |
-| `OIMPersistResourceSnapshot` | a snapshot strategy: `OIMPersistIndexedDbSnapshotStrategy`, `OIMPersistKeyValueEntryStrategy`, `OIMPersistKeyValuePathStrategy`, `OIMPersistMemorySnapshotStrategy` | the whole value: for a collection or a bucket, every entity it holds, O(entities) |
+| `OIMPersistRecordsResource` | a records strategy: `OIMPersistIndexedDbRecordsService`, `OIMPersistMemoryRecordsService` | the changed entities only: one upsert or one deletion per changed key, O(changed keys) |
+| `OIMPersistSnapshotResource` | a snapshot strategy: `OIMPersistIndexedDbSnapshotService`, `OIMPersistKeyValueEntrySnapshotService`, `OIMPersistKeyValuePathSnapshotService`, `OIMPersistMemorySnapshotService` | the whole value: for a collection or a bucket, every entity it holds, O(entities) |
 
 The two collection-shaped sources are also snapshot sources, whose snapshot is a
 `TOIMPersistRecords` (`{ records: { key, entity }[] }`). So a collection or a bucket
 can go into either resource. A single entity has no key axis and goes into
-`OIMPersistResourceSnapshot` only.
+`OIMPersistSnapshotResource` only.
 
 There is **no key-value records strategy** that keeps one storage key per entity.
 On `localStorage` or an async key-value store a collection is a snapshot resource,
 and every write batch that carries it rewrites the whole collection.
 
-**The scheduler rule.** `OIMPersistSchedulerFrameDriven` drains after a frame
+**The scheduler rule.** `OIMPersistFrameScheduler` drains after a frame
 the channel runs; it never asks the channel for a frame itself. A write to a slot
 nobody holds causes no frame, and the slots of a collection persisted through a collection source
 are usually held by nobody. So:
 
-- pair either collection source with `OIMPersistSchedulerMicrotaskDriven`;
-- pair `OIMPersistRecordSourceBucketDriven` and
-  `OIMPersistSnapshotSourceSingleEntityDriven` with
-  `OIMPersistSchedulerFrameDriven`: their effects subscribe to the slots they
+- pair either collection source with `OIMPersistMicrotaskScheduler`;
+- pair `OIMPersistBucketRecordSource` and
+  `OIMPersistSingleEntitySnapshotSource` with
+  `OIMPersistFrameScheduler`: their effects subscribe to the slots they
   watch, so a write to them causes the frame that delivers their report.
 
 A persistor has one scheduler. When one persistor holds both a collection
 source and a bucket or a single entity, take
-`OIMPersistSchedulerMicrotaskDriven`: the effect-driven reports arrive during the
+`OIMPersistMicrotaskScheduler`: the effect-driven reports arrive during the
 frame and the drain follows on a microtask, and the collection's reports are
 drained without waiting for a frame that may never come.
 
@@ -202,15 +194,15 @@ drained without waiting for a frame that may never come.
 ```ts
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistMemoryBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-const persistResourceRecords = persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+const persistRecordsResource = persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 persistor.start();
 ```
@@ -233,13 +225,13 @@ announced with `slotContentService.markEntityChanged(entitySlot, changedColumns?
 Whether such an edit is persisted is a choice of source, made at construction.
 Both take the same options object, `TOIMPersistRecordSourceCollectionOptions`
 (`{ entityCollectionService, entityStoreSlot, persistEntityWriter }`). The collection service is anything with
-`getSlots`, `findSlotByKey` and a `slotContentService` with `upsertEntities`, `deleteEntity` and `deleteEntities`
+`getSlots`, `findSlotByKey` and a `slotContentService` with `upsertEntities`, `clearSlotContent` and `deleteEntities`
 (`TOIMPersistEntityCollectionService`):
 
 | collection source | what it hears | an in-place edit announced with `markEntityChanged` | cost on the store slot while a resource listens | pick it when |
 |---|---|---|---|---|
-| `OIMPersistRecordSourceCollectionWriteDriven` | the `OIMPersistEntityWriter` only | **not persisted** | none: every write stays on the core fast path; the writer adds one listener loop per write that changed the entity | every change goes through the upsert, update and delete doors |
-| `OIMPersistRecordSourceCollectionChangeDriven` | the writer, plus a content-change listener (`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, …)`, of every column) while subscribed | persisted like a write through the writer | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: one subframe opened and closed, the changed-column bookkeeping, and the content-change listener loop per write | the application edits entities in place |
+| `OIMPersistCollectionWriteRecordSource` | the `OIMPersistEntityWriter` only | **not persisted** | none: every write stays on the core fast path; the writer adds one listener loop per write that changed the entity | every change goes through the upsert, update and delete doors |
+| `OIMPersistCollectionChangeWriteRecordSource` | the writer, plus a content-change listener (`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, …)`, of every column) while subscribed | persisted like a write through the writer | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: one subframe opened and closed, the changed-column bookkeeping, and the content-change listener loop per write | the application edits entities in place |
 
 The change-driven source gives the listener back when its subscription ends, so
 the store slot returns to the fast path when no resource listens.
@@ -247,15 +239,15 @@ the store slot returns to the fast path when no resource listens.
 ```ts
 const changeDrivenPersistor = new OIMPersistor({
   persistBackend: new OIMPersistMemoryBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-changeDrivenPersistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven({
+changeDrivenPersistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 changeDrivenPersistor.start();
 ```
@@ -277,22 +269,22 @@ value. Two consequences:
 ```ts
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistMemoryBackend(),
-  persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+  persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceBucketDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistBucketRecordSource({
     channelMap: db,
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     slotContentBucketService: deckBucketService.slotContentService,
     bucketSlot: keptBucketSlot,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'kept-cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'kept-cards' }),
 }));
 persistor.start();
 
-const cardSlot = cardCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'Ace' });
-deckBucketService.slotContentService.writeBucketMemberSlots(keptBucketSlot, [cardSlot]);
+const cardSlot = cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'Ace' });
+deckBucketService.slotContentService.writeSlotContent(keptBucketSlot, [cardSlot]);
 db.flush();
 await persistor.whenIdle();
 ```
@@ -327,23 +319,23 @@ subscriber, so a release policy does not collect it while it is mirrored.
 ```ts
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistMemoryBackend(),
-  persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+  persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource({
     channelMap: db,
     singleSlotService: settingsSingleEntityService,
     entityStoreSlot: settingsEntityStoreSlot,
   }),
-  persistSnapshotStrategy: new OIMPersistMemorySnapshotStrategy<TSettings>({ storageKey: 'settings' }),
-  persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+  persistSnapshotService: new OIMPersistMemorySnapshotService<TSettings>({ storageKey: 'settings' }),
+  persistCodec: new OIMPersistIdentityCodec<TSettings>(),
 }));
 ```
 
 The snapshot is the entity itself, read with `singleSlotService.findSingleSlot(entityStoreSlot)?.entity`;
 reading it before the entity was ever upserted throws, so give the single its first value with
-`upsertEntity` before the persistor reads it. A hydrate writes it back through
-`singleSlotService.slotContentService.upsertEntity(entityStoreSlot, entity)`, a whole-value write, so a column
+`writeSlotContentByKey` before the persistor reads it. A hydrate writes it back through
+`singleSlotService.slotContentService.writeSlotContentByKey(entityStoreSlot, entity)`, a whole-value write, so a column
 deleted before the snapshot was taken does not come back on load. When the resource subscribes, the
 source reports the current value unless it is the value a hydrate restored, so
 the first drain after `start()` writes it.
@@ -352,7 +344,7 @@ the first drain after `start()` writes it.
 
 ### Records: per-key deltas
 
-`OIMPersistResourceRecords` takes `persistRecordSource`, `persistRecordsStrategy`
+`OIMPersistRecordsResource` takes `persistRecordSource`, `persistRecordsService`
 and an optional `persistHydrateReconcile`. It keeps the changes it has not
 written yet as a set of **entity slots**, not keys. When a write batch is built,
 each slot is read directly: a slot that holds a value and is not released becomes
@@ -373,12 +365,12 @@ resource never heard is not written in that mode.
 
 ### Snapshot: one value, through a codec
 
-`OIMPersistResourceSnapshot` takes `persistSnapshotSource`,
-`persistSnapshotStrategy`, `persistCodec` and an optional
+`OIMPersistSnapshotResource` takes `persistSnapshotSource`,
+`persistSnapshotService`, `persistCodec` and an optional
 `persistHydrateReconcile`. Any change marks the resource dirty, and the write
 batch carries `persistCodec.encode(source.readSnapshot())`, read when the write
-runs. `OIMPersistCodecIdentity` writes the snapshot as it is;
-`OIMPersistCodecVersioned` wraps it with a schema version and migrates on read,
+runs. `OIMPersistIdentityCodec` writes the snapshot as it is;
+`OIMPersistVersionedCodec` wraps it with a schema version and migrates on read,
 see [Versioned schemas](/docs/packages/persist-storage#versioned-schemas).
 
 ## Schedulers
@@ -386,11 +378,11 @@ see [Versioned schemas](/docs/packages/persist-storage#versioned-schemas).
 `persistScheduler` is required and has no default: the right one depends on the sources, as
 [the scheduler rule](#choosing-a-source-a-resource-and-a-scheduler) says.
 
-- `OIMPersistSchedulerMicrotaskDriven` drains on the first microtask after the
+- `OIMPersistMicrotaskScheduler` drains on the first microtask after the
   first dirty report, and coalesces every report before it into that one drain.
   `stop()` cancels a drain already scheduled, and a report made while stopped
   schedules nothing.
-- `OIMPersistSchedulerFrameDriven({ channelSlot })` subscribes with
+- `OIMPersistFrameScheduler({ channelSlot })` subscribes with
   `OIMChannelService.INSTANCE.subscribeAfterEachFrame(channelSlot, …)` and drains after a frame only when a resource asked
   for a drain since the last one. A frame that reported nothing costs one flag
   check. It does not ask the channel for a frame, so it suits the bucket and
@@ -454,15 +446,15 @@ inside it loses them.
 ```ts
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistMemoryBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
 }));
 
 await persistor.hydrate();
@@ -510,13 +502,13 @@ records:
 ```ts
 import { oimReconcileByKey } from '@oimdb/persist';
 
-const persistResourceRecords = new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+const persistRecordsResource = new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
     persistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
+  persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'cards' }),
   persistHydrateReconcile: oimReconcileByKey<TOIMStoreKey, TCard>(
     (currentEntity, incomingEntity) => currentEntity === undefined ? incomingEntity : { ...incomingEntity, ...currentEntity },
   ),
@@ -551,18 +543,18 @@ Each shipped source makes its mark from state it already has:
 
 | source | change mark | what it compares |
 |---|---|---|
-| `OIMPersistSnapshotSourceSingleEntityDriven` | `OIMPersistSourceChangeMarkSlotDriven` over the entity slot | the slot's revision stamps (`changedAtRevision`, `changedAtEpoch`) taken at the mark |
-| `OIMPersistRecordSourceBucketDriven` | `OIMPersistSourceChangeMarkSlotDriven` over the bucket slot and every member slot | the same stamps on each of those slots |
-| `OIMPersistRecordSourceCollectionWriteDriven` | `OIMPersistSourceChangeMarkSubscriptionDriven` over its own change subscription | a flag the subscription sets on the first report after the mark |
-| `OIMPersistRecordSourceCollectionChangeDriven` | `OIMPersistSourceChangeMarkSubscriptionDriven` over its own change subscription, which holds the content-change listener for as long as the mark lives | the same flag, set also by an in-place edit announced with `markEntityChanged` |
+| `OIMPersistSingleEntitySnapshotSource` | `OIMPersistSlotSourceChangeMark` over the entity slot | the slot's revision stamps (`changedAtRevision`, `changedAtEpoch`) taken at the mark |
+| `OIMPersistBucketRecordSource` | `OIMPersistSlotSourceChangeMark` over the bucket slot and every member slot | the same stamps on each of those slots |
+| `OIMPersistCollectionWriteRecordSource` | `OIMPersistSubscriptionSourceChangeMark` over its own change subscription | a flag the subscription sets on the first report after the mark |
+| `OIMPersistCollectionChangeWriteRecordSource` | `OIMPersistSubscriptionSourceChangeMark` over its own change subscription, which holds the content-change listener for as long as the mark lives | the same flag, set also by an in-place edit announced with `markEntityChanged` |
 
 A change made during the read is seen even when no frame runs before the read is back. The
 mark works whether or not the persistor is started, and never reports a mount as a change.
 
 A source of your own implements `markSourceChanges()` too. Both shipped marks are
-exported for it: `new OIMPersistSourceChangeMarkSlotDriven({ slots })` when the
+exported for it: `new OIMPersistSlotSourceChangeMark({ slots })` when the
 source's state lives in slots, and
-`new OIMPersistSourceChangeMarkSubscriptionDriven({ subscribeSourceChanged })`
+`new OIMPersistSubscriptionSourceChangeMark({ subscribeSourceChanged })`
 when the source can only report changes through a subscription it opens for the
 mark and closes on `dispose()`.
 
@@ -579,8 +571,8 @@ ones after it. The failures are reported afterwards, see
 | `start()` / `stop()` | Subscribe and unsubscribe every resource, and start and stop the scheduler; `start()` skips a quarantined resource. A resource whose subscribe throws does not stop the others: each failure goes to `onPersistError` with `persistOperation: 'start'`, or, with no handler, all of them are thrown as one `AggregateError` after every resource was tried. A resource whose start failed stays registered and unsubscribed, with no autosave, until `stop()` and `start()` again. A bucket or single-entity source reports its current value when its resource subscribes, so the first drain after `start()` writes it (except a value a hydrate restored); a collection source reports nothing at subscribe time |
 | `hydrate()` | Read every resource and apply it, one at a time, always to the end; ends the upsert-only mode an `unload` put a records resource in |
 | `persist()` | Write every resource whole in one write batch, quarantined ones included; a resource whose write succeeds leaves quarantine. A records resource with unloaded keys writes its in-memory records as upserts over the stored table instead of replacing it, plus the deletions it already heard; a deletion it never heard is not written then |
-| `unload(persistResourceRecords, keys)` | Write the current values of the keys, plus what that resource has pending, repeating until the keys have no unwritten change (so an edit made during the write is not lost); then take the keys out of memory and leave them on the backend. See [the limit on deletions](/docs/packages/persist-storage#a-release-is-a-deletion-unload-is-the-other-door) |
-| `load(persistResourceRecords, keys)` | The pair of `unload`. Queued after the pending writes, it reads only those keys from the backend through the strategy's `readRecordsOfKeys` and puts the stored entities back into the source with the resource's reports switched off, so they are not written back. A key that holds a value in memory, or has a change the resource has not written yet, is skipped, so a write or a heard deletion made during the read is not overwritten. The keys stop counting as unloaded: once none is, `persist()` replaces the table again. See [Loading keys back](/docs/packages/persist-storage#loading-keys-back) |
+| `unload(persistRecordsResource, keys)` | Write the current values of the keys, plus what that resource has pending, repeating until the keys have no unwritten change (so an edit made during the write is not lost); then take the keys out of memory and leave them on the backend. See [the limit on deletions](/docs/packages/persist-storage#a-release-is-a-deletion-unload-is-the-other-door) |
+| `load(persistRecordsResource, keys)` | The pair of `unload`. Queued after the pending writes, it reads only those keys from the backend through the strategy's `readRecordsOfKeys` and puts the stored entities back into the source with the resource's reports switched off, so they are not written back. A key that holds a value in memory, or has a change the resource has not written yet, is skipped, so a write or a heard deletion made during the read is not overwritten. The keys stop counting as unloaded: once none is, `persist()` replaces the table again. See [Loading keys back](/docs/packages/persist-storage#loading-keys-back) |
 | `clearPersisted()` | Delete every resource from the backend in one write batch; memory is not touched; ends the upsert-only mode an `unload` put a records resource in |
 | `whenIdle()` | Resolve once everything queued so far has finished; never rejects |
 | `destroy()` | Stop, then forget every resource, pending write and failure count |

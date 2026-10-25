@@ -40,9 +40,9 @@ shared with the other strategies of its kind:
 - set-driven and array-driven buckets and indexes;
 - entity writers, `createOIMEntityWriterInPlace` and
   `createOIMEntityWriterReplacing`, and entity insert strategies,
-  `TOIMEntityInsertStrategy`;
+  `TOIMEntityInserter`;
 - the `sameValueGuard` of a computed (`TOIMSameValueGuard`);
-- slot emptiness checks, `IOIMSlotEmptiness`;
+- slot emptiness checks, `IOIMSlotEmptinessPolicy`;
 - channel schedulers, `TOIMChannelScheduler`.
 
 ## What to do

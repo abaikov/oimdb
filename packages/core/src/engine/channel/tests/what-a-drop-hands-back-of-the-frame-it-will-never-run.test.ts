@@ -1,12 +1,13 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMChannelSlot } from '../utils/createOIMChannelSlot';
 import { createOIMCollectorSlot } from '../../collector/utils/createOIMCollectorSlot';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
 import { OIM_TIMER_ON_TIMEOUT } from '../../schedule/constants/OIM_TIMER_ON_TIMEOUT';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -15,7 +16,7 @@ const channelService = OIMChannelService.INSTANCE;
 describe('what a drop hands back of the frame it will never run', () => {
     it('gives back the hold a getter took, so the identity is reclaimed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.getSlotByKey(cards, 'c1');
         expect(slot.holdCount).toBe(1);
@@ -33,11 +34,11 @@ describe('what a drop hands back of the frame it will never run', () => {
         const channelSlot = createOIMChannelSlot({
             clock: { revision: 0, epoch: 0 },
             collectorSlot: createOIMCollectorSlot({
-                getNowMs: Date.now, releaseTimer: OIM_TIMER_ON_TIMEOUT, errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+                getNowMs: Date.now, releaseTimer: OIM_TIMER_ON_TIMEOUT, errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
             }),
-            errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+            errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
         });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot({ defaultChannelSlot: channelSlot });
         cardsService.getSlotByKey(cards, 'c1');
         expect(cardsService.getSlotCount(cards)).toBe(1);
@@ -50,7 +51,7 @@ describe('what a drop hands back of the frame it will never run', () => {
     it('leaves the flush already under way to be the one that hands it back', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const trigger = cardsService.holdSlotByKey(cards, 'trigger');
         effectService.createEffect(db, [trigger], [], () => { channelService.dropChannelSlot(db.defaultChannelSlot); });
@@ -65,7 +66,7 @@ describe('what a drop hands back of the frame it will never run', () => {
 
     it('hands back each hold once, so a second drop gives nothing back twice', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.getSlotByKey(cards, 'c1');
 

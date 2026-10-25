@@ -1,20 +1,18 @@
 import { IDBFactory } from 'fake-indexeddb';
 import type { TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import {
     OIMPersistEntityWriter,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy } from '../src';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
 import { oimOpenIndexedDb } from '../src/utils/oimOpenIndexedDb';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TIndexedDbPersistor = OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>;
@@ -50,32 +48,29 @@ describe('an upgrade blocked by another open connection', () => {
             entityWriter: createOIMEntityWriterInPlace(),
         });
         const db = new OIMDB();
-        const entityService = createOIMEntityService<TUser>(db, {
-            keyOf: user => user.id,
-            entityWriter: persistEntityWriter,
-        });
+        const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
         const entityStoreSlot = entityService.createStoreSlot(db);
         const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName, indexedDb });
         const errors: unknown[] = [];
         const persistor = new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
             persistBackend: persistIndexedDbBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: error => errors.push(error),
         });
-        persistor.addPersistResource(new OIMPersistResourceRecords<
+        persistor.addPersistResource(new OIMPersistRecordsResource<
             OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TOIMStoreKey, TUser
         >({
-            persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TUser>({
+            persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
                 entityCollectionService: entityService,
                 entityStoreSlot,
                 persistEntityWriter,
             }),
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TUser>({ tableName: 'users' }),
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TUser>({ tableName: 'users' }),
         }));
         startedPersistors.push(persistor);
         persistor.start();
 
-        entityService.slotContentService.upsertEntity(entityStoreSlot, { id: 'u1', name: 'Ada' });
+        entityService.writeSlotContentByKey(entityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
         for (let i = 0; i < 10; i++) await tick();
 
         expect(errors).toEqual([]);

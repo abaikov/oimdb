@@ -1,10 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -14,12 +15,12 @@ const ROWS = 100;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const decksService = createOIMIndexService(db, {
+    const decksService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
     });
     const decks = decksService.createIndexStoreSlot(cards);
     const heldDecks: ReturnType<typeof decksService.holdSlotByKey>[] = [];
@@ -46,7 +47,7 @@ describe('what a batch tells the buckets it files into', () => {
     it('names each bucket it filled once for the batch, not once per row', () => {
         const fixture = createFixture();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.writtenBuckets()).toBe(GROUPS);
@@ -55,7 +56,7 @@ describe('what a batch tells the buckets it files into', () => {
     it('files every row of the batch into its own bucket', () => {
         const fixture = createFixture();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         const counts = fixture.heldDecks.map(
@@ -71,7 +72,7 @@ describe('what a batch tells the buckets it files into', () => {
         fixture.db.flush();
         runCount = 0;
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(runCount).toBe(1);
@@ -79,11 +80,11 @@ describe('what a batch tells the buckets it files into', () => {
 
     it('moves a row between buckets and names both once', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
         const before = fixture.writtenBuckets();
 
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c0', deck: 'd1' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c0', { id: 'c0', deck: 'd1' });
         fixture.db.flush();
 
         expect(fixture.writtenBuckets() - before).toBe(2);
@@ -93,11 +94,11 @@ describe('what a batch tells the buckets it files into', () => {
 
     it('names no bucket for a batch that moved nobody between them', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
         const before = fixture.writtenBuckets();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, rows('c'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (rows('c')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.writtenBuckets() - before).toBe(0);

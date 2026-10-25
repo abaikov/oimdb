@@ -1,5 +1,5 @@
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
-import type { TOIMComputedSlot } from './types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import { OIMEffectSourceList } from './OIMEffectSourceList';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 import { oimGetAllRootSlots } from './utils/oimGetAllRootSlots';
@@ -7,7 +7,7 @@ import { oimGetAllRootSlots } from './utils/oimGetAllRootSlots';
 export class OIMEffectSourceTracker {
     private readonly slotEffectSourceList = new OIMEffectSourceList<TOIMSlot>();
 
-    private computedEffectSourceList: OIMEffectSourceList<TOIMComputedSlot> | undefined = undefined;
+    private computedEffectSourceList: OIMEffectSourceList<TOIMComputedContentSlot> | undefined = undefined;
 
     private committedAllRootSlots: TOIMSlot[] = [];
 
@@ -20,9 +20,9 @@ export class OIMEffectSourceTracker {
         return slot;
     }
 
-    public readSourceComputedValue<TValue>(computedSlot: TOIMComputedSlot<TValue, unknown>): TValue {
+    public readSourceComputedValue<TValue>(computedSlot: TOIMComputedContentSlot<TValue>): TValue {
         const value = computedSlot.computedValueService.getValueForSlot(computedSlot);
-        (this.computedEffectSourceList ??= new OIMEffectSourceList<TOIMComputedSlot>()).trackSource(computedSlot);
+        (this.computedEffectSourceList ??= new OIMEffectSourceList<TOIMComputedContentSlot>()).trackSource(computedSlot);
         return value;
     }
 
@@ -44,7 +44,7 @@ export class OIMEffectSourceTracker {
         return this.slotEffectSourceList.getTrackedSources();
     }
 
-    public getTrackedSourceComputeds(): readonly TOIMComputedSlot[] {
+    public getTrackedSourceComputeds(): readonly TOIMComputedContentSlot[] {
         return this.computedEffectSourceList?.getTrackedSources() ?? OIM_FROZEN_EMPTY_COMPUTED_SLOTS;
     }
 

@@ -1,30 +1,19 @@
 // What is deliberately LEFT IN makes the excised arm larger, so this spec is a LOWER BOUND.
-// The `import { createOIMColumnOwnerPushDriven }` lines in createOIMEntityService.ts and createOIMBucketSlotOwnerService.ts
-// are NOT removed: with the option that used them gone they are unused and the bundler drops the module,
+// The `import { createOIMPushColumnSlotOwner }` line in oimSlotOwnerOptionsWithDefault.ts
+// is NOT removed: with the option that used it gone it is unused and the bundler drops the module,
 // and that module's absence from the excised breakdown is the proof no link was missed.
 // `index.ts`'s re-exports of the column owners are left in on purpose — a named import keeps only what it names.
 import type { TBundleExcision } from './TBundleExcision';
 
 export const fieldMachineryExcision: readonly TBundleExcision[] = [
     {
-        module: 'factories/createOIMEntityService.ts',
+        module: 'factories/utils/oimSlotOwnerOptionsWithDefault.ts',
         rules: [
             {
                 kind: 'line',
-                matches: /^[ \t]*createColumnOwner: createOIMColumnOwnerPushDriven,$/,
+                matches: /^[ \t]*createColumnSlotOwner: createOIMPushColumnSlotOwner,$/,
                 times: 1,
-                what: 'the option that links the push-driven column owner into every entity service',
-            },
-        ],
-    },
-    {
-        module: 'factories/utils/createOIMBucketSlotOwnerService.ts',
-        rules: [
-            {
-                kind: 'line',
-                matches: /^[ \t]*createColumnOwner: createOIMColumnOwnerPushDriven,$/,
-                times: 1,
-                what: 'the option that links the push-driven column owner into every bucket service',
+                what: 'the option that links the push-driven column owner into every entity and bucket collection',
             },
         ],
     },
@@ -33,7 +22,7 @@ export const fieldMachineryExcision: readonly TBundleExcision[] = [
         rules: [
             {
                 kind: 'statement',
-                starts: /^[ \t]*slotOwnerService\.columnOwner\.markColumnsChanged\(/,
+                starts: /^[ \t]*(?:slotOwnerService|this\.slotOwnerServiceOf\(entitySlot\))\.columnSlotOwner\.markColumnsChanged\(/,
                 times: 2,
                 what: 'every entity write reporting the columns it changed, through markEntityChanged and through dispatchColumnsChanged',
             },
@@ -44,7 +33,7 @@ export const fieldMachineryExcision: readonly TBundleExcision[] = [
         rules: [
             {
                 kind: 'statement',
-                starts: /^[ \t]*slotOwnerService\.columnOwner\.markColumnsChanged\(/,
+                starts: /^[ \t]*slotOwnerService\.columnSlotOwner\.markColumnsChanged\(/,
                 times: 1,
                 what: 'every bucket write reporting the columns it changed',
             },

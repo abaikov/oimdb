@@ -144,7 +144,7 @@ mechanism, smaller, reaches Immer and hence redux-toolkit.
 number in it is re-attributed to the current one.** A write reaches no index at
 all. The column is addressed by a per-column identity —
 `TOIMEntitySlot.columnSlotStore`, minted on the first subscription to that column and
-written only by `packages/core/src/engine/column/OIMColumnOwner.ts`. The one
+written only by `packages/core/src/engine/column/OIMColumnSlotOwner.ts`. The one
 door onto a column is `holdColumn(slot, name)` on the collection, which mints the
 column identity, handed to `OIMChannel.effectOnColumn(column, body)`, which builds
 an ordinary effect on it. Nothing has re-run this row since.
@@ -639,11 +639,11 @@ same reason in three different vocabularies: their routing is at the LEAF, so th
 **WHAT THE ENGINE DOES.** A column of a
 row is its own identity, minted lazily on the first subscription and hanging on
 the row (`TOIMEntitySlot.columnSlotStore`, sole writer
-`packages/core/src/engine/column/OIMColumnOwner.ts`); subscribing to a column
+`packages/core/src/engine/column/OIMColumnSlotOwner.ts`); subscribing to a column
 is an ordinary effect on THAT identity: `holdColumn` mints and resolves the
-column through `OIMColumnOwner`, and `OIMChannel.effectOnColumn` hands it to
+column through `OIMColumnSlotOwner`, and `OIMChannel.effectOnColumn` hands it to
 `OIMChannel.effect` as its single root. A write marks only the column identities that already
-exist (`OIMEntityCollection` → `OIMColumnOwner.markColumnsChanged`, which
+exist (`OIMEntityCollection` → `OIMColumnSlotOwner.markColumnsChanged`, which
 returns on `slot.columnSlotStore === undefined` and otherwise probes the map once per
 changed column). The `label` handler is not reached by a `note` write.
 **Direction: unknown, and it may not be inferred from the row above.** The cost
@@ -1060,12 +1060,12 @@ The three are TWO store services and the key walk one of them is handed —
 
 | arm | key type | what keeps a branch |
 |---|---|---|
-| `OIMSlotStoreServiceMapDriven` | `TOIMStoreKey` = `string \| number` — one scalar (`packages/core/src/engine/store/OIMSlotStoreServiceMapDriven.ts`) | one `Map`; there is no branch |
-| `OIMSlotStoreServiceTreeDriven` + `OIMKeyTreeWalkScalar` | `readonly TOIMStoreKey[]` — a chain of VALUES (`packages/core/src/engine/key/OIMKeyTreeWalkScalar.ts`) | the subtree under an edge and nothing else; `holdSegment` and `unholdSegment` both return, so no hold is taken |
-| `OIMSlotStoreServiceTreeDriven` + `OIMKeyTreeWalkComposite` | `readonly TOIMEntitySlot[]` — a chain of IDENTITIES (`packages/core/src/engine/key/OIMKeyTreeWalkComposite.ts`) | a counted hold per edge (`segment.owner.hold`), given back at the prune |
+| `OIMSlotMapStoreService` | `TOIMStoreKey` = `string \| number` — one scalar (`packages/core/src/engine/store/OIMSlotMapStoreService.ts`) | one `Map`; there is no branch |
+| `OIMSlotTreeStoreService` + `OIMScalarKeyTreeWalk` | `readonly TOIMStoreKey[]` — a chain of VALUES (`packages/core/src/engine/key/OIMScalarKeyTreeWalk.ts`) | the subtree under an edge and nothing else; `holdSegment` and `unholdSegment` both return, so no hold is taken |
+| `OIMSlotTreeStoreService` + `OIMCompositeKeyTreeWalk` | `readonly TOIMEntitySlot[]` — a chain of IDENTITIES (`packages/core/src/engine/key/OIMCompositeKeyTreeWalk.ts`) | a counted hold per edge (`segment.owner.hold`), given back at the prune |
 
 **What a segment IS belongs to the walk and not to the store**: there is no
-branch on a key's kind anywhere in `OIMSlotStoreServiceTreeDriven`
+branch on a key's kind anywhere in `OIMSlotTreeStoreService`
 (`packages/core/src/engine/store/README.md`), which is why the two tree arms are
 one class with two injections rather than two classes.
 
@@ -1091,7 +1091,7 @@ What is left is the key type, and it does different work in each pair:
   segment, so a row keyed by `[user, card]` keeps that user resolvable for as
   long as the row is addressable, and the value arm holds nothing, so removing
   `u1` is invisible to a row filed at `['u1', …]`
-  (`packages/core/src/engine/key/OIMKeyTreeWalkScalar.ts`;
+  (`packages/core/src/engine/key/OIMScalarKeyTreeWalk.ts`;
   `packages/core/src/index.ts`). That is a fork about LIFETIME. A pair
   whose arms leave different state is not a measurement of one task.
 - **map against scalar-tree — this IS a sweep, and it is unswept.** For a
@@ -1104,7 +1104,7 @@ What is left is the key type, and it does different work in each pair:
   resolution one caller-allocated array plus one `Map.get` on the root node and
   one field read (`packages/core/src/engine/key/OIMKeyTreeWalk.ts`) against the map store's
   single `Map.get`; per insert a `parts.slice()` and a `Set.add`
-  (`packages/core/src/engine/store/OIMSlotStoreServiceTreeDriven.ts`) against one `Map.set`. **No
+  (`packages/core/src/engine/store/OIMSlotTreeStoreService.ts`) against one `Map.set`. **No
   adapter in `src/adapters/` constructs the scalar store**, so the arm is
   shipped and unmeasured.
   That is a gap in this report, not a property of the engine.
@@ -1117,7 +1117,7 @@ population keyed by a combination, against a floor of nested maps.
 Insert a population, read one row back by key. **One axis varies: the write
 strategy**, and the sweep's job is to find out whether the fork is *free* here
 rather than to find a winner. `createOIMEntityWriterInPlace.ts` and
-`createOIMEntityWriterReplacing.ts` both default `entityInsertStrategy` to the same
+`createOIMEntityWriterReplacing.ts` both default `entityInserter` to the same
 strategy (the copying one when this was measured; `oimInsertEntityWithoutCopy` since 2026-10-21), and `upsert`'s insert branch calls
 `fillSlot` and no other method of the strategy
 (`packages/core/src/facade/entity/OIMEntityCollection.ts`, `upsert`). The two arms should be the
@@ -1163,9 +1163,9 @@ the unordered service at all (a `Set` has no third element) and takes
 `OIMBucketSlotsServiceArrayDriven`, which sorts nothing either; neither arm sorts. That
 axis is measured where it can be measured honestly, in `alternativePairsMutator.ts`
 and `alternativePairsIndex.ts`. **Identity store** is the one a bucket
-collection is constructed with — `OIMSlotStoreServiceMapDriven` for a group named
+collection is constructed with — `OIMSlotMapStoreService` for a group named
 by a column's value, because the address is a column's value; the tree store
-(`OIMSlotStoreServiceTreeDriven`) would make the caller resolve the string to a
+(`OIMSlotTreeStoreService`) would make the caller resolve the string to a
 slot before every write.
 
 Floor, written **once and shared by both arms** so that neither can be flattered
@@ -2046,11 +2046,11 @@ signal adapters keep one effect per view as well.
 What a jump costs in the core: a probe holding a `['rank','label']` group slot on 32 new rows,
 one effect over them, and giving back the previous 32 (load 3, three runs): 3.46–3.68 µs a jump
 with the default `Map` per row as the column slot store, 2.47–2.99 with an array searched
-linearly, injected through `columnOwner`. The `Map` each row's first column slot creates is
+linearly, injected through `columnSlotOwner`. The `Map` each row's first column slot creates is
 most of the difference.
 
 The shipped answer is `columns` on the collection (his decision: a `Map` without it, the
-ordinal store `OIMColumnSlotStoreServiceOrdinalDriven` with it). Same jump probe, load 5.7,
+ordinal store `OIMColumnSlotOrdinalStoreService` with it). Same jump probe, load 5.7,
 three runs: `Map` 3.78–4.09, `columns` 3.12–3.18, the linear array 2.61–2.97 µs a jump — the
 ordinal store still pays one name→number lookup per access. Per key count (separate probe):
 lookup flat 5–8 ns from 1 to 50 slots per row, where the linear array reaches 81 ns at 50;
@@ -2075,13 +2075,13 @@ probe (mark door, index, sort, group subscription; interleaved with the build be
 Pair: `src/price/pricePairsWrite.ts:1059`. prices.json, 2026-10-21 landing run: 70.15 against
 36.37 ns, noise 1.0%. Ours is `collection.clearContent(slot)` with the slot in hand: no lookup,
 no index, subscriber, column or hold. The floor is `map.delete(id)`. Ours ALSO ends in the same
-`Map.delete`, at `removeReleasedSlot → OIMSlotStoreServiceMapDriven.remove`. So the ~34 ns gap
+`Map.delete`, at `removeReleasedSlot → OIMSlotMapStoreService.remove`. So the ~34 ns gap
 is everything around that call:
 - two nested subframes: `OIMSlotAggregate.clearContent` (`OIMSlotAggregate.ts:224`) and
   `OIMEntityCollection.clearContentImpl` (`OIMEntityCollection.ts:70`); each open and each close
   goes through the aggregate override and then the channel;
 - one `channel.writeWithoutFlushCheck` (`OIMChannel.ts:143`);
-- `entityWriter.clearEntity`, `slotEmptiness.isEmpty`,
+- `entityWriter.clearEntity`, `slotEmptinessPolicy.isEmpty`,
   `slotReleasePolicy.isEmptySlotReleasable` / `cancelSlotRelease`, `onSlotReleased`: about five
   interface or virtual calls;
 - `assertWritable`.

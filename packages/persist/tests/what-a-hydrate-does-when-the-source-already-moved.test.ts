@@ -1,31 +1,27 @@
-import type { TOIMBucketSlotsSetStore, TOIMDisposer, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import type { TOIMDisposer, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
 import type {
     IOIMPersistSnapshotSource, IOIMPersistSourceChangeMark, TOIMPersistHydrateReconcile, TOIMPersistOperation,
 } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistRecordSourceBucketDriven,
-    OIMPersistResourceRecords,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistBucketRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSingleEntitySnapshotSource,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TValue = { text: string };
 type TSettings = { theme: string };
 type TUser = { id: string; name: string };
 type TUserSlot = TOIMEntitySlot<TUser, TOIMStoreKey>;
-type TUserSlots = TOIMBucketSlotsSetStore<TUserSlot>;
 
 const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0); });
 
@@ -62,7 +58,7 @@ class SingleListenerSnapshotSource implements IOIMPersistSnapshotSource<TValue> 
     }
 
     public markSourceChanges(): IOIMPersistSourceChangeMark {
-        return new OIMPersistSourceChangeMarkSubscriptionDriven({
+        return new OIMPersistSubscriptionSourceChangeMark({
             subscribeSourceChanged: onSourceChanged => {
                 this.sourceChangedListeners.add(onSourceChanged);
                 return () => { this.sourceChangedListeners.delete(onSourceChanged); };
@@ -88,14 +84,14 @@ function build(storedValue: TValue, buildOptions: TBuildOptions = {}) {
     testPersistBackend.closeGate();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError: (_error, persistErrorContext) => { persistOperations.push(persistErrorContext.persistOperation); },
     });
     const singleListenerSnapshotSource = new SingleListenerSnapshotSource(buildOptions.reportsAtSubscribe ?? false);
-    persistor.addPersistResource(new OIMPersistResourceSnapshot({
+    persistor.addPersistResource(new OIMPersistSnapshotResource({
         persistSnapshotSource: singleListenerSnapshotSource,
-        persistSnapshotStrategy: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value', storedSnapshot: storedValue }),
-        persistCodec: new OIMPersistCodecIdentity<TValue>(),
+        persistSnapshotService: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value', storedSnapshot: storedValue }),
+        persistCodec: new OIMPersistIdentityCodec<TValue>(),
         persistHydrateReconcile: buildOptions.persistHydrateReconcile,
     }));
     const readStoredValue = (): unknown => {
@@ -220,12 +216,12 @@ describe('hydrate against a started resource whose source changed while the read
         testPersistBackend.closeGate();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
-        persistor.addPersistResource(new OIMPersistResourceSnapshot({
+        persistor.addPersistResource(new OIMPersistSnapshotResource({
             persistSnapshotSource: singleListenerSnapshotSource,
-            persistSnapshotStrategy: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value', storedSnapshot: { text: 'stored' } }),
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value', storedSnapshot: { text: 'stored' } }),
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         }));
         persistor.start();
 
@@ -370,26 +366,26 @@ describe('hydrate issued before start()', () => {
 describe('hydrate against an effect-driven source written while the read is in flight, with no frame run', () => {
     it('refuses on a single entity source instead of clobbering the write', async () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-        singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, { theme: 'dark' });
+        singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: 'dark' });
         db.flush();
         const persistOperations: TOIMPersistOperation[] = [];
         const testPersistBackend = new OIMTestPersistBackend();
         testPersistBackend.closeGate();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: (_error, persistErrorContext) => { persistOperations.push(persistErrorContext.persistOperation); },
         });
-        persistor.addPersistResource(new OIMPersistResourceSnapshot({
-            persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+        persistor.addPersistResource(new OIMPersistSnapshotResource({
+            persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource<TSettings>({
                 channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
             }),
-            persistSnapshotStrategy: testPersistBackend.createSnapshotStrategy<TSettings>({
+            persistSnapshotService: testPersistBackend.createSnapshotStrategy<TSettings>({
                 storageKey: 'settings', storedSnapshot: { theme: 'stored' },
             }),
-            persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+            persistCodec: new OIMPersistIdentityCodec<TSettings>(),
         }));
 
         const hydrating = persistor.hydrate();
@@ -404,15 +400,13 @@ describe('hydrate against an effect-driven source written while the read is in f
 
     it('refuses on a bucket source when a member nothing else holds is written', async () => {
         const db = new OIMDB();
-        const userEntityService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+        const userEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
         const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-        const userBucketService = createOIMBucketService<
-            TUserSlot, TOIMStoreKey, TUserSlots, OIMSlotContentBucketServiceSetDriven<TUserSlot>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TUserSlot>() });
+        const userBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
         const userBucketStoreSlot = userBucketService.createStoreSlot(db);
         const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
-        const userSlot = userEntityService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
-        userBucketService.slotContentService.writeBucketMemberSlots(bucketSlot, [userSlot]);
+        const userSlot = userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
+        userBucketService.slotContentService.writeSlotContent(bucketSlot, [userSlot]);
         db.flush();
         const persistOperations: TOIMPersistOperation[] = [];
         const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
@@ -420,18 +414,18 @@ describe('hydrate against an effect-driven source written while the read is in f
         testPersistBackend.closeGate();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: (_error, persistErrorContext) => { persistOperations.push(persistErrorContext.persistOperation); },
         });
-        persistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: new OIMPersistRecordSourceBucketDriven({
+        persistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: new OIMPersistBucketRecordSource({
                 channelMap: db,
                 entityCollectionService: userEntityService,
                 entityStoreSlot: userEntityStoreSlot,
                 slotContentBucketService: userBucketService.slotContentService,
                 bucketSlot,
             }),
-            persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+            persistRecordsService: testPersistBackend.createRecordsStrategy(),
         }));
 
         const hydrating = persistor.hydrate();
@@ -441,6 +435,6 @@ describe('hydrate against an effect-driven source written while the read is in f
         await hydrating;
 
         expect(persistOperations).toEqual(['hydrate']);
-        expect(userEntityService.slotContentService.findEntityByKey(userEntityStoreSlot, 'u1')?.name).toBe('Typed');
+        expect(userEntityService.findSlotByKey(userEntityStoreSlot, 'u1')?.entity?.name).toBe('Typed');
     });
 });

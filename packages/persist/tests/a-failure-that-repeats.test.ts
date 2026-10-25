@@ -1,9 +1,9 @@
 import type { IOIMPersistSnapshotSource, TOIMPersistErrorContext } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -28,7 +28,7 @@ function createVariableSource(): {
                 onSnapshotChanged = onChanged;
                 return () => { onSnapshotChanged = () => undefined; };
             },
-            markSourceChanges: () => new OIMPersistSourceChangeMarkSubscriptionDriven({
+            markSourceChanges: () => new OIMPersistSubscriptionSourceChangeMark({
                 subscribeSourceChanged: onSourceChanged => {
                     sourceChangedListeners.add(onSourceChanged);
                     return () => { sourceChangedListeners.delete(onSourceChanged); };
@@ -45,10 +45,10 @@ function createVariableSource(): {
 
 function addVariableResource(persistor: TTestPersistor, testPersistBackend: OIMTestPersistBackend, storageKey: string) {
     const { persistSnapshotSource, moveValue } = createVariableSource();
-    const persistResource = persistor.addPersistResource(new OIMPersistResourceSnapshot({
+    const persistResource = persistor.addPersistResource(new OIMPersistSnapshotResource({
         persistSnapshotSource,
-        persistSnapshotStrategy: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey }),
-        persistCodec: new OIMPersistCodecIdentity<TValue>(),
+        persistSnapshotService: testPersistBackend.createSnapshotStrategy<TValue>({ storageKey }),
+        persistCodec: new OIMPersistIdentityCodec<TValue>(),
     }));
     return { persistResource, moveValue };
 }
@@ -58,7 +58,7 @@ describe('one value the serializer cannot handle', () => {
         const testPersistBackend = new OIMTestPersistBackend();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: () => undefined,
         });
         const goodVariableResource = addVariableResource(persistor, testPersistBackend, 'good');
@@ -90,7 +90,7 @@ describe('one value the serializer cannot handle', () => {
         });
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: (_error, persistErrorContext) => { persistErrorContexts.push(persistErrorContext); },
         });
         const { persistResource, moveValue } = addVariableResource(persistor, testPersistBackend, 'value');
@@ -128,7 +128,7 @@ describe('one value the serializer cannot handle', () => {
         });
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         const loggedArguments: unknown[][] = [];
         const consoleError = jest
@@ -159,7 +159,7 @@ describe('one value the serializer cannot handle', () => {
         });
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: () => undefined,
         });
         const { moveValue } = addVariableResource(persistor, testPersistBackend, 'value');
@@ -198,7 +198,7 @@ describe('one value the serializer cannot handle', () => {
         });
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: () => undefined,
         });
         const { moveValue } = addVariableResource(persistor, testPersistBackend, 'value');

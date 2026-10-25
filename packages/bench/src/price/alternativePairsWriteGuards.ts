@@ -1,5 +1,5 @@
 import { createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '../../../core/src/index';
-import type { IOIMEntityWriter, TOIMEntitySlot } from '../../../core/src/index';
+import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceCollectionFixture, priceFixture } from './priceFixture';
@@ -11,7 +11,7 @@ import type { TPriceSide } from './TPriceSide';
 
 const ENTITIES = 1024;
 
-type TPatchWalk = (slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+type TPatchWalk = (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
 
 const patchByBareForIn: TPatchWalk = (slot, patch, changedColumnNames) => {
     const entity = slot.entity as Record<string, unknown> | undefined;
@@ -43,7 +43,7 @@ const patchByObjectKeys: TPatchWalk = (slot, patch, changedColumnNames) => {
     return isWritten;
 };
 
-const putByBareWalks = (slot: TOIMEntitySlot, next: object, changedColumnNames: string[] | undefined): boolean => {
+const putByBareWalks = (slot: TOIMEntityContentSlot, next: object, changedColumnNames: string[] | undefined): boolean => {
     const previous = slot.entity as Record<string, unknown> | undefined;
     if (previous === undefined) return false;
     let isWritten = patchByBareForIn(slot, next, changedColumnNames);
@@ -94,9 +94,8 @@ const upsertSide = <TEntity extends { id: string }>(
     versions: readonly (readonly TEntity[])[],
 ): TPriceSide => priceRoundSide(fixture.slots.length, (upTo, round) => {
     const { entityService, entityStoreSlot } = fixture;
-    const slotContentService = entityService.slotContentService;
     const entities = versions[round & 7];
-    for (let i = 0; i < upTo; i++) slotContentService.upsertEntity(entityStoreSlot, entities[i]);
+    for (let i = 0; i < upTo; i++) entityService.writeSlotContentByKey(entityStoreSlot, entities[i].id, entities[i]);
     priceSink.flag = fixture.slots[0].entity !== undefined;
 }, () => fixture.db.flush());
 
@@ -166,7 +165,7 @@ const wideGuardPairs = (columns: number): TPricePair[] => [
     {
         id: `alt.put-guards.guarded-vs-bare.${columns}-column-entity`,
         path: EPricePath.PerWrite,
-        ours: `entityService.upsertEntity(storeSlot, entity) on a key holding a ${columns}-column entity, every column moving — shipped in-place writer, guarded walks`,
+        ours: `entityService.writeSlotContentByKey(storeSlot, entity.id, entity) on a key holding a ${columns}-column entity, every column moving — shipped in-place writer, guarded walks`,
         floor: 'the same upsert with a writer whose patch and departure walks run no guard',
         caveat: `${GUARDS} A put runs two walks: the new columns, then the stored columns the new value does not carry.`,
         build: () => ({ ours: wideUpsertSide(columns, shippedInPlace()), floor: wideUpsertSide(columns, unguardedPut()) }),
@@ -184,7 +183,7 @@ export const alternativePairsWriteGuards: readonly TPricePair[] = [
     {
         id: 'alt.put-guards.guarded-vs-bare',
         path: EPricePath.PerWrite,
-        ours: 'entityService.upsertEntity(storeSlot, row) on a key that holds a value — the shipped in-place writer, guarded walks',
+        ours: 'entityService.writeSlotContentByKey(storeSlot, row.id, row) on a key that holds a value — the shipped in-place writer, guarded walks',
         floor: 'the same upsert with a writer whose patch and departure walks run no guard',
         caveat: `${GUARDS} A put runs two walks: the new columns, then the stored columns the new value does not carry.`,
         build: () => ({ ours: narrowUpsertSide(shippedInPlace()), floor: narrowUpsertSide(unguardedPut()) }),

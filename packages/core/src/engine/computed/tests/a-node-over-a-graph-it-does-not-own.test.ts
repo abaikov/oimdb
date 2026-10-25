@@ -1,26 +1,22 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
 import type { TOIMComputedSources } from '../types/TOIMComputedSources';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; n: number };
 
-const rowsOn = (db: OIMDB) => createOIMEntityService<TRow>(db, { keyOf: (row: TRow) => row.id });
+const rowsOn = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
 
 const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => Partial<TOIMComputedSources>) => {
-    const computedService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
     const computed = computedService.createComputedStoreSlot(db, derive, createSources);
     const computedReads = {
-        getSlotByKey: (storeSlot: typeof computed, key: undefined) => computedService.computedCollectionService.getSlotByKey(storeSlot, key),
-        getValueByKey: (storeSlot: typeof computed, key: undefined) => {
-            const computedSlot = computedService.computedCollectionService.getSlotByKey(storeSlot, key);
+        getSingleSlot: (storeSlot: typeof computed) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
+        getSingleValue: (storeSlot: typeof computed) => {
+            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
             return computedSlot.computedValueService.getValueForSlot(computedSlot);
         },
     };
@@ -33,7 +29,7 @@ describe('a node over a graph it does not own', () => {
         const effectService = OIMEffectService.INSTANCE;
         const rowsService = rowsOn(db);
         const rows = rowsService.createStoreSlot(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
         const slot = rowsService.getSlotByKey(rows, 'r1');
 
@@ -42,12 +38,12 @@ describe('a node over a graph it does not own', () => {
         );
         const { computedService: deepService, computed: deep } = numberComputedOn(
             db,
-            () => baseService.getValueByKey(base, undefined) * 10,
-            () => ({ sourceComputeds: [baseService.getSlotByKey(base, undefined)] }),
+            () => baseService.getSingleValue(base) * 10,
+            () => ({ sourceComputeds: [baseService.getSingleSlot(base)] }),
         );
 
         let ran = 0;
-        const node = effectService.createEffect(db, [], [deepService.getSlotByKey(deep, undefined)], () => { ran++; });
+        const node = effectService.createEffect(db, [], [deepService.getSingleSlot(deep)], () => { ran++; });
 
         rowsService.slotContentService.updateEntity(rowsService.findSlotByKey(rows, 'r1')!, { n: 2 });
         db.flush();
@@ -58,7 +54,7 @@ describe('a node over a graph it does not own', () => {
         // There is one list now and the node is registered in `slot` — the root
         // under both derivations — so a write reaches it in one hop.
         expect(ran).toBe(1);
-        expect(deepService.getValueByKey(deep, undefined)).toBe(20);
+        expect(deepService.getSingleValue(deep)).toBe(20);
         effectService.disposeEffect(node);
     });
 
@@ -81,8 +77,8 @@ describe('a node over a graph it does not own', () => {
         const rows = rowsService.createStoreSlot(db);
         const ticksService = rowsOn(db);
         const ticks = ticksService.createStoreSlot(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
-        ticksService.slotContentService.upsertEntity(ticks, { id: 't1', n: 0 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
+        ticksService.writeSlotContentByKey(ticks, ((row: TRow) => row.id)({ id: 't1', n: 0 }), { id: 't1', n: 0 });
         db.flush();
         const row = rowsService.getSlotByKey(rows, 'r1');
         const tick = ticksService.getSlotByKey(ticks, 't1');
@@ -92,7 +88,7 @@ describe('a node over a graph it does not own', () => {
         );
 
         const seen: number[] = [];
-        const node = effectService.createEffect(db, [tick], [doubledService.getSlotByKey(doubled, undefined)], () => { seen.push(doubledService.getValueByKey(doubled, undefined)); });
+        const node = effectService.createEffect(db, [tick], [doubledService.getSingleSlot(doubled)], () => { seen.push(doubledService.getSingleValue(doubled)); });
 
         // The tick is written FIRST, so the node is listed by a root that is not
         // the derivation's.
@@ -101,7 +97,7 @@ describe('a node over a graph it does not own', () => {
         db.flush();
 
         expect(seen).toEqual([10]);
-        expect(seen[seen.length - 1]).toBe(doubledService.getValueByKey(doubled, undefined));
+        expect(seen[seen.length - 1]).toBe(doubledService.getSingleValue(doubled));
         effectService.disposeEffect(node);
     });
 });

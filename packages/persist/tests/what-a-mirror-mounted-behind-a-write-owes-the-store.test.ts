@@ -1,20 +1,17 @@
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
 import type { TOIMPersistRecords } from '../src';
 import {
-    OIMPersistRecordSourceBucketDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerFrameDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistBucketRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistFrameScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TUserSlot = TOIMEntitySlot<TUser, TOIMStoreKey>;
@@ -25,28 +22,26 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityCollectionService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+    const entityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-    const bucketCollectionService = createOIMBucketService<
-        TUserSlot, TOIMStoreKey, TUserSlots, OIMSlotContentBucketServiceSetDriven<TUserSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TUserSlot>() });
+    const bucketCollectionService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const bucketStoreSlot = bucketCollectionService.createStoreSlot(db);
     const bucketSlot = bucketCollectionService.holdSlotByKey(bucketStoreSlot, 'all');
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
     testPersistBackend.storeRecords(storedRecords);
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+        persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
     });
-    persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceBucketDriven<TOIMStoreKey, TUser, TUserSlots, TOIMStoreKey>({
+    persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistBucketRecordSource<TOIMStoreKey, TUser, TUserSlots>({
             channelMap: db,
             entityCollectionService,
             entityStoreSlot,
             slotContentBucketService: bucketCollectionService.slotContentService,
             bucketSlot,
         }),
-        persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+        persistRecordsService: testPersistBackend.createRecordsStrategy(),
     }));
     return { db, entityCollectionService, entityStoreSlot, persistor, testPersistBackend };
 }
@@ -68,31 +63,31 @@ describe('autosave started behind an edit of the open batch', () => {
         await tick();
 
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([{ upserts: ['u1'], deletedKeys: [] }]);
-        expect(entityCollectionService.slotContentService.findEntityByKey(entityStoreSlot, 'u1')?.name).toBe('Ada Lovelace');
+        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'u1')?.entity?.name).toBe('Ada Lovelace');
     });
 });
 
 describe('a single entity mirror subscribed behind a write of the open batch', () => {
     it('reports the write, which no wake is coming for', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleEntityService<TUserSettings>(db);
+        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TUserSettings>(db) });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-        singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
+        singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();
-        const persistSnapshotSourceSingleEntityDriven = new OIMPersistSnapshotSourceSingleEntityDriven<TUserSettings>({
+        const persistSingleEntitySnapshotSource = new OIMPersistSingleEntitySnapshotSource<TUserSettings>({
             channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
         });
 
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'dark' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'dark' });
         singleEntityService.slotContentService.updateEntity(
             singleEntityService.getSingleSlot(singleEntityStoreSlot), { theme: 'solarized' },
         );
 
         let changeCount = 0;
-        persistSnapshotSourceSingleEntityDriven.subscribeSnapshotChanged(() => { changeCount++; });
+        persistSingleEntitySnapshotSource.subscribeSnapshotChanged(() => { changeCount++; });
         db.flush();
 
         expect(changeCount).toBe(1);
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot()).toEqual({ userId: 'u1', theme: 'solarized' });
+        expect(persistSingleEntitySnapshotSource.readSnapshot()).toEqual({ userId: 'u1', theme: 'solarized' });
     });
 });

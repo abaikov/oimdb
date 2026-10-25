@@ -73,7 +73,7 @@ describe('dispose()', () => {
         };
         const globalReducer = adapter.createGlobalIndexReducer<string, TAllState, TUser>(globalIndex);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         // A bucket with no slots is never watched (`instrumentKeyedIndex`
         // skips it), so its slots have to be written for the subscription
         // this test is about to count to exist at all.
@@ -89,7 +89,7 @@ describe('dispose()', () => {
         const departmentBucket = byDepartmentService.getSlotByKey(byDepartment, 'eng');
         expect(departmentBucket).toBeDefined();
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u2', name: 'Bob', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u2', { id: 'u2', name: 'Bob', department: 'eng' });
         db.flush();
         expect(subscriberCount(usersService.getSlotByKey(users, 'u2')!)).toBe(1);
         expect(subscriberCount(row!)).toBe(1);
@@ -104,7 +104,7 @@ describe('dispose()', () => {
         // and the Global index's sole bucket — and went on pinning all of them,
         // since the engine will not release an identity anything is listening
         // to.
-        usersService.slotContentService.upsertEntity(users, { id: 'u3', name: 'Cy', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u3', { id: 'u3', name: 'Cy', department: 'eng' });
         db.flush();
         expect(subscriberCount(usersService.getSlotByKey(users, 'u3')!)).toBe(0);
         expect(subscriberCount(row!)).toBe(0);
@@ -128,7 +128,7 @@ describe('dispose()', () => {
         adapter.dispose();
         adapter.dispose();
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         db.flush();
         expect(dispatched).toEqual([]);
     });
@@ -142,7 +142,7 @@ describe('an index keyed by something transient', () => {
             string, string, TDepartmentState, TUser
         >(keyedIndex);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'q0' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'q0' });
         setDepartment('q0', ['u1']);
         db.flush();
         let state = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TDepartmentState;
@@ -153,7 +153,7 @@ describe('an index keyed by something transient', () => {
         // a row, so the caller restates both buckets a move touches; each move
         // still empties the bucket it left.
         for (let i = 1; i < 20; i++) {
-            usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: `q${i}` });
+            usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: `q${i}` });
             setDepartment(`q${i - 1}`, []);
             setDepartment(`q${i}`, ['u1']);
             db.flush();
@@ -172,7 +172,7 @@ describe('an index keyed by something transient', () => {
         // reported — letting go of the empty ones must not cost that.
         expect(Object.keys(state.entities)).toEqual(['q19']);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'q20' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'q20' });
         setDepartment('q19', []);
         setDepartment('q20', ['u1']);
         db.flush();
@@ -187,14 +187,14 @@ describe('an index keyed by something transient', () => {
             string, string, TDepartmentState, TUser
         >(keyedIndex);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         setDepartment('eng', ['u1']);
         db.flush();
         let state = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TDepartmentState;
         expect(state.entities.eng).toEqual({ id: 'eng', ids: ['u1'] });
 
         // The key empties: its bucket is given back, and the watch on it with it.
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'design' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'design' });
         setDepartment('eng', []);
         setDepartment('design', ['u1']);
         db.flush();
@@ -205,7 +205,7 @@ describe('an index keyed by something transient', () => {
         // identity — every write to a row writes the collection — so a key seen
         // before is discovered exactly as a key seen for the first time, once
         // its slots are written again.
-        usersService.slotContentService.upsertEntity(users, { id: 'u2', name: 'Bob', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u2', { id: 'u2', name: 'Bob', department: 'eng' });
         setDepartment('eng', ['u2']);
         db.flush();
         state = reducer(state, { type: EOIMReduxReducerActionType.UPDATE }) as TDepartmentState;

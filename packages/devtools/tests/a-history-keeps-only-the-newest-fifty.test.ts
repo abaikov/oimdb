@@ -1,5 +1,7 @@
-import { OIMDB, createOIMEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; visits: number };
 
@@ -8,14 +10,14 @@ const HISTORY_LIMIT = 50;
 describe('a history keeps only the newest fifty', () => {
     test('a flush past the fiftieth drops the oldest record and keeps the newest first', () => {
         const db = new OIMDB();
-        const usersService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
         const users = usersService.createStoreSlot(db);
         const registry = new OIMDevRegistry();
         registry.collection('users', usersService, users);
         const stop = registry.trackFlushes(db);
 
         for (let visit = 1; visit <= HISTORY_LIMIT + 1; visit++) {
-            usersService.slotContentService.upsertEntity(users, { id: `u${visit}`, visits: visit });
+            usersService.writeSlotContentByKey(users, `u${visit}`, { id: `u${visit}`, visits: visit });
             db.flush();
         }
 

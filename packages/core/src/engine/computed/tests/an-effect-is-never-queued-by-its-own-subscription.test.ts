@@ -1,5 +1,4 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMEffectService } from '../OIMEffectService';
@@ -7,8 +6,7 @@ import { oimIsEffectRunScheduled } from '../utils/oimIsEffectRunScheduled';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { isOn: boolean; text: string };
 
@@ -102,15 +100,13 @@ describe('who asks an effect\'s sources before it runs', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const source = makeSlot('source', { isOn: false, text: 'abc' });
-        const textLengthService = createOIMComputedService<void, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        });
+        const textLengthService = createOIMSingleComputedService<number>();
         const textLength = textLengthService.createComputedStoreSlot(
             db,
             () => source.entity?.text.length ?? 0,
             () => ({ sourceSlots: [source] }),
         );
-        const textLengthSlot = textLengthService.computedCollectionService.getSlotByKey(textLength, undefined);
+        const textLengthSlot = textLengthService.computedSingleSlotService.getSingleSlot(textLength);
         let runs = 0;
         effectService.createEffect(db, [], [textLengthSlot], () => { runs++; });
         expect(textLengthSlot.computedValueService.getValueForSlot(textLengthSlot)).toBe(3);

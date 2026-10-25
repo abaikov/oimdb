@@ -1,4 +1,4 @@
-import { OIMChannelService, OIMDB, OIMSlotStoreServiceMapDriven, createOIMEntityService, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type { TOIMEntitySlot, TOIMSlotEditable, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
@@ -9,6 +9,8 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TRemoveSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TRemoveFixture = {
@@ -23,7 +25,7 @@ type TRemoveRung = (fixture: TRemoveFixture, rows: readonly TPriceDataRow[], tim
 
 const shippedWriter = createOIMEntityWriterInPlace();
 const channelService = OIMChannelService.INSTANCE;
-const slotStoreService = new OIMSlotStoreServiceMapDriven<TRemoveSlot>();
+const slotStoreService = new OIMSlotMapStoreService<TRemoveSlot>();
 
 const mapDeleteById: TRemoveRung = (fixture, rows, times) => {
     const rowsById = fixture.rowsById;
@@ -78,39 +80,6 @@ const withWriteAsserts: TRemoveRung = (fixture, _rows, times) => {
     }
 };
 
-const withOneSubframe: TRemoveRung = (fixture, _rows, times) => {
-    const slots = fixture.slots;
-    const channelSlot = fixture.db.defaultChannelSlot;
-    for (let i = 0; i < times; i++) {
-        assertHandWritable(fixture, slots[i]);
-        channelService.openSubframe(channelSlot);
-        try {
-            announceClearAndUnfile(fixture, slots[i]);
-        } finally {
-            channelService.closeSubframe(channelSlot);
-        }
-    }
-};
-
-const withNestedSubframes: TRemoveRung = (fixture, _rows, times) => {
-    const slots = fixture.slots;
-    const channelSlot = fixture.db.defaultChannelSlot;
-    for (let i = 0; i < times; i++) {
-        assertHandWritable(fixture, slots[i]);
-        channelService.openSubframe(channelSlot);
-        try {
-            channelService.openSubframe(channelSlot);
-            try {
-                announceClearAndUnfile(fixture, slots[i]);
-            } finally {
-                channelService.closeSubframe(channelSlot);
-            }
-        } finally {
-            channelService.closeSubframe(channelSlot);
-        }
-    }
-};
-
 const flatDoorCandidate: TRemoveRung = (fixture, _rows, times) => {
     const slots = fixture.slots;
     const channelSlot = fixture.db.defaultChannelSlot;
@@ -128,13 +97,13 @@ const flatDoorCandidate: TRemoveRung = (fixture, _rows, times) => {
 const entityServiceDoor: TRemoveRung = (fixture, _rows, times) => {
     const slots = fixture.slots;
     const slotContentService = fixture.entityService.slotContentService;
-    for (let i = 0; i < times; i++) slotContentService.deleteEntity(slots[i]);
+    for (let i = 0; i < times; i++) slotContentService.clearSlotContent(slots[i]);
 };
 
 const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     const rows = priceDataset.makeRows(priceDataset.batch);
     const db = new OIMDB();
-    const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
     const fixture: TRemoveFixture = {
         db,
         entityService,
@@ -146,9 +115,9 @@ const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     return {
         operationsPerPass: rows.length,
         reset: () => {
-            fixture.entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            fixture.entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             fixture.entityStoreSlot = fixture.entityService.createStoreSlot(db);
-            fixture.slots = fixture.entityService.slotContentService.upsertEntities(fixture.entityStoreSlot, rows);
+            fixture.slots = fixture.entityService.writeInBatch(fixture.entityStoreSlot, () => (rows).map(entity => fixture.entityService.writeSlotContentByKey(fixture.entityStoreSlot, entity.id, entity)));
             db.flush();
             const handStore = new Map<TOIMStoreKey, TRemoveSlot>();
             const rowsById = new Map<string, TPriceDataRow>();
@@ -168,7 +137,7 @@ const removeRungSide = (rung: TRemoveRung): TPriceSide => {
 };
 
 const REMOVE_LADDER =
-    'One rung of a ladder from `map.delete(id)` to `entityService.deleteEntity(slot)` on an entity collection with no index, subscriber, column or hold. '
+    'One rung of a ladder from `map.delete(id)` to `entityService.slotContentService.clearSlotContent(slot)` on an entity collection with no index, subscriber, column or hold. '
     + 'Every rung removes the same priceDataset.batch entities in the same order, one pass per population; the population is rebuilt between passes, untimed, '
     + 'and `db.flush()` closes every pass on every rung. Each rung adds exactly one thing to the rung below it, and each pair re-measures the rung below as its floor in its own run. '
     + 'The hand rungs unfile into a Map of their own keyed by the same key strings; the collection\'s own store still holds the slots and is dropped at reset.';
@@ -198,17 +167,11 @@ export const alternativePairsRemoveLadder: readonly TPricePair[] = [
     removePair('5-write-asserts', withWriteAsserts, 'assertNotFlushing and the released check, then the channel, clear and unfile',
         writerClearAndChannel, 'the channel, clear and unfile',
         'the two checks assertWritable runs.'),
-    removePair('6-one-subframe', withOneSubframe, 'the same inside one channel subframe',
-        withWriteAsserts, 'the asserts, channel, clear and unfile',
-        'one channel openSubframe / closeSubframe around the step.'),
-    removePair('7-nested-subframe', withNestedSubframes, 'the same inside two nested channel subframes',
-        withOneSubframe, 'the same inside one subframe',
-        'a second, nested subframe. The shipped deleteEntity opens none on its fast path; on its slow path deleteEntityInSubframe opens one and releaseSlotContent nests a second inside it when the slot holds an entity.'),
-    removePair('8-collection-door', entityServiceDoor, 'entityService.deleteEntity(slot)',
-        withNestedSubframes, 'the same steps written by hand, in two nested subframes',
-        'the shipped door in place of the hand steps. On this fixture deleteEntity takes its fast path — assertWritable, the isOnFastPath read, writer.clearEntity, the channel write, markEmptiness and slot.owner.releaseSlotIfUnheld — and opens no subframe, runs no settleEmptiness and no dispatchContentChange, so the floor carries two subframes the door does not open.'),
+    removePair('8-collection-door', entityServiceDoor, 'entityService.slotContentService.clearSlotContent(slot)',
+        withWriteAsserts, 'the same steps written by hand',
+        'the shipped door in place of the hand steps. On this fixture clearSlotContent takes its fast path — assertWritable, the isOnFastPath read, writer.clearEntity, the channel write, markEmptiness and releaseSlotIfUnheld — and runs no settleEmptiness and no dispatchContentChange.'),
     removePair('9-flat-door-candidate', flatDoorCandidate,
-        'assertWritable by hand, channel write, writer.clearEntity, isEmpty = true, slot.owner.releaseSlotIfUnheld (one slot.owner read per slot) — no subframe',
-        entityServiceDoor, 'entityService.deleteEntity(slot)',
-        'nothing over rung 8 in shape: the shipped deleteEntity is itself flat on this fixture, so this rung differs from it by about the isOnFastPath read, markEmptiness with a slotEmptiness.isEmpty call against a bare isEmpty = true, and the hand-inlined asserts against the assertWritable call; both keep the shipped release check and unfile.'),
+        'assertWritable by hand, channel write, writer.clearEntity, isEmpty = true, slot.owner.releaseSlotIfUnheld (one slot.owner read per slot)',
+        entityServiceDoor, 'entityService.slotContentService.clearSlotContent(slot)',
+        'nothing over rung 8 in shape: the shipped clearSlotContent is itself flat on this fixture, so this rung differs from it by about the isOnFastPath read, markEmptiness with a slotEmptinessPolicy.isEmpty call against a bare isEmpty = true, and the hand-inlined asserts against the assertWritable call; both keep the shipped release check and unfile.'),
 ];

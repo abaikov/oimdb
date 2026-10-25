@@ -1,12 +1,12 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIM_MAX_COMMANDS_PER_SLOT } from '../../../engine/bucket/commands/constants/OIM_MAX_COMMANDS_PER_SLOT';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../../../engine/bucket/commands/types/TOIMOrderedListCommand';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string };
 
@@ -24,16 +24,16 @@ type TFixture = {
 
 const aConsumerDrawnUpToTheFrameBeforeItsEdits = (maxCommandsPerSlot?: number): TFixture => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TOIMEntitySlot<TCard>>({
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
         bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }),
     });
-    const listService = createOIMBucketService(db, { slotContentService: membersService });
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
     for (const id of FOUR) {
-        cardsService.slotContentService.upsertEntity(cards, { id });
+        cardsService.writeSlotContentByKey(cards, id, { id });
         const holdingSlot = cardsService.holdSlotByKey(cards, id);
         holdingSlot.owner.unholdSlot(holdingSlot);
         membersService.insertBucketMemberSlotAt(bucket, membersService.getBucketMemberSlotCount(bucket), holdingSlot);

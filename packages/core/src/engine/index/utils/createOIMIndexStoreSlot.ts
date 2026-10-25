@@ -5,14 +5,15 @@ import type { TOIMIndexStoreSlot } from '../types/TOIMIndexStoreSlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 
 export function createOIMIndexStoreSlot<
-    TStore, TBucketSlot extends TOIMSlot, TBucketPatch, TSourceSlot extends TOIMSlot, TSourcePatch, TKey, TSourceStore,
+    TStore, TBucketSlot extends TOIMSlot, TBucketPatch, TSourceSlot extends TOIMSlot, TSourcePatch, TKey, TSourceStore, TSlotService,
 >(
     store: TStore,
+    slotService: TSlotService,
     sourceStoreSlot: TOIMStoreSlot<TSourceStore, TSourceSlot, TSourcePatch>,
     contentChangeListener: IOIMContentChangeListener<TSourceSlot, TSourcePatch>,
-): TOIMIndexStoreSlot<TStore, TBucketSlot, TBucketPatch, TSourceSlot, TSourcePatch, TKey, TSourceStore> {
+): TOIMIndexStoreSlot<TStore, TBucketSlot, TBucketPatch, TSourceSlot, TSourcePatch, TKey, TSourceStore, TSlotService> {
     return {
-        ...createOIMStoreSlot<TStore, TBucketSlot, TBucketPatch>(store, sourceStoreSlot.channelSlot),
+        ...createOIMStoreSlot<TStore, TBucketSlot, TBucketPatch, TSlotService>(store, sourceStoreSlot.channelSlot, slotService),
         sourceStoreSlot,
         indexKeysPosition: -1,
         contentChangeListener,

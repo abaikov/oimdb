@@ -1,26 +1,23 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { OIMSlotStoreServiceTreeDriven } from '../OIMSlotStoreServiceTreeDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
+import { OIMSlotTreeStoreService } from '../OIMSlotTreeStoreService';
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../types/TOIMStoreKey';
-import type { TOIMSlotStoreTree } from '../types/TOIMSlotStoreTree';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TProgress = { userId: string; cardId: string; box: number };
 type TNamed = { id: string };
 type TChain = readonly TOIMEntitySlot[];
 type TProgressSlot = TOIMEntitySlot<TProgress, TChain>;
-type TProgressStore = TOIMSlotStoreTree<TProgressSlot, TOIMEntitySlot>;
-const createNamedService = (db: OIMDB) => createOIMEntityService<TNamed>(db, { keyOf: (item) => item.id });
+const createNamedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed>(db) });
 type TNamedService = ReturnType<typeof createNamedService>;
 type TNamedStoreSlot = ReturnType<TNamedService['createStoreSlot']>;
 
@@ -36,14 +33,10 @@ function createFixture() {
     const segment = (
         collectionService: TNamedService, collection: TNamedStoreSlot, id: string,
     ): TOIMEntitySlot<TNamed, TOIMStoreKey> => collectionService.holdSlotByKey(collection, id);
-    const progressService = createOIMEntityService<TProgress, TOIMEntityColumnName<TProgress>, TChain, TProgressStore>(db, {
-        entitySlotStoreService:
-            new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TProgressSlot>(
+    const progressKeyOf = (item: TProgress): TChain => [segment(usersService, users, item.userId), segment(cardsService, cards, item.cardId)];
+    const progressService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TProgress, TChain>(db, { entityWriter: write }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(
                 OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
-            ),
-        keyOf: (item: TProgress) => [segment(usersService, users, item.userId), segment(cardsService, cards, item.cardId)],
-        entityWriter: write,
-    });
+            ) });
     const progress = progressService.createStoreSlot(db);
     const at =(userId: string, cardId: string): TChain =>
         [segment(usersService, users, userId), segment(cardsService, cards, cardId)];
@@ -72,13 +65,13 @@ function createFixture() {
         heldSlots.delete(slot);
         slot.owner.unholdSlot(slot);
     };
-    return { db, usersService, users, cardsService, cards, progressService, progress, at, segment, slotAt, letGo };
+    return { db, usersService, users, cardsService, cards, progressService, progress, progressKeyOf, at, segment, slotAt, letGo };
 }
 
 describe('a collection keyed by a combination of identities', () => {
     it('a rebuilt key (a fresh array of the same segments) resolves to the same slot', () => {
-        const { db, progressService, progress, at, slotAt } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c1', box: 1 });
+        const { db, progressService, progress, at, slotAt, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c1', box: 1 }), { userId: 'u1', cardId: 'c1', box: 1 });
         db.flush();
 
         const first = slotAt(at('u1', 'c1'));
@@ -115,8 +108,8 @@ describe('a collection keyed by a combination of identities', () => {
     });
 
     it('a held-but-unwritten prefix reserves its own key, growing the collection', () => {
-        const { db, progressService, progress, usersService, users, segment, slotAt } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c1', box: 1 });
+        const { db, progressService, progress, usersService, users, segment, slotAt, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c1', box: 1 }), { userId: 'u1', cardId: 'c1', box: 1 });
         db.flush();
         expect(progressService.getSlotCount(progress)).toBe(1);
 
@@ -126,16 +119,16 @@ describe('a collection keyed by a combination of identities', () => {
     });
 
     it('write and read on a composite-key slot', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c1', box: 1 });
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c1', box: 1 }), { userId: 'u1', cardId: 'c1', box: 1 });
         db.flush();
 
         expect(progressService.getSlotByKey(progress, at('u1', 'c1'))?.entity?.box).toBe(1);
     });
 
     it('an effect on a composite-key slot wakes on a write to that slot', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c1', box: 1 });
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c1', box: 1 }), { userId: 'u1', cardId: 'c1', box: 1 });
         db.flush();
 
         let runCount = 0;
@@ -149,14 +142,14 @@ describe('a collection keyed by a combination of identities', () => {
     });
 
     it('a column effect on a composite-key slot wakes only for that column', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c2', box: 2 });
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c2', box: 2 }), { userId: 'u1', cardId: 'c2', box: 2 });
         db.flush();
 
         let columnWoke = 0;
         OIMEffectService.INSTANCE.createEffect(
             db,
-            [progressService.getColumn(progressService.getSlotByKey(progress, at('u1', 'c2'))!, 'box')],
+            [progressService.columnSlotService.getColumn(progressService.getSlotByKey(progress, at('u1', 'c2'))!, 'box')],
             [],
             () => { columnWoke++; },
         );
@@ -177,41 +170,38 @@ describe('a collection keyed by a combination of identities', () => {
      * screen that groups by a string.
      */
     it('a composite-key slot can go in a bucket keyed by one of its own segments', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntities(progress, [
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeInBatch(progress, () => ([
             { userId: 'u1', cardId: 'c1', box: 1 },
             { userId: 'u1', cardId: 'c2', box: 2 },
             { userId: 'u2', cardId: 'c1', box: 3 },
-        ]);
+        ]).map(entity => progressService.writeSlotContentByKey(progress, progressKeyOf(entity), entity)));
         db.flush();
 
-        const byUserService = createOIMBucketService<
-            TOIMEntitySlot<TProgress, TChain>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TProgress, TChain>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TProgress, TChain>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TProgress, TChain>>() });
+        const byUserService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TProgress, TChain>>() });
         const byUser = byUserService.createStoreSlot(db);
         // KEPT for the reason `segment` is: this is called again on the assertion
         // lines, and a bucket nothing holds would be a fresh empty one every time.
         const bucketFor = (key: TOIMStoreKey): TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<TProgress, TChain>>, TOIMStoreKey> =>
             byUserService.holdSlotByKey(byUser, key);
 
-        byUserService.slotContentService.writeBucketMemberSlots(bucketFor('u1'), [
+        byUserService.slotContentService.writeSlotContent(bucketFor('u1'), [
             progressService.getSlotByKey(progress, at('u1', 'c1'))!,
             progressService.getSlotByKey(progress, at('u1', 'c2'))!,
         ]);
-        byUserService.slotContentService.writeBucketMemberSlots(bucketFor('u2'), [progressService.getSlotByKey(progress, at('u2', 'c1'))!]);
+        byUserService.slotContentService.writeSlotContent(bucketFor('u2'), [progressService.getSlotByKey(progress, at('u2', 'c1'))!]);
 
         expect(byUserService.slotContentService.getBucketMemberSlotCount(bucketFor('u1'))).toBe(2);
         expect(byUserService.slotContentService.getBucketMemberSlotCount(bucketFor('u2'))).toBe(1);
     });
 
     it('removal releases the key and prunes the chain', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntities(progress, [
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeInBatch(progress, () => ([
             { userId: 'u1', cardId: 'c1', box: 1 },
             { userId: 'u1', cardId: 'c2', box: 2 },
             { userId: 'u2', cardId: 'c1', box: 3 },
-        ]);
+        ]).map(entity => progressService.writeSlotContentByKey(progress, progressKeyOf(entity), entity)));
         db.flush();
         expect(progressService.getSlotCount(progress)).toBe(3);
 
@@ -219,7 +209,7 @@ describe('a collection keyed by a combination of identities', () => {
         const removed = progressService.getSlotByKey(progress, chain);
         const segmentHoldsWhileTheChainIsFiled = chain[0].holdCount;
 
-        progressService.slotContentService.deleteEntity(removed);
+        progressService.slotContentService.clearSlotContent(removed);
         db.flush();
 
         expect(oimIsSlotReleased(removed)).toBe(true);
@@ -252,7 +242,7 @@ describe('a collection keyed by a combination of identities', () => {
         // both, and it is the SECOND that is the last reference. `letGo` is per
         // identity for exactly this — handing back every hold here would take the
         // second key with it, which is the opposite of what this asserts.
-        progressService.slotContentService.deleteEntity(first);
+        progressService.slotContentService.clearSlotContent(first);
         letGo(first);
         db.flush();
 
@@ -263,8 +253,8 @@ describe('a collection keyed by a combination of identities', () => {
 
 describe('a composite-keyed slot names itself', () => {
     it('carries the identities it was built from, and still does once removed', () => {
-        const { db, progressService, progress, at } = createFixture();
-        progressService.slotContentService.upsertEntity(progress, { userId: 'u1', cardId: 'c1', box: 1 });
+        const { db, progressService, progress, at, progressKeyOf } = createFixture();
+        progressService.writeSlotContentByKey(progress, progressKeyOf({ userId: 'u1', cardId: 'c1', box: 1 }), { userId: 'u1', cardId: 'c1', box: 1 });
         db.flush();
 
         const slot = progressService.getSlotByKey(progress, at('u1', 'c1'))!;
@@ -276,7 +266,7 @@ describe('a composite-keyed slot names itself', () => {
         // outward mirror has nothing else left to say WHICH slot it must delete.
         let held = 0;
         OIMEffectService.INSTANCE.createEffect(db, [slot], [], () => { held++; });
-        progressService.slotContentService.deleteEntity(slot);
+        progressService.slotContentService.clearSlotContent(slot);
         db.flush();
         expect(oimIsSlotEmpty(slot)).toBe(true);
         expect(name(slot)).toBe('u1|c1');
@@ -286,7 +276,7 @@ describe('a composite-keyed slot names itself', () => {
 
     it('leaves a scalar-keyed slot carrying its scalar and nothing around it', () => {
         const { db, usersService, users } = createFixture();
-        usersService.slotContentService.upsertEntity(users, { id: 'r1' });
+        usersService.writeSlotContentByKey(users, 'r1', { id: 'r1' });
         db.flush();
         const slot = usersService.getSlotByKey(users, 'r1')!;
         expect(slot.key).toBe('r1');

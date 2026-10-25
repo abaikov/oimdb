@@ -1,9 +1,9 @@
 import {
     OIMDB,
     OIMEffectService,
-    createOIMComputedServiceSorted,
+    createOIMSortedComputedService,
     createOIMEntityService,
-    createOIMIndexService,
+    createOIMSlotCollectionIndexService,
     type TOIMEntitySlot,
     type TOIMStoreKey,
 } from '@oimdb/core';
@@ -45,14 +45,14 @@ export class DemoEngine {
 
     private readonly tasks = this.taskService.createStoreSlot(this.db);
 
-    private readonly tasksByColumnService = createOIMIndexService(this.db, {
+    private readonly tasksByColumnService = createOIMSlotCollectionIndexService(this.db, {
         entityService: this.taskService,
         columns: ['column'],
     });
 
     private readonly tasksByColumn = this.tasksByColumnService.createIndexStoreSlot(this.tasks);
 
-    private readonly tasksByPriorityService = createOIMComputedServiceSorted({
+    private readonly tasksByPriorityService = createOIMSortedComputedService({
         indexService: this.tasksByColumnService,
         sortColumns: [{ column: 'priority', direction: 'asc' }],
     });

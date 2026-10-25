@@ -1,20 +1,16 @@
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { oimSameValueZeroGuard } from '../utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
-import type { TOIMSingleSlotStore } from '../../store/types/TOIMSingleSlotStore';
-import type { TOIMComputedSlot } from '../../computed/types/TOIMComputedSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TCard = { id: string; deckId: string; title: string };
 
@@ -25,17 +21,14 @@ type TCard = { id: string; deckId: string; title: string };
  */
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMBucketService<
-        TOIMEntitySlot<TCard>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>,
-        OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>() });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
     let builds = 0;
     const titleLengthsService = createOIMComputedService<string, number>({
         // `createSources` names its sources and takes no holds: `OIMComputedCollection`
         // .createSlot holds every one after this returns, and gives them back.
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             builds++;
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
@@ -44,12 +37,12 @@ const createFixture =() => {
     });
     const titleLengths = titleLengthsService.createComputedStoreSlot(db);
 
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'spades', title: 'ace' });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'ace' });
     db.flush();
     const slot = cardsService.getSlotByKey(cards, 'c1')!;
     const byDeck = byDeckService.createStoreSlot(db);
     const heldSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
-    byDeckService.slotContentService.writeBucketMemberSlots(heldSlot, [slot]);
+    byDeckService.slotContentService.writeSlotContent(heldSlot, [slot]);
 
     return {
         db, cards, cardsService, byDeck, byDeckService,
@@ -90,18 +83,15 @@ describe('a graph node is built fresh per call, and could not be otherwise', () 
         let runs = 0;
         const derive = (): number => { runs++; return 1; };
         const createDerivation = () => {
-            const derivationService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-                computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-                sameValueGuard: oimSameValueZeroGuard,
-            });
+            const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
             const derivation = derivationService.createComputedStoreSlot(db, derive, () => ({ sourceSlots: [slot] }));
             return { derivationService, derivation };
         };
         const first = createDerivation();
         const second = createDerivation();
 
-        expect(first.derivationService.computedCollectionService.getSlotByKey(first.derivation, undefined))
-            .not.toBe(second.derivationService.computedCollectionService.getSlotByKey(second.derivation, undefined));
+        expect(first.derivationService.computedSingleSlotService.getSingleSlot(first.derivation))
+            .not.toBe(second.derivationService.computedSingleSlotService.getSingleSlot(second.derivation));
         expect(runs).toBe(0);
     });
 });
@@ -117,9 +107,9 @@ describe('an identity is the same object every time, and a read of an untaken ke
         const { db, cardsService, slot } = createFixture();
 
         const onTitle = OIMEffectService.INSTANCE.createEffect(
-            db, [cardsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+            db, [cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         const onDeck = OIMEffectService.INSTANCE.createEffect(
-            db, [cardsService.getColumn(slot, 'deckId')], [], () => { /* nothing */ });
+            db, [cardsService.columnSlotService.getColumn(slot, 'deckId')], [], () => { /* nothing */ });
 
         const title = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title');
         const deck = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('deckId');
@@ -129,7 +119,7 @@ describe('an identity is the same object every time, and a read of an untaken ke
         // And each is the same identity on the next ask: a second subscriber to
         // one column joins the one that is filed rather than minting a second.
         const alsoOnTitle = OIMEffectService.INSTANCE.createEffect(
-            db, [cardsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+            db, [cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
 
@@ -210,9 +200,9 @@ describe('two readers of one identity behave as one', () => {
         let oneWoke = 0;
         let twoWoke = 0;
         const one = OIMEffectService.INSTANCE.createEffect(
-            db, [cardsService.getColumn(slot, 'title')], [], () => { oneWoke++; });
+            db, [cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { oneWoke++; });
         const two = OIMEffectService.INSTANCE.createEffect(
-            db, [cardsService.getColumn(slot, 'title')], [], () => { twoWoke++; });
+            db, [cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { twoWoke++; });
         db.flush();
         oneWoke = 0;
         twoWoke = 0;

@@ -2,7 +2,7 @@ import type { TOIMEntitySlot } from '@oimdb/core';
 import type { TOIMPersistRecord } from '../types/TOIMPersistRecord';
 import type { TOIMPersistRecords } from '../types/TOIMPersistRecords';
 
-export function oimReadRecordsOfEntitySlots<TKey, TEntity extends object>(
+export function oimReadRecordsOfEntitySlots<TKey extends NonNullable<unknown>, TEntity extends object>(
     entitySlots: Iterable<TOIMEntitySlot<TEntity, TKey>>,
 ): TOIMPersistRecords<TKey, TEntity> {
     const records: TOIMPersistRecord<TKey, TEntity>[] = [];

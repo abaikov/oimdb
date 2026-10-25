@@ -116,7 +116,7 @@ alt.ladder.insert.5-key-of   [per row per write]   0.95x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -131,7 +131,7 @@ alt.ladder.insert.12-collection-door   [per row per write]   0.97x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -203,7 +203,7 @@ alt.ladder.insert.6-writer-and-channel   [per row per write]   1.01x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -233,7 +233,7 @@ alt.ladder.insert.9-content-changed   [per row per write]   1.02x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -263,7 +263,7 @@ alt.ladder.insert.4-identity-store   [per row per write]   1.02x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -279,7 +279,7 @@ alt.ladder.insert.2-slot   [per row per write]   1.03x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -294,7 +294,7 @@ alt.ladder.insert.10-release-check   [per row per write]   1.03x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -310,7 +310,7 @@ alt.ladder.insert.8-emptiness   [per row per write]   1.03x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -326,7 +326,7 @@ alt.ladder.insert.7-assert-writable   [per row per write]   1.04x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -355,7 +355,7 @@ alt.ladder.insert.11-subframe   [per row per write]   1.07x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -371,7 +371,7 @@ alt.ladder.insert.3-probe   [per row per write]   1.07x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends
@@ -386,7 +386,7 @@ alt.ladder.insert.1-copy   [per row per write]   1.15x
   for a key the population has never seen. Every rung inserts the same priceDataset.batch
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   OIMSlotAggregate.writeContentByKey to the rung below it, written by hand around the shipped
-  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven, an
+  pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an
   in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check, the
   AtEmpty release policy. Each pair re-measures the rung below as its floor in its own run, so
   a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends

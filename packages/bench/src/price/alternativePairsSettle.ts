@@ -2,7 +2,7 @@ import {
     OIMChannelService,
     OIMDB,
     OIMDefaults,
-    OIMSlotStoreServiceMapDriven,
+    OIMSlotMapStoreService,
     createOIMComputedService,
     oimSameValueZeroGuard,
 } from '../../../core/src/index';
@@ -149,12 +149,12 @@ const rootLevelComputedService = (
     for (let j = 0; j < NODES_PER_LEVEL; j++) rootsByNode.push(pickFrom(roots, j));
     const computedService = createOIMComputedService<number, number>({
         sameValueGuard: oimSameValueZeroGuard,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const computedStoreSlot = computedService.createComputedStoreSlot(
         db,
         computedSlot => sumForPull(rootsByNode[computedSlot.key]),
-        j => ({ sourceSlots: rootsByNode[j] }),
+        ({ key: j }) => ({ sourceSlots: rootsByNode[j] }),
     );
     return { computedService, computedStoreSlot };
 };
@@ -166,12 +166,12 @@ const computedLevelComputedService = (
     for (let j = 0; j < NODES_PER_LEVEL; j++) sourceComputedsByNode.push(pickFrom(belowComputedSlots, j));
     const computedService = createOIMComputedService<number, number>({
         sameValueGuard: oimSameValueZeroGuard,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const computedStoreSlot = computedService.createComputedStoreSlot(
         db,
         computedSlot => sumOfComputedsForPull(sourceComputedsByNode[computedSlot.key]),
-        j => ({ sourceComputeds: sourceComputedsByNode[j] }),
+        ({ key: j }) => ({ sourceComputeds: sourceComputedsByNode[j] }),
     );
     return { computedService, computedStoreSlot };
 };
@@ -194,7 +194,7 @@ const buildPullChain = (depth: number) => {
     const topSlots = below;
     // The first settle, outside the clock: every node is born owing a derivation
     // and the frame that paid for it would be a frame unlike every other.
-    const computedValueService = top.computedService.computedCollectionService.slotContentService;
+    const computedValueService = topSlots[0].computedValueService;
     for (let i = 0; i < topSlots.length; i++) priceSink.number = computedValueService.getValueForSlot(topSlots[i]);
     return { db, roots, computedValueService, top: topSlots };
 };

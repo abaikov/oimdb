@@ -1,26 +1,24 @@
 import { IDBFactory } from 'fake-indexeddb';
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import type { TOIMPersistRecords, TOIMPersistVersionedShape } from '@oimdb/persist';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistCodecVersioned,
+    OIMPersistIdentityCodec,
+    OIMPersistVersionedCodec,
     OIMPersistEntityWriter,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerFrameDriven,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistSnapshotResource,
+    OIMPersistFrameScheduler,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy, OIMPersistIndexedDbSnapshotStrategy } from '../src';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService, OIMPersistIndexedDbSnapshotService } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TSettings = { theme: string };
@@ -34,26 +32,23 @@ function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
         entityWriter: createOIMEntityWriterInPlace(),
     });
-    const entityService = createOIMEntityService<TUser>(db, {
-        keyOf: user => user.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const persistRecordSource = new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TUser>({
+    const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
         entityCollectionService: entityService,
         entityStoreSlot,
         persistEntityWriter,
     });
     const createRecordsResource = () =>
-        new OIMPersistResourceRecords<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TOIMStoreKey, TUser>({
+        new OIMPersistRecordsResource<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TOIMStoreKey, TUser>({
             persistRecordSource,
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TUser>({ tableName: 'users' }),
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TUser>({ tableName: 'users' }),
         });
     const createSnapshotResource = () =>
-        new OIMPersistResourceSnapshot<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TUserRecords, TUserRecords>({
+        new OIMPersistSnapshotResource<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TUserRecords, TUserRecords>({
             persistSnapshotSource: persistRecordSource,
-            persistSnapshotStrategy: new OIMPersistIndexedDbSnapshotStrategy<TUserRecords>({ tableName: 'entries', primaryKey: 'users' }),
-            persistCodec: new OIMPersistCodecIdentity<TUserRecords>(),
+            persistSnapshotService: new OIMPersistIndexedDbSnapshotService<TUserRecords>({ tableName: 'entries', primaryKey: 'users' }),
+            persistCodec: new OIMPersistIdentityCodec<TUserRecords>(),
         });
     return { entityService, entityStoreSlot, persistRecordSource, createRecordsResource, createSnapshotResource };
 }
@@ -83,7 +78,7 @@ describe('@oimdb/persist-idb', () => {
     function createPersistor(persistIndexedDbBackend: OIMPersistIndexedDbBackend): TIndexedDbPersistor {
         return new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
             persistBackend: persistIndexedDbBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
     }
 
@@ -106,7 +101,7 @@ describe('@oimdb/persist-idb', () => {
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
             sourcePersistor.addPersistResource(sourceUsers.createRecordsResource());
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
             expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([
@@ -127,10 +122,10 @@ describe('@oimdb/persist-idb', () => {
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
             sourcePersistor.addPersistResource(sourceUsers.createRecordsResource());
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
-            sourceUsers.entityService.slotContentService.deleteEntity(sourceUsers.entityService.getSlotByKey(sourceUsers.entityStoreSlot, 'u1'));
+            sourceUsers.entityService.slotContentService.clearSlotContent(sourceUsers.entityService.getSlotByKey(sourceUsers.entityStoreSlot, 'u1'));
             await sourcePersistor.persist();
 
             const targetUsers = buildUsers(new OIMDB());
@@ -150,7 +145,7 @@ describe('@oimdb/persist-idb', () => {
             const persistor = createPersistor(persistIndexedDbBackend);
             persistor.addPersistResource(users.createRecordsResource());
             startAutosave(persistor);
-            users.entityService.slotContentService.upsertEntities(users.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            users.entityService.writeInBatch(users.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => users.entityService.writeSlotContentByKey(users.entityStoreSlot, entity.id, entity)));
             await settleAutosave(persistor);
             expect((await entityByKeyOf(persistIndexedDbBackend)).size).toBe(2);
 
@@ -158,7 +153,7 @@ describe('@oimdb/persist-idb', () => {
             persistIndexedDbWriteBatch.putTableValue('users', '__marker__', { id: '__marker__', name: 'x' });
             await persistIndexedDbWriteBatch.commit();
 
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ id: 'u2', name: 'Grace Hopper' });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, 'u2', { id: 'u2', name: 'Grace Hopper' });
             await settleAutosave(persistor);
 
             const entityByKey = await entityByKeyOf(persistIndexedDbBackend);
@@ -176,10 +171,10 @@ describe('@oimdb/persist-idb', () => {
             const persistor = createPersistor(persistIndexedDbBackend);
             persistor.addPersistResource(users.createRecordsResource());
             startAutosave(persistor);
-            users.entityService.slotContentService.upsertEntities(users.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            users.entityService.writeInBatch(users.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => users.entityService.writeSlotContentByKey(users.entityStoreSlot, entity.id, entity)));
             await settleAutosave(persistor);
 
-            users.entityService.slotContentService.deleteEntity(users.entityService.getSlotByKey(users.entityStoreSlot, 'u1'));
+            users.entityService.slotContentService.clearSlotContent(users.entityService.getSlotByKey(users.entityStoreSlot, 'u1'));
             await settleAutosave(persistor);
 
             expect(await persistIndexedDbBackend.readAllTableRecords('users')).toEqual([{ key: 'u2', value: grace }]);
@@ -190,7 +185,7 @@ describe('@oimdb/persist-idb', () => {
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
             sourcePersistor.addPersistResource(sourceUsers.createRecordsResource());
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
             await sourcePersistor.clearPersisted();
@@ -228,7 +223,7 @@ describe('@oimdb/persist-idb', () => {
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
             sourcePersistor.addPersistResource(sourceUsers.createSnapshotResource());
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
             expect(await persistIndexedDbBackend.readTableValue('entries', 'users')).toEqual({
@@ -244,26 +239,26 @@ describe('@oimdb/persist-idb', () => {
         });
 
         test('a versioned codec envelope is what the table holds, and it decodes on hydrate', async () => {
-            const persistCodecVersioned = new OIMPersistCodecVersioned<TUserRecords, TUserRecords>({
+            const persistVersionedCodec = new OIMPersistVersionedCodec<TUserRecords, TUserRecords>({
                 version: 1,
                 migrations: {},
-                persistCodec: new OIMPersistCodecIdentity<TUserRecords>(),
+                persistCodec: new OIMPersistIdentityCodec<TUserRecords>(),
             });
-            const createVersionedResource = (users: ReturnType<typeof buildUsers>) => new OIMPersistResourceSnapshot<
+            const createVersionedResource = (users: ReturnType<typeof buildUsers>) => new OIMPersistSnapshotResource<
                 OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TUserRecords, TOIMPersistVersionedShape
             >({
                 persistSnapshotSource: users.persistRecordSource,
-                persistSnapshotStrategy: new OIMPersistIndexedDbSnapshotStrategy<TOIMPersistVersionedShape>({
+                persistSnapshotService: new OIMPersistIndexedDbSnapshotService<TOIMPersistVersionedShape>({
                     tableName: 'entries',
                     primaryKey: 'users',
                 }),
-                persistCodec: persistCodecVersioned,
+                persistCodec: persistVersionedCodec,
             });
             const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName: 'codec-db', indexedDb: new IDBFactory() });
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
             sourcePersistor.addPersistResource(createVersionedResource(sourceUsers));
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
             expect(await persistIndexedDbBackend.readTableValue('entries', 'users')).toEqual({
@@ -288,13 +283,13 @@ describe('@oimdb/persist-idb', () => {
             const users = buildUsers(db);
             const persistor = new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
                 persistBackend: persistIndexedDbBackend,
-                persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+                persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
             });
             persistor.addPersistResource(users.createSnapshotResource());
             startAutosave(persistor);
 
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...grace });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...grace }).id, { ...grace });
             expect(await persistIndexedDbBackend.readTableValue('entries', 'users')).toBeUndefined();
 
             db.flush();
@@ -313,7 +308,7 @@ describe('@oimdb/persist-idb', () => {
             const users = buildUsers(new OIMDB());
             const persistor = createPersistor(persistIndexedDbBackend);
             persistor.addPersistResource(users.createSnapshotResource());
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await persistor.persist();
             expect(await persistIndexedDbBackend.readTableValue('entries', 'users')).toBeDefined();
 
@@ -324,20 +319,20 @@ describe('@oimdb/persist-idb', () => {
 
         test('a single entity round-trips', async () => {
             const buildSettings = (db: OIMDB, settings: TSettings) => {
-                const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+                const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
                 const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-                singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, settings);
+                singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
                 db.flush();
-                const persistResourceSnapshot = new OIMPersistResourceSnapshot<
+                const persistSnapshotResource = new OIMPersistSnapshotResource<
                     OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch, TSettings, TSettings
                 >({
-                    persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+                    persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource<TSettings>({
                         channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
                     }),
-                    persistSnapshotStrategy: new OIMPersistIndexedDbSnapshotStrategy<TSettings>({ tableName: 'entries', primaryKey: 'settings' }),
-                    persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+                    persistSnapshotService: new OIMPersistIndexedDbSnapshotService<TSettings>({ tableName: 'entries', primaryKey: 'settings' }),
+                    persistCodec: new OIMPersistIdentityCodec<TSettings>(),
                 });
-                return { singleEntityService, singleEntityStoreSlot, persistResourceSnapshot };
+                return { singleEntityService, singleEntityStoreSlot, persistSnapshotResource };
             };
             const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({
                 databaseName: 'single-entity-db',
@@ -345,15 +340,15 @@ describe('@oimdb/persist-idb', () => {
             });
             const sourceSettings = buildSettings(new OIMDB(), { theme: 'dark' });
             const sourcePersistor = createPersistor(persistIndexedDbBackend);
-            sourcePersistor.addPersistResource(sourceSettings.persistResourceSnapshot);
+            sourcePersistor.addPersistResource(sourceSettings.persistSnapshotResource);
             await sourcePersistor.persist();
 
             const targetSettings = buildSettings(new OIMDB(), { theme: '' });
             const targetPersistor = createPersistor(persistIndexedDbBackend);
-            targetPersistor.addPersistResource(targetSettings.persistResourceSnapshot);
+            targetPersistor.addPersistResource(targetSettings.persistSnapshotResource);
             await targetPersistor.hydrate();
 
-            expect(targetSettings.singleEntityService.slotContentService.findEntityByKey(targetSettings.singleEntityStoreSlot, undefined)).toEqual({ theme: 'dark' });
+            expect(targetSettings.singleEntityService.findSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
         });
 
         test('a removed resource is written neither by autosave nor by persist', async () => {
@@ -363,11 +358,11 @@ describe('@oimdb/persist-idb', () => {
             });
             const users = buildUsers(new OIMDB());
             const persistor = createPersistor(persistIndexedDbBackend);
-            const persistResourceSnapshot = persistor.addPersistResource(users.createSnapshotResource());
+            const persistSnapshotResource = persistor.addPersistResource(users.createSnapshotResource());
             startAutosave(persistor);
-            persistor.removePersistResource(persistResourceSnapshot);
+            persistor.removePersistResource(persistSnapshotResource);
 
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await settleAutosave(persistor);
             await persistor.persist();
 

@@ -194,7 +194,7 @@ export const alternativePairsSlotLayout: readonly TPricePair[] = [
         caveat:
             'One operation is one write; the pool cycles entity, bucket, push column, the only kinds whose slots reach '
             + 'OIMChannel.writeWithoutFlushCheck (how-many-shapes-reach-the-write-door.test.ts pins three). The literals '
-            + 'copy the key order of createOIMEntitySlot, createOIMBucketSlot and OIMColumnOwnerPushDriven.createColumnSlot. '
+            + 'copy the key order of createOIMEntitySlot, createOIMBucketSlot and OIMPushColumnSlotOwner.createColumnSlot. '
             + 'Three shapes are still under the polymorphic ceiling of four, which is what this pair asks about. Every '
             + 'slot is held, so the gate never returns early.',
         isolate: true,

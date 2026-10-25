@@ -94,7 +94,7 @@ sources are fixed when it is created. That suits a derived value but not
 membership: a computed "cards of the red deck" either never sees a card inserted
 later or rescans every card on every frame.
 
-So **membership is a bucket, pushed**: an `OIMIndexService` listens to its source collection,
+So **membership is a bucket, pushed**: an `OIMSlotCollectionIndexService` listens to its source collection,
 and each write costs one `keyOf`, one read of the key cached on the slot and at most
 two bucket edits, whatever the size of the collection.
 

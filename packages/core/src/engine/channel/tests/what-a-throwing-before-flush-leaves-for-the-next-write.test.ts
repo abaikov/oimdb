@@ -1,4 +1,6 @@
-import { OIMDB, OIMEffectService, OIMErrorPolicyThrowAtOnce, createOIMEntityService } from '../../../index';
+import { OIMDB, OIMEffectService, OIMThrowAtOnceErrorPolicy } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; n: number };
 
@@ -8,13 +10,13 @@ describe('what a throwing onBeforeFlush leaves for the next write', () => {
         let fail = false;
         const db = new OIMDB({
             channelScheduler: run => { hostQueue.push(run); },
-            errorPolicy: new OIMErrorPolicyThrowAtOnce(),
+            errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             onBeforeFlush: () => { if (fail) throw new Error('before'); },
         });
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 's', n: 0 });
+        const card = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
         const seen: number[] = [];
         effectService.createEffect(db, [card], [], () => { seen.push(card.entity?.n ?? -1); });
         while (hostQueue.length > 0) hostQueue.shift()!();

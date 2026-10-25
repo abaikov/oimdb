@@ -17,13 +17,13 @@ const HERO_CODE = `const taskService = createOIMEntityService<Task>(db, {
 });
 const tasks = taskService.createStoreSlot(db);
 
-const byColumnService = createOIMIndexService(db, {
+const byColumnService = createOIMSlotCollectionIndexService(db, {
     entityService: taskService,
     columns: ['column'],
 });
 const tasksByColumn = byColumnService.createIndexStoreSlot(tasks);
 
-const byPriorityService = createOIMComputedServiceSorted({
+const byPriorityService = createOIMSortedComputedService({
     indexService: byColumnService,
     sortColumns: [{ column: 'priority', direction: 'asc' }],
 });

@@ -7,21 +7,7 @@ description: How an index files the entities of a source collection into buckets
 # Indexes
 
 ```ts setup
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMIndexKeysServiceReclaiming,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotReleasePolicyAtUnhold,
-    createOIMComputedService,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-    createOIMIndexServiceByCompositeKey,
-    createOIMIndexServiceSortedArrayDriven,
-    oimSameSlotSequence,
-    type TOIMEntitySlot,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMReclaimingIndexKeysService, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimSameSlotSequence, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotTreeStoreService, OIMDefaults, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMStoreKey } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -29,7 +15,7 @@ declare function render(value?: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
@@ -65,7 +51,7 @@ The index service is built once per entity collection type; `createIndexStoreSlo
 builds one index over one entity store slot, and returns the index's own store slot of buckets.
 
 ```ts setup
-const deckIndexService = createOIMIndexService(db, {
+const deckIndexService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,              // the entity collection it reads
     keyOf: (card: Card) => card.deck,        // which key an entity belongs to
 });
@@ -75,21 +61,21 @@ const deckBucketReads = deckIndexService.slotContentService;
 
 ```ts
 const red = deckIndexService.holdSlotByKey(deckIndex, 'red'); // the bucket; minted on first hold
-cardContentService.upsertEntity(cards, { id: 'c1', deck: 'red', rank: 1 });
+cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'red', rank: 1 });
 db.flush();
 
 Array.from(deckBucketReads.getBucketMemberSlots(red)); // [c1]
 ```
 
-`createOIMIndexService(db, options)` builds the index over a Map store of buckets. Its options:
+`createOIMSlotCollectionIndexService(db, options)` builds the index over a Map store of buckets. Its options:
 
 | Option | Default | What it decides |
 |---|---|---|
 | `entityService` | required | the source collection service; only its `getSlots` is used, to fill a new bucket |
 | `columns` / `keyOf` | one of them required | [where the key comes from](#where-the-key-comes-from-columns-keyof-or-both) |
-| `slotContentService` | `new OIMSlotContentBucketServiceArrayDriven()`, with no recorder | how a bucket holds its slots: pass `new OIMSlotContentBucketServiceSetDriven()` for no order, or one built with `bucketCommands` for a render script |
+| `slotContentService` | `new OIMSlotContentPositionalArrayBucketService()`, with no recorder | how a bucket holds its slots: pass `new OIMSlotContentSetBucketService()` for no order, or one built with `bucketCommands` for a render script |
 | `bucketSlotStoreService` | a Map store; required for an array key | where buckets are filed |
-| `slotReleasePolicy` | the db's, then `OIMSlotReleasePolicyAtEmpty.INSTANCE` | [how long a bucket lives](#what-a-write-costs-and-how-long-a-bucket-lives) |
+| `slotReleasePolicy` | the db's, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` | [how long a bucket lives](#what-a-write-costs-and-how-long-a-bucket-lives) |
 | `columnSlotStoreService` / `columnNames` | `OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` | where bucket column slots live |
 
 The index-keys strategy is the db's (`new OIMDB({ indexKeysService })`, see
@@ -97,10 +83,10 @@ The index-keys strategy is the db's (`new OIMDB({ indexKeysService })`, see
 [the composite-key door](#a-key-of-several-columns), which sets a tree-driven store.
 
 ```ts
-const unorderedDeckIndexService = createOIMIndexService(db, {
+const unorderedDeckIndexService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
-    slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>(),
+    slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>(),
 });
 const unorderedDeckIndex = unorderedDeckIndexService.createIndexStoreSlot(cards);
 ```
@@ -112,7 +98,7 @@ The default buckets keep arrival order. Only the array-based content services an
 set-driven one when you read neither arrival order nor positions: its membership test and removal are a
 hash lookup.
 
-`OIMIndexService` is a collection service of buckets, so it has every read door of one. Its
+`OIMSlotCollectionIndexService` is a collection service of buckets, so it has every read door of one. Its
 `slotContentService` is the bucket content service narrowed by type to its reads — the index is the only
 writer of its buckets. A door that names a key takes the index's store slot first; a door on a bucket takes
 only the bucket slot:
@@ -134,9 +120,9 @@ The channel slot of an index store slot is its source store slot's.
 The same pair as the sorter's `sortColumns` / `comparator`:
 
 ```ts
-const byColumn = createOIMIndexService(db, { entityService: cardService, columns: ['deck'] });
-const byFunction = createOIMIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deck });
-const byFunctionOfColumns = createOIMIndexService(db, {
+const byColumn = createOIMSlotCollectionIndexService(db, { entityService: cardService, columns: ['deck'] });
+const byFunction = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deck });
+const byFunctionOfColumns = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     columns: ['deck'],
     keyOf: (card: Card) => card.deck.toLowerCase(),
@@ -156,23 +142,27 @@ entity's key and calls nothing. A write of the whole value — a fill, a clear,
 `markEntityChanged(slot)` with no names — always reads the key again.
 
 A slot with no entity is filed under no bucket, and neither is an entity whose
-`keyOf` returns `undefined`. `createOIMIndexService` constrains the key to `TOIMStoreKey` unless it is handed
-a `bucketSlotStoreService`, `createOIMIndexServiceByCompositeKey` to an array of `TOIMStoreKey`, and a key
+`keyOf` returns `undefined`. `createOIMSlotCollectionIndexService` constrains the key to `TOIMStoreKey` unless it is handed
+a `bucketSlotStoreService`, `createOIMSlotCollectionIndexService` to an array of `TOIMStoreKey`, and a key
 type handed to them by hand must be assignable to the one `TOIMIndexKey` computes from `columns`.
 
 ### A key of several columns
 
-An array key has its own door: `createOIMIndexServiceByCompositeKey`. Name two or more columns and the key
+An array key needs a bucket store that compares arrays part by part: pass `bucketSlotStoreService`, an
+`OIMSlotTreeStoreService` over `OIMDefaults.KEY_TREE_WALK_SCALAR`. Name two or more columns and the key
 is the array of their values, in that order:
 
 ```ts
 type PlayingCard = { id: string; deck: string; suit: string };
 
-const playingCardService = createOIMEntityService<PlayingCard>(db, { keyOf: (card) => card.id });
+const playingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<PlayingCard>(db) });
 const playingCards = playingCardService.createStoreSlot(db);
-const byDeckAndSuitService = createOIMIndexServiceByCompositeKey(db, {
+type TDeckAndSuitBucket = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<PlayingCard>>, readonly [string, string]>;
+const byDeckAndSuitService = createOIMSlotCollectionIndexService(db, {
     entityService: playingCardService,
     columns: ['deck', 'suit'],
+    keyOf: (card: PlayingCard): readonly [string, string] => [card.deck, card.suit],
+    bucketSlotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TDeckAndSuitBucket>(OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()),
 });
 const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(playingCards);
 byDeckAndSuitService.getEntitiesByKey(byDeckAndSuit, ['red', 'hearts']);
@@ -184,10 +174,9 @@ byDeckAndSuitService.getEntitiesByKey(byDeckAndSuit, ['red', 'hearts']);
   one-column index refuses an array. Columns must be written inline or `as const`: a
   `string[]` variable carries no length, so its key could be either a value or an array,
   and both doors refuse it.
-- The composite-key door builds the index's bucket store on an
-  `OIMSlotStoreServiceTreeDriven` over `OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()`. To tell whether an
+- The index's bucket store is that `OIMSlotTreeStoreService`. To tell whether an
   entity's key moved, the index asks its bucket store `isSameKey`.
-- A `keyOf` returning an array of `TOIMStoreKey` takes `createOIMIndexService` with a tree store passed as
+- A `keyOf` returning an array of `TOIMStoreKey` takes `createOIMSlotCollectionIndexService` with a tree store passed as
   `bucketSlotStoreService`.
 - Each write that reads the key builds one array; a fresh array with the same parts is
   the same key, so it moves nothing and wakes nothing.
@@ -223,34 +212,34 @@ own slot.
 - **Entities are filed on write**, using the index's key, through the source store slot's
   content-change hook.
 - **A bucket's lifetime is the `slotReleasePolicy`, not the index's.** Name nothing (here or on the db)
-  and you get `OIMSlotReleasePolicyAtEmpty.INSTANCE`: an unheld bucket stays, and goes on being
+  and you get `OIMSlotAtEmptyReleasePolicy.INSTANCE`: an unheld bucket stays, and goes on being
   maintained, while it has members, and goes once it is empty. Pass
-  `OIMSlotReleasePolicyNever.INSTANCE` and a bucket stands for good;
-  `new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs })` and it cools on the queue;
-  `OIMSlotReleasePolicyAtUnhold.INSTANCE` and it ends at the last give-back, and the next
+  `OIMSlotNeverReleasePolicy.INSTANCE` and a bucket stands for good;
+  `new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs })` and it cools on the queue;
+  `OIMSlotAtUnholdReleasePolicy.INSTANCE` and it ends at the last give-back, and the next
   hold builds a fresh one with one scan of the source. The policies themselves:
   [Releasing an identity on a clock](/docs/core/lifecycle#releasing-an-identity-on-a-clock--opt-in-and-off-it-costs-nothing).
 - **Order is not the bucket's business.** A sorted list is
-  `createOIMComputedServiceSorted` over the index service ([Ordering](#ordering)).
+  `createOIMSortedComputedService` over the index service ([Ordering](#ordering)).
   Compose a second computed over the bucket for filtering or any other order.
 
 ```ts
-const deckIndexOnlyWhileHeldService = createOIMIndexService(db, {
+const deckIndexOnlyWhileHeldService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
-    slotReleasePolicy: OIMSlotReleasePolicyAtUnhold.INSTANCE,
+    slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
 });
 const deckIndexOnlyWhileHeld = deckIndexOnlyWhileHeldService.createIndexStoreSlot(cards);
 ```
 
-Use `OIMSlotReleasePolicyAtUnhold` when keys are many and each is looked at briefly (a details panel
+Use `OIMSlotAtUnholdReleasePolicy` when keys are many and each is looked at briefly (a details panel
 per user); keep the default when a few keys are read over and over.
 
 An order of your own is a derivation over the bucket:
 
 ```ts
 const rankedInDeckService = createOIMComputedService<string, readonly TOIMEntitySlot<Card>[]>({
-    createSources: (key: string) => ({
+    createSources: ({ key }) => ({
         sourceSlots: [deckIndexService.getSlotByKey(deckIndex, key)],
     }),
     derive: (computedSlot) => Array.from(
@@ -298,7 +287,7 @@ const redEffect = effectService.createEffect(db, [redBucket, redAnyColumn], [], 
     render(deckIndexService.getEntitiesByKey(deckIndex, 'red'));
 });
 effectService.disposeEffect(redEffect);
-deckIndexService.unholdColumn(redAnyColumn);
+deckIndexService.columnSlotService.unholdColumn(redAnyColumn);
 redBucket.owner.unholdSlot(redBucket);
 ```
 
@@ -327,34 +316,34 @@ bucket in O(1). How that memory is kept is chosen once per db, `new OIMDB({ inde
 
 | strategy | on `disposeIndexStoreSlot` | cost |
 |---|---|---|
-| `OIMIndexKeysServiceAppending` (default) | the index's position is not reused | each index ever created on a source leaves one entry on the slots it filed |
-| `OIMIndexKeysServiceReclaiming` | the position is wiped on every slot of the source and reused | O(N) per dispose |
+| `OIMAppendingIndexKeysService` (default) | the index's position is not reused | each index ever created on a source leaves one entry on the slots it filed |
+| `OIMReclaimingIndexKeysService` | the position is wiped on every slot of the source and reused | O(N) per dispose |
 
 ```ts
-const dbWithShortLivedIndexes = new OIMDB({ indexKeysService: new OIMIndexKeysServiceReclaiming() });
+const dbWithShortLivedIndexes = new OIMDB({ indexKeysService: new OIMReclaimingIndexKeysService() });
 ```
 
-Switch to `OIMIndexKeysServiceReclaiming` only if you create indexes dynamically and often. That is
+Switch to `OIMReclaimingIndexKeysService` only if you create indexes dynamically and often. That is
 expensive, so avoid it.
 
 ## Ordering
 
-**A bucket never sorts, except the bucket of a `createOIMIndexServiceSortedArrayDriven` index.** Its order is
+**A bucket never sorts, except the bucket of a `createOIMSlotCollectionSortedArrayIndexService` index.** Its order is
 what the caller or the arrivals put in: `addBucketMemberSlots` appends, `insertBucketMemberSlotAt` inserts, a
-move moves, `writeBucketMemberSlots` takes the sequence given. A sorted list is a computed over an index —
-`createOIMComputedServiceSorted({ indexService, sortColumns?, comparator? })`, then
+move moves, `writeSlotContent` takes the sequence given. A sorted list is a computed over an index —
+`createOIMSortedComputedService({ indexService, sortColumns?, comparator? })`, then
 `createSortedStoreSlot(indexStoreSlot)` for each index — or the
 index sorts its own buckets, see [Sorted at write](#sorted-at-write).
 Take it when the order is a function of the entities' columns; take
 [positions](/docs/core/indexes#positions-the-caller-decides) when the user decides it.
 
 ```ts
-const cardsInDeckService = createOIMIndexService(db, {
+const cardsInDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
 const cardsInDeck = cardsInDeckService.createIndexStoreSlot(cards);
-const cardsByRankService = createOIMComputedServiceSorted({
+const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsInDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -365,7 +354,7 @@ effectService.createEffectImmediate(db, [], [red], () => { render(red.computedVa
 red.owner.unholdSlot(red);
 ```
 
-- `indexService` is the `OIMIndexService` whose buckets the sorted list reads, and the
+- `indexService` is the `OIMSlotCollectionIndexService` whose buckets the sorted list reads, and the
   index store slot handed to `createSortedStoreSlot` is the index it reads them from. The sorted service
   takes no db: its store slots run on the index store slot's channel slot.
 - `sortColumns` — `TOIMSortColumn<TEntity>[]`, each `{ column, direction: 'asc' | 'desc' }`,
@@ -387,14 +376,14 @@ red.owner.unholdSlot(red);
 
   ```ts
   type TitledCard = { id: string; deck: string; title: string; rank: number; note: string };
-  const titledCardService = createOIMEntityService<TitledCard>(db, { keyOf: card => card.id });
+  const titledCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TitledCard>(db) });
   const titledCards = titledCardService.createStoreSlot(db);
-  const titledCardsInDeckService = createOIMIndexService(db, {
+  const titledCardsInDeckService = createOIMSlotCollectionIndexService(db, {
       entityService: titledCardService,
       keyOf: (card: TitledCard) => card.deck,
   });
   const titledCardsInDeck = titledCardsInDeckService.createIndexStoreSlot(titledCards);
-  const byTitleInGermanService = createOIMComputedServiceSorted({
+  const byTitleInGermanService = createOIMSortedComputedService({
       indexService: titledCardsInDeckService,
       sortColumns: [{ column: 'title', direction: 'asc' }, { column: 'rank', direction: 'asc' }],
       comparator: (left, right) => left.title.localeCompare(right.title, 'de') || left.rank - right.rank,
@@ -425,7 +414,7 @@ Subscribe to one when you need "some member's `rank` moved" without "some member
 const rankInRed = deckIndexService.holdBucketColumnByKey(deckIndex, 'red', 'rank');
 const onRankInRed = effectService.createEffect(db, [rankInRed], [], () => { render(); });
 effectService.disposeEffect(onRankInRed);
-deckIndexService.unholdColumn(rankInRed);
+deckIndexService.columnSlotService.unholdColumn(rankInRed);
 ```
 
 An index marks bucket column slots only once somebody has asked for one, so an
@@ -439,12 +428,12 @@ comparator again; the bucket under it is untouched.
 
 The sorted computed above sorts at read, over any index. The other arm keeps the index's
 own buckets in order, so a read needs no computed. You pick one at construction:
-`createOIMIndexServiceSortedArrayDriven(db, { entityService, columns? | keyOf?, sortColumns, bucketSlotStoreService?, slotReleasePolicy?, columnSlotStoreService? | columnNames? })`
-returns an `OIMIndexServiceSortedArrayDriven`. `sortColumns` is the same `TOIMSortColumn<TEntity>[]`
-that `createOIMComputedServiceSorted` takes, and it is required.
+`createOIMSlotCollectionSortedArrayIndexService(db, { entityService, columns? | keyOf?, sortColumns, bucketSlotStoreService?, slotReleasePolicy?, columnSlotStoreService? | columnNames? })`
+returns an `OIMSlotCollectionSortedArrayIndexService`. `sortColumns` is the same `TOIMSortColumn<TEntity>[]`
+that `createOIMSortedComputedService` takes, and it is required.
 
 ```ts
-const cardsByDeckService = createOIMIndexServiceSortedArrayDriven(db, {
+const cardsByDeckService = createOIMSlotCollectionSortedArrayIndexService(db, {
     entityService: cardService,
     columns: ['deck'],
     sortColumns: [{ column: 'rank', direction: 'asc' }, { column: 'id', direction: 'desc' }],
@@ -462,7 +451,7 @@ cardsByDeckService.slotContentService.getBucketMemberSlotAt(spades, 0);
 - **A member is re-filed when one of its sort columns changes, and only then.** A write to
   a column that is neither the key nor a sort column neither reorders the bucket nor wakes it.
 - **There are no positional writes** on this bucket. The order belongs to the comparator,
-  so `insertBucketMemberSlotAt` and the other position writes stay on `OIMSlotContentBucketServiceArrayDriven`.
+  so `insertBucketMemberSlotAt` and the other position writes stay on `OIMSlotContentPositionalArrayBucketService`.
 - **No render script.** The strategy records no bucket commands.
 
 Which arm to take: sort-at-write suits point updates, where a rank change re-files one

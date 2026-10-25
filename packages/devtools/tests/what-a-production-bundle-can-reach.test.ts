@@ -338,6 +338,7 @@ describe('what a production bundle can reach', () => {
             .map(file => file.slice(file.lastIndexOf('/') + 1));
         expect(reachingForAValue).toEqual([
             'OIMSnapshotVersion.ts', 'holdWhileSubscribed.ts', 'useOIMComputedValueByKey.ts',
+            'useOIMSingleComputedValue.ts', 'useOIMSingleSlot.ts',
             'useOIMSlotByKey.ts', 'useOIMSlotsByKeys.ts', 'useOIMValue.ts',
         ]);
     });

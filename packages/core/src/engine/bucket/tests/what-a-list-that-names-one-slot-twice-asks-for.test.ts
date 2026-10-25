@@ -1,26 +1,22 @@
-import { OIMDB, OIMEffectService, OIMSlotContentBucketServiceArrayDriven, createOIMBucketService, createOIMEntityService } from '../../../index';
-import { OIMBucketArrayMembershipUnique } from '../array/OIMBucketArrayMembershipUnique';
+import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService } from '../../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../array/types/TOIMBucketSlotsArrayUniqueStore';
+import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<Card, string>;
-type TDeck = TOIMBucketSlot<TOIMBucketSlotsArrayUniqueStore<TCardSlot>, string>;
+type TDeck = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: Card) => card.id });
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>({
-        bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
-    });
-    const decksService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsArrayUniqueStore<TCardSlot>,
-        OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>
-    >(db, { slotContentService: membersService });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const cards = cardsService.createStoreSlot(db);
     const decks = decksService.createStoreSlot(db);
-    const put = (id: string, rank: number): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id, rank });
+    const put = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
     const idsIn = (bucket: TDeck): (string | undefined)[] =>
         [...membersService.getBucketMemberSlots(bucket)].map((slot) => slot.entity?.id);
     return { db, membersService, decksService, decks, put, idsIn };
@@ -32,14 +28,14 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         const a = put('a', 10);
         const b = put('b', 20);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a, b]);
+        membersService.writeSlotContent(heldSlot,[a, b]);
         db.flush();
         expect(idsIn(heldSlot)).toEqual(['a', 'b']);
 
         // `[a, a]` asks for `{a}`. The counts agree with `{a, b}` at two and both
         // lookups find `a` — the pair of facts a count-and-presence answer takes
         // for "nothing changed".
-        membersService.writeBucketMemberSlots(heldSlot,[a, a]);
+        membersService.writeSlotContent(heldSlot,[a, a]);
         db.flush();
 
         expect(idsIn(heldSlot)).toEqual(['a']);
@@ -51,7 +47,7 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         const a = put('a', 10);
         const b = put('b', 20);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a, b]);
+        membersService.writeSlotContent(heldSlot,[a, b]);
         db.flush();
 
         let runCount = 0;
@@ -59,7 +55,7 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         db.flush();
         const before = runCount;
 
-        membersService.writeBucketMemberSlots(heldSlot,[a, a]);
+        membersService.writeSlotContent(heldSlot,[a, a]);
         db.flush();
 
         // The silent half: a bucket that keeps a slot nobody asked for and tells
@@ -73,7 +69,7 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         const a = put('a', 10);
         const b = put('b', 20);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a, b]);
+        membersService.writeSlotContent(heldSlot,[a, b]);
         db.flush();
 
         let runCount = 0;
@@ -83,11 +79,11 @@ describe('a list that names one slot twice, against a bucket that holds each onc
 
         // The case the fast path exists for, and the one the fix must not cost:
         // the same two slots, re-sent.
-        membersService.writeBucketMemberSlots(heldSlot,[a, b]);
+        membersService.writeSlotContent(heldSlot,[a, b]);
         db.flush();
         expect(runCount).toBe(before);
 
-        membersService.writeBucketMemberSlots(heldSlot,[b, a]);
+        membersService.writeSlotContent(heldSlot,[b, a]);
         db.flush();
         expect(runCount).toBe(before + 1);
 
@@ -98,12 +94,12 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         const { db, membersService, decksService, decks, put, idsIn } = createFixture();
         const a = put('a', 10);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a]);
+        membersService.writeSlotContent(heldSlot,[a]);
         db.flush();
 
         // `[a, a]` against `{a}`: the second mention records nothing, so setting
         // this list would change nothing a reader can see.
-        membersService.writeBucketMemberSlots(heldSlot,[a, a]);
+        membersService.writeSlotContent(heldSlot,[a, a]);
         db.flush();
         expect(idsIn(heldSlot)).toEqual(['a']);
 
@@ -114,15 +110,15 @@ describe('a list that names one slot twice, against a bucket that holds each onc
         const { db, membersService, decksService, decks, put, idsIn } = createFixture();
         const a = put('a', 10);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a]);
+        membersService.writeSlotContent(heldSlot,[a]);
         db.flush();
 
-        membersService.writeBucketMemberSlots(heldSlot,[]);
+        membersService.writeSlotContent(heldSlot,[]);
         db.flush();
         expect(idsIn(heldSlot)).toEqual([]);
 
         // The nought-and-one shape the fix leaves allocation-free.
-        membersService.writeBucketMemberSlots(heldSlot,[]);
+        membersService.writeSlotContent(heldSlot,[]);
         db.flush();
         expect(idsIn(heldSlot)).toEqual([]);
 

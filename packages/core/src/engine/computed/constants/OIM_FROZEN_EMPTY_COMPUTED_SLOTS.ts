@@ -1,3 +1,3 @@
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 
-export const OIM_FROZEN_EMPTY_COMPUTED_SLOTS: readonly TOIMComputedSlot[] = Object.freeze([]);
+export const OIM_FROZEN_EMPTY_COMPUTED_SLOTS: readonly TOIMComputedContentSlot[] = Object.freeze([]);

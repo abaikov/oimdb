@@ -1,11 +1,12 @@
-import { OIMReleaseSlotQueueService } from '../OIMReleaseSlotQueueService';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../OIMReleaseSlotCollectorServiceAfterIdle';
-import { createOIMReleaseSlotCollectorSlot } from '../utils/createOIMReleaseSlotCollectorSlot';
+import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
+import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
+import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 
-type TCountedSlots = Map<number, Set<TOIMSlot>> & { keyReads: number };
+type TCountedSlots = Map<number, TOIMSlot[]> & { keyReads: number };
 
 const slotDueAt = (dueMs: number): TOIMSlot => {
     const slot = { releaseDueAfterIdleMs: dueMs, isReleased: false };
@@ -15,12 +16,15 @@ const slotDueAt = (dueMs: number): TOIMSlot => {
 };
 
 function createSlotReleaseQueue(nowMs: () => number) {
-    const releaseSlotCollectorSlot = createOIMReleaseSlotCollectorSlot({
+    const slotReleaseWheel = new OIMSlotReleaseWheel({
         getNowMs: nowMs,
-        releaseTimer: () => () => undefined,
-        errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+        timer: () => () => undefined,
+        errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
+        getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
+        setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+        releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
     });
-    const counted = releaseSlotCollectorSlot.slotsBySliceNumber as TCountedSlots;
+    const counted = (slotReleaseWheel as unknown as { slotsBySliceNumber: TCountedSlots }).slotsBySliceNumber;
     counted.keyReads = 0;
     const keys = counted.keys.bind(counted);
     counted.keys = () => {
@@ -29,23 +33,11 @@ function createSlotReleaseQueue(nowMs: () => number) {
     };
     return {
         counted,
-        scheduleSlotRelease: (slot: TOIMSlot): void => {
-            OIMReleaseSlotQueueService.INSTANCE.scheduleSlotRelease(
-                releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE, slot, releaseSlotCollectorSlot.getNowMs(),
-            );
-        },
-        cancelSlotRelease: (slot: TOIMSlot): void => {
-            OIMReleaseSlotQueueService.INSTANCE.cancelSlotRelease(releaseSlotCollectorSlot, slot);
-        },
-        cancelAllSlotReleases: (): void => {
-            OIMReleaseSlotQueueService.INSTANCE.cancelAllSlotReleases(releaseSlotCollectorSlot);
-        },
-        releaseDueUpToSliceNumber: (upToSliceNumber: number): void => {
-            OIMReleaseSlotQueueService.INSTANCE.releaseDueUpToSliceNumber(
-                releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE, upToSliceNumber,
-            );
-        },
-        getNextReleaseSliceNumber: (): number | undefined => OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(releaseSlotCollectorSlot),
+        scheduleSlotRelease: (slot: TOIMSlot): void => { slotReleaseWheel.scheduleSlotRelease(slot, slotReleaseWheel.getNowMs()); },
+        cancelSlotRelease: (slot: TOIMSlot): void => { slotReleaseWheel.cancelSlotRelease(slot); },
+        cancelAllSlotReleases: (): void => { slotReleaseWheel.cancelAllSlots(); },
+        releaseDueUpToSliceNumber: (upToSliceNumber: number): void => { slotReleaseWheel.sweepUpToSliceNumber(upToSliceNumber); },
+        getNextReleaseSliceNumber: (): number | undefined => slotReleaseWheel.getNextSliceNumber(),
     };
 }
 
@@ -74,16 +66,20 @@ describe('what the earliest filed slice answers without a scan', () => {
         expect(getNextReleaseSliceNumber()).toBe(7);
     });
 
-    it('names the next slice once the earliest one is cancelled away', () => {
-        const nowMs = 0;
-        const { scheduleSlotRelease, cancelSlotRelease, getNextReleaseSliceNumber } = createSlotReleaseQueue(() => nowMs);
+    it('keeps a cancelled slot\'s slice until a sweep reaches it, releases nothing there, then names the next', () => {
+        let nowMs = 0;
+        const { scheduleSlotRelease, cancelSlotRelease, releaseDueUpToSliceNumber, getNextReleaseSliceNumber } = createSlotReleaseQueue(() => nowMs);
         const earliest = slotDueAt(7 * OIM_SLICE_LENGTH_MS);
         scheduleSlotRelease(earliest);
         scheduleSlotRelease(slotDueAt(19 * OIM_SLICE_LENGTH_MS));
-        expect(getNextReleaseSliceNumber()).toBe(7);
 
         cancelSlotRelease(earliest);
+        expect(getNextReleaseSliceNumber()).toBe(7);
 
+        nowMs = 8 * OIM_SLICE_LENGTH_MS;
+        releaseDueUpToSliceNumber(7);
+
+        expect((earliest as unknown as { isReleased: boolean }).isReleased).toBe(false);
         expect(getNextReleaseSliceNumber()).toBe(19);
     });
 
@@ -141,17 +137,20 @@ describe('what the earliest filed slice answers without a scan', () => {
         expect(counted.keyReads).toBe(0);
     });
 
-    it('names the re-filed slice when a moved slot becomes the earliest', () => {
-        const nowMs = 0;
-        const { scheduleSlotRelease, getNextReleaseSliceNumber } = createSlotReleaseQueue(() => nowMs);
-        const moving = slotDueAt(40 * OIM_SLICE_LENGTH_MS);
-        scheduleSlotRelease(moving);
-        scheduleSlotRelease(slotDueAt(19 * OIM_SLICE_LENGTH_MS));
-        expect(getNextReleaseSliceNumber()).toBe(19);
-
-        (moving as { releaseDueAfterIdleMs: number }).releaseDueAfterIdleMs = 3 * OIM_SLICE_LENGTH_MS;
+    it('re-files a slot whose deadline moved later only when its old slice comes due', () => {
+        let nowMs = 0;
+        const { scheduleSlotRelease, releaseDueUpToSliceNumber, getNextReleaseSliceNumber } = createSlotReleaseQueue(() => nowMs);
+        const moving = slotDueAt(3 * OIM_SLICE_LENGTH_MS);
         scheduleSlotRelease(moving);
 
+        (moving as unknown as { releaseDueAfterIdleMs: number }).releaseDueAfterIdleMs = 40 * OIM_SLICE_LENGTH_MS;
+        scheduleSlotRelease(moving);
         expect(getNextReleaseSliceNumber()).toBe(3);
+
+        nowMs = 4 * OIM_SLICE_LENGTH_MS;
+        releaseDueUpToSliceNumber(3);
+
+        expect((moving as unknown as { isReleased: boolean }).isReleased).toBe(false);
+        expect(getNextReleaseSliceNumber()).toBe(40);
     });
 });

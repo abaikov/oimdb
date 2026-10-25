@@ -1,16 +1,11 @@
-import {
-    OIMDB,
-    OIMSlotStoreServiceMapDriven,
-    oimSameValueZeroGuard,
-    createOIMComputedService,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotMapStoreService, oimSameValueZeroGuard, createOIMComputedService, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type { OIMComputedService, TOIMColumnSlot, TOIMComputedColumnSlot, TOIMComputedSlot, TOIMComputedStoreSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import type { TPriceEntityService } from '../price/priceFixture';
 import { ERetainedPath } from './ERetainedPath';
 import type { TRetainedPair } from './TRetainedPair';
 import type { TRetainedPopulation } from './TRetainedPopulation';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 // Prose: ./README.md#retainedpairsderivations
 //
@@ -63,17 +58,13 @@ const populatedEntityService = (): {
     slots: TRowSlot[];
 } => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TDerivationRow> = createOIMEntityService<TDerivationRow>(db, {
-        keyOf: row => row.id,
-        entityWriter: createOIMEntityWriterInPlace(),
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDerivationRow>(db, { entityWriter: createOIMEntityWriterInPlace() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const groups = groupNames();
     const slots: TRowSlot[] = new Array<TRowSlot>(ROWS);
     for (let i = 0; i < ROWS; i++) {
         const id = `row-${i}`;
-        slots[i] = entityService.slotContentService.upsertEntity(entityStoreSlot, {
+        slots[i] = entityService.writeSlotContentByKey(entityStoreSlot, id, {
             id,
             group: groups[i % GROUPS],
             rank: i,
@@ -89,7 +80,7 @@ type TRankSumStore = Map<number, TOIMComputedSlot<number, number>>;
 
 type TDerivations = {
     readonly rankSumComputedService: OIMComputedService<number, number, TRankSumStore>;
-    readonly rankSumComputedStoreSlot: TOIMComputedStoreSlot<TRankSumStore, number, number>;
+    readonly rankSumComputedStoreSlot: TOIMComputedStoreSlot<TRankSumStore, number, TOIMComputedSlot<number, number>>;
     readonly rankSumSlots: readonly TOIMComputedSlot<number, number>[];
 };
 
@@ -98,9 +89,9 @@ type TDerivations = {
 // The source array is the derivation's own for life (assigned, not copied).
 const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations => {
     const rankSumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedSlot<number, number>, number>(),
+        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
         sameValueGuard: oimSameValueZeroGuard,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const rankSumComputedCollectionService = rankSumComputedService.computedCollectionService;
     const rankSumComputedStoreSlot = rankSumComputedService.createComputedStoreSlot(
@@ -113,7 +104,7 @@ const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations =>
             }
             return total;
         },
-        at => {
+        ({ key: at }) => {
             const sources: TRowSlot[] = new Array<TRowSlot>(FAN_IN);
             for (let n = 0; n < FAN_IN; n++) sources[n] = slots[(at + n) % slots.length];
             return { sourceSlots: sources };
@@ -162,7 +153,7 @@ export const retainedPairsDerivations: readonly TRetainedPair[] = [
             'and eight distinct strings built once per arm. WHAT THIS ROW IS NOT A FIGURE FOR: a ' +
             'derivation of a different fan-in — the source array is three references here and ' +
             'scales with N — or one whose value is a list, which is the common case in this ' +
-            'engine (`createOIMComputedServiceBucketMemo` derives an ARRAY OF SLOTS per key) and ' +
+            'engine (`createOIMBucketMemoComputedService` derives an ARRAY OF SLOTS per key) and ' +
             'would be dominated by that array. The value here is a number on purpose, so the ' +
             'row is about the derivation and not about what it holds.',
         build: arm => {

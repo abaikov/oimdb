@@ -1,18 +1,20 @@
-import type { IOIMSlotContentStrategy } from '../../engine/slot/interfaces/IOIMSlotContentStrategy';
-import type { IOIMSlotContentFlushStrategy } from '../../engine/slot/interfaces/IOIMSlotContentFlushStrategy';
+import type { IOIMSlotContentService } from '../../engine/slot/interfaces/IOIMSlotContentService';
+import type { IOIMKeyedSlotCreator } from '../../engine/slot/interfaces/IOIMKeyedSlotCreator';
+import type { IOIMSingleSlotCreator } from '../../engine/slot/interfaces/IOIMSingleSlotCreator';
+import type { IOIMSlotOwner } from '../../engine/slot/interfaces/IOIMSlotOwner';
+import type { IOIMSlotContentWriter } from '../../engine/slot/interfaces/IOIMSlotContentWriter';
+import type { TOIMStoreKey } from '../../engine/store/types/TOIMStoreKey';
 import type { IOIMBucketCommands } from '../../engine/bucket/commands/interfaces/IOIMBucketCommands';
 import type { TOIMBucketSlot } from '../../engine/bucket/types/TOIMBucketSlot';
+import type { TOIMBucketContentSlot } from '../../engine/bucket/types/TOIMBucketContentSlot';
 import type { TOIMBucketSlotOwnerService } from '../../engine/bucket/types/TOIMBucketSlotOwnerService';
 import type { TOIMSlot } from '../../engine/slot/types/TOIMSlot';
 import type { TOIMSlotEditable } from '../../engine/slot/types/TOIMSlotEditable';
 import type { TOIMStoreSlot } from '../../engine/slot/types/TOIMStoreSlot';
 import type { TOIMSlotContentBucketServiceOptions } from './types/TOIMSlotContentBucketServiceOptions';
-import type { TOIMSlotOwnerServiceOptions } from '../../engine/slot/types/TOIMSlotOwnerServiceOptions';
-import type { TOIMColumnSlot } from '../../engine/column/types/TOIMColumnSlot';
-import type { OIMColumnOwnerPushDriven } from '../../engine/column/OIMColumnOwnerPushDriven';
-import { OIMSlotOwnerService } from '../../engine/slot/OIMSlotOwnerService';
-import { OIMBucketCommandsNone } from '../../engine/bucket/commands/OIMBucketCommandsNone';
-import { OIMChannelQueue } from '../../engine/channel/OIMChannelQueue';
+import { createOIMSingleBucketSlot } from '../../engine/bucket/utils/createOIMSingleBucketSlot';
+import { OIMNoBucketCommands } from '../../engine/bucket/commands/OIMNoBucketCommands';
+import type { OIMChannelQueue } from '../../engine/channel/OIMChannelQueue';
 import { OIM_NOTHING_WAS_REMOVED } from '../../engine/bucket/constants/OIM_NOTHING_WAS_REMOVED';
 import { OIM_REMOVED_WITHOUT_A_POSITION } from '../../engine/bucket/constants/OIM_REMOVED_WITHOUT_A_POSITION';
 import { createOIMBucketSlot } from '../../engine/bucket/utils/createOIMBucketSlot';
@@ -21,269 +23,201 @@ import { oimIsSlotEmpty } from '../../engine/slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../engine/slot/utils/oimIsSlotReleased';
 import { oimUnholdSlotIfAlive } from '../../engine/slot/utils/oimUnholdSlotIfAlive';
 import { oimGetChannelSlot } from '../../engine/slot/utils/oimGetChannelSlot';
-import { OIMChannelService } from '../../engine/channel/OIMChannelService';
-import { OIMContentChangeDeliveryService } from '../../engine/slot/OIMContentChangeDeliveryService';
 
-export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIMSlot, TSlots> {
+export abstract class OIMSlotContentBucketService<
+    TBucketMemberSlot extends TOIMSlot, TSlots, TKey extends NonNullable<unknown> = TOIMStoreKey,
+>
+implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>, TOIMBucketSlotOwnerService<TSlots>>,
+    IOIMKeyedSlotCreator<TKey, TOIMBucketSlot<TSlots, TKey>>, IOIMSingleSlotCreator<TOIMBucketContentSlot<TSlots>>,
+    IOIMSlotContentWriter<TOIMBucketContentSlot<TSlots>, readonly TBucketMemberSlot[]> {
     protected readonly bucketCommands: IOIMBucketCommands;
 
-    private readonly slotContentStrategy:
-        IOIMSlotContentStrategy<TOIMBucketSlot<TSlots>, unknown, TOIMBucketSlotOwnerService<TSlots>>
-        & IOIMSlotContentFlushStrategy<TOIMBucketSlot<TSlots>, TOIMBucketSlotOwnerService<TSlots>>;
-
     protected constructor(options: TOIMSlotContentBucketServiceOptions) {
-        this.bucketCommands = options.bucketCommands ?? OIMBucketCommandsNone.INSTANCE;
-        this.slotContentStrategy = {
-            createSlot: (key, storeSlot, slotOwnerService) => this.createSlot(key, storeSlot, slotOwnerService),
-            isSlotEmpty: bucketSlot => this.isSlotEmpty(bucketSlot),
-            hasReference: bucketSlot => this.hasReference(bucketSlot),
-            releaseSlotContent: (bucketSlot, slotOwnerService) => { this.releaseSlotContent(bucketSlot, slotOwnerService); },
-            onSubframeClosed: (storeSlot, slotOwnerService) => { this.onSubframeClosed(storeSlot, slotOwnerService); },
-        };
-    }
-
-    public createSlotOwnerService<TKey, TStore>(
-        slotOwnerServiceOptions: Omit<
-            TOIMSlotOwnerServiceOptions<
-                TKey, TOIMBucketSlot<TSlots, TKey>, TStore, string, TOIMColumnSlot, OIMColumnOwnerPushDriven, readonly TBucketMemberSlot[]
-            >,
-            'slotContentStrategy' | 'slotContentFlushStrategy'
-        >,
-    ): TOIMBucketSlotOwnerService<TSlots, TBucketMemberSlot, TKey, TStore> {
-        return new OIMSlotOwnerService<
-            TKey, TOIMBucketSlot<TSlots, TKey>, TStore, string, TOIMColumnSlot, OIMColumnOwnerPushDriven, readonly TBucketMemberSlot[]
-        >({
-            ...slotOwnerServiceOptions,
-            slotContentStrategy: this.slotContentStrategy as IOIMSlotContentStrategy<
-                TOIMBucketSlot<TSlots, TKey>, TKey, TOIMBucketSlotOwnerService<TSlots, TBucketMemberSlot, TKey, TStore>
-            >,
-            slotContentFlushStrategy: this.slotContentStrategy,
-        });
+        this.bucketCommands = options.bucketCommands ?? OIMNoBucketCommands.INSTANCE;
     }
 
     protected abstract createBucketMemberSlotsStore(): TSlots;
 
-    protected abstract addSlot(bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean;
+    protected abstract addSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean;
 
-    protected abstract removeSlot(bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): number;
+    protected abstract removeSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): number;
 
     protected abstract removeSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
+        bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
         removedChannelQueue: OIMChannelQueue<TOIMSlot>, removedAtChannelQueue: OIMChannelQueue<number>,
     ): void;
 
     protected abstract reconcileSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
+        bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
         arrivedChannelQueue: OIMChannelQueue<TOIMSlot>, departedChannelQueue: OIMChannelQueue<TOIMSlot>,
     ): void;
 
-    protected abstract drainSlots(bucketSlot: TOIMBucketSlot<TSlots>, departedChannelQueue: OIMChannelQueue<TOIMSlot>): void;
+    protected abstract drainSlots(bucketSlot: TOIMBucketContentSlot<TSlots>, departedChannelQueue: OIMChannelQueue<TOIMSlot>): void;
 
-    public abstract hasBucketMemberSlot(bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean;
+    public abstract hasBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean;
 
-    public abstract getBucketMemberSlotCount(bucketSlot: TOIMBucketSlot<TSlots>): number;
+    public abstract getBucketMemberSlotCount(bucketSlot: TOIMBucketContentSlot<TSlots>): number;
 
-    public abstract getBucketMemberSlots(bucketSlot: TOIMBucketSlot<TSlots>): Iterable<TBucketMemberSlot>;
+    public abstract getBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): Iterable<TBucketMemberSlot>;
 
-    protected createSlot<TKey>(
-        key: TKey, storeSlot: TOIMStoreSlot | undefined, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
-    ): TOIMBucketSlot<TSlots, TKey> {
-        if (storeSlot === undefined) {
-            throw new Error(
-                'OIMSlotContentBucketService: a bucket is minted into a store slot and none was given. '
-                + 'Mint it through its collection or single service.',
-            );
+    public getBucketMemberSlotsMissingFrom(
+        bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
+    ): TBucketMemberSlot[] {
+        const givenBucketMemberSlots = new Set<TBucketMemberSlot>(bucketMemberSlots);
+        const missingBucketMemberSlots: TBucketMemberSlot[] = [];
+        for (const bucketMemberSlot of this.getBucketMemberSlots(bucketSlot)) {
+            if (!givenBucketMemberSlots.has(bucketMemberSlot)) missingBucketMemberSlots.push(bucketMemberSlot);
         }
+        return missingBucketMemberSlots;
+    }
+
+    public createSlot(key: TKey, storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TOIMBucketSlot<TSlots, TKey> {
         return createOIMBucketSlot(
-            key, slotOwnerService, this.createBucketMemberSlotsStore(), storeSlot as TOIMStoreSlot<unknown, TOIMBucketSlot<TSlots>>,
+            key, slotOwner, this.createBucketMemberSlotsStore(), storeSlot as TOIMStoreSlot<unknown, TOIMBucketContentSlot<TSlots>>,
         );
     }
 
-    public isSlotEmpty(bucketSlot: TOIMBucketSlot<TSlots>): boolean {
+    public createSingleSlot(storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TOIMBucketContentSlot<TSlots> {
+        return createOIMSingleBucketSlot(
+            slotOwner, this.createBucketMemberSlotsStore(), storeSlot as TOIMStoreSlot<unknown, TOIMBucketContentSlot<TSlots>>,
+        );
+    }
+
+    public isSlotEmpty(bucketSlot: TOIMBucketContentSlot<TSlots>): boolean {
         return this.getBucketMemberSlotCount(bucketSlot) === 0;
     }
 
-    protected hasReference(bucketSlot: TOIMBucketSlot<TSlots>): boolean {
-        return bucketSlot.wasEmptyBeforeChange !== undefined;
+    public hasReference(): boolean {
+        return false;
     }
 
-    protected releaseSlotContent(
-        bucketSlot: TOIMBucketSlot<TSlots>, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
+    public releaseSlotContent(
+        bucketSlot: TOIMBucketContentSlot<TSlots>, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
     ): void {
-        if (this.unholdAllBucketMemberSlots(bucketSlot) === 0) return;
+        if (this.getBucketMemberSlotCount(bucketSlot) === 0) return;
+        slotOwnerService.assertWritable(bucketSlot);
+        this.unholdAllBucketMemberSlots(bucketSlot);
         slotOwnerService.dispatchContentChange(bucketSlot);
     }
 
-    protected onSubframeClosed(
-        storeSlot: TOIMStoreSlot<unknown, TOIMBucketSlot<TSlots>>, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
-    ): void {
-        const changedBucketSlotChannelQueue = storeSlot.changedBucketSlotChannelQueue;
-        if (changedBucketSlotChannelQueue === undefined) return;
-        let isRefused = false;
-        let refusal: unknown;
-        try {
-            for (let i = 0; i < changedBucketSlotChannelQueue.getEntryCount(); i++) {
-                const bucketSlot = changedBucketSlotChannelQueue.getEntryAt(i);
-                const bucketSlotEditable = bucketSlot as TOIMSlotEditable<TOIMBucketSlot<TSlots>>;
-                const isChangedAgain = bucketSlot.isChangedAgainInSubframe;
-                bucketSlotEditable.isChangedAgainInSubframe = false;
-                bucketSlotEditable.wasEmptyBeforeChange = undefined;
-                try {
-                    if (isChangedAgain && !oimIsSlotReleased(bucketSlot)) this.writeChangedBucketSlot(bucketSlot, false, slotOwnerService);
-                } catch (error) {
-                    if (!isRefused) refusal = error;
-                    isRefused = true;
-                }
-                try {
-                    slotOwnerService.releaseSlotIfUnheld(bucketSlot);
-                } catch (error) {
-                    if (!isRefused) refusal = error;
-                    isRefused = true;
-                }
-            }
-        } finally {
-            changedBucketSlotChannelQueue.keepFirstEntries(0);
-        }
-        if (isRefused) throw refusal;
-    }
-
-    public markContentChanged(bucketSlot: TOIMBucketSlot<TSlots>): void {
+    public markContentChanged(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         (bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>).assertWritable(bucketSlot);
         this.markBucketSlotChanged(bucketSlot);
     }
 
     public markBucketColumnsChanged(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         patch: object | undefined, changedColumns: readonly string[] | undefined,
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         if (!slotOwnerService.hasColumnSlots(bucketSlot)) return;
-        slotOwnerService.columnOwner.markColumnsChanged(bucketSlot, patch, changedColumns, oimGetChannelSlot(bucketSlot));
+        slotOwnerService.columnSlotOwner.markColumnsChanged(bucketSlot, patch, changedColumns, oimGetChannelSlot(bucketSlot));
     }
 
     public addBucketMemberSlot(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlot: TBucketMemberSlot,
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         this.assertBucketMemberSlotNotReleased(bucketMemberSlot);
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
-        try {
-            if (this.addBucketMemberSlotWithoutSubframe(bucketSlot, bucketMemberSlot)) this.markBucketSlotChanged(bucketSlot);
-        } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
-        }
+        if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlot)) this.markBucketSlotChanged(bucketSlot);
     }
 
     public removeBucketMemberSlot(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlot: TBucketMemberSlot,
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
-        try {
-            const at = this.removeSlot(bucketSlot, bucketMemberSlot);
-            if (at === OIM_NOTHING_WAS_REMOVED) return;
-            this.letGoOfRemovedBucketMemberSlot(bucketSlot, bucketMemberSlot, at);
-            this.markBucketSlotChanged(bucketSlot);
-        } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
-        }
+        const at = this.removeSlot(bucketSlot, bucketMemberSlot);
+        if (at === OIM_NOTHING_WAS_REMOVED) return;
+        this.letGoOfRemovedBucketMemberSlot(bucketSlot, bucketMemberSlot, at);
+        this.markBucketSlotChanged(bucketSlot);
     }
 
     public addBucketMemberSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         this.assertBucketMemberSlotsNotReleased(bucketMemberSlots);
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
-        try {
-            let isAnyAdded = false;
-            for (let i = 0; i < bucketMemberSlots.length; i++) {
-                if (this.addBucketMemberSlotWithoutSubframe(bucketSlot, bucketMemberSlots[i])) isAnyAdded = true;
-            }
-            if (isAnyAdded) this.markBucketSlotChanged(bucketSlot);
-        } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
+        let isAnyAdded = false;
+        for (let i = 0; i < bucketMemberSlots.length; i++) {
+            if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlots[i])) isAnyAdded = true;
         }
+        if (isAnyAdded) this.markBucketSlotChanged(bucketSlot);
     }
 
     public removeBucketMemberSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         const storeSlotEditable = bucketSlot.storeSlot as TOIMSlotEditable<TOIMStoreSlot>;
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
+        const writeDepth = storeSlotEditable.writeDepth++;
+        const removedChannelQueue = oimGetChannelQueueAtDepth(storeSlotEditable.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
+        const removedAtChannelQueue = oimGetChannelQueueAtDepth(storeSlotEditable.removedAtChannelQueues ??= [], writeDepth);
         try {
-            const writeDepth = storeSlotEditable.writeDepth++;
-            const removedChannelQueue = oimGetChannelQueueAtDepth(storeSlotEditable.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
-            const removedAtChannelQueue = oimGetChannelQueueAtDepth(storeSlotEditable.removedAtChannelQueues ??= [], writeDepth);
-            try {
-                this.removeSlots(bucketSlot, bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
-                const removedCount = removedChannelQueue.getEntryCount();
-                for (let i = 0; i < removedCount; i++) {
-                    this.letGoOfRemovedBucketMemberSlot(bucketSlot, removedChannelQueue.getEntryAt(i), removedAtChannelQueue.getEntryAt(i));
-                }
-                if (removedCount !== 0) this.markBucketSlotChanged(bucketSlot);
-            } finally {
-                removedChannelQueue.keepFirstEntries(0);
-                removedAtChannelQueue.keepFirstEntries(0);
-                storeSlotEditable.writeDepth = writeDepth;
+            this.removeSlots(bucketSlot, bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
+            const removedCount = removedChannelQueue.getEntryCount();
+            for (let i = 0; i < removedCount; i++) {
+                this.letGoOfRemovedBucketMemberSlot(bucketSlot, removedChannelQueue.getEntryAt(i), removedAtChannelQueue.getEntryAt(i));
             }
+            if (removedCount !== 0) this.markBucketSlotChanged(bucketSlot);
         } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
+            removedChannelQueue.keepFirstEntries(0);
+            removedAtChannelQueue.keepFirstEntries(0);
+            storeSlotEditable.writeDepth = writeDepth;
         }
     }
 
-    public writeBucketMemberSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+    public insertSlotContent(
+        bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
+        changedBucketSlots?: TOIMBucketContentSlot<TSlots>[],
+    ): void {
+        const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
+        slotOwnerService.fileSlot(bucketSlot);
+        let isWritten: boolean;
+        try {
+            isWritten = this.writeSlotContent(bucketSlot, bucketMemberSlots);
+        } catch (refusal) {
+            slotOwnerService.releaseSlotIfUnheld(bucketSlot);
+            throw refusal;
+        }
+        if (!isWritten) slotOwnerService.releaseSlotIfUnheld(bucketSlot);
+        else if (changedBucketSlots !== undefined) changedBucketSlots.push(bucketSlot);
+    }
+
+    public writeSlotContent(
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
     ): boolean {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
-        try {
-            if (!this.reconcileBucketMemberSlots(bucketSlot, bucketMemberSlots)) return false;
-            this.markBucketSlotChanged(bucketSlot);
-            return true;
-        } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
-        }
+        if (!this.reconcileBucketMemberSlots(bucketSlot, bucketMemberSlots)) return false;
+        this.markBucketSlotChanged(bucketSlot);
+        return true;
     }
 
-    public clearBucketMemberSlots(bucketSlot: TOIMBucketSlot<TSlots>): void {
+    public clearSlotContent(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
-        const channelSlot = oimGetChannelSlot(bucketSlot);
-        OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(channelSlot);
-        try {
-            if (this.drainBucketMemberSlots(bucketSlot)) this.markBucketSlotChanged(bucketSlot);
-            else slotOwnerService.releaseSlotIfUnheld(bucketSlot);
-        } finally {
-            OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(channelSlot);
-        }
+        if (this.drainBucketMemberSlots(bucketSlot)) this.markBucketSlotChanged(bucketSlot);
+        else slotOwnerService.releaseSlotIfUnheld(bucketSlot);
     }
 
     public fillBucketMemberSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
     ): void {
-        if (bucketSlot.changedAtRevision !== 0 || bucketSlot.wasEmptyBeforeChange !== undefined) {
+        if (bucketSlot.changedAtRevision !== 0) {
             throw new Error(
                 'OIMSlotContentBucketService: fillBucketMemberSlots fills only a bucket nobody was told about yet, and this one '
-                + 'was announced. Use addBucketMemberSlots or writeBucketMemberSlots, which tell its listeners.',
+                + 'was announced. Use addBucketMemberSlots or writeSlotContent, which tell its listeners.',
             );
         }
         this.assertBucketMemberSlotsNotReleased(bucketMemberSlots);
@@ -294,33 +228,18 @@ export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIM
     }
 
     protected markBucketSlotChanged(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
-        const bucketSlotEditable = bucketSlot as TOIMSlotEditable<TOIMBucketSlot<TSlots>>;
-        const isFirstChange = bucketSlot.wasEmptyBeforeChange === undefined;
-        if (isFirstChange) bucketSlotEditable.wasEmptyBeforeChange = oimIsSlotEmpty(bucketSlot);
+        const wasEmpty = oimIsSlotEmpty(bucketSlot);
         slotOwnerService.markEmptiness(bucketSlot, this.isSlotEmpty(bucketSlot));
-        if (
-            !OIMChannelService.INSTANCE.isSubframeOpen(oimGetChannelSlot(bucketSlot))
-            || (bucketSlot.holdCount > 0 && !slotOwnerService.hasContentChangeListeners(bucketSlot))
-        ) {
-            this.flushChangedBucketSlot(bucketSlot, slotOwnerService);
-            return;
-        }
-        if (!isFirstChange) {
-            bucketSlotEditable.isChangedAgainInSubframe = true;
-            return;
-        }
-        const storeSlot = bucketSlot.storeSlot;
-        const changedBucketSlotChannelQueue = (storeSlot as TOIMSlotEditable<TOIMStoreSlot<unknown, TOIMBucketSlot<TSlots>>>)
-            .changedBucketSlotChannelQueue ??= new OIMChannelQueue<TOIMBucketSlot<TSlots>>();
-        if (changedBucketSlotChannelQueue.getEntryCount() === 0) slotOwnerService.listChangedStoreSlot(storeSlot);
-        changedBucketSlotChannelQueue.enqueueEntry(bucketSlot);
-        this.writeChangedBucketSlot(bucketSlot, bucketSlot.wasEmptyBeforeChange === true, slotOwnerService);
+        if (oimIsSlotReleased(bucketSlot)) return;
+        slotOwnerService.writeSlotToChannelAndSettle(bucketSlot, wasEmpty);
+        slotOwnerService.dispatchContentChange(bucketSlot);
+        slotOwnerService.releaseSlotIfUnheldAfterListeners(bucketSlot);
     }
 
-    protected letGoOfRemovedBucketMemberSlot(bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlot: TOIMSlot, at: number): void {
+    protected letGoOfRemovedBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TOIMSlot, at: number): void {
         oimUnholdSlotIfAlive(bucketMemberSlot);
         if (at === OIM_REMOVED_WITHOUT_A_POSITION) this.bucketCommands.recordWholeList(bucketSlot);
         else this.bucketCommands.recordRemove(bucketSlot, at, 1, this.getBucketMemberSlotCount(bucketSlot));
@@ -339,7 +258,7 @@ export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIM
         for (let i = 0; i < bucketMemberSlots.length; i++) this.assertBucketMemberSlotNotReleased(bucketMemberSlots[i]);
     }
 
-    private addBucketMemberSlotWithoutSubframe(bucketSlot: TOIMBucketSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean {
+    private addBucketMemberSlotUnannounced(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean {
         if (!this.addSlot(bucketSlot, bucketMemberSlot)) return false;
         bucketMemberSlot.owner.holdSlot(bucketMemberSlot);
         const bucketMemberSlotCount = this.getBucketMemberSlotCount(bucketSlot);
@@ -348,7 +267,7 @@ export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIM
     }
 
     private reconcileBucketMemberSlots(
-        bucketSlot: TOIMBucketSlot<TSlots>,
+        bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
     ): boolean {
         this.assertBucketMemberSlotsNotReleased(bucketMemberSlots);
@@ -375,14 +294,14 @@ export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIM
         }
     }
 
-    private drainBucketMemberSlots(bucketSlot: TOIMBucketSlot<TSlots>): boolean {
+    private drainBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): boolean {
         if (this.getBucketMemberSlotCount(bucketSlot) === 0) return false;
         if (this.unholdAllBucketMemberSlots(bucketSlot) === 0) return false;
         this.bucketCommands.recordWholeList(bucketSlot);
         return true;
     }
 
-    private unholdAllBucketMemberSlots(bucketSlot: TOIMBucketSlot<TSlots>): number {
+    private unholdAllBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): number {
         const storeSlotEditable = bucketSlot.storeSlot as TOIMSlotEditable<TOIMStoreSlot>;
         const writeDepth = storeSlotEditable.writeDepth++;
         const departedChannelQueue = oimGetChannelQueueAtDepth(storeSlotEditable.departedBucketMemberSlotChannelQueues ??= [], writeDepth);
@@ -395,22 +314,5 @@ export abstract class OIMSlotContentBucketService<TBucketMemberSlot extends TOIM
             departedChannelQueue.keepFirstEntries(0);
             storeSlotEditable.writeDepth = writeDepth;
         }
-    }
-
-    private writeChangedBucketSlot(
-        bucketSlot: TOIMBucketSlot<TSlots>, wasEmpty: boolean, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
-    ): void {
-        slotOwnerService.writeSlotToChannelAndSettle(bucketSlot, wasEmpty);
-        slotOwnerService.dispatchContentChange(bucketSlot);
-    }
-
-    private flushChangedBucketSlot(
-        bucketSlot: TOIMBucketSlot<TSlots>, slotOwnerService: TOIMBucketSlotOwnerService<TSlots>,
-    ): void {
-        const wasEmpty = bucketSlot.wasEmptyBeforeChange;
-        if (wasEmpty === undefined) return;
-        (bucketSlot as TOIMSlotEditable<TOIMBucketSlot<TSlots>>).wasEmptyBeforeChange = undefined;
-        if (oimIsSlotReleased(bucketSlot)) return;
-        this.writeChangedBucketSlot(bucketSlot, wasEmpty, slotOwnerService);
     }
 }

@@ -1,15 +1,14 @@
-import { OIMSlotStoreServiceMapDriven } from '../OIMSlotStoreServiceMapDriven';
-import { OIMSlotStoreServiceTreeDriven } from '../OIMSlotStoreServiceTreeDriven';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../OIMSlotStoreServiceSingleSlotDriven';
-import { OIMColumnSlotStoreServiceOrdinalDriven } from '../../column/OIMColumnSlotStoreServiceOrdinalDriven';
-import { OIMKeyTreeWalkScalar } from '../../key/OIMKeyTreeWalkScalar';
+import { OIMSlotMapStoreService } from '../OIMSlotMapStoreService';
+import { OIMSlotTreeStoreService } from '../OIMSlotTreeStoreService';
+import { OIMColumnSlotOrdinalStoreService } from '../../column/OIMColumnSlotOrdinalStoreService';
+import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
 import type { IOIMSlotStoreService } from '../interfaces/IOIMSlotStoreService';
 import type { TOIMKeyedSlot } from '../../slot/types/TOIMKeyedSlot';
 import type { TOIMStoreKey } from '../types/TOIMStoreKey';
 
-const slotUnder = <TKey>(key: TKey): TOIMKeyedSlot<TKey> => ({ key }) as unknown as TOIMKeyedSlot<TKey>;
+const slotUnder = <TKey extends NonNullable<unknown>>(key: TKey): TOIMKeyedSlot<TKey> => ({ key }) as unknown as TOIMKeyedSlot<TKey>;
 
-const walkRemovingEachVisited = <TKey, TStore>(
+const walkRemovingEachVisited = <TKey extends NonNullable<unknown>, TStore>(
     slotStoreService: IOIMSlotStoreService<TKey, TOIMKeyedSlot<TKey>, TStore>, keys: readonly TKey[],
 ): { filed: TOIMKeyedSlot<TKey>[]; visited: TOIMKeyedSlot<TKey>[]; leftCount: number } => {
     const store = slotStoreService.createStore();
@@ -23,7 +22,7 @@ const walkRemovingEachVisited = <TKey, TStore>(
     return { filed, visited, leftCount: slotStoreService.getSlotCount(store) };
 };
 
-const expectEachOnceAndNoneLeft = <TKey>(walk: { filed: TOIMKeyedSlot<TKey>[]; visited: TOIMKeyedSlot<TKey>[]; leftCount: number }): void => {
+const expectEachOnceAndNoneLeft = <TKey extends NonNullable<unknown>>(walk: { filed: TOIMKeyedSlot<TKey>[]; visited: TOIMKeyedSlot<TKey>[]; leftCount: number }): void => {
     expect(walk.visited).toHaveLength(walk.filed.length);
     expect(new Set(walk.visited)).toEqual(new Set(walk.filed));
     expect(walk.leftCount).toBe(0);
@@ -32,26 +31,20 @@ const expectEachOnceAndNoneLeft = <TKey>(walk: { filed: TOIMKeyedSlot<TKey>[]; v
 describe('a walk over a store that removes the slot it is on', () => {
     it('visits every slot of a map-driven store once and leaves it empty', () => {
         expectEachOnceAndNoneLeft(walkRemovingEachVisited(
-            new OIMSlotStoreServiceMapDriven<TOIMKeyedSlot<string>, string>(), ['a', 'b', 'c', 'd', 'e'],
+            new OIMSlotMapStoreService<TOIMKeyedSlot<string>, string>(), ['a', 'b', 'c', 'd', 'e'],
         ));
     });
 
     it('visits every slot of a tree-driven store once and leaves it empty', () => {
         expectEachOnceAndNoneLeft(walkRemovingEachVisited(
-            new OIMSlotStoreServiceTreeDriven<TOIMStoreKey, TOIMKeyedSlot<readonly TOIMStoreKey[]>>(new OIMKeyTreeWalkScalar()),
+            new OIMSlotTreeStoreService<TOIMStoreKey, TOIMKeyedSlot<readonly TOIMStoreKey[]>>(new OIMScalarKeyTreeWalk()),
             [['a', 1], ['a', 2], ['b', 1], ['b', 2], ['c']],
-        ));
-    });
-
-    it('visits the one slot of a single-slot store once and leaves it empty', () => {
-        expectEachOnceAndNoneLeft(walkRemovingEachVisited(
-            new OIMSlotStoreServiceSingleSlotDriven<TOIMKeyedSlot<void>>(), [undefined],
         ));
     });
 
     it('visits every slot of an ordinal column store once and leaves it empty', () => {
         expectEachOnceAndNoneLeft(walkRemovingEachVisited(
-            new OIMColumnSlotStoreServiceOrdinalDriven<TOIMKeyedSlot<string>>({ columnNames: ['a', 'b', 'c', 'd'] }),
+            new OIMColumnSlotOrdinalStoreService<TOIMKeyedSlot<string>>({ columnNames: ['a', 'b', 'c', 'd'] }),
             ['a', 'b', 'c', 'd'],
         ));
     });

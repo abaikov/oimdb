@@ -1,12 +1,12 @@
 import type { TOIMDisposer, TOIMStoreKey } from '@oimdb/core';
 import type { IOIMPersistSnapshotSource, IOIMPersistSourceChangeMark, TOIMPersistOperation } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -46,7 +46,7 @@ class VariableSnapshotSource implements IOIMPersistSnapshotSource<TValue> {
     }
 
     public markSourceChanges(): IOIMPersistSourceChangeMark {
-        return new OIMPersistSourceChangeMarkSubscriptionDriven({
+        return new OIMPersistSubscriptionSourceChangeMark({
             subscribeSourceChanged: onSourceChanged => {
                 this.sourceChangedListeners.add(onSourceChanged);
                 return () => { this.sourceChangedListeners.delete(onSourceChanged); };
@@ -70,16 +70,16 @@ function buildPersistor() {
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError: (_error, persistErrorContext) => { persistOperations.push(persistErrorContext.persistOperation); },
     });
     const testPersistSnapshotStrategy = testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value' });
     const addVariableResource = () => {
         const variableSnapshotSource = new VariableSnapshotSource();
-        persistor.addPersistResource(new OIMPersistResourceSnapshot({
+        persistor.addPersistResource(new OIMPersistSnapshotResource({
             persistSnapshotSource: variableSnapshotSource,
-            persistSnapshotStrategy: testPersistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: testPersistSnapshotStrategy,
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         }));
         return variableSnapshotSource;
     };
@@ -87,11 +87,11 @@ function buildPersistor() {
         const {
             entityCollectionService: cardEntityService, entityStoreSlot: cardEntityStoreSlot, persistEntityWriter,
         } = createTestEntityCollection<TCard>();
-        persistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven({
+        persistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource({
                 entityCollectionService: cardEntityService, entityStoreSlot: cardEntityStoreSlot, persistEntityWriter,
             }),
-            persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+            persistRecordsService: testPersistBackend.createRecordsStrategy(),
         }));
         return { cardEntityService, cardEntityStoreSlot };
     };
@@ -119,10 +119,10 @@ describe('what a started resource reports to the persistor', () => {
         const { cardEntityService, cardEntityStoreSlot } = addCardsResource();
         persistor.start();
 
-        cardEntityService.slotContentService.upsertEntities(cardEntityStoreSlot, [
+        cardEntityService.writeInBatch(cardEntityStoreSlot, () => ([
             { id: 'c1', title: 'alpha' },
             { id: 'c2', title: 'beta' },
-        ]);
+        ]).map(entity => cardEntityService.writeSlotContentByKey(cardEntityStoreSlot, entity.id, entity)));
         await tick();
         cardEntityService.slotContentService.updateEntity(cardEntityService.getSlotByKey(cardEntityStoreSlot, 'c2'), { title: 'BETA' });
         await tick();
@@ -136,10 +136,10 @@ describe('what a started resource reports to the persistor', () => {
     it('writes the whole records on a manual persist, not a delta', async () => {
         const { testPersistBackend, persistor, addCardsResource } = buildPersistor();
         const { cardEntityService, cardEntityStoreSlot } = addCardsResource();
-        cardEntityService.slotContentService.upsertEntities(cardEntityStoreSlot, [
+        cardEntityService.writeInBatch(cardEntityStoreSlot, () => ([
             { id: 'c1', title: 'alpha' },
             { id: 'c2', title: 'beta' },
-        ]);
+        ]).map(entity => cardEntityService.writeSlotContentByKey(cardEntityStoreSlot, entity.id, entity)));
 
         await persistor.persist();
 
@@ -153,7 +153,7 @@ describe('what a started resource reports to the persistor', () => {
         const { cardEntityService, cardEntityStoreSlot } = addCardsResource();
         persistor.start();
 
-        cardEntityService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        cardEntityService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await persistor.persist();
         await tick();
 
@@ -244,25 +244,25 @@ describe('when a resource reports nothing', () => {
 describe('a resource whose source refuses the first subscribe', () => {
     it('stays restartable, and the second start watches the source', () => {
         const variableSnapshotSource = new VariableSnapshotSource();
-        const persistResourceSnapshot = new OIMPersistResourceSnapshot({
+        const persistSnapshotResource = new OIMPersistSnapshotResource({
             persistSnapshotSource: variableSnapshotSource,
-            persistSnapshotStrategy: new OIMTestPersistBackend().createSnapshotStrategy<TValue>({ storageKey: 'value' }),
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: new OIMTestPersistBackend().createSnapshotStrategy<TValue>({ storageKey: 'value' }),
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         });
         let dirtyCount = 0;
         variableSnapshotSource.refuseNextSubscribe(new Error('subscribe refused'));
 
-        expect(() => persistResourceSnapshot.start(() => { dirtyCount++; })).toThrow('subscribe refused');
+        expect(() => persistSnapshotResource.start(() => { dirtyCount++; })).toThrow('subscribe refused');
         expect(variableSnapshotSource.isWatched).toBe(false);
 
-        persistResourceSnapshot.start(() => { dirtyCount++; });
+        persistSnapshotResource.start(() => { dirtyCount++; });
         variableSnapshotSource.changeValue({ n: 1 });
 
         expect(variableSnapshotSource.isWatched).toBe(true);
         expect(dirtyCount).toBe(1);
-        expect(persistResourceSnapshot.hasPendingWrite()).toBe(true);
+        expect(persistSnapshotResource.hasPendingWrite()).toBe(true);
 
-        persistResourceSnapshot.stop();
+        persistSnapshotResource.stop();
     });
 });
 
@@ -343,16 +343,16 @@ describe('a resource added twice', () => {
         const testPersistSnapshotStrategy = testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: 'value' });
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
-        const persistResourceSnapshot = new OIMPersistResourceSnapshot({
+        const persistSnapshotResource = new OIMPersistSnapshotResource({
             persistSnapshotSource: new VariableSnapshotSource(),
-            persistSnapshotStrategy: testPersistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: testPersistSnapshotStrategy,
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         });
 
-        expect(persistor.addPersistResource(persistResourceSnapshot)).toBe(persistResourceSnapshot);
-        expect(persistor.addPersistResource(persistResourceSnapshot)).toBe(persistResourceSnapshot);
+        expect(persistor.addPersistResource(persistSnapshotResource)).toBe(persistSnapshotResource);
+        expect(persistor.addPersistResource(persistSnapshotResource)).toBe(persistSnapshotResource);
         await persistor.persist();
 
         expect(testPersistSnapshotStrategy.writtenSnapshots).toEqual([{ n: 0 }]);

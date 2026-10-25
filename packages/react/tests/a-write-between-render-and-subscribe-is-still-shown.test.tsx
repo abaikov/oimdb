@@ -21,10 +21,14 @@
 import * as React from 'react';
 import { render, screen } from '@testing-library/react';
 import type { TOIMEntitySlot } from '@oimdb/core';
-import { OIMDB, createOIMBucketService, createOIMEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import {
     OIMDBProvider, useOIMEntity, useOIMField, useOIMBucketSlotsByKey, useOIMBucketSlots,
 } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -37,9 +41,9 @@ type TCardSlot = TOIMEntitySlot<TCard>;
  */
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMBucketService<TCardSlot>(db);
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const byDeck = byDeckService.createStoreSlot(db);
 
     const present = new Map<string, TCard>();
@@ -51,14 +55,14 @@ function build() {
             touched.add(row.deckId);
             present.set(row.id, row);
         }
-        cardsService.slotContentService.upsertEntities(cards, rows);
+        cardsService.writeInBatch(cards, () => (rows).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         for (const deck of touched) {
             const inDeck: TOIMEntitySlot<TCard>[] = [];
             for (const row of present.values()) {
                 if (row.deckId === deck) inDeck.push(cardsService.getSlotByKey(cards, row.id)!);
             }
             const heldSlot = byDeckService.holdSlotByKey(byDeck, deck);
-            byDeckService.slotContentService.writeBucketMemberSlots(heldSlot, inDeck);
+            byDeckService.slotContentService.writeSlotContent(heldSlot, inDeck);
             heldSlot.owner.unholdSlot(heldSlot);
         }
     };
@@ -85,7 +89,7 @@ function makeWriter(write: () => void): () => React.ReactElement {
 describe('a write from a sibling layout effect, which lands between render and subscribe', () => {
     it('is shown by useOIMEntity', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         const Writer = makeWriter(() => {
             cardsService.slotContentService.updateEntity(cardsService.getSlotByKey(cards, 'c1'), { title: 'ALPHA' });
@@ -104,7 +108,7 @@ describe('a write from a sibling layout effect, which lands between render and s
 
     it('is shown by useOIMField', () => {
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         const slot = cardsService.getSlotByKey(cards, 'c1')!;
         const Writer = makeWriter(() => {
@@ -176,7 +180,7 @@ describe('what the bump costs', () => {
         // unheld slot leaves no trace on the channel, so the window cannot be inspected:
         // the bump is paid on every subscription, never per notification.
         const { db, cardsService, cards } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
 
         let renders = 0;

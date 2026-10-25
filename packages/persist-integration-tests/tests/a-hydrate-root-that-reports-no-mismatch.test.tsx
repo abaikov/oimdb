@@ -1,19 +1,21 @@
 import { act } from 'react';
 import { renderToString } from 'react-dom/server';
 import { hydrateRoot } from 'react-dom/client';
-import type { TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
-import { createOIMEntityService, createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
+import type { TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
+import { createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
 import type { TOIMPersistHydrateReconcile, TOIMPersistRecords } from '@oimdb/persist';
 import {
     oimReconcileByKey,
     OIMPersistEntityWriter,
     OIMPersistor,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
 } from '@oimdb/persist';
-import { OIMPersistMemoryRecordsStrategy } from '@oimdb/persist-memory';
-import { OIMPersistJsonBackend } from '@oimdb/persist-json';
+import { OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
+import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TQuestion = {
     id: string;
@@ -24,17 +26,14 @@ type TQuestion = {
 type TQuestionStoreSlot = TOIMStoreSlot<Map<string, TOIMEntitySlot<TQuestion, string>>, TOIMEntitySlot<TQuestion, string>, Partial<TQuestion>>;
 
 const createQuestionCollectionService = (db: OIMDB, persistEntityWriter: OIMPersistEntityWriter<TQuestion, string>) =>
-    createOIMEntityService<TQuestion, TOIMEntityColumnName<TQuestion>, string>(db, {
-        keyOf: question => question.id,
-        entityWriter: persistEntityWriter,
-    });
+    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion, string>(db, { entityWriter: persistEntityWriter }) });
 
 type TQuestionCollectionService = ReturnType<typeof createQuestionCollectionService>;
 
 type TQuestionCollection = {
     entityCollectionService: TQuestionCollectionService;
     entityStoreSlot: TQuestionStoreSlot;
-    persistRecordSourceCollectionChangeDriven: OIMPersistRecordSourceCollectionChangeDriven<string, TQuestion>;
+    persistCollectionChangeWriteRecordSource: OIMPersistCollectionChangeWriteRecordSource<string, TQuestion>;
 };
 
 const reconcileAnswerOntoQuestion: TOIMPersistHydrateReconcile<TOIMPersistRecords<string, TQuestion>> =
@@ -51,12 +50,12 @@ function createQuestionCollection(): TQuestionCollection {
     const db = new OIMDB();
     const entityCollectionService = createQuestionCollectionService(db, persistEntityWriter);
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-    const persistRecordSourceCollectionChangeDriven = new OIMPersistRecordSourceCollectionChangeDriven<string, TQuestion>({
+    const persistCollectionChangeWriteRecordSource = new OIMPersistCollectionChangeWriteRecordSource<string, TQuestion>({
         entityCollectionService,
         entityStoreSlot,
         persistEntityWriter,
     });
-    return { entityCollectionService, entityStoreSlot, persistRecordSourceCollectionChangeDriven };
+    return { entityCollectionService, entityStoreSlot, persistCollectionChangeWriteRecordSource };
 }
 
 function entitiesOf(entityCollectionService: TQuestionCollectionService, entityStoreSlot: TQuestionStoreSlot): TQuestion[] {
@@ -102,20 +101,20 @@ describe('React SSR hydration of dehydrated persist state', () => {
         entityStoreSlot: TQuestionStoreSlot;
     }> {
         const questionCollection = createQuestionCollection();
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const persistor = new OIMPersistor({
-            persistBackend: persistJsonBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: persistJsonMemoryBackend,
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(persistor);
-        persistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: questionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<string, TQuestion>({ storageKey: 'questions' }),
+        persistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: questionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistMemoryRecordsService<string, TQuestion>({ storageKey: 'questions' }),
         }));
-        questionCollection.entityCollectionService.slotContentService.upsertEntities(questionCollection.entityStoreSlot, questions);
+        questionCollection.entityCollectionService.writeInBatch(questionCollection.entityStoreSlot, () => (questions).map(entity => questionCollection.entityCollectionService.writeSlotContentByKey(questionCollection.entityStoreSlot, entity.id, entity)));
         await persistor.persist();
         return {
-            jsonPersistDumpText: JSON.stringify(persistJsonBackend.dehydrate()),
+            jsonPersistDumpText: JSON.stringify(persistJsonMemoryBackend.dehydrate()),
             entityCollectionService: questionCollection.entityCollectionService,
             entityStoreSlot: questionCollection.entityStoreSlot,
         };
@@ -127,13 +126,13 @@ describe('React SSR hydration of dehydrated persist state', () => {
         persistHydrateReconcile?: TOIMPersistHydrateReconcile<TOIMPersistRecords<string, TQuestion>>,
     ): { hydrate(): Promise<void> } {
         const persistor = new OIMPersistor({
-            persistBackend: new OIMPersistJsonBackend({ initialPersistJsonDump: JSON.parse(jsonPersistDumpText) }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: new OIMPersistJsonMemoryBackend({ initialPersistJsonDump: JSON.parse(jsonPersistDumpText) }),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(persistor);
-        persistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: questionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<string, TQuestion>({ storageKey: 'questions' }),
+        persistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: questionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistMemoryRecordsService<string, TQuestion>({ storageKey: 'questions' }),
             persistHydrateReconcile,
         }));
         return persistor;

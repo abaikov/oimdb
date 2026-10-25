@@ -2,7 +2,7 @@
 import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
-import { OIMErrorPolicyThrowAtOnce } from '../../error/OIMErrorPolicyThrowAtOnce';
+import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import type { TOIMEffect } from '../../computed/types/TOIMEffect';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
@@ -277,7 +277,7 @@ describe('flush() answers a re-entrant call by which phase it arrived in', () =>
     });
 
     it('leaves nothing set behind after a flush that threw', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         let frames = 0;
         channelService.subscribeAfterEachFrame(db.defaultChannelSlot, () => {
             frames++;

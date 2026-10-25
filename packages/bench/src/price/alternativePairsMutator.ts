@@ -1,6 +1,6 @@
 import {
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
+    OIMSlotContentPositionalArrayBucketService,
+    OIMSlotContentSetBucketService,
 } from '../../../core/src/index';
 import type {
     OIMSlotContentBucketService,
@@ -36,7 +36,7 @@ import type { TPricePair } from './TPricePair';
  * nothing to recover. This file was the measurement those numbers never had. IT
  * IS NOT THAT MEASUREMENT ANY MORE: since 2026-08-23 the operation the four rows
  * were stated about — one `remove` and one `add`, driven by a derived membership
- * source — has no door in the shipped surface, and `writeBucketMemberSlots` (whole-bucket, on
+ * source — has no door in the shipped surface, and `writeSlotContent` (whole-bucket, on
  * BOTH halves) is what is left. `REMOVAL_CAVEAT` states that in full. The
  * iteration sentence is still checked, unchanged, by the fifth row.
  *
@@ -92,7 +92,7 @@ type TMutatorWorld<TSlots> = {
      * THE MEMBERSHIP, AS THE CALLER'S OWN LIST — one array per page, in page
      * order, holding that page's members in band order. Membership is written and
      * not derived, so a caller who moves one member must be holding the list to
-     * hand to `writeBucketMemberSlots`. The two array stores that swap a band between two of
+     * hand to `writeSlotContent`. The two array stores that swap a band between two of
      * these lists are caller-side bookkeeping the earlier body did not pay;
      * they are identical on both halves and inside both numbers.
      */
@@ -119,7 +119,7 @@ type TMutatorWorld<TSlots> = {
  * is checked rather than argued — see {@link assertBandsSitAtTheirIndex}.
  *
  * THE FILING IS THE CALLER'S: `priceGroupIndex` writes every bucket's membership
- * out with `writeBucketMemberSlots` and the lists it hands back are `membersByPage`, in
+ * out with `writeSlotContent` and the lists it hands back are `membersByPage`, in
  * population order and therefore in band order and ascending rank.
  */
 const mutatorWorld = <TSlots>(
@@ -206,7 +206,7 @@ const rowOfBandIn = (page: number, swapped: boolean): number => {
  * MOVED OUT OF — asked of the engine, and asked of BOTH halves.
  *
  * A membership write that changes nothing is not a short row, it is a FAST one:
- * `writeBucketMemberSlots` RETURNS when `reconcileSlots` finds nothing arrived
+ * `writeSlotContent` RETURNS when `reconcileSlots` finds nothing arrived
  * and nothing departed, so both halves would time a frame in which the container
  * under test was never emptied and never refilled. This suite has already
  * published a wrong number that way.
@@ -226,7 +226,7 @@ const assertBandsAreWhereTheyAreExpected = <TSlots>(
         if (held.length !== members.length || !members.every(member => held.includes(member))) {
             throw new Error(
                 `alternativePairsMutator: page ${p} does not hold the members this file is ` +
-                'holding for it, so a `writeBucketMemberSlots` of that list would either be refused as ' +
+                'holding for it, so a `writeSlotContent` of that list would either be refused as ' +
                 'unchanged or would file a membership nothing here can account for.',
             );
         }
@@ -260,7 +260,7 @@ const assertBandsAreWhereTheyAreExpected = <TSlots>(
  */
 const assertBandsSitAtTheirIndex = <TSlots>(
     world: TMutatorWorld<TSlots>,
-    slotContentServiceArrayDriven: OIMSlotContentBucketServiceArrayDriven<TRowSlot>,
+    slotContentServiceArrayDriven: OIMSlotContentPositionalArrayBucketService<TRowSlot>,
     pageCount: number,
     stopStride: number,
     swappedStop: number,
@@ -306,8 +306,8 @@ const swapOneBandOutsideTheClock = <TSlots>(world: TMutatorWorld<TSlots>, pageCo
         const held = even[band];
         even[band] = odd[band];
         odd[band] = held;
-        slotContentService.writeBucketMemberSlots(buckets[p], even);
-        slotContentService.writeBucketMemberSlots(buckets[p + 1], odd);
+        slotContentService.writeSlotContent(buckets[p], even);
+        slotContentService.writeSlotContent(buckets[p + 1], odd);
     }
     world.fixture.db.flush();
     for (let p = 0; p < pageCount; p++) slotContentService.getBucketMemberSlots(buckets[p]);
@@ -320,13 +320,13 @@ const swapOneBandOutsideTheClock = <TSlots>(world: TMutatorWorld<TSlots>, pageCo
 const REMOVAL_CAVEAT =
     'WHAT AN OPERATION IS: one member moves from one bucket to another, through the only door the '
     + 'engine offers for it — two array stores that exchange the member between the two lists this '
-    + 'file holds, `slotContentService.writeBucketMemberSlots` of each of those lists, a flush, and a read of every '
+    + 'file holds, `slotContentService.writeSlotContent` of each of those lists, a flush, and a read of every '
     + 'bucket in the frame through `getBucketMemberSlots`. Both halves run the identical body; the only difference in '
     + 'the process is which slot content bucket service object the bucket service was created with.'
     + 'READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a derived membership '
     + 'source and are not this operation. '
     + 'EVERY OPERATION REALLY MOVES A MEMBER, which is the failure this suite has already published '
-    + 'a wrong number for: `writeBucketMemberSlots` RETURNS without a wake when `reconcileSlots` finds nothing arrived '
+    + 'a wrong number for: `writeSlotContent` RETURNS without a wake when `reconcileSlots` finds nothing arrived '
     + 'and nothing departed, and both halves would then time a frame in which no container was '
     + 'touched. Here the two lists handed in differ from what the buckets hold by exactly one '
     + 'member each, and `assertBandsAreWhereTheyAreExpected` checks each bucket holds exactly '
@@ -338,7 +338,7 @@ const REMOVAL_CAVEAT =
     + 'DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are '
     + 'identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward '
     + '1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS: '
-    + '`OIMSlotContentBucketServiceSetDriven.reconcileSlots` takes the set difference (one Set of the list '
+    + '`OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one Set of the list '
     + 'handed in, one probe per held member) and moves one hold each way, while the ordered half\'s '
     + '`reconcileSlots` compares the two sequences up to the first mismatch, then drains the whole list '
     + 'and re-adds every member, so every member it holds is unheld and held again. READINGS '
@@ -365,12 +365,12 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
         path: EPricePath.PerRowPerWrite,
         ours:
             `a member leaves a bucket of ${bucketSize} and joins another, membership in a Set `
-            + '(OIMSlotContentBucketServiceSetDriven)',
-        floor: 'the same move, membership in a list kept in the caller\'s order (OIMSlotContentBucketServiceArrayDriven)',
+            + '(OIMSlotContentSetBucketService)',
+        floor: 'the same move, membership in a list kept in the caller\'s order (OIMSlotContentPositionalArrayBucketService)',
         caveat:
             `A BUCKET OF ${bucketSize}, and the size is in the id because the answer is a function `
             + 'of it on BOTH halves. THE COUNT THIS PREDICTS, per member moved, through '
-            + '`slotContentService.writeBucketMemberSlots`: on the ordered half, `reconcileSlots` compares the held '
+            + '`slotContentService.writeSlotContent`: on the ordered half, `reconcileSlots` compares the held '
             + 'list against the one handed in up to the swapped band, finds them unequal, drains all '
             + `${bucketSize} members and pushes all ${bucketSize} back, and the collection holds `
             + `${bucketSize} arrivals and unholds ${bucketSize} departures. On the unordered half: `
@@ -387,8 +387,8 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
             // Ours is the unordered service, the floor the ordered one — see the
             // head of this file for why that way round, and note that neither is
             // a rejected design.
-            const ourWorld = mutatorWorld(pageCount, bucketSize, new OIMSlotContentBucketServiceSetDriven<TRowSlot>());
-            const orderedMutator = new OIMSlotContentBucketServiceArrayDriven<TRowSlot>();
+            const ourWorld = mutatorWorld(pageCount, bucketSize, new OIMSlotContentSetBucketService<TRowSlot>());
+            const orderedMutator = new OIMSlotContentPositionalArrayBucketService<TRowSlot>();
             const floorWorld = mutatorWorld(pageCount, bucketSize, orderedMutator);
 
             // THE PREMISE, CHECKED THREE TIMES AND OUTSIDE THE CLOCK: every band
@@ -450,8 +450,8 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
                                 const held = even[band];
                                 even[band] = odd[band];
                                 odd[band] = held;
-                                slotContentService.writeBucketMemberSlots(buckets[p], even);
-                                slotContentService.writeBucketMemberSlots(buckets[p + 1], odd);
+                                slotContentService.writeSlotContent(buckets[p], even);
+                                slotContentService.writeSlotContent(buckets[p + 1], odd);
                             }
                             db.flush();
                             for (let p = 0; p < pageCount; p++) {
@@ -479,8 +479,8 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
                                 const held = even[band];
                                 even[band] = odd[band];
                                 odd[band] = held;
-                                slotContentService.writeBucketMemberSlots(buckets[p], even);
-                                slotContentService.writeBucketMemberSlots(buckets[p + 1], odd);
+                                slotContentService.writeSlotContent(buckets[p], even);
+                                slotContentService.writeSlotContent(buckets[p + 1], odd);
                             }
                             db.flush();
                             for (let p = 0; p < pageCount; p++) priceSink.floor = slotContentService.getBucketMemberSlots(buckets[p]);
@@ -532,8 +532,8 @@ const iteratePair: TPricePair = {
     build: () => {
         // Two pages, because the builder lays pages out in lanes; only the first
         // is walked.
-        const ourWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentBucketServiceSetDriven<TRowSlot>());
-        const floorWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const ourWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentSetBucketService<TRowSlot>());
+        const floorWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         return {
             ours: {
                 reset: () => undefined,

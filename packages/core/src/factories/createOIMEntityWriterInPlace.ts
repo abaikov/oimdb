@@ -1,5 +1,5 @@
 import type { IOIMEntityWriter } from '../engine/entity/interfaces/IOIMEntityWriter';
-import type { TOIMEntitySlot } from '../engine/entity/types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../engine/entity/types/TOIMEntityContentSlot';
 import { oimClearEntity } from '../engine/entity/utils/oimClearEntity';
 import type { TOIMEntityWriterOptions } from './types/TOIMEntityWriterOptions';
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../engine/entity/constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
@@ -8,7 +8,7 @@ import { oimEntityWriterOptionsWithDefault } from './utils/oimEntityWriterOption
 
 const theEntityItself = (entity: Record<string, unknown>): Record<string, unknown> => entity;
 
-function deleteColumnsInPlace(slot: TOIMEntitySlot, names: readonly string[]): readonly string[] {
+function deleteColumnsInPlace(slot: TOIMEntityContentSlot, names: readonly string[]): readonly string[] {
     const deleted = oimOwnedColumnNames(slot, names);
     if (deleted === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
     const entity = slot.entity as Record<string, unknown>;
@@ -20,10 +20,10 @@ export function createOIMEntityWriterInPlace(
     options?: TOIMEntityWriterOptions,
 ): IOIMEntityWriter {
     const {
-        sameValueGuard, entityInsertStrategy, putEntityColumns, patchEntityColumns, patchEntityColumn,
+        sameValueGuard, entityInserter, putEntityColumns, patchEntityColumns, patchEntityColumn,
     } = oimEntityWriterOptionsWithDefault(options);
     return {
-        fillEntity: entityInsertStrategy,
+        fillEntity: entityInserter,
         clearEntity: oimClearEntity,
         putEntity: (slot, entity, changedColumnNames) =>
             putEntityColumns(slot, entity, sameValueGuard, changedColumnNames, theEntityItself) !== undefined,

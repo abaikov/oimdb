@@ -8,5 +8,11 @@ export function oimUpsertPersistRecords<TKey extends TOIMStoreKey, TEntity exten
     records: readonly TOIMPersistRecord<TKey, TEntity>[],
 ): TOIMEntitySlot<TEntity, TKey>[] {
     if (records.length === 0) return [];
-    return entityCollectionService.slotContentService.upsertEntities(entityStoreSlot, records.map(record => record.entity));
+    return entityCollectionService.writeInBatch(entityStoreSlot, () => {
+        const entitySlots: TOIMEntitySlot<TEntity, TKey>[] = new Array(records.length);
+        for (let i = 0; i < records.length; i++) {
+            entitySlots[i] = entityCollectionService.writeSlotContentByKey(entityStoreSlot, records[i].key, records[i].entity);
+        }
+        return entitySlots;
+    });
 }

@@ -1,20 +1,11 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceArrayDriven,
-    createOIMEntityService,
-    createOIMSingleBucketService,
-    oimOrderedListCommandsOfTransition,
-} from '../../../../index';
-import type {
-    TOIMBucketSlot,
-    TOIMEntitySlot,
-    TOIMOrderedListCommand,
-    TOIMBucketSlotsArrayStore,
-    TOIMSlot,
-} from '../../../../index';
-import { assertConsistent,entitiesUnderTest } from '../../../../../tests/support/assertConsistent';
+import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, oimOrderedListCommandsOfTransition } from '../../../../index';
+import type { TOIMEntitySlot, TOIMOrderedListCommand, TOIMBucketSlotsArrayStore, TOIMSlot } from '../../../../index';
+import { assertConsistent, entitiesUnderTest } from '../../../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../../../tests/support/assertConsistent';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../../factories/createOIMSingleSlotService';
+import type { TOIMBucketContentSlot } from '../../types/TOIMBucketContentSlot';
 
 type TCard = { id: string; rank: number; label: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -81,11 +72,11 @@ type TFollower = {
  * helper makes about a bucket's slots would otherwise be skipped.
  */
 const asCollectionOfOne = (
-    membersService: OIMSlotContentBucketServiceArrayDriven<TCardSlot>,
-    bucket: TOIMBucketSlot<TSlots, void>,
+    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+    bucket: TOIMBucketContentSlot<TSlots>,
 ): TBucketsUnderTest => ({
     bucketSlots: [bucket],
-    getBucketSlotByKey: (): TOIMBucketSlot => bucket,
+    getBucketSlotByKey: (): TOIMBucketContentSlot => bucket,
     getBucketMemberSlots: (): Iterable<TOIMEntitySlot> => membersService.getBucketMemberSlots(bucket),
     getBucketMemberSlotCount: (): number => membersService.getBucketMemberSlotCount(bucket),
 });
@@ -94,12 +85,10 @@ const run = (seed: number, steps: number): void => {
     const random = makeRandom(seed);
 
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const singleBucketService = createOIMSingleBucketService<TCardSlot, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>>(
-        db, { slotContentService: membersService },
-    );
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const singleBucketService = createOIMSingleSlotService(db, { slotContentService: membersService });
     const singleBucket = singleBucketService.createStoreSlot(db);
     const bucket = singleBucketService.getSingleSlot(singleBucket);
 
@@ -115,14 +104,14 @@ const run = (seed: number, steps: number): void => {
      */
     const alive = new Set<string>();
     const stateSlots = (): void => {
-        membersService.writeBucketMemberSlots(singleBucketService.getSingleSlot(singleBucket), Array.from(alive, (id) => cardsService.getSlotByKey(cards, id)!).sort(byRankThenId));
+        membersService.writeSlotContent(singleBucketService.getSingleSlot(singleBucket), Array.from(alive, (id) => cardsService.getSlotByKey(cards, id)!).sort(byRankThenId));
     };
 
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'k0', rank: 3, label: 'a' },
         { id: 'k1', rank: 1, label: 'b' },
         { id: 'k2', rank: 2, label: 'c' },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     for (const id of ['k0', 'k1', 'k2']) alive.add(id);
     stateSlots();
     db.flush();
@@ -174,7 +163,7 @@ const run = (seed: number, steps: number): void => {
 
         if (choice < 0.32) {
             what = `upsert ${id}`;
-            cardsService.slotContentService.upsertEntity(cards, { id, rank: Math.floor(random() * 12), label: `l${Math.floor(random() * 4)}` });
+            cardsService.writeSlotContentByKey(cards, id, { id, rank: Math.floor(random() * 12), label: `l${Math.floor(random() * 4)}` });
             alive.add(id);
         } else if (choice < 0.46) {
             what = `rank of ${id}`;
@@ -189,7 +178,7 @@ const run = (seed: number, steps: number): void => {
         } else if (choice < 0.72) {
             what = `remove ${id}`;
             const removedSlot = cardsService.findSlotByKey(cards, id);
-            if (removedSlot !== undefined) cardsService.slotContentService.deleteEntity(removedSlot);
+            if (removedSlot !== undefined) cardsService.slotContentService.clearSlotContent(removedSlot);
             alive.delete(id);
         } else if (choice < 0.82) {
             // Several ranks in one batch: one frame, many moves.
@@ -215,11 +204,11 @@ const run = (seed: number, steps: number): void => {
             // so the response the caller states below is what actually evicts
             // them — and what lets the emptied identities go.
             what = 'a wholesale replacement';
-            cardsService.slotContentService.clearAllEntities(cards);
+            cardsService.writeInBatch(cards, () => { for (const entitySlot of [...cardsService.getSlots(cards)]) cardsService.slotContentService.clearSlotContent(entitySlot); });
             alive.clear();
             for (let i = 0; i < 4; i++) {
                 minted++;
-                cardsService.slotContentService.upsertEntity(cards, { id: `w${minted}`, rank: Math.floor(random() * 12), label: 'w' });
+                cardsService.writeSlotContentByKey(cards, `w${minted}`, { id: `w${minted}`, rank: Math.floor(random() * 12), label: 'w' });
                 alive.add(`w${minted}`);
             }
         }

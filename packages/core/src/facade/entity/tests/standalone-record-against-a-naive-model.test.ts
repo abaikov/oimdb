@@ -1,4 +1,6 @@
-import { OIMDB, OIMEffectService, createOIMSingleEntityService } from '../../../index';
+import { OIMDB, OIMEffectService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TSettings = { alpha?: number; beta?: number; gamma?: number; delta?: number };
 
@@ -39,9 +41,9 @@ const run = (seed: number, steps: number): void => {
     const model: TSettings = { alpha: 1, beta: 2 };
     // A copy: the record holds what it is given and writes THROUGH it, so
     // handing it the model object would make the two agree by aliasing.
-    const recordService = createOIMSingleEntityService<TSettings>(db);
+    const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
     const record = recordService.createStoreSlot(db);
-    recordService.slotContentService.upsertEntity(record, { ...model });
+    recordService.writeSingleSlotContent(record, { ...model });
 
     let recordWoke = 0;
     const fieldWoke: Record<string, number> = {};
@@ -50,7 +52,7 @@ const run = (seed: number, steps: number): void => {
     // behind a write of the open batch.
     for (const name of FIELDS) {
         fieldWoke[name] = 0;
-        const column = recordService.holdColumn(recordService.getSingleSlot(record), name);
+        const column = recordService.columnSlotService.holdColumn(recordService.getSingleSlot(record), name);
         effectService.createEffect(db, [column], [], () => { fieldWoke[name]++; });
     }
     effectService.createEffect(db, [recordService.getSingleSlot(record)], [], () => { recordWoke++; });
@@ -93,7 +95,7 @@ const run = (seed: number, steps: number): void => {
             const next: TSettings = {};
             for (const name of someFields()) next[name] = value();
             what = `record.replace(${JSON.stringify(next)})`;
-            recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), next);
+            recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), next);
             for (const name of FIELDS) delete model[name];
             Object.assign(model, next);
         }
@@ -160,11 +162,11 @@ describe('a standalone record against a plain object', () => {
 describe('replace', () => {
     it('leaves the record equal to what it was given — nothing resurrected, nothing left behind', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleEntityService<TSettings>(db);
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { alpha: 1, beta: 2, gamma: 3 });
+        recordService.writeSingleSlotContent(record, { alpha: 1, beta: 2, gamma: 3 });
 
-        recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), { beta: 9, delta: 4 });
+        recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), { beta: 9, delta: 4 });
 
         expect(definedColumnsOf(recordService.getSingleSlot(record).entity)).toStrictEqual({ beta: 9, delta: 4 });
         expect(recordService.getSingleSlot(record).entity?.alpha).toBeUndefined();
@@ -174,13 +176,13 @@ describe('replace', () => {
     it('wakes nobody when it is handed exactly what the record already holds', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const recordService = createOIMSingleEntityService<TSettings>(db);
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { alpha: 1, beta: 2 });
+        recordService.writeSingleSlotContent(record, { alpha: 1, beta: 2 });
         let runCount = 0;
         effectService.createEffect(db, [recordService.getSingleSlot(record)], [], () => { runCount++; });
 
-        recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), { alpha: 1, beta: 2 });
+        recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), { alpha: 1, beta: 2 });
         db.flush();
 
         expect({ ...recordService.getSingleSlot(record).entity }).toStrictEqual({ alpha: 1, beta: 2 });

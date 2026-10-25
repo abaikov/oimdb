@@ -1,8 +1,9 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEffect, TOIMEntitySlot } from '../../../index';
 import { OIMEffectService } from '../../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -34,7 +35,7 @@ type TBatchEffect = {
     seenAt: number;
 };
 
-const makeCollection = (db: OIMDB) => createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 
@@ -49,7 +50,7 @@ const deleteEntityByKey = (
     rowsService: TRowsService, rows: ReturnType<TRowsService['createStoreSlot']>, key: string,
 ): void => {
     const slot = rowsService.findSlotByKey(rows, key);
-    if (slot !== undefined) rowsService.slotContentService.deleteEntity(slot);
+    if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
 };
 
 const run = (seed: number, steps: number): void => {
@@ -65,7 +66,7 @@ const run = (seed: number, steps: number): void => {
 
     for (const key of KEYS) {
         const row: TRow = { id: key, n: 0, label: 'l0' };
-        rowsService.slotContentService.upsertEntity(rows, { ...row });
+        rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...row }), { ...row });
         model.set(key, row);
     }
     db.flush();
@@ -87,10 +88,10 @@ const run = (seed: number, steps: number): void => {
         let after: TRow | undefined;
         if (before === undefined || choice < 0.25) {
             after = { id: key, n: Math.floor(random() * 4), label: `l${Math.floor(random() * 3)}` };
-            rowsService.slotContentService.upsertEntity(rows, { ...after });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...after }), { ...after });
         } else if (choice < 0.4) {
             // Written back exactly as it stands: nothing moved, so no run is owed.
-            rowsService.slotContentService.upsertEntity(rows, { ...before });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...before }), { ...before });
             after = before;
         } else if (choice < 0.7) {
             const n = Math.floor(random() * 4);
@@ -153,7 +154,7 @@ const run = (seed: number, steps: number): void => {
         for (const key of one.keys) {
             const before = model.get(key);
             const after: TRow = { id: key, n: (before?.n ?? 0) + 1, label: `l${Math.floor(random() * 3)}` };
-            rowsService.slotContentService.upsertEntity(rows, { ...after });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...after }), { ...after });
             model.set(key, after);
             writtenAt++;
             movedAt.set(key, writtenAt);
@@ -231,7 +232,7 @@ describe('what an effect over many slots owes, said plainly', () => {
         const rowsService = makeCollection(db);
         const rows = rowsService.createStoreSlot(db);
         const keys = ['a', 'b', 'c'];
-        for (const id of keys) rowsService.slotContentService.upsertEntity(rows, { id, n: 0, label: 'l' });
+        for (const id of keys) rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id, n: 0, label: 'l' }), { id, n: 0, label: 'l' });
         db.flush();
         const slots = keys.map((id) => rowsService.getSlotByKey(rows, id)!);
         return { db, effectService, slots, write: (at, n) => { updateEntityByKey(rowsService, rows, keys[at], { n }); } };

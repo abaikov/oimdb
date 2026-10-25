@@ -1,26 +1,23 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
 import { OIMContentChangeListenerService } from '../../../engine/slot/OIMContentChangeListenerService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
 import { oimPatchEntityColumnGuarded } from '../../../engine/entity/utils/oimPatchEntityColumnGuarded';
 import type { IOIMEntityWriter } from '../../../engine/entity/interfaces/IOIMEntityWriter';
 import type { TOIMEntityWriterOptions } from '../../../factories/types/TOIMEntityWriterOptions';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TCard = { id: string; title: string; rank: number };
 
 const openCards = (entityWriter: IOIMEntityWriter) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, {
-        keyOf: card => card.id,
-        entityWriter,
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db, { entityWriter }) });
     const cards = cardsService.createStoreSlot(db);
-    const slot = cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 1 });
+    const slot = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
     db.flush();
     return { db, effectService, cardsService, cards, slot };
 };
@@ -85,8 +82,8 @@ describe.each(writers)('what a one-column write does, %s', (label, makeWriter) =
         const { db, effectService, cardsService, slot } = openCards(makeWriter());
         let titleRuns = 0;
         let rankRuns = 0;
-        effectService.createEffect(db, [cardsService.holdColumn(slot, 'title')], [], () => { titleRuns++; });
-        effectService.createEffect(db, [cardsService.holdColumn(slot, 'rank')], [], () => { rankRuns++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.holdColumn(slot, 'title')], [], () => { titleRuns++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.holdColumn(slot, 'rank')], [], () => { rankRuns++; });
         db.flush();
         titleRuns = 0;
         rankRuns = 0;
@@ -117,11 +114,11 @@ describe('what a one-column write does to a single entity', () => {
     it('writes the column and wakes a reader of it once', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const sessionService = createOIMSingleEntityService<{ theme: string; locale: string }>(db);
+        const sessionService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; locale: string }>(db) });
         const session = sessionService.createStoreSlot(db);
-        sessionService.slotContentService.upsertEntity(session, { theme: 'dark', locale: 'en' });
+        sessionService.writeSingleSlotContent(session, { theme: 'dark', locale: 'en' });
         let themeRuns = 0;
-        effectService.createEffect(db, [sessionService.holdColumn(sessionService.getSingleSlot(session), 'theme')], [], () => { themeRuns++; });
+        effectService.createEffect(db, [sessionService.columnSlotService.holdColumn(sessionService.getSingleSlot(session), 'theme')], [], () => { themeRuns++; });
         db.flush();
         themeRuns = 0;
 

@@ -2,10 +2,11 @@ import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIM_SLICE_LENGTH_MS, oimSliceOfMs } from '../../../index';
-import { OIMReleaseSlotQueueService } from '../OIMReleaseSlotQueueService';
-import { OIMReleaseSlotCollectorServiceAfterWrite } from '../OIMReleaseSlotCollectorServiceAfterWrite';
-import { createOIMReleaseSlotCollectorSlot } from '../utils/createOIMReleaseSlotCollectorSlot';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
+import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
+import { oimGetReleaseDueAfterWriteMs } from '../../slot/utils/oimGetReleaseDueAfterWriteMs';
+import { oimSetReleaseDueAfterWriteMs } from '../../slot/utils/oimSetReleaseDueAfterWriteMs';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE';
 import type { TOIMSlot } from '../../../index';
 import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
@@ -34,34 +35,30 @@ const ownerThatOnGiveBack = (giveBack: () => void): IOIMSlotOwner => ({
     holdSlot: () => undefined,
     unholdSlot: giveBack,
     releaseSlotIfUnheld: giveBack,
+    unsafeMutateSlot: () => undefined,
     subscribeToSlot: () => 0,
     unsubscribeFromSlot: () => false,
+    onSlotFirstSubscribed: () => undefined,
+    onSlotLastUnsubscribed: () => undefined,
 });
 
 const createFixture =() => {
     let ms = START;
-    const releaseSlotCollectorSlot = createOIMReleaseSlotCollectorSlot({
+    const slotReleaseWheel = new OIMSlotReleaseWheel({
         getNowMs: () => ms,
-        releaseTimer: () => () => undefined,
-        errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+        timer: () => () => undefined,
+        errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
+        getReleaseDueMs: oimGetReleaseDueAfterWriteMs,
+        setReleaseDueMs: oimSetReleaseDueAfterWriteMs,
+        releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE,
     });
     const slotReleaseQueue = {
-        getNowMs: (): number => releaseSlotCollectorSlot.getNowMs(),
-        scheduleSlotRelease: (aSlot: TOIMSlot, nowMs: number): void => {
-            OIMReleaseSlotQueueService.INSTANCE.scheduleSlotRelease(
-                releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE, aSlot, nowMs,
-            );
-        },
-        releaseDueUpToSliceNumber: (upToSliceNumber: number): void => {
-            OIMReleaseSlotQueueService.INSTANCE.releaseDueUpToSliceNumber(
-                releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE, upToSliceNumber,
-            );
-        },
-        isSlotReleaseScheduled: (aSlot: TOIMSlot): boolean => (
-            OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(releaseSlotCollectorSlot, aSlot)
-        ),
+        getNowMs: (): number => slotReleaseWheel.getNowMs(),
+        scheduleSlotRelease: (aSlot: TOIMSlot, nowMs: number): void => { slotReleaseWheel.scheduleSlotRelease(aSlot, nowMs); },
+        releaseDueUpToSliceNumber: (upToSliceNumber: number): void => { slotReleaseWheel.sweepUpToSliceNumber(upToSliceNumber); },
+        isSlotReleaseScheduled: (aSlot: TOIMSlot): boolean => slotReleaseWheel.isSlotReleaseScheduled(aSlot),
         get nextReleaseSliceNumber(): number | undefined {
-            return OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(releaseSlotCollectorSlot);
+            return slotReleaseWheel.getNextSliceNumber();
         },
     };
     return { slotReleaseQueue, at: (value: number): void => { ms = value; }, nowMs: (): number => ms };

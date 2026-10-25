@@ -1,9 +1,9 @@
 import type { TOIMStoreKey } from '@oimdb/core';
 import type { TOIMPersistErrorHandler, TOIMPersistOperation } from '../src';
 import {
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -19,37 +19,41 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError,
     });
-    const persistRecordsStrategy = testPersistBackend.createRecordsStrategy();
-    const persistResourceRecords = persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TCard>({
+    const persistRecordsService = testPersistBackend.createRecordsStrategy();
+    const persistRecordsResource = persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TCard>({
             entityCollectionService, entityStoreSlot, persistEntityWriter,
         }),
-        persistRecordsStrategy: {
-            ...persistRecordsStrategy,
+        persistRecordsService: {
+            ...persistRecordsService,
             readRecordsOfKeys: async (_testPersistBackend, keys) => {
                 await testPersistBackend.passReadGate();
-                return persistRecordsStrategy.readRecordsOfKeys(testPersistBackend, keys);
+                return persistRecordsService.readRecordsOfKeys(testPersistBackend, keys);
             },
         },
     }));
     persistor.start();
-    const findCardByKey = (key: TOIMStoreKey): TCard | undefined => slotContentEntityService.findEntityByKey(entityStoreSlot, key);
+    const findCardByKey = (key: TOIMStoreKey): TCard | undefined => entityCollectionService.findSlotByKey(entityStoreSlot, key)?.entity;
     return {
         persistor,
-        persistResourceRecords,
+        persistRecordsResource,
         testPersistBackend,
         findCardByKey,
-        upsertCard: (card: TCard): void => { slotContentEntityService.upsertEntity(entityStoreSlot, card); },
-        upsertCards: (cards: readonly TCard[]): void => { slotContentEntityService.upsertEntities(entityStoreSlot, cards); },
+        upsertCard: (card: TCard): void => { entityCollectionService.writeSlotContentByKey(entityStoreSlot, card.id, card); },
+        upsertCards: (cards: readonly TCard[]): void => {
+            entityCollectionService.writeInBatch(entityStoreSlot, () => {
+                for (const card of cards) entityCollectionService.writeSlotContentByKey(entityStoreSlot, card.id, card);
+            });
+        },
         updateCardByKey: (key: TOIMStoreKey, patch: Partial<TCard>): void => {
             slotContentEntityService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
             const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
-            if (cardSlot !== undefined) slotContentEntityService.deleteEntity(cardSlot);
+            if (cardSlot !== undefined) slotContentEntityService.clearSlotContent(cardSlot);
         },
         readTitleInMemory: (key: TOIMStoreKey): string | undefined => findCardByKey(key)?.title,
     };
@@ -70,7 +74,7 @@ describe('persistor.unload', () => {
     it('takes the entity out of the collection it was read from', async () => {
         const world = await buildWithTwoStoredCards();
 
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
 
         expect(world.readTitleInMemory('c1')).toBeUndefined();
         expect(world.readTitleInMemory('c2')).toBe('beta');
@@ -81,7 +85,7 @@ describe('persistor.unload', () => {
         const storedEntitiesBefore = world.testPersistBackend.readStoredEntities();
         const commitCountBefore = world.testPersistBackend.commitCount;
 
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         await tick();
 
@@ -94,7 +98,7 @@ describe('persistor.unload', () => {
         world.persistor.stop();
 
         world.updateCardByKey('c1', { title: 'ALPHA' });
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
 
         expect(world.readTitleInMemory('c1')).toBeUndefined();
         expect(world.testPersistBackend.readStoredEntities()).toEqual([
@@ -116,7 +120,7 @@ describe('persistor.unload', () => {
         expect(persistOperations).toEqual(['persist', 'persist', 'quarantine']);
 
         world.updateCardByKey('c1', { title: 'ALPHA' });
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
 
         expect(world.readTitleInMemory('c1')).toBeUndefined();
         expect(world.testPersistBackend.readStoredEntities()).toEqual([
@@ -127,7 +131,7 @@ describe('persistor.unload', () => {
 
     it('hands the entity back with the same values on the next hydrate', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         expect(world.readTitleInMemory('c1')).toBeUndefined();
 
@@ -139,7 +143,7 @@ describe('persistor.unload', () => {
 
     it('a restored entity persists its next edit like any other', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await world.persistor.hydrate();
 
         world.updateCardByKey('c1', { title: 'ALPHA' });
@@ -155,7 +159,7 @@ describe('persistor.unload', () => {
         const world = await buildWithTwoStoredCards();
 
         world.updateCardByKey('c1', { title: 'ALPHA' });
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         await tick();
 
@@ -173,7 +177,7 @@ describe('persistor.unload', () => {
         await tick();
         const commitCountWithEditInFlight = world.testPersistBackend.commitCount;
 
-        const unloaded = world.persistor.unload(world.persistResourceRecords, ['c1']);
+        const unloaded = world.persistor.unload(world.persistRecordsResource, ['c1']);
         world.updateCardByKey('c2', { title: 'B2' });
         world.testPersistBackend.openGate();
         await unloaded;
@@ -191,7 +195,7 @@ describe('persistor.unload', () => {
     it('does not report the entities it takes out, so the next autosave deletes nothing', async () => {
         const world = await buildWithTwoStoredCards();
 
-        await world.persistor.unload(world.persistResourceRecords, ['c1', 'c2']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1', 'c2']);
         world.upsertCard({ id: 'c3', title: 'gamma' });
         await tick();
 
@@ -206,7 +210,7 @@ describe('persistor.unload', () => {
         const world = await buildWithTwoStoredCards();
         world.testPersistBackend.closeGate();
 
-        const unloaded = world.persistor.unload(world.persistResourceRecords, ['c1']);
+        const unloaded = world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         world.updateCardByKey('c1', { title: 'A2' });
         world.testPersistBackend.openGate();
@@ -235,7 +239,7 @@ describe('persistor.unload', () => {
         const commitCountBefore = world.testPersistBackend.commitCount;
         world.testPersistBackend.closeGate();
 
-        const unloaded = world.persistor.unload(world.persistResourceRecords, ['c1']);
+        const unloaded = world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         expect(world.testPersistBackend.commitCount).toBe(commitCountBefore + 1);
         world.updateCardByKey('c1', { title: 'A2' });
@@ -262,7 +266,7 @@ describe('persistor.unload of an entity whose column never equals itself by ==='
         const commitCountBefore = world.testPersistBackend.commitCount;
 
         world.upsertCard({ id: 'c3', title: 'gamma', score: NaN });
-        await world.persistor.unload(world.persistResourceRecords, ['c3']);
+        await world.persistor.unload(world.persistRecordsResource, ['c3']);
         await tick();
         await tick();
 
@@ -278,7 +282,7 @@ describe('persistor.unload of an entity whose column never equals itself by ==='
         const author = { name: 'Ada' };
 
         world.upsertCard({ id: 'c3', title: 'gamma', author });
-        await world.persistor.unload(world.persistResourceRecords, ['c3']);
+        await world.persistor.unload(world.persistRecordsResource, ['c3']);
         await tick();
         await tick();
 
@@ -291,7 +295,7 @@ describe('persistor.unload of an entity whose column never equals itself by ==='
 describe('persist() after an unload', () => {
     it('keeps the unloaded entity on the backend, writing what memory holds as upserts with no deletion', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
 
         await world.persistor.persist();
 
@@ -309,7 +313,7 @@ describe('persist() after an unload', () => {
 
     it('replaces the table again once a hydrate brought the unloaded key back', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await world.persistor.hydrate();
 
         await world.persistor.persist();
@@ -323,7 +327,7 @@ describe('persist() after an unload', () => {
 
     it('replaces the table again once clearPersisted wiped the backend', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await world.persistor.clearPersisted();
 
         await world.persistor.persist();
@@ -334,7 +338,7 @@ describe('persist() after an unload', () => {
 
     it('writes the deletion of an entity removed after the unload, so a hydrate does not bring it back', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
 
         world.deleteCardByKey('c2');
         await world.persistor.persist();
@@ -353,11 +357,11 @@ describe('persist() after an unload', () => {
 describe('persistor.load', () => {
     it('puts an unloaded key back with its stored value, commits nothing, and the next persist replaces the table', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         const commitCountBefore = world.testPersistBackend.commitCount;
 
-        await world.persistor.load(world.persistResourceRecords, ['c1']);
+        await world.persistor.load(world.persistRecordsResource, ['c1']);
         await tick();
         await tick();
 
@@ -378,7 +382,7 @@ describe('persistor.load', () => {
         const storedEntitiesBefore = world.testPersistBackend.readStoredEntities();
         const commitCountBefore = world.testPersistBackend.commitCount;
 
-        await world.persistor.load(world.persistResourceRecords, ['c9']);
+        await world.persistor.load(world.persistRecordsResource, ['c9']);
         await tick();
 
         expect(world.findCardByKey('c9')).toBeUndefined();
@@ -390,11 +394,11 @@ describe('persistor.load', () => {
 
     it('keeps a value written in memory while its read was held', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
         world.testPersistBackend.closeGate();
 
-        const loaded = world.persistor.load(world.persistResourceRecords, ['c1']);
+        const loaded = world.persistor.load(world.persistRecordsResource, ['c1']);
         await tick();
         const backendLog = world.testPersistBackend.backendLog;
         expect(backendLog[backendLog.length - 1]).toBe('read:start');
@@ -412,12 +416,12 @@ describe('persistor.load', () => {
 
     it('does not bring back a key whose deletion is still pending', async () => {
         const world = await buildWithTwoStoredCards();
-        await world.persistor.unload(world.persistResourceRecords, ['c1']);
+        await world.persistor.unload(world.persistRecordsResource, ['c1']);
         await tick();
 
         world.upsertCard({ id: 'c1', title: 'A2' });
         world.deleteCardByKey('c1');
-        await world.persistor.load(world.persistResourceRecords, ['c1']);
+        await world.persistor.load(world.persistRecordsResource, ['c1']);
         await tick();
 
         expect(world.readTitleInMemory('c1')).toBeUndefined();

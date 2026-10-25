@@ -5,16 +5,14 @@ import type {
     TOIMEntitySlot,
     TOIMStoreKey,
 } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService } from '@oimdb/core';
 import type { TOIMPersistRecord } from '../src';
-import { OIMPersistRecordSourceBucketDriven, OIMPersistSnapshotSourceSingleEntityDriven } from '../src';
+import { OIMPersistBucketRecordSource, OIMPersistSingleEntitySnapshotSource } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
+import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; draft: boolean };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
@@ -22,7 +20,7 @@ type TCardSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 
 const buildCards = () => {
     const db = new OIMDB();
-    const entityCollectionService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const entityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     return { db, entityCollectionService, entityStoreSlot: entityCollectionService.createStoreSlot(db) };
 };
 
@@ -30,9 +28,7 @@ type TCardCollectionService = ReturnType<typeof buildCards>['entityCollectionSer
 type TCardStoreSlot = ReturnType<typeof buildCards>['entityStoreSlot'];
 
 const createCardBucketCollectionService = (db: OIMDB) =>
-    createOIMBucketService<TCardSlot, TOIMStoreKey, TCardSlots, OIMSlotContentBucketServiceSetDriven<TCardSlot>>(
-        db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() },
-    );
+    createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 type TFiling = {
     bucketCollectionService: ReturnType<typeof createCardBucketCollectionService>;
@@ -59,20 +55,20 @@ const fileCards = (
             const entitySlot = entityCollectionService.findSlotByKey(entityStoreSlot, card.id);
             if (entitySlot !== undefined) filedEntitySlots.push(entitySlot);
         }
-        bucketCollectionService.slotContentService.writeBucketMemberSlots(bucketSlot, filedEntitySlots);
+        bucketCollectionService.slotContentService.writeSlotContent(bucketSlot, filedEntitySlots);
     };
     return {
         bucketCollectionService,
         bucketSlot,
         putCards: (...cards) => {
             for (const card of cards) presentCardById.set(card.id, card);
-            entityCollectionService.slotContentService.upsertEntities(entityStoreSlot, cards);
+            entityCollectionService.writeInBatch(entityStoreSlot, () => (cards).map(entity => entityCollectionService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
             refile();
         },
         dropCard: id => {
             presentCardById.delete(id);
             const entitySlot = entityCollectionService.findSlotByKey(entityStoreSlot, id);
-            if (entitySlot !== undefined) entityCollectionService.slotContentService.deleteEntity(entitySlot);
+            if (entitySlot !== undefined) entityCollectionService.slotContentService.clearSlotContent(entitySlot);
             refile();
         },
     };
@@ -93,8 +89,8 @@ const sourceOf = (
     entityCollectionService: TCardCollectionService,
     entityStoreSlot: TCardStoreSlot,
     filing: TFiling,
-): OIMPersistRecordSourceBucketDriven<TOIMStoreKey, TCard, TCardSlots, TOIMStoreKey> =>
-    new OIMPersistRecordSourceBucketDriven<TOIMStoreKey, TCard, TCardSlots, TOIMStoreKey>({
+): OIMPersistBucketRecordSource<TOIMStoreKey, TCard, TCardSlots> =>
+    new OIMPersistBucketRecordSource<TOIMStoreKey, TCard, TCardSlots>({
         channelMap: db,
         entityCollectionService,
         entityStoreSlot,
@@ -106,7 +102,7 @@ const readMemberKeys = (filing: TFiling): unknown[] =>
     Array.from(filing.bucketCollectionService.slotContentService.getBucketMemberSlots(filing.bucketSlot))
         .map(entitySlot => entitySlot.key);
 
-describe('OIMPersistRecordSourceBucketDriven', () => {
+describe('OIMPersistBucketRecordSource', () => {
     it('reads what the bucket holds and nothing else', () => {
         const { db, entityCollectionService, entityStoreSlot } = buildCards();
         const filing = allCards(db, entityCollectionService, entityStoreSlot);
@@ -130,9 +126,9 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         );
         db.flush();
 
-        const persistRecordSourceBucketDriven = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
+        const persistBucketRecordSource = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
         const reportedKeys: TOIMStoreKey[] = [];
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(entitySlot => { reportedKeys.push(entitySlot.key); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(entitySlot => { reportedKeys.push(entitySlot.key); });
         expect([...reportedKeys].sort()).toEqual(['c1', 'c2']);
 
         entityCollectionService.slotContentService.updateEntity(
@@ -140,7 +136,7 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         );
         db.flush();
         expect(reportedKeys.slice(2)).toEqual(['c1']);
-        expect(persistRecordSourceBucketDriven.readSnapshot().records.find(record => record.key === 'c1')?.entity.title).toBe('ALPHA');
+        expect(persistBucketRecordSource.readSnapshot().records.find(record => record.key === 'c1')?.entity.title).toBe('ALPHA');
     });
 
     it('reports an arrival and a departure that land in the same frame, and reads them as an upsert and a deletion', () => {
@@ -152,9 +148,9 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         );
         db.flush();
 
-        const persistRecordSourceBucketDriven = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
+        const persistBucketRecordSource = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
         let reportedEntitySlots = new Set<TCardSlot>();
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(entitySlot => { reportedEntitySlots.add(entitySlot); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(entitySlot => { reportedEntitySlots.add(entitySlot); });
         expect(Array.from(reportedEntitySlots, entitySlot => entitySlot.key).sort()).toEqual(['c1', 'c2']);
         reportedEntitySlots = new Set<TCardSlot>();
 
@@ -163,7 +159,7 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         db.flush();
         expect(Array.from(reportedEntitySlots, entitySlot => entitySlot.key).sort()).toEqual(['c2', 'c3']);
 
-        const persistRecordsDelta = persistRecordSourceBucketDriven.readRecordsDelta(reportedEntitySlots);
+        const persistRecordsDelta = persistBucketRecordSource.readRecordsDelta(reportedEntitySlots);
         expect(persistRecordsDelta.upserts.map(record => record.key)).toEqual(['c3']);
         expect(persistRecordsDelta.deletedKeys).toEqual(['c2']);
     });
@@ -177,11 +173,11 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         );
         db.flush();
 
-        const persistRecordSourceBucketDriven = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
-        expect(persistRecordSourceBucketDriven.readSnapshot().records.map(record => record.key)).toEqual(['c1']);
+        const persistBucketRecordSource = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
+        expect(persistBucketRecordSource.readSnapshot().records.map(record => record.key)).toEqual(['c1']);
 
         const reportedKeys: TOIMStoreKey[] = [];
-        persistRecordSourceBucketDriven.subscribeEntitySlotChanged(entitySlot => { reportedKeys.push(entitySlot.key); });
+        persistBucketRecordSource.subscribeEntitySlotChanged(entitySlot => { reportedKeys.push(entitySlot.key); });
         expect(reportedKeys).toEqual(['c1']);
 
         filing.putCards({ id: 'c2', deckId: 'd1', title: 'scratch again', draft: true });
@@ -191,7 +187,7 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         filing.putCards({ id: 'c2', deckId: 'd1', title: 'scratch again', draft: false });
         db.flush();
         expect(reportedKeys).toEqual(['c1', 'c2']);
-        expect(persistRecordSourceBucketDriven.readSnapshot().records.map(record => record.key).sort()).toEqual(['c1', 'c2']);
+        expect(persistBucketRecordSource.readSnapshot().records.map(record => record.key).sort()).toEqual(['c1', 'c2']);
     });
 
     it('round-trips a delta from one runtime onto a second, empty one', () => {
@@ -214,12 +210,10 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
         const secondPersistRecordSource = sourceOf(
             secondCards.db, secondCards.entityCollectionService, secondCards.entityStoreSlot, secondFiling,
         );
-        secondCards.entityCollectionService.slotContentService.upsertEntities(
-            secondCards.entityStoreSlot, persistRecordsDelta.upserts.map(record => record.entity),
-        );
+        secondCards.entityCollectionService.writeInBatch(secondCards.entityStoreSlot, () => (persistRecordsDelta.upserts.map(record => record.entity)).map(entity => secondCards.entityCollectionService.writeSlotContentByKey(secondCards.entityStoreSlot, entity.id, entity)));
         for (const deletedKey of persistRecordsDelta.deletedKeys) {
             const deletedEntitySlot = secondCards.entityCollectionService.findSlotByKey(secondCards.entityStoreSlot, deletedKey);
-            if (deletedEntitySlot !== undefined) secondCards.entityCollectionService.slotContentService.deleteEntity(deletedEntitySlot);
+            if (deletedEntitySlot !== undefined) secondCards.entityCollectionService.slotContentService.clearSlotContent(deletedEntitySlot);
         }
         expect(readMemberKeys(secondFiling)).toEqual([]);
         secondFiling.putCards(...persistRecordsDelta.upserts.map(record => record.entity));
@@ -250,40 +244,40 @@ describe('OIMPersistRecordSourceBucketDriven', () => {
     });
 });
 
-describe('OIMPersistSnapshotSourceSingleEntityDriven', () => {
+describe('OIMPersistSingleEntitySnapshotSource', () => {
     const buildSession = <TEntity extends object>(entity: TEntity) => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleEntityService<TEntity>(db);
+        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db) });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-        const singleEntitySlot = singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, entity);
+        const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, entity);
         db.flush();
-        const persistSnapshotSourceSingleEntityDriven = new OIMPersistSnapshotSourceSingleEntityDriven<TEntity>({
+        const persistSingleEntitySnapshotSource = new OIMPersistSingleEntitySnapshotSource<TEntity>({
             channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
         });
-        return { db, singleEntityService, singleEntitySlot, persistSnapshotSourceSingleEntityDriven };
+        return { db, singleEntityService, singleEntitySlot, persistSingleEntitySnapshotSource };
     };
 
     it('reads and writes a single entity', () => {
-        const { db, persistSnapshotSourceSingleEntityDriven } = buildSession({ userId: 'u1', theme: 'dark' });
+        const { db, persistSingleEntitySnapshotSource } = buildSession({ userId: 'u1', theme: 'dark' });
 
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot()).toEqual({ userId: 'u1', theme: 'dark' });
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'light' });
+        expect(persistSingleEntitySnapshotSource.readSnapshot()).toEqual({ userId: 'u1', theme: 'dark' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'light' });
         db.flush();
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot()).toEqual({ userId: 'u1', theme: 'light' });
+        expect(persistSingleEntitySnapshotSource.readSnapshot()).toEqual({ userId: 'u1', theme: 'light' });
     });
 
     it('does not report its own restore, and does report the next change', () => {
         const {
-            db, singleEntityService, singleEntitySlot, persistSnapshotSourceSingleEntityDriven,
+            db, singleEntityService, singleEntitySlot, persistSingleEntitySnapshotSource,
         } = buildSession({ userId: 'u1', theme: 'dark' });
 
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'dark' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'dark' });
         db.flush();
 
         let changeCount = 0;
-        persistSnapshotSourceSingleEntityDriven.subscribeSnapshotChanged(() => { changeCount++; });
+        persistSingleEntitySnapshotSource.subscribeSnapshotChanged(() => { changeCount++; });
 
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'light' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'light' });
         db.flush();
         expect(changeCount).toBe(0);
 
@@ -297,29 +291,29 @@ describe('OIMPersistSnapshotSourceSingleEntityDriven', () => {
     });
 
     it('reports at the mount a single entity no restore has matched', () => {
-        const { persistSnapshotSourceSingleEntityDriven } = buildSession({ userId: 'u1', theme: 'dark' });
+        const { persistSingleEntitySnapshotSource } = buildSession({ userId: 'u1', theme: 'dark' });
 
         let changeCount = 0;
-        persistSnapshotSourceSingleEntityDriven.subscribeSnapshotChanged(() => { changeCount++; });
+        persistSingleEntitySnapshotSource.subscribeSnapshotChanged(() => { changeCount++; });
 
         expect(changeCount).toBe(1);
     });
 
     it('a restored snapshot does not resurrect a column that was deleted before it was taken', () => {
-        const { db, persistSnapshotSourceSingleEntityDriven } = buildSession<Record<string, string>>({
+        const { db, persistSingleEntitySnapshotSource } = buildSession<Record<string, string>>({
             userId: 'u1', theme: 'dark', impersonating: 'u2',
         });
 
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'dark' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'dark' });
         db.flush();
 
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot()).toEqual({ userId: 'u1', theme: 'dark' });
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot().impersonating).toBeUndefined();
+        expect(persistSingleEntitySnapshotSource.readSnapshot()).toEqual({ userId: 'u1', theme: 'dark' });
+        expect(persistSingleEntitySnapshotSource.readSnapshot().impersonating).toBeUndefined();
     });
 
     it('a restored snapshot wakes the column it dropped and the column it moved, and no other', () => {
         const {
-            db, singleEntityService, singleEntitySlot, persistSnapshotSourceSingleEntityDriven,
+            db, singleEntityService, singleEntitySlot, persistSingleEntitySnapshotSource,
         } = buildSession<Record<string, string>>({
             userId: 'u1', theme: 'dark', impersonating: 'u2',
         });
@@ -328,26 +322,26 @@ describe('OIMPersistSnapshotSourceSingleEntityDriven', () => {
         let themeWakeCount = 0;
         let impersonatingWakeCount = 0;
         const effectService = OIMEffectService.INSTANCE;
-        effectService.createEffect(db, [singleEntityService.getColumn(singleEntitySlot, 'userId')], [], () => { userWakeCount++; });
-        effectService.createEffect(db, [singleEntityService.getColumn(singleEntitySlot, 'theme')], [], () => { themeWakeCount++; });
+        effectService.createEffect(db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'userId')], [], () => { userWakeCount++; });
+        effectService.createEffect(db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')], [], () => { themeWakeCount++; });
         effectService.createEffect(
-            db, [singleEntityService.getColumn(singleEntitySlot, 'impersonating')], [], () => { impersonatingWakeCount++; },
+            db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'impersonating')], [], () => { impersonatingWakeCount++; },
         );
 
-        persistSnapshotSourceSingleEntityDriven.writeSnapshot({ userId: 'u1', theme: 'light' });
+        persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'light' });
         db.flush();
 
         expect(impersonatingWakeCount).toBe(1);
         expect(themeWakeCount).toBe(1);
         expect(userWakeCount).toBe(0);
-        expect(persistSnapshotSourceSingleEntityDriven.readSnapshot()).toEqual({ userId: 'u1', theme: 'light' });
+        expect(persistSingleEntitySnapshotSource.readSnapshot()).toEqual({ userId: 'u1', theme: 'light' });
     });
 
     it('a column that leaves wakes a subscriber watching it', () => {
         const { db, singleEntityService, singleEntitySlot } = buildSession({ userId: 'u1', theme: 'dark' });
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(
-            db, [singleEntityService.getColumn(singleEntitySlot, 'theme')], [], () => { runCount++; },
+            db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')], [], () => { runCount++; },
         );
 
         singleEntityService.slotContentService.deleteEntityColumns(singleEntitySlot, ['theme']);
@@ -382,7 +376,7 @@ describe('hydrating a bucket', () => {
 
         expect(readMemberKeys(restoredFiling)).toEqual(['c1', 'c3']);
         expect(
-            restoredCards.entityCollectionService.slotContentService.findEntityByKey(restoredCards.entityStoreSlot, 'c1')?.title,
+            restoredCards.entityCollectionService.findSlotByKey(restoredCards.entityStoreSlot, 'c1')?.entity?.title,
         ).toBe('alpha');
     });
 
@@ -395,13 +389,13 @@ describe('hydrating a bucket', () => {
             { id: 'c3', deckId: 'd1', title: 'gamma', draft: false },
         );
         db.flush();
-        const persistRecordSourceBucketDriven = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
-        const persistRecords = persistRecordSourceBucketDriven.readSnapshot();
+        const persistBucketRecordSource = sourceOf(db, entityCollectionService, entityStoreSlot, filing);
+        const persistRecords = persistBucketRecordSource.readSnapshot();
 
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(db, [filing.bucketSlot], [], () => { runCount++; });
 
-        persistRecordSourceBucketDriven.writeSnapshot(persistRecords);
+        persistBucketRecordSource.writeSnapshot(persistRecords);
         db.flush();
 
         expect(runCount).toBe(0);
@@ -422,9 +416,9 @@ describe('hydrating a bucket', () => {
         });
         db.flush();
 
-        expect(entityCollectionService.slotContentService.findEntityByKey(entityStoreSlot, 'c1')?.title).toBe('ALPHA');
+        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
         expect(readMemberKeys(filing)).toEqual(['c1']);
-        expect(entityCollectionService.slotContentService.findEntityByKey(entityStoreSlot, 'c2')?.title).toBe('beta');
+        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
     });
 });
 
@@ -443,9 +437,9 @@ describe('hydrating a bucket that holds the whole collection', () => {
         });
         db.flush();
 
-        expect(entityCollectionService.slotContentService.findEntityByKey(entityStoreSlot, 'c1')?.title).toBe('ALPHA');
+        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c1')?.entity?.title).toBe('ALPHA');
         expect(readMemberKeys(filing)).toEqual(['c1']);
-        expect(entityCollectionService.slotContentService.findEntityByKey(entityStoreSlot, 'c2')?.title).toBe('beta');
+        expect(entityCollectionService.findSlotByKey(entityStoreSlot, 'c2')?.entity?.title).toBe('beta');
     });
 });
 
@@ -456,12 +450,12 @@ describe('hydrating a list of members nothing but the snapshot knows', () => {
         type TDocSlots = TOIMBucketSlotsArrayStore<TDocSlot>;
         const buildSearch = () => {
             const db = new OIMDB();
-            const entityCollectionService = createOIMEntityService<TDoc>(db, { keyOf: doc => doc.id });
+            const entityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDoc>(db) });
             const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-            const bucketCollectionService = createOIMBucketService<TDocSlot>(db);
+            const bucketCollectionService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TDocSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
             const bucketStoreSlot = bucketCollectionService.createStoreSlot(db);
             const bucketSlot = bucketCollectionService.holdSlotByKey(bucketStoreSlot, 'results');
-            const persistRecordSourceBucketDriven = new OIMPersistRecordSourceBucketDriven<TOIMStoreKey, TDoc, TDocSlots, TOIMStoreKey>({
+            const persistBucketRecordSource = new OIMPersistBucketRecordSource<TOIMStoreKey, TDoc, TDocSlots>({
                 channelMap: db,
                 entityCollectionService,
                 entityStoreSlot,
@@ -469,29 +463,25 @@ describe('hydrating a list of members nothing but the snapshot knows', () => {
                 bucketSlot,
             });
             return {
-                db, entityCollectionService, entityStoreSlot, bucketCollectionService, bucketSlot, persistRecordSourceBucketDriven,
+                db, entityCollectionService, entityStoreSlot, bucketCollectionService, bucketSlot, persistBucketRecordSource,
             };
         };
 
         const originSearch = buildSearch();
-        const firstEntitySlot = originSearch.entityCollectionService.slotContentService.upsertEntity(
-            originSearch.entityStoreSlot, { id: 'c1', title: 'alpha' },
-        );
-        originSearch.entityCollectionService.slotContentService.upsertEntity(originSearch.entityStoreSlot, { id: 'c2', title: 'beta' });
-        const thirdEntitySlot = originSearch.entityCollectionService.slotContentService.upsertEntity(
-            originSearch.entityStoreSlot, { id: 'c3', title: 'gamma' },
-        );
+        const firstEntitySlot = originSearch.entityCollectionService.writeSlotContentByKey(originSearch.entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
+        originSearch.entityCollectionService.writeSlotContentByKey(originSearch.entityStoreSlot, 'c2', { id: 'c2', title: 'beta' });
+        const thirdEntitySlot = originSearch.entityCollectionService.writeSlotContentByKey(originSearch.entityStoreSlot, 'c3', { id: 'c3', title: 'gamma' });
         originSearch.db.flush();
-        originSearch.bucketCollectionService.slotContentService.writeBucketMemberSlots(
+        originSearch.bucketCollectionService.slotContentService.writeSlotContent(
             originSearch.bucketSlot, [thirdEntitySlot, firstEntitySlot],
         );
         originSearch.db.flush();
 
-        const persistRecords = originSearch.persistRecordSourceBucketDriven.readSnapshot();
+        const persistRecords = originSearch.persistBucketRecordSource.readSnapshot();
         expect(persistRecords.records.map(record => record.key)).toEqual(['c3', 'c1']);
 
         const restoredSearch = buildSearch();
-        restoredSearch.persistRecordSourceBucketDriven.writeSnapshot(persistRecords);
+        restoredSearch.persistBucketRecordSource.writeSnapshot(persistRecords);
         restoredSearch.db.flush();
 
         expect(
@@ -499,7 +489,7 @@ describe('hydrating a list of members nothing but the snapshot knows', () => {
                 .map(entitySlot => String(entitySlot.key)),
         ).toEqual(['c3', 'c1']);
         expect(
-            restoredSearch.entityCollectionService.slotContentService.findEntityByKey(restoredSearch.entityStoreSlot, 'c1')?.title,
+            restoredSearch.entityCollectionService.findSlotByKey(restoredSearch.entityStoreSlot, 'c1')?.entity?.title,
         ).toBe('alpha');
     });
 });

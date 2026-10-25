@@ -65,7 +65,7 @@ describe('a frame pending before a dispatch', () => {
         const reducer = adapter.createCollectionReducer<TUser, string, TUsersState>(
             usersService, users, childOptions);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         db.flush();
 
         const store: Store = createStore(
@@ -75,7 +75,7 @@ describe('a frame pending before a dispatch', () => {
 
         // The socket callback. It writes and does not flush — arming a frame the
         // scheduler has not run yet.
-        usersService.slotContentService.upsertEntity(users, { id: 'u9', name: 'Nine', department: 'ops' });
+        usersService.writeSlotContentByKey(users, 'u9', { id: 'u9', name: 'Nine', department: 'ops' });
 
         // ...and before that frame runs, the application dispatches anything at
         // all. The child reducer hands this action straight back, so the ONLY
@@ -101,10 +101,10 @@ describe('a frame pending before a dispatch', () => {
         const reducer = adapter.createCollectionReducer<TUser, string, TUsersState>(
             usersService, users, childOptions);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice', department: 'eng' },
             { id: 'u2', name: 'Bob', department: 'eng' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const store: Store = createStore(
@@ -149,7 +149,7 @@ describe('a frame pending before a dispatch', () => {
                     // make.
                     extractEntities: (_prevState, nextState, entityService, entityStoreSlot) => {
                         const added = Object.values(nextState.entities);
-                        entityService.slotContentService.upsertEntities(entityStoreSlot, added);
+                        entityService.writeInBatch(entityStoreSlot, () => (added).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
                         for (const user of added) {
                             setBucketSlots(byDepartmentService, byDepartment, entityService, entityStoreSlot, user.department, [user.id]);
                         }

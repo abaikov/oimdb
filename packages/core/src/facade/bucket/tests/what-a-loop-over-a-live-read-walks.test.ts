@@ -1,9 +1,12 @@
-import { OIMDB, createOIMBucketService, createOIMEntityService } from '../../../index';
+import { OIMDB } from '../../../index';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsArrayStore } from '../../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMBucketCommands } from '../OIMBucketCommands';
 
 type TCard = { id: string; title: string };
 type TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TCard>>;
@@ -11,13 +14,13 @@ type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const listsService = createOIMBucketService<TOIMEntitySlot<TCard>, TOIMStoreKey, TSlots>(db);
+    const listsService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const listsContentService = listsService.slotContentService;
     const lists = listsService.createStoreSlot(db);
     const card =(id: string): TOIMEntitySlot<TCard, TOIMStoreKey> => {
-        cardsService.slotContentService.upsertEntity(cards, { id, title: id.toUpperCase() });
+        cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });
         db.flush();
         return cardsService.getSlotByKey(cards, id);
     };
@@ -27,7 +30,7 @@ const createFixture =() => {
         return out;
     };
     const filled = (bucket: TBucket): void => {
-        listsContentService.writeBucketMemberSlots(bucket, [card('a'), card('b'), card('c')]);
+        listsContentService.writeSlotContent(bucket, [card('a'), card('b'), card('c')]);
         db.flush();
     };
     return { db, listsService, listsContentService, lists, filled, ids };

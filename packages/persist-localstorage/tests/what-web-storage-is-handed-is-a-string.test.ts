@@ -1,12 +1,7 @@
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import type {
-    IOIMPersistSnapshotStrategy,
+    IOIMPersistSnapshotService,
     OIMPersistKeyValueBackend,
     OIMPersistKeyValueWriteBatch,
     TOIMPersistKeyValueItemStorage,
@@ -14,24 +9,27 @@ import type {
     TOIMPersistVersionedShape,
 } from '@oimdb/persist';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistCodecVersioned,
+    OIMPersistIdentityCodec,
+    OIMPersistVersionedCodec,
     OIMPersistEntityWriter,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistKeyValuePathStrategy,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistKeyValuePathSnapshotService,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '../src';
+import { OIMPersistLocalStorageKeyValueBackend } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TSettings = { theme: string };
 type TUserRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 type TLocalStoragePersistor = OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>;
-type TKeyValueSnapshotStrategy<TSnapshot> = IOIMPersistSnapshotStrategy<
+type TKeyValueSnapshotStrategy<TSnapshot> = IOIMPersistSnapshotService<
     OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSnapshot
 >;
 
@@ -61,8 +59,8 @@ function createPersistor(
     onPersistError?: (error: unknown) => void,
 ): TLocalStoragePersistor {
     return new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
-        persistBackend: new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage }),
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistBackend: new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage }),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError,
     });
 }
@@ -71,38 +69,35 @@ function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
         entityWriter: createOIMEntityWriterInPlace(),
     });
-    const entityService = createOIMEntityService<TUser>(db, {
-        keyOf: user => user.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const persistRecordSource = new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TUser>({
+    const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
         entityCollectionService: entityService,
         entityStoreSlot,
         persistEntityWriter,
     });
-    const createPersistResource = (persistSnapshotStrategy: TKeyValueSnapshotStrategy<TUserRecords>) =>
-        new OIMPersistResourceSnapshot<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TUserRecords, TUserRecords>({
+    const createPersistResource = (persistSnapshotService: TKeyValueSnapshotStrategy<TUserRecords>) =>
+        new OIMPersistSnapshotResource<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TUserRecords, TUserRecords>({
             persistSnapshotSource: persistRecordSource,
-            persistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TUserRecords>(),
+            persistSnapshotService,
+            persistCodec: new OIMPersistIdentityCodec<TUserRecords>(),
         });
     return { entityService, entityStoreSlot, persistRecordSource, createPersistResource };
 }
 
 function buildSettings(db: OIMDB, settings: TSettings) {
-    const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+    const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
     const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-    singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, settings);
+    singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
     db.flush();
-    const persistSnapshotSource = new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+    const persistSnapshotSource = new OIMPersistSingleEntitySnapshotSource<TSettings>({
         channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
     });
-    const createPersistResource = (persistSnapshotStrategy: TKeyValueSnapshotStrategy<TSettings>) =>
-        new OIMPersistResourceSnapshot<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSettings, TSettings>({
+    const createPersistResource = (persistSnapshotService: TKeyValueSnapshotStrategy<TSettings>) =>
+        new OIMPersistSnapshotResource<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSettings, TSettings>({
             persistSnapshotSource,
-            persistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+            persistSnapshotService,
+            persistCodec: new OIMPersistIdentityCodec<TSettings>(),
         });
     return { singleEntityService, singleEntityStoreSlot, createPersistResource };
 }
@@ -124,9 +119,9 @@ describe('@oimdb/persist-localstorage', () => {
         const users = buildUsers(new OIMDB());
         const persistor = createPersistor(persistKeyValueItemStorage);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
         await persistor.persist();
 
         const item = persistKeyValueItemStorage.getItem('app:users');
@@ -139,15 +134,15 @@ describe('@oimdb/persist-localstorage', () => {
         const sourceUsers = buildUsers(new OIMDB());
         const sourcePersistor = createPersistor(persistKeyValueItemStorage);
         sourcePersistor.addPersistResource(sourceUsers.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
-        sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+        sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
         await sourcePersistor.persist();
 
         const targetUsers = buildUsers(new OIMDB());
         const targetPersistor = createPersistor(persistKeyValueItemStorage);
         targetPersistor.addPersistResource(targetUsers.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         await targetPersistor.hydrate();
 
@@ -155,23 +150,23 @@ describe('@oimdb/persist-localstorage', () => {
     });
 
     test('a versioned codec envelope is what web storage holds, and it decodes on hydrate', async () => {
-        const persistCodecVersioned = new OIMPersistCodecVersioned<TUserRecords, TUserRecords>({
+        const persistVersionedCodec = new OIMPersistVersionedCodec<TUserRecords, TUserRecords>({
             version: 1,
             migrations: {},
-            persistCodec: new OIMPersistCodecIdentity<TUserRecords>(),
+            persistCodec: new OIMPersistIdentityCodec<TUserRecords>(),
         });
-        const createVersionedResource = (users: ReturnType<typeof buildUsers>) => new OIMPersistResourceSnapshot<
+        const createVersionedResource = (users: ReturnType<typeof buildUsers>) => new OIMPersistSnapshotResource<
             OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TUserRecords, TOIMPersistVersionedShape
         >({
             persistSnapshotSource: users.persistRecordSource,
-            persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TOIMPersistVersionedShape>({ storageKey: 'app:users' }),
-            persistCodec: persistCodecVersioned,
+            persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TOIMPersistVersionedShape>({ storageKey: 'app:users' }),
+            persistCodec: persistVersionedCodec,
         });
         const persistKeyValueItemStorage = createPersistKeyValueItemStorage();
         const sourceUsers = buildUsers(new OIMDB());
         const sourcePersistor = createPersistor(persistKeyValueItemStorage);
         sourcePersistor.addPersistResource(createVersionedResource(sourceUsers));
-        sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+        sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
         await sourcePersistor.persist();
 
         expect(parsedItemOf(persistKeyValueItemStorage, 'app:users')).toEqual({
@@ -192,12 +187,12 @@ describe('@oimdb/persist-localstorage', () => {
         const users = buildUsers(new OIMDB());
         const persistor = createPersistor(persistKeyValueItemStorage);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         persistor.start();
 
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...grace });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...grace }).id, { ...grace });
         expect(persistKeyValueItemStorage.getItem('app:users')).toBeNull();
 
         await Promise.resolve();
@@ -214,9 +209,9 @@ describe('@oimdb/persist-localstorage', () => {
         const users = buildUsers(new OIMDB());
         const persistor = createPersistor(persistKeyValueItemStorage);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
         await persistor.persist();
         expect(persistKeyValueItemStorage.getItem('app:users')).not.toBeNull();
 
@@ -230,31 +225,31 @@ describe('@oimdb/persist-localstorage', () => {
         const sourceSettings = buildSettings(new OIMDB(), { theme: 'dark' });
         const sourcePersistor = createPersistor(persistKeyValueItemStorage);
         sourcePersistor.addPersistResource(sourceSettings.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TSettings>({ storageKey: 'app:settings' }),
+            new OIMPersistKeyValueEntrySnapshotService<TSettings>({ storageKey: 'app:settings' }),
         ));
         await sourcePersistor.persist();
 
         const targetSettings = buildSettings(new OIMDB(), { theme: '' });
         const targetPersistor = createPersistor(persistKeyValueItemStorage);
         targetPersistor.addPersistResource(targetSettings.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TSettings>({ storageKey: 'app:settings' }),
+            new OIMPersistKeyValueEntrySnapshotService<TSettings>({ storageKey: 'app:settings' }),
         ));
         await targetPersistor.hydrate();
 
-        expect(targetSettings.singleEntityService.slotContentService.findEntityByKey(targetSettings.singleEntityStoreSlot, undefined)).toEqual({ theme: 'dark' });
+        expect(targetSettings.singleEntityService.findSingleSlot(targetSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
     });
 
     test('a removed resource is written neither by autosave nor by persist', async () => {
         const persistKeyValueItemStorage = createPersistKeyValueItemStorage();
         const users = buildUsers(new OIMDB());
         const persistor = createPersistor(persistKeyValueItemStorage);
-        const persistResourceSnapshot = persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+        const persistSnapshotResource = persistor.addPersistResource(users.createPersistResource(
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         persistor.start();
-        persistor.removePersistResource(persistResourceSnapshot);
+        persistor.removePersistResource(persistSnapshotResource);
 
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
         await Promise.resolve();
         await persistor.whenIdle();
         await persistor.persist();
@@ -269,9 +264,9 @@ describe('@oimdb/persist-localstorage', () => {
             const sourceUsers = buildUsers(new OIMDB());
             const sourcePersistor = createPersistor(persistKeyValueItemStorage);
             sourcePersistor.addPersistResource(sourceUsers.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'app', path: ['collections', 'users'] }),
+                new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'app', path: ['collections', 'users'] }),
             ));
-            sourceUsers.entityService.slotContentService.upsertEntities(sourceUsers.entityStoreSlot,[{ ...ada }, { ...grace }]);
+            sourceUsers.entityService.writeInBatch(sourceUsers.entityStoreSlot, () => ([{ ...ada }, { ...grace }]).map(entity => sourceUsers.entityService.writeSlotContentByKey(sourceUsers.entityStoreSlot, entity.id, entity)));
             await sourcePersistor.persist();
 
             expect(parsedItemOf(persistKeyValueItemStorage, 'app')).toEqual({
@@ -281,7 +276,7 @@ describe('@oimdb/persist-localstorage', () => {
             const targetUsers = buildUsers(new OIMDB());
             const targetPersistor = createPersistor(persistKeyValueItemStorage);
             targetPersistor.addPersistResource(targetUsers.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'app', path: ['collections', 'users'] }),
+                new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'app', path: ['collections', 'users'] }),
             ));
             await targetPersistor.hydrate();
 
@@ -295,12 +290,12 @@ describe('@oimdb/persist-localstorage', () => {
             const settings = buildSettings(db, { theme: 'dark' });
             const persistor = createPersistor(persistKeyValueItemStorage);
             persistor.addPersistResource(users.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'app', path: ['users'] }),
+                new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'app', path: ['users'] }),
             ));
             persistor.addPersistResource(settings.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: ['settings'] }),
+                new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: ['settings'] }),
             ));
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await persistor.persist();
 
             expect(parsedItemOf(persistKeyValueItemStorage, 'app')).toEqual({
@@ -316,12 +311,12 @@ describe('@oimdb/persist-localstorage', () => {
             const settings = buildSettings(db, { theme: 'dark' });
             const persistor = createPersistor(persistKeyValueItemStorage);
             persistor.addPersistResource(users.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'app', path: ['users'] }),
+                new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'app', path: ['users'] }),
             ));
             persistor.addPersistResource(settings.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: ['settings'] }),
+                new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: ['settings'] }),
             ));
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await persistor.persist();
 
             await persistor.clearPersisted();
@@ -338,9 +333,9 @@ describe('@oimdb/persist-localstorage', () => {
             const users = buildUsers(new OIMDB());
             const persistor = createPersistor(persistKeyValueItemStorage, error => errors.push(error));
             persistor.addPersistResource(users.createPersistResource(
-                new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+                new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
             ));
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await persistor.persist();
 
             expect(errors).toEqual([]);
@@ -354,9 +349,9 @@ describe('@oimdb/persist-localstorage', () => {
             const users = buildUsers(new OIMDB());
             const persistor = createPersistor(persistKeyValueItemStorage, error => errors.push(error));
             persistor.addPersistResource(users.createPersistResource(
-                new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'app', path: ['users'] }),
+                new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'app', path: ['users'] }),
             ));
-            users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ ...ada });
+            users.entityService.writeSlotContentByKey(users.entityStoreSlot, ({ ...ada }).id, { ...ada });
             await persistor.persist();
 
             expect(errors).toHaveLength(1);

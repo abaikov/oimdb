@@ -1,10 +1,12 @@
-import { OIMContentChangeListenerService, OIMDB, createOIMEntityService } from '../../../index';
+import { OIMContentChangeListenerService, OIMDB } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; note: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     const calls: string[] = [];
     OIMContentChangeListenerService.INSTANCE.addContentChangeListener(cards, {
@@ -13,7 +15,7 @@ const createFixture = () => {
             for (let i = 0; i < entitySlotChannelQueue.getEntryCount(); i++) calls.push(String(entitySlotChannelQueue.getEntryAt(i).key));
         },
     }, ['deck']);
-    const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', note: 'a' });
+    const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', note: 'a' });
     calls.length = 0;
     return { db, cardsService, cards, card, calls };
 };
@@ -30,17 +32,17 @@ describe('a write to a column no listener reads', () => {
     it('calls no listener on a whole-entity put that moves only that column', () => {
         const { cardsService, cards, calls } = createFixture();
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', note: 'c' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', note: 'c' });
 
         expect(calls).toEqual([]);
     });
 
     it('calls no listener for such writes in a many-entity door either', () => {
         const { cardsService, cards, calls } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c2', deck: 'd1', note: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'd1', note: 'a' });
         calls.length = 0;
 
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', deck: 'd1', note: 'x' }, { id: 'c2', deck: 'd1', note: 'y' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'd1', note: 'x' }, { id: 'c2', deck: 'd1', note: 'y' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
         expect(calls).toEqual([]);
     });
@@ -56,8 +58,8 @@ describe('a write to a column no listener reads', () => {
     it('still calls it for a write that fills or clears an entity, which names no columns', () => {
         const { cardsService, cards, calls } = createFixture();
 
-        const filled = cardsService.slotContentService.upsertEntity(cards, { id: 'c9', deck: 'd1', note: 'a' });
-        cardsService.slotContentService.deleteEntity(filled);
+        const filled = cardsService.writeSlotContentByKey(cards, 'c9', { id: 'c9', deck: 'd1', note: 'a' });
+        cardsService.slotContentService.clearSlotContent(filled);
 
         expect(calls).toEqual(['c9', 'c9']);
     });

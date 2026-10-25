@@ -1,20 +1,20 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = (withCommands: boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     const bucketCommands = withCommands ? new OIMBucketCommands({}) : undefined;
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({ bucketCommands });
-    const decksService = createOIMBucketService(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
     return { cardsService, cards, membersService, decksService, decks, bucketCommands };
 };
@@ -24,7 +24,7 @@ describe('what a recorder nobody reads any more leaves', () => {
         const fixture = createFixture(false);
         const spades = fixture.decksService.holdSlotByKey(fixture.decks, 'spades');
         fixture.membersService.insertBucketMemberSlotAt(
-            spades, 0, fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'ace' }),
+            spades, 0, fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'ace' }),
         );
         expect(spades.commands).toBeUndefined();
         expect(spades.isWholeListRecorded).toBe(false);

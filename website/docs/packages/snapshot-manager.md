@@ -30,12 +30,12 @@ Each job such a list is taken for has a door that exists for that job,
 and each of those doors belongs to the consumer that opens it.
 
 ```ts setup
-import { OIMDB, createOIMEntityService, type TOIMStoreKey } from '@oimdb/core';
+import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMContentChangeListenerService, OIMChannelService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 ```
 
@@ -43,7 +43,7 @@ const cards = cardService.createStoreSlot(db);
 
 | You want to know… | Use | Documented at |
 |---|---|---|
-| which keys to write to storage | `@oimdb/persist`: `OIMPersistEntityWriter` reports every entity slot it writes to whoever called its `subscribeEntitySlotWritten(onEntitySlotWritten)`, and an `OIMPersistResourceRecords` over `OIMPersistRecordSourceCollectionWriteDriven` keeps those slots until the persistor's next write batch takes them. It needs no channel. | [Persist](/docs/packages/persist) |
+| which keys to write to storage | `@oimdb/persist`: `OIMPersistEntityWriter` reports every entity slot it writes to whoever called its `subscribeEntitySlotWritten(onEntitySlotWritten)`, and an `OIMPersistRecordsResource` over `OIMPersistCollectionWriteRecordSource` keeps those slots until the persistor's next write batch takes them. It needs no channel. | [Persist](/docs/packages/persist) |
 | that one entity, bucket or derived value changed | an effect: `OIMEffectService.INSTANCE.createEffect(db, [slot], [], body)` | [Reading and subscribing](/docs/core/reading-subscribing#subscribing-is-building-an-effect) |
 | which entities of a collection changed during a frame | a content-change listener on the collection's store slot, read at the frame boundary | below, and [Indexes](/docs/core/oimindex#the-content-change-hook-and-indexkeys) |
 | whether a slot moved since a point you remember | the slot's own stamps, `changedAtRevision` and `changedAtEpoch`, against `db.clock` (`oimIsAnySlotChangedAfter`) | [The clock](/docs/core/channel#the-clock) |
@@ -58,7 +58,6 @@ boundary. The set below is yours, so clearing it after reading takes nothing
 away from anybody else:
 
 ```typescript
-import { OIMChannelService, OIMContentChangeListenerService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 const movedInFrame = new Set<TOIMStoreKey>();
 const movedListener: IOIMContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
@@ -73,7 +72,7 @@ const stopReporting = OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defa
     movedInFrame.clear();
 });
 
-cardService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'Ace' });
+cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace' });
 db.flush();   // logs ['c1']
 
 stopReporting();

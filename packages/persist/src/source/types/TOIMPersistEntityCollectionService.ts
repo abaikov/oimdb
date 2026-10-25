@@ -1,12 +1,11 @@
 import type {
-    OIMColumnOwnerPushDriven, OIMSlotCollectionService, OIMSlotContentEntityService, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey,
+    OIMPushColumnSlotOwner, OIMSlotContentEntityService, OIMWritableSlotCollectionService, TOIMColumnSlot, TOIMEntitySlot,
 } from '@oimdb/core';
 
-export type TOIMPersistEntityCollectionService<TKey extends TOIMStoreKey, TEntity extends object, TStore> = Pick<
-    OIMSlotCollectionService<
-        TKey, TOIMEntitySlot<TEntity, TKey>, TStore,
-        Pick<OIMSlotContentEntityService<TEntity, TKey, TStore>, 'upsertEntities' | 'deleteEntity' | 'deleteEntities'>,
-        string, TOIMColumnSlot, OIMColumnOwnerPushDriven, Partial<TEntity>
+export type TOIMPersistEntityCollectionService<TKey extends NonNullable<unknown>, TEntity extends object, TStore> = Pick<
+    OIMWritableSlotCollectionService<
+        TKey, TOIMEntitySlot<TEntity, TKey>, TStore, TEntity, OIMSlotContentEntityService<TEntity, TKey>,
+        string, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
     >,
-    'getSlots' | 'findSlotByKey' | 'slotContentService'
+    'getSlots' | 'findSlotByKey' | 'writeSlotContentByKey' | 'writeInBatch' | 'slotContentService'
 >;

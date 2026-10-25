@@ -14,7 +14,7 @@ delivery of every write made since the previous one (see the
 [glossary](/docs/core/model#glossary)).
 
 ```ts setup
-import { OIMChannelService, OIMDB, OIMEffectService, createOIMEntityService, type TOIMStoreKey } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMEffectService, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService, createOIMSlotCollectionIndexService, createOIMComputedService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMContentChangeListenerService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; deckId: string; title: string; rank: number };
 
@@ -24,7 +24,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -44,7 +44,7 @@ const aceEffect = effectService.createEffectImmediate(db, [aceSlot], [], () => {
     render(aceSlot.entity?.title);
 });
 
-cardContentService.upsertEntity(cards, { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
+cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
 db.flush();
 
 effectService.disposeEffect(aceEffect);
@@ -70,9 +70,9 @@ Take: `cardService.holdColumn(slot, columnName)` for the column slot, and
 runs its body on every column.
 
 ```ts
-const kingSlot = cardContentService.upsertEntity(cards, { id: 'k', deckId: 'hearts', title: 'King', rank: 13 });
+const kingSlot = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', deckId: 'hearts', title: 'King', rank: 13 });
 
-const rankColumn = cardService.holdColumn(kingSlot, 'rank');
+const rankColumn = cardService.columnSlotService.holdColumn(kingSlot, 'rank');
 const rankEffect = effectService.createEffect(db, [rankColumn], [], () => {
     render(kingSlot.entity?.rank);
 });
@@ -82,14 +82,14 @@ cardContentService.updateEntity(kingSlot, { rank: 12 });
 db.flush();
 
 effectService.disposeEffect(rankEffect);
-cardService.unholdColumn(rankColumn);
+cardService.columnSlotService.unholdColumn(rankColumn);
 ```
 
 Why this way: a column slot is its own identity, filed under its carrier
 slot, and a write marks only the column slots of the columns it changed — the
 title update above does not wake the body. The column slot holds no value; what
 moved is read from the entity slot you already have. The column name is checked
-against the collection's column-name type: `createOIMEntityService` sets it to
+against the collection's column-name type: `createOIMSlotCollectionService` sets it to
 `TOIMEntityColumnName<TEntity>`, so a misspelt name does not compile. While the carrier has a column slot, the
 carrier is kept.
 
@@ -97,7 +97,7 @@ Reference: [Subscribing to one column](/docs/core/reading-subscribing#subscribin
 
 ## A derived value
 
-Take: `createOIMComputedService<void, V, …>` with `OIMSlotStoreServiceSingleSlotDriven.INSTANCE` as
+Take: `createOIMComputedService<void, V, …>` with `OIMSingleSlotStoreService.INSTANCE` as
 its `computedSlotStoreService`, and its `createComputedStoreSlot(db, derive, createSources)`, for one value
 with no key; `createOIMComputedService<K, V>` and its `createComputedStoreSlot(db)` for one value per key.
 Both are read through `computedCollectionService`, the single one with the key `undefined`, and the value through
@@ -105,22 +105,14 @@ the slot — `slot.computedValueService.getValueForSlot(slot)`. Outside an effec
 `computedSlot.value` is whatever the last read left there and settles nothing.
 
 ```ts
-import {
-    OIMSlotStoreServiceSingleSlotDriven,
-    createOIMComputedService,
-    createOIMIndexService,
-    type TOIMComputedSlot,
-    type TOIMSingleSlotStore,
-} from '@oimdb/core';
+import { OIMSingleSlotStoreService, type TOIMComputedSlot, type TOIMSingleSlotStore } from '@oimdb/core';
 
-const cardsByDeckService = createOIMIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deckId });
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deckId });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');
 
-const spadesCountService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
+const spadesCountService = createOIMSingleComputedService<number>({
     initialValue: 0,
-    computedSlotStoreService:
-        OIMSlotStoreServiceSingleSlotDriven.INSTANCE as unknown as OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>,
 });
 const spadesCount = spadesCountService.createComputedStoreSlot(
     db,
@@ -128,13 +120,13 @@ const spadesCount = spadesCountService.createComputedStoreSlot(
     () => ({ sourceSlots: [spades] }),
 );
 
-const spadesCountSlot = spadesCountService.computedCollectionService.holdSlotByKey(spadesCount, undefined);
+const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
 const countEffect = effectService.createEffectImmediate(db, [], [spadesCountSlot], () => {
     render(spadesCountSlot.computedValueService.getValueForSlot(spadesCountSlot));
 });
 
 const cardLabelService = createOIMComputedService<TOIMStoreKey, string>({
-    createSources: (id: TOIMStoreKey) => ({ sourceSlots: [cardService.getSlotByKey(cards, id)] }),
+    createSources: ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
     derive: (computedSlot) => {
         const card = cardService.getSlotByKey(cards, computedSlot.key).entity;
         return card === undefined ? '' : `${card.title} #${card.rank}`;
@@ -157,7 +149,7 @@ before running, asks the computed, which re-derives only if one of its sources
 moved. A re-derived value that the computed's `sameValueGuard` calls equal to the
 previous one (`Object.is` when none is given) keeps the effect asleep. The
 service and its store slot hold nothing; the computed slot minted through them holds its sources, and under
-the computed default `OIMSlotReleasePolicyAtUnhold` it goes at its last unhold, or
+the computed default `OIMSlotAtUnholdReleasePolicy` it goes at its last unhold, or
 at the next flush when it was only read. Keep the service and the store slot; the next read mints a
 fresh slot. In `createSources`, resolve with `getSlotByKey`, not `holdSlotByKey`:
 the computed slot takes and gives back its own holds on the sources.
@@ -167,27 +159,23 @@ Reference: [The compute graph](/docs/core/computed-effects),
 
 ## Many writes, one delivery
 
-Take: nothing extra — write, then let one flush deliver. Open a subframe with
-`openSubframe(channelSlot)` / `closeSubframe(channelSlot)` only when several writes must
-count as one change even if something between them asks for a frame. A flush per
-write defeats the batching.
+Take: nothing extra — write, then let one flush deliver. A flush per write defeats the batching. For a
+load, wrap the loop in `cardService.writeInBatch(cards, () => { … })`, so an index on the collection hears
+the whole loop in one call.
 
 ```ts
 let runs = 0;
-const jack = cardContentService.upsertEntity(cards, { id: 'j', deckId: 'clubs', title: 'Jack', rank: 11 });
+const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', deckId: 'clubs', title: 'Jack', rank: 11 });
 const jackEffect = effectService.createEffect(db, [jack], [], () => { runs++; });
 
 cardContentService.updateEntity(jack, { title: 'Jack of clubs' });
 cardContentService.updateEntity(jack, { rank: 10 });
 db.flush();
 
-channelService.openSubframe(channelSlot);
-try {
+cardService.writeInBatch(cards, () => {
     cardContentService.updateEntity(jack, { rank: 11 });
-    cardContentService.upsertEntity(cards, { id: 't', deckId: 'clubs', title: 'Ten', rank: 10 });
-} finally {
-    channelService.closeSubframe(channelSlot);
-}
+    cardService.writeSlotContentByKey(cards, 't', { id: 't', deckId: 'clubs', title: 'Ten', rank: 10 });
+});
 db.flush();
 
 effectService.disposeEffect(jackEffect);
@@ -201,7 +189,7 @@ zero, and `flush()` inside it throws. Batch writes such as `upsertEntities` open
 subframe of their own.
 
 Reference: [The frame](/docs/core/channel#the-frame),
-[The subframe](/docs/core/channel#the-subframe).
+[Batches](/docs/core/channel#batches).
 
 ## Flush automatically
 
@@ -249,11 +237,11 @@ const queenEffect = effectService.createEffect(db, [queen], [], () => {
 
 const stopArchiving = channelService.subscribeAfterEachFlush(channelSlot, () => {
     const archived = [...toArchive].flatMap((key) => cardService.findSlotByKey(cards, key) ?? []);
-    cardContentService.deleteEntities(cards, archived);
+    cardService.writeInBatch(cards, () => { for (const entitySlot of archived) cardService.slotContentService.clearSlotContent(entitySlot); });
     toArchive.clear();
 });
 
-cardContentService.upsertEntity(cards, { id: 'q', deckId: 'hearts', title: 'Queen', rank: 0 });
+cardService.writeSlotContentByKey(cards, 'q', { id: 'q', deckId: 'hearts', title: 'Queen', rank: 0 });
 db.flush();
 db.flush();
 
@@ -303,28 +291,27 @@ Reference: [A body may hand back its own undo](/docs/core/reading-subscribing#a-
 ## Route errors from effects
 
 Take: an `errorPolicy` in the `OIMDB` options —
-`OIMErrorPolicyLogAndContinue({ onError })` to report and go on (the default,
-without `onError`), `OIMErrorPolicyThrowAtOnce` in tests. A try/catch inside
+`OIMLogAndContinueErrorPolicy({ onError })` to report and go on (the default,
+without `onError`), `OIMThrowAtOnceErrorPolicy` in tests. A try/catch inside
 every effect body is unnecessary.
 
 ```ts
-import { OIMErrorPolicyLogAndContinue, OIMErrorPolicyThrowAtOnce } from '@oimdb/core';
 
 declare function report(error: unknown): void;
 
 const reportingDb = new OIMDB({
-    errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: (error) => { report(error); } }),
+    errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: (error) => { report(error); } }),
 });
 
-const strictDb = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+const strictDb = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
 ```
 
 Why this way: during a flush, every effect run (the body and the cleanup the
 previous run returned), `onBeforeFlush`, and every after-each-frame and
 after-each-flush handler runs inside a try/catch that hands the throw to the
 policy. The first run of `createEffectImmediate` is not inside a flush: its throw
-reaches the caller. `OIMErrorPolicyLogAndContinue` calls `console.error`, then `onError`,
-and the frame goes on. `OIMErrorPolicyThrowAtOnce` throws the first error out of
+reaches the caller. `OIMLogAndContinueErrorPolicy` calls `console.error`, then `onError`,
+and the frame goes on. `OIMThrowAtOnceErrorPolicy` throws the first error out of
 `flush()`, and the effects not yet reached wait for the next flush. In either mode an
 effect counts as having run only after its body returns, so a body that threw takes
 the same change again at its next wake. A policy is
@@ -339,7 +326,6 @@ keys, and `subscribeAfterEachFrame(channelSlot, handler)` to read them at the fr
 entity cannot do this, because an entity written for the first time has no effect on it yet.
 
 ```ts
-import { OIMContentChangeListenerService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 const changedInFrame = new Set<TOIMStoreKey>();
 const changedListener: IOIMContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
@@ -354,10 +340,10 @@ const stopReporting = channelService.subscribeAfterEachFrame(channelSlot, () => 
     changedInFrame.clear();
 });
 
-cardContentService.upsertEntities(cards, [
+cardService.writeInBatch(cards, () => ([
     { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 },
     { id: 'c2', deckId: 'spades', title: 'Two', rank: 2 },
-]);
+]).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
 db.flush();
 
 stopReporting();

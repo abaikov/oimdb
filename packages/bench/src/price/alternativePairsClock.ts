@@ -1,5 +1,5 @@
 // Prose: ./README.md#alternativepairsclock
-import { OIMSlotStoreServiceMapDriven, createOIMComputedService, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMSlotMapStoreService, createOIMComputedService, oimSameValueZeroGuard } from '../../../core/src/index';
 import type { OIMComputedService, OIMDB, TOIMComputedColumnSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -64,21 +64,21 @@ const ourDerivations = (
     const sourcesByDerivation: TRowSlot[][] = [];
     for (let k = 0; k < DERIVATIONS; k++) sourcesByDerivation.push(sourcesOf(slots, k, fanIn));
     const sumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedSlot<number, number>, number>(),
+        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
         sameValueGuard: oimSameValueZeroGuard,
         initialValue: 0,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const sumComputedCollectionService = sumComputedService.computedCollectionService;
     const sumComputedStoreSlot = sumComputedService.createComputedStoreSlot(
         db,
         computedSlot => sumOfRanks(sourcesByDerivation[computedSlot.key]),
-        k => ({ sourceSlots: sourcesByDerivation[k] }),
+        ({ key: k }) => ({ sourceSlots: sourcesByDerivation[k] }),
     );
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
     for (let k = 0; k < DERIVATIONS; k++) {
         const sumSlot = sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, k);
-        priceSink.number = sumComputedCollectionService.slotContentService.getValueForSlot(sumSlot);
+        priceSink.number = sumSlot.computedValueService.getValueForSlot(sumSlot);
         sumSlots.push(sumSlot);
     }
     return { sumComputedService, sumSlots };
@@ -95,9 +95,9 @@ const floorDerivations = (slots: readonly TRowSlot[], fanIn: number): PerSlotDer
 };
 
 const assertSameAnswers = (ours: TOurDerivations, floor: readonly PerSlotDerived[]): void => {
-    const { sumComputedService, sumSlots } = ours;
+    const { sumSlots } = ours;
     for (let k = 0; k < sumSlots.length; k++) {
-        const ourSum = sumComputedService.computedCollectionService.slotContentService.getValueForSlot(sumSlots[k]);
+        const ourSum = sumSlots[k].computedValueService.getValueForSlot(sumSlots[k]);
         if (ourSum === floor[k].value) continue;
         throw new Error(
             `alternativePairsClock: derivation ${k} reads ${ourSum} on the shipped clock ` +
@@ -137,8 +137,8 @@ const buildRead = (fanIn: number, writesUnrelatedRow: boolean) => {
         };
     };
 
-    const { sumComputedService, sumSlots } = ours;
-    const computedValueService = sumComputedService.computedCollectionService.slotContentService;
+    const { sumSlots } = ours;
+    const computedValueService = sumSlots[0].computedValueService;
     const oursSide: TPriceSide = {
         reset: () => undefined,
         run: pass(ourFixture, at => computedValueService.getValueForSlot(sumSlots[at])),

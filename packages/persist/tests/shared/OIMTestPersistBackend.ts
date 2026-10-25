@@ -1,7 +1,7 @@
 import type {
     IOIMPersistBackend,
-    IOIMPersistRecordsStrategy,
-    IOIMPersistSnapshotStrategy,
+    IOIMPersistRecordsService,
+    IOIMPersistSnapshotService,
     IOIMPersistWriteBatch,
     TOIMPersistRecords,
     TOIMPersistRecordsDelta,
@@ -30,7 +30,7 @@ class OIMTestPersistWriteBatch<TKey, TEntity extends object> implements IOIMPers
 }
 
 class OIMTestPersistSnapshotStrategy<TKey, TEntity extends object, TSnapshot>
-implements IOIMPersistSnapshotStrategy<OIMTestPersistBackend<TKey, TEntity>, OIMTestPersistWriteBatch<TKey, TEntity>, TSnapshot> {
+implements IOIMPersistSnapshotService<OIMTestPersistBackend<TKey, TEntity>, OIMTestPersistWriteBatch<TKey, TEntity>, TSnapshot> {
     public readonly writtenSnapshots: TSnapshot[] = [];
     private readonly testPersistBackend: OIMTestPersistBackend<TKey, TEntity>;
     private readonly storageKey: string;
@@ -121,7 +121,7 @@ implements IOIMPersistBackend<OIMTestPersistWriteBatch<TKey, TEntity>> {
         });
     }
 
-    public createRecordsStrategy(): IOIMPersistRecordsStrategy<
+    public createRecordsStrategy(): IOIMPersistRecordsService<
         OIMTestPersistBackend<TKey, TEntity>, OIMTestPersistWriteBatch<TKey, TEntity>, TKey, TEntity
     > {
         return {

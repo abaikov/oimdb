@@ -25,7 +25,7 @@ describe('watching a collection does not pin its identities', () => {
     test('a removed row is released once the adapter has reported it, however many rows come and go', () => {
         const { db, usersService, users, reducer } = buildAdapter();
 
-        usersService.slotContentService.upsertEntities(users, [{ id: '1', name: 'Alice' }, { id: '2', name: 'Bob' }]);
+        usersService.writeInBatch(users, () => ([{ id: '1', name: 'Alice' }, { id: '2', name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
         let state = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
         expect(Object.keys(state!.entities).sort()).toEqual(['1', '2']);
@@ -57,7 +57,7 @@ describe('watching a collection does not pin its identities', () => {
         // Releasing on report is the steady state, not a one-off: fifty rows
         // arriving and leaving one after another accumulate nothing.
         for (let i = 0; i < 50; i++) {
-            usersService.slotContentService.upsertEntity(users, { id: `u${i}`, name: `n${i}` });
+            usersService.writeSlotContentByKey(users, `u${i}`, { id: `u${i}`, name: `n${i}` });
             db.flush();
             state = reducer(state!, { type: EOIMReduxReducerActionType.UPDATE });
             deleteEntityByKey(usersService, users,`u${i}`);
@@ -75,7 +75,7 @@ describe('a store attached after the fact', () => {
 
         // Writes land while the store does not exist yet — Redux's own creation
         // order makes this the normal case, not an edge one.
-        usersService.slotContentService.upsertEntities(users, [{ id: '1', name: 'Alice' }]);
+        usersService.writeInBatch(users, () => ([{ id: '1', name: 'Alice' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const dispatched: string[] = [];

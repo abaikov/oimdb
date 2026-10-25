@@ -1,10 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import type { IOIMSlotEmptiness } from '../interfaces/IOIMSlotEmptiness';
+import type { IOIMSlotEmptinessPolicy } from '../interfaces/IOIMSlotEmptinessPolicy';
 import type { IOIMSlotStamp } from '../interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
@@ -14,14 +15,11 @@ const createFixture = () => {
     let stamped = 0;
     let asked = 0;
     const slotStamp: IOIMSlotStamp<TOIMSlot> = { stamp: () => { stamped++; } };
-    const emptiness: IOIMSlotEmptiness<TSlot> = {
+    const emptiness: IOIMSlotEmptinessPolicy<TSlot> = {
         isEmpty: slot => { asked++; return slot.entity === undefined; },
     };
     const db = new OIMDB({ slotStamp });
-    const rowsService = createOIMEntityService<TRow>(db, {
-        keyOf: row => row.id,
-        slotEmptiness: emptiness,
-    });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db, { slotEmptinessPolicy: emptiness }) });
     const rows = rowsService.createStoreSlot(db);
     return { rowsService, rows, stamps: () => stamped, emptinessAsks: () => asked };
 };
@@ -30,7 +28,7 @@ describe('what one insert stamps', () => {
     it('stamps the identity once for a key that had none', () => {
         const { rowsService, rows, stamps, emptinessAsks } = createFixture();
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
 
         expect(stamps()).toBe(1);
         expect(emptinessAsks()).toBe(1);
@@ -39,9 +37,9 @@ describe('what one insert stamps', () => {
     it('stamps once more for every later write on the same key', () => {
         const { rowsService, rows, stamps } = createFixture();
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 2 });
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 3 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 3 });
 
         expect(stamps()).toBe(3);
     });
@@ -52,7 +50,7 @@ describe('what one insert stamps', () => {
         rowsService.getSlotByKey(rows, 'r1');
         expect(stamps()).toBe(1);
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         expect(stamps()).toBe(2);
     });
 });

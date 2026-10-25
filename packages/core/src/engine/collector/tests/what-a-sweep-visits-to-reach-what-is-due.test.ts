@@ -1,9 +1,10 @@
 import { OIMDefaults } from '../../../factories/OIMDefaults';
-import { OIMReleaseSlotQueueService } from '../OIMReleaseSlotQueueService';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../OIMReleaseSlotCollectorServiceAfterIdle';
-import { createOIMReleaseSlotCollectorSlot } from '../utils/createOIMReleaseSlotCollectorSlot';
+import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
+import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
+import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE } from '../constants/OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE';
 import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
@@ -11,7 +12,7 @@ import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 
-type TSlicesThatCountVisits = Map<number, Set<TOIMSlot>> & { visits: number };
+type TSlicesThatCountVisits = Map<number, TOIMSlot[]> & { visits: number };
 
 const slotDueAt = (dueMs: number): TOIMSlotEditable<TOIMSlot> => ({
     effects: undefined,
@@ -32,8 +33,11 @@ const ownerThatOnRelease = (released: () => void): IOIMSlotOwner => ({
     holdSlot: () => undefined,
     unholdSlot: () => undefined,
     releaseSlotIfUnheld: released,
+    unsafeMutateSlot: () => undefined,
     subscribeToSlot: () => 0,
     unsubscribeFromSlot: () => false,
+    onSlotFirstSubscribed: () => undefined,
+    onSlotLastUnsubscribed: () => undefined,
 });
 
 const takenOffTheClock = (slot: TOIMSlotEditable<TOIMSlot>): void => {
@@ -42,12 +46,15 @@ const takenOffTheClock = (slot: TOIMSlotEditable<TOIMSlot>): void => {
 
 const createFixture =() => {
     let ms = 0;
-    const releaseSlotCollectorSlot = createOIMReleaseSlotCollectorSlot({
+    const slotReleaseWheel = new OIMSlotReleaseWheel({
         getNowMs: () => ms,
-        releaseTimer: () => () => undefined,
-        errorPolicy: OIMErrorPolicyLogAndContinue.INSTANCE,
+        timer: () => () => undefined,
+        errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
+        getReleaseDueMs: oimGetReleaseDueAfterIdleMs,
+        setReleaseDueMs: oimSetReleaseDueAfterIdleMs,
+        releaseScheduledSlotFlag: OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_IDLE,
     });
-    const slices = releaseSlotCollectorSlot.slotsBySliceNumber as TSlicesThatCountVisits;
+    const slices = (slotReleaseWheel as unknown as { slotsBySliceNumber: TSlicesThatCountVisits }).slotsBySliceNumber;
     slices.visits = 0;
     const get = slices.get.bind(slices);
     slices.get = (sliceNumber: number) => { slices.visits++; return get(sliceNumber); };
@@ -56,9 +63,7 @@ const createFixture =() => {
     const entries = slices[Symbol.iterator].bind(slices);
     slices[Symbol.iterator] = () => { slices.visits += slices.size; return entries(); };
     const scheduleSlotRelease = (slot: TOIMSlot): void => {
-        OIMReleaseSlotQueueService.INSTANCE.scheduleSlotRelease(
-            releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE, slot, releaseSlotCollectorSlot.getNowMs(),
-        );
+        slotReleaseWheel.scheduleSlotRelease(slot, slotReleaseWheel.getNowMs());
     };
     const fileOne = (dueMs: number): TOIMSlotEditable<TOIMSlot> => {
         const slot = slotDueAt(dueMs);
@@ -74,7 +79,7 @@ const createFixture =() => {
         return filed;
     };
     return {
-        releaseSlotCollectorSlot,
+        slotReleaseWheel,
         slices,
         scheduleSlotRelease,
         fileOne,
@@ -82,9 +87,7 @@ const createFixture =() => {
         at: (value: number): void => { ms = value; },
         sweepUpToSliceNumber: (upToSliceNumber: number): number => {
             slices.visits = 0;
-            OIMReleaseSlotQueueService.INSTANCE.releaseDueUpToSliceNumber(
-                releaseSlotCollectorSlot, OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE, upToSliceNumber,
-            );
+            slotReleaseWheel.sweepUpToSliceNumber(upToSliceNumber);
             return slices.visits;
         },
     };
@@ -127,7 +130,7 @@ describe('what a sweep visits to reach what is due', () => {
         fixture.sweepUpToSliceNumber(2);
 
         expect(filed.map(slot => oimIsSlotReleased(slot))).toEqual([true, true, true, false]);
-        expect(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(fixture.releaseSlotCollectorSlot)).toBe(3);
+        expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(3);
     });
 
     it('does not walk the gap when a long stall leaves the earliest filing far below the cut', () => {
@@ -147,7 +150,7 @@ describe('what a sweep visits to reach what is due', () => {
         fixture.sweepUpToSliceNumber(5);
         fixture.fileOne(2 * OIM_SLICE_LENGTH_MS);
 
-        expect(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(fixture.releaseSlotCollectorSlot)).toBe(2);
+        expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(2);
     });
 
     it('takes a re-filing made inside the pass only on a later pass', () => {
@@ -165,6 +168,6 @@ describe('what a sweep visits to reach what is due', () => {
 
         expect(oimIsSlotReleased(condemned)).toBe(true);
         expect(oimIsSlotReleased(refiled)).toBe(false);
-        expect(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(fixture.releaseSlotCollectorSlot)).toBe(1);
+        expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(1);
     });
 });

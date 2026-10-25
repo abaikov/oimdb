@@ -1,30 +1,30 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
-    const listService = createOIMBucketService(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
     const slotOf = (id: string): TCardSlot => {
-        cardsService.slotContentService.upsertEntity(cards, { id, title: id });
+        cardsService.writeSlotContentByKey(cards, id, { id, title: id });
         return cardsService.getSlotByKey(cards, id);
     };
     const writeContentByKey = (key: string, members: readonly TCardSlot[]): void => {
         const slot = listService.findSlotByKey(list, key);
-        if (slot !== undefined) membersService.writeBucketMemberSlots(slot, members);
+        if (slot !== undefined) membersService.writeSlotContent(slot, members);
     };
     return { db, membersService, bucket, slotOf, writeContentByKey };
 };

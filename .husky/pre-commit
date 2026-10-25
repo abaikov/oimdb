@@ -1,3 +1,4 @@
 # Lint only what is staged — fast enough to never tempt anyone into --no-verify.
 # The full suite is CI's job (see .github/workflows/ci.yml).
 npx lint-staged
+node scripts/check-version-bumped.mjs --staged

@@ -1,19 +1,18 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number; note?: string };
 type TCardSlot = TOIMEntitySlot<Card, TOIMStoreKey>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     const cards = cardsService.createStoreSlot(db);
     /** Allocated once and reused — the whole of the shape. */
     const changed: TCardSlot[] = [];
@@ -24,7 +23,7 @@ describe('a write that changed nothing says so', () => {
     it('names the row when the write put something in', () => {
         const { cardsService, cards, changed } = createFixture();
 
-        const first = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
 
         expect(changed).toHaveLength(1);
         expect(changed[0]).toBe(first);
@@ -32,12 +31,12 @@ describe('a write that changed nothing says so', () => {
 
     it('names nothing for a row re-sent with the values it already holds', () => {
         const { cardsService, cards, changed } = createFixture();
-        const first = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
         changed.length = 0;
 
         // A FRESHLY ALLOCATED ROW OF THE SAME VALUES, which is what a re-send is:
         // the caller cannot pre-filter it and neither can a reference check.
-        const again = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        const again = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
 
         expect(changed).toHaveLength(0);
         // AND THE IDENTITY STILL CAME BACK. Saying "nothing changed" must not
@@ -49,26 +48,26 @@ describe('a write that changed nothing says so', () => {
 
     it('names the row when one column changed', () => {
         const { cardsService, cards, changed } = createFixture();
-        const first = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 });
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
         expect(changed).toHaveLength(0);
 
-        expect(cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 2 }, changed)).toBe(first);
+        expect(cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 2 }, changed)).toBe(first);
         expect(changed).toHaveLength(1);
         expect(changed[0]).toBe(first);
     });
 
     it('names the row when a column left', () => {
         const { cardsService, cards, changed } = createFixture();
-        const first = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1, note: 'x' });
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1, note: 'x' });
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
         expect(changed).toHaveLength(1);
         expect(changed[0]).toBe(first);
         expect(first.entity).toEqual({ id: 'a', deck: 'red', rank: 1 });
 
         // And re-sending THAT is a write that changed nothing again.
         changed.length = 0;
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
         expect(changed).toHaveLength(0);
     });
 
@@ -79,18 +78,18 @@ describe('a write that changed nothing says so', () => {
      */
     it('collects a batch into one array, holding only what was not already there', () => {
         const { cardsService, cards, changed } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'a', deck: 'red', rank: 1 },
             { id: 'b', deck: 'red', rank: 2 },
             { id: 'c', deck: 'blue', rank: 3 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         expect(changed).toHaveLength(0);
 
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'a', deck: 'red', rank: 1 },
             { id: 'b', deck: 'red', rank: 9 },
             { id: 'c', deck: 'blue', rank: 3 },
-        ], changed);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity, changed)));
 
         expect(changed).toHaveLength(1);
         expect(changed[0]).toBe(cardsService.getSlotByKey(cards,'b'));
@@ -103,7 +102,7 @@ describe('a write that changed nothing says so', () => {
      */
     it('wakes nobody for the write it names as no change', () => {
         const { db, cardsService, cards, changed } = createFixture();
-        const first = cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 });
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
         db.flush();
 
         let runs = 0;
@@ -111,7 +110,7 @@ describe('a write that changed nothing says so', () => {
         db.flush();
         const before = runs;
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', deck: 'red', rank: 1 }, changed);
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 }, changed);
         db.flush();
 
         expect(changed).toHaveLength(0);
@@ -127,13 +126,11 @@ describe('a write that changed nothing says so', () => {
      */
     it('hands back a bucket it minted even when the slots it wrote changed nothing', () => {
         const db = new OIMDB();
-        const decksService = createOIMBucketService<
-            TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+        const decksService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
         const decks = decksService.createStoreSlot(db);
 
         const bucket = decksService.getSlotByKey(decks, 'd1');
-        const isChanged = decksService.slotContentService.writeBucketMemberSlots(bucket, []);
+        const isChanged = decksService.slotContentService.writeSlotContent(bucket, []);
 
         expect(isChanged).toBe(false);
         expect(decksService.getSlotByKey(decks, 'd1')).toBe(bucket);

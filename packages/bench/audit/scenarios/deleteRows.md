@@ -11,7 +11,7 @@ favours:
   - "Neutral on coalescing: `remove(ids)` is ONE binding call (scenarios.ts:1337-1340), so every adapter can wrap it in its library's batch."
 biases:
   - "The 32 removed rows are the lowest-ranked of group A, contiguous at the head of the sorted group (`plan.windowA`, scenarios.ts:1320, 1338; dataset.ts:794). For a splice-based ordered list that is the worst position (every remaining row shifts) and for a filter rebuild it is no different from any other; tilts against per-element splice designs. The removal in oimdb's ordered bucket is `indexOf` + `splice` (packages/core/src/engine/bucket/array/OIMBucketSlotsServiceArrayDriven.ts:58-63; `removeAt` :160-169)."
-  - "The class the script's comment cites, `OIMBucketServiceOrdered` (scenarios.ts:1307-1310), does not exist in core/src; the adapter uses `createOIMIndexServiceSortedArrayDriven` (adapters/oimdb.ts:14, 158)."
+  - "The class the script's comment cites, `OIMBucketServiceOrdered` (scenarios.ts:1307-1310), does not exist in core/src; the adapter uses `createOIMSlotCollectionSortedArrayIndexService` (adapters/oimdb.ts:14, 158)."
   - "`repeatable: false` (scenarios.ts:1328) gives one run per sample (cells/runBatch.ts:55); the timed region is short, so per-sample noise is a larger share."
 summary: "A real bulk-delete with a refill, positioned at the head of the order; read beside `deleteOneRow`, which now measures the single-row case."
 ---

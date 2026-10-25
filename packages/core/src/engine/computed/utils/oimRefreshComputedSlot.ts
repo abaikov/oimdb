@@ -1,4 +1,4 @@
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMChannelClock } from '../../channel/types/TOIMChannelClock';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
@@ -7,15 +7,15 @@ import { oimHasSourceChangedSinceLastRun } from './oimHasSourceChangedSinceLastR
 import { oimIsRevisionAfter } from '../../channel/utils/oimIsRevisionAfter';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 
-export function oimRefreshComputedSlot<TValue, TKey>(
-    computedSlot: TOIMComputedSlot<TValue, TKey>,
-    derive: (computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue,
+export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMComputedContentSlot<TValue>>(
+    computedSlot: TComputedSlot,
+    derive: (computedSlot: TComputedSlot) => TValue,
     sameValueGuard: TOIMSameValueGuard<TValue>,
     channelClock: TOIMChannelClock,
 ): void {
     if (computedSlot.isDeriving) return;
     if (computedSlot.checkedAtRevision === channelClock.revision && computedSlot.checkedAtEpoch === channelClock.epoch) return;
-    const computedSlotEditable = computedSlot as TOIMSlotEditable<TOIMComputedSlot<TValue, TKey>>;
+    const computedSlotEditable = computedSlot as TOIMSlotEditable<TOIMComputedContentSlot<TValue>>;
     oimRefreshSourceComputeds(computedSlot.sourceComputeds);
     if (computedSlot.ranAtRevision !== -1 && !oimHasSourceChangedSinceLastRun(computedSlot)) {
         computedSlotEditable.checkedAtRevision = channelClock.revision;

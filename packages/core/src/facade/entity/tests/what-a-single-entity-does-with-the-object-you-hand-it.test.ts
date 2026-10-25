@@ -1,9 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { oimInsertEntityWithCopy } from '../../../engine/entity/utils/oimInsertEntityWithCopy';
 import { oimInsertEntityWithSanitizedCopy } from '../../../engine/entity/utils/oimInsertEntityWithSanitizedCopy';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TSettings = { theme: string; sidebar: boolean };
 
@@ -11,9 +12,9 @@ describe('the object a caller hands a single entity, by default', () => {
     it('is the stored one, so mutating it afterwards changes what is stored', () => {
         const db = new OIMDB();
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleEntityService<TSettings>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, mine);
+        settingsService.writeSingleSlotContent(settings, mine);
 
         expect(settingsService.getSingleSlot(settings).entity).toBe(mine);
 
@@ -26,9 +27,9 @@ describe('the object a caller hands a single entity, by default', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleEntityService<TSettings>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, mine);
+        settingsService.writeSingleSlotContent(settings, mine);
 
         let woken = 0;
         effectService.createEffect(db, [settingsService.getSingleSlot(settings)], [], () => { woken++; });
@@ -45,9 +46,9 @@ describe('the object a caller hands a single entity, by default', () => {
     it('is stored with its own __proto__ key, because no copy ran over it', () => {
         const db = new OIMDB();
         const payload = JSON.parse('{"theme":"dark","sidebar":true,"__proto__":{"polluted":true}}') as TSettings;
-        const settingsService = createOIMSingleEntityService<TSettings>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, payload);
+        settingsService.writeSingleSlotContent(settings, payload);
 
         expect(settingsService.getSingleSlot(settings).entity).toBe(payload);
     });
@@ -57,11 +58,9 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
     it('is copied, so mutating it afterwards changes nothing stored', () => {
         const db = new OIMDB();
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleEntityService<TSettings>(db, {
-            entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }),
-        });
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, mine);
+        settingsService.writeSingleSlotContent(settings, mine);
 
         expect(settingsService.getSingleSlot(settings).entity).not.toBe(mine);
 
@@ -74,11 +73,9 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleEntityService<TSettings>(db, {
-            entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }),
-        });
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, mine);
+        settingsService.writeSingleSlotContent(settings, mine);
 
         let woken = 0;
         effectService.createEffect(db, [settingsService.getSingleSlot(settings)], [], () => { woken++; });
@@ -97,11 +94,9 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
     it('is filed without its own __proto__ key, exactly as a collection files one', () => {
         const db = new OIMDB();
         const payload = JSON.parse('{"theme":"dark","sidebar":true,"__proto__":{"polluted":true}}') as TSettings;
-        const settingsService = createOIMSingleEntityService<TSettings>(db, {
-            entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy }),
-        });
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithSanitizedCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, payload);
+        settingsService.writeSingleSlotContent(settings, payload);
 
         const stored = settingsService.getSingleSlot(settings).entity as object;
         expect(Object.prototype.hasOwnProperty.call(stored, '__proto__')).toBe(false);

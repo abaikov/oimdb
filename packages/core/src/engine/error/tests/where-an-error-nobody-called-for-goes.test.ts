@@ -1,8 +1,7 @@
-import {
-    OIMDB, OIMChannelService, OIMSlotReleasePolicyAfterWrite, OIMSlotReleasePolicyAtEmpty,
-    OIMUnusedSlotCollectorService, createOIMEntityService, createOIMEntityWriterInPlace,
-} from '../../../index';
+import { OIMDB, OIMChannelService, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMUnusedSlotCollectorService, createOIMEntityWriterInPlace } from '../../../index';
 import type { IOIMEntityWriter, IOIMErrorPolicy } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string };
 
@@ -27,11 +26,11 @@ describe('an error with no caller to throw to', () => {
             errorPolicy,
             getNowMs: () => nowMs,
             releaseTimer: run => { tick = run; return () => { tick = undefined; }; },
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: 100 }),
+            slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }),
         });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         db.flush();
         nowMs = 5_000;
 
@@ -43,14 +42,14 @@ describe('an error with no caller to throw to', () => {
     it('a throw in the unused-slot sweep at the end of a flush goes to the policy, and after-each-flush still runs', () => {
         const { caught, errorPolicy } = collectingErrorPolicy();
         let refuse = false;
-        const slotReleasePolicy = new OIMSlotReleasePolicyAtEmpty();
+        const slotReleasePolicy = new OIMSlotAtEmptyReleasePolicy();
         jest.spyOn(slotReleasePolicy, 'onSlotUnheld').mockImplementation(() => {
             if (refuse) throw new Error('the unhold threw');
         });
         const db = new OIMDB({ errorPolicy, slotReleasePolicy });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards,{ id: 'a' });
+        const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         db.flush();
         let afterEachFlushRuns = 0;
         OIMChannelService.INSTANCE.subscribeAfterEachFlush(db.defaultChannelSlot, () => { afterEachFlushRuns++; });

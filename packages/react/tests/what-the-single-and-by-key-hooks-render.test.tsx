@@ -1,16 +1,7 @@
 import * as React from 'react';
 import { act, render, screen } from '@testing-library/react';
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceSingleSlotDriven,
-    createOIMComputedService,
-    createOIMEntityService,
-    createOIMIndexService,
-    createOIMSingleBucketService,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
-import type { TOIMBucketSlotsSetStore, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMComputedService, createOIMSingleComputedService, createOIMSlotCollectionIndexService } from '@oimdb/core';
+import type { TOIMEntitySlot } from '@oimdb/core';
 import {
     OIMDBProvider,
     useOIMComputedCollection,
@@ -22,6 +13,9 @@ import {
     useOIMSlotsByKeys,
     useOIMValue,
 } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TCard = { id: string; deck: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -29,13 +23,13 @@ type TSettings = { theme: string };
 
 const build = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'red', rank: 1 },
         { id: 'c2', deck: 'red', rank: 2 },
         { id: 'c3', deck: 'blue', rank: 3 },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
     const updateCard = (key: string, patch: Partial<TCard>): void => {
         cardsService.slotContentService.updateEntity(cardsService.getSlotByKey(cards, key), patch);
@@ -45,17 +39,13 @@ const build = () => {
     return { db, cardsService, cards, updateCard, Wrapper };
 };
 
-type TSingleNumberStore = TOIMSingleSlotStore<TOIMComputedSlot<number, void>>;
-
-const createSingleNumberService = () => createOIMComputedService<void, number, TSingleNumberStore>({
-    computedSlotStoreService: OIMSlotStoreServiceSingleSlotDriven.INSTANCE as OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>,
-});
+const createSingleNumberService = () => createOIMSingleComputedService<number>();
 
 describe('what the single and by-key hooks render', () => {
     it('useOIMComputedValueByKey renders one key of a computed collection and follows its source', () => {
         const { db, cardsService, cards, updateCard, Wrapper } = build();
         const ranksService = createOIMComputedService<string, number>({
-            createSources: id => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+            createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
             derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         });
         const ranks = ranksService.createComputedStoreSlot(db);
@@ -99,7 +89,7 @@ describe('what the single and by-key hooks render', () => {
             const doubled = useOIMComputedCollection(
                 doubledService,
                 computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
-                key => ({ sourceSlots: [cardsService.getSlotByKey(cards, key)] }),
+                ({ key }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, key)] }),
                 [],
             );
             seen.add(doubled);
@@ -114,9 +104,9 @@ describe('what the single and by-key hooks render', () => {
 
     it('useOIMSingleEntity renders a single entity and follows an update', () => {
         const { db, Wrapper } = build();
-        const settingsService = createOIMSingleEntityService<TSettings>(db);
+        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
         const settings = settingsService.createStoreSlot(db);
-        settingsService.slotContentService.upsertEntity(settings, { theme: 'dark' });
+        settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
         db.flush();
         function Theme(): React.ReactElement {
             return <span data-testid="theme">{useOIMSingleEntity(settingsService, settings)?.theme}</span>;
@@ -132,11 +122,9 @@ describe('what the single and by-key hooks render', () => {
 
     it('useOIMSingleBucketSlots renders a single bucket and follows an addition', () => {
         const { db, cardsService, cards, Wrapper } = build();
-        const pickedService = createOIMSingleBucketService<
-            TCardSlot, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+        const pickedService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
         const picked = pickedService.createStoreSlot(db);
-        pickedService.slotContentService.writeBucketMemberSlots(
+        pickedService.slotContentService.writeSlotContent(
             pickedService.getSingleSlot(picked), [cardsService.getSlotByKey(cards, 'c1')],
         );
         db.flush();
@@ -180,7 +168,7 @@ describe('what the single and by-key hooks render', () => {
     it('a hook refuses a collection built on another database instead of never waking', () => {
         const { Wrapper } = build();
         const otherDb = new OIMDB();
-        const otherCardsService = createOIMEntityService<TCard>(otherDb, { keyOf: card => card.id });
+        const otherCardsService = createOIMSlotCollectionService(otherDb, { slotContentService: createOIMSlotContentEntityService<TCard>(otherDb) });
         const otherCards = otherCardsService.createStoreSlot(otherDb);
         function Title(): React.ReactElement {
             return <span>{useOIMEntity(otherCardsService, otherCards, 'c1')?.id}</span>;
@@ -209,10 +197,10 @@ describe('what the single and by-key hooks render', () => {
 
     it('an index bucket by key is useOIMSlotsByKeys plus useOIMValue over the index', () => {
         const { db, cardsService, cards, updateCard, Wrapper } = build();
-        const byDeckService = createOIMIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
-            columns: ['deck'],
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+            keyOf: (card: TCard) => card.deck,
+            slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         function Deck(): React.ReactElement {

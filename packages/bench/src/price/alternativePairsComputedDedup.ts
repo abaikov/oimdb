@@ -1,4 +1,4 @@
-import { OIMSlotStoreServiceMapDriven, createOIMComputedService } from '../../../core/src/index';
+import { OIMSlotMapStoreService, createOIMComputedService } from '../../../core/src/index';
 import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceFixture } from './priceFixture';
@@ -41,7 +41,7 @@ import type { TPricePair } from './TPricePair';
  * traversal. Both arms below dedup, and they dedup in DIFFERENT PLACES; that is
  * the whole content of the pair.
  *
- * WHICH ARM IS THE REAL CODE. Ours is: the slots are a real entity service's (`createOIMEntityService`),
+ * WHICH ARM IS THE REAL CODE. Ours is: the slots are a real entity service's (`createOIMSlotCollectionService` with `createOIMSlotContentEntityService`),
  * the writes go through the shipped `OIMChannelService.write` by way of `entityService.slotContentService.updateEntity`,
  * and the derivations are held slots of a real `OIMComputedService` store slot. The
  * floor arm writes THROUGH THE SAME COLLECTION AND CHANNEL — so the write path is
@@ -95,20 +95,20 @@ const buildDedupPlaceAgainstEachOther = (readsPerFrame: number, timesEachRead: n
     const oursSourcesByDerivation: TSlot[][] = [];
     for (let d = 0; d < DERIVATIONS; d++) oursSourcesByDerivation.push(sourcesFor(oursFixture.slots, d));
     const sumComputedService = createOIMComputedService<number, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedSlot<number, number>, number>(),
+        computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, number>, number>(),
         sameValueGuard: (previous, next) => previous === next,
         initialValue: 0,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
+        columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
     const sumComputedCollectionService = sumComputedService.computedCollectionService;
     const sumComputedStoreSlot = sumComputedService.createComputedStoreSlot(
         oursFixture.db,
         computedSlot => sumOfRanks(oursSourcesByDerivation[computedSlot.key]),
-        d => ({ sourceSlots: oursSourcesByDerivation[d] }),
+        ({ key: d }) => ({ sourceSlots: oursSourcesByDerivation[d] }),
     );
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
     for (let d = 0; d < DERIVATIONS; d++) sumSlots.push(sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, d));
-    const computedValueService = sumComputedCollectionService.slotContentService;
+    const computedValueService = sumSlots[0].computedValueService;
 
     /* ── floor: the channel decides ──────────────────────────────────────── */
     const floorFixture = priceFixture(rowCount);

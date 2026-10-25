@@ -1,22 +1,22 @@
-import { OIMDB, OIMEffectService, OIMSlotStoreServiceSingleSlotDriven, createOIMComputedService, createOIMEntityService } from '../../../index';
-import type { TOIMComputedSlot, TOIMSingleSlotStore } from '../../../index';
+import { OIMDB, OIMEffectService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../index';
 
 type TCard = { id: string; n: number };
 
 const runsOfAnEffectBornAfterTheChange = (writeSomethingElseFirst: boolean): number => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const source = cardsService.slotContentService.upsertEntity(cards, { id: 's', n: 0 });
-    cardsService.slotContentService.upsertEntity(cards, { id: 'o', n: 0 });
-    const valueOfSourceService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    });
+    const source = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
+    cardsService.writeSlotContentByKey(cards, 'o', { id: 'o', n: 0 });
+    const valueOfSourceService = createOIMSingleComputedService<number>();
     const valueOfSource = valueOfSourceService.createComputedStoreSlot(
         db, () => source.entity?.n ?? -1, () => ({ sourceSlots: [source] }),
     );
-    const computedSlot = valueOfSourceService.computedCollectionService.holdSlotByKey(valueOfSource, undefined);
+    const computedSlot = valueOfSourceService.computedSingleSlotService.holdSingleSlot(valueOfSource);
     computedSlot.computedValueService.getValueForSlot(computedSlot);
     db.flush();
     cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 's')!, { n: 1 });

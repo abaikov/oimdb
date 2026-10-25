@@ -11,19 +11,10 @@
  * `tests/what-a-list-that-names-a-slot-twice-leaves-behind.test.ts`; what is
  * here is this file's own subject, the WAKE-UP.
  */
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceArrayDriven,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMBucketArrayMembershipUnique,
-    OIMEffectService,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '../src/index';
-import type {
-    OIMSlotContentBucketService, TOIMEntitySlot,
-    TOIMBucketSlotsArrayStore, TOIMBucketSlotsArrayUniqueStore, TOIMBucketSlotsSetStore,
-} from '../src/index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMBucketUniqueMemberSlotsArrayService, OIMEffectService } from '../src/index';
+import type { OIMSlotContentBucketService, TOIMEntitySlot, TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore } from '../src/index';
+import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMSlotCollectionService } from '../src/index';
 
 type TRow = { id: string; rank: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
@@ -41,24 +32,22 @@ const SENT = ['k1', 'k2', 'k3'];
  * collection built over the service under test.
  *
  * The bucket is HELD and the hold is never given back, which is what makes it
- * the same bucket for the length of a case: `writeBucketMemberSlots(bucket, [])` asks the
+ * the same bucket for the length of a case: `writeSlotContent(bucket, [])` asks the
  * bucket's owner to let it go, and a hold is the answer to that question.
  */
 const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketService<TRowSlot, TSlots>) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow, 'id' | 'rank' | 'label', string>(db, { keyOf: row => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const bucketService = createOIMBucketService<
-        TRowSlot, string, TSlots, OIMSlotContentBucketService<TRowSlot, TSlots>
-    >(db, { slotContentService });
+    const bucketService = createOIMSlotCollectionService(db, { slotContentService });
     const buckets = bucketService.createStoreSlot(db);
-    rowsService.slotContentService.upsertEntities(rows, ROWS.map(row => ({ ...row })));
+    rowsService.writeInBatch(rows, () => (ROWS.map(row => ({ ...row }))).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
     db.flush();
     const bucket = bucketService.holdSlotByKey(buckets, 'q0');
     const slotOf = (id: string): TRowSlot => rowsService.getSlotByKey(rows, id);
     const send = (ids: readonly string[]): void => {
-        bucketService.slotContentService.writeBucketMemberSlots(bucket, ids.map(slotOf));
+        bucketService.slotContentService.writeSlotContent(bucket, ids.map(slotOf));
         db.flush();
     };
     const ids = (): string[] =>
@@ -66,16 +55,16 @@ const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketServi
     return { db, effectService, rowsService, rows, bucketService, buckets, bucket, send, ids, slotOf };
 };
 
-const createFixture = <TSlots extends TOIMBucketSlotsArrayStore<TRowSlot>>(
-    service: OIMSlotContentBucketServiceArrayDriven<TRowSlot, TSlots>,
-) => createFixtureOver<TSlots>(service);
+const createFixture = (
+    service: OIMSlotContentPositionalArrayBucketService<TRowSlot>,
+) => createFixtureOver<TOIMBucketSlotsArrayStore<TRowSlot>>(service);
 
-const createSetFixture = (service: OIMSlotContentBucketServiceSetDriven<TRowSlot>) =>
+const createSetFixture = (service: OIMSlotContentSetBucketService<TRowSlot>) =>
     createFixtureOver<TOIMBucketSlotsSetStore<TRowSlot>>(service);
 
 describe('a list of slots re-sent in the order the caller sent it', () => {
     it('leaves every slot where it already was, with the references it already had', () => {
-        const { rowsService, rows, bucket, bucketService, send } = createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { rowsService, rows, bucket, bucketService, send } = createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(SENT);
         send(SENT);
 
@@ -92,7 +81,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
     });
 
     it('a set holds no order, so the same slots in another order set nothing', () => {
-        const { db, effectService, bucket, send, ids } =createSetFixture(new OIMSlotContentBucketServiceSetDriven<TRowSlot>());
+        const { db, effectService, bucket, send, ids } =createSetFixture(new OIMSlotContentSetBucketService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;
@@ -106,7 +95,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
     });
 
     it('a list that really did change still lands and still wakes', () => {
-        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;
@@ -118,7 +107,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
     });
 
     it('a service whose positions the caller places is still reordered by a re-ordered list', () => {
-        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(SENT);
         expect(ids()).toEqual(SENT);
 
@@ -131,7 +120,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
     });
 
     it('and is not woken by the same list in the same order', () => {
-        const { db, effectService, bucket, send } =createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { db, effectService, bucket, send } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;
@@ -157,7 +146,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
      * nobody — asked of the list as the service actually records it.
      */
     it('a repeat is recorded as a second place, and re-sending that list wakes nobody', () => {
-        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(['k1', 'k2', 'k2', 'k3']);
         expect(ids()).toEqual(['k1', 'k2', 'k2', 'k3']);
 
@@ -177,7 +166,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
      * recorded, so the caller's list arrives whole and `k1` is held twice.
      */
     it('a repeat that really does add a mention still lands and still wakes', () => {
-        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot>());
+        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
         send(SENT);
         expect(ids()).toEqual(SENT);
 
@@ -197,8 +186,8 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
      */
     it('the deduplicating bucket records a repeat once, and is not woken by it re-sent', () => {
         const { db, effectService, bucket, send, ids, slotOf } =
-            createFixture(new OIMSlotContentBucketServiceArrayDriven<TRowSlot, TOIMBucketSlotsArrayUniqueStore<TRowSlot>>({
-                bucketArrayMembership: new OIMBucketArrayMembershipUnique<TRowSlot>(),
+            createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>({
+                bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
             }));
         send(['k1', 'k2', 'k2']);
         expect(ids()).toEqual(['k1', 'k2']);

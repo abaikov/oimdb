@@ -1,24 +1,22 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMUnusedSlotCollectorService } from '../../../engine/collector/OIMUnusedSlotCollectorService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const releasedBucket = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
-    const listsService = createOIMBucketService(db, {
-        slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlot>(),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const listsService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
     const cards = cardsService.createStoreSlot(db);
     const lists = listsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A' });
+    cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A' });
     db.flush();
     const card = cardsService.getSlotByKey(cards, 'a');
 
@@ -59,13 +57,13 @@ describe('a bucket the engine already let go', () => {
         expect(() => { w.listsService.slotContentService.removeBucketMemberSlots(w.bucket, [w.card]); }).toThrow('This identity was released');
         expect(() => { w.listsService.slotContentService.removeBucketMemberSlotAt(w.bucket, 0); }).toThrow('This identity was released');
         expect(() => { w.listsService.slotContentService.removeBucketMemberSlotRange(w.bucket, 0, 1); }).toThrow('This identity was released');
-        expect(() => { w.listsService.slotContentService.clearBucketMemberSlots(w.bucket); }).toThrow('This identity was released');
+        expect(() => { w.listsService.slotContentService.clearSlotContent(w.bucket); }).toThrow('This identity was released');
     });
 
     it('refuses it through the base door too, and that one always did', () => {
         const w = releasedBucket();
 
-        expect(() => { w.listsService.slotContentService.writeBucketMemberSlots(w.bucket, [w.card]); }).toThrow('This identity was released');
+        expect(() => { w.listsService.slotContentService.writeSlotContent(w.bucket, [w.card]); }).toThrow('This identity was released');
         expect(() => { w.listsService.slotContentService.addBucketMemberSlots(w.bucket, [w.card]); }).toThrow('This identity was released');
         expect(w.card.holdCount).toBe(0);
     });

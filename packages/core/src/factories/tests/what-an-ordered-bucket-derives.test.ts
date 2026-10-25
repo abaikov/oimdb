@@ -1,15 +1,14 @@
 import { OIMDB } from '../OIMDB';
 import { OIMEffectService } from '../../engine/computed/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../engine/collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import { createOIMBucketService } from '../createOIMBucketService';
-import { createOIMEntityService } from '../createOIMEntityService';
-import { createOIMIndexService } from '../createOIMIndexService';
-import { createOIMComputedServiceBucketMemo } from '../createOIMComputedServiceBucketMemo';
-import { createOIMComputedServiceSorted } from '../createOIMComputedServiceSorted';
+import { OIMSlotContentPositionalArrayBucketService } from '../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
+import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
+import { createOIMBucketMemoComputedService } from '../createOIMBucketMemoComputedService';
+import { createOIMSortedComputedService } from '../createOIMSortedComputedService';
 import type { TOIMEntitySlot } from '../../engine/entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayStore } from '../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
 import { oimIsSlotReleased } from '../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
 type TCardSlotInBucket = TOIMEntitySlot<Card>;
@@ -17,14 +16,14 @@ type TCardSlotInBucket = TOIMEntitySlot<Card>;
 const createFixture = () => {
     const db = new OIMDB();
     let compared = 0;
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: Card) => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    const ordersService = createOIMComputedServiceSorted({
+    const ordersService = createOIMSortedComputedService({
         indexService: byDeckService,
         sortColumns: [{ column: 'rank', direction: 'asc' }],
         comparator: (left: Card, right: Card) => {
@@ -34,7 +33,7 @@ const createFixture = () => {
     });
     const orders = ordersService.createSortedStoreSlot(byDeck);
     const put = (...cardsToPut: { id: string; rank: number }[]): void => {
-        cardsService.slotContentService.upsertEntities(cards, cardsToPut.map(card => ({ ...card, deck: 'deck' })));
+        cardsService.writeInBatch(cards, () => (cardsToPut.map(card => ({ ...card, deck: 'deck' }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     };
     const updateEntityByKey = (key: string, patch: Partial<Card>): void => {
         const slot = cardsService.findSlotByKey(cards, key);
@@ -189,18 +188,16 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 describe('what a derivation lets go of', () => {
     it('gives the bucket back when the last reader leaves', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const rankedService = createOIMBucketService<
-            TCardSlotInBucket, string, TOIMBucketSlotsArrayStore<TCardSlotInBucket>, OIMSlotContentBucketServiceArrayDriven<TCardSlotInBucket>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlotInBucket>() });
+        const rankedService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlotInBucket, string>() });
         const ranked = rankedService.createStoreSlot(db);
-        const orderService = createOIMComputedServiceBucketMemo({ bucketCollectionService: rankedService });
+        const orderService = createOIMBucketMemoComputedService({ bucketCollectionService: rankedService });
         const order = orderService.createBucketMemoStoreSlot(ranked);
         const heldSlot = orderService.computedCollectionService.holdSlotByKey(order, 'deck');
         const bucket = rankedService.getSlotByKey(ranked, 'deck');
-        rankedService.slotContentService.writeBucketMemberSlots(
-            bucket, [cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'deck', rank: 10 })],
+        rankedService.slotContentService.writeSlotContent(
+            bucket, [cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'deck', rank: 10 })],
         );
         expect(heldSlot.computedValueService.getValueForSlot(heldSlot).length).toBe(1);
 
@@ -208,7 +205,7 @@ describe('what a derivation lets go of', () => {
         expect(bucket.holdCount).toBeGreaterThan(0);
         expect(orderService.computedCollectionService.getSlotByKey(order, 'deck')).toBe(heldSlot);
 
-        rankedService.slotContentService.clearBucketMemberSlots(bucket);
+        rankedService.slotContentService.clearSlotContent(bucket);
         heldSlot.owner.unholdSlot(heldSlot);
 
         expect(oimIsSlotReleased(heldSlot)).toBe(true);

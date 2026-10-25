@@ -43,8 +43,11 @@ function countingOwnerSlot(): TOIMSlot {
         holdSlot: (held: TOIMSlot): void => { (held as TOIMSlotEditable<TOIMSlot>).holdCount++; },
         unholdSlot: (held: TOIMSlot): void => { (held as TOIMSlotEditable<TOIMSlot>).holdCount--; },
         releaseSlotIfUnheld: (): void => undefined,
+        unsafeMutateSlot: (): void => undefined,
         subscribeToSlot: (): number => 0,
         unsubscribeFromSlot: (): boolean => true,
+        onSlotFirstSubscribed: (): void => undefined,
+        onSlotLastUnsubscribed: (): void => undefined,
     };
     return slot;
 }

@@ -1,9 +1,5 @@
 import type { TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import type {
     OIMPersistKeyValueBackend,
     OIMPersistKeyValueWriteBatch,
@@ -12,15 +8,17 @@ import type {
     TOIMPersistRecords,
 } from '@oimdb/persist';
 import {
-    OIMPersistCodecIdentity,
+    OIMPersistIdentityCodec,
     OIMPersistEntityWriter,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '../src';
+import { OIMPersistLocalStorageKeyValueBackend } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TNode = { id: string; self?: unknown };
 type TNodeRecords = TOIMPersistRecords<TOIMStoreKey, TNode>;
@@ -43,23 +41,20 @@ function buildNodes(db: OIMDB, storageKey: string) {
     const persistEntityWriter = new OIMPersistEntityWriter<TNode, TOIMStoreKey>({
         entityWriter: createOIMEntityWriterInPlace(),
     });
-    const entityService = createOIMEntityService<TNode>(db, {
-        keyOf: node => node.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNode>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const persistResourceSnapshot = new OIMPersistResourceSnapshot<
+    const persistSnapshotResource = new OIMPersistSnapshotResource<
         OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TNodeRecords, TNodeRecords
     >({
-        persistSnapshotSource: new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TNode>({
+        persistSnapshotSource: new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TNode>({
             entityCollectionService: entityService,
             entityStoreSlot,
             persistEntityWriter,
         }),
-        persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TNodeRecords>({ storageKey }),
-        persistCodec: new OIMPersistCodecIdentity<TNodeRecords>(),
+        persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TNodeRecords>({ storageKey }),
+        persistCodec: new OIMPersistIdentityCodec<TNodeRecords>(),
     });
-    return { entityService, entityStoreSlot, persistResourceSnapshot };
+    return { entityService, entityStoreSlot, persistSnapshotResource };
 }
 
 async function settleAutosave(persistor: TLocalStoragePersistor): Promise<void> {
@@ -74,17 +69,17 @@ describe('a write batch holding one value the serializer refuses', () => {
         const poisonedNodes = buildNodes(db, 'poisoned');
         const healthyNodes = buildNodes(db, 'healthy');
         const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
-            persistBackend: new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage }),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
-        persistor.addPersistResource(poisonedNodes.persistResourceSnapshot);
-        persistor.addPersistResource(healthyNodes.persistResourceSnapshot);
+        persistor.addPersistResource(poisonedNodes.persistSnapshotResource);
+        persistor.addPersistResource(healthyNodes.persistSnapshotResource);
         persistor.start();
 
         const cycle: TNode = { id: 'p1' };
         cycle.self = cycle;
-        poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,cycle);
-        healthyNodes.entityService.slotContentService.upsertEntity(healthyNodes.entityStoreSlot,{ id: 'h1' });
+        poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, cycle.id, cycle);
+        healthyNodes.entityService.writeSlotContentByKey(healthyNodes.entityStoreSlot, 'h1', { id: 'h1' });
         await settleAutosave(persistor);
 
         expect(persistKeyValueItemStorage.getItem('healthy')).toBe('{"records":[{"key":"h1","entity":{"id":"h1"}}]}');
@@ -99,18 +94,18 @@ describe('a write batch holding one value the serializer refuses', () => {
         const poisonedNodes = buildNodes(db, 'poisoned');
         const persistOperations: TOIMPersistOperation[] = [];
         const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
-            persistBackend: new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage }),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: (_error, persistErrorContext) => persistOperations.push(persistErrorContext.persistOperation),
         });
-        persistor.addPersistResource(poisonedNodes.persistResourceSnapshot);
+        persistor.addPersistResource(poisonedNodes.persistSnapshotResource);
         persistor.start();
 
         const cycle: TNode = { id: 'p1' };
         cycle.self = cycle;
-        poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,cycle);
+        poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, cycle.id, cycle);
         for (let i = 0; i < 6; i++) {
-            poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,{ id: `n${i}`, self: cycle });
+            poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, `n${i}`, { id: `n${i}`, self: cycle });
             await settleAutosave(persistor);
         }
 
@@ -126,24 +121,24 @@ describe('a write batch holding one value the serializer refuses', () => {
         const poisonedNodes = buildNodes(db, 'poisoned');
         const persistOperations: TOIMPersistOperation[] = [];
         const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
-            persistBackend: new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage }),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError: (_error, persistErrorContext) => persistOperations.push(persistErrorContext.persistOperation),
         });
-        persistor.addPersistResource(poisonedNodes.persistResourceSnapshot);
+        persistor.addPersistResource(poisonedNodes.persistSnapshotResource);
         persistor.start();
 
         const cycle: TNode = { id: 'p1' };
         cycle.self = cycle;
         for (let i = 0; i < 3; i++) {
-            poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,{ id: `n${i}`, self: cycle });
+            poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, `n${i}`, { id: `n${i}`, self: cycle });
             await settleAutosave(persistor);
         }
         expect(persistOperations).toEqual(['persist', 'persist', 'quarantine']);
 
-        for (let i = 0; i < 3; i++) poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,{ id: `n${i}` });
+        for (let i = 0; i < 3; i++) poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, `n${i}`, { id: `n${i}` });
         await persistor.persist();
-        poisonedNodes.entityService.slotContentService.upsertEntity(poisonedNodes.entityStoreSlot,{ id: 'n3' });
+        poisonedNodes.entityService.writeSlotContentByKey(poisonedNodes.entityStoreSlot, 'n3', { id: 'n3' });
         await settleAutosave(persistor);
 
         expect(persistOperations).toEqual(['persist', 'persist', 'quarantine']);

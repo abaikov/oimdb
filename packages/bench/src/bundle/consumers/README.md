@@ -13,7 +13,7 @@ identity is minted for any entity.
 ### What is and is not pinned without a bundler
 
 `packages/core/tests/what-an-import-retains.test.ts` still names
-`facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts` in `a collection alone does not retain %s`,
+`facade/bucket/OIMSlotContentPositionalArrayBucketService.ts` in `a collection alone does not retain %s`,
 so "no consumer gets the array-driven service merely by holding a population" holds. Its
 `the service is an argument, not an option` case reads
 `facade/bucket/OIMSlotContentBucketService.ts` and not a caller's own program, so the half about

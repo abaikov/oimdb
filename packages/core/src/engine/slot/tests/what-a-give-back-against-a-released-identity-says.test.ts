@@ -1,16 +1,17 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
 const releasedCard = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+    const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
     db.flush();
-    cardsService.slotContentService.deleteEntity(card);
+    cardsService.slotContentService.clearSlotContent(card);
     expect(oimIsSlotReleased(card)).toBe(true);
     return card;
 };

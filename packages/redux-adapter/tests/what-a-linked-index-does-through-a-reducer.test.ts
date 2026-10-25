@@ -51,11 +51,11 @@ describe('linked indexes (deck.cardIds -> index[deck.id] = cardIds)', () => {
         const reducer = adapter.createCollectionReducer<TDeck, string, TDeckState>(
             decksService, decks, { reducer: s => s ?? { entities: {}, ids: [] }, linkedIndexes });
 
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', title: 'Ace' },
             { id: 'c2', title: 'King' },
-        ]);
-        decksService.slotContentService.upsertEntity(decks, { id: 'd1', name: 'Starter', cardIds: ['c1', 'c2'] });
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: ['c1', 'c2'] });
         db.flush();
         const s1 = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
 
@@ -81,8 +81,8 @@ describe('linked indexes (deck.cardIds -> index[deck.id] = cardIds)', () => {
         const reducer = adapter.createCollectionReducer<TDeck, string, TDeckState>(
             decksService, decks, { reducer: s => s ?? { entities: {}, ids: [] }, linkedIndexes });
 
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', title: 'Ace' }]);
-        decksService.slotContentService.upsertEntity(decks, { id: 'd1', name: 'Starter', cardIds: ['c1'] });
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', title: 'Ace' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: ['c1'] });
         db.flush();
         const s1 = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
 

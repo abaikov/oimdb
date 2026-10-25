@@ -34,10 +34,10 @@ describe('OIMReduxAdapter.createGlobalIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createGlobalIndexReducer<string, TOIMReduxDefaultGlobalIndexState<string>, TUser>(globalIndex);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice' },
             { id: 'u2', name: 'Bob' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));
         db.flush();
 
@@ -50,7 +50,7 @@ describe('OIMReduxAdapter.createGlobalIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createGlobalIndexReducer<string, TOIMReduxDefaultGlobalIndexState<string>, TUser>(globalIndex);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice' });
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));
         db.flush();
         const s1 = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TOIMReduxDefaultGlobalIndexState<string>;
@@ -59,7 +59,7 @@ describe('OIMReduxAdapter.createGlobalIndexReducer', () => {
         const s2 = reducer(s1, { type: EOIMReduxReducerActionType.UPDATE });
         expect(s2).toBe(s1);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u2', name: 'Bob' });
+        usersService.writeSlotContentByKey(users, 'u2', { id: 'u2', name: 'Bob' });
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));
         db.flush();
         const s3 = reducer(s1, { type: EOIMReduxReducerActionType.UPDATE }) as TOIMReduxDefaultGlobalIndexState<string>;
@@ -72,10 +72,10 @@ describe('OIMReduxAdapter.createGlobalIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createGlobalIndexReducer<string, TOIMReduxDefaultGlobalIndexState<string>, TUser>(globalIndex);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice' },
             { id: 'u2', name: 'Bob' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));
         db.flush();
         const s1 = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TOIMReduxDefaultGlobalIndexState<string>;
@@ -97,10 +97,10 @@ describe('OIMReduxAdapter.createGlobalIndexReducer', () => {
         const reduxStore: Store = createStore(rootReducer, applyMiddleware(adapter.createMiddleware()));
         adapter.setStore(reduxStore);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice' },
             { id: 'u2', name: 'Bob' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));
         db.flush();
 

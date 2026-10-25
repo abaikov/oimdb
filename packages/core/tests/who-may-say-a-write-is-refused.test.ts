@@ -2,16 +2,18 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 import { OIMDB } from '../src/factories/OIMDB';
-import { OIMErrorPolicyThrowAtOnce } from '../src/engine/error/OIMErrorPolicyThrowAtOnce';
-import { OIMSlotContentBucketServiceArrayDriven } from '../src/facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import { createOIMBucketService } from '../src/factories/createOIMBucketService';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
-import { createOIMIndexService } from '../src/factories/createOIMIndexService';
-import { createOIMSingleEntityService } from '../src/factories/createOIMSingleEntityService';
+import { OIMThrowAtOnceErrorPolicy } from '../src/engine/error/OIMThrowAtOnceErrorPolicy';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
+import { createOIMSlotCollectionIndexService } from '../src/factories/createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlot } from '../src/engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../src/factories/createOIMSingleSlotService';
+import type { TOIMEntityContentSlot } from '../src/engine/entity/types/TOIMEntityContentSlot';
+import type { TOIMBucketSlotOwnerService } from '../src/engine/bucket/types/TOIMBucketSlotOwnerService';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -76,27 +78,30 @@ const publicDoorsOf = (composition: TComposition): string[] => {
 
 const SLOT_OWNER = ['engine/slot/OIMSlotOwner.ts'] as const;
 
+const COLUMN_SLOT_SERVICE = ['facade/column/OIMColumnSlotService.ts'] as const;
+
 const ENTITY_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMSlotCollectionService.ts', 'facade/slot/OIMSlotColumnService.ts'],
-    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'] },
+    service: ['facade/slot/OIMWritableSlotCollectionService.ts', 'facade/slot/OIMSlotCollectionService.ts'],
+    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
 const BUCKET_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMSlotCollectionService.ts', 'facade/slot/OIMSlotColumnService.ts'],
+    service: ['facade/slot/OIMSlotCollectionService.ts'],
     parts: {
         slotContentService: [
             'facade/bucket/OIMSlotContentBucketService.ts',
-            'facade/bucket/OIMSlotContentBucketServiceArrayBased.ts',
-            'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
+            'facade/bucket/OIMSlotContentArrayBucketService.ts',
+            'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
         ],
+        columnSlotService: COLUMN_SLOT_SERVICE,
     },
     slotParts: { owner: SLOT_OWNER },
 };
 
 const SINGLE_ENTITY_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMSingleSlotService.ts', 'facade/slot/OIMSlotColumnService.ts'],
-    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'] },
+    service: ['facade/slot/OIMSingleSlotService.ts'],
+    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
@@ -122,7 +127,7 @@ type TFixture<TSubject> = {
 const madeInAFlush = <TSubject>(build: (db: OIMDB) => TSubject): TFixture<TSubject> => {
     let during: (() => void) | undefined = undefined;
     const db = new OIMDB({
-        errorPolicy: new OIMErrorPolicyThrowAtOnce(),
+        errorPolicy: new OIMThrowAtOnceErrorPolicy(),
         onBeforeFlush: () => { during?.(); },
     });
     const subject = build(db);
@@ -152,43 +157,46 @@ const namedInPart = (part: string, members: readonly string[]): string[] => memb
 
 const SLOT_OWNER_DOORS_THAT_WRITE_NOTHING = namedInPart('owner', [
     'holdSlot', 'unholdSlot', 'subscribeToSlot', 'unsubscribeFromSlot', 'releaseSlotIfUnheld',
+    'onSlotFirstSubscribed', 'onSlotLastUnsubscribed', 'unsafeMutateSlot',
 ]);
 
 const COLUMN_DOORS = [
     'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroup', 'holdColumnGroup', 'unholdColumn',
 ] as const;
 
+const BATCH_DOORS = ['openBatch', 'closeBatch', 'writeInBatch'] as const;
+
 const STORE_SLOT_DOORS_THAT_WRITE_NOTHING = [
     'createStoreSlot', 'createStoreSlotFrom',
     'isSameKey', 'getSlotCount', 'getSlots', 'findSlotByKey', 'hasSlotContentByKey', 'getSlotByKey', 'holdSlotByKey',
-    ...COLUMN_DOORS,
+    ...namedInPart('columnSlotService', COLUMN_DOORS),
 ] as const;
 
 type TEntitySlotWriter<TSlot> = {
-    writeEntity(slot: TSlot, entity: TCard): boolean;
+    writeSlotContent(slot: TSlot, entity: TCard): boolean;
     updateEntity(slot: TSlot, patch: Partial<TCard>): TSlot;
     updateEntityColumn(slot: TSlot, columnName: 'title', value: string): TSlot;
     deleteEntityColumns(slot: TSlot, columnNames: readonly 'title'[]): TSlot;
     markEntityChanged(slot: TSlot): void;
-    deleteEntity(slot: TSlot): void;
+    clearSlotContent(slot: TSlot): void;
 };
 
 const entitySlotWriteDoors = <TSubject, TSlot>(
     entitySlotWriterOf: (subject: TSubject) => TEntitySlotWriter<TSlot>, slotOf: (subject: TSubject) => TSlot,
 ): Record<string, (subject: TSubject) => void> => ({
-    'slotContentService.writeEntity': s => { entitySlotWriterOf(s).writeEntity(slotOf(s), { id: 'a', title: 'B' }); },
+    'slotContentService.writeSlotContent': s => { entitySlotWriterOf(s).writeSlotContent(slotOf(s), { id: 'a', title: 'B' }); },
     'slotContentService.updateEntity': s => { entitySlotWriterOf(s).updateEntity(slotOf(s), { title: 'B' }); },
     'slotContentService.updateEntityColumn': s => { entitySlotWriterOf(s).updateEntityColumn(slotOf(s), 'title', 'B'); },
     'slotContentService.deleteEntityColumns': s => { entitySlotWriterOf(s).deleteEntityColumns(slotOf(s), ['title']); },
     'slotContentService.markEntityChanged': s => { entitySlotWriterOf(s).markEntityChanged(slotOf(s)); },
-    'slotContentService.deleteEntity': s => { entitySlotWriterOf(s).deleteEntity(slotOf(s)); },
+    'slotContentService.clearSlotContent': s => { entitySlotWriterOf(s).clearSlotContent(slotOf(s)); },
 });
 
-const cardEntityService = (db: OIMDB) => createOIMEntityService<TCard, keyof TCard & string, string>(db, { keyOf: card => card.id });
+const cardEntityService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
 
 type TCardEntityService = ReturnType<typeof cardEntityService>;
 
-const cardIndexService = (db: OIMDB) => createOIMIndexService(db, {
+const cardIndexService = (db: OIMDB) => createOIMSlotCollectionIndexService(db, {
     entityService: cardEntityService(db), keyOf: (card: TCard) => card.title,
 });
 type TCardIndexService = ReturnType<typeof cardIndexService>;
@@ -205,7 +213,7 @@ const entityWorld = (): TFixture<TEntitySubject> => madeInAFlush(db => {
     const entityService = cardEntityService(db);
     const cardStoreSlot = entityService.createStoreSlot(db);
     const spareCardStoreSlot = entityService.createStoreSlot(db);
-    entityService.slotContentService.upsertEntity(cardStoreSlot, { id: 'a', title: 'A' });
+    entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'a', title: 'A' }), { id: 'a', title: 'A' });
     return {
         cardEntityService: entityService, cardStoreSlot, spareCardStoreSlot,
         card: entityService.getSlotByKey(cardStoreSlot, 'a'),
@@ -213,41 +221,33 @@ const entityWorld = (): TFixture<TEntitySubject> => madeInAFlush(db => {
 });
 
 const ENTITY_WRITE_DOORS: Record<string, (subject: TEntitySubject) => void> = {
-    'slotContentService.fillEntities': s => {
-        s.cardEntityService.slotContentService.fillEntities(s.spareCardStoreSlot, ['b'], [{ id: 'b', title: 'B' }]);
+    writeSlotContentByKey: s => {
+        s.cardEntityService.writeSlotContentByKey(s.spareCardStoreSlot, 'b', { id: 'b', title: 'B' });
     },
-    'slotContentService.insertEntity': s => {
-        s.cardEntityService.slotContentService.insertEntity(s.spareCardStoreSlot, 'b', { id: 'b', title: 'B' });
+    'slotContentService.insertSlotContent': s => {
+        s.cardEntityService.slotContentService.insertSlotContent(s.card, { id: 'a', title: 'B' });
     },
-    'slotContentService.insertEntities': s => {
-        s.cardEntityService.slotContentService.insertEntities(s.spareCardStoreSlot, [{ id: 'b', title: 'B' }]);
-    },
-    'slotContentService.clearAllEntities': s => { s.cardEntityService.slotContentService.clearAllEntities(s.cardStoreSlot); },
-    'slotContentService.deleteEntities': s => { s.cardEntityService.slotContentService.deleteEntities(s.cardStoreSlot, [s.card]); },
-    'slotContentService.upsertEntity': s => {
-        s.cardEntityService.slotContentService.upsertEntity(s.cardStoreSlot, { id: 'a', title: 'B' });
-    },
-    'slotContentService.upsertEntities': s => {
-        s.cardEntityService.slotContentService.upsertEntities(s.cardStoreSlot, [{ id: 'a', title: 'B' }]);
-    },
+    'slotContentService.releaseSlotContent': s => { s.cardEntityService.slotContentService.releaseSlotContent(s.card); },
     ...entitySlotWriteDoors<TEntitySubject, TCardSlot>(s => s.cardEntityService.slotContentService, s => s.card),
 };
 
 const ENTITY_DOORS_THAT_WRITE_NOTHING = [
-    'slotContentService.findEntityByKey', 'slotContentService.keyOf',
+    'slotContentService.createSlot', 'slotContentService.createSingleSlot',
+    'slotContentService.hasReference', 'slotContentService.isSlotEmpty',
+    ...BATCH_DOORS,
     ...STORE_SLOT_DOORS_THAT_WRITE_NOTHING,
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
 ] as const;
 
 const cardBucketService = (db: OIMDB) =>
-    createOIMBucketService(db, { slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlot>() });
+    createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
 
 type TCardBucketService = ReturnType<typeof cardBucketService>;
 type TCardBucketStoreSlot = ReturnType<TCardBucketService['createStoreSlot']>;
 
 type TBucketSubject = {
     bucketService: TCardBucketService;
-    membersService: OIMSlotContentBucketServiceArrayDriven<TCardSlot>;
+    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>;
     searchStoreSlot: TCardBucketStoreSlot;
     bucket: TBucket;
     card: TCardSlot;
@@ -256,14 +256,14 @@ type TBucketSubject = {
 const bucketWorld = (): TFixture<TBucketSubject> => madeInAFlush(db => {
     const entityService = cardEntityService(db);
     const cardStoreSlot = entityService.createStoreSlot(db);
-    entityService.slotContentService.upsertEntity(cardStoreSlot, { id: 'a', title: 'A' });
-    entityService.slotContentService.upsertEntity(cardStoreSlot, { id: 'b', title: 'B' });
+    entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'a', title: 'A' }), { id: 'a', title: 'A' });
+    entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'b', title: 'B' }), { id: 'b', title: 'B' });
     const card = entityService.getSlotByKey(cardStoreSlot, 'a');
     const bucketService = cardBucketService(db);
     const membersService = bucketService.slotContentService;
     const searchStoreSlot = bucketService.createStoreSlot(db);
     const bucket = bucketService.holdSlotByKey(searchStoreSlot, 'q');
-    membersService.writeBucketMemberSlots(bucket, [card, entityService.getSlotByKey(cardStoreSlot, 'b')]);
+    membersService.writeSlotContent(bucket, [card, entityService.getSlotByKey(cardStoreSlot, 'b')]);
     return { bucketService, membersService, searchStoreSlot, bucket, card };
 });
 
@@ -274,8 +274,12 @@ const BUCKET_WRITE_DOORS: Record<string, (subject: TBucketSubject) => void> = {
     'slotContentService.removeBucketMemberSlot': s => { s.membersService.removeBucketMemberSlot(s.bucket, s.card); },
     'slotContentService.addBucketMemberSlots': s => { s.membersService.addBucketMemberSlots(s.bucket, [s.card]); },
     'slotContentService.removeBucketMemberSlots': s => { s.membersService.removeBucketMemberSlots(s.bucket, [s.card]); },
-    'slotContentService.writeBucketMemberSlots': s => { s.membersService.writeBucketMemberSlots(s.bucket, []); },
-    'slotContentService.clearBucketMemberSlots': s => { s.membersService.clearBucketMemberSlots(s.bucket); },
+    'slotContentService.writeSlotContent': s => { s.membersService.writeSlotContent(s.bucket, []); },
+    'slotContentService.insertSlotContent': s => { s.membersService.insertSlotContent(s.bucket, [s.card]); },
+    'slotContentService.clearSlotContent': s => { s.membersService.clearSlotContent(s.bucket); },
+    'slotContentService.releaseSlotContent': s => {
+        s.membersService.releaseSlotContent(s.bucket, s.bucket.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TCardSlot>>);
+    },
     'slotContentService.insertBucketMemberSlotAt': s => { s.membersService.insertBucketMemberSlotAt(s.bucket, 0, s.card); },
     'slotContentService.removeBucketMemberSlotAt': s => { s.membersService.removeBucketMemberSlotAt(s.bucket, 0); },
     'slotContentService.removeBucketMemberSlotRange': s => { s.membersService.removeBucketMemberSlotRange(s.bucket, 0, 1); },
@@ -286,16 +290,6 @@ const BUCKET_WRITE_DOORS: Record<string, (subject: TBucketSubject) => void> = {
 };
 
 const reachesNoHookTheOwnerCalls = (s: TBucketSubject): void => {
-    // @ts-expect-error protected
-    s.membersService.releaseSlotContent(s.bucket, s.bucket.owner);
-    // @ts-expect-error protected
-    s.membersService.onSubframeClosed(s.searchStoreSlot, s.bucket.owner);
-    // @ts-expect-error protected
-    s.membersService.createSlot('q', s.searchStoreSlot, s.bucket.owner);
-    // @ts-expect-error protected
-    s.membersService.hasReference(s.bucket);
-    // @ts-expect-error private
-    s.membersService.slotContentStrategy.releaseSlotContent(s.bucket, s.bucket.owner);
     // @ts-expect-error not on IOIMSlotOwner
     s.bucket.owner.assertWritable(s.bucket);
     // @ts-expect-error not on IOIMSlotOwner
@@ -303,11 +297,14 @@ const reachesNoHookTheOwnerCalls = (s: TBucketSubject): void => {
     // @ts-expect-error not on IOIMSlotOwner
     s.bucket.owner.dispatchContentChange(s.bucket);
     // @ts-expect-error not on IOIMSlotOwner
-    s.bucket.owner.columnOwner.markColumnsChanged(s.bucket, undefined, undefined, s.searchStoreSlot.channelSlot);
+    s.bucket.owner.columnSlotOwner.markColumnsChanged(s.bucket, undefined, undefined, s.searchStoreSlot.channelSlot);
 };
 
 const BUCKET_DOORS_THAT_WRITE_NOTHING = [
-    'slotContentService.createSlotOwnerService', 'slotContentService.isSlotEmpty',
+    'slotContentService.createSlot', 'slotContentService.createSingleSlot',
+    'slotContentService.hasReference', 'slotContentService.isSlotEmpty',
+    'slotContentService.getBucketMemberSlotsMissingFrom',
+    ...BATCH_DOORS,
     'slotContentService.fillBucketMemberSlots',
     'slotContentService.getBucketMemberSlots', 'slotContentService.getBucketMemberSlotCount',
     'slotContentService.hasBucketMemberSlot', 'slotContentService.getBucketMemberSlotAt',
@@ -316,9 +313,9 @@ const BUCKET_DOORS_THAT_WRITE_NOTHING = [
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
 ] as const;
 
-const singleCardEntityService = (db: OIMDB) => createOIMSingleEntityService<TCard>(db);
+const singleCardEntityService = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 
-type TSingleCardSlot = TOIMEntitySlot<TCard, void>;
+type TSingleCardSlot = TOIMEntityContentSlot<TCard>;
 type TSingleCardEntityService = ReturnType<typeof singleCardEntityService>;
 
 type TSingleEntitySubject = {
@@ -330,7 +327,7 @@ const singleEntityWorld = (): TFixture<TSingleEntitySubject> => madeInAFlush(db 
     const entityService = singleCardEntityService(db);
     const singleCardStoreSlot = entityService.createStoreSlot(db);
     const singleCard = entityService.holdSingleSlot(singleCardStoreSlot);
-    entityService.slotContentService.writeEntity(singleCard, { id: 'a', title: 'A' });
+    entityService.slotContentService.writeSlotContent(singleCard, { id: 'a', title: 'A' });
     return { singleCardEntityService: entityService, singleCard };
 });
 
@@ -349,7 +346,7 @@ describe('who may say a write is refused', () => {
         expect(filesNaming('assertNotFlushing')).toEqual([
             'engine/channel/OIMChannelService.ts 2',
             'engine/slot/OIMSlotOwnerService.ts 1',
-            'facade/index/OIMIndexService.ts 1',
+            'facade/index/OIMSlotCollectionIndexService.ts 1',
         ]);
     });
 
@@ -357,7 +354,7 @@ describe('who may say a write is refused', () => {
         expect(filesNaming('isRefusingWrites')).toEqual([
             'engine/channel/OIMChannelService.ts 2',
             'engine/slot/OIMSlotOwnerService.ts 1',
-            'facade/index/OIMIndexService.ts 3',
+            'facade/index/OIMSlotCollectionIndexService.ts 3',
         ]);
         expect(codeOf('engine/channel/OIMChannelService.ts').replace(/\s+/g, ' '))
             .toContain('public isRefusingWrites(channelSlot: TOIMChannelSlot): boolean { return channelSlot.isFlushing; }');
@@ -388,8 +385,8 @@ describe('who may say a write is refused', () => {
             'engine/entity/OIMSlotContentEntityService.ts',
             'engine/slot/OIMSlotOwnerService.ts',
             'facade/bucket/OIMSlotContentBucketService.ts',
-            'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
-            'facade/bucket/OIMSlotContentBucketServiceSortedArrayDriven.ts',
+            'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            'facade/bucket/OIMSlotContentSortedArrayBucketService.ts',
         ]);
     });
 
@@ -417,7 +414,7 @@ describe('who may say a write is refused', () => {
         expect(doorsThatDoNotRefuse(bucketWorld, BUCKET_WRITE_DOORS)).toEqual([]);
     });
 
-    it('hands a caller no hook the owner calls, neither on the content service nor on a bucket slot', () => {
+    it('hands a caller no write door on the owner of a bucket slot', () => {
         expect(reachesNoHookTheOwnerCalls).toBeInstanceOf(Function);
     });
 
@@ -427,8 +424,8 @@ describe('who may say a write is refused', () => {
             slotContentService.slotOwner.assertWritable,
             // @ts-expect-error fileSlot is not on IOIMSlotOwner
             slotContentService.slotOwner.fileSlot,
-            // @ts-expect-error columnOwner is not on IOIMSlotOwner
-            slotContentService.slotOwner.columnOwner,
+            // @ts-expect-error columnSlotOwner is not on IOIMSlotOwner
+            slotContentService.slotOwner.columnSlotOwner,
         ];
         expect(writeDoorsOf).toBeInstanceOf(Function);
     });
@@ -445,9 +442,9 @@ describe('who may say a write is refused', () => {
             // @ts-expect-error a write door of the index's buckets
             slotContentService.removeBucketMemberSlot,
             // @ts-expect-error a write door of the index's buckets
-            slotContentService.writeBucketMemberSlots,
+            slotContentService.writeSlotContent,
             // @ts-expect-error a write door of the index's buckets
-            slotContentService.clearBucketMemberSlots,
+            slotContentService.clearSlotContent,
             // @ts-expect-error a write door of the index's buckets
             slotContentService.fillBucketMemberSlots,
             // @ts-expect-error a write door of the index's buckets
@@ -457,7 +454,7 @@ describe('who may say a write is refused', () => {
             // @ts-expect-error a write door of the index's buckets
             slotContentService.moveBucketMemberSlotToPosition,
             // @ts-expect-error a write door of the index's buckets
-            slotContentService.createSlotOwnerService,
+            slotContentService.insertSlotContent,
         ];
         expect(doorsOf).toBeInstanceOf(Function);
     });

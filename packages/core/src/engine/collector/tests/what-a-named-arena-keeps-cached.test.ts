@@ -1,20 +1,22 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
 import { createOIMUnusedSlotCollectorSlot } from '../utils/createOIMUnusedSlotCollectorSlot';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
 
 type TCard = { id: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     let built = 0;
     const ranksService = createOIMComputedService<string, number>({
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             built++;
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
@@ -33,7 +35,7 @@ const createFixture =() => {
         flushUnusedSlotCollector: (): void => {
             OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         },
-        readValueByKey: (key: string): number => ranksCollectionService.slotContentService.getValueForSlot(
+        readValueByKey: (key: string): number => ((ranksCollectionService.getSlotByKey(ranks, key)) as TOIMComputedContentSlot<number>).computedValueService.getValueForSlot(
             ranksCollectionService.getSlotByKey(ranks, key),
         ),
     };
@@ -42,7 +44,7 @@ const createFixture =() => {
 describe('an arena is a collector of its own, and its lifetime is the caller\'s', () => {
     it('keeps a derivation alive after the turn that read it has settled', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'a', rank: 1 });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'a', { id: 'a', rank: 1 });
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
@@ -62,7 +64,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
 
     it('lets the whole subtree go when the caller ends the arena, and nothing else held it', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'a', rank: 1 });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'a', { id: 'a', rank: 1 });
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
@@ -80,7 +82,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
 
     it('is rebuilt once the arena let it go, which is what proves the arena was the cache', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'a', rank: 1 });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'a', { id: 'a', rank: 1 });
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
@@ -95,7 +97,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
 
     it('nests, so an inner scope ending does not drop what an outer one is standing on', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'a', rank: 1 });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'a', { id: 'a', rank: 1 });
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();

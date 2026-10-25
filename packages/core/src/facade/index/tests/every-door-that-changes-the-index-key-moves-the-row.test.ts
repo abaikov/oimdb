@@ -1,11 +1,12 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -14,12 +15,12 @@ type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const idsIn = (bucket: TBucket): string[] =>
@@ -28,8 +29,8 @@ const createFixture = () => {
             .sort();
     const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
     const clubs = byDeckService.holdSlotByKey(byDeck, 'clubs');
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades', title: 'ace' });
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c2', deck: 'spades', title: 'two' });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'ace' });
+    cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'spades', title: 'two' });
     db.flush();
     return { db, cardsService, cards, idsIn, spades, clubs };
 };

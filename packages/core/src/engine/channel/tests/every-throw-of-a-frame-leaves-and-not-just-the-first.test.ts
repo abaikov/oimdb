@@ -3,8 +3,8 @@ import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
-import { OIMErrorPolicyThrowAtOnce } from '../../error/OIMErrorPolicyThrowAtOnce';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
@@ -26,7 +26,7 @@ describe('every throw of a frame reaches the error policy, not just the first', 
     it('logs and hands on all three when three effect bodies throw, by default, and the flush returns', () => {
         const reported: string[] = [];
         const db = new OIMDB({
-            errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: error => { reported.push(messageOf(error)); } }),
+            errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: error => { reported.push(messageOf(error)); } }),
         });
         const first = makeSlot('first');
         const second = makeSlot('second');
@@ -82,7 +82,7 @@ describe('every throw of a frame reaches the error policy, not just the first', 
     });
 
     it('throws the first error out of the flush at once, and keeps the effects it did not reach for the next flush', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const first = makeSlot('first');
         const second = makeSlot('second');
         let secondRuns = 0;

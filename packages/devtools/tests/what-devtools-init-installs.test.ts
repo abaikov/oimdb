@@ -1,5 +1,7 @@
-import { OIMDB, OIMDefaults, createOIMEntityService } from '@oimdb/core';
+import { OIMDB, OIMDefaults } from '@oimdb/core';
 import { oimDevRegistry, oimInitDevtools } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 
@@ -11,9 +13,9 @@ describe('what oimInitDevtools installs', () => {
 
     it('reports a store slot registered with it', () => {
         const db = new OIMDB();
-        const usersService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
         const users = usersService.createStoreSlot(db);
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Ada' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Ada' });
 
         oimDevRegistry.collection('init-users', usersService, users);
 

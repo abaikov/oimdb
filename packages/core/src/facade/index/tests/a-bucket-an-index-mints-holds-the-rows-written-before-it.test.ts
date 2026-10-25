@@ -1,13 +1,14 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -16,18 +17,18 @@ type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'spades' },
         { id: 'c2', deck: 'spades' },
         { id: 'c3', deck: 'clubs' },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const idsIn = (bucketSlot: TBucket): string[] =>
@@ -74,7 +75,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
         const { cardsService, cards, byDeckService, byDeck, idsIn } = createFixture();
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
         const c1 = cardsService.findSlotByKey(cards, 'c1');
-        if (c1 !== undefined) cardsService.slotContentService.deleteEntity(c1);
+        if (c1 !== undefined) cardsService.slotContentService.clearSlotContent(c1);
         expect(idsIn(spades)).toEqual(['c2']);
         spades.owner.unholdSlot(spades);
     });
@@ -85,11 +86,11 @@ describe('a bucket an index mints holds the rows written before it', () => {
         const clubs = byDeckService.holdSlotByKey(byDeck, 'clubs');
         let runCount = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, [spades, clubs], [], () => { runCount++; });
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'clubs' },
             { id: 'c3', deck: 'spades' },
             { id: 'c4', deck: 'clubs' },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         expect(idsIn(spades)).toEqual(['c2', 'c3']);
         expect(idsIn(clubs)).toEqual(['c1', 'c4']);
@@ -106,7 +107,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
         const effect = OIMEffectService.INSTANCE.createEffect(db, [clubs], [], () => {
             seen.push(idsIn(byDeckService.getSlotByKey(byDeck, 'spades')));
         });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c4', deck: 'clubs' });
+        cardsService.writeSlotContentByKey(cards, 'c4', { id: 'c4', deck: 'clubs' });
         db.flush();
         expect(seen).toEqual([['c1', 'c2']]);
         OIMEffectService.INSTANCE.disposeEffect(effect);
@@ -120,7 +121,7 @@ describe('a bucket an index mints holds the rows written before it', () => {
         const heldBefore = c1.holdCount;
         byDeckService.disposeIndexStoreSlot(byDeck);
         expect(c1.holdCount).toBe(heldBefore - 1);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c5', deck: 'spades' });
+        cardsService.writeSlotContentByKey(cards, 'c5', { id: 'c5', deck: 'spades' });
         expect(oimIsSlotEmpty(spades)).toBe(true);
         expect(() => byDeckService.getSlotByKey(byDeck, 'spades')).toThrow();
     });

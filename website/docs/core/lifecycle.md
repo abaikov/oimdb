@@ -22,12 +22,12 @@ delivered (frames and subframes) is the channel's business and is covered in
 </InShort>
 
 ```ts setup
-import { OIMDB, createOIMEntityService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMDB, oimIsSlotReleased, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -41,9 +41,9 @@ subscribes works through it, so its life is the part of the engine a consumer de
 
 | Stage | What happens | Who causes it |
 |---|---|---|
-| **Minted** | the slot owner creates the slot and files it under its key in the store slot's store | the first `getSlotByKey`, `holdSlotByKey`, `insertEntity` / `upsertEntity` for that key |
+| **Minted** | the slot owner creates the slot and files it under its key in the store slot's store | the first `getSlotByKey`, `holdSlotByKey`, `writeSlotContentByKey` for that key |
 | **Kept** | something counts on it: a hold (`holdCount`), an effect filed on it, a column slot on it, a bucket it is a member of | you, an effect, an index |
-| **Filled / emptied** | a value lands on it or leaves it; the identity stays the same either way | writes: `upsertEntity`, `updateEntity`, `deleteEntity` |
+| **Filled / emptied** | a value lands on it or leaves it; the identity stays the same either way | writes: `writeSlotContentByKey`, `updateEntity`, `clearSlotContent` |
 | **Asked to go** | the last thing keeping it gives it back, or its value leaves while nothing keeps it | `unholdSlot`, `effectService.disposeEffect(effect)`, the unused-slot collector at flush, a delete |
 | **Released** | the release policy agrees; the value (if any) is cleared, the slot leaves the store, its RELEASED flag is set (`oimIsSlotReleased(slot)`) | the owner, never the caller |
 
@@ -61,7 +61,7 @@ an identity and leave it with no owner of its lifetime:
 - **`getSlotByKey(storeSlot, key)`** mints and hands the slot to the **unused-slot collector**,
   which holds it until the next flush. A read you do not keep is given back for you.
 - **`holdSlotByKey(storeSlot, key)`** mints and holds; the hold is yours to give back.
-- **A write** (`upsertEntity`, `insertEntity`) mints and fills; the value keeps it
+- **A write** (`writeSlotContentByKey`, `writeSlotContentByKey`) mints and fills; the value keeps it
   under the default policy.
 - **An effect** holds every slot it subscribes to until `effectService.disposeEffect(effect)`.
 
@@ -87,12 +87,12 @@ decide "nothing refers to it" in one place.
 
 ```ts
 const ace = cardService.holdSlotByKey(cards, 'c2');
-const filled = cardContentService.upsertEntity(cards, { id: 'c2', title: 'Ace' });
+const filled = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Ace' });
 const isSameIdentity = filled === ace;
 db.flush();
 ace.owner.unholdSlot(ace);
 const keptByValue = !oimIsSlotReleased(ace);
-cardContentService.deleteEntity(ace);
+cardService.slotContentService.clearSlotContent(ace);
 const goneWithValue = oimIsSlotReleased(ace);
 ```
 
@@ -131,7 +131,7 @@ try {
 }
 ```
 
-`deleteEntity` / `deleteEntities` are not a release: they take the **value** away
+`clearSlotContent` / `deleteEntities` are not a release: they take the **value** away
 and leave the identity standing for as long as something keeps it. A subscriber of a
 deleted entity is still subscribed, and a later upsert under the same key lands on the
 same slot.
@@ -152,44 +152,38 @@ outranks its answer.
 
 | Policy | A slot goes | Take it for |
 |---|---|---|
-| `OIMSlotReleasePolicyAtEmpty.INSTANCE` | once it has no value and nothing holds it; a slot with a value stays. A computed, never empty, stays while its store slot lives | the default for entity, bucket and index collections |
-| `OIMSlotReleasePolicyNever.INSTANCE` | never, empty or not; a deleted key's slot stays filed | a small, fixed key space whose identities you want stable |
-| `OIMSlotReleasePolicyAtUnhold.INSTANCE` | the moment nothing holds it, even with a value — at its last unhold, and right after a write into a slot nobody holds | keeping only what something is subscribed to or holds; the default for every computed, single or collection |
-| `OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs })` | once its last write is older than the window | data that goes stale on a known schedule |
-| `OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs })` | once nothing has watched it for the window | a cache that keeps what was recently on screen |
-| `OIMSlotReleasePolicyAfterUnhold({ keepAfterUnholdMs })` | once the window after its last unhold has passed; a hold taken again inside it keeps the slot. A slot that was never held is never on this clock | navigating back to a screen within the window |
-| `OIMSlotReleasePolicyEarliest([...])` | as soon as any of several policies says so | combining windows |
+| `OIMSlotAtEmptyReleasePolicy.INSTANCE` | once it has no value and nothing holds it; a slot with a value stays. A computed, never empty, stays while its store slot lives | the default for entity, bucket and index collections |
+| `OIMSlotNeverReleasePolicy.INSTANCE` | never, empty or not; a deleted key's slot stays filed | a small, fixed key space whose identities you want stable |
+| `OIMSlotAtUnholdReleasePolicy.INSTANCE` | the moment nothing holds it, even with a value — at its last unhold, and right after a write into a slot nobody holds | keeping only what something is subscribed to or holds; the default for every computed, single or collection |
+| `OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs })` | once its last write is older than the window | data that goes stale on a known schedule |
+| `OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs })` | once nothing has watched it for the window | a cache that keeps what was recently on screen |
+| `OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs })` | once the window after its last unhold has passed; a hold taken again inside it keeps the slot. A slot that was never held is never on this clock | navigating back to a screen within the window |
+| `OIMSlotEarliestReleasePolicy([...])` | as soon as any of several policies says so | combining windows |
 
-Under `OIMSlotReleasePolicyAtUnhold`, a write into an entity nothing holds
+Under `OIMSlotAtUnholdReleasePolicy`, a write into an entity nothing holds
 releases it at once: the slot comes back released (`oimIsSlotReleased(slot)`) and `hasSlotContentByKey` for
 its key is `false`. An entity filed into a held bucket is kept, because the bucket
 holds it.
 
 **Where the policy comes from.** `OIMDB` hands its `slotReleasePolicy` to what its factories build
-(`createOIMEntityService`, `createOIMSlotContentEntityService`, `createOIMSingleEntityService`,
-`createOIMBucketService`, `createOIMSingleBucketService` and the index factories). Each of them takes a
+(`createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `createOIMSingleSlotService`,
+`createOIMSlotCollectionService`, `createOIMSingleSlotService` and the index factories). Each of them takes a
 `slotReleasePolicy` of its own to override it for one collection type, and so for every store slot of it. If
-neither names one, the collection is built with `OIMSlotReleasePolicyAtEmpty.INSTANCE`. The computed
-factories take no db and default to `OIMSlotReleasePolicyAtUnhold.INSTANCE` instead; pass one in their
+neither names one, the collection is built with `OIMSlotAtEmptyReleasePolicy.INSTANCE`. The computed
+factories take no db and default to `OIMSlotAtUnholdReleasePolicy.INSTANCE` instead; pass one in their
 options to change it.
 
 ```typescript
-import {
-    OIMSlotReleasePolicyAfterIdle,
-    OIMSlotReleasePolicyAfterUnhold,
-    OIMSlotReleasePolicyAfterWrite,
-    OIMSlotReleasePolicyEarliest,
-} from '@oimdb/core';
 
 const releasingDb = new OIMDB({
-    slotReleasePolicy: new OIMSlotReleasePolicyEarliest([
-        new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: 60_000 }),
-        new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 30_000 }),
+    slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+        new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000 }),
+        new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
     ]),
 });
 
 const unholdingDb = new OIMDB({
-    slotReleasePolicy: new OIMSlotReleasePolicyAfterUnhold({ keepAfterUnholdMs: 5_000 }),
+    slotReleasePolicy: new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 5_000 }),
 });
 ```
 
@@ -216,7 +210,7 @@ Implement it to write a policy of your own. The engine calls:
 | `onSlotIdle` | the slot first gets a value with no subscriber, or its last subscriber leaves | `true` means already due: a freshly filled slot goes to the unused-slot collector and leaves at the end of the frame; an idle one is released at once if nothing holds it |
 | `onSlotUnheld` | its last hold is given back | an unhold window restarts here |
 | `isSlotReleasable` | nothing holds it, nothing refers to it, and it has a value | `true` releases it; `false` keeps it, and a timed policy files it into its own queue |
-| `isEmptySlotReleasable` | the same, for a slot with no value | only `OIMSlotReleasePolicyNever` answers `false` |
+| `isEmptySlotReleasable` | the same, for a slot with no value | only `OIMSlotNeverReleasePolicy` answers `false` |
 | `cancelSlotRelease` | the slot is being released | takes it off the policy's queue |
 
 `releasesWrittenSlots`: whether the policy can ever release a slot that holds data. `false`
@@ -225,43 +219,102 @@ a release. `false` lets writes skip `onSlotWritten`. Both are read once, at cons
 
 ### Controlling the clock
 
-Each timed policy is swept by its own stateless collector service (`OIMReleaseSlotCollectorServiceAfterWrite`,
-`OIMReleaseSlotCollectorServiceAfterIdle` or `OIMReleaseSlotCollectorServiceAfterUnhold`, each an `INSTANCE`),
-and its state is one release collector slot on the db's `collectorSlot`. The clock and the timer are the db's:
+Each timed policy files into its own release wheel on the db's `collectorSlot` (`afterWriteSlotReleaseWheel`,
+`afterIdleSlotReleaseWheel` or `afterUnholdSlotReleaseWheel`, each an `OIMSlotReleaseWheel`). The clock and the timer are the db's:
 `new OIMDB({ getNowMs, releaseTimer })`, `getNowMs` defaulting to `Date.now` and the timer to a `setTimeout`
 that is `unref`ed, so it does not keep a Node process alive. Pass both to control time:
 
 ```typescript
-import { OIMReleaseSlotCollectorServiceAfterIdle, OIMSlotReleasePolicyAfterIdle } from '@oimdb/core';
 
 let nowMs = 0;
 const testDb = new OIMDB({
     getNowMs: () => nowMs,
     releaseTimer: () => () => undefined,
-    slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 30_000 }),
+    slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 
 nowMs += 31_000;
-OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(testDb.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+oimMintAfterIdleSlotReleaseWheel(testDb.collectorSlot).flush();
 ```
 
-`flush(releaseSlotCollectorSlot)` releases everything due up to now; `cancelAllSlotReleases(releaseSlotCollectorSlot)`
-empties the queue and disarms the timer. Deadlines are swept in slices of `OIM_SLICE_LENGTH_MS`
+`flush()` releases everything due up to now; `cancelAllSlots()` empties the wheel and disarms the timer. Deadlines are swept in slices of `OIM_SLICE_LENGTH_MS`
 (1024 ms), so a slot goes up to one slice after its deadline, never before, and many slots on one
 clock cost one timer.
 
 ### What restarts each window
 
-Each timed policy keeps its own deadline on the slot. Under `OIMSlotReleasePolicyEarliest` a slot
+Each timed policy keeps its own deadline on the slot. Under `OIMSlotEarliestReleasePolicy` a slot
 goes on the soonest one, and a hold outranks all of them.
 
 | Policy | Window restarts on | Not on |
 |---|---|---|
-| `OIMSlotReleasePolicyAfterWrite` | every write that leaves a value, `updateEntity` included | a subscriber arriving or leaving |
-| `OIMSlotReleasePolicyAfterIdle` | the first value of a slot nobody subscribes to, and the last subscriber leaving | a later write, or an unhold |
-| `OIMSlotReleasePolicyAfterUnhold` | every last unhold | a write |
+| `OIMSlotAfterWriteReleasePolicy` | every write that leaves a value, `updateEntity` included | a subscriber arriving or leaving |
+| `OIMSlotAfterIdleReleasePolicy` | the first value of a slot nobody subscribes to, and the last subscriber leaving | a later write, or an unhold |
+| `OIMSlotAfterUnholdReleasePolicy` | every last unhold | a write |
 
 A refetch that lands before the sweep restarts the write window of the entities it rewrote.
+
+### Which writes move the deadline
+
+By default every write restarts the write window, a local edit included. When only server
+responses should keep data fresh, give `OIMSlotAfterWriteReleasePolicy` a manual frame strategy
+and write the responses inside its frame. Writes outside it leave the deadline where it was.
+
+```ts
+
+type Deck = { id: string; title: string };
+
+const serverDb = new OIMDB();
+const serverFrame = new OIMSlotReleaseManualDueFramePolicy();
+const serverDeckService = createOIMSlotCollectionService(serverDb, { slotContentService: createOIMSlotContentEntityService<Deck>(serverDb), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverCardService = createOIMSlotCollectionService(serverDb, { slotContentService: createOIMSlotContentEntityService<Card>(serverDb), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverDecks = serverDeckService.createStoreSlot(serverDb);
+const serverCards = serverCardService.createStoreSlot(serverDb);
+
+const onDeckResponse = (response: { deck: Deck; cards: Card[] }): void => {
+    serverFrame.writeInSlotReleaseDueFrame(() => {
+        serverDeckService.writeSlotContentByKey(serverDecks, response.deck.id, response.deck);
+        for (const card of response.cards) serverCardService.writeSlotContentByKey(serverCards, card.id, card);
+    });
+};
+
+const onLocalRename = (deck: Deck, title: string): void => {
+    serverDeckService.writeSlotContentByKey(serverDecks, ({ ...deck, title }).id, { ...deck, title });
+};
+```
+
+`openSlotReleaseDueFrame()` and `closeSlotReleaseDueFrame()` do the same as a pair; closing a frame
+that is not open throws. One frame strategy shared by several policies moves each slot by its own
+collection's window. The function you pass must be synchronous: the frame closes when it returns.
+
+### Invalidating
+
+`oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).markSlotReleaseDueNow(slot)` makes the slot's
+write deadline now. A slot nothing holds or watches goes at once, with its data. A held or watched one
+keeps its data and goes when its last hold or subscriber leaves, unless a write inside the release-due
+frame moves its deadline a window ahead first. Nothing is written, so no effect wakes.
+
+### Refetching on a clock
+
+A release wheel decides when a slot may go. To refresh data while somebody is looking at it, create an
+`OIMSlotRefetchWheel` with a listener and file the slots at the moment they should be refetched:
+
+```ts
+
+const refetchDue: TOIMSlot[] = [];
+const refetchWheel = new OIMSlotRefetchWheel({
+    slotRefetchListener: { onSlotsRefetchDue: slots => { refetchDue.push(...slots); } },
+});
+
+const onCardResponse = (cardSlot: TOIMSlot, staleTimeMs: number): void => {
+    refetchWheel.scheduleSlotRefetchAt(cardSlot, Date.now() + staleTimeMs);
+};
+```
+
+The wheel keeps nothing on the slot. Every `scheduleSlotRefetchAt` files one entry, so moving a refetch
+earlier is one more call; the listener decides from its own data whether an entry it is handed is still
+current. A sweep takes only slices that have fully passed, drops slots nobody subscribes to, and calls the
+listener once with every watched slot that came due. The array it passes is reused, so copy what you keep.
 
 ### An idle window opens twice, and a held slot is off the clock
 
@@ -288,8 +341,8 @@ A held slot is off the clock. Two consequences follow:
   windows ran out go in the same sweep.
 
 A subscriber is a hold, so a watched slot is off the clock and never loses data mid-read. No read is
-reported to the clock. After the last dispose, `OIMSlotReleasePolicyAfterIdle` grants a whole fresh
-window, while `OIMSlotReleasePolicyAfterWrite` grants only what is left of the write window, so an
+reported to the clock. After the last dispose, `OIMSlotAfterIdleReleasePolicy` grants a whole fresh
+window, while `OIMSlotAfterWriteReleasePolicy` grants only what is left of the write window, so an
 already-stale entity goes on that call.
 
 A bucket runs its own window, given to its own collection. A bucket something holds keeps every

@@ -1,23 +1,19 @@
 import * as React from 'react';
 import { render, act } from '@testing-library/react';
-import {
-    OIMDB,
-    OIMUnusedSlotCollectorService,
-    createOIMComputedService,
-    createOIMEntityService,
-    oimSameValueZeroGuard,
-} from '@oimdb/core';
+import { OIMDB, OIMUnusedSlotCollectorService, createOIMComputedService, oimSameValueZeroGuard } from '@oimdb/core';
 import { useOIMSlotsByKeys } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TCard = { id: string; rank: number };
 
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     let builtCount = 0;
     const ranksService = createOIMComputedService<string, number>({
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             builtCount++;
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
@@ -54,7 +50,7 @@ function Ranks(
 describe('a component wrapped in an arena', () => {
     it('shows every derivation it resolved during its first render', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
 
         const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
@@ -65,7 +61,7 @@ describe('a component wrapped in an arena', () => {
 
     it('keeps all three past a settle that would otherwise collect them', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
 
@@ -77,7 +73,7 @@ describe('a component wrapped in an arena', () => {
 
     it('gives every one of them back when it unmounts', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
@@ -93,7 +89,7 @@ describe('a component wrapped in an arena', () => {
 
     it('rebuilds them for the next mount, which is what proves the arena was the cache', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
@@ -107,7 +103,7 @@ describe('a component wrapped in an arena', () => {
 
     it('leaves nothing filed after StrictMode has mounted, unmounted and remounted it', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(
             <React.StrictMode><Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} /></React.StrictMode>);
@@ -122,7 +118,7 @@ describe('a component wrapped in an arena', () => {
 
     it('neither rebuilds nor stacks a second hold when a render hands it an equal key list', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
@@ -138,7 +134,7 @@ describe('a component wrapped in an arena', () => {
 
     it('ends the whole arena when the key list moves, so the keys it still names are rebuilt', () => {
         const w = build();
-        w.cardsService.slotContentService.upsertEntities(w.cards, [{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]);
+        w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });

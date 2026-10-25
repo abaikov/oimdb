@@ -1,11 +1,10 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../../entity/types/TOIMEntityColumnName';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -14,22 +13,20 @@ type TGroup = TOIMBucketSlot<TSlots, string>;
 
 const HUNDRED = 100;
 
-const cardsOf = (db: OIMDB) => createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: card => card.id });
+const cardsOf = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
 type TCardsService = ReturnType<typeof cardsOf>;
 type TCardsStore = ReturnType<TCardsService['createStoreSlot']>;
 
 const groupsOf = (db: OIMDB) => {
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const groupsService = createOIMBucketService<
-        TCardSlot, string, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
+    const groupsService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     return { groupsService, membersService };
 };
 
 const fill = (cardsService: TCardsService, cards: TCardsStore, size: number): TCardSlot[] => {
     const slots: TCardSlot[] = [];
     for (let i = 0; i < size; i++) {
-        cardsService.slotContentService.upsertEntity(cards, { id: `r${i}`, rank: (i * 37) % size });
+        cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: `r${i}`, rank: (i * 37) % size }), { id: `r${i}`, rank: (i * 37) % size });
         slots.push(cardsService.getSlotByKey(cards, `r${i}`) as TCardSlot);
     }
     return slots;
@@ -38,7 +35,7 @@ const fill = (cardsService: TCardsService, cards: TCardsStore, size: number): TC
 const strangers = (cardsService: TCardsService, cards: TCardsStore, size: number): TCardSlot[] => {
     const slots: TCardSlot[] = [];
     for (let i = 0; i < size; i++) {
-        cardsService.slotContentService.upsertEntity(cards, { id: `s${i}`, rank: 1000 + ((i * 37) % size) });
+        cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: `s${i}`, rank: 1000 + ((i * 37) % size) }), { id: `s${i}`, rank: 1000 + ((i * 37) % size) });
         slots.push(cardsService.getSlotByKey(cards, `s${i}`) as TCardSlot);
     }
     return slots;
@@ -77,7 +74,7 @@ const filledHundred = () => {
     const slots = fill(cardsService, cards, HUNDRED);
     const groups = groupsService.createStoreSlot(db);
     const bucket = groupsService.holdSlotByKey(groups, 'group');
-    membersService.writeBucketMemberSlots(bucket, slots);
+    membersService.writeSlotContent(bucket, slots);
     expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(idsOf(slots));
     return { cardsService, cards, membersService, bucket, slots };
 };
@@ -87,10 +84,10 @@ describe('a whole-list write that changes one entity of a group of a hundred', (
         const { cardsService, cards, membersService, bucket, slots } = filledHundred();
         const leaving = slots[0];
         const staying = slots.slice(1);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'joiner', rank: 44.5 });
+        cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: 'joiner', rank: 44.5 }), { id: 'joiner', rank: 44.5 });
         const joiner = cardsService.getSlotByKey(cards, 'joiner') as TCardSlot;
 
-        membersService.writeBucketMemberSlots(bucket, [...staying, joiner]);
+        membersService.writeSlotContent(bucket, [...staying, joiner]);
 
         expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(idsOf([...staying, joiner]));
         expect(leaving.holdCount).toBe(0);
@@ -103,15 +100,15 @@ describe('a whole-list write that changes one entity of a group of a hundred', (
         const cardsService = cardsOf(db);
         const cards = cardsService.createStoreSlot(db);
         const { groupsService, membersService } = groupsOf(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', rank: 1 });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'b', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: 'a', rank: 1 }), { id: 'a', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: 'b', rank: 2 }), { id: 'b', rank: 2 });
         const a = cardsService.getSlotByKey(cards, 'a') as TCardSlot;
         const b = cardsService.getSlotByKey(cards, 'b') as TCardSlot;
         const groups = groupsService.createStoreSlot(db);
         const bucket = groupsService.holdSlotByKey(groups, 'group');
 
-        membersService.writeBucketMemberSlots(bucket, [a, a, b]);
-        membersService.writeBucketMemberSlots(bucket, [a, b, b]);
+        membersService.writeSlotContent(bucket, [a, a, b]);
+        membersService.writeSlotContent(bucket, [a, b, b]);
 
         expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(['a', 'b', 'b']);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(3);
@@ -124,18 +121,18 @@ describe('a whole-list write that changes one entity of a group of a hundred', (
         const cardsService = cardsOf(db);
         const cards = cardsService.createStoreSlot(db);
         const { groupsService, membersService } = groupsOf(db);
-        for (const id of ['k1', 'k2', 'k3']) cardsService.slotContentService.upsertEntity(cards, { id, rank: 0 });
+        for (const id of ['k1', 'k2', 'k3']) cardsService.writeSlotContentByKey(cards, (card => card.id)({ id, rank: 0 }), { id, rank: 0 });
         const k1 = cardsService.getSlotByKey(cards, 'k1') as TCardSlot;
         const k2 = cardsService.getSlotByKey(cards, 'k2') as TCardSlot;
         const k3 = cardsService.getSlotByKey(cards, 'k3') as TCardSlot;
         const groups = groupsService.createStoreSlot(db);
         const bucket = groupsService.holdSlotByKey(groups, 'group');
 
-        membersService.writeBucketMemberSlots(bucket, [k1, k3, k2, k3]);
+        membersService.writeSlotContent(bucket, [k1, k3, k2, k3]);
         expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(['k1', 'k3', 'k2', 'k3']);
         expect(k3.holdCount).toBe(2);
 
-        membersService.writeBucketMemberSlots(bucket, [k3, k1, k3, k2]);
+        membersService.writeSlotContent(bucket, [k3, k1, k3, k2]);
         expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(['k3', 'k1', 'k3', 'k2']);
         expect(k3.holdCount).toBe(2);
     });
@@ -146,7 +143,7 @@ describe('the eviction a whole-list write takes', () => {
         const { membersService, bucket } = filledHundred();
         const tally = watchList(bucket);
 
-        membersService.writeBucketMemberSlots(bucket, []);
+        membersService.writeSlotContent(bucket, []);
 
         expect(tally.indexWrites).toBe(0);
         expect(tally.lengthWrites).toBe(1);
@@ -158,7 +155,7 @@ describe('the eviction a whole-list write takes', () => {
         const arriving = strangers(cardsService, cards, HUNDRED);
         const tally = watchList(bucket);
 
-        membersService.writeBucketMemberSlots(bucket, arriving);
+        membersService.writeSlotContent(bucket, arriving);
 
         expect(tally.indexWrites).toBe(HUNDRED);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(HUNDRED);

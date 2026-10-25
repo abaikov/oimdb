@@ -93,19 +93,19 @@ const relative = (files: Set<string>): string[] => [...files].map(file => file.s
 
 /** The ordered service and the modules only it reaches. */
 const ORDERED = [
-    'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
+    'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
     'engine/bucket/array/utils/oimAssertWholePosition.ts',
-    'engine/bucket/array/OIMBucketArrayMembershipNonUnique.ts',
+    'engine/bucket/array/OIMBucketMemberSlotsArrayService.ts',
 ];
 
 /** Every strategy a caller may construct — none of which anybody must ship. */
 const STRATEGIES = [
-    'engine/store/OIMSlotStoreServiceMapDriven.ts',
-    'engine/store/OIMSlotStoreServiceTreeDriven.ts',
-    'facade/bucket/OIMSlotContentBucketServiceSetDriven.ts',
-    'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
-    'facade/bucket/OIMSlotContentBucketServiceSortedArrayDriven.ts',
-    'engine/bucket/array/OIMBucketArrayMembershipUnique.ts',
+    'engine/store/OIMSlotMapStoreService.ts',
+    'engine/store/OIMSlotTreeStoreService.ts',
+    'facade/bucket/OIMSlotContentSetBucketService.ts',
+    'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+    'facade/bucket/OIMSlotContentSortedArrayBucketService.ts',
+    'engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService.ts',
 ];
 
 /** The lazy-getter module every default now comes from. */
@@ -117,16 +117,15 @@ const RUNTIME = 'engine/channel/OIMChannelService.ts';
 const ROOT = 'factories/OIMDB.ts';
 /** The doors: one module each, and none of them anybody else's cost. */
 const DOORS = [
-    'factories/createOIMEntityService.ts',
-    'factories/createOIMSingleEntityService.ts',
-    'factories/createOIMBucketService.ts',
-    'factories/createOIMSingleBucketService.ts',
-    'factories/createOIMIndexService.ts',
-    'factories/createOIMIndexServiceByCompositeKey.ts',
-    'factories/createOIMIndexServiceSortedArrayDriven.ts',
+    'factories/createOIMSlotCollectionService.ts',
+    'factories/createOIMSingleSlotService.ts',
+    'factories/createOIMSlotContentEntityService.ts',
+    'factories/createOIMSlotCollectionIndexService.ts',
+    'factories/createOIMSlotCollectionSortedArrayIndexService.ts',
     'factories/createOIMComputedService.ts',
-    'factories/createOIMComputedServiceSorted.ts',
-    'factories/createOIMComputedServiceBucketMemo.ts',
+    'factories/createOIMSingleComputedService.ts',
+    'factories/createOIMSortedComputedService.ts',
+    'factories/createOIMBucketMemoComputedService.ts',
 ];
 /** The collection a consumer reaches for to hold records by key. */
 const COLLECTION = 'facade/slot/OIMSlotCollectionService.ts';
@@ -215,8 +214,8 @@ describe('what an import retains', () => {
         ENTITY_CONTENT,
         BUCKETS,
         'facade/bucket/OIMBucketCommands.ts',
-        'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts',
-        'facade/bucket/OIMSlotContentBucketServiceSetDriven.ts',
+        'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+        'facade/bucket/OIMSlotContentSetBucketService.ts',
         'engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
     ])('the root does not retain %s — a door is a module, not a method', module => {
         expect(retains(ROOT, module)).toBe(false);
@@ -229,9 +228,8 @@ describe('what an import retains', () => {
             'engine/channel/OIMChannelQueue.ts',
             'engine/channel/utils/createOIMChannelSlot.ts',
             'engine/collector/utils/createOIMCollectorSlot.ts',
-            'engine/collector/utils/createOIMReleaseSlotCollectorSlot.ts',
             'engine/collector/utils/createOIMUnusedSlotCollectorSlot.ts',
-            'engine/error/OIMErrorPolicyLogAndContinue.ts',
+            'engine/error/OIMLogAndContinueErrorPolicy.ts',
             'engine/schedule/constants/OIM_NOTHING_TO_DISPOSE.ts',
             'engine/schedule/constants/OIM_TIMER_ON_TIMEOUT.ts',
             'engine/schedule/utils/oimTimerOfChannelScheduler.ts',
@@ -248,28 +246,28 @@ describe('what an import retains', () => {
      * a fork shipped as an argument, checked rather than asserted in prose.
      */
     it('the ordered service retains its default membership and no other', () => {
-        expect(retains('facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts', 'engine/bucket/array/OIMBucketArrayMembershipNonUnique.ts'))
+        expect(retains('facade/bucket/OIMSlotContentPositionalArrayBucketService.ts', 'engine/bucket/array/OIMBucketMemberSlotsArrayService.ts'))
             .toBe(true);
-        expect(retains('facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts', 'engine/bucket/array/OIMBucketArrayMembershipUnique.ts'))
+        expect(retains('facade/bucket/OIMSlotContentPositionalArrayBucketService.ts', 'engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService.ts'))
             .toBe(false);
-        expect(retains('engine/bucket/array/OIMBucketArrayMembershipUnique.ts', 'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts'))
+        expect(retains('engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService.ts', 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts'))
             .toBe(false);
     });
 
     /** The reader is checking a real graph, not an empty one. */
     it('reads a graph with something in it', () => {
         expect(graph.size).toBeGreaterThan(50);
-        expect(retains('factories/createOIMEntityService.ts', ENTITY_CONTENT)).toBe(true);
-        expect(retains('factories/createOIMEntityService.ts', 'engine/slot/OIMSlotOwnerService.ts')).toBe(true);
+        expect(retains('factories/createOIMSlotContentEntityService.ts', ENTITY_CONTENT)).toBe(true);
+        expect(retains('factories/createOIMSlotCollectionService.ts', 'engine/slot/OIMSlotOwnerService.ts')).toBe(true);
         expect(retains(BUCKETS, 'engine/bucket/utils/createOIMBucketSlot.ts')).toBe(true);
         expect(retains(COLLECTION, 'engine/slot/utils/createOIMStoreSlot.ts')).toBe(true);
-        expect(retains('facade/index/OIMIndexService.ts', BUCKETS)).toBe(false);
-        expect(retains('factories/createOIMIndexService.ts', 'facade/bucket/OIMSlotContentBucketServiceArrayDriven.ts')).toBe(true);
-        expect(retains('engine/store/OIMSlotStoreServiceTreeDriven.ts', 'engine/key/OIMKeyTreeWalkComposite.ts'))
+        expect(retains('facade/index/OIMSlotCollectionIndexService.ts', BUCKETS)).toBe(false);
+        expect(retains('factories/createOIMSlotCollectionIndexService.ts', 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts')).toBe(true);
+        expect(retains('engine/store/OIMSlotTreeStoreService.ts', 'engine/key/OIMCompositeKeyTreeWalk.ts'))
             .toBe(false);
-        expect(retains('engine/store/OIMSlotStoreServiceTreeDriven.ts', 'engine/key/OIMKeyTreeWalkScalar.ts'))
+        expect(retains('engine/store/OIMSlotTreeStoreService.ts', 'engine/key/OIMScalarKeyTreeWalk.ts'))
             .toBe(false);
-        expect(retains('engine/store/OIMSlotStoreServiceMapDriven.ts', 'engine/key/OIMKeyTreeWalkComposite.ts'))
+        expect(retains('engine/store/OIMSlotMapStoreService.ts', 'engine/key/OIMCompositeKeyTreeWalk.ts'))
             .toBe(false);
     });
 
@@ -279,9 +277,9 @@ describe('what an import retains', () => {
      * the one door that retains every arm.
      */
     it('a default is one door to its own arm, and the defaults class to all of them', () => {
-        expect(retains(DEFAULTS, 'engine/key/OIMKeyTreeWalkComposite.ts')).toBe(true);
-        expect(retains(DEFAULTS, 'engine/key/OIMKeyTreeWalkScalar.ts')).toBe(true);
-        expect(retains(COLLECTION, 'engine/key/OIMKeyTreeWalkComposite.ts')).toBe(false);
-        expect(retains(COLLECTION, 'engine/key/OIMKeyTreeWalkScalar.ts')).toBe(false);
+        expect(retains(DEFAULTS, 'engine/key/OIMCompositeKeyTreeWalk.ts')).toBe(true);
+        expect(retains(DEFAULTS, 'engine/key/OIMScalarKeyTreeWalk.ts')).toBe(true);
+        expect(retains(COLLECTION, 'engine/key/OIMCompositeKeyTreeWalk.ts')).toBe(false);
+        expect(retains(COLLECTION, 'engine/key/OIMScalarKeyTreeWalk.ts')).toBe(false);
     });
 });

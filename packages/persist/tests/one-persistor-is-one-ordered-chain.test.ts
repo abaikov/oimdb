@@ -1,10 +1,10 @@
 import type { TOIMDisposer } from '@oimdb/core';
 import type { IOIMPersistSnapshotSource, IOIMPersistSourceChangeMark } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -37,7 +37,7 @@ class VariableSnapshotSource implements IOIMPersistSnapshotSource<TValue> {
     }
 
     public markSourceChanges(): IOIMPersistSourceChangeMark {
-        return new OIMPersistSourceChangeMarkSubscriptionDriven({
+        return new OIMPersistSubscriptionSourceChangeMark({
             subscribeSourceChanged: onSourceChanged => {
                 this.sourceChangedListeners.add(onSourceChanged);
                 return () => { this.sourceChangedListeners.delete(onSourceChanged); };
@@ -57,15 +57,15 @@ function buildGatedPersistor(storedValue?: TValue) {
     testPersistBackend.closeGate();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
     });
     const addVariableResource = (name: string) => {
         const variableSnapshotSource = new VariableSnapshotSource({ n: 0 });
         const testPersistSnapshotStrategy = testPersistBackend.createSnapshotStrategy<TValue>({ storageKey: name, storedSnapshot: storedValue });
-        persistor.addPersistResource(new OIMPersistResourceSnapshot({
+        persistor.addPersistResource(new OIMPersistSnapshotResource({
             persistSnapshotSource: variableSnapshotSource,
-            persistSnapshotStrategy: testPersistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TValue>(),
+            persistSnapshotService: testPersistSnapshotStrategy,
+            persistCodec: new OIMPersistIdentityCodec<TValue>(),
         }));
         return { variableSnapshotSource, testPersistSnapshotStrategy };
     };

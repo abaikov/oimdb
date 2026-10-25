@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-json",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "JSON-dump persistence backend for @oimdb/persist \u2014 SSR dehydrate/hydrate transport",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -43,9 +43,9 @@
     "dist"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^4.0.0",
-    "@oimdb/persist": "^4.0.0",
-    "@oimdb/persist-memory": "^4.0.0"
+    "@oimdb/core": "^4.1.0",
+    "@oimdb/persist": "^4.1.0",
+    "@oimdb/persist-memory": "^4.1.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

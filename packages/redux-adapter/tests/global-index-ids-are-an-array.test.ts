@@ -89,7 +89,7 @@ describe('a Global index whose Redux state lists both scalar forms of one addres
 
         // Two addresses, written through the engine: rows are filed in a `Map`,
         // so these are two rows and stay two rows.
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: '1', name: 'Bob' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: '1', name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
         expect(usersService.getSlotCount(users)).toBe(2);
 
@@ -124,7 +124,7 @@ describe('a Global index whose Redux state lists both scalar forms of one addres
             { reducer: idsChildReducer },
         );
 
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setSingleBucketSlots(singleBucket, usersService, users, [1, 2]);
         db.flush();
 

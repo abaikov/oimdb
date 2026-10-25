@@ -1,10 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -33,6 +33,10 @@ implements IOIMSlotStoreService<string, TDeckBucket, Map<string, TDeckBucket>> {
 
     public remove(store: Map<string, TDeckBucket>, key: string): void { store.delete(key); }
 
+    public fileSlot(store: Map<string, TDeckBucket>, slot: TDeckBucket): void { this.set(store, slot.key, slot); }
+
+    public unfileSlot(store: Map<string, TDeckBucket>, slot: TDeckBucket): void { this.remove(store, slot.key); }
+
     public getSlots(store: Map<string, TDeckBucket>): IterableIterator<TDeckBucket> {
         return store.values();
     }
@@ -43,10 +47,7 @@ implements IOIMSlotStoreService<string, TDeckBucket, Map<string, TDeckBucket>> {
 const createFixture =() => {
     const db = new OIMDB();
     const bucketSlotStoreService = new StoreServiceThatCountsEveryLookup();
-    const byDeckService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>,
-        Map<string, TDeckBucket>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(), bucketSlotStoreService });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(), slotStoreService: bucketSlotStoreService });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, byDeck, byDeckService, bucketSlotStoreService };
 };

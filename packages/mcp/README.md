@@ -125,9 +125,7 @@ service, as every app using `@oimdb/devtools` does:
 
 ```ts
 // oimdb-model.js  (built JS, or run the server under a TS loader)
-import {
-    OIMDB, createOIMBucketService, createOIMEntityService, type TOIMEntitySlot,
-} from '@oimdb/core';
+import { OIMDB, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 import { OIMDevRegistry, oimInitDevtools } from '@oimdb/devtools';
 
 oimInitDevtools();
@@ -135,12 +133,12 @@ oimInitDevtools();
 type TUser = { id: string; name: string; role: string };
 
 const db = new OIMDB();
-const usersService = createOIMEntityService<TUser>(db, { keyOf: (user) => user.id });
+const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
 const users = usersService.createStoreSlot(db);
 // A bucket's slots are the caller's — a write to a user moves the value and
 // files nothing, so whoever writes the user also calls
 // `usersByRoleService.slotContentService.writeBucketMemberSlots(bucketSlot, entitySlots)`.
-const usersByRoleService = createOIMBucketService<TOIMEntitySlot<TUser>>(db);
+const usersByRoleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const usersByRole = usersByRoleService.createStoreSlot(db);
 
 export const oimDevRegistry = new OIMDevRegistry();

@@ -1,10 +1,4 @@
-import {
-    OIMChannelService,
-    OIMDB,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { oimGetChannelSlot } from '../../../core/src/engine/slot/utils/oimGetChannelSlot';
@@ -17,14 +11,17 @@ import { priceRoundSide } from './priceRoundSide';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TDoorSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TDoorSlotContentService = TPriceEntityService<TPriceDataRow>['slotContentService'];
 
 const probeWriter = createOIMEntityWriterInPlace();
 
+type TDoorSlotOwnerService = TOIMEntitySlotOwnerService<TPriceDataRow, TDoorSlot, unknown, string>;
+
 type TDoorInternals = {
-    slotOwnerService: TOIMEntitySlotOwnerService<TPriceDataRow, TOIMStoreKey, unknown, string>;
     isOnFastPath(entitySlot: TDoorSlot): boolean;
     entityWriter: IOIMEntityWriter;
 };
@@ -32,27 +29,24 @@ type TDoorInternals = {
 class UpdateDoorProbe {
     private readonly doorInternals: TDoorInternals;
 
-    private readonly slotOwnerService: TDoorInternals['slotOwnerService'];
-
     private readonly entityWriter: IOIMEntityWriter;
 
     public constructor(public readonly slotContentService: TDoorSlotContentService) {
         this.doorInternals = slotContentService as unknown as TDoorInternals;
-        this.slotOwnerService = this.doorInternals.slotOwnerService;
         this.entityWriter = this.doorInternals.entityWriter;
     }
 
     public updateOneChannel(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
-        const slotOwnerService = this.slotOwnerService;
+        const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
-        slotOwnerService.releaseSlotIfUnheld(entitySlot);
+        slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
 
     public updateOneChannelUnreleased(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
-        const slotOwnerService = this.slotOwnerService;
+        const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
@@ -60,7 +54,7 @@ class UpdateDoorProbe {
     }
 
     public updateOneChannelThroughModuleWriter(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
-        const slotOwnerService = this.slotOwnerService;
+        const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!probeWriter.patchEntity(entitySlot, patch, undefined)) return;
@@ -68,11 +62,11 @@ class UpdateDoorProbe {
     }
 
     public updateOneChannelUnasserted(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
-        const slotOwnerService = this.slotOwnerService;
+        const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
         if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
-        slotOwnerService.releaseSlotIfUnheld(entitySlot);
+        slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
 }
 
@@ -80,11 +74,7 @@ type TDoorWrite = (updateDoorProbe: UpdateDoorProbe, slot: TDoorSlot, patch: Par
 
 const doorSide = (write: TDoorWrite): TPriceSide => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TPriceDataRow> = createOIMEntityService<TPriceDataRow>(db, {
-        keyOf: entity => entity.id,
-        entityWriter: probeWriter,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const entityService: TPriceEntityService<TPriceDataRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: probeWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const updateDoorProbe = new UpdateDoorProbe(entityService.slotContentService);
     const fixture = priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), priceDataset.makeRows(priceDataset.batch));
     const patch: { title: string } = { title: '' };
@@ -110,7 +100,7 @@ const functionDoor: TDoorWrite = (_updateDoorProbe, slot, patch) => {
 };
 
 const DOOR =
-    'Both sides run over the same createOIMEntityService population of priceDataset.batch entities, '
+    'Both sides run over the same createOIMSlotCollectionService population of priceDataset.batch entities, '
     + 'one { title } patch per round and one flush per round; no index and no subscriber, so every write is one channel write. '
     + 'The probe methods reach the content service\'s private slotOwnerService, isOnFastPath and entityWriter through a cast (`as unknown as {…}`), the same pieces updateEntity runs on; only the shape of the door differs.';
 

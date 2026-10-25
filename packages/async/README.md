@@ -8,17 +8,19 @@ Keep the asynchrony outside the store: `await` your I/O, then write the result
 into an ordinary collection.
 
 ```ts
-import { OIMDB, createOIMEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type User = { id: string; name: string };
 declare function fetchUsers(): Promise<User[]>;
 
 const db = new OIMDB();
-const userService = createOIMEntityService<User>(db, { keyOf: (user) => user.id });
+const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
 const users = userService.createStoreSlot(db);
 
 const fetchedUsers = await fetchUsers();
-userService.slotContentService.upsertEntities(users, fetchedUsers);
+userService.writeInBatch(users, () => (fetchedUsers).map(entity => userService.writeSlotContentByKey(users, entity.id, entity)));
 db.flush();
 ```
 

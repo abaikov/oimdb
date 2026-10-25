@@ -1,26 +1,24 @@
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '@oimdb/core';
-import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
 import type { TOIMPersistRecords, TOIMPersistVersionedShape } from '@oimdb/persist';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistCodecVersioned,
+    OIMPersistIdentityCodec,
+    OIMPersistVersionedCodec,
     OIMPersistEntityWriter,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
-import { OIMPersistMemoryRecordsStrategy, OIMPersistMemorySnapshotStrategy } from '@oimdb/persist-memory';
+import { OIMPersistMemoryRecordsService, OIMPersistMemorySnapshotService } from '@oimdb/persist-memory';
 import type { TOIMPersistJsonDump } from '../src';
-import { OIMPersistJsonBackend } from '../src';
+import { OIMPersistJsonMemoryBackend } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TQuestion = { id: string; text: string };
 type TSettings = { theme: string };
@@ -34,12 +32,9 @@ function buildQuestions(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
         entityWriter: createOIMEntityWriterInPlace(),
     });
-    const entityService = createOIMEntityService<TQuestion>(db, {
-        keyOf: question => question.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const persistRecordSource = new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TQuestion>({
+    const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TQuestion>({
         entityCollectionService: entityService,
         entityStoreSlot,
         persistEntityWriter,
@@ -49,30 +44,30 @@ function buildQuestions(db: OIMDB) {
 
 type TQuestions = ReturnType<typeof buildQuestions>;
 
-function createPersistor(persistJsonBackend: OIMPersistJsonBackend): TJsonPersistor {
+function createPersistor(persistJsonMemoryBackend: OIMPersistJsonMemoryBackend): TJsonPersistor {
     return new OIMPersistor<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch>({
-        persistBackend: persistJsonBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistBackend: persistJsonMemoryBackend,
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
     });
 }
 
 function createQuestionsSnapshotResource(questions: TQuestions, storageKey: string) {
-    return new OIMPersistResourceSnapshot<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TQuestionRecords, TQuestionRecords>({
+    return new OIMPersistSnapshotResource<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TQuestionRecords, TQuestionRecords>({
         persistSnapshotSource: questions.persistRecordSource,
-        persistSnapshotStrategy: new OIMPersistMemorySnapshotStrategy<TQuestionRecords>({ storageKey }),
-        persistCodec: new OIMPersistCodecIdentity<TQuestionRecords>(),
+        persistSnapshotService: new OIMPersistMemorySnapshotService<TQuestionRecords>({ storageKey }),
+        persistCodec: new OIMPersistIdentityCodec<TQuestionRecords>(),
     });
 }
 
 function createQuestionsRecordsResource(questions: TQuestions, storageKey: string) {
-    return new OIMPersistResourceRecords<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TOIMStoreKey, TQuestion>({
+    return new OIMPersistRecordsResource<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TOIMStoreKey, TQuestion>({
         persistRecordSource: questions.persistRecordSource,
-        persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TQuestion>({ storageKey }),
+        persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TQuestion>({ storageKey }),
     });
 }
 
-function transportedDumpOf(persistJsonBackend: OIMPersistJsonBackend): TOIMPersistJsonDump {
-    return JSON.parse(JSON.stringify(persistJsonBackend.dehydrate())) as TOIMPersistJsonDump;
+function transportedDumpOf(persistJsonMemoryBackend: OIMPersistJsonMemoryBackend): TOIMPersistJsonDump {
+    return JSON.parse(JSON.stringify(persistJsonMemoryBackend.dehydrate())) as TOIMPersistJsonDump;
 }
 
 function entitiesOf(
@@ -90,18 +85,18 @@ function entitiesOf(
 
 describe('@oimdb/persist-json', () => {
     test('dehydrate returns exactly the JSON text the server inlines', async () => {
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const db = new OIMDB();
         const questions = buildQuestions(db);
         const drafts = buildQuestions(db);
-        const persistor = createPersistor(persistJsonBackend);
+        const persistor = createPersistor(persistJsonMemoryBackend);
         persistor.addPersistResource(createQuestionsSnapshotResource(questions, 'questions'));
         persistor.addPersistResource(createQuestionsRecordsResource(drafts, 'drafts'));
-        questions.entityService.slotContentService.upsertEntity(questions.entityStoreSlot,{ ...firstQuestion });
-        drafts.entityService.slotContentService.upsertEntity(drafts.entityStoreSlot,{ ...secondQuestion });
+        questions.entityService.writeSlotContentByKey(questions.entityStoreSlot, ({ ...firstQuestion }).id, { ...firstQuestion });
+        drafts.entityService.writeSlotContentByKey(drafts.entityStoreSlot, ({ ...secondQuestion }).id, { ...secondQuestion });
         await persistor.persist();
 
-        const persistJsonDump = persistJsonBackend.dehydrate();
+        const persistJsonDump = persistJsonMemoryBackend.dehydrate();
 
         expect(persistJsonDump).toEqual({
             snapshotValues: { questions: { records: [{ key: 'q1', entity: firstQuestion }] } },
@@ -114,41 +109,41 @@ describe('@oimdb/persist-json', () => {
     });
 
     test('clearPersisted removes the storage keys from the dump instead of leaving them undefined', async () => {
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const db = new OIMDB();
         const questions = buildQuestions(db);
         const drafts = buildQuestions(db);
-        const persistor = createPersistor(persistJsonBackend);
+        const persistor = createPersistor(persistJsonMemoryBackend);
         persistor.addPersistResource(createQuestionsSnapshotResource(questions, 'questions'));
         persistor.addPersistResource(createQuestionsRecordsResource(drafts, 'drafts'));
-        questions.entityService.slotContentService.upsertEntity(questions.entityStoreSlot,{ ...firstQuestion });
-        drafts.entityService.slotContentService.upsertEntity(drafts.entityStoreSlot,{ ...secondQuestion });
+        questions.entityService.writeSlotContentByKey(questions.entityStoreSlot, ({ ...firstQuestion }).id, { ...firstQuestion });
+        drafts.entityService.writeSlotContentByKey(drafts.entityStoreSlot, ({ ...secondQuestion }).id, { ...secondQuestion });
         await persistor.persist();
-        expect(persistJsonBackend.dehydrate().snapshotValues).toHaveProperty('questions');
-        expect(persistJsonBackend.dehydrate().recordsByStorageKey).toHaveProperty('drafts');
+        expect(persistJsonMemoryBackend.dehydrate().snapshotValues).toHaveProperty('questions');
+        expect(persistJsonMemoryBackend.dehydrate().recordsByStorageKey).toHaveProperty('drafts');
 
         await persistor.clearPersisted();
 
-        expect(persistJsonBackend.dehydrate().snapshotValues).not.toHaveProperty('questions');
-        expect(persistJsonBackend.dehydrate().recordsByStorageKey).not.toHaveProperty('drafts');
+        expect(persistJsonMemoryBackend.dehydrate().snapshotValues).not.toHaveProperty('questions');
+        expect(persistJsonMemoryBackend.dehydrate().recordsByStorageKey).not.toHaveProperty('drafts');
     });
 
     test('a snapshot and a records table survive the JSON transport into a fresh backend', async () => {
         const serverDb = new OIMDB();
         const serverQuestions = buildQuestions(serverDb);
         const serverDrafts = buildQuestions(serverDb);
-        const serverPersistJsonBackend = new OIMPersistJsonBackend();
+        const serverPersistJsonBackend = new OIMPersistJsonMemoryBackend();
         const serverPersistor = createPersistor(serverPersistJsonBackend);
         serverPersistor.addPersistResource(createQuestionsSnapshotResource(serverQuestions, 'questions'));
         serverPersistor.addPersistResource(createQuestionsRecordsResource(serverDrafts, 'drafts'));
-        serverQuestions.entityService.slotContentService.upsertEntities(serverQuestions.entityStoreSlot,[{ ...firstQuestion }, { ...secondQuestion }]);
-        serverDrafts.entityService.slotContentService.upsertEntity(serverDrafts.entityStoreSlot,{ ...secondQuestion });
+        serverQuestions.entityService.writeInBatch(serverQuestions.entityStoreSlot, () => ([{ ...firstQuestion }, { ...secondQuestion }]).map(entity => serverQuestions.entityService.writeSlotContentByKey(serverQuestions.entityStoreSlot, entity.id, entity)));
+        serverDrafts.entityService.writeSlotContentByKey(serverDrafts.entityStoreSlot, ({ ...secondQuestion }).id, { ...secondQuestion });
         await serverPersistor.persist();
 
         const clientDb = new OIMDB();
         const clientQuestions = buildQuestions(clientDb);
         const clientDrafts = buildQuestions(clientDb);
-        const clientPersistor = createPersistor(new OIMPersistJsonBackend({
+        const clientPersistor = createPersistor(new OIMPersistJsonMemoryBackend({
             initialPersistJsonDump: transportedDumpOf(serverPersistJsonBackend),
         }));
         clientPersistor.addPersistResource(createQuestionsSnapshotResource(clientQuestions, 'questions'));
@@ -160,23 +155,23 @@ describe('@oimdb/persist-json', () => {
     });
 
     test('a versioned codec envelope is what the dump carries, and it decodes after the transport', async () => {
-        const persistCodecVersioned = new OIMPersistCodecVersioned<TQuestionRecords, TQuestionRecords>({
+        const persistVersionedCodec = new OIMPersistVersionedCodec<TQuestionRecords, TQuestionRecords>({
             version: 1,
             migrations: {},
-            persistCodec: new OIMPersistCodecIdentity<TQuestionRecords>(),
+            persistCodec: new OIMPersistIdentityCodec<TQuestionRecords>(),
         });
-        const createVersionedResource = (questions: TQuestions) => new OIMPersistResourceSnapshot<
+        const createVersionedResource = (questions: TQuestions) => new OIMPersistSnapshotResource<
             OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TQuestionRecords, TOIMPersistVersionedShape
         >({
             persistSnapshotSource: questions.persistRecordSource,
-            persistSnapshotStrategy: new OIMPersistMemorySnapshotStrategy<TOIMPersistVersionedShape>({ storageKey: 'questions' }),
-            persistCodec: persistCodecVersioned,
+            persistSnapshotService: new OIMPersistMemorySnapshotService<TOIMPersistVersionedShape>({ storageKey: 'questions' }),
+            persistCodec: persistVersionedCodec,
         });
         const serverQuestions = buildQuestions(new OIMDB());
-        const serverPersistJsonBackend = new OIMPersistJsonBackend();
+        const serverPersistJsonBackend = new OIMPersistJsonMemoryBackend();
         const serverPersistor = createPersistor(serverPersistJsonBackend);
         serverPersistor.addPersistResource(createVersionedResource(serverQuestions));
-        serverQuestions.entityService.slotContentService.upsertEntity(serverQuestions.entityStoreSlot,{ ...firstQuestion });
+        serverQuestions.entityService.writeSlotContentByKey(serverQuestions.entityStoreSlot, ({ ...firstQuestion }).id, { ...firstQuestion });
         await serverPersistor.persist();
 
         expect(serverPersistJsonBackend.dehydrate().snapshotValues.questions).toEqual({
@@ -185,7 +180,7 @@ describe('@oimdb/persist-json', () => {
         });
 
         const clientQuestions = buildQuestions(new OIMDB());
-        const clientPersistor = createPersistor(new OIMPersistJsonBackend({
+        const clientPersistor = createPersistor(new OIMPersistJsonMemoryBackend({
             initialPersistJsonDump: transportedDumpOf(serverPersistJsonBackend),
         }));
         clientPersistor.addPersistResource(createVersionedResource(clientQuestions));
@@ -196,70 +191,70 @@ describe('@oimdb/persist-json', () => {
 
     test('a single entity survives the JSON transport', async () => {
         const buildSettings = (db: OIMDB, settings: TSettings) => {
-            const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+            const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
             const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-            singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, settings);
+            singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
             db.flush();
-            const persistResourceSnapshot = new OIMPersistResourceSnapshot<
+            const persistSnapshotResource = new OIMPersistSnapshotResource<
                 OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch, TSettings, TSettings
             >({
-                persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+                persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource<TSettings>({
                     channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
                 }),
-                persistSnapshotStrategy: new OIMPersistMemorySnapshotStrategy<TSettings>({ storageKey: 'settings' }),
-                persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+                persistSnapshotService: new OIMPersistMemorySnapshotService<TSettings>({ storageKey: 'settings' }),
+                persistCodec: new OIMPersistIdentityCodec<TSettings>(),
             });
-            return { singleEntityService, singleEntityStoreSlot, persistResourceSnapshot };
+            return { singleEntityService, singleEntityStoreSlot, persistSnapshotResource };
         };
         const serverSettings = buildSettings(new OIMDB(), { theme: 'dark' });
-        const serverPersistJsonBackend = new OIMPersistJsonBackend();
+        const serverPersistJsonBackend = new OIMPersistJsonMemoryBackend();
         const serverPersistor = createPersistor(serverPersistJsonBackend);
-        serverPersistor.addPersistResource(serverSettings.persistResourceSnapshot);
+        serverPersistor.addPersistResource(serverSettings.persistSnapshotResource);
         await serverPersistor.persist();
 
         const clientSettings = buildSettings(new OIMDB(), { theme: '' });
-        const clientPersistor = createPersistor(new OIMPersistJsonBackend({
+        const clientPersistor = createPersistor(new OIMPersistJsonMemoryBackend({
             initialPersistJsonDump: transportedDumpOf(serverPersistJsonBackend),
         }));
-        clientPersistor.addPersistResource(clientSettings.persistResourceSnapshot);
+        clientPersistor.addPersistResource(clientSettings.persistSnapshotResource);
         await clientPersistor.hydrate();
 
-        expect(clientSettings.singleEntityService.slotContentService.findEntityByKey(clientSettings.singleEntityStoreSlot, undefined)).toEqual({ theme: 'dark' });
+        expect(clientSettings.singleEntityService.findSingleSlot(clientSettings.singleEntityStoreSlot)?.entity).toEqual({ theme: 'dark' });
     });
 
     test('autosave reaches the dump only after the drain', async () => {
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const questions = buildQuestions(new OIMDB());
-        const persistor = createPersistor(persistJsonBackend);
+        const persistor = createPersistor(persistJsonMemoryBackend);
         persistor.addPersistResource(createQuestionsSnapshotResource(questions, 'questions'));
         persistor.start();
 
-        questions.entityService.slotContentService.upsertEntity(questions.entityStoreSlot,{ ...firstQuestion });
-        expect(persistJsonBackend.dehydrate().snapshotValues).not.toHaveProperty('questions');
+        questions.entityService.writeSlotContentByKey(questions.entityStoreSlot, ({ ...firstQuestion }).id, { ...firstQuestion });
+        expect(persistJsonMemoryBackend.dehydrate().snapshotValues).not.toHaveProperty('questions');
 
         await Promise.resolve();
         await persistor.whenIdle();
 
-        expect(persistJsonBackend.dehydrate().snapshotValues.questions).toEqual({
+        expect(persistJsonMemoryBackend.dehydrate().snapshotValues.questions).toEqual({
             records: [{ key: 'q1', entity: firstQuestion }],
         });
         persistor.destroy();
     });
 
     test('a removed resource never reaches the dump', async () => {
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const questions = buildQuestions(new OIMDB());
-        const persistor = createPersistor(persistJsonBackend);
-        const persistResourceSnapshot = persistor.addPersistResource(createQuestionsSnapshotResource(questions, 'questions'));
+        const persistor = createPersistor(persistJsonMemoryBackend);
+        const persistSnapshotResource = persistor.addPersistResource(createQuestionsSnapshotResource(questions, 'questions'));
         persistor.start();
-        persistor.removePersistResource(persistResourceSnapshot);
+        persistor.removePersistResource(persistSnapshotResource);
 
-        questions.entityService.slotContentService.upsertEntity(questions.entityStoreSlot,{ ...firstQuestion });
+        questions.entityService.writeSlotContentByKey(questions.entityStoreSlot, ({ ...firstQuestion }).id, { ...firstQuestion });
         await Promise.resolve();
         await persistor.whenIdle();
         await persistor.persist();
 
-        expect(persistJsonBackend.dehydrate()).toEqual({ snapshotValues: {}, recordsByStorageKey: {} });
+        expect(persistJsonMemoryBackend.dehydrate()).toEqual({ snapshotValues: {}, recordsByStorageKey: {} });
         persistor.destroy();
     });
 });

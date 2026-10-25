@@ -1,5 +1,5 @@
 import { createOIMEntityWriterInPlace } from '../../../core/src/index';
-import type { IOIMEntityWriter, TOIMEntitySlot } from '../../../core/src/index';
+import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceFixture } from './priceFixture';
 import { priceSink } from './priceSink';
@@ -24,29 +24,29 @@ class PassThroughLink implements IOIMEntityWriter {
 
     public constructor(private readonly inner: IOIMEntityWriter) {}
 
-    public readonly fillEntity = (slot: TOIMEntitySlot, item: object): void => {
+    public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
         this.inner.fillEntity(slot, item);
     };
 
     public readonly putEntity = (
-        slot: TOIMEntitySlot, item: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
 
     public readonly patchEntity = (
-        slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
 
     public readonly patchColumn = (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
 
 
     public readonly deleteColumns = (
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] => this.inner.deleteColumns(slot, names);
 
-    public readonly clearEntity = (slot: TOIMEntitySlot): void => {
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => {
         this.inner.clearEntity(slot);
     };
 }
@@ -112,21 +112,21 @@ const sideOfDepth = (depth: number): TPriceSide => {
  * `OIMSlotContentEntityService` and `createOIMEntityWriterInPlace`.
  */
 type TStage = {
-    readonly fill: (slot: TOIMEntitySlot, item: object, next: TFillNext) => void;
+    readonly fill: (slot: TOIMEntityContentSlot, item: object, next: TFillNext) => void;
     readonly mutate: (
-        slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined, next: TMutateNext,
+        slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined, next: TMutateNext,
     ) => boolean;
     readonly remove: (
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
         next: TRemoveNext,
     ) => readonly string[];
-    readonly clear: (slot: TOIMEntitySlot, next: TClearNext) => void;
+    readonly clear: (slot: TOIMEntityContentSlot, next: TClearNext) => void;
 };
-type TFillNext = (slot: TOIMEntitySlot, item: object) => void;
-type TMutateNext = (slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
-type TRemoveNext = (slot: TOIMEntitySlot, names: readonly string[]) => readonly string[];
-type TClearNext = (slot: TOIMEntitySlot) => void;
+type TFillNext = (slot: TOIMEntityContentSlot, item: object) => void;
+type TMutateNext = (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+type TRemoveNext = (slot: TOIMEntityContentSlot, names: readonly string[]) => readonly string[];
+type TClearNext = (slot: TOIMEntityContentSlot) => void;
 
 /** A stage that only forwards — the same nothing `PassThroughLink` does. */
 const forwardingStage: TStage = {
@@ -146,39 +146,39 @@ class NextParameterChain implements IOIMEntityWriter {
         private readonly last: IOIMEntityWriter,
     ) {}
 
-    public readonly fillEntity = (slot: TOIMEntitySlot, item: object): void => {
+    public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
         this.fillFrom(0, slot, item);
     };
 
     public readonly putEntity = (
-        slot: TOIMEntitySlot, item: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
     ): boolean => this.last.putEntity(slot, item, changedColumnNames);
 
     public readonly patchEntity = (
-        slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean => this.mutateFrom(0, slot, patch, changedColumnNames);
 
     public readonly patchColumn = (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ): boolean => this.last.patchColumn(slot, columnName, value, changedColumnNames);
 
 
     public readonly deleteColumns = (
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] => this.removeFrom(0, slot, names);
 
-    public readonly clearEntity = (slot: TOIMEntitySlot): void => {
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => {
         this.clearFrom(0, slot);
     };
 
-    private fillFrom(at: number, slot: TOIMEntitySlot, item: object): void {
+    private fillFrom(at: number, slot: TOIMEntityContentSlot, item: object): void {
         if (at === this.stages.length) { this.last.fillEntity(slot, item); return; }
         this.stages[at].fill(slot, item, (s, i) => { this.fillFrom(at + 1, s, i); });
     }
 
     private mutateFrom(
-        at: number, slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
+        at: number, slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean {
         if (at === this.stages.length) return this.last.patchEntity(slot, patch, changedColumnNames);
         return this.stages[at].mutate(
@@ -188,14 +188,14 @@ class NextParameterChain implements IOIMEntityWriter {
 
     private removeFrom(
         at: number,
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] {
         if (at === this.stages.length) return this.last.deleteColumns(slot, names);
         return this.stages[at].remove(slot, names, (s, n) => this.removeFrom(at + 1, s, n));
     }
 
-    private clearFrom(at: number, slot: TOIMEntitySlot): void {
+    private clearFrom(at: number, slot: TOIMEntityContentSlot): void {
         if (at === this.stages.length) { this.last.clearEntity(slot); return; }
         this.stages[at].clear(slot, s => { this.clearFrom(at + 1, s); });
     }
@@ -213,23 +213,23 @@ class LinkB implements IOIMEntityWriter {
 
 
     public constructor(private readonly inner: IOIMEntityWriter) {}
-    public readonly fillEntity = (slot: TOIMEntitySlot, item: object): void => {
+    public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
         this.inner.fillEntity(slot, item);
     };
     public readonly putEntity = (
-        slot: TOIMEntitySlot, item: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
     public readonly patchEntity = (
-        slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
     public readonly patchColumn = (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
     public readonly deleteColumns = (
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] => this.inner.deleteColumns(slot, names);
-    public readonly clearEntity = (slot: TOIMEntitySlot): void => { this.inner.clearEntity(slot); };
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot); };
 }
 
 class LinkC implements IOIMEntityWriter {
@@ -238,23 +238,23 @@ class LinkC implements IOIMEntityWriter {
 
 
     public constructor(private readonly inner: IOIMEntityWriter) {}
-    public readonly fillEntity = (slot: TOIMEntitySlot, item: object): void => {
+    public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
         this.inner.fillEntity(slot, item);
     };
     public readonly putEntity = (
-        slot: TOIMEntitySlot, item: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
     public readonly patchEntity = (
-        slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
     public readonly patchColumn = (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
     public readonly deleteColumns = (
-        slot: TOIMEntitySlot,
+        slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] => this.inner.deleteColumns(slot, names);
-    public readonly clearEntity = (slot: TOIMEntitySlot): void => { this.inner.clearEntity(slot); };
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot); };
 }
 
 /** A side driven through a write service the caller names. */

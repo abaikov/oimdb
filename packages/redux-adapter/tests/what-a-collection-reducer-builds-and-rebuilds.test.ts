@@ -24,10 +24,10 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, string, TOIMReduxDefaultCollectionState<TUser, string>>(usersService, users);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const state = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
@@ -45,10 +45,10 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, string, TOIMReduxDefaultCollectionState<TUser, string>>(usersService, users);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
         const initial = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
 
@@ -67,10 +67,10 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, string, TOIMReduxDefaultCollectionState<TUser, string>>(usersService, users);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
         const initial = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
 
@@ -97,10 +97,10 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
             }
         );
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const state = reducer(undefined, { type: EOIMReduxReducerActionType.UPDATE });
@@ -116,10 +116,10 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
 
         const dispatchSpy = jest.spyOn(store, 'dispatch');
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         updateEntityByKey(usersService, users,'1', { age: 31 });
         db.flush();
 
@@ -139,7 +139,7 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
         const dispatchSpy = jest.spyOn(store, 'dispatch');
 
         // A write to a collection nobody registered a reducer for.
-        otherService.slotContentService.upsertEntity(other, { id: '9', name: 'Ghost', age: 0 });
+        otherService.writeSlotContentByKey(other, '9', { id: '9', name: 'Ghost', age: 0 });
         db.flush();
 
         expect(dispatchSpy).not.toHaveBeenCalled();

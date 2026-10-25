@@ -1,28 +1,25 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createNumberService = () => {
-    const computedService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
-    const collectionService = computedService.computedCollectionService;
-    type TStoreSlot = Parameters<typeof collectionService.getSlotByKey>[0];
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+    const collectionService = computedService.computedSingleSlotService;
+    type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
         createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
-        getSlotByKey: (storeSlot: TStoreSlot, key: undefined) => collectionService.getSlotByKey(storeSlot, key),
-        getValueByKey: (storeSlot: TStoreSlot, key: undefined) => {
-            const computedSlot = collectionService.getSlotByKey(storeSlot, key);
+        getSingleSlot: (storeSlot: TStoreSlot) => collectionService.getSingleSlot(storeSlot),
+        getSingleValue: (storeSlot: TStoreSlot) => {
+            const computedSlot = collectionService.getSingleSlot(storeSlot);
             return computedSlot.computedValueService.getValueForSlot(computedSlot);
         },
     };
@@ -31,14 +28,14 @@ const createNumberService = () => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     let builds = 0;
     // The ordinary shape of a build: resolve through the hold door, derive over
     // the identity it hands back, and hand the hold to `keep` — it is the
     // service's from there, and lasts as long as the derivation is filed.
     const computedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             builds++;
             return { sourceSlots: [cardsService.getSlotByKey(cards, id)] };
         },
@@ -74,7 +71,7 @@ describe('one derivation per key, and the key is how it is found again', () => {
 
         let seen = 0;
         effectService.createEffect(db, [], [rank], () => { seen = rank.computedValueService.getValueForSlot(rank); });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 4 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 4 });
         db.flush();
         expect(seen).toBe(4);
     });
@@ -83,7 +80,7 @@ describe('one derivation per key, and the key is how it is found again', () => {
         const { cardsService, cards, ranksService, ranks } = createFixture();
         ranksService.holdSlotByKey(ranks, 'a');
         const held = cardsService.getSlotByKey(cards, 'a')!;
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         expect(cardsService.getSlotByKey(cards, 'a')).toBe(held);
     });
 });
@@ -169,7 +166,7 @@ describe('every source of a reader is brought current, not only the first that m
      * source after it unproduced, and the body is handed a reading from an older revision. */
     it('hands a body the current value of a source listed after one that moved, immediately and on every frame after', () => {
         const { db, effectService, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         db.flush();
         const slot = cardsService.getSlotByKey(cards, 'a');
 
@@ -181,19 +178,19 @@ describe('every source of a reader is brought current, not only the first that m
 
         let seenFirst = 0;
         let seenSecond = 0;
-        effectService.createEffectImmediate(db, [], [firstService.getSlotByKey(first, undefined), secondService.getSlotByKey(second, undefined)], () => {
-            seenFirst = firstService.getValueByKey(first, undefined);
-            seenSecond = secondService.getValueByKey(second, undefined);
+        effectService.createEffectImmediate(db, [], [firstService.getSingleSlot(first), secondService.getSingleSlot(second)], () => {
+            seenFirst = firstService.getSingleValue(first);
+            seenSecond = secondService.getSingleValue(second);
         });
         expect([seenFirst, seenSecond]).toEqual([1, 10]);
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 2 });
         db.flush();
         expect(seenFirst).toBe(2);
         // The one a loop that breaks at the first changed source would skip.
         expect(seenSecond).toBe(20);
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 7 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 7 });
         db.flush();
         expect(seenFirst).toBe(7);
         expect(seenSecond).toBe(70);

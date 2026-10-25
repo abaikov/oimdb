@@ -1,30 +1,26 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     cardsService.holdSlotByKey(cards, 'a');
     const rowSlot = cardsService.getSlotByKey(cards, 'a');
-    const rankService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
+    const rankService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
     const rankComputed = rankService.createComputedStoreSlot(
         db,
         () => rowSlot.entity?.rank ?? -1,
         () => ({ sourceSlots: [rowSlot] }),
     );
-    const rank = rankService.computedCollectionService.holdSlotByKey(rankComputed, undefined);
+    const rank = rankService.computedSingleSlotService.holdSingleSlot(rankComputed);
     return { db, effectService, cards, cardsService, row: rowSlot, rank };
 };
 
@@ -70,7 +66,7 @@ describe('what an effect that names one derivation twice leaves behind', () => {
         let seen = -1;
         effectService.createEffect(db, [], [rank, rank], () => { runs++; seen = rank.computedValueService.getValueForSlot(rank); });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 7 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 7 });
         db.flush();
 
         expect({ runs, seen }).toEqual({ runs: 1, seen: 7 });

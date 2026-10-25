@@ -1,5 +1,5 @@
 import { OIMEffectService } from '@oimdb/core';
-import type { IOIMChannelMap, TOIMComputedSlot, TOIMDisposer, TOIMSlot } from '@oimdb/core';
+import type { IOIMChannelMap, TOIMComputedContentSlot, TOIMDisposer, TOIMSlot } from '@oimdb/core';
 
 export class OIMSnapshotVersion {
     private version = 0;
@@ -9,7 +9,7 @@ export class OIMSnapshotVersion {
     public subscribeEffect(
         channelMap: IOIMChannelMap,
         sourceSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedSlot[],
+        sourceComputeds: readonly TOIMComputedContentSlot[],
         onStoreChange: () => void,
     ): TOIMDisposer {
         this.version++;

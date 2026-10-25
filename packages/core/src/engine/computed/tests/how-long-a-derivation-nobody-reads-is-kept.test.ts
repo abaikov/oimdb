@@ -1,10 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../../collector/OIMReleaseSlotCollectorServiceAfterIdle';
-import { OIMSlotReleasePolicyAfterIdle } from '../../collector/OIMSlotReleasePolicyAfterIdle';
+import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
+import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -15,17 +16,17 @@ const createFixture =(keepAfterIdleMs?: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
     const cooling = {
-        flush: (): void => OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot),
+        flush: (): void => oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(),
     };
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     const ranksService = createOIMComputedService<string, number>({
-        createSources: (id: string) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+        createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
         slotReleasePolicy: keepAfterIdleMs === undefined
             ? undefined
-            : new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs }),
+            : new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
     });
     const ranks = ranksService.createComputedStoreSlot(db);
     const ranksCollectionService = ranksService.computedCollectionService;

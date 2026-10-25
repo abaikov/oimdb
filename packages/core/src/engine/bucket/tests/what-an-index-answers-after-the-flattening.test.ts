@@ -1,10 +1,10 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceSetDriven, createOIMBucketService, createOIMEntityService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService } from '../../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
 type TCardSlot = TOIMEntitySlot<Card, string>;
@@ -12,16 +12,14 @@ type TDeck = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: Card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
 
 const unorderedIndex = (db: OIMDB) => {
-    const membersService = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
-    const indexService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
+    const indexService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
     // See {@link reservations}: whatever the previous case is still holding is a
     // hold on a collection nothing can reach any more.
@@ -76,14 +74,14 @@ describe('a manual index holds what it was told to hold', () => {
     it('reads back the slots it was set', () => {
         const { db, cardsService, cards } = createFixture();
         const { indexService: byDeckService, membersService, index: byDeck } = unorderedIndex(db);
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'a', deck: 'red', rank: 2 },
             { id: 'b', deck: 'red', rank: 1 },
             { id: 'c', deck: 'blue', rank: 3 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
         const red = bucketFor(byDeckService, byDeck, 'red');
-        membersService.writeBucketMemberSlots(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
+        membersService.writeSlotContent(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
         db.flush();
 
         const held = Array.from(membersService.getBucketMemberSlots(red)).map((slot) => slot.entity?.id);
@@ -94,10 +92,10 @@ describe('a manual index holds what it was told to hold', () => {
     it('sets nothing and wakes nobody when the slots are unchanged', () => {
         const { db, cardsService, cards } = createFixture();
         const { indexService: byDeckService, membersService, index: byDeck } = unorderedIndex(db);
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         const red = bucketFor(byDeckService, byDeck, 'red');
         const slots = [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!];
-        membersService.writeBucketMemberSlots(red, slots);
+        membersService.writeSlotContent(red, slots);
         db.flush();
 
         let runs = 0;
@@ -107,7 +105,7 @@ describe('a manual index holds what it was told to hold', () => {
 
         // The same slots again, in the other order. A set holds no order, so
         // these are the slots it already holds.
-        membersService.writeBucketMemberSlots(red, [slots[1], slots[0]]);
+        membersService.writeSlotContent(red, [slots[1], slots[0]]);
         db.flush();
         expect(runs).toBe(0);
     });
@@ -115,9 +113,9 @@ describe('a manual index holds what it was told to hold', () => {
     it('wakes a subscriber of the bucket when the slots do change', () => {
         const { db, cardsService, cards } = createFixture();
         const { indexService: byDeckService, membersService, index: byDeck } = unorderedIndex(db);
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         const red = bucketFor(byDeckService, byDeck, 'red');
-        membersService.writeBucketMemberSlots(red, [cardsService.getSlotByKey(cards, 'a')!]);
+        membersService.writeSlotContent(red, [cardsService.getSlotByKey(cards, 'a')!]);
         db.flush();
 
         let runs = 0;
@@ -125,7 +123,7 @@ describe('a manual index holds what it was told to hold', () => {
         db.flush();
         runs = 0;
 
-        membersService.writeBucketMemberSlots(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
+        membersService.writeSlotContent(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
         db.flush();
         expect(runs).toBe(1);
         expect(membersService.getBucketMemberSlotCount(red)).toBe(2);
@@ -134,12 +132,12 @@ describe('a manual index holds what it was told to hold', () => {
     it('empties a bucket and hands every slot back', () => {
         const { db, cardsService, cards } = createFixture();
         const { indexService: byDeckService, membersService, index: byDeck } = unorderedIndex(db);
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'a', deck: 'red', rank: 1 }, { id: 'b', deck: 'red', rank: 2 }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         const red = bucketFor(byDeckService, byDeck, 'red');
-        membersService.writeBucketMemberSlots(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
+        membersService.writeSlotContent(red, [cardsService.getSlotByKey(cards, 'a')!, cardsService.getSlotByKey(cards, 'b')!]);
         db.flush();
 
-        membersService.clearBucketMemberSlots(red);
+        membersService.clearSlotContent(red);
         db.flush();
         expect(membersService.getBucketMemberSlotCount(red)).toBe(0);
     });
@@ -149,9 +147,9 @@ describe('a bucket nothing holds is let go of', () => {
     it('keeps a bucket an effect is subscribed to, and drops it once nothing is', () => {
         const { db, cardsService, cards } = createFixture();
         const { indexService: byDeckService, membersService, index: byDeck } = unorderedIndex(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'red', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
         const red = bucketFor(byDeckService, byDeck, 'red');
-        membersService.writeBucketMemberSlots(red, [cardsService.getSlotByKey(cards, 'a')!]);
+        membersService.writeSlotContent(red, [cardsService.getSlotByKey(cards, 'a')!]);
         db.flush();
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, [red], [], () => { /* nothing */ });
@@ -159,7 +157,7 @@ describe('a bucket nothing holds is let go of', () => {
         // kept by three things, after it by the effect alone, which is what makes
         // the assertions below about the subscriber and about nothing else.
         handBackBuckets();
-        membersService.clearBucketMemberSlots(red);
+        membersService.clearSlotContent(red);
         db.flush();
         // Empty, but subscribed: the identity stays, so the same key resolves
         // to the same object.

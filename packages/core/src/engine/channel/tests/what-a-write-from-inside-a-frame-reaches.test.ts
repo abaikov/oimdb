@@ -3,7 +3,7 @@ import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMErrorPolicyThrowAtOnce } from '../../error/OIMErrorPolicyThrowAtOnce';
+import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 
@@ -27,7 +27,7 @@ const slot = (): TOIMSlot => ({
 
 describe('a body that writes during the frame is refused rather than half-honoured', () => {
     it('throws out of the flush, and reaches no reader of the root it tried to write', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const target = slot();
         const trigger = slot();
         const seen: number[] = [];
@@ -47,7 +47,7 @@ describe('a body that writes during the frame is refused rather than half-honour
     });
 
     it('leaves the root exactly as the frame found it, so a legal write still reaches its reader', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const target = slot();
         const trigger = slot();
         const seen: number[] = [];

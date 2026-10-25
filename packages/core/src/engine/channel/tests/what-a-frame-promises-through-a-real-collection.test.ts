@@ -1,30 +1,26 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import type { TOIMComputedSlot } from '../../computed/types/TOIMComputedSlot';
-import { OIMSlotStoreServiceMapDriven } from '../../store/OIMSlotStoreServiceMapDriven';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
+import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
+import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
 
 type TRow = { id: string; title: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 
 const effectService = OIMEffectService.INSTANCE;
 
-const createDoubledService = () => createOIMComputedService<void, number>({
-    computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    sameValueGuard: oimSameValueZeroGuard,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
-});
+const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
 
 /** A collection over a db this test flushes by hand. */
 function collectionOver(db: OIMDB) {
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 }
 
@@ -49,7 +45,7 @@ const messageOf = (error: unknown): string => (error instanceof Error ? error.me
 describe('what a frame promises through a real collection', () => {
     it('refuses a write during a frame with a clear error', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows, 'r1');
         const caught: { error?: unknown } = {};
@@ -67,7 +63,7 @@ describe('what a frame promises through a real collection', () => {
 
     it('one throwing reader of a derivation does not stop the rest of the graph', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows, 'r1');
         const titleLengthService = createDoubledService();
@@ -77,8 +73,8 @@ describe('what a frame promises through a real collection', () => {
             () => ({ sourceSlots: [slot] }),
         );
         let goodRuns = 0;
-        effectService.createEffect(db, [], [titleLengthService.computedCollectionService.getSlotByKey(titleLength, undefined)], () => { throw new Error('bad reader'); });
-        effectService.createEffect(db, [], [titleLengthService.computedCollectionService.getSlotByKey(titleLength, undefined)], () => { goodRuns++; });
+        effectService.createEffect(db, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)], () => { throw new Error('bad reader'); });
+        effectService.createEffect(db, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)], () => { goodRuns++; });
         updateEntityByKey(rowsService, rows, 'r1', { title: 'z' });
         const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         try {
@@ -101,7 +97,7 @@ describe('what a frame promises through a real collection', () => {
             onBeforeFlush: () => { beforeFlushRuns++; },
         });
         const { rowsService, rows } = collectionOver(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         armed.length = 0;
 
@@ -115,7 +111,7 @@ describe('what a frame promises through a real collection', () => {
         );
         // The derivation has a reader, so the settle the frame's pass takes runs
         // inside the frame -- which is where the second frame came from.
-        effectService.createEffect(db, [], [titleLengthService.computedCollectionService.getSlotByKey(titleLength, undefined)], () => { /* reads the derived value */ });
+        effectService.createEffect(db, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)], () => { /* reads the derived value */ });
         let framesEnded = 0;
         OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => { framesEnded++; });
         beforeFlushRuns = 0;
@@ -134,7 +130,7 @@ describe('what a frame promises through a real collection', () => {
         const armed: (() => void)[] = [];
         const db = new OIMDB({ channelScheduler: (flush) => { armed.push(flush); } });
         const { rowsService, rows } = collectionOver(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         armed.length = 0;
         const slot = slotOf(rowsService, rows, 'r1');
@@ -167,7 +163,7 @@ describe('what a frame promises through a real collection', () => {
         const armed: (() => void)[] = [];
         const db = new OIMDB({ channelScheduler: (flush) => { armed.push(flush); } });
         const { rowsService, rows } = collectionOver(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 1 });
         db.flush();
         armed.length = 0;
 
@@ -179,7 +175,7 @@ describe('what a frame promises through a real collection', () => {
             () => ({ sourceSlots: [slot] }),
         );
         let seen = 0;
-        effectService.createEffect(db, [], [doubledService.computedCollectionService.getSlotByKey(doubled, undefined)], () => { seen++; });
+        effectService.createEffect(db, [], [doubledService.computedSingleSlotService.getSingleSlot(doubled)], () => { seen++; });
 
         // Nobody is subscribed to the slot itself -- only the derivation is read.
         updateEntityByKey(rowsService, rows, 'r1', { n: 5 });
@@ -188,8 +184,8 @@ describe('what a frame promises through a real collection', () => {
         armed[0]();
         // The effect settled the derivation on its way to deciding whether to
         // run, so the value is this frame's.
-        expect(doubledService.computedCollectionService.slotContentService.getValueForSlot(
-            doubledService.computedCollectionService.getSlotByKey(doubled, undefined),
+        expect(((doubledService.computedSingleSlotService.getSingleSlot(doubled)) as TOIMComputedContentSlot<unknown>).computedValueService.getValueForSlot(
+            doubledService.computedSingleSlotService.getSingleSlot(doubled),
         )).toBe(10);
         expect(seen).toBe(1);
     });
@@ -198,7 +194,7 @@ describe('what a frame promises through a real collection', () => {
         const armed: (() => void)[] = [];
         const db = new OIMDB({ channelScheduler: (flush) => { armed.push(flush); } });
         const { rowsService, rows } = collectionOver(db);
-        rowsService.slotContentService.upsertEntities(rows, [{ id: 'r1', title: 'a', n: 0 }, { id: 'r2', title: 'b', n: 0 }]);
+        rowsService.writeInBatch(rows, () => ([{ id: 'r1', title: 'a', n: 0 }, { id: 'r2', title: 'b', n: 0 }]).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
         db.flush();
         armed.length = 0;
         effectService.createEffect(db, [slotOf(rowsService, rows, 'r1')], [], () => { /* only there to be a reader */ });

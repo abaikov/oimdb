@@ -1,15 +1,17 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { OIMChannelQueue } from '../OIMChannelQueue';
 import type { TOIMChannelSlot } from '../types/TOIMChannelSlot';
 import type { TOIMEffect } from '../../computed/types/TOIMEffect';
 import { OIMEffectService } from '../../computed/OIMEffectService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
 
 type Card = { id: string; n: number };
 
 const updateEntityByKey = (
-    cardsService: ReturnType<typeof createOIMEntityService<Card>>,
-    cards: ReturnType<ReturnType<typeof createOIMEntityService<Card>>['createStoreSlot']>,
+    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<Card>>>,
+    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<Card>>>['createStoreSlot']>,
     key: string, patch: Partial<Card>,
 ): void => {
     const slot = cardsService.findSlotByKey(cards, key);
@@ -42,9 +44,9 @@ const leafCountOf = (channelSlot: TOIMChannelSlot): number => effectChannelQueue
 const subscribedCards = (size: number) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    for (let i = 0; i < size; i++) cardsService.slotContentService.upsertEntity(cards, { id: `c${i}`, n: 0 });
+    for (let i = 0; i < size; i++) cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, n: 0 });
     db.flush();
 
     let runCount = 0;

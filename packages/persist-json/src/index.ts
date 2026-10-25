@@ -1,3 +1,3 @@
-export { OIMPersistJsonBackend } from './OIMPersistJsonBackend';
-export type { TOIMPersistJsonBackendOptions } from './types/TOIMPersistJsonBackendOptions';
+export { OIMPersistJsonMemoryBackend } from './OIMPersistJsonMemoryBackend';
+export type { TOIMPersistJsonMemoryBackendOptions } from './types/TOIMPersistJsonMemoryBackendOptions';
 export type { TOIMPersistJsonDump } from './types/TOIMPersistJsonDump';

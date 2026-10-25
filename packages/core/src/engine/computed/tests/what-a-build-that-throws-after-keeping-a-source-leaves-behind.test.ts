@@ -1,21 +1,22 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     // Throws on the first build of any key and succeeds after that, so one
     // collection answers both halves: what a failure leaves, and that a later
     // mint of the same key is unaffected by it.
     let owed = 1;
     const computedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             const slot = cardsService.getSlotByKey(cards, id);
             if (owed > 0) {
                 owed--;

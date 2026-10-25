@@ -1,18 +1,16 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { oimInsertEntityWithCopy } from '../../entity/utils/oimInsertEntityWithCopy';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMEntityService<TRow>(db, {
-        entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }),
-        keyOf: row => row.id,
-    });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -29,7 +27,10 @@ const createFixture = () => {
     const db = new OIMDB({ errorPolicy: { onErrorCaught: error => { errors.push(error); } } });
     const { rowsService: triggersService, rows: triggers } = rowsOf(db);
     const { rowsService, rows } = rowsOf(db);
-    triggersService.slotContentService.upsertEntity(triggers, { id: 't', n: 0 });
+    triggersService.writeSlotContentByKey(triggers, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 't', n: 0 }), { id: 't', n: 0 });
     db.flush();
     const trigger = triggersService.getSlotByKey(triggers, 't');
     const refuse = (body: () => void): unknown[] => {
@@ -49,7 +50,10 @@ describe('an identity is not filed before its content lands', () => {
     it('files nothing for a key whose first write was refused', () => {
         const { rowsService, rows, refuse } = createFixture();
 
-        const errors = refuse(() => { rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 }); });
+        const errors = refuse(() => { rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 1 }), { id: 'r1', n: 1 }); });
 
         // The caller still hears the refusal they asked for — the unwind is not
         // a rescue and must not swallow it.
@@ -67,9 +71,15 @@ describe('an identity is not filed before its content lands', () => {
     it('leaves a bulk load still open on a collection the caller believes is empty', () => {
         const { rowsService, rows, refuse } = createFixture();
 
-        refuse(() => { rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 }); });
+        refuse(() => { rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 1 }), { id: 'r1', n: 1 }); });
 
-        expect(() => rowsService.slotContentService.insertEntities(rows, [{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }])).not.toThrow();
+        expect(() => rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }]).map(entity => rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })(entity), entity)))).not.toThrow();
         expect(rowsService.getSlotCount(rows)).toBe(2);
         expect(rowsService.getSlotByKey(rows, 'r1')?.entity).toEqual({ id: 'r1', n: 1 });
         expect(rowsService.getSlotByKey(rows, 'r2')?.entity).toEqual({ id: 'r2', n: 2 });
@@ -83,8 +93,14 @@ describe('an identity is not filed before its content lands', () => {
     it('mints one identity for the key when a write finally lands', () => {
         const { rowsService, rows, refuse } = createFixture();
 
-        refuse(() => { rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 }); });
-        const slot = rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 7 });
+        refuse(() => { rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 1 }), { id: 'r1', n: 1 }); });
+        const slot = rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 7 }), { id: 'r1', n: 7 });
 
         expect(rowsService.getSlotCount(rows)).toBe(1);
         expect(rowsService.getSlotByKey(rows, 'r1')).toBe(slot);
@@ -98,10 +114,16 @@ describe('an identity is not filed before its content lands', () => {
      */
     it('leaves an identity that already had content alone when a later write is refused', () => {
         const { rowsService, rows, refuse } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1');
 
-        const errors = refuse(() => { rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 2 }); });
+        const errors = refuse(() => { rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 2 }), { id: 'r1', n: 2 }); });
 
         expect(errors).toHaveLength(1);
         expect(rowsService.getSlotCount(rows)).toBe(1);
@@ -123,7 +145,10 @@ describe('an identity is not filed before its content lands', () => {
     it('leaves a key a hold already filed alone when its first content is refused', () => {
         const { rowsService, rows, refuse } = createFixture();
         const holdingSlot = rowsService.holdSlotByKey(rows, 'r1');
-        const errors = refuse(() => { rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 }); });
+        const errors = refuse(() => { rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r1', n: 1 }), { id: 'r1', n: 1 }); });
 
         expect(errors).toHaveLength(1);
         expect(rowsService.getSlotCount(rows)).toBe(1);
@@ -160,7 +185,10 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
     it('files nothing at all when the first row of the bulk is refused', () => {
         const { rowsService, rows, refuse } = createFixture();
 
-        const errors = refuse(() => { rowsService.slotContentService.insertEntities(rows, [{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }]); });
+        const errors = refuse(() => { rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }]).map(entity => rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })(entity), entity))); });
 
         expect(messages(errors)).toEqual([
             'OIMChannelService: writes are refused for the whole of a flush — onBeforeFlush and every after-each-frame handler included, not only the frame body. Write after flush() returns.',
@@ -180,31 +208,35 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
             get n(): number { throw new Error('this row cannot be read'); },
         };
 
-        expect(() => rowsService.slotContentService.insertEntities(rows, [{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }, unreadable]))
+        expect(() => rowsService.writeInBatch(rows, () => ([{ id: 'r1', n: 1 }, { id: 'r2', n: 2 }, unreadable]).map(entity => rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })(entity), entity))))
             .toThrow('this row cannot be read');
 
         expect(rowsService.getSlotCount(rows)).toBe(2);
         expect(rowsService.getSlotByKey(rows, 'r1')?.entity).toEqual({ id: 'r1', n: 1 });
         expect(rowsService.getSlotByKey(rows, 'r2')?.entity).toEqual({ id: 'r2', n: 2 });
 
-        const landed = rowsService.slotContentService.upsertEntity(rows, { id: 'r3', n: 3 });
+        const landed = rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })({ id: 'r3', n: 3 }), { id: 'r3', n: 3 });
         expect(rowsService.getSlotByKey(rows, 'r3')).toBe(landed);
         expect(rowsService.getSlotCount(rows)).toBe(3);
     });
 
     it('keeps the rows before a key that cannot be read and files nothing from that row on', () => {
         const db = new OIMDB();
-        const rowsService = createOIMEntityService<TRow>(db, {
-            keyOf: row => {
-                if (row.n < 0) throw new Error('this row has no key');
-                return row.id;
-            },
-        });
+        const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
         const rows = rowsService.createStoreSlot(db);
 
-        expect(() => rowsService.slotContentService.insertEntities(rows, [
+        expect(() => rowsService.writeInBatch(rows, () => ([
             { id: 'r1', n: 1 }, { id: 'r2', n: 2 }, { id: 'r3', n: -1 }, { id: 'r4', n: 4 },
-        ])).toThrow('this row has no key');
+        ]).map(entity => rowsService.writeSlotContentByKey(rows, (row => {
+                if (row.n < 0) throw new Error('this row has no key');
+                return row.id;
+            })(entity), entity)))).toThrow('this row has no key');
 
         expect(rowsService.getSlotCount(rows)).toBe(2);
         expect(rowsService.findSlotByKey(rows, 'r1')?.entity).toEqual({ id: 'r1', n: 1 });

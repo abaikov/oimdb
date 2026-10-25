@@ -101,9 +101,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
          * arithmetic in between.
          */
         spotlight: {
-            module: 'engine/bucket/array/OIMBucketSlotsServiceArrayDriven.ts',
+            module: 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
             label: 'array?',
-            name: 'engine/bucket/array/OIMBucketSlotsServiceArrayDriven.ts',
+            name: 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
         },
         decompose: [
             {
@@ -170,12 +170,12 @@ export const bundlePieces: readonly TBundlePiece[] = [
             + 'That half is already settled without a bundler: `OIMSlotOwnerService` builds one column '
             + 'owner per service at construction and keeps it, every row '
             + 'carries `columnSlotStore === undefined`, and the write paths call '
-            + '`columnOwner.markColumnsChanged` only for a slot whose `columnSlotStore` is set, so for this '
+            + '`columnSlotOwner.markColumnsChanged` only for a slot whose `columnSlotStore` is set, so for this '
             + 'application the cost is one field test per write. THE BYTES ARE THE OPEN QUESTION. THE '
             + 'TWO ARMS DIFFER IN THE ENGINE, NOT IN THE CONSUMER, and they have to: the code of '
-            + 'the column owner is LINKED into the bundle by the `createColumnOwner` option that '
-            + '`createOIMEntityService` and `createOIMBucketSlotOwnerService` hand to `OIMSlotOwnerService`, and by the '
-            + '`columnOwner.markColumnsChanged` calls on the write paths, so '
+            + 'the column owner is LINKED into the bundle by the `createColumnSlotOwner` option that '
+            + '`oimSlotOwnerOptionsWithDefault` hands to `OIMSlotOwnerService`, and by the '
+            + '`columnSlotOwner.markColumnsChanged` calls on the write paths, so '
             + 'nothing a consumer writes can decline it and two arms over today\'s engine would '
             + 'differ by exactly zero. The second arm is therefore a COUNTERFACTUAL BUILD: the '
             + 'same consumer module, against `packages/core/src` with those links removed in '
@@ -189,13 +189,13 @@ export const bundlePieces: readonly TBundlePiece[] = [
         /**
          * The push-driven column owner. It is the module the split would move whole,
          * and — since the excision deliberately leaves both
-         * `import { createOIMColumnOwnerPushDriven }` lines in place — its absence from the
+         * `import { createOIMPushColumnSlotOwner }` lines in place — its absence from the
          * lifted arm is the artifact's own proof that no link to it was missed.
          */
         spotlight: {
-            module: 'engine/column/OIMColumnOwnerPushDriven.ts',
+            module: 'engine/column/OIMPushColumnSlotOwner.ts',
             label: 'columns?',
-            name: 'engine/column/OIMColumnOwnerPushDriven.ts',
+            name: 'engine/column/OIMPushColumnSlotOwner.ts',
         },
         decompose: [
             { findingId: 'field-machinery-diff', from: ARM_FIELD_LIFTED, to: ARM_FIELD_FLOOR },
@@ -204,7 +204,7 @@ export const bundlePieces: readonly TBundlePiece[] = [
             heading: 'IF THIS COMES OUT SMALL — AND IT VERY PROBABLY WILL',
             paragraphs: [
                 'THEN THE QUESTION IS CLOSED, AND THAT IS THE RESULT. '
-                + '`engine/column/OIMColumnOwnerPushDriven.ts` and the base it extends are the only code '
+                + '`engine/column/OIMPushColumnSlotOwner.ts` and the base it extends are the only code '
                 + 'the removed links keep alive, and the write path\'s share is three calls. '
                 + 'A measured "this is not worth splitting" is worth more than a '
                 + 'split nobody needed, and it is the entry that the column layer\'s omission from '
@@ -232,8 +232,8 @@ export const bundlePieces: readonly TBundlePiece[] = [
                 + 'has not been.',
 
                 'WHAT DESERVES ATTENTION EITHER WAY IS THE SHAPE OF THE BREAKDOWN. If the '
-                + 'difference is mostly `engine/column/OIMColumnOwnerPushDriven.ts` and '
-                + '`engine/column/OIMColumnOwner.ts`, the weight is in the owner itself and the service '
+                + 'difference is mostly `engine/column/OIMPushColumnSlotOwner.ts` and '
+                + '`engine/column/OIMColumnSlotOwner.ts`, the weight is in the owner itself and the service '
                 + 'option is what a split would have to move. If it is mostly `engine/entity/OIMEntityContentInternalService.ts` and '
                 + '`engine/bucket/OIMBucketContentInternalService.ts`, the weight is on the write '
                 + 'path, and the nanosecond cost in the paragraph above is the one that decides '
@@ -247,7 +247,7 @@ export const bundlePieces: readonly TBundlePiece[] = [
                 + 'them. That should not come to the same number, and if it does, the first thing '
                 + 'to check is '
                 + 'the "columns?" column: a lifted arm that still retains '
-                + 'OIMColumnOwnerPushDriven.ts has not excised what this spec claims.',
+                + 'OIMPushColumnSlotOwner.ts has not excised what this spec claims.',
             ],
         },
     },

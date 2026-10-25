@@ -34,14 +34,14 @@ describe('two reducers over one collection', () => {
         const listing = adapter.createCollectionReducer<TUser, string, TUserState>(usersService, users);
         const summary = adapter.createCollectionReducer<TUser, string, TUserState>(usersService, users);
 
-        usersService.slotContentService.upsertEntity(users, { id: '1', name: 'Alice' });
+        usersService.writeSlotContentByKey(users, '1', { id: '1', name: 'Alice' });
         db.flush();
         let listed = listing(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TUserState;
         let summarised = summary(undefined, { type: EOIMReduxReducerActionType.UPDATE }) as TUserState;
         expect(Object.keys(listed.entities)).toEqual(['1']);
         expect(Object.keys(summarised.entities)).toEqual(['1']);
 
-        usersService.slotContentService.upsertEntity(users, { id: '2', name: 'Bob' });
+        usersService.writeSlotContentByKey(users, '2', { id: '2', name: 'Bob' });
         db.flush();
         listed = listing(listed, { type: EOIMReduxReducerActionType.UPDATE }) as TUserState;
         summarised = summary(summarised, { type: EOIMReduxReducerActionType.UPDATE }) as TUserState;
@@ -51,7 +51,7 @@ describe('two reducers over one collection', () => {
 
         // Each keeps its own bookkeeping: one of them being read does not
         // consume the other's pending keys.
-        usersService.slotContentService.upsertEntity(users, { id: '3', name: 'Carol' });
+        usersService.writeSlotContentByKey(users, '3', { id: '3', name: 'Carol' });
         db.flush();
         listed = listing(listed, { type: EOIMReduxReducerActionType.UPDATE }) as TUserState;
         expect(Object.keys(listed.entities).sort()).toEqual(['1', '2', '3']);
@@ -81,7 +81,7 @@ describe('two reducers over one Global index', () => {
         const reduxStore: Store = createStore(rootReducer);
         adapter.setStore(reduxStore);
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice' });
         // The whole-population list a Global index carries is written by
         // the caller.
         setSingleBucketSlots(singleBucket, usersService, users, everyRow(usersService, users));

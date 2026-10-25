@@ -1,19 +1,21 @@
-import type { TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
-import { createOIMEntityService, createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
+import type { TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
+import { createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
 import type { TOIMPersistHydrateReconcile, TOIMPersistRecords } from '@oimdb/persist';
 import {
     oimReconcileByKey,
     OIMPersistEntityWriter,
     OIMPersistor,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerFrameDriven,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistFrameScheduler,
+    OIMPersistMicrotaskScheduler,
 } from '@oimdb/persist';
-import { OIMPersistMemoryRecordsStrategy } from '@oimdb/persist-memory';
-import { OIMPersistJsonBackend } from '@oimdb/persist-json';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy } from '@oimdb/persist-idb';
+import { OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
+import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '@oimdb/persist-idb';
 import { IDBFactory } from 'fake-indexeddb';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TQuestion = {
     id: string;
@@ -24,17 +26,14 @@ type TQuestion = {
 type TQuestionStoreSlot = TOIMStoreSlot<Map<string, TOIMEntitySlot<TQuestion, string>>, TOIMEntitySlot<TQuestion, string>, Partial<TQuestion>>;
 
 const createQuestionCollectionService = (db: OIMDB, persistEntityWriter: OIMPersistEntityWriter<TQuestion, string>) =>
-    createOIMEntityService<TQuestion, TOIMEntityColumnName<TQuestion>, string>(db, {
-        keyOf: question => question.id,
-        entityWriter: persistEntityWriter,
-    });
+    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion, string>(db, { entityWriter: persistEntityWriter }) });
 
 type TQuestionCollectionService = ReturnType<typeof createQuestionCollectionService>;
 
 type TQuestionCollection = {
     entityCollectionService: TQuestionCollectionService;
     entityStoreSlot: TQuestionStoreSlot;
-    persistRecordSourceCollectionChangeDriven: OIMPersistRecordSourceCollectionChangeDriven<string, TQuestion>;
+    persistCollectionChangeWriteRecordSource: OIMPersistCollectionChangeWriteRecordSource<string, TQuestion>;
 };
 
 const reconcileAnswerOntoQuestion: TOIMPersistHydrateReconcile<TOIMPersistRecords<string, TQuestion>> =
@@ -50,12 +49,12 @@ function createQuestionCollection(db: OIMDB): TQuestionCollection {
     });
     const entityCollectionService = createQuestionCollectionService(db, persistEntityWriter);
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-    const persistRecordSourceCollectionChangeDriven = new OIMPersistRecordSourceCollectionChangeDriven<string, TQuestion>({
+    const persistCollectionChangeWriteRecordSource = new OIMPersistCollectionChangeWriteRecordSource<string, TQuestion>({
         entityCollectionService,
         entityStoreSlot,
         persistEntityWriter,
     });
-    return { entityCollectionService, entityStoreSlot, persistRecordSourceCollectionChangeDriven };
+    return { entityCollectionService, entityStoreSlot, persistCollectionChangeWriteRecordSource };
 }
 
 function keysOf(entityCollectionService: TQuestionCollectionService, entityStoreSlot: TQuestionStoreSlot): string[] {
@@ -75,7 +74,7 @@ function entitiesOf(entityCollectionService: TQuestionCollectionService, entityS
 }
 
 function findQuestion(questionCollection: TQuestionCollection, key: string): TQuestion | undefined {
-    return questionCollection.entityCollectionService.slotContentService.findEntityByKey(questionCollection.entityStoreSlot, key);
+    return questionCollection.entityCollectionService.findSlotByKey(questionCollection.entityStoreSlot, key)?.entity;
 }
 
 describe('SSR data cycle across packages (json + idb)', () => {
@@ -86,21 +85,19 @@ describe('SSR data cycle across packages (json + idb)', () => {
 
     async function dehydrateServerQuestions(questions: readonly TQuestion[]): Promise<string> {
         const serverQuestionCollection = createQuestionCollection(new OIMDB());
-        const persistJsonBackend = new OIMPersistJsonBackend();
+        const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
         const serverPersistor = new OIMPersistor({
-            persistBackend: persistJsonBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: persistJsonMemoryBackend,
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(serverPersistor);
-        serverPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: serverQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<string, TQuestion>({ storageKey: 'questions' }),
+        serverPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: serverQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistMemoryRecordsService<string, TQuestion>({ storageKey: 'questions' }),
         }));
-        serverQuestionCollection.entityCollectionService.slotContentService.upsertEntities(
-            serverQuestionCollection.entityStoreSlot, questions,
-        );
+        serverQuestionCollection.entityCollectionService.writeInBatch(serverQuestionCollection.entityStoreSlot, () => (questions).map(entity => serverQuestionCollection.entityCollectionService.writeSlotContentByKey(serverQuestionCollection.entityStoreSlot, entity.id, entity)));
         await serverPersistor.persist();
-        return JSON.stringify(persistJsonBackend.dehydrate());
+        return JSON.stringify(persistJsonMemoryBackend.dehydrate());
     }
 
     async function seedIndexedDbAnswers(
@@ -109,16 +106,14 @@ describe('SSR data cycle across packages (json + idb)', () => {
         const writerQuestionCollection = createQuestionCollection(new OIMDB());
         const writerPersistor = new OIMPersistor({
             persistBackend: new OIMPersistIndexedDbBackend({ databaseName, indexedDb }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(writerPersistor);
-        writerPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: writerQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<string, TQuestion>({ tableName: 'answers' }),
+        writerPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: writerQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<string, TQuestion>({ tableName: 'answers' }),
         }));
-        writerQuestionCollection.entityCollectionService.slotContentService.upsertEntities(
-            writerQuestionCollection.entityStoreSlot, answers,
-        );
+        writerQuestionCollection.entityCollectionService.writeInBatch(writerQuestionCollection.entityStoreSlot, () => (answers).map(entity => writerQuestionCollection.entityCollectionService.writeSlotContentByKey(writerQuestionCollection.entityStoreSlot, entity.id, entity)));
         await writerPersistor.persist();
     }
 
@@ -126,13 +121,13 @@ describe('SSR data cycle across packages (json + idb)', () => {
         clientQuestionCollection: TQuestionCollection, jsonPersistDumpText: string,
     ): Promise<void> {
         const ssrPersistor = new OIMPersistor({
-            persistBackend: new OIMPersistJsonBackend({ initialPersistJsonDump: JSON.parse(jsonPersistDumpText) }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistBackend: new OIMPersistJsonMemoryBackend({ initialPersistJsonDump: JSON.parse(jsonPersistDumpText) }),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(ssrPersistor);
-        ssrPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: clientQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<string, TQuestion>({ storageKey: 'questions' }),
+        ssrPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: clientQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistMemoryRecordsService<string, TQuestion>({ storageKey: 'questions' }),
         }));
         await ssrPersistor.hydrate();
     }
@@ -176,12 +171,12 @@ describe('SSR data cycle across packages (json + idb)', () => {
 
         const indexedDbPersistor = new OIMPersistor({
             persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'survey', indexedDb }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(indexedDbPersistor);
-        indexedDbPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: clientQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<string, TQuestion>({ tableName: 'answers' }),
+        indexedDbPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: clientQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<string, TQuestion>({ tableName: 'answers' }),
             persistHydrateReconcile: reconcileAnswerOntoQuestion,
         }));
         await indexedDbPersistor.hydrate();
@@ -227,12 +222,12 @@ describe('SSR data cycle across packages (json + idb)', () => {
 
         const indexedDbPersistor = new OIMPersistor({
             persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'survey2', indexedDb }),
-            persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: clientDb.defaultChannelSlot }),
+            persistScheduler: new OIMPersistFrameScheduler({ channelSlot: clientDb.defaultChannelSlot }),
         });
         persistors.push(indexedDbPersistor);
-        indexedDbPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: clientQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<string, TQuestion>({ tableName: 'answers' }),
+        indexedDbPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: clientQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<string, TQuestion>({ tableName: 'answers' }),
             persistHydrateReconcile: reconcileAnswerOntoQuestion,
         }));
         await indexedDbPersistor.hydrate();
@@ -252,12 +247,12 @@ describe('SSR data cycle across packages (json + idb)', () => {
         const readerQuestionCollection = createQuestionCollection(new OIMDB());
         const readerPersistor = new OIMPersistor({
             persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'survey2', indexedDb }),
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
         });
         persistors.push(readerPersistor);
-        readerPersistor.addPersistResource(new OIMPersistResourceRecords({
-            persistRecordSource: readerQuestionCollection.persistRecordSourceCollectionChangeDriven,
-            persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<string, TQuestion>({ tableName: 'answers' }),
+        readerPersistor.addPersistResource(new OIMPersistRecordsResource({
+            persistRecordSource: readerQuestionCollection.persistCollectionChangeWriteRecordSource,
+            persistRecordsService: new OIMPersistIndexedDbRecordsService<string, TQuestion>({ tableName: 'answers' }),
         }));
         await readerPersistor.hydrate();
 

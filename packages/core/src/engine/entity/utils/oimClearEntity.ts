@@ -1,6 +1,6 @@
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 
-export function oimClearEntity(entitySlot: TOIMEntitySlot): void {
-    (entitySlot as TOIMSlotEditable<TOIMEntitySlot>).entity = undefined;
+export function oimClearEntity(entitySlot: TOIMEntityContentSlot): void {
+    (entitySlot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = undefined;
 }

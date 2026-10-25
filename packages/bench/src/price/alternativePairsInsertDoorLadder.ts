@@ -1,17 +1,9 @@
-import {
-    OIMChannelService,
-    OIMDB,
-    OIMSlotStoreServiceMapDriven,
-    OIMUnusedSlotCollectorService,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { createOIMEntitySlot } from '../../../core/src/engine/entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlotOwnerService } from '../../../core/src/engine/entity/types/TOIMEntitySlotOwnerService';
-import { OIMContentChangeDeliveryService } from '../../../core/src/engine/slot/OIMContentChangeDeliveryService';
-import { OIMSlotReleasePolicyAtEmpty } from '../../../core/src/engine/collector/OIMSlotReleasePolicyAtEmpty';
-import { OIMSlotEmptinessByEntityPresence } from '../../../core/src/engine/entity/OIMSlotEmptinessByEntityPresence';
+import { OIMSlotAtEmptyReleasePolicy } from '../../../core/src/engine/collector/OIMSlotAtEmptyReleasePolicy';
+import { OIMSlotEntityPresenceEmptinessPolicy } from '../../../core/src/engine/entity/OIMSlotEntityPresenceEmptinessPolicy';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
@@ -21,26 +13,34 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TRowStoreSlot = TOIMStoreSlot<Map<TOIMStoreKey, TRowSlot>, TRowSlot, Partial<TPriceDataRow>>;
 
 const entityWriter = createOIMEntityWriterInPlace();
-const slotReleasePolicy = OIMSlotReleasePolicyAtEmpty.INSTANCE;
-const storeService = new OIMSlotStoreServiceMapDriven<TRowSlot>();
+const slotReleasePolicy = OIMSlotAtEmptyReleasePolicy.INSTANCE;
+const storeService = new OIMSlotMapStoreService<TRowSlot>();
+
+type TRowSlotOwnerService = TOIMEntitySlotOwnerService<TPriceDataRow, TRowSlot, Map<TOIMStoreKey, TRowSlot>, string>;
 
 type TDoorProbeInternals = {
-    slotOwnerService: TOIMEntitySlotOwnerService<TPriceDataRow, TOIMStoreKey, Map<TOIMStoreKey, TRowSlot>, string>;
-    writeEntityWithoutSubframe(entitySlot: TRowSlot, row: TPriceDataRow, changedColumnNames: string[] | undefined): boolean;
+    slotOwnerService: TRowSlotOwnerService;
+    writeEntityToSlot(entitySlot: TRowSlot, row: TPriceDataRow, changedColumnNames: string[] | undefined): boolean;
     updateEntitySlotEmptiness(entitySlot: TRowSlot): void;
 };
 
-const createEntityService = (db: OIMDB): TPriceEntityService<TPriceDataRow> => createOIMEntityService<TPriceDataRow>(db, {
-    keyOf: row => row.id,
-    entityWriter,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    slotEmptiness: OIMSlotEmptinessByEntityPresence.INSTANCE,
-});
+const probeInternalsOf = (entityService: TPriceEntityService<TPriceDataRow>): TDoorProbeInternals => {
+    const slotContentService = entityService.slotContentService as unknown as Omit<TDoorProbeInternals, 'slotOwnerService'>;
+    return {
+        slotOwnerService: (entityService as unknown as { slotOwnerService: TRowSlotOwnerService }).slotOwnerService,
+        writeEntityToSlot: (entitySlot, row, changedColumnNames) => slotContentService.writeEntityToSlot.call(entityService.slotContentService, entitySlot, row, changedColumnNames),
+        updateEntitySlotEmptiness: entitySlot => slotContentService.updateEntitySlotEmptiness.call(entityService.slotContentService, entitySlot),
+    };
+};
+
+const createEntityService = (db: OIMDB): TPriceEntityService<TPriceDataRow> => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter, slotEmptinessPolicy: OIMSlotEntityPresenceEmptinessPolicy.INSTANCE }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
 type TWorld = {
     readonly db: OIMDB;
@@ -48,7 +48,6 @@ type TWorld = {
     probeInternals: TDoorProbeInternals;
     entityStoreSlot: TRowStoreSlot;
     store: Map<TOIMStoreKey, TRowSlot>;
-    subframeDepth: number;
 };
 
 type TRung = (world: TWorld, rows: readonly TPriceDataRow[], times: number) => void;
@@ -59,20 +58,7 @@ const handMint = (world: TWorld, key: string): TRowSlot =>
     createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), world.probeInternals.slotOwnerService, world.entityStoreSlot);
 
 const probeMint = (world: TWorld, key: string): TRowSlot =>
-    world.probeInternals.slotOwnerService.createSlot(storeService.ownKey(key), world.entityStoreSlot);
-
-const handOpenSubframe = (world: TWorld): void => {
-    OIMChannelService.INSTANCE.openSubframe(world.db.defaultChannelSlot);
-    world.subframeDepth++;
-};
-
-const handCloseSubframe = (world: TWorld): void => {
-    try {
-        --world.subframeDepth;
-    } finally {
-        OIMChannelService.INSTANCE.closeSubframe(world.db.defaultChannelSlot);
-    }
-};
+    world.entityService.slotContentService.createSlot(storeService.ownKey(key), world.entityStoreSlot, world.probeInternals.slotOwnerService);
 
 const handAssertWritable = (world: TWorld, slot: TRowSlot): void => {
     OIMChannelService.INSTANCE.assertNotFlushing(world.db.defaultChannelSlot);
@@ -87,7 +73,7 @@ const handWrite = (world: TWorld, slot: TRowSlot, row: TPriceDataRow): void => {
 const handUpdateEmptiness = (world: TWorld, slot: TRowSlot): void => {
     const slotFlags = slot.slotFlags;
     const wasEmpty = (slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0;
-    (slot as { slotFlags: number }).slotFlags = OIMSlotEmptinessByEntityPresence.INSTANCE.isEmpty(slot)
+    (slot as { slotFlags: number }).slotFlags = OIMSlotEntityPresenceEmptinessPolicy.INSTANCE.isEmpty(slot)
         ? slotFlags | OIM_SLOT_FLAG_EMPTY
         : slotFlags & ~OIM_SLOT_FLAG_EMPTY;
     const slotStamp = world.db.slotStamp;
@@ -106,8 +92,6 @@ const handRelease = (world: TWorld, slot: TRowSlot): void => {
 
 type TSteps = {
     readonly mint: (world: TWorld, key: string) => TRowSlot;
-    readonly openSubframe: (world: TWorld) => void;
-    readonly closeSubframe: (world: TWorld) => void;
     readonly assertWritable: (world: TWorld, slot: TRowSlot) => void;
     readonly write: (world: TWorld, slot: TRowSlot, row: TPriceDataRow) => void;
     readonly updateEmptiness: (world: TWorld, slot: TRowSlot) => void;
@@ -117,8 +101,6 @@ type TSteps = {
 
 const HAND_STEPS: TSteps = {
     mint: handMint,
-    openSubframe: handOpenSubframe,
-    closeSubframe: handCloseSubframe,
     assertWritable: handAssertWritable,
     write: handWrite,
     updateEmptiness: handUpdateEmptiness,
@@ -132,34 +114,22 @@ const chainOf = (steps: TSteps): TRung => (world, rows, times) => {
         const key = keyOf(row);
         if (storeService.get(world.store, key) !== undefined) continue;
         const slot = steps.mint(world, key);
-        steps.openSubframe(world);
-        try {
-            steps.assertWritable(world, slot);
-            steps.write(world, slot, row);
-            steps.updateEmptiness(world, slot);
-            steps.contentChanged(world, slot, row);
-            storeService.set(world.store, key, slot);
-            steps.release(world, slot);
-        } catch (refusal) {
-            steps.closeSubframe(world);
-            throw refusal;
-        }
-        steps.closeSubframe(world);
+        steps.assertWritable(world, slot);
+        steps.write(world, slot, row);
+        steps.updateEmptiness(world, slot);
+        storeService.set(world.store, key, slot);
+        steps.contentChanged(world, slot, row);
+        steps.release(world, slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
 };
 
-const withSubframe: TSteps = {
-    ...HAND_STEPS,
-    openSubframe: world => OIMContentChangeDeliveryService.INSTANCE.openContentSubframe(world.db.defaultChannelSlot),
-    closeSubframe: world => OIMContentChangeDeliveryService.INSTANCE.closeContentSubframe(world.db.defaultChannelSlot),
-};
-const withAssert: TSteps = { ...withSubframe, assertWritable: (world, slot) => world.probeInternals.slotOwnerService.assertWritable(slot) };
+const withAssert: TSteps = { ...HAND_STEPS, assertWritable: (world, slot) => world.probeInternals.slotOwnerService.assertWritable(slot) };
 const withWrite: TSteps = {
     ...withAssert,
     write: (world, slot, row) => {
-        world.probeInternals.writeEntityWithoutSubframe(slot, row, undefined);
+        world.probeInternals.writeEntityToSlot(slot, row, undefined);
     },
 };
 const withEmptiness: TSteps = {
@@ -180,8 +150,7 @@ const withMint: TSteps = { ...withRelease, mint: probeMint };
 
 const entityServiceDoor: TRung = (world, rows, times) => {
     const { entityService, entityStoreSlot } = world;
-    const slotContentService = entityService.slotContentService;
-    for (let i = 0; i < times; i++) priceSink.ours = slotContentService.upsertEntity(entityStoreSlot, rows[i]);
+    for (let i = 0; i < times; i++) priceSink.ours = entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]);
     world.db.flush();
 };
 
@@ -191,19 +160,17 @@ const rungSide = (rung: TRung, rows: readonly TPriceDataRow[]): TPriceSide => {
     const world: TWorld = {
         db,
         entityService,
-        probeInternals: entityService.slotContentService as unknown as TDoorProbeInternals,
+        probeInternals: probeInternalsOf(entityService),
         entityStoreSlot: entityService.createStoreSlot(db),
         store: storeService.createStore(),
-        subframeDepth: 0,
     };
     return {
         operationsPerPass: rows.length,
         reset: () => {
             world.entityService = createEntityService(db);
-            world.probeInternals = world.entityService.slotContentService as unknown as TDoorProbeInternals;
+            world.probeInternals = probeInternalsOf(world.entityService);
             world.entityStoreSlot = world.entityService.createStoreSlot(db);
             world.store = storeService.createStore();
-            world.subframeDepth = 0;
         },
         run: times => rung(world, rows, times),
     };
@@ -211,9 +178,9 @@ const rungSide = (rung: TRung, rows: readonly TPriceDataRow[]): TPriceSide => {
 
 const LADDER =
     'One rung of a ladder from the insert path written by hand, step by step, around the shipped pieces, to '
-    + 'entityService.slotContentService.upsertEntity on the same service. Every rung swaps exactly one hand-written step for the shipped piece\'s own '
-    + 'method — the content service\'s private slotOwnerService or its private write methods, reached through a cast '
-    + '(`as unknown as {…}`), or OIMContentChangeDeliveryService — so the gap a rung shows is what that method '
+    + 'entityService.writeSlotContentByKey on the same service. Every rung swaps exactly one hand-written step for the shipped piece\'s own '
+    + 'method — the collection\'s slotOwnerService or the content service\'s private write methods, reached through a cast '
+    + '(`as unknown as {…}`) — so the gap a rung shows is what that method '
     + 'costs beyond the hand step. The service inserts without a copy (the default) under the AtEmpty policy. Every rung '
     + 'inserts the same priceDataset.batch distinct rows into an empty world rebuilt outside the clock and ends its pass with db.flush().';
 
@@ -230,7 +197,6 @@ const ladderPair = (step: string, ours: TRung, oursText: string, floor: TRung, f
 });
 
 const handChain = chainOf(HAND_STEPS);
-const subframeChain = chainOf(withSubframe);
 const assertChain = chainOf(withAssert);
 const writeChain = chainOf(withWrite);
 const emptinessChain = chainOf(withEmptiness);
@@ -239,21 +205,19 @@ const releaseChain = chainOf(withRelease);
 const mintChain = chainOf(withMint);
 
 export const alternativePairsInsertDoorLadder: readonly TPricePair[] = [
-    ladderPair('1-subframe', subframeChain, 'openContentSubframe/closeContentSubframe through OIMContentChangeDeliveryService',
-        handChain, 'every step by hand', 'the content subframe — the channel call, the channel slot\'s content subframe depth and the delivery check at its outermost close — instead of the channel call and a counter.'),
     ladderPair('2-assert-writable', assertChain, 'assertWritable through the slot owner service',
-        subframeChain, 'the step below by hand', 'the slot owner service\'s assertWritable.'),
-    ladderPair('3-write', writeChain, 'slotContentService.writeEntityWithoutSubframe',
-        assertChain, 'the writer and the channel called by hand', 'writeEntityWithoutSubframe: the entity-undefined check, fillEntity, dispatchColumnsChanged and its column-store check.'),
+        handChain, 'every step by hand', 'the slot owner service\'s assertWritable.'),
+    ladderPair('3-write', writeChain, 'slotContentService.writeEntityToSlot',
+        assertChain, 'the writer and the channel called by hand', 'writeEntityToSlot: the entity-undefined check, fillEntity, dispatchColumnsChanged and its column-store check.'),
     ladderPair('4-emptiness', emptinessChain, 'updateEntitySlotEmptiness through the content service and the slot owner service',
         writeChain, 'the step by hand', 'the slot owner service\'s settleEmptiness and settleWrite.'),
     ladderPair('5-content-changed', contentChangedChain, 'dispatchContentChange through the slot owner service',
         emptinessChain, 'no content-change call', 'the slot owner service\'s dispatchContentChange with no listener.'),
     ladderPair('6-release-check', releaseChain, 'releaseSlotIfUnheldAfterListeners through the slot owner service',
         contentChangedChain, 'the check by hand', 'the slot owner service\'s release check after the write.'),
-    ladderPair('7-create-slot', mintChain, 'slotOwnerService.createSlot',
-        releaseChain, 'createOIMEntitySlot called by hand', 'slotOwnerService.createSlot: the content service\'s private slotContentStrategy.createSlot behind the owner.'),
-    ladderPair('8-door', entityServiceDoor, 'entityService.slotContentService.upsertEntity(storeSlot, entity)',
+    ladderPair('7-create-slot', mintChain, 'slotContentService.createSlot',
+        releaseChain, 'createOIMEntitySlot called by hand', 'slotContentService.createSlot.'),
+    ladderPair('8-door', entityServiceDoor, 'entityService.writeSlotContentByKey(storeSlot, id, entity)',
         mintChain, 'every step through the service\'s internal pieces, chained by hand',
-        'upsertEntity\'s keyOf and insertEntity itself: the store lookup, ownKey, createSlot, the isOnFastPath read and the fast-path insert, which on this fixture opens no subframe, runs no contentChanged and no release check and calls entityWriter.fillEntity directly, so the floor carries steps the door does not run.'),
+        'writeSlotContentByKey itself: the store lookup, ownKey, createSlot, the isOnFastPath read and the fast-path insert, which on this fixture runs no dispatchContentChange and no release check and calls entityWriter.fillEntity directly, so the floor carries steps the door does not run.'),
 ];

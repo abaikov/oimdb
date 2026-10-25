@@ -1,27 +1,26 @@
 import type { TOIMSlotEditable } from '../types/TOIMSlotEditable';
 
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceTreeDriven } from '../../store/OIMSlotStoreServiceTreeDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
+import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { oimSameValueZeroGuard } from '../utils/oimSameValueZeroGuard';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMSlotStoreTree } from '../../store/types/TOIMSlotStoreTree';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMBucketCommands } from '../../../facade/bucket/OIMBucketCommands';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture =(db = new OIMDB()) => {
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     const reserve = (id: string): TOIMEntitySlot<TCard, TOIMStoreKey> => {
         const heldSlot = cardsService.holdSlotByKey(cards, id);
@@ -35,9 +34,7 @@ const createFixture =(db = new OIMDB()) => {
 };
 
 const unorderedBuckets = (db: OIMDB) =>
-    createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+    createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 const reservations: (() => void)[] = [];
 
@@ -70,7 +67,7 @@ describe('who triggers the release check', () => {
     it('letting a derivation go: releases the slot it was reading', () => {
         const { db, cardsService, cards } = createFixture();
         const ranksService = createOIMComputedService<TOIMStoreKey, number>({
-            createSources: (id: TOIMStoreKey) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+            createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
             derive: (computedSlot) => (cardsService.getSlotByKey(cards, computedSlot.key).entity === undefined ? 0 : 1),
             sameValueGuard: oimSameValueZeroGuard,
         });
@@ -89,13 +86,13 @@ describe('who triggers the release check', () => {
         const searchService = unorderedBuckets(db);
         const search = searchService.createStoreSlot(db);
         const bucket = bucketAt(searchService, search, 'q');
-        searchService.slotContentService.writeBucketMemberSlots(bucket, [reserve('ghost')]);
+        searchService.slotContentService.writeSlotContent(bucket, [reserve('ghost')]);
         // The bucket holds it, so that is the last thing pointing at the slot —
         // which is what the emptying below is being asked about.
         handBack();
         db.flush();
         expect(cardsService.getSlotCount(cards)).toBe(1);
-        searchService.slotContentService.writeBucketMemberSlots(bucket, []);
+        searchService.slotContentService.writeSlotContent(bucket, []);
         db.flush();
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
@@ -104,14 +101,14 @@ describe('who triggers the release check', () => {
 describe('a hold is what carries an identity across a batch that empties it', () => {
     it('remove then re-upsert the same key in one batch keeps ONE identity, if something holds it', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'a' });
         db.flush();
 
         const resolved = cardsService.getSlotByKey(cards, 'c1')!;
         resolved.owner.holdSlot(resolved);
 
-        cardsService.slotContentService.deleteEntity(resolved);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'b' });
+        cardsService.slotContentService.clearSlotContent(resolved);
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'b' });
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(resolved);
@@ -123,16 +120,16 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('and without one, the removal is the end of that identity', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'a' });
         db.flush();
         const was = cardsService.getSlotByKey(cards, 'c1')!;
 
-        cardsService.slotContentService.deleteEntity(was);
+        cardsService.slotContentService.clearSlotContent(was);
         // Already gone: the value was the only thing pointing at it, and the
         // question was asked where the value left.
         expect(cardsService.getSlotCount(cards)).toBe(0);
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'b' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'b' });
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'c1')).not.toBe(was);
@@ -141,16 +138,16 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('a bucket emptied and refilled by two write in one frame keeps ONE identity, if something holds it', () => {
         const { db, cardsService, cards, reserve } = createFixture();
-        const listService = createOIMBucketService<TCardSlot>(db);
+        const listService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
         const ghost = reserve('ghost');
         ghost.owner.holdSlot(ghost);
-        listService.slotContentService.writeBucketMemberSlots(page, [ghost]);
+        listService.slotContentService.writeSlotContent(page, [ghost]);
         db.flush();
 
-        listService.slotContentService.writeBucketMemberSlots(page, []);
-        listService.slotContentService.writeBucketMemberSlots(page, [ghost]);
+        listService.slotContentService.writeSlotContent(page, []);
+        listService.slotContentService.writeSlotContent(page, [ghost]);
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'ghost')).toBe(ghost);
@@ -164,15 +161,15 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('the same through the position writes: clear then insertSlotAt', () => {
         const { db, cardsService, cards, reserve } = createFixture();
-        const listService = createOIMBucketService<TCardSlot>(db);
+        const listService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
         const ghost = reserve('ghost');
         ghost.owner.holdSlot(ghost);
-        listService.slotContentService.writeBucketMemberSlots(page, [ghost]);
+        listService.slotContentService.writeSlotContent(page, [ghost]);
         db.flush();
 
-        listService.slotContentService.clearBucketMemberSlots(page);
+        listService.slotContentService.clearSlotContent(page);
         listService.slotContentService.insertBucketMemberSlotAt(page, listService.slotContentService.getBucketMemberSlotCount(page), ghost);
         db.flush();
 
@@ -184,15 +181,15 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('a slot nothing holds and nothing refilled is let go where the last bucket let it go', () => {
         const { db, cardsService, cards, reserve, handBack } = createFixture();
-        const listService = createOIMBucketService<TCardSlot>(db);
+        const listService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
-        listService.slotContentService.writeBucketMemberSlots(page, [reserve('ghost')]);
+        listService.slotContentService.writeSlotContent(page, [reserve('ghost')]);
         handBack();
         db.flush();
         expect(cardsService.getSlotCount(cards)).toBe(1);
 
-        listService.slotContentService.clearBucketMemberSlots(page);
+        listService.slotContentService.clearSlotContent(page);
         // At the write, not at the flush: the bucket was the last thing
         // pointing at it and nothing took a hold.
         expect(cardsService.getSlotCount(cards)).toBe(0);
@@ -204,11 +201,11 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 describe('a stale identity does not take the live one under its key with it', () => {
     it('scalar key', () => {
         const { db, cardsService, cards, reserve } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'a' });
         db.flush();
         const stale = cardsService.getSlotByKey(cards, 'c1')!;
 
-        cardsService.slotContentService.deleteEntity(stale);
+        cardsService.slotContentService.clearSlotContent(stale);
         db.flush();
         expect(cardsService.getSlotCount(cards)).toBe(0);
 
@@ -224,28 +221,23 @@ describe('a stale identity does not take the live one under its key with it', ()
 
     it('composite key', () => {
         const db = new OIMDB();
-        const tagsService = createOIMEntityService<{ id: string }>(db, { keyOf: (tag: { id: string }) => tag.id });
+        const tagsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ id: string }>(db) });
         const tags = tagsService.createStoreSlot(db);
         type TPair = { a: string; b: string };
         type TChain = readonly TOIMEntitySlot[];
         type TPairSlot = TOIMEntitySlot<TPair, TChain>;
-        type TPairStore = TOIMSlotStoreTree<TPairSlot, TOIMEntitySlot>;
-        const tag = (id: string): TOIMEntitySlot<{ id: string }, TOIMStoreKey> =>
+                const tag = (id: string): TOIMEntitySlot<{ id: string }, TOIMStoreKey> =>
             tagsService.holdSlotByKey(tags, id);
-        const pairsService = createOIMEntityService<TPair, TOIMEntityColumnName<TPair>, TChain, TPairStore>(db, {
-            entitySlotStoreService:
-                new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TPairSlot>(
+        const pairsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPair, TChain>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(
                     OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
-                ),
-            keyOf: (pair: TPair) => [tag(pair.a), tag(pair.b)],
-        });
+                ) });
         const pairs = pairsService.createStoreSlot(db);
         const key: TChain = [tag('x'), tag('y')];
-        pairsService.slotContentService.upsertEntity(pairs, { a: 'x', b: 'y' });
+        pairsService.writeSlotContentByKey(pairs, ((pair: TPair) => [tag(pair.a), tag(pair.b)])({ a: 'x', b: 'y' }), { a: 'x', b: 'y' });
         db.flush();
         const stale = pairsService.getSlotByKey(pairs, key)!;
 
-        pairsService.slotContentService.deleteEntity(stale);
+        pairsService.slotContentService.clearSlotContent(stale);
         db.flush();
         expect(pairsService.getSlotCount(pairs)).toBe(0);
 
@@ -267,12 +259,12 @@ describe('what the release must not quietly break', () => {
         let run: (() => void) | undefined;
         const db = new OIMDB({ channelScheduler: flush => { armed++; run = flush; } });
         const { cardsService, cards } = createFixture(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'a' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'a' });
         run?.();
         expect(cardsService.getSlotCount(cards)).toBe(1);
 
         armed = 0;
-        cardsService.slotContentService.deleteEntity(cardsService.getSlotByKey(cards, 'c1')!);
+        cardsService.slotContentService.clearSlotContent(cardsService.getSlotByKey(cards, 'c1')!);
         expect(cardsService.getSlotCount(cards)).toBe(0);
         expect(armed).toBe(0);          // nobody is subscribed; nothing needed a frame
         run?.();
@@ -287,15 +279,15 @@ describe('what the release must not quietly break', () => {
             data[0] ??= `title=${slot.entity?.title ?? '?'}`;
             return data[0] as string;
         };
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'first' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'first' });
         db.flush();
 
         const slot = cardsService.getSlotByKey(cards, 'c1')!;
         slot.owner.holdSlot(slot);
         expect(render(slot)).toBe('title=first');
 
-        cardsService.slotContentService.deleteEntity(slot);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'second' });
+        cardsService.slotContentService.clearSlotContent(slot);
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'second' });
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'c1')).toBe(slot);   // the hold carried it

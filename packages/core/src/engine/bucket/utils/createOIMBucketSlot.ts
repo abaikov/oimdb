@@ -1,14 +1,14 @@
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
-import type { TOIMBucketSlotOwnerService } from '../types/TOIMBucketSlotOwnerService';
-import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import type { TOIMBucketContentSlot } from '../types/TOIMBucketContentSlot';
+import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 
-export function createOIMBucketSlot<TSlots, TKey>(
+export function createOIMBucketSlot<TSlots, TKey extends NonNullable<unknown>>(
     key: TKey,
-    owner: TOIMBucketSlotOwnerService<TSlots, TOIMSlot>,
+    owner: IOIMSlotOwner,
     bucketSlotsStore: TSlots,
-    storeSlot: TOIMStoreSlot<unknown, TOIMBucketSlot<TSlots>>,
+    storeSlot: TOIMStoreSlot<unknown, TOIMBucketContentSlot<TSlots>>,
 ): TOIMBucketSlot<TSlots, TKey> {
     return {
         effects: undefined,
@@ -30,7 +30,5 @@ export function createOIMBucketSlot<TSlots, TKey>(
         isWholeListRecorded: false,
         commandsStartedAtRevision: 0,
         commandsStartedAtEpoch: 0,
-        wasEmptyBeforeChange: undefined,
-        isChangedAgainInSubframe: false,
     };
 }

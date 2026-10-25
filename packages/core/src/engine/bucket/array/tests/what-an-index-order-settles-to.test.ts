@@ -1,33 +1,26 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { createOIMIndexService } from '../../../../factories/createOIMIndexService';
-import { createOIMComputedServiceSorted } from '../../../../factories/createOIMComputedServiceSorted';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import { OIMBucketArrayMembershipUnique } from '../OIMBucketArrayMembershipUnique';
+import { createOIMSlotCollectionIndexService } from '../../../../factories/createOIMSlotCollectionIndexService';
+import { createOIMSortedComputedService } from '../../../../factories/createOIMSortedComputedService';
+import { OIMBucketUniqueMemberSlotsArrayService } from '../../../../engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import { OIMEffectService } from '../../../computed/OIMEffectService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMEntityColumnName } from '../../../entity/types/TOIMEntityColumnName';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../types/TOIMBucketSlotsArrayUniqueStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; rank: number };
 type TRanked = { id: string; rank: number; label?: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
-type TUniqueSlots = TOIMBucketSlotsArrayUniqueStore<TCardSlot>;
 
 describe('a deduplicating bucket', () => {
     it('adding the same slot twice leaves one slot', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TUniqueSlots>({
-            bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
-        });
-        const searchService = createOIMBucketService<
-            TCardSlot, string, TUniqueSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot, TUniqueSlots>
-        >(db, { slotContentService: membersService });
+        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+        const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
         const search = searchService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'd1', rank: 0 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', rank: 0 });
         db.flush();
 
         const c1 = cardsService.getSlotByKey(cards, 'c1')!;
@@ -43,14 +36,14 @@ function ordered(entities: readonly TRanked[]) {
     const counter = { comparisons: 0 };
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TRanked>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRanked, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byAllService = createOIMIndexService(db, {
+    const byAllService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (_card: TRanked): string => 'all',
     });
     const byAll = byAllService.createIndexStoreSlot(cards);
-    const ordersService = createOIMComputedServiceSorted({
+    const ordersService = createOIMSortedComputedService({
         indexService: byAllService,
         sortColumns: [{ column: 'rank', direction: 'asc' }],
         comparator: (left: TRanked, right: TRanked) => {
@@ -60,13 +53,13 @@ function ordered(entities: readonly TRanked[]) {
     });
     const orders = ordersService.createSortedStoreSlot(byAll);
     const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'all');
-    const ids = (): string[] => ordersService.computedCollectionService.slotContentService.getValueForSlot(order)
+    const ids = (): string[] => order.computedValueService.getValueForSlot(order)
         .map(slot => (slot.entity as TRanked).id);
     const upsertEntities = (batch: readonly TRanked[]): void => {
-        cardsService.slotContentService.upsertEntities(cards, batch);
+        cardsService.writeInBatch(cards, () => (batch).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     };
     const upsertEntity = (entity: TRanked): void => {
-        cardsService.slotContentService.upsertEntity(cards, entity);
+        cardsService.writeSlotContentByKey(cards, entity.id, entity);
     };
     const updateEntityByKey = (id: string, patch: Partial<TRanked>): void => {
         const slot = cardsService.findSlotByKey(cards, id);
@@ -74,7 +67,7 @@ function ordered(entities: readonly TRanked[]) {
     };
     const deleteEntityByKey = (id: string): void => {
         const slot = cardsService.findSlotByKey(cards, id);
-        if (slot !== undefined) cardsService.slotContentService.deleteEntity(slot);
+        if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
     };
     upsertEntities(entities);
     db.flush();

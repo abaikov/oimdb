@@ -1,36 +1,48 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
-import { createOIMIndexServiceByCompositeKey } from '../../../factories/createOIMIndexServiceByCompositeKey';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceTreeDriven } from '../../../engine/store/OIMSlotStoreServiceTreeDriven';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSlotTreeStoreService } from '../../../engine/store/OIMSlotTreeStoreService';
 import { OIM_DEFAULT_KEY_TREE_WALK_SCALAR } from '../../../factories/defaults/OIM_DEFAULT_KEY_TREE_WALK_SCALAR';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsArrayStore } from '../../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { OIMDefaults } from '../../../factories/OIMDefaults';
+import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import type { IOIMSlotStoreService } from '../../../engine/store/interfaces/IOIMSlotStoreService';
+import type { TOIMSlotStoreTree } from '../../../engine/store/types/TOIMSlotStoreTree';
 
 type TCard = { id: string; deck: string; suit: string; title: string };
+
+const byDeckAndSuitBucketStoreService = <TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TCard>>>() => new OIMSlotTreeStoreService<
+    TOIMStoreKey, TOIMBucketSlot<TSlots, readonly [string, string]>
+>(OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()) as unknown as IOIMSlotStoreService<
+    readonly [string, string], TOIMBucketSlot<TSlots, readonly [string, string]>,
+    TOIMSlotStoreTree<TOIMBucketSlot<TSlots, readonly [string, string]>, TOIMStoreKey>
+>;
+
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TDeckAndSuit = readonly [string, string];
 type TDeckAndSuitBucket = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, TDeckAndSuit>;
 
 const createCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'red', suit: 'hearts', title: 'ace' },
         { id: 'c2', deck: 'red', suit: 'hearts', title: 'two' },
         { id: 'c3', deck: 'red', suit: 'spades', title: 'three' },
         { id: 'c4', deck: 'blue', suit: 'hearts', title: 'four' },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
-    const byDeckAndSuitService = createOIMIndexServiceByCompositeKey(db, {
+    const byDeckAndSuitService = createOIMSlotCollectionIndexService(db, { bucketSlotStoreService: byDeckAndSuitBucketStoreService<TOIMBucketSlotsSetStore<TCardSlot>>(),
         entityService: cardsService,
-        columns: ['deck', 'suit'],
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        keyOf: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, readonly [string, string]>(),
     });
     const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
     return { db, cardsService, cards, byDeckAndSuitService, byDeckAndSuit };
@@ -108,10 +120,10 @@ describe('what an index keyed by several columns files', () => {
         const { db, cardsService, cards, byDeckAndSuitService, byDeckAndSuit } = createCards();
         const redHearts = byDeckAndSuitService.holdSlotByKey(byDeckAndSuit, ['red', 'hearts']);
         const blueHearts = byDeckAndSuitService.holdSlotByKey(byDeckAndSuit, ['blue', 'hearts']);
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'blue', suit: 'hearts', title: 'ace' },
             { id: 'c2', deck: 'blue', suit: 'hearts', title: 'two' },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         expect(byDeckAndSuitService.slotContentService.getBucketMemberSlotCount(redHearts)).toBe(0);
         expect(byDeckAndSuitService.slotContentService.getBucketMemberSlotCount(blueHearts)).toBe(3);
@@ -119,9 +131,9 @@ describe('what an index keyed by several columns files', () => {
 
     it('works the same in an array-driven index', () => {
         const { cardsService, cards, db } = createCards();
-        const byDeckAndSuitService = createOIMIndexServiceByCompositeKey(db, {
+        const byDeckAndSuitService = createOIMSlotCollectionIndexService(db, { bucketSlotStoreService: byDeckAndSuitBucketStoreService(),
             entityService: cardsService,
-            columns: ['deck', 'suit'],
+            keyOf: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
         });
         const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
         expect(byDeckAndSuitService.getEntitiesByKey(byDeckAndSuit, ['red', 'hearts']).map(card => card?.title).sort()).toEqual(['ace', 'two']);
@@ -129,33 +141,31 @@ describe('what an index keyed by several columns files', () => {
 
     it('reads its key type from the columns, and takes an array key only through the composite-key door', () => {
         const { cardsService, cards, db } = createCards();
-        const byDeckService = createOIMIndexService(db, { entityService: cardsService, columns: ['deck'] });
+        const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: ['deck'] });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.getSlotByKey(byDeck, 'red');
         // @ts-expect-error a one-column index is keyed by the column's value, not an array
         byDeckService.getSlotByKey(byDeck, ['red']);
-        const byDeckAndSuitService = createOIMIndexServiceByCompositeKey(db, { entityService: cardsService, columns: ['deck', 'suit'] });
+        const byDeckAndSuitService = createOIMSlotCollectionIndexService(db, { bucketSlotStoreService: byDeckAndSuitBucketStoreService(), entityService: cardsService, keyOf: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'] });
         const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
         // @ts-expect-error a two-column key has two parts
         byDeckAndSuitService.getSlotByKey(byDeckAndSuit, ['red']);
         // @ts-expect-error a key of several columns is an array key, which the scalar-key door does not take
-        createOIMIndexService(db, { entityService: cardsService, columns: ['deck', 'suit'] });
+        createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: ['deck', 'suit'] });
         // @ts-expect-error a key function must return a store key
-        createOIMIndexService(db, { entityService: cardsService, keyOf: card => ({ deck: card.deck }) });
+        createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf: card => ({ deck: card.deck }) });
         // @ts-expect-error a key type handed by hand must be the one its columns give
-        createOIMIndexService<TCard, TOIMStoreKey, readonly ['deck'], number>(db, { entityService: cardsService, columns: ['deck'] });
-        createOIMIndexService<TCard, TOIMStoreKey, readonly ['deck'], string>(db, { entityService: cardsService, columns: ['deck'] });
+        createOIMSlotCollectionIndexService<TCard, TOIMStoreKey, readonly ['deck'], number>(db, { entityService: cardsService, columns: ['deck'] });
+        createOIMSlotCollectionIndexService<TCard, TOIMStoreKey, readonly ['deck'], string>(db, { entityService: cardsService, columns: ['deck'] });
         const deckAndSuit: ('deck' | 'suit')[] = ['deck', 'suit'];
         // @ts-expect-error columns whose count the type does not know give no key, so the scalar-key door refuses them
-        createOIMIndexService(db, { entityService: cardsService, columns: deckAndSuit });
-        // @ts-expect-error and so does the composite-key door
-        createOIMIndexServiceByCompositeKey(db, { entityService: cardsService, columns: deckAndSuit });
+        createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: deckAndSuit });
         // @ts-expect-error an array key function takes the composite-key door
-        createOIMIndexService(db, { entityService: cardsService, keyOf: card => [card.deck, card.suit] });
-        const byDeckAndSuitFunctionService = createOIMIndexService(db, {
+        createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf: card => [card.deck, card.suit] });
+        const byDeckAndSuitFunctionService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard): TDeckAndSuit => [card.deck, card.suit],
-            bucketSlotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMStoreKey, TDeckAndSuitBucket>(
+            bucketSlotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TDeckAndSuitBucket>(
                 OIM_DEFAULT_KEY_TREE_WALK_SCALAR.getValue(),
             ),
         });

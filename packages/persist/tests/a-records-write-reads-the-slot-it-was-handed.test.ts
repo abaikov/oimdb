@@ -1,9 +1,9 @@
 import type { TOIMStoreKey } from '@oimdb/core';
 import { oimIsSlotReleased } from '@oimdb/core';
 import {
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -18,13 +18,13 @@ function build() {
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
     });
-    persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TCard>({
+    persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TCard>({
             entityCollectionService, entityStoreSlot, persistEntityWriter,
         }),
-        persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+        persistRecordsService: testPersistBackend.createRecordsStrategy(),
     }));
     persistor.start();
     const slotContentEntityService = entityCollectionService.slotContentService;
@@ -39,7 +39,7 @@ function build() {
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
             const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
-            if (cardSlot !== undefined) slotContentEntityService.deleteEntity(cardSlot);
+            if (cardSlot !== undefined) slotContentEntityService.clearSlotContent(cardSlot);
         },
     };
 }
@@ -48,7 +48,7 @@ describe('a records write', () => {
     it('writes the entity it reads through the slot that was reported, under that slot\'s key', async () => {
         const { entityCollectionService, entityStoreSlot, testPersistBackend } = build();
 
-        const entitySlot = entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', title: 'alpha' });
+        const entitySlot = entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await tick();
 
         expect(testPersistBackend.writtenPersistRecordsDeltas).toHaveLength(1);
@@ -61,26 +61,24 @@ describe('a records write', () => {
         const { db, entityCollectionService, entityStoreSlot, testPersistBackend } = build();
         const otherEntityStoreSlot = entityCollectionService.createStoreSlot(db);
 
-        entityCollectionService.slotContentService.upsertEntity(otherEntityStoreSlot, { id: 'o1', title: 'other' });
+        entityCollectionService.writeSlotContentByKey(otherEntityStoreSlot, 'o1', { id: 'o1', title: 'other' });
         await tick();
         expect(testPersistBackend.writtenPersistRecordsDeltas).toHaveLength(0);
 
-        entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', title: 'alpha' });
+        entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await tick();
         expect(testPersistBackend.readWrittenDeltaUpsertAndDeletedKeys()).toEqual([{ upserts: ['c1'], deletedKeys: [] }]);
     });
 
     it('keeps a deleted key\'s slot until the write, so a re-upsert inside one batch lands on it as an upsert', async () => {
         const { entityCollectionService, entityStoreSlot, testPersistBackend, deleteCardByKey } = build();
-        const entitySlot = entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', title: 'alpha' });
+        const entitySlot = entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await tick();
         testPersistBackend.writtenPersistRecordsDeltas.length = 0;
 
         deleteCardByKey('c1');
         expect(oimIsSlotReleased(entitySlot)).toBe(false);
-        const upsertedEntitySlot = entityCollectionService.slotContentService.upsertEntity(
-            entityStoreSlot, { id: 'c1', title: 'alpha again' },
-        );
+        const upsertedEntitySlot = entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha again' });
         expect(upsertedEntitySlot).toBe(entitySlot);
         await tick();
 
@@ -90,7 +88,7 @@ describe('a records write', () => {
 
     it('persists a key written and deleted inside one batch as a deletion', async () => {
         const { entityCollectionService, entityStoreSlot, testPersistBackend, updateCardByKey, deleteCardByKey } = build();
-        entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', title: 'alpha' });
+        entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await tick();
         testPersistBackend.writtenPersistRecordsDeltas.length = 0;
 
@@ -104,11 +102,11 @@ describe('a records write', () => {
 
     it('touches only the keys that were reported', async () => {
         const { entityCollectionService, entityStoreSlot, testPersistBackend, updateCardByKey } = build();
-        entityCollectionService.slotContentService.upsertEntities(entityStoreSlot, [
+        entityCollectionService.writeInBatch(entityStoreSlot, () => ([
             { id: 'c1', title: 'alpha' },
             { id: 'c2', title: 'beta' },
             { id: 'c3', title: 'gamma' },
-        ]);
+        ]).map(entity => entityCollectionService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
         await tick();
         const firstStoredEntity = testPersistBackend.entityByKey.get('c1');
         const thirdStoredEntity = testPersistBackend.entityByKey.get('c3');
@@ -126,7 +124,7 @@ describe('a records write', () => {
 
     it('writes a slot reported twice in one batch once, with what it holds at the write', async () => {
         const { entityCollectionService, entityStoreSlot, testPersistBackend, updateCardByKey } = build();
-        entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', title: 'alpha' });
+        entityCollectionService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await tick();
         testPersistBackend.writtenPersistRecordsDeltas.length = 0;
 

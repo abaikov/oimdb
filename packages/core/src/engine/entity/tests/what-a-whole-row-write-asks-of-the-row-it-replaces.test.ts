@@ -1,8 +1,9 @@
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 /** Five columns, so a per-column count and a per-row count are different numbers. */
 type TCard = { id: string; deckId: string; title: string; rank: number; note?: string };
@@ -46,7 +47,7 @@ const asked = <T extends object>(target: T, tally: TAsked): T => new Proxy(targe
 
 const createFixture =() => {
     const db = new OIMDB();
-    const collectionService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const collectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const collection = collectionService.createStoreSlot(db);
     return { db, collectionService, collection };
 };
@@ -60,7 +61,7 @@ const row = (): TCard => ({ id: 'a', deckId: 'd0', title: 'A', rank: 1, note: 'n
  */
 const oneStoredRow = () => {
     const { db, collectionService, collection } = createFixture();
-    collectionService.slotContentService.upsertEntity(collection,row());
+    collectionService.writeSlotContentByKey(collection, (row()).id, row());
     db.flush();
     const slot = collectionService.getSlotByKey(collection,'a')!;
     const stored = nothingAsked();
@@ -73,7 +74,7 @@ describe('the ordinary re-send — the same columns arriving again', () => {
         const { collectionService, collection, slot, stored } = oneStoredRow();
         const incoming = nothingAsked();
 
-        collectionService.slotContentService.upsertEntity(collection,asked(row(), incoming));
+        collectionService.writeSlotContentByKey(collection, (asked(row(), incoming)).id, asked(row(), incoming));
 
         // ─── THE DEPARTURE WALK, which produced nothing ───────────────────
         // One `for…in` over the stored row, and one own-property probe per
@@ -117,7 +118,7 @@ describe('the ordinary re-send — the same columns arriving again', () => {
         db.flush();
         const born = runs;
 
-        collectionService.slotContentService.upsertEntity(collection,row());
+        collectionService.writeSlotContentByKey(collection, (row()).id, row());
         db.flush();
 
         expect(runs).toBe(born);
@@ -130,7 +131,7 @@ describe('the arm the walk exists for — a column that left', () => {
         const incoming = nothingAsked();
         const withoutNote: TCard = { id: 'a', deckId: 'd0', title: 'A', rank: 1 };
 
-        collectionService.slotContentService.upsertEntity(collection,asked(withoutNote, incoming));
+        collectionService.writeSlotContentByKey(collection, (asked(withoutNote, incoming)).id, asked(withoutNote, incoming));
 
         // The same walk as the quiet arm: one enumeration, one probe per stored
         // column. It is the same price for an answer that is not empty.
@@ -161,7 +162,7 @@ describe('the arm the walk exists for — a column that left', () => {
 
         // The removal half reports, and so would the patch half — marking is
         // idempotent per frame, so the reader is owed one run and not two.
-        collectionService.slotContentService.upsertEntity(collection,{ id: 'a', deckId: 'd0', title: 'A2', rank: 1 });
+        collectionService.writeSlotContentByKey(collection, 'a', { id: 'a', deckId: 'd0', title: 'A2', rank: 1 });
         db.flush();
 
         expect(runs).toBe(born + 1);

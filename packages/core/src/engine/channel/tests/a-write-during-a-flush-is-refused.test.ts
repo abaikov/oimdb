@@ -2,7 +2,7 @@ import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMErrorPolicyThrowAtOnce } from '../../error/OIMErrorPolicyThrowAtOnce';
+import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
@@ -37,7 +37,7 @@ describe('a write during a flush is refused', () => {
         const other = makeSlot('b');
         let db: OIMDB | undefined = undefined;
         db = new OIMDB({
-            errorPolicy: new OIMErrorPolicyThrowAtOnce(),
+            errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             onBeforeFlush: () => { if (db !== undefined) channelService.write(db.defaultChannelSlot, other); },
         });
         channelService.write(db.defaultChannelSlot, slot);
@@ -46,7 +46,7 @@ describe('a write during a flush is refused', () => {
     });
 
     it('refuses a write from an after-each-frame handler, which runs with the frame closed again', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const slot = makeSlot('a');
         const other = makeSlot('b');
         channelService.subscribeAfterEachFrame(db.defaultChannelSlot, () => { channelService.write(db.defaultChannelSlot, other); });
@@ -56,7 +56,7 @@ describe('a write during a flush is refused', () => {
     });
 
     it('refuses a write from inside the frame body', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const effectService = OIMEffectService.INSTANCE;
         const slot = makeSlot('a');
         const other = makeSlot('b');
@@ -67,7 +67,7 @@ describe('a write during a flush is refused', () => {
     });
 
     it('takes the write once flush has returned', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const effectService = OIMEffectService.INSTANCE;
         const slot = makeSlot('a');
         let runs = 0;
@@ -82,7 +82,7 @@ describe('a write during a flush is refused', () => {
     });
 
     it('spends exactly one frame per flush, however many handlers ask for another', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const slot = makeSlot('a');
         channelService.subscribeAfterEachFrame(db.defaultChannelSlot, () => { db.flush(); });
         channelService.write(db.defaultChannelSlot, slot);

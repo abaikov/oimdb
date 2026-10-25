@@ -19,7 +19,7 @@ calls it, and when. In an application, the orchestrator does.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMEffectService, createOIMEntityService, createOIMIndexService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
@@ -28,11 +28,11 @@ declare function fetchDeck(deck: string): Promise<Card[]>;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deck });
+const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deck });
 const byDeck = byDeckService.createIndexStoreSlot(cards);
-const loadingService = createOIMEntityService<{ deck: string }>(db, { keyOf: (loadingDeck) => loadingDeck.deck });
+const loadingService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ deck: string }>(db) });
 const loading = loadingService.createStoreSlot(db);
 ```
 
@@ -60,10 +60,10 @@ That is all of it. Application code carries no `flush()` call anywhere.
 
 ```ts
 async function loadDeck(deck: string): Promise<void> {
-    const loadingSlot = loadingService.slotContentService.upsertEntity(loading, { deck });
+    const loadingSlot = loadingService.writeSlotContentByKey(loading, deck, { deck });
     const fetched = await fetchDeck(deck);
-    cardService.slotContentService.upsertEntities(cards, fetched);
-    loadingService.slotContentService.deleteEntity(loadingSlot);
+    cardService.writeInBatch(cards, () => (fetched).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
+    loadingService.slotContentService.clearSlotContent(loadingSlot);
 }
 ```
 
@@ -113,7 +113,7 @@ but the orchestrator's turn boundary decides it, not a timer. A
 scheduled call then finds no flush requested and returns
 (`OIMFlushSchedulerService.onSchedulerTimerFired`).
 
-If `flush()` runs from a scheduler callback, an `OIMErrorPolicyThrowAtOnce`
+If `flush()` runs from a scheduler callback, an `OIMThrowAtOnceErrorPolicy`
 throw has no synchronous caller to land in — see
 [Error handling](/docs/guides/error-handling).
 

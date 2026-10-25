@@ -1,7 +1,7 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TCard = { id: string; title: string; deckId: string; rank: number };
 type TCardWithoutRank = Omit<TCard, 'rank'>;
@@ -11,7 +11,7 @@ const sameCardWithoutRank = (): TCardWithoutRank => ({ id: 'c1', title: 'A', dec
 
 const makeCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cards, cardsService };
 };
@@ -27,10 +27,10 @@ const countingProbes = <T extends object>(source: T, probes: { count: number }):
 describe('which write door pays for a vanished column', () => {
     it('drops the column a whole-row upsert no longer carries', () => {
         const { db, cards, cardsService } = makeCards();
-        cardsService.slotContentService.upsertEntity(cards, aCard());
+        cardsService.writeSlotContentByKey(cards, (aCard()).id, aCard());
         db.flush();
 
-        cardsService.slotContentService.upsertEntity(cards, sameCardWithoutRank() as TCard);
+        cardsService.writeSlotContentByKey(cards, (sameCardWithoutRank() as TCard).id, sameCardWithoutRank() as TCard);
         db.flush();
 
         expect((cardsService.getSlotByKey(cards, 'c1').entity as { rank?: number }).rank).toBeUndefined();
@@ -38,7 +38,7 @@ describe('which write door pays for a vanished column', () => {
 
     it('keeps every column a patch does not name', () => {
         const { db, cards, cardsService } = makeCards();
-        cardsService.slotContentService.upsertEntity(cards, aCard());
+        cardsService.writeSlotContentByKey(cards, (aCard()).id, aCard());
         db.flush();
 
         cardsService.slotContentService.updateEntity(cardsService.getSlotByKey(cards, 'c1'), { title: 'B' });
@@ -51,11 +51,11 @@ describe('which write door pays for a vanished column', () => {
 
     it('walks a whole-row write twice over the stored columns, and a patch once over the named ones', () => {
         const { db, cards, cardsService } = makeCards();
-        cardsService.slotContentService.upsertEntity(cards, aCard());
+        cardsService.writeSlotContentByKey(cards, (aCard()).id, aCard());
         db.flush();
 
         const upsertProbes = { count: 0 };
-        cardsService.slotContentService.upsertEntity(cards, countingProbes(aCard(), upsertProbes));
+        cardsService.writeSlotContentByKey(cards, (countingProbes(aCard(), upsertProbes)).id, countingProbes(aCard(), upsertProbes));
         db.flush();
 
         const patchProbes = { count: 0 };
@@ -68,15 +68,15 @@ describe('which write door pays for a vanished column', () => {
 
     it('answers the same on a single entity: replace drops it, update keeps it', () => {
         const db = new OIMDB();
-        const replacedService = createOIMSingleEntityService<TCard>(db);
+        const replacedService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const replaced = replacedService.createStoreSlot(db);
-        replacedService.slotContentService.upsertEntity(replaced, aCard());
-        const patchedService = createOIMSingleEntityService<TCard>(db);
+        replacedService.writeSingleSlotContent(replaced, aCard());
+        const patchedService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const patched = patchedService.createStoreSlot(db);
-        patchedService.slotContentService.upsertEntity(patched, aCard());
+        patchedService.writeSingleSlotContent(patched, aCard());
         db.flush();
 
-        replacedService.slotContentService.writeEntity(replacedService.getSingleSlot(replaced), sameCardWithoutRank() as TCard);
+        replacedService.slotContentService.writeSlotContent(replacedService.getSingleSlot(replaced), sameCardWithoutRank() as TCard);
         patchedService.slotContentService.updateEntity(patchedService.getSingleSlot(patched), { title: 'B' });
         db.flush();
 

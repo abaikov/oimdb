@@ -1,8 +1,5 @@
 // Prose: ./README.md#pricegroupindex
-import {
-    OIMSlotStoreServiceMapDriven,
-    createOIMBucketService,
-} from '../../../core/src/index';
+import { OIMSlotMapStoreService } from '../../../core/src/index';
 import type {
     OIMDB,
     OIMSlotContentBucketService,
@@ -12,6 +9,7 @@ import type {
     TOIMStoreKey,
 } from '../../../core/src/index';
 import type { TPriceDataRow } from './TPriceDataRow';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 export const priceGroupIndex = <TSlots>(
     db: OIMDB,
@@ -20,16 +18,10 @@ export const priceGroupIndex = <TSlots>(
     /** The address each row is filed under. `group` unless a pair says otherwise. */
     addressOf: (row: TPriceDataRow) => TOIMStoreKey = row => row.group,
 ) => {
-    const bucketService = createOIMBucketService<
-        TOIMEntitySlot<TPriceDataRow>, TOIMStoreKey, TSlots, OIMSlotContentBucketService<TOIMEntitySlot<TPriceDataRow>, TSlots>
-    >(db, {
-        bucketSlotStoreService: new OIMSlotStoreServiceMapDriven(),
-        slotContentService,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const bucketService = createOIMSlotCollectionService(db, { slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TSlots, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
 
-    // Grouped first and written per bucket second, because `writeBucketMemberSlots` states the
+    // Grouped first and written per bucket second, because `writeSlotContent` states the
     // WHOLE SLOT LIST of one bucket: calling it once per row would leave every
     // bucket holding its last row.
     const slotsByAddress = new Map<TOIMStoreKey, TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[]>();
@@ -49,7 +41,7 @@ export const priceGroupIndex = <TSlots>(
     for (const [address, list] of slotsByAddress) {
         const heldSlot = bucketService.holdSlotByKey(bucketStoreSlot, address);
         bucketOf.set(address, heldSlot);
-        slotContentService.writeBucketMemberSlots(heldSlot, list);
+        slotContentService.writeSlotContent(heldSlot, list);
     }
 
     return { bucketService, bucketStoreSlot, bucketOf, slotsByAddress };

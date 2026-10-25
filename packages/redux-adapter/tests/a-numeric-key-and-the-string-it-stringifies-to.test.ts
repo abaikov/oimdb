@@ -80,7 +80,7 @@ describe('a numerically keyed collection synced back from a child reducer', () =
             reducer: usersChildReducer,
         });
 
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const store: Store = createStore(reducer as never);
@@ -155,8 +155,8 @@ describe('linked indexes of a numerically keyed collection', () => {
     test("a bucket's slots are written to the bucket the collection files under, and no string one is minted beside it", () => {
         const { db, decksService, decks, cardsService, cards, cardsByDeckService, cardsByDeck, reducer } = buildDecks();
 
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 1, title: 'Ace' }, { id: 2, title: 'King' }]);
-        decksService.slotContentService.upsertEntity(decks, { id: 7, name: 'Starter', cardIds: [1, 2] });
+        cardsService.writeInBatch(cards, () => ([{ id: 1, title: 'Ace' }, { id: 2, title: 'King' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        decksService.writeSlotContentByKey(decks, 7, { id: 7, name: 'Starter', cardIds: [1, 2] });
         db.flush();
 
         // The from-scratch path: the deck was already there when the reducer
@@ -220,7 +220,7 @@ describe('a keyed index with numeric keys, synced back from a child reducer', ()
             { reducer: groupsChildReducer },
         );
 
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         // The index already holds group 10, written through the engine: this is
         // the live bucket, addressed by the number.
         setBucketSlots(byGroupService, byGroup, usersService, users, 10, [1]);
@@ -266,7 +266,7 @@ describe('a keyed index with numeric keys, synced back from a child reducer', ()
             },
         );
 
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setBucketSlots(byGroupService, byGroup, usersService, users, 10, [1]);
         db.flush();
 
@@ -312,7 +312,7 @@ function buildMixedKeyIndex() {
         entityStoreSlot: users,
     };
 
-    usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]);
+    usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
     // Two addresses, written through the engine: the store files them in a
     // `Map`, so these are two buckets and stay two buckets. Each holds a row,
     // and slots are what keep a bucket.
@@ -395,7 +395,7 @@ function buildMixedKeyCollection() {
     const users = usersService.createStoreSlot(db);
     // Two addresses, written through the engine: rows are filed in a `Map`, so
     // these are two rows and stay two rows.
-    usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }, { id: '1', name: 'Bob' }]);
+    usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }, { id: '1', name: 'Bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
     db.flush();
     return { usersService, users };
 }
@@ -462,7 +462,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
         const db = new OIMDB();
         const usersService = entityServiceOf<TMixedUser>(db,item => item.id);
         const users = usersService.createStoreSlot(db);
-        usersService.slotContentService.upsertEntities(users, [{ id: 1, name: 'Alice' }]);
+        usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         // One row, and a state that spells its id as a string — what a child

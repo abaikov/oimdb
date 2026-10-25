@@ -1,17 +1,15 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
-type TSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 
 const createFixture =() => {
     const db = new OIMDB();
@@ -22,11 +20,9 @@ const createFixture =() => {
         close: (): void => { OIMUnusedSlotCollectorService.INSTANCE.close(unusedSlotCollectorSlot); },
         run: <TAnswer>(body: () => TAnswer): TAnswer => OIMUnusedSlotCollectorService.INSTANCE.run(unusedSlotCollectorSlot, body),
     };
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const decksService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const decks = decksService.createStoreSlot(db);
     return { db, unusedSlotCollector, cardsService, cards, decksService, decks };
 };
@@ -86,11 +82,11 @@ describe('a slot nobody took', () => {
     it('is left alone once a value lands on it', () => {
         const { db, cardsService, cards } = createFixture();
         const card = cardsService.getSlotByKey(cards, 'c1');
-        cardsService.slotContentService.writeEntity(card,{ id: 'c1', title: 'one' });
+        cardsService.slotContentService.writeSlotContent(card, { id: 'c1', title: 'one' });
 
         db.flush();
 
-        expect(cardsService.slotContentService.findEntityByKey(cards, 'c1')).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('is entered once however many times the key is read', () => {
@@ -108,7 +104,7 @@ describe('a slot nobody took', () => {
 
     it('is not entered at all by a read of a key that already carries a value', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
 
         const card = cardsService.getSlotByKey(cards, 'c1');
@@ -117,13 +113,13 @@ describe('a slot nobody took', () => {
 
         db.flush();
 
-        expect(cardsService.slotContentService.findEntityByKey(cards, 'c1')).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('is not entered twice when a value lands on it after the read that minted it', () => {
         const { db, cardsService, cards } = createFixture();
         const card = cardsService.getSlotByKey(cards, 'c1');
-        cardsService.slotContentService.writeEntity(card,{ id: 'c1', title: 'one' });
+        cardsService.slotContentService.writeSlotContent(card, { id: 'c1', title: 'one' });
         const again = cardsService.getSlotByKey(cards, 'c1');
 
         expect(again).toBe(card);
@@ -132,7 +128,7 @@ describe('a slot nobody took', () => {
         db.flush();
 
         expect(card.holdCount).toBe(0);
-        expect(cardsService.slotContentService.findEntityByKey(cards, 'c1')).toEqual({ id: 'c1', title: 'one' });
+        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 
     it('survives a frame that runs inside an open scope, and goes at its close', () => {

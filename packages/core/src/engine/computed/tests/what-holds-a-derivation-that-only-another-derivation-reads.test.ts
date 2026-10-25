@@ -1,18 +1,19 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     const ranksComputedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+        createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0,
         sameValueGuard: oimSameValueZeroGuard,
     });
@@ -23,7 +24,7 @@ const createFixture =() => {
     // AND A COLLECTION OF READERS OF IT. Each derivation reads its own card and
     // the shared derivation — every consumer with a derivation already in scope.
     const relativeComputedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)], sourceComputeds: [baselineSlot] }),
+        createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)], sourceComputeds: [baselineSlot] }),
         derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) - baselineSlot.computedValueService.getValueForSlot(baselineSlot),
         sameValueGuard: oimSameValueZeroGuard,
     });
@@ -39,8 +40,8 @@ describe('what holds a derivation that only another derivation reads', () => {
     it('keeps the source filed when the application lets its own hold go', () => {
         const { cardsService, cards, ranksService, ranks, baselineSlot, relativeService, relative } = createFixture();
         const readerSlot = relativeService.holdSlotByKey(relative, 'a');
-        cardsService.slotContentService.upsertEntity(cards, { id: 'baseline', title: 'B', rank: 10 });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 13 });
+        cardsService.writeSlotContentByKey(cards, 'baseline', { id: 'baseline', title: 'B', rank: 10 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 13 });
 
         // The application is done with the handle it resolved the shared
         // derivation through. The reader is not done with the derivation.

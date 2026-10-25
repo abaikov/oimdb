@@ -3,7 +3,7 @@ import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 
-export function createOIMEntitySlot<TEntity extends object, TKey>(
+export function createOIMEntitySlot<TEntity extends object, TKey extends NonNullable<unknown>>(
     key: TKey,
     owner: IOIMSlotOwner,
     storeSlot: TOIMStoreSlot | undefined = undefined,

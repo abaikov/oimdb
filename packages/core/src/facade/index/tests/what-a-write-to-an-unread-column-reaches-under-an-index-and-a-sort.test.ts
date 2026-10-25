@@ -1,8 +1,7 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceSetDriven,
-    createOIMComputedServiceSorted, createOIMEntityService, createOIMIndexService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../../index';
 import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; group: string; rank: number; label: string; note: string };
 type TRowSlot = TOIMEntitySlot<TRow>;
@@ -10,19 +9,19 @@ type TRowSlot = TOIMEntitySlot<TRow>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: row => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
-    for (let i = 0; i < 10; i++) rowsService.slotContentService.upsertEntity(rows, { id: `e${i}`, group: `g${i % 3}`, rank: i, label: `l${i}`, note: '' });
-    const byGroupService = createOIMIndexService<
+    for (let i = 0; i < 10; i++) rowsService.writeSlotContentByKey(rows, `e${i}`, { id: `e${i}`, group: `g${i % 3}`, rank: i, label: `l${i}`, note: '' });
+    const byGroupService = createOIMSlotCollectionIndexService<
         TRow, TOIMStoreKey, readonly ['group'], string, Map<TOIMStoreKey, TOIMEntitySlot<TRow, TOIMStoreKey>>,
-        TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentBucketServiceSetDriven<TRowSlot>
+        TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentSetBucketService<TRowSlot, string>
     >(db, {
         entityService: rowsService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TRowSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TRowSlot, string>(),
         columns: ['group'],
     });
     const byGroup = byGroupService.createIndexStoreSlot(rows);
-    const ordersService = createOIMComputedServiceSorted({
+    const ordersService = createOIMSortedComputedService({
         indexService: byGroupService,
         sortColumns: [{ column: 'rank', direction: 'asc' }, { column: 'id', direction: 'asc' }],
     });
@@ -30,7 +29,7 @@ const createFixture = () => {
     const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'g1');
     effectService.createEffect(db, [], [order], () => undefined);
     const slot = rowsService.getSlotByKey(rows, 'e4');
-    const groupSlot = rowsService.holdColumnGroup(slot, rowsService.getColumnGroup(['rank', 'label'] as TOIMEntityColumnName<TRow>[]));
+    const groupSlot = rowsService.columnSlotService.holdColumnGroup(slot, rowsService.columnSlotService.getColumnGroup(['rank', 'label'] as TOIMEntityColumnName<TRow>[]));
     effectService.createEffect(db, [groupSlot], [], () => undefined);
     db.flush();
     const listenerCalls: string[] = [];

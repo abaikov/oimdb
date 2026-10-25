@@ -5,16 +5,7 @@
  * assert. An ordered service decides the order itself, which would be a fact
  * about the sorter rather than about the adapter.
  */
-import {
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceMapDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    type IOIMEntityWriter,
-    type OIMDB,
-} from '@oimdb/core';
+import { OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, type IOIMEntityWriter, type OIMDB } from '@oimdb/core';
 import type {
     TOIMBucketSlot,
     TOIMColumnSlot,
@@ -23,19 +14,14 @@ import type {
     TOIMSlot,
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 const createEntityService = <TEntity extends object>(
-    db: OIMDB, keyOf: (entity: TEntity) => TOIMStoreKey, entityWriter: IOIMEntityWriter,
-) => createOIMEntityService<TEntity>(db, {
-    keyOf,
-    entityWriter,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+    db: OIMDB, _keyOf: (entity: TEntity) => TOIMStoreKey, entityWriter: IOIMEntityWriter,
+) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createBucketService = <TEntity extends object>(db: OIMDB) => createOIMBucketService<
-    TOIMEntitySlot<TEntity>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TEntity>>,
-    OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TEntity>>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TEntity>>() });
+const createBucketService = <TEntity extends object>(db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TEntity>>() });
 
 export type TEntityService<TEntity extends object> = ReturnType<typeof createEntityService<TEntity>>;
 
@@ -99,21 +85,21 @@ export function singleBucketOf<TEntity extends object>(db: OIMDB): {
  *
  * Every resolution is a hold given back AFTER the write, which is the protocol
  * the adapter itself follows: minting by key is the only way to name a row that
- * has no value yet, and the holds `writeBucketMemberSlots` takes are what keep whatever
+ * has no value yet, and the holds `writeSlotContent` takes are what keep whatever
  * joined.
  */
-export function setBucketSlots<TEntity extends object>(
+export function setBucketSlots<TEntity extends object, TRowStoreSlot>(
     bucketService: TBucketService<TEntity>,
     bucketStoreSlot: TBucketStoreSlot<TEntity>,
-    entityService: TEntityService<TEntity>,
-    entityStoreSlot: TEntityStoreSlot<TEntity>,
+    entityService: { holdSlotByKey(storeSlot: TRowStoreSlot, key: TOIMStoreKey): TOIMEntitySlot<TEntity> },
+    entityStoreSlot: TRowStoreSlot,
     key: TOIMStoreKey,
     rowIds: readonly TOIMStoreKey[]
 ): void {
     const heldRows = rowIds.map(id => entityService.holdSlotByKey(entityStoreSlot, id));
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, key);
     try {
-        bucketService.slotContentService.writeBucketMemberSlots(bucketSlot, heldRows);
+        bucketService.slotContentService.writeSlotContent(bucketSlot, heldRows);
     } finally {
         bucketSlot.owner.unholdSlot(bucketSlot);
         for (const one of heldRows) one.owner.unholdSlot(one);
@@ -129,7 +115,7 @@ export function setSingleBucketSlots<TEntity extends object>(
 ): void {
     const heldRows = rowIds.map(id => entityService.holdSlotByKey(entityStoreSlot, id));
     try {
-        singleBucket.bucketService.slotContentService.writeBucketMemberSlots(singleBucket.bucket, heldRows);
+        singleBucket.bucketService.slotContentService.writeSlotContent(singleBucket.bucket, heldRows);
     } finally {
         for (const one of heldRows) one.owner.unholdSlot(one);
     }
@@ -145,7 +131,7 @@ export function deleteEntityByKey<TEntity extends object>(
     entityService: TEntityService<TEntity>, entityStoreSlot: TEntityStoreSlot<TEntity>, key: TOIMStoreKey,
 ): void {
     const entitySlot = entityService.findSlotByKey(entityStoreSlot, key);
-    if (entitySlot !== undefined) entityService.slotContentService.deleteEntity(entitySlot);
+    if (entitySlot !== undefined) entityService.slotContentService.clearSlotContent(entitySlot);
 }
 
 /** The keys of every row of a population that holds a value. */

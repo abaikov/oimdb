@@ -1,8 +1,9 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEffect } from '../types/TOIMEffect';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -10,7 +11,7 @@ describe('an effect that leaves before its body is done', () => {
     it('runs the cleanup its body returned after disposing itself from inside', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         let cleanups = 0;
         const self: { effect?: TOIMEffect } = {};
@@ -19,7 +20,7 @@ describe('an effect that leaves before its body is done', () => {
             return () => { cleanups++; };
         });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
 
         expect(cleanups).toBe(1);
@@ -28,7 +29,7 @@ describe('an effect that leaves before its body is done', () => {
     it('gives back what it took when its first run throws, and throws to the caller', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -60,7 +61,7 @@ describe('one handler subscribed twice', () => {
 
     it('stays subscribed after each frame through the disposer it was not given back', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
         let calls = 0;
         const handler = (): void => { calls++; };
@@ -68,7 +69,7 @@ describe('one handler subscribed twice', () => {
         const secondDisposer = OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, handler);
 
         secondDisposer();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
 
         expect(calls).toBe(1);

@@ -26,7 +26,7 @@ export class OIMReduxLinkedIndexesUpdater<TEntity extends object> {
                     );
                 }
                 const bucketService = linkedIndex.bucketService;
-                bucketService.slotContentService.writeBucketMemberSlots(
+                bucketService.slotContentService.writeSlotContent(
                     bucketService.getSlotByKey(linkedIndex.bucketStoreSlot, storeKey), linkedEntitySlots,
                 );
             }
@@ -49,7 +49,7 @@ export class OIMReduxLinkedIndexesUpdater<TEntity extends object> {
             for (let j = 0; j < linkedIndexes.length; j++) {
                 const linkedIndex = linkedIndexes[j];
                 const bucketService = linkedIndex.bucketService;
-                bucketService.slotContentService.writeBucketMemberSlots(bucketService.getSlotByKey(linkedIndex.bucketStoreSlot, storeKey), []);
+                bucketService.slotContentService.writeSlotContent(bucketService.getSlotByKey(linkedIndex.bucketStoreSlot, storeKey), []);
             }
         }
     }

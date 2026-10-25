@@ -1,17 +1,17 @@
 import type {
-    OIMSingleSlotService, OIMSlotContentBucketService, TOIMBucketSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreSlot,
+    OIMSingleSlotService, OIMSlotContentBucketService, TOIMBucketContentSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreSlot,
 } from '@oimdb/core';
 import { useOIMSingleSlot } from './useOIMSingleSlot';
 
 export function useOIMSingleBucketSlots<TEntity extends object, TSlots = unknown>(
     singleSlotService: Pick<
         OIMSingleSlotService<
-            TOIMBucketSlot<TSlots, void>,
+            TOIMBucketContentSlot<TSlots>,
             Pick<OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>
         >,
         'getSingleSlot' | 'holdSingleSlot' | 'slotContentService'
     >,
-    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TOIMBucketSlot<TSlots, void>>, TOIMBucketSlot<TSlots, void>>,
+    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TOIMBucketContentSlot<TSlots>>, TOIMBucketContentSlot<TSlots>>,
 ): readonly TOIMEntitySlot<TEntity>[] {
     const bucketSlot = useOIMSingleSlot('useOIMSingleBucketSlots', singleSlotService, singleSlotStoreSlot);
     return Array.from(singleSlotService.slotContentService.getBucketMemberSlots(bucketSlot));

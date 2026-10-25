@@ -1,14 +1,15 @@
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMChannelSlot } from '../../../engine/channel/types/TOIMChannelSlot';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../../engine/entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; title: string };
-type TCardsService = ReturnType<typeof createOIMEntityService<TCard>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 
 type TCounted = {
     db: OIMDB;
@@ -27,7 +28,7 @@ afterEach(() => {
 const createFixture = (): TCounted => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
     const cards = cardsService.createStoreSlot(db);
     let all = 0;
     const channelService = OIMChannelService.INSTANCE;
@@ -57,7 +58,7 @@ describe('what a batch of writes tells the channel', () => {
     it('names each row of a batch of inserts once, and nothing else', () => {
         const fixture = createFixture();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.written()).toBe(100);
@@ -66,7 +67,7 @@ describe('what a batch of writes tells the channel', () => {
     it('names each row of a batch filed by insertMany once, and nothing else', () => {
         const fixture = createFixture();
 
-        fixture.cardsService.slotContentService.insertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.written()).toBe(100);
@@ -74,11 +75,11 @@ describe('what a batch of writes tells the channel', () => {
 
     it('names each row of a batch of overwrites once, and nothing else', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
         const before = fixture.written();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('B'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('B')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.written() - before).toBe(100);
@@ -86,11 +87,11 @@ describe('what a batch of writes tells the channel', () => {
 
     it('names nothing at all for a batch that changed no value', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
         const before = fixture.written();
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(fixture.written() - before).toBe(0);
@@ -98,7 +99,7 @@ describe('what a batch of writes tells the channel', () => {
 
     it('wakes an effect over one row of the batch exactly once', () => {
         const fixture = createFixture();
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('A'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
         const slot = fixture.cardsService.getSlotByKey(fixture.cards, 'c7');
         let runCount = 0;
@@ -106,7 +107,7 @@ describe('what a batch of writes tells the channel', () => {
         fixture.db.flush();
         runCount = 0;
 
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards,hundred('B'));
+        fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('B')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         fixture.db.flush();
 
         expect(runCount).toBe(1);

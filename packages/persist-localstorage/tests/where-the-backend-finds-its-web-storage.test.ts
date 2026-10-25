@@ -1,4 +1,4 @@
-import { OIMDB, createOIMSingleEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import type {
     OIMPersistKeyValueBackend,
     OIMPersistKeyValueWriteBatch,
@@ -6,14 +6,16 @@ import type {
     TOIMPersistKeyValueSerializer,
 } from '@oimdb/persist';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '../src';
+import { OIMPersistLocalStorageKeyValueBackend } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TSettings = { theme: string };
 type TGlobalWithLocalStorage = { localStorage?: TOIMPersistKeyValueItemStorage };
@@ -32,24 +34,24 @@ function createPersistKeyValueItemStorage(): TOIMPersistKeyValueItemStorage & { 
     };
 }
 
-function createSettingsPersistor(persistLocalStorageBackend: OIMPersistLocalStorageBackend, settings: TSettings) {
+function createSettingsPersistor(persistLocalStorageKeyValueBackend: OIMPersistLocalStorageKeyValueBackend, settings: TSettings) {
     const db = new OIMDB();
-    const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+    const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
     const entityStoreSlot = singleEntityService.createStoreSlot(db);
-    singleEntityService.slotContentService.upsertEntity(entityStoreSlot, settings);
+    singleEntityService.writeSingleSlotContent(entityStoreSlot, settings);
     db.flush();
     const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
-        persistBackend: persistLocalStorageBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistBackend: persistLocalStorageKeyValueBackend,
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
     });
-    persistor.addPersistResource(new OIMPersistResourceSnapshot<
+    persistor.addPersistResource(new OIMPersistSnapshotResource<
         OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSettings, TSettings
     >({
-        persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+        persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource<TSettings>({
             channelMap: db, singleSlotService: singleEntityService, entityStoreSlot,
         }),
-        persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TSettings>({ storageKey: 'app:settings' }),
-        persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+        persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TSettings>({ storageKey: 'app:settings' }),
+        persistCodec: new OIMPersistIdentityCodec<TSettings>(),
     }));
     const readSettings = () => singleEntityService.findSingleSlot(entityStoreSlot)?.entity;
     return { persistor, readSettings };
@@ -68,7 +70,7 @@ describe('where the local-storage backend finds its web storage', () => {
         const globalLocalStorage = createPersistKeyValueItemStorage();
         globalWithLocalStorage.localStorage = globalLocalStorage;
 
-        const { persistor } = createSettingsPersistor(new OIMPersistLocalStorageBackend(), { theme: 'dark' });
+        const { persistor } = createSettingsPersistor(new OIMPersistLocalStorageKeyValueBackend(), { theme: 'dark' });
         await persistor.persist();
 
         expect(globalLocalStorage.getItem('app:settings')).toBe('{"theme":"dark"}');
@@ -77,8 +79,8 @@ describe('where the local-storage backend finds its web storage', () => {
     test('with no storage passed and no globalThis.localStorage, construction throws and names the option to pass', () => {
         delete globalWithLocalStorage.localStorage;
 
-        expect(() => new OIMPersistLocalStorageBackend()).toThrow(
-            'OIMPersistLocalStorageBackend: globalThis.localStorage is not available in this environment. '
+        expect(() => new OIMPersistLocalStorageKeyValueBackend()).toThrow(
+            'OIMPersistLocalStorageKeyValueBackend: globalThis.localStorage is not available in this environment. '
             + 'Pass persistKeyValueItemStorage, for example an in-memory object with getItem, setItem and removeItem.',
         );
     });
@@ -89,7 +91,7 @@ describe('where the local-storage backend finds its web storage', () => {
         const persistKeyValueItemStorage = createPersistKeyValueItemStorage();
 
         const { persistor } = createSettingsPersistor(
-            new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage }), { theme: 'dark' },
+            new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage }), { theme: 'dark' },
         );
         await persistor.persist();
 
@@ -105,11 +107,11 @@ describe('where the local-storage backend finds its web storage', () => {
         };
 
         const source = createSettingsPersistor(
-            new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage, persistKeyValueSerializer }), { theme: 'dark' },
+            new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage, persistKeyValueSerializer }), { theme: 'dark' },
         );
         await source.persistor.persist();
         const target = createSettingsPersistor(
-            new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage, persistKeyValueSerializer }), { theme: '' },
+            new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage, persistKeyValueSerializer }), { theme: '' },
         );
         await target.persistor.hydrate();
 

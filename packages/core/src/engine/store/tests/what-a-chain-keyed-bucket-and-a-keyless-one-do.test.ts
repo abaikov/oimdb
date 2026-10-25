@@ -1,48 +1,37 @@
 import { OIMDefaults } from '../../../factories/OIMDefaults';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMSingleBucketService } from '../../../factories/createOIMSingleBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import type { TOIMSlotStoreTree } from '../types/TOIMSlotStoreTree';
-import {
-    OIMDB,
-    OIMSlotStoreServiceTreeDriven,
-    createOIMEntityService,
-    oimIsSlotEmpty,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMDB, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../../index';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { OIMBucketCommands } from '../../../facade/bucket/OIMBucketCommands';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TMessage = { id: string; roomId: string; authorId: string; text: string };
 type TNamed = { id: string };
 type TMessageSlot = TOIMEntitySlot<TMessage>;
 type TChain = readonly TOIMEntitySlot[];
 type TPinned = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TMessageSlot>, TChain>;
-type TPinnedStore = TOIMSlotStoreTree<TPinned, TOIMEntitySlot>;
 
-const createPinnedService = (db: OIMDB) => createOIMBucketService<
-    TMessageSlot, TChain, TOIMBucketSlotsArrayStore<TMessageSlot>, OIMSlotContentBucketServiceArrayDriven<TMessageSlot>, TPinnedStore
->(db, {
-    slotContentService: new OIMSlotContentBucketServiceArrayDriven<TMessageSlot>(),
-    bucketSlotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TPinned>(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()),
-});
+const createPinnedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPinned>(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()) });
 
 function createFixture() {
     const db = new OIMDB();
-    const roomsService = createOIMEntityService<TNamed>(db, { keyOf: room => room.id });
+    const roomsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed, string>(db) });
     const rooms = roomsService.createStoreSlot(db);
-    const usersService = createOIMEntityService<TNamed>(db, { keyOf: user => user.id });
+    const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed, string>(db) });
     const users = usersService.createStoreSlot(db);
-    const messagesService = createOIMEntityService<TMessage>(db, { keyOf: message => message.id });
+    const messagesService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TMessage>(db) });
     const messages = messagesService.createStoreSlot(db);
     // The segments a chain is built out of are ORDINARY identities, so they are
     // written rather than resolved.
-    roomsService.slotContentService.upsertEntities(rooms, [{ id: 'general' }]);
-    usersService.slotContentService.upsertEntities(users, [{ id: 'ann' }, { id: 'bob' }]);
-    messagesService.slotContentService.upsertEntities(messages, [
+    roomsService.writeInBatch(rooms, () => ([{ id: 'general' }]).map(entity => roomsService.writeSlotContentByKey(rooms, entity.id, entity)));
+    usersService.writeInBatch(users, () => ([{ id: 'ann' }, { id: 'bob' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
+    messagesService.writeInBatch(messages, () => ([
         { id: 'm1', roomId: 'general', authorId: 'ann', text: 'one' },
         { id: 'm2', roomId: 'general', authorId: 'ann', text: 'two' },
         { id: 'm3', roomId: 'general', authorId: 'bob', text: 'three' },
-    ]);
+    ]).map(entity => messagesService.writeSlotContentByKey(messages, entity.id, entity)));
     db.flush();
     return { db, roomsService, rooms, usersService, users, messagesService, messages };
 }
@@ -77,7 +66,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 
     it('holds a hand-written list of slots under a pair of identities', () => {
         const { db, messagesService, messages, pinnedService, annInGeneral } = pin();
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, [messagesService.getSlotByKey(messages, 'm2')!, messagesService.getSlotByKey(messages, 'm1')!]);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm2')!, messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
         expect(Array.from(pinnedService.slotContentService.getBucketMemberSlots(annInGeneral)).map(slot => slot.key)).toEqual(['m2', 'm1']);
     });
@@ -85,8 +74,8 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
     it('two chains sharing a segment are two buckets', () => {
         const { db, messagesService, messages, pinnedService, pinned, chainFor, annInGeneral, bobInGeneral } = pin();
         expect(annInGeneral).not.toBe(bobInGeneral);
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!]);
-        pinnedService.slotContentService.writeBucketMemberSlots(bobInGeneral, [messagesService.getSlotByKey(messages, 'm3')!]);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!]);
+        pinnedService.slotContentService.writeSlotContent(bobInGeneral, [messagesService.getSlotByKey(messages, 'm3')!]);
         db.flush();
         expect(pinnedService.slotContentService.getBucketMemberSlotCount(annInGeneral)).toBe(1);
         expect(pinnedService.slotContentService.getBucketMemberSlotCount(bobInGeneral)).toBe(1);
@@ -112,11 +101,11 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
      */
     it('a removed message stays pinned until the caller takes it out', () => {
         const { db, messagesService, messages, pinnedService, annInGeneral } = pin();
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!, messagesService.getSlotByKey(messages, 'm2')!]);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!, messagesService.getSlotByKey(messages, 'm2')!]);
         db.flush();
 
         const pinnedM1 = messagesService.getSlotByKey(messages, 'm1')!;
-        messagesService.slotContentService.deleteEntity(pinnedM1);
+        messagesService.slotContentService.clearSlotContent(pinnedM1);
         db.flush();
 
         // Still in the bucket, and that is what keeps the identity alive.
@@ -124,7 +113,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
         expect(oimIsSlotEmpty(pinnedM1)).toBe(true);
 
         // The caller takes it out, which is the same call that put it in.
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, [messagesService.getSlotByKey(messages, 'm2')!]);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm2')!]);
         db.flush();
 
         expect(Array.from(pinnedService.slotContentService.getBucketMemberSlots(annInGeneral)).map(slot => slot.key)).toEqual(['m2']);
@@ -136,7 +125,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 
     it('emptying it lets the tree go, so a query per pair does not leak nodes', () => {
         const { db, messagesService, messages, pinnedService, pinned, chainFor, annInGeneral, letGoOf } = pin();
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!]);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, [messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
         // TWO: ann's, kept by the message just pinned in it, and bob's, kept by
         // the hold `pin()` took when it resolved the pair. Both are filed, which
@@ -146,7 +135,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
         const annChain = chainFor('ann');
         const segmentHoldsWhileTheChainIsFiled = annChain[1].holdCount;
 
-        pinnedService.slotContentService.writeBucketMemberSlots(annInGeneral, []);
+        pinnedService.slotContentService.writeSlotContent(annInGeneral, []);
         // The slots are gone; this is the last thing pointing at ann's
         // bucket, and the collection is asked at the give-back. Without it the
         // assertions below would be asking whether a bucket somebody still holds
@@ -165,7 +154,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 describe('Hand-set slots, one bucket under no key at all', () => {
     function hand() {
         const { db, messagesService, messages } = createFixture();
-        const shortlistService = createOIMSingleBucketService<TMessageSlot>(db);
+        const shortlistService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const shortlist = shortlistService.createStoreSlot(db);
         const heldShortlistSlot = shortlistService.holdSingleSlot(shortlist);
         return { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot };
@@ -175,7 +164,7 @@ describe('Hand-set slots, one bucket under no key at all', () => {
         const { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot } = hand();
         expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
 
-        shortlistService.slotContentService.writeBucketMemberSlots(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm3')!, messagesService.getSlotByKey(messages, 'm1')!]);
+        shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm3')!, messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
         expect(Array.from(shortlistService.slotContentService.getBucketMemberSlots(shortlistService.getSingleSlot(shortlist))).map(slot => slot.key)).toEqual(['m3', 'm1']);
         expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
@@ -190,24 +179,24 @@ describe('Hand-set slots, one bucket under no key at all', () => {
      */
     it('nothing joins it on a write, because nothing selects', () => {
         const { db, messagesService, messages, shortlistService, shortlist } = hand();
-        messagesService.slotContentService.upsertEntity(messages, { id: 'm4', roomId: 'general', authorId: 'ann', text: 'four' });
+        messagesService.writeSlotContentByKey(messages, 'm4', { id: 'm4', roomId: 'general', authorId: 'ann', text: 'four' });
         db.flush();
         expect(shortlistService.slotContentService.getBucketMemberSlotCount(shortlistService.getSingleSlot(shortlist))).toBe(0);
     });
 
     it('the sole bucket survives being emptied by hand while it is held', () => {
         const { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot } = hand();
-        shortlistService.slotContentService.writeBucketMemberSlots(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm1')!]);
+        shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
 
         // Emptied by the caller: `OIMSlotContentEntityService.deleteEntity` leaves the
         // bucket's slots standing — see the chain-keyed case above.
-        shortlistService.slotContentService.clearBucketMemberSlots(shortlistService.getSingleSlot(shortlist));
+        shortlistService.slotContentService.clearSlotContent(shortlistService.getSingleSlot(shortlist));
         db.flush();
         expect(shortlistService.slotContentService.getBucketMemberSlotCount(shortlistService.getSingleSlot(shortlist))).toBe(0);
         expect(oimIsSlotReleased(heldShortlistSlot)).toBe(false);
         expect(shortlistService.getSingleSlot(shortlist)).toBe(heldShortlistSlot);
-        shortlistService.slotContentService.writeBucketMemberSlots(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm2')!]);
+        shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm2')!]);
         expect(Array.from(shortlistService.slotContentService.getBucketMemberSlots(shortlistService.getSingleSlot(shortlist))).map(slot => slot.key)).toEqual(['m2']);
     });
 });
@@ -220,7 +209,7 @@ describe('a chain-keyed bucket carries the whole chain as its key', () => {
      * that.
      *
      * A keyed slot carries its own key whatever its shape (`TOIMKeyedSlot.key`),
-     * and `OIMSlotStoreServiceTreeDriven.set` writes the whole CHAIN there —
+     * and `OIMSlotTreeStoreService.set` writes the whole CHAIN there —
      * copied, so a caller reusing one buffer cannot move it. The key is the chain
      * and never one segment of it, and two chains sharing a segment carry two
      * different keys.

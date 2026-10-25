@@ -88,6 +88,7 @@
     "publish:mcp": "npm publish --workspace @oimdb/mcp --access public",
     "publish:bumped": "node scripts/publish-bumped.mjs",
     "publish:bumped:dry": "node scripts/publish-bumped.mjs --dry-run",
+    "check:version-bumped": "node scripts/check-version-bumped.mjs --pushed",
     "publish:all": "npm run publish:core && npm run publish:react && npm run publish:persist && npm run publish:persist-memory && npm run publish:persist-localstorage && npm run publish:persist-idb && npm run publish:persist-async-kv && npm run publish:persist-json && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp",
     "build:core-legacy": "cd packages/core-legacy && npm run build"
   },

@@ -77,7 +77,7 @@ const fileAt = (site: string): TFile => files.find(file => file.site === site) a
 
 const REBINDABLE = /^(?:let|var) ([A-Za-z_$][\w$]*)/;
 const MINTS_AT_LOAD = /^(?:export )?const ([A-Za-z_$][\w$]*)[^=\n]*=\s*(?:new\s|createContext[<(]|\[|\{)/;
-const STATIC_FIELD = /^\s+(?:public |private |protected )?static (?!readonly\b)([A-Za-z_$][\w$]*|get|set)/;
+const STATIC_FIELD = /^\s+(?:public |private |protected )?static (?!(?:override )?readonly\b)(?:override )?([A-Za-z_$][\w$]*|get|set)/;
 const STATIC_IS_CALLABLE =
     /^\s+(?:public |private |protected )?static (?:(?:get|set)\s|[A-Za-z_$][\w$]*\s*(?:<[^>]*>)?\s*\()/;
 
@@ -257,10 +257,10 @@ const stateHeldBySingletonsIn = (file: TFile): string[] => {
 
 const EVERY_CLASS_A_DEFAULT_HANDS_BACK: readonly string[] = [
     'core/engine/slot/OIMSlotOwner.ts',
-    'core/engine/store/OIMSlotStoreServiceMapDriven.ts',
+    'core/engine/store/OIMSlotMapStoreService.ts',
     'core/engine/key/OIMKeyTreeWalk.ts',
-    'core/engine/key/OIMKeyTreeWalkScalar.ts',
-    'core/engine/key/OIMKeyTreeWalkComposite.ts',
+    'core/engine/key/OIMScalarKeyTreeWalk.ts',
+    'core/engine/key/OIMCompositeKeyTreeWalk.ts',
 ];
 
 describe('what a module keeps between calls', () => {

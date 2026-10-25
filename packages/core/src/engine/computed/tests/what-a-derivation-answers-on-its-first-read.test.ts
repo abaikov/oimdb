@@ -1,18 +1,19 @@
-import { OIMDB, OIMSlotStoreServiceSingleSlotDriven, createOIMComputedService, createOIMEntityService } from '../../../index';
-import type { TOIMComputedSlot, TOIMSameValueGuard, TOIMSingleSlotStore } from '../../../index';
+import { OIMDB } from '../../../index';
+import type { TOIMSameValueGuard } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../index';
 
 type TCard = { id: string; n: number };
 
 const createNumberService = (sameValueGuard?: TOIMSameValueGuard<number>) => {
-    const computedService = createOIMComputedService<
-        void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>
-    >({ computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(), sameValueGuard });
-    const collectionService = computedService.computedCollectionService;
-    type TStoreSlot = Parameters<typeof collectionService.getSlotByKey>[0];
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard });
+    const collectionService = computedService.computedSingleSlotService;
+    type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
         createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
-        getValueByKey: (storeSlot: TStoreSlot, key: undefined) => {
-            const computedSlot = collectionService.getSlotByKey(storeSlot, key);
+        getSingleValue: (storeSlot: TStoreSlot) => {
+            const computedSlot = collectionService.getSingleSlot(storeSlot);
             return computedSlot.computedValueService.getValueForSlot(computedSlot);
         },
     };
@@ -24,14 +25,14 @@ describe('what a derivation answers on its first read', () => {
         const constantService = createNumberService();
         const constant = constantService.createComputedStoreSlot(db, () => 42, () => ({}));
 
-        expect(constantService.getValueByKey(constant, undefined)).toBe(42);
+        expect(constantService.getSingleValue(constant)).toBe(42);
     });
 
     it('takes the new value again after a comparison that threw, instead of keeping the old one as fresh', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'a', n: 1 });
+        const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         let refuse = true;
         const doubledService = createNumberService((prev, next) => {
             if (refuse && next === 4) throw new Error('the comparison threw');
@@ -42,12 +43,12 @@ describe('what a derivation answers on its first read', () => {
             () => (card.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [card] }),
         );
-        expect(doubledService.getValueByKey(doubled, undefined)).toBe(2);
+        expect(doubledService.getSingleValue(doubled)).toBe(2);
         cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { n: 2 });
 
-        expect(() => doubledService.getValueByKey(doubled, undefined)).toThrow('the comparison threw');
+        expect(() => doubledService.getSingleValue(doubled)).toThrow('the comparison threw');
         refuse = false;
 
-        expect(doubledService.getValueByKey(doubled, undefined)).toBe(4);
+        expect(doubledService.getSingleValue(doubled)).toBe(4);
     });
 });

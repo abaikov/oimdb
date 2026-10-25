@@ -1,8 +1,10 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { OIMDB, createOIMEntityService } from '../src/index';
-import type { TOIMEntitySlot, TOIMStoreKey } from '../src/index';
-import type { TOIMStoreSlot } from '../src/engine/slot/types/TOIMStoreSlot';
+import { OIMDB } from '../src/index';
+import type { TOIMStoreKey } from '../src/index';
+import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMSlotCollectionService } from '../src/index';
+import type { OIMSlotContentEntityService } from '../src/engine/entity/OIMSlotContentEntityService';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -15,8 +17,8 @@ const deriveMiddle = (item: TSource): TMiddle =>
 
 /** Every row a collection is actually holding, keyed by its own key. */
 const rowsOf = <TEntity extends object>(
-    entityService: ReturnType<typeof createOIMEntityService<TEntity>>,
-    storeSlot: TOIMStoreSlot<Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TOIMEntitySlot<TEntity, TOIMStoreKey>, Partial<TEntity>>,
+    entityService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TEntity>>>,
+    storeSlot: Parameters<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TEntity>>>['getSlots']>[0],
 ): Map<TOIMStoreKey, TEntity> => {
     const found = new Map<TOIMStoreKey, TEntity>();
     for (const slot of entityService.getSlots(storeSlot)) {
@@ -24,16 +26,16 @@ const rowsOf = <TEntity extends object>(
         // A reserved identity is not a row: the key is spoken for, nothing is
         // there. The model has no such notion and must not be asked about one.
         if (entity === undefined) continue;
-        found.set(entityService.slotContentService.keyOf(entity), entity);
+        found.set(slot.key, entity);
     }
     return found;
 };
 
-const sourceServiceOn = (db: OIMDB): ReturnType<typeof createOIMEntityService<TSource>> =>
-    createOIMEntityService<TSource>(db, { keyOf: (source: TSource) => source.id });
+const sourceServiceOn = (db: OIMDB): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TSource>>> =>
+    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TSource>(db) });
 
-const middleServiceOn = (db: OIMDB): ReturnType<typeof createOIMEntityService<TMiddle>> =>
-    createOIMEntityService<TMiddle>(db, { keyOf: (middle: TMiddle) => middle.id });
+const middleServiceOn = (db: OIMDB): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TMiddle>>> =>
+    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TMiddle>(db) });
 
 const everySourceFile = (dir: string): string[] => {
     const found: string[] = [];
@@ -75,10 +77,10 @@ describe('a second population is the caller\'s, and a write reaches only the one
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const middleStoreSlot = middleService.createStoreSlot(db);
 
-        sourceService.slotContentService.upsertEntities(sourceStoreSlot, [
+        sourceService.writeInBatch(sourceStoreSlot, () => ([
             { id: 'k1', n: 1, tag: 'red' },
             { id: 'k2', n: 2, tag: 'blue' },
-        ]);
+        ]).map(entity => sourceService.writeSlotContentByKey(sourceStoreSlot, ((source: TSource) => source.id)(entity), entity)));
         const firstSlot = sourceService.findSlotByKey(sourceStoreSlot, 'k1');
         if (firstSlot !== undefined) sourceService.slotContentService.updateEntity(firstSlot, { n: 9 });
         db.flush();
@@ -94,10 +96,10 @@ describe('a second population is the caller\'s, and a write reaches only the one
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const otherSourceStoreSlot = sourceService.createStoreSlot(db);
 
-        sourceService.slotContentService.upsertEntities(sourceStoreSlot, [
+        sourceService.writeInBatch(sourceStoreSlot, () => ([
             { id: 'k1', n: 1, tag: 'red' },
             { id: 'k2', n: 2, tag: 'blue' },
-        ]);
+        ]).map(entity => sourceService.writeSlotContentByKey(sourceStoreSlot, ((source: TSource) => source.id)(entity), entity)));
         db.flush();
 
         expect(rowsOf(sourceService, sourceStoreSlot).size).toBe(2);
@@ -111,8 +113,8 @@ describe('a second population is the caller\'s, and a write reaches only the one
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const middleStoreSlot = middleService.createStoreSlot(db);
 
-        sourceService.slotContentService.upsertEntity(sourceStoreSlot, { id: 'k1', n: 5, tag: 'red' });
-        middleService.slotContentService.upsertEntity(middleStoreSlot, deriveMiddle({ id: 'k1', n: 5, tag: 'red' }));
+        sourceService.writeSlotContentByKey(sourceStoreSlot, ((source: TSource) => source.id)({ id: 'k1', n: 5, tag: 'red' }), { id: 'k1', n: 5, tag: 'red' });
+        middleService.writeSlotContentByKey(middleStoreSlot, deriveMiddle({ id: 'k1', n: 5, tag: 'red' }).id, deriveMiddle({ id: 'k1', n: 5, tag: 'red' }));
         db.flush();
         expect(rowsOf(middleService, middleStoreSlot).get('k1')).toStrictEqual({ id: 'k1', doubled: 10, tag: 'red' });
 
@@ -120,8 +122,8 @@ describe('a second population is the caller\'s, and a write reaches only the one
         // writes a WHOLE row: it walks the stored entity for the names the new
         // one does not carry and takes them away, so a derived `tag` cannot
         // outlive the source column it was derived from.
-        sourceService.slotContentService.upsertEntity(sourceStoreSlot, { id: 'k1', n: 0 });
-        middleService.slotContentService.upsertEntity(middleStoreSlot, deriveMiddle({ id: 'k1', n: 0 }));
+        sourceService.writeSlotContentByKey(sourceStoreSlot, ((source: TSource) => source.id)({ id: 'k1', n: 0 }), { id: 'k1', n: 0 });
+        middleService.writeSlotContentByKey(middleStoreSlot, deriveMiddle({ id: 'k1', n: 0 }).id, deriveMiddle({ id: 'k1', n: 0 }));
         db.flush();
         expect(rowsOf(middleService, middleStoreSlot).get('k1')).toStrictEqual({ id: 'k1', doubled: 0, tag: 'none' });
     });

@@ -1,15 +1,10 @@
 // Prose: ./README.md#fieldfloor
 // `field-floor` and `field-lifted` are THIS module bundled twice; what differs is the engine
 // underneath, with `fieldMachineryExcision.ts` applied in memory.
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceMapDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '../../../../core/src/index';
-import type { TOIMBucketSlotsSetStore, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotMapStoreService } from '../../../../core/src/index';
+import type { TOIMBucketSlot, TOIMBucketSlotsSetStore, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../../core/src/index';
+import { createOIMSlotContentEntityService } from '../../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../../core/src/index';
 
 type TCard = { id: string; deckId: string; rank: number; title: string };
 
@@ -19,23 +14,14 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMEntityService<TCard>(db, {
-    keyOf: card => card.id,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
 
-const bucketService = createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, {
-    bucketSlotStoreService: new OIMSlotStoreServiceMapDriven(),
-    slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-});
+const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const bucketStoreSlot = bucketService.createStoreSlot(db);
 
-const c1 = entityService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
-const c2 = entityService.slotContentService.upsertEntity(entityStoreSlot, { id: 'c2', deckId: 'spades', rank: 2, title: 'two' });
+const c1 = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
+const c2 = entityService.writeSlotContentByKey(entityStoreSlot, 'c2', { id: 'c2', deckId: 'spades', rank: 2, title: 'two' });
 db.flush();
 
 /* ── a bucket the caller fills, and a read of it ────────────────────────── */
@@ -43,7 +29,7 @@ db.flush();
 bucketService.holdSlotByKey(bucketStoreSlot, 'spades');
 
 const spadesSlot = bucketService.getSlotByKey(bucketStoreSlot, 'spades');
-bucketService.slotContentService.writeBucketMemberSlots(spadesSlot, [c1, c2]);
+bucketService.slotContentService.writeSlotContent(spadesSlot, [c1, c2]);
 
 held.push(effectService.createEffect(db, [spadesSlot], [], () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);

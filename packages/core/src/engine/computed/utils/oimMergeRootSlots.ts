@@ -1,4 +1,4 @@
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { oimGetAllRootSlots } from './oimGetAllRootSlots';
 
@@ -6,7 +6,7 @@ const scannedRootSlotLimit = 16;
 
 export function oimMergeRootSlots(
     sourceSlots: readonly TOIMSlot[],
-    sourceComputeds: readonly TOIMComputedSlot[],
+    sourceComputeds: readonly TOIMComputedContentSlot[],
 ): readonly TOIMSlot[] {
     if (sourceComputeds.length === 0) return sourceSlots;
     if (sourceComputeds.length === 1 && sourceSlots.length === 0) return oimGetAllRootSlots(sourceComputeds[0]);

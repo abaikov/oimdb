@@ -1,13 +1,10 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceArrayDriven, OIMSlotContentBucketServiceSetDriven,
-    createOIMEntityService, createOIMSingleBucketService,
-} from '../../../index';
-import type { TOIMBucketSlotsArrayStore } from '../../../engine/bucket/array/types/TOIMBucketSlotsArrayStore';
-import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
+import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService } from '../../../index';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -15,17 +12,15 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    for (const id of ['a', 'b', 'c']) cardsService.slotContentService.upsertEntity(cards, { id });
+    for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id });
     db.flush();
     const slot = (id: string): TCardSlot => cardsService.getSlotByKey(cards, id);
     return { db, effectService, slot };
 };
 
-const createSetDeckService = (db: OIMDB) => createOIMSingleBucketService<
-    TCardSlot, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+const createSetDeckService = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 const idsOf = (slots: Iterable<TCardSlot>): string[] => Array.from(slots, cardSlot => cardSlot.key);
 
@@ -40,7 +35,7 @@ describe('a set-driven bucket under no key', () => {
         db.flush();
         const born = woke;
 
-        deckContentService.writeBucketMemberSlots(deckService.getSingleSlot(deck), [slot('a'), slot('b')]);
+        deckContentService.writeSlotContent(deckService.getSingleSlot(deck), [slot('a'), slot('b')]);
         db.flush();
         expect(idsOf(deckContentService.getBucketMemberSlots(deckService.getSingleSlot(deck)))).toEqual(['a', 'b']);
         expect(slot('a').holdCount).toBe(1);
@@ -61,11 +56,11 @@ describe('a set-driven bucket under no key', () => {
         const deck = deckService.createStoreSlot(db);
         const deckSlot = deckService.getSingleSlot(deck);
         const effect = effectService.createEffect(db, [deckSlot], [], () => undefined);
-        deckContentService.writeBucketMemberSlots(deckSlot, [slot('a')]);
+        deckContentService.writeSlotContent(deckSlot, [slot('a')]);
         db.flush();
         expect(oimIsSlotReleased(deckSlot)).toBe(false);
         expect(deckService.getSingleSlot(deck)).toBe(deckSlot);
-        deckContentService.clearBucketMemberSlots(deckSlot);
+        deckContentService.clearSlotContent(deckSlot);
         effectService.disposeEffect(effect);
         db.flush();
 
@@ -75,7 +70,7 @@ describe('a set-driven bucket under no key', () => {
         expect(oimIsSlotReleased(nextDeckSlot)).toBe(false);
         expect(oimIsSlotEmpty(nextDeckSlot)).toBe(true);
         expect(deckContentService.getBucketMemberSlotCount(nextDeckSlot)).toBe(0);
-        deckContentService.writeBucketMemberSlots(nextDeckSlot, [slot('b')]);
+        deckContentService.writeSlotContent(nextDeckSlot, [slot('b')]);
         expect(idsOf(deckContentService.getBucketMemberSlots(nextDeckSlot))).toEqual(['b']);
     });
 });
@@ -83,14 +78,12 @@ describe('a set-driven bucket under no key', () => {
 describe('an array-driven bucket under no key', () => {
     it('keeps the order its positional doors give it, and holds what they bring in', () => {
         const { db, slot } = createFixture();
-        const deckService = createOIMSingleBucketService<
-            TCardSlot, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceArrayDriven<TCardSlot>() });
+        const deckService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
         const deckContentService = deckService.slotContentService;
         const deck = deckService.createStoreSlot(db);
         const deckSlot = deckService.getSingleSlot(deck);
 
-        deckContentService.writeBucketMemberSlots(deckService.getSingleSlot(deck), [slot('a'), slot('b')]);
+        deckContentService.writeSlotContent(deckService.getSingleSlot(deck), [slot('a'), slot('b')]);
         deckContentService.insertBucketMemberSlotAt(deckService.getSingleSlot(deck), 1, slot('c'));
         expect(idsOf(deckContentService.getBucketMemberSlots(deckService.getSingleSlot(deck)))).toEqual(['a', 'c', 'b']);
         expect(slot('c').holdCount).toBe(1);

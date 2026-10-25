@@ -12,14 +12,11 @@ the client, an optimistic update that rolls back on failure, applying a patch
 pushed by the server, and keeping a Redux store in step with an entity store slot.
 
 ```ts setup
-import {
-  OIMChannelService, OIMDB, OIMSlotContentBucketServiceSetDriven,
-  createOIMBucketService, createOIMEntityService, createOIMEntityWriterInPlace,
-} from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
-  OIMPersistCodecIdentity, OIMPersistEntityWriter, OIMPersistRecordSourceCollectionChangeDriven,
-  OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords, OIMPersistResourceSnapshot, OIMPersistSchedulerMicrotaskDriven, OIMPersistor,
+  OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistCollectionChangeWriteRecordSource,
+  OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource, OIMPersistSnapshotResource, OIMPersistMicrotaskScheduler, OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistRecords } from '@oimdb/persist';
 
@@ -31,13 +28,11 @@ declare function hydrateApp(): void;
 declare function report(error: unknown): void;
 
 function createDeckService(deckDb: OIMDB) {
-  return createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-  >(deckDb, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+  return createOIMSlotCollectionService(deckDb, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 }
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 const deckService = createDeckService(db);
@@ -47,50 +42,45 @@ const decks = deckService.createStoreSlot(db);
 ## Save an entity store slot to localStorage and load it on start
 
 Take: an `OIMPersistEntityWriter` wrapped around the writer, passed as the
-entity collection's `entityWriter`; an `OIMPersistor` over `OIMPersistLocalStorageBackend`
-from `@oimdb/persist-localstorage` with `OIMPersistSchedulerMicrotaskDriven`; and
-one `OIMPersistResourceSnapshot` of an `OIMPersistRecordSourceCollectionWriteDriven`
-over the collection service and its store slot, with `OIMPersistKeyValueEntryStrategy({ storageKey })`. A bucket
-source (`OIMPersistRecordSourceBucketDriven`) does not suit a whole store slot: it
+entity collection's `entityWriter`; an `OIMPersistor` over `OIMPersistLocalStorageKeyValueBackend`
+from `@oimdb/persist-localstorage` with `OIMPersistMicrotaskScheduler`; and
+one `OIMPersistSnapshotResource` of an `OIMPersistCollectionWriteRecordSource`
+over the collection service and its store slot, with `OIMPersistKeyValueEntrySnapshotService({ storageKey })`. A bucket
+source (`OIMPersistBucketRecordSource`) does not suit a whole store slot: it
 persists only the slots you write into a bucket, and every insert would have to
 re-state that list.
 
 ```ts
-import { OIMPersistKeyValueEntryStrategy } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '@oimdb/persist-localstorage';
+import { OIMPersistKeyValueEntrySnapshotService } from '@oimdb/persist';
+import { OIMPersistLocalStorageKeyValueBackend } from '@oimdb/persist-localstorage';
 
 type TCardRecords = TOIMPersistRecords<TOIMStoreKey, Card>;
 
 const savedCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMEntityWriterInPlace(),
 });
-const savedCardCollectionService = createOIMEntityService<Card>(db, {
-  keyOf: (card) => card.id,
-  entityWriter: savedCardPersistEntityWriter,
-});
+const savedCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: savedCardPersistEntityWriter }) });
 const savedCardEntityStoreSlot = savedCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
-  persistBackend: new OIMPersistLocalStorageBackend(),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistBackend: new OIMPersistLocalStorageKeyValueBackend(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
   onPersistError: (error) => report(error),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-  persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+  persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
     entityCollectionService: savedCardCollectionService,
     entityStoreSlot: savedCardEntityStoreSlot,
     persistEntityWriter: savedCardPersistEntityWriter,
   }),
-  persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TCardRecords>({ storageKey: 'app:cards' }),
-  persistCodec: new OIMPersistCodecIdentity<TCardRecords>(),
+  persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TCardRecords>({ storageKey: 'app:cards' }),
+  persistCodec: new OIMPersistIdentityCodec<TCardRecords>(),
 }));
 
 await persistor.hydrate();
 persistor.start();
 
-savedCardCollectionService.slotContentService.upsertEntity(
-  savedCardEntityStoreSlot, { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 },
-);
+savedCardCollectionService.writeSlotContentByKey(savedCardEntityStoreSlot, 'c1', { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
 ```
 
 Why this way: the write-driven source learns what changed inside the write —
@@ -98,7 +88,7 @@ Why this way: the write-driven source learns what changed inside the write —
 so it needs no channel, every write stays on the core fast path, and what it
 persists is every entity of that store slot that holds a value. It does not hear an in-place edit
 announced with `markEntityChanged`; an application that
-edits entities in place takes `OIMPersistRecordSourceCollectionChangeDriven`
+edits entities in place takes `OIMPersistCollectionChangeWriteRecordSource`
 instead, as in the IndexedDB recipe below. The microtask scheduler coalesces
 every report before the first microtask into one write batch. `localStorage`
 holds one string per key, so the whole store slot is written under `app:cards`
@@ -106,9 +96,9 @@ on every write batch. Hydrate before `start()`: `start()` subscribes, and the
 store slot source reports nothing at subscribe time, so `start()` writes nothing
 for it; a storage key that holds nothing makes `hydrate()` apply nothing. The persist is a mirror: an entity a release policy takes out of memory
 is cleared through the same writer and deleted from storage too;
-`persistor.unload(persistResourceRecords, keys)` is the call that drops entities
+`persistor.unload(persistRecordsResource, keys)` is the call that drops entities
 from memory and keeps them on the backend, and it takes an
-`OIMPersistResourceRecords`.
+`OIMPersistRecordsResource`.
 
 Reference: [Persist — Choosing a source, a resource and a scheduler](/docs/packages/persist#choosing-a-source-a-resource-and-a-scheduler),
 [Hydration](/docs/packages/persist#hydration),
@@ -117,51 +107,48 @@ Reference: [Persist — Choosing a source, a resource and a scheduler](/docs/pac
 ## Save an entity store slot to IndexedDB, writing only what changed
 
 Take: an `OIMPersistor` over `OIMPersistIndexedDbBackend` from
-`@oimdb/persist-idb` with a `databaseName`, and one `OIMPersistResourceRecords` of
-an `OIMPersistRecordSourceCollectionChangeDriven` with
-`OIMPersistIndexedDbRecordsStrategy({ tableName })`. A snapshot resource does not suit a
+`@oimdb/persist-idb` with a `databaseName`, and one `OIMPersistRecordsResource` of
+an `OIMPersistCollectionChangeWriteRecordSource` with
+`OIMPersistIndexedDbRecordsService({ tableName })`. A snapshot resource does not suit a
 large store slot: it stores the whole store slot as one value and rewrites all of
 it on every write batch.
 
 ```ts
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy } from '@oimdb/persist-idb';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '@oimdb/persist-idb';
 
 const offlineCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMEntityWriterInPlace(),
 });
-const offlineCardCollectionService = createOIMEntityService<Card>(db, {
-  keyOf: (card) => card.id,
-  entityWriter: offlineCardPersistEntityWriter,
-});
+const offlineCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: offlineCardPersistEntityWriter }) });
 const offlineCardEntityStoreSlot = offlineCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
   persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'app' }),
-  persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+  persistScheduler: new OIMPersistMicrotaskScheduler(),
   onPersistError: (error, { persistOperation }) => report({ persistOperation, error }),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-  persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+  persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource({
     entityCollectionService: offlineCardCollectionService,
     entityStoreSlot: offlineCardEntityStoreSlot,
     persistEntityWriter: offlineCardPersistEntityWriter,
   }),
-  persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, Card>({ tableName: 'cards' }),
+  persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, Card>({ tableName: 'cards' }),
 }));
 
 await persistor.hydrate();
 persistor.start();
 ```
 
-Why this way: `OIMPersistIndexedDbRecordsStrategy` keeps one IndexedDB record per
-entity, and `OIMPersistResourceRecords` writes only the entities that changed
+Why this way: `OIMPersistIndexedDbRecordsService` keeps one IndexedDB record per
+entity, and `OIMPersistRecordsResource` writes only the entities that changed
 since the last write batch: one put or one delete per changed key, in one
 transaction. The change-driven source also persists an in-place edit announced
 with `markEntityChanged`; the price is that, while the resource listens, every
 write to `offlineCardEntityStoreSlot` leaves the core fast path (one subframe
 opened and closed, the changed-column bookkeeping and the content-change listener
 loop per write). Where every change goes through the upsert, update and delete
-doors, `OIMPersistRecordSourceCollectionWriteDriven` takes the same options and
+doors, `OIMPersistCollectionWriteRecordSource` takes the same options and
 skips that cost. An object store that does not exist yet is created on write by
 reopening the database at a higher version, and a read never creates one — so a
 table that was never written reads as "nothing stored" and hydrating applies
@@ -177,7 +164,7 @@ Reference: [Persist — Records: per-key deltas](/docs/packages/persist#records-
 ## Render on the server and hydrate on the client
 
 Take: on the server, a fresh `OIMDB` per request, `insertEntities` for the
-content and `writeBucketMemberSlots` for each bucket's list, then serialize both; on the
+content and `writeSlotContent` for each bucket's list, then serialize both; on the
 client, the same services and store slots and the same two writes before the first render.
 A persistor is unnecessary unless the application already registers its store slots
 with one: an SSR fill is two ordinary writes on each side.
@@ -185,14 +172,14 @@ with one: an SSR fill is two ordinary writes on each side.
 ```ts
 function renderDeckPage(deckCards: readonly Card[]): string {
   const requestDb = new OIMDB();
-  const requestCardService = createOIMEntityService<Card>(requestDb, { keyOf: (card) => card.id });
+  const requestCardService = createOIMSlotCollectionService(requestDb, { slotContentService: createOIMSlotContentEntityService<Card>(requestDb) });
   const requestCards = requestCardService.createStoreSlot(requestDb);
   const requestDeckService = createDeckService(requestDb);
   const requestDecks = requestDeckService.createStoreSlot(requestDb);
 
-  requestCardService.slotContentService.insertEntities(requestCards, deckCards);
+  requestCardService.writeInBatch(requestCards, () => (deckCards).map(entity => requestCardService.writeSlotContentByKey(requestCards, entity.id, entity)));
   const deck = requestDeckService.holdSlotByKey(requestDecks, 'current');
-  requestDeckService.slotContentService.writeBucketMemberSlots(
+  requestDeckService.slotContentService.writeSlotContent(
     deck, deckCards.map((card) => requestCardService.getSlotByKey(requestCards, card.id)),
   );
   requestDb.flush();
@@ -207,9 +194,9 @@ function renderDeckPage(deckCards: readonly Card[]): string {
 ```ts
 const state = (window as unknown as { __OIM__: { cards: Card[]; deckCardIds: string[] } }).__OIM__;
 
-cardContentService.insertEntities(cards, state.cards);
+cardService.writeInBatch(cards, () => (state.cards).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
 const currentDeck = deckService.holdSlotByKey(decks, 'current');
-deckService.slotContentService.writeBucketMemberSlots(currentDeck, state.deckCardIds.map((id) => cardService.getSlotByKey(cards, id)));
+deckService.slotContentService.writeSlotContent(currentDeck, state.deckCardIds.map((id) => cardService.getSlotByKey(cards, id)));
 db.flush();
 
 hydrateApp();
@@ -219,7 +206,7 @@ Why this way: two things cross the wire, the entities and which slots are
 in which bucket, because a bucket's list is a fact about the response and no
 column can express it. `insertEntities` fits both sides because its precondition
 is the one an SSR fill meets: its keys are new, and the whole load is one subframe. A client that may
-already hold some of those keys takes `upsertEntities` instead. `writeBucketMemberSlots` states the whole list,
+already hold some of those keys takes `upsertEntities` instead. `writeSlotContent` states the whole list,
 so restating it evicts what the snapshot does not name. The hold keeps a bucket filed even when
 it is empty, and `dropChannelSlot` ends a per-request channel that
 nothing subscribes to without walking a slot; it does not check that
@@ -258,7 +245,7 @@ async function renameCard(cardId: string, title: string): Promise<void> {
 
 Why this way: a patch moves only the columns it names, so the rollback
 undoes this update and nothing else — a server push that changed `rank` while the
-request was in flight survives it, which `upsertEntity(previous)` would not:
+request was in flight survives it, which `writeSlotContentByKey(previous)` would not:
 a whole-value write brings the entity back to exactly the old value and takes
 away anything that arrived since. `findSlotByKey` mints nothing when the key resolves to nothing, and the
 rollback checks that the entity is still there, so an entity deleted during the request is not brought back by
@@ -275,7 +262,7 @@ Reference: [Writing — The writes](/docs/core/writing#the-writes),
 Take: `upsertEntities` for whole entities and `deleteEntities` for removals,
 which are batch writes, and `updateEntity` for a patch, which writes one entity,
 all inside one `openSubframe` / `closeSubframe` pair on the channel slot. A loop of
-`upsertEntity` for a patch message would take away every column the patch does not
+`writeSlotContentByKey` for a patch message would take away every column the patch does not
 carry, because a whole-value write replaces the entity.
 
 ```ts
@@ -285,23 +272,21 @@ type CardsMessage =
   | { type: 'delete'; ids: string[] };
 
 function applyServerMessages(messages: readonly CardsMessage[]): void {
-  const channelSlot = db.defaultChannelSlot;
-  OIMChannelService.INSTANCE.openSubframe(channelSlot);
-  try {
+  cardService.writeInBatch(cards, () => {
     for (const message of messages) {
       if (message.type === 'upsert') {
-        cardContentService.upsertEntities(cards, message.cards);
+        for (const card of message.cards) cardService.writeSlotContentByKey(cards, card.id, card);
       } else if (message.type === 'patch') {
         const patched = cardService.findSlotByKey(cards, message.id);
         if (patched !== undefined) cardContentService.updateEntity(patched, message.patch);
       } else {
-        const deleted = message.ids.flatMap((id) => cardService.findSlotByKey(cards, id) ?? []);
-        cardContentService.deleteEntities(cards, deleted);
+        for (const id of message.ids) {
+          const deleted = cardService.findSlotByKey(cards, id);
+          if (deleted !== undefined) cardContentService.clearSlotContent(deleted);
+        }
       }
     }
-  } finally {
-    OIMChannelService.INSTANCE.closeSubframe(channelSlot);
-  }
+  });
 }
 
 declare const socket: WebSocket;
@@ -310,17 +295,12 @@ socket.addEventListener('message', (event) => {
 });
 ```
 
-Why this way: a subframe is one logical change. No frame can close while
-one is open, so no subscriber sees half of the message, and a write that asks for a frame inside it is owed that frame by the `closeSubframe` that brings the
-count to zero. `upsertEntities` and `deleteEntities` open a content subframe of their
-own and hand an index every slot of the batch at once; `updateEntity` opens one
-for its single write when anything reads its columns. A re-sent entity that changes no column wakes
-nobody, because the writer compares each column and a write with nothing moved
-returns before it reaches the channel. A patch for a key the client never
-loaded is dropped: `findSlotByKey` mints nothing for a missing key. Do not call `flush()` inside the pair; it
-throws while a subframe is open.
+Why this way: the whole message list is one batch, so an index on the collection hears it in one call when
+the batch closes, and the next flush delivers each identity once. A re-sent entity that changes no column wakes
+nobody, because the writer compares each column and a write with nothing moved returns before it reaches the
+channel. A patch for a key the client never loaded is dropped: `findSlotByKey` mints nothing for a missing key.
 
-Reference: [The subframe](/docs/core/channel#the-subframe),
+Reference: [Batches](/docs/core/channel#batches),
 [Which write to take](/docs/core/writing#which-door-to-take).
 
 ## Keep a Redux store in step with an entity store slot
@@ -347,7 +327,7 @@ const store = createStore(
 );
 adapter.setStore(store);
 
-cardContentService.upsertEntity(cards, { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
+cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
 db.flush();
 store.getState().cards;
 ```

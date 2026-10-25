@@ -1,22 +1,23 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceMapDriven } from '../../../engine/store/OIMSlotStoreServiceMapDriven';
-import { OIMIndexKeysServiceAppending } from '../../../engine/index/OIMIndexKeysServiceAppending';
-import { OIMIndexKeysServiceReclaiming } from '../../../engine/index/OIMIndexKeysServiceReclaiming';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSlotMapStoreService } from '../../../engine/store/OIMSlotMapStoreService';
+import { OIMAppendingIndexKeysService } from '../../../engine/index/OIMAppendingIndexKeysService';
+import { OIMReclaimingIndexKeysService } from '../../../engine/index/OIMReclaimingIndexKeysService';
 import type { IOIMIndexKeysService } from '../../../engine/index/interfaces/IOIMIndexKeysService';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; suit: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 type TBucket = TOIMBucketSlot<TSlots, string>;
 
-class OIMSlotStoreServiceCountingGets<TSlot extends TBucket> extends OIMSlotStoreServiceMapDriven<TSlot, string> {
+class OIMSlotStoreServiceCountingGets<TSlot extends TBucket> extends OIMSlotMapStoreService<TSlot, string> {
     public getCount = 0;
 
     public override get(store: Map<string, TSlot>, key: string): TSlot | undefined {
@@ -26,7 +27,7 @@ class OIMSlotStoreServiceCountingGets<TSlot extends TBucket> extends OIMSlotStor
 }
 
 class OIMSlotStoreServiceCountingWalks<TSlot extends TOIMEntitySlot<TCard, TOIMStoreKey>>
-    extends OIMSlotStoreServiceMapDriven<TSlot, TOIMStoreKey> {
+    extends OIMSlotMapStoreService<TSlot, TOIMStoreKey> {
     public walkCount = 0;
 
     public override getSlots(store: Map<TOIMStoreKey, TSlot>): IterableIterator<TSlot> {
@@ -38,17 +39,14 @@ class OIMSlotStoreServiceCountingWalks<TSlot extends TOIMEntitySlot<TCard, TOIMS
 const createFixture = (indexKeysService: IOIMIndexKeysService) => {
     const db = new OIMDB({ indexKeysService });
     const entitySlotStoreService = new OIMSlotStoreServiceCountingWalks<TOIMEntitySlot<TCard, TOIMStoreKey>>();
-    const cardsService = createOIMEntityService<TCard>(db, {
-        entitySlotStoreService,
-        keyOf: card => card.id,
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotStoreService: entitySlotStoreService });
     const cards = cardsService.createStoreSlot(db);
     const bucketSlotStoreService = new OIMSlotStoreServiceCountingGets<TBucket>();
     const makeIndex = (keyOf: (card: TCard) => string) => {
-        const service = createOIMIndexService(db, {
+        const service = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+            slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
             bucketSlotStoreService,
         });
         return { service, store: service.createIndexStoreSlot(cards) };
@@ -62,23 +60,23 @@ const createFixture = (indexKeysService: IOIMIndexKeysService) => {
 
 describe('what an index costs per batch', () => {
     it('a batch of R rows into G buckets looks each bucket up once, not once per row', () => {
-        const { cardsService, cards, bucketSlotStoreService, makeIndex } = createFixture(new OIMIndexKeysServiceAppending());
+        const { cardsService, cards, bucketSlotStoreService, makeIndex } = createFixture(new OIMAppendingIndexKeysService());
         const { service: byDeckService, store: byDeck } = makeIndex(card => card.deck);
         const GROUPS = 5;
         const ROWS = 100;
         const decks = byDeckService.holdSlotsByKeys(byDeck, Array.from({ length: GROUPS }, (_, g) => `d${g}`));
         bucketSlotStoreService.getCount = 0;
-        cardsService.slotContentService.upsertEntities(cards, Array.from({ length: ROWS }, (_, i) => ({ id: `c${i}`, deck: `d${i % GROUPS}`, suit: 's' })));
+        cardsService.writeInBatch(cards, () => (Array.from({ length: ROWS }, (_, i) => ({ id: `c${i}`, deck: `d${i % GROUPS}`, suit: 's' }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         expect(bucketSlotStoreService.getCount).toBe(GROUPS);
         expect(decks.map(deck => byDeckService.slotContentService.getBucketMemberSlotCount(deck))).toEqual(Array(GROUPS).fill(ROWS / GROUPS));
         for (const deck of decks) deck.owner.unholdSlot(deck);
     });
 
     it('getByKeys fills every new bucket from one pass over the source', () => {
-        const { cardsService, cards, entitySlotStoreService, makeIndex } = createFixture(new OIMIndexKeysServiceAppending());
-        cardsService.slotContentService.upsertEntities(cards, [
+        const { cardsService, cards, entitySlotStoreService, makeIndex } = createFixture(new OIMAppendingIndexKeysService());
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'a', suit: 's' }, { id: 'c2', deck: 'b', suit: 's' }, { id: 'c3', deck: 'a', suit: 's' },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         const { service: byDeckService, store: byDeck } = makeIndex(card => card.deck);
         entitySlotStoreService.walkCount = 0;
         const [a, b] = byDeckService.getSlotsByKeys(byDeck, ['a', 'b']);
@@ -89,9 +87,9 @@ describe('what an index costs per batch', () => {
 
 describe('what a disposed index leaves on the rows', () => {
     it('appending: the next index takes a new position and the old entry stays unread', () => {
-        const { cardsService, cards, makeIndex, updateEntityByKey } = createFixture(new OIMIndexKeysServiceAppending());
+        const { cardsService, cards, makeIndex, updateEntityByKey } = createFixture(new OIMAppendingIndexKeysService());
         const { service: bySuitService, store: bySuit } = makeIndex(card => card.suit);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'a', suit: 'hearts' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'a', suit: 'hearts' });
         bySuitService.getSlotByKey(bySuit, 'hearts');
         updateEntityByKey('c1', { suit: 'clubs' });
         bySuitService.disposeIndexStoreSlot(bySuit);
@@ -104,15 +102,15 @@ describe('what a disposed index leaves on the rows', () => {
     });
 
     it('a hundred disposed indexes cost a write nothing once none is alive', () => {
-        const { cardsService, cards, makeIndex } = createFixture(new OIMIndexKeysServiceAppending());
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'a', suit: 'hearts' });
+        const { cardsService, cards, makeIndex } = createFixture(new OIMAppendingIndexKeysService());
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'a', suit: 'hearts' });
         for (let i = 0; i < 100; i++) {
             const { service, store } = makeIndex(card => card.deck);
             service.disposeIndexStoreSlot(store);
         }
         const listenerVisits = jest.spyOn(Array.prototype, 'slice');
 
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', deck: 'b', suit: 'hearts' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'b', suit: 'hearts' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         const slices = listenerVisits.mock.calls.length;
         listenerVisits.mockRestore();
 
@@ -122,8 +120,8 @@ describe('what a disposed index leaves on the rows', () => {
     });
 
     it('the one index alive among a hundred disposed ones still hears every write, in the order it was added', () => {
-        const { cardsService, cards, makeIndex } = createFixture(new OIMIndexKeysServiceAppending());
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'a', suit: 'hearts' });
+        const { cardsService, cards, makeIndex } = createFixture(new OIMAppendingIndexKeysService());
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'a', suit: 'hearts' });
         const { service: bySuitService, store: bySuit } = makeIndex(row => row.suit);
         for (let i = 0; i < 100; i++) {
             const { service, store } = makeIndex(row => row.deck);
@@ -144,9 +142,9 @@ describe('what a disposed index leaves on the rows', () => {
     });
 
     it('reclaiming: dispose wipes the position on every row and the next index reuses it', () => {
-        const { cardsService, cards, makeIndex, updateEntityByKey } = createFixture(new OIMIndexKeysServiceReclaiming());
+        const { cardsService, cards, makeIndex, updateEntityByKey } = createFixture(new OIMReclaimingIndexKeysService());
         const { service: bySuitService, store: bySuit } = makeIndex(card => card.suit);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'a', suit: 'hearts' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'a', suit: 'hearts' });
         bySuitService.disposeIndexStoreSlot(bySuit);
         expect(card.indexKeys).toEqual([undefined]);
         const { service: byDeckService, store: byDeck } = makeIndex(card => card.deck);

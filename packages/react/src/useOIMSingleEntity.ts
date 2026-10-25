@@ -1,9 +1,9 @@
-import type { OIMSingleSlotService, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreSlot } from '@oimdb/core';
+import type { OIMSingleSlotService, TOIMEntityContentSlot, TOIMSingleSlotStore, TOIMStoreSlot } from '@oimdb/core';
 import { useOIMSingleSlot } from './useOIMSingleSlot';
 
 export function useOIMSingleEntity<TEntity extends object>(
-    singleSlotService: Pick<OIMSingleSlotService<TOIMEntitySlot<TEntity, void>, unknown>, 'getSingleSlot' | 'holdSingleSlot'>,
-    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TOIMEntitySlot<TEntity, void>>, TOIMEntitySlot<TEntity, void>>,
+    singleSlotService: Pick<OIMSingleSlotService<TOIMEntityContentSlot<TEntity>, unknown>, 'getSingleSlot' | 'holdSingleSlot'>,
+    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TOIMEntityContentSlot<TEntity>>, TOIMEntityContentSlot<TEntity>>,
 ): TEntity | undefined {
     return useOIMSingleSlot('useOIMSingleEntity', singleSlotService, singleSlotStoreSlot).entity;
 }

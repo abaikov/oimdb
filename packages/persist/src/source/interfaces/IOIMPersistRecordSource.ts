@@ -4,7 +4,7 @@ import type { TOIMPersistRecordsDelta } from '../types/TOIMPersistRecordsDelta';
 import type { IOIMPersistSnapshotSource } from './IOIMPersistSnapshotSource';
 import type { IOIMPersistSourceChangeMark } from './IOIMPersistSourceChangeMark';
 
-export interface IOIMPersistRecordSource<TKey, TEntity extends object>
+export interface IOIMPersistRecordSource<TKey extends NonNullable<unknown>, TEntity extends object>
     extends IOIMPersistSnapshotSource<TOIMPersistRecords<TKey, TEntity>> {
     subscribeEntitySlotChanged(
         onEntitySlotChanged: (entitySlot: TOIMEntitySlot<TEntity, TKey>) => void,

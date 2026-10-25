@@ -1,23 +1,18 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMBucketService<
-        TOIMEntitySlot<TCard>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>,
-        OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>() });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, cards, cardsService, byDeck, byDeckService };
 };
@@ -60,10 +55,10 @@ describe('hold adds a hold and nothing else', () => {
         const onHeld = OIMEffectService.INSTANCE.createEffect(db, [bucket], [], () => { heldWoke++; });
         const onFound = OIMEffectService.INSTANCE.createEffect(db, [found], [], () => { foundWoke++; });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deckId: 'spades' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades' });
         // The write files nothing. The one write this bucket gets is the one
         // `write` reports, and it is the same write for both readers.
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1')!]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1')!]);
         db.flush();
 
         expect(heldWoke).toBe(1);

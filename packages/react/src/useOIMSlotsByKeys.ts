@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { oimSameKeySequence } from '@oimdb/core';
 import type { OIMSlotCollectionService, TOIMIndexableSlot, TOIMStoreSlot } from '@oimdb/core';
 
-export function useOIMSlotsByKeys<TKey, TSlot extends TOIMIndexableSlot<TKey>, TStore = unknown>(
+export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot extends TOIMIndexableSlot<TKey>, TStore = unknown>(
     slotCollectionService: Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>,
     storeSlot: TOIMStoreSlot<TStore, TSlot>,
     keys: readonly TKey[],

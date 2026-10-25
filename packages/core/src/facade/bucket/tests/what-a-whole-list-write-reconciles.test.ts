@@ -1,12 +1,12 @@
 import type { OIMSlotContentBucketService } from '../OIMSlotContentBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
@@ -15,25 +15,23 @@ const PAGE = 1000;
 
 const openDeck = <TSlots>(membersService: OIMSlotContentBucketService<TCardSlot, TSlots>) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const deckService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketService<TCardSlot, TSlots>
-    >(db, { slotContentService: membersService });
+    const deckService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const deck = deckService.createStoreSlot(db);
     const slots: TCardSlot[] = [];
-    for (let i = 0; i <= PAGE; i++) slots.push(cardsService.slotContentService.upsertEntity(cards, { id: `c${i}`, rank: i }));
+    for (let i = 0; i <= PAGE; i++) slots.push(cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, rank: i }));
     const bucket = deckService.holdSlotByKey(deck, 'deck');
-    membersService.writeBucketMemberSlots(bucket, slots.slice(0, PAGE));
+    membersService.writeSlotContent(bucket, slots.slice(0, PAGE));
     db.flush();
     let wakes = 0;
     OIMEffectService.INSTANCE.createEffect(db, [bucket], [], () => { wakes++; });
     return { db, membersService, bucket, slots, wakesSoFar: () => wakes };
 };
 
-const arrayDeck = () => new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
+const arrayDeck = () => new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
 
-const setDeck = () => new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
+const setDeck = () => new OIMSlotContentSetBucketService<TCardSlot>();
 
 const holdCountsOf = (slots: readonly TCardSlot[]): number[] => slots.map(slot => slot.holdCount);
 
@@ -42,7 +40,7 @@ describe('what a whole-list write reconciles', () => {
         const { db, membersService, bucket, slots, wakesSoFar } = openDeck(arrayDeck());
         const before = holdCountsOf(slots);
 
-        membersService.writeBucketMemberSlots(bucket, slots.slice(0, PAGE));
+        membersService.writeSlotContent(bucket, slots.slice(0, PAGE));
         db.flush();
 
         expect(wakesSoFar()).toBe(0);
@@ -55,7 +53,7 @@ describe('what a whole-list write reconciles', () => {
         const hold = jest.spyOn(slots[0].owner, 'holdSlot');
 
         try {
-            membersService.writeBucketMemberSlots(bucket, [...slots.slice(1, PAGE), slots[PAGE]]);
+            membersService.writeSlotContent(bucket, [...slots.slice(1, PAGE), slots[PAGE]]);
             expect(hold.mock.calls.length).toBe(1);
         } finally {
             hold.mockRestore();
@@ -72,7 +70,7 @@ describe('what a whole-list write reconciles', () => {
     it('wakes nobody for an identical write to a set bucket', () => {
         const { db, membersService, bucket, slots, wakesSoFar } = openDeck(setDeck());
 
-        membersService.writeBucketMemberSlots(bucket, [...slots.slice(0, PAGE)].reverse());
+        membersService.writeSlotContent(bucket, [...slots.slice(0, PAGE)].reverse());
         db.flush();
 
         expect(wakesSoFar()).toBe(0);

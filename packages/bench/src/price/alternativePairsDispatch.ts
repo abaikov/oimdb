@@ -269,7 +269,7 @@ const columnSubscriptionSide = (byColumn: boolean): TPriceSide => {
     for (let i = 0; i < slots.length; i++) {
         const slot = slots[i];
         if (byColumn) {
-            effectService.createEffect(db, [entityService.holdColumn(slot, 'title')], [], () => { woke[0]++; });
+            effectService.createEffect(db, [entityService.columnSlotService.holdColumn(slot, 'title')], [], () => { woke[0]++; });
             continue;
         }
         effectService.createEffect(db, [slot], [], () => {

@@ -1,14 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMReleaseSlotCollectorServiceAfterIdle,
-    OIMReleaseSlotCollectorServiceAfterWrite,
-    OIMSlotReleasePolicyAfterIdle,
-    OIMSlotReleasePolicyAfterWrite,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased, oimMintAfterIdleSlotReleaseWheel, oimMintAfterWriteSlotReleaseWheel } from '../../../index';
 import type { TOIMDisposer } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -19,15 +12,12 @@ const createFixtureAt = (after: number) => {
         getNowMs: () => ms,
         releaseTimer: (run): TOIMDisposer => { armed = run; return () => { armed = undefined; }; },
     });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: after }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
         flushAfterIdle: (): void => {
-            OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         cardsService,
         cards,
@@ -40,7 +30,7 @@ const createFixtureAt = (after: number) => {
 describe('an identity nothing subscribed to', () => {
     it('is taken back once it has been inactive for the whole window', () => {
         const fixture =createFixtureAt(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
 
@@ -53,7 +43,7 @@ describe('an identity nothing subscribed to', () => {
 
     it('is left alone while the window has not passed', () => {
         const fixture =createFixtureAt(30_000);
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         fixture.at(1_000_000 + 10_000);
@@ -66,7 +56,7 @@ describe('an identity nothing subscribed to', () => {
 describe('what a subscriber does to the clock', () => {
     it('gives it a WHOLE NEW window rather than deferring the old one', () => {
         const fixture =createFixtureAt(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         const effect = OIMEffectService.INSTANCE.createEffect(fixture.db, [slot], [], () => undefined);
 
@@ -86,7 +76,7 @@ describe('what a subscriber does to the clock', () => {
 describe('what a hold does', () => {
     it('blocks the clear as well as the removal', () => {
         const fixture =createFixtureAt(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         slot.owner.holdSlot(slot);
 
@@ -106,15 +96,12 @@ describe('the other window, which counts from the last write', () => {
     const createAgingFixture = (after: number) => {
         let ms = 1_000_000;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-        const cardsService = createOIMEntityService<TCard>(db, {
-            keyOf: card => card.id,
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: after }),
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
         const cards = cardsService.createStoreSlot(db);
         return {
             db,
             flushAfterWrite: (): void => {
-                OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(db.collectorSlot.afterWriteReleaseSlotCollectorSlot);
+                oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
             },
             cardsService,
             cards,
@@ -124,7 +111,7 @@ describe('the other window, which counts from the last write', () => {
 
     it('ANY update puts the identity back at the far end of it', () => {
         const fixture =createAgingFixture(30_000);
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         fixture.at(1_000_000 + 20_000);
@@ -143,7 +130,7 @@ describe('the other window, which counts from the last write', () => {
 
     it('a subscriber does not renew it, and does not lose it mid-read either', () => {
         const fixture =createAgingFixture(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         const effect = OIMEffectService.INSTANCE.createEffect(fixture.db, [slot], [], () => undefined);
 
@@ -161,7 +148,7 @@ describe('the timer', () => {
         const fixture =createFixtureAt(30_000);
         expect(fixture.isArmed()).toBe(false);
 
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         expect(fixture.isArmed()).toBe(true);
 
@@ -175,9 +162,9 @@ describe('the timer', () => {
 describe('a collection built without the layer', () => {
     it('holds what it held before the layer existed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         expect(cardsService.getSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });

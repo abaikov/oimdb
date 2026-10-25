@@ -1,26 +1,20 @@
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotStoreServiceMapDriven } from '../../store/OIMSlotStoreServiceMapDriven';
+import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, {
-        // The store is named by the SLOT it files, not by the entity inside it.
-        // jest transpiles these files without type-checking them, so a wrong
-        // generic here compiles and no case can catch it.
-        entitySlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMEntitySlot<Card, TOIMStoreKey>>(),
-        keyOf: (card) => card.id,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -28,30 +22,30 @@ const createFixture =() => {
 describe('a column subscription is woken by its own field and by no other', () => {
     it('runs when that field moves', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'rank')], [], () => { runs++; });
+        OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { runs++; });
         db.flush();
         const born = runs;
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 2 });
         db.flush();
         expect(runs).toBe(born + 1);
     });
 
     it('does not run when a different field moves', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'rank')], [], () => { runs++; });
+        OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { runs++; });
         db.flush();
         const born = runs;
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A2', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A2', rank: 1 });
         db.flush();
         expect(runs).toBe(born);
     });
@@ -60,19 +54,19 @@ describe('a column subscription is woken by its own field and by no other', () =
 describe('the column identity is minted by the subscription and goes with it', () => {
     it('files nothing on a slot nobody watches by column', () => {
         const { cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         expect(cardsService.getSlotByKey(cards,'a')!.columnSlotStore).toBeUndefined();
     });
 
     it('files one entry while watched and drops the map when the last leaves', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const rank = OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
+        const rank = OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
 
-        const title = OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+        const title = OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(2);
 
         OIMEffectService.INSTANCE.disposeEffect(rank);
@@ -86,11 +80,11 @@ describe('the column identity is minted by the subscription and goes with it', (
 
     it('hands the same column identity to two subscribers of one field', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
-        OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
+        OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
+        OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { /* nothing */ });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.size).toBe(1);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('rank')?.effects?.length).toBe(2);
     });
@@ -108,16 +102,16 @@ describe('the column identity is minted by the subscription and goes with it', (
 describe('a column identity is given back only by the thing that is still filed', () => {
     it('a second dispose of an effect leaves the column identity filed since alone', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const first = OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+        const first = OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         OIMEffectService.INSTANCE.disposeEffect(first);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(slot.columnSlotStore).toBeUndefined();
 
         let runs = 0;
-        OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'title')], [], () => { runs++; });
+        OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { runs++; });
         db.flush();
         const born = runs;
         const live = (slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title');
@@ -127,13 +121,13 @@ describe('a column identity is given back only by the thing that is still filed'
 
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(live);
 
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'B', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'B', rank: 1 });
         db.flush();
         expect(runs).toBe(born + 1);
     });
 
     /**
-     * A HOLD IS A REFERENCE HERE TOO. `OIMColumnOwner.hold` names three kinds that take a
+     * A HOLD IS A REFERENCE HERE TOO. `OIMColumnSlotOwner.hold` names three kinds that take a
      * hold and the column slot is one of them; `mintUnfiledColumnSlot` mints with
      * `holdCount: 0` for exactly that reason. A `releaseSlotIfUnheld` that asks
      * only `effects` unfiles, on the last subscriber leaving, an identity
@@ -143,12 +137,12 @@ describe('a column identity is given back only by the thing that is still filed'
      */
     it('declines a release while something holds the identity', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const title = cardsService.holdColumn(slot, 'title');
+        const title = cardsService.columnSlotService.holdColumn(slot, 'title');
 
-        const effect = OIMEffectService.INSTANCE.createEffect(db,[cardsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+        const effect = OIMEffectService.INSTANCE.createEffect(db,[cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
@@ -156,10 +150,10 @@ describe('a column identity is given back only by the thing that is still filed'
 
         expect(title.holdCount).toBe(1);
         expect((slot.columnSlotStore as Map<string, TOIMColumnSlot> | undefined)?.get('title')).toBe(title);
-        expect(cardsService.getColumn(slot, 'title')).toBe(title);
+        expect(cardsService.columnSlotService.getColumn(slot, 'title')).toBe(title);
 
         // The other direction, or the term would be a leak with a nice name.
-        cardsService.unholdColumn(title);
+        cardsService.columnSlotService.unholdColumn(title);
         expect(slot.columnSlotStore).toBeUndefined();
     });
 
@@ -167,18 +161,18 @@ describe('a column identity is given back only by the thing that is still filed'
     // `OIMSlotOwnerService.isReleasable` asks whether that store stands.
     it('keeps a removed slot filed while something holds one of its columns', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'a', title: 'A', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const slot = cardsService.getSlotByKey(cards,'a')!;
 
-        const title = cardsService.holdColumn(slot, 'title');
+        const title = cardsService.columnSlotService.holdColumn(slot, 'title');
         // Nobody is listening: the hold is the only reference in this sequence.
         expect(title.effects).toBeUndefined();
 
-        cardsService.slotContentService.deleteEntity(slot);
+        cardsService.slotContentService.clearSlotContent(slot);
 
         expect(cardsService.getSlotByKey(cards,'a')).toBe(slot);
 
-        cardsService.unholdColumn(title);
+        cardsService.columnSlotService.unholdColumn(title);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(oimIsSlotReleased(slot)).toBe(true);
         expect(cardsService.getSlotCount(cards)).toBe(0);

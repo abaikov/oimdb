@@ -18,7 +18,7 @@ export default function IndexDiagram(): ReactNode {
         <DiagramArrow />
         <DiagramNode
           title="Sorted view"
-          note={<><code>createOIMComputedServiceSorted</code>: one ordered array per bucket, re-sorted only when membership or a sort column moves</>}
+          note={<><code>createOIMSortedComputedService</code>: one ordered array per bucket, re-sorted only when membership or a sort column moves</>}
         />
         <DiagramArrow />
         <DiagramNode tone="muted" title="Component" note="subscribes to the one bucket or view it shows" />

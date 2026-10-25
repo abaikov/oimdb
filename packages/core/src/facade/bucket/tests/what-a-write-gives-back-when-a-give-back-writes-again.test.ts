@@ -1,12 +1,12 @@
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { OIMSlotOwner } from '../../../engine/slot/OIMSlotOwner';
 import { createOIMEntitySlot } from '../../../engine/entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../../../engine/slot/types/TOIMStoreSlot';
 import type { OIMChannelQueue } from '../../../engine/channel/OIMChannelQueue';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -38,9 +38,7 @@ const scratchLengths = (byDeck: TOIMStoreSlot): number[] => {
 const createFixture =(rows: number) => {
     const db = new OIMDB();
     const rowOwner = new RowOwnerThatCanWriteWhileGivingBack();
-    const byDeckService = createOIMBucketService(db, {
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
-    });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const byDeck = byDeckService.createStoreSlot(db);
     const rowsOf = (deckId: string): TCardSlot[] => Array.from(
         { length: rows }, (_unused, at) => createOIMEntitySlot<TCard, string>(`${deckId}r${at}`, rowOwner),
@@ -55,15 +53,15 @@ describe('what a write gives back when a give back writes again', () => {
         const deckB = byDeckService.holdSlotByKey(byDeck, 'b');
         const rowsOfA = rowsOf('a');
         const rowsOfB = rowsOf('b');
-        byDeckService.slotContentService.writeBucketMemberSlots(deckA, rowsOfA);
+        byDeckService.slotContentService.writeSlotContent(deckA, rowsOfA);
         rowOwner.givenBack.length = 0;
 
         let scratchDuringTheCascade: number[] = [];
         rowOwner.writeOnNextGiveBack = () => {
-            byDeckService.slotContentService.writeBucketMemberSlots(deckB, rowsOfB);
+            byDeckService.slotContentService.writeSlotContent(deckB, rowsOfB);
             scratchDuringTheCascade = scratchLengths(byDeck);
         };
-        byDeckService.slotContentService.writeBucketMemberSlots(deckA, []);
+        byDeckService.slotContentService.writeSlotContent(deckA, []);
 
         expect(rowOwner.givenBack).toEqual(rowsOfA.map(row => row.key));
         expect(rowsOfA.map(row => row.holdCount)).toEqual([0, 0, 0, 0, 0]);
@@ -76,8 +74,8 @@ describe('what a write gives back when a give back writes again', () => {
         const deckA = byDeckService.holdSlotByKey(byDeck, 'a');
         const rowsOfA = rowsOf('a');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(deckA, rowsOfA);
-        byDeckService.slotContentService.writeBucketMemberSlots(deckA, []);
+        byDeckService.slotContentService.writeSlotContent(deckA, rowsOfA);
+        byDeckService.slotContentService.writeSlotContent(deckA, []);
 
         expect(rowOwner.givenBack.length).toBe(rowsOfA.length);
         expect(scratchLengths(byDeck).every(length => length === 0)).toBe(true);
@@ -87,11 +85,11 @@ describe('what a write gives back when a give back writes again', () => {
         const { byDeckService, byDeck, rowsOf } = createFixture(3);
         const deckA = byDeckService.holdSlotByKey(byDeck, 'a');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(deckA, rowsOf('a'));
+        byDeckService.slotContentService.writeSlotContent(deckA, rowsOf('a'));
 
         expect(scratchLengths(byDeck).every(length => length === 0)).toBe(true);
 
-        byDeckService.slotContentService.clearBucketMemberSlots(deckA);
+        byDeckService.slotContentService.clearSlotContent(deckA);
 
         expect(scratchLengths(byDeck).every(length => length === 0)).toBe(true);
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deckA)).toBe(0);

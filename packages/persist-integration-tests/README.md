@@ -4,8 +4,8 @@ Private cross-package integration tests for the `@oimdb/persist` family. Not pub
 
 They cover what a single package's tests cannot:
 
-- the full SSR cycle across packages: the server persists into an `OIMPersistJsonBackend` and
-  dumps `dehydrate()` as JSON text; the client builds an `OIMPersistJsonBackend` from that dump with
+- the full SSR cycle across packages: the server persists into an `OIMPersistJsonMemoryBackend` and
+  dumps `dehydrate()` as JSON text; the client builds an `OIMPersistJsonMemoryBackend` from that dump with
   `initialPersistJsonDump`, hydrates, and then hydrates a durable `OIMPersistIndexedDbBackend` on top
   with `persistHydrateReconcile: oimReconcileByKey(...)`;
 - that a server render and a client React `hydrateRoot` of the same hydrated state produce the same

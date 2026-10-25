@@ -1,18 +1,19 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card: Card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     const computedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
+        createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
@@ -55,7 +56,7 @@ describe('the holds a derivation took on its roots', () => {
 
     it('leaves a root alone that holds a value', () => {
         const { cardsService, cards, ranksService, ranks } = createFixture();
-        const source = cardsService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 1 });
+        const source = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
         const heldSlot = ranksService.holdSlotByKey(ranks, 'a');
 
         heldSlot.owner.unholdSlot(heldSlot);

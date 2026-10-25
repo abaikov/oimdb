@@ -298,7 +298,7 @@ update.column-vs-field-store-a-patch-per-write   [per write]   7.50x
   unchanged row's `ours` is exactly what a write that MOVES a column does and a write that
   moves nothing does not: one store into the entity, the moved-names array and its push, two
   `channel.write` calls — the row and the population — one `columnSlotStoreService.get` probe
-  for the moved column inside `OIMColumnOwner.markColumnsChanged`, and the frame that closes
+  for the moved column inside `OIMColumnSlotOwner.markColumnsChanged`, and the frame that closes
   the batch. EIGHT PATCH ARRAYS, ONE PER TITLE, so this row moves the column on exactly the
   writes the row above moves it on. The title advances by one of eight per batch and every row
   in a batch is written with the same title, which is the row above's rotation with the shared
@@ -349,7 +349,7 @@ bucket-adds.held.one-bucket-1-adds-with-a-listener   [per row per write]   5.71x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -408,7 +408,7 @@ bucket-adds.unheld.one-bucket-1-adds   [per row per write]   5.08x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -444,7 +444,7 @@ bucket-adds.unheld.one-bucket-1-adds-with-a-listener   [per row per write]   5.0
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -574,7 +574,7 @@ bucket-adds.unheld.8-buckets-one-add-each   [per row per write]   3.69x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -631,7 +631,7 @@ bucket-adds.unheld.64-buckets-one-add-each   [per row per write]   3.36x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -805,7 +805,7 @@ bucket-adds.unheld.one-bucket-8-adds   [per row per write]   2.69x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -853,7 +853,7 @@ bucket-adds.unheld.one-bucket-8-adds-with-a-listener   [per row per write]   2.6
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -886,7 +886,7 @@ bucket-adds.held.one-bucket-8-adds-with-a-listener   [per row per write]   2.40x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -918,7 +918,7 @@ bucket-adds.held.one-bucket-1-adds   [per row per write]   2.19x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -968,7 +968,7 @@ bucket-adds.held.8-buckets-one-add-each   [per row per write]   2.14x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -1000,7 +1000,7 @@ bucket-adds.held.64-buckets-one-add-each   [per row per write]   2.06x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -1026,7 +1026,7 @@ buckets.find-vs-map-get   [per read]   2.00x
   getSlotByKey's minting branch never runs; ours is the public aggregate's forward into
   slotStoreInternalAggregate.getSlotByKey, its store-service get, one `Map.get` and the `===
   undefined` compare against the floor's one `Map.get`. Both sides cycle through all
-  sixty-four addresses. The store `OIMSlotStoreServiceMapDriven` reads is one `Map` and
+  sixty-four addresses. The store `OIMSlotMapStoreService` reads is one `Map` and
   nothing else, so there is no cell to hit or miss.
   measured  2,097,152 ops/pass ours, 6,462,520 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 38.9%/25.6%; load 4.93 → 4.93 on 8 cores
 
@@ -1074,7 +1074,7 @@ bucket-adds.held.one-bucket-64-adds   [per row per write]   1.83x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -1116,7 +1116,7 @@ bucket-adds.held.one-bucket-8-adds   [per row per write]   1.81x
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -1168,7 +1168,7 @@ bucket-adds.unheld.one-bucket-64-adds-with-a-listener   [per row per write]   1.
   check. The floor keeps plain objects and holds nothing. All of that pushes the ratio up,
   against ours. No flush runs inside a pass: the channel has no scheduler and the bucket no
   effect, so nothing asks for a frame and the clock only advances. The bucket collection is
-  built with OIMSlotReleasePolicyNever and the floor's release check mirrors it, keeping an
+  built with OIMSlotNeverReleasePolicy and the floor's release check mirrors it, keeping an
   empty bucket: under the default policy an unheld bucket emptied by the per-pass clear is
   released and unfiled, and the next pass's adds would find no bucket and land nowhere. The
   release check is therefore priced as its tests, never as a release.
@@ -1199,7 +1199,7 @@ bucket-adds.unheld.one-bucket-64-adds   [per row per write]   1.72x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1335,7 +1335,7 @@ bucket-adds.held.one-bucket-64-adds-with-a-listener   [per row per write]   1.39
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1548,7 +1548,7 @@ new-db.vs-the-same-object-graph-by-hand   [per declaration]   1.12x
   whether the price of a database is its OBJECT GRAPH — twenty allocations that a person
   keeping the same state would also have made — or something about the class that carries it.
   This floor allocates the graph and nothing else, read off `OIMDB`, `OIMUnusedSlotCollector`,
-  `OIMChannel` and the default `OIMErrorPolicyLogAndContinue`: the root, the collector and its
+  `OIMChannel` and the default `OIMLogAndContinueErrorPolicy`: the root, the collector and its
   tracked list, the options object `OIMDB` spreads for the channel, the channel, its frame
   record with its handler set, the error policy, the pending-effect list, the clock, the
   subframe-close and after-each-flush sets, the after-each-frame buffer, and the seven bound
@@ -1706,7 +1706,7 @@ chain-address.resolve-vs-nested-map-get   [per read]   0.74x
   ours   buckets.slotStoreAggregate.getSlotByKey([deckSlot, shelfSlot]) on a tree-driven bucket store
   floor  byDeck.get(deck).get(shelf)
   AN ADDRESS OF TWO IDENTITIES AGAINST AN ADDRESS OF TWO STRINGS. Ours walks the composite key
-  tree `OIMSlotStoreServiceTreeDriven` keeps: one `Map.get` keyed by the deck slot, one keyed
+  tree `OIMSlotTreeStoreService` keeps: one `Map.get` keyed by the deck slot, one keyed
   by the shelf slot, then the bucket on the node — object-keyed hashes, no string hashing. The
   floor makes two string-keyed `Map.get`s and an `undefined` test. The key arrays are built
   outside the clock, as a caller holding the two segment identities would hold the pair. Every

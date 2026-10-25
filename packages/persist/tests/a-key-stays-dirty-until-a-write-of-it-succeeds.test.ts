@@ -1,12 +1,12 @@
 import type { TOIMStoreKey } from '@oimdb/core';
 import type { TOIMPersistErrorContext, TOIMPersistErrorHandler } from '../src';
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceRecords,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven,
-    OIMPersistSourceChangeMarkSubscriptionDriven,
+    OIMPersistIdentityCodec,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler,
+    OIMPersistSubscriptionSourceChangeMark,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -21,14 +21,14 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
         onPersistError,
     });
-    persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceCollectionChangeDriven({
+    persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistCollectionChangeWriteRecordSource({
             entityCollectionService, entityStoreSlot, persistEntityWriter,
         }),
-        persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+        persistRecordsService: testPersistBackend.createRecordsStrategy(),
     }));
     persistor.start();
     let revision = 0;
@@ -37,7 +37,7 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
         testPersistBackend,
         touchCards: (...keys: string[]): void => {
             revision++;
-            for (const key of keys) entityCollectionService.slotContentService.upsertEntity(entityStoreSlot, { id: key, title: `${key}@${revision}` });
+            for (const key of keys) entityCollectionService.writeSlotContentByKey(entityStoreSlot, key, { id: key, title: `${key}@${revision}` });
         },
     };
 }
@@ -175,7 +175,7 @@ describe('a clearPersisted whose wipe fails', () => {
         const testPersistBackend = new OIMTestPersistBackend();
         const persistor = new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+            persistScheduler: new OIMPersistMicrotaskScheduler(),
             onPersistError,
         });
         const testPersistSnapshotStrategyByName = new Map(['a', 'b', 'c'].map(name => [
@@ -184,15 +184,15 @@ describe('a clearPersisted whose wipe fails', () => {
         ] as const));
         const persistResourceByName = new Map(Array.from(testPersistSnapshotStrategyByName, ([name, testPersistSnapshotStrategy]) => [
             name,
-            persistor.addPersistResource(new OIMPersistResourceSnapshot({
+            persistor.addPersistResource(new OIMPersistSnapshotResource({
                 persistSnapshotSource: {
                     readSnapshot: (): TCard[] => [],
                     writeSnapshot: () => undefined,
                     subscribeSnapshotChanged: () => () => undefined,
-                    markSourceChanges: () => new OIMPersistSourceChangeMarkSubscriptionDriven({ subscribeSourceChanged: () => () => undefined }),
+                    markSourceChanges: () => new OIMPersistSubscriptionSourceChangeMark({ subscribeSourceChanged: () => () => undefined }),
                 },
-                persistSnapshotStrategy: testPersistSnapshotStrategy,
-                persistCodec: new OIMPersistCodecIdentity<TCard[]>(),
+                persistSnapshotService: testPersistSnapshotStrategy,
+                persistCodec: new OIMPersistIdentityCodec<TCard[]>(),
             })),
         ] as const));
         return {

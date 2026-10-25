@@ -1,26 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../bucket/OIMSlotContentBucketServiceArrayDriven';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceMapDriven } from '../../../engine/store/OIMSlotStoreServiceMapDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSlotMapStoreService } from '../../../engine/store/OIMSlotMapStoreService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 
 describe('an index factory', () => {
     it('records commands on an array-driven index when it is handed bucket commands', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentBucketServiceArrayDriven<TOIMEntitySlot<TCard>>({
+            slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>, string>({
                 bucketCommands: new OIMBucketCommands({}),
             }),
         });
@@ -30,7 +31,7 @@ describe('an index factory', () => {
         let seenCommandCount = -1;
         OIMEffectService.INSTANCE.createEffect(db, [spades], [], () => { seenCommandCount = spades.commands?.length ?? 0; });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'ace', deck: 'spades' });
+        cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades' });
         db.flush();
 
         expect(seenCommandCount).toBe(1);
@@ -38,16 +39,16 @@ describe('an index factory', () => {
 
     it('files its buckets in the bucket slot store service it is handed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const bucketSlotStoreService = new OIMSlotStoreServiceMapDriven<
+        const bucketSlotStoreService = new OIMSlotMapStoreService<
             TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>, string>, string
         >();
         const createStore = jest.spyOn(bucketSlotStoreService, 'createStore');
-        createOIMIndexService(db, {
+        createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>, string>(),
             bucketSlotStoreService,
         }).createIndexStoreSlot(cards);
 

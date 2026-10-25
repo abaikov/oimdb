@@ -1,9 +1,11 @@
 import type { TOIMUnusedSlotCollectorSlot } from './TOIMUnusedSlotCollectorSlot';
-import type { TOIMReleaseSlotCollectorSlot } from './TOIMReleaseSlotCollectorSlot';
+import type { TOIMSlotWheelOptions } from './TOIMSlotWheelOptions';
+import type { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 
 export type TOIMCollectorSlot = {
     readonly unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot;
-    readonly afterIdleReleaseSlotCollectorSlot: TOIMReleaseSlotCollectorSlot;
-    readonly afterWriteReleaseSlotCollectorSlot: TOIMReleaseSlotCollectorSlot;
-    readonly afterUnholdReleaseSlotCollectorSlot: TOIMReleaseSlotCollectorSlot;
+    readonly slotWheelOptions: TOIMSlotWheelOptions;
+    afterIdleSlotReleaseWheel: OIMSlotReleaseWheel | undefined;
+    afterWriteSlotReleaseWheel: OIMSlotReleaseWheel | undefined;
+    afterUnholdSlotReleaseWheel: OIMSlotReleaseWheel | undefined;
 };

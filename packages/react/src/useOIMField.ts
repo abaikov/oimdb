@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type {
-    OIMSlotCollectionService, TOIMEntitySlot, TOIMEntityColumnName, TOIMEntityColumnValue, TOIMDisposer, TOIMSlot,
-    TOIMColumnSlot, TOIMStoreKey,
+    OIMColumnSlotOwner, OIMColumnSlotService, TOIMEntitySlot, TOIMEntityColumnName, TOIMEntityColumnValue, TOIMDisposer,
+    TOIMSlot, TOIMColumnSlot, TOIMStoreKey,
 } from '@oimdb/core';
 import { holdWhileSubscribed } from './holdWhileSubscribed';
 import { oimAssertOneChannel } from './oimAssertOneChannel';
@@ -14,10 +14,14 @@ import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
  * minted INSIDE the subscription, so there is no root slot a binding could name. `slot` is an
  * ENTITY SLOT because an entity slot is what can be taken out from under this component — ../README.md.
  */
-export function useOIMField<TEntity extends object, TName extends TOIMEntityColumnName<TEntity>, TKey = TOIMStoreKey>(
-    entityCollectionService: Pick<
-        OIMSlotCollectionService<TKey, TOIMEntitySlot<TEntity, TKey>, unknown, unknown, TName, TOIMColumnSlot>, 'getColumn'
-    >,
+export function useOIMField<
+    TEntity extends object, TName extends TOIMEntityColumnName<TEntity>, TKey extends NonNullable<unknown> = TOIMStoreKey,
+>(
+    entityCollectionService: {
+        readonly columnSlotService: Pick<
+            OIMColumnSlotService<TOIMEntitySlot<TEntity, TKey>, TName, TOIMColumnSlot, OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot>>, 'getColumn'
+        >;
+    },
     slot: TOIMEntitySlot<TEntity, TKey>,
     name: TName,
 ): TOIMEntityColumnValue<TEntity, TName> | undefined {
@@ -30,7 +34,7 @@ export function useOIMField<TEntity extends object, TName extends TOIMEntityColu
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer =>
                 holdWhileSubscribed(holds, (): TOIMDisposer => snapshotVersion.subscribeEffect(
-                    db, [entityCollectionService.getColumn(slot, name)], [], onStoreChange,
+                    db, [entityCollectionService.columnSlotService.getColumn(slot, name)], [], onStoreChange,
                 )),
         };
     }, [db, entityCollectionService, slot, name]);

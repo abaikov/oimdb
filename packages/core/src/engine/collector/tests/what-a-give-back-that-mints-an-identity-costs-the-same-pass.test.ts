@@ -1,16 +1,17 @@
-import { OIMSlotOwnerService } from '../../slot/OIMSlotOwnerService';
 import { OIMSlotCollectionService } from '../../../facade/slot/OIMSlotCollectionService';
-import { OIMSlotStoreServiceMapDriven } from '../../store/OIMSlotStoreServiceMapDriven';
+import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
-import { createOIMColumnOwnerPushDriven } from '../../column/utils/createOIMColumnOwnerPushDriven';
+import { createOIMPushColumnSlotOwner } from '../../column/utils/createOIMPushColumnSlotOwner';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMDefaults } from '../../../factories/OIMDefaults';
-import type { IOIMSlotContentStrategy } from '../../slot/interfaces/IOIMSlotContentStrategy';
+import type { IOIMSlotContentService } from '../../slot/interfaces/IOIMSlotContentService';
+import type { IOIMKeyedSlotCreator } from '../../slot/interfaces/IOIMKeyedSlotCreator';
+import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
-import type { OIMColumnOwnerPushDriven } from '../../column/OIMColumnOwnerPushDriven';
+import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
@@ -18,19 +19,16 @@ import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 type TToken = { id: TOIMStoreKey; value: string };
 type TTokenSlot = TOIMEntitySlot<TToken, TOIMStoreKey>;
 type TTokenStore = Map<TOIMStoreKey, TTokenSlot>;
-type TTokenOwnerService = OIMSlotOwnerService<
-    TOIMStoreKey, TTokenSlot, TTokenStore, string, TOIMColumnSlot, OIMColumnOwnerPushDriven, TToken
->;
 
-class OIMTokenContentStrategy implements IOIMSlotContentStrategy<TTokenSlot, TOIMStoreKey, TTokenOwnerService> {
+class OIMTokenContentService implements IOIMSlotContentService<TTokenSlot>, IOIMKeyedSlotCreator<TOIMStoreKey, TTokenSlot> {
     public constructor(private readonly whenReleased: () => void) {}
 
-    public createSlot(key: TOIMStoreKey, storeSlot: TOIMStoreSlot | undefined, slotOwnerService: TTokenOwnerService): TTokenSlot {
-        return createOIMEntitySlot<TToken, TOIMStoreKey>(key, slotOwnerService, storeSlot);
+    public createSlot(key: TOIMStoreKey, storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TTokenSlot {
+        return createOIMEntitySlot<TToken, TOIMStoreKey>(key, slotOwner, storeSlot);
     }
 
     public isSlotEmpty(slot: TTokenSlot): boolean {
-        return OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue().isEmpty(slot);
+        return slot.entity === undefined;
     }
 
     public hasReference(): boolean {
@@ -45,20 +43,18 @@ class OIMTokenContentStrategy implements IOIMSlotContentStrategy<TTokenSlot, TOI
 
 class OIMTokenCollection {
     private readonly slotCollectionService: OIMSlotCollectionService<
-        TOIMStoreKey, TTokenSlot, TTokenStore, undefined, string, TOIMColumnSlot, OIMColumnOwnerPushDriven, TToken
+        TOIMStoreKey, TTokenSlot, TTokenStore, OIMTokenContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner, TToken
     >;
 
     private readonly storeSlot: TOIMStoreSlot<TTokenStore, TTokenSlot, TToken>;
 
     public constructor(db: OIMDB, whenReleased: () => void) {
-        const slotStoreService = new OIMSlotStoreServiceMapDriven<TTokenSlot>();
-        const slotOwnerService: TTokenOwnerService = new OIMSlotOwnerService({
-            slotStoreService,
-            slotContentStrategy: new OIMTokenContentStrategy(whenReleased),
-            columnOwnerOptions: { columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() },
-            createColumnOwner: createOIMColumnOwnerPushDriven,
+        this.slotCollectionService = new OIMSlotCollectionService({
+            slotStoreService: new OIMSlotMapStoreService<TTokenSlot>(),
+            slotContentService: new OIMTokenContentService(whenReleased),
+            columnSlotOwnerOptions: { columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() },
+            createColumnSlotOwner: createOIMPushColumnSlotOwner,
         });
-        this.slotCollectionService = new OIMSlotCollectionService({ slotOwnerService, slotStoreService, slotContentService: undefined });
         this.storeSlot = this.slotCollectionService.createStoreSlot(db);
     }
 

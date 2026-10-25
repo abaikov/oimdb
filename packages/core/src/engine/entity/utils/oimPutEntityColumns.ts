@@ -1,10 +1,10 @@
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
 import { oimPatchEntityColumns } from './oimPatchEntityColumns';
 import { oimClearDepartedEntityColumns } from './oimClearDepartedEntityColumns';
 
 export function oimPutEntityColumns(
-    slot: TOIMEntitySlot,
+    slot: TOIMEntityContentSlot,
     entity: object,
     sameValueGuard: TOIMSameValueGuard,
     changedColumnNames: string[] | undefined,

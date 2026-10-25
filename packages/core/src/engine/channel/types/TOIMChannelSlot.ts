@@ -1,6 +1,5 @@
 import type { TOIMEffect } from '../../computed/types/TOIMEffect';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
-import type { IOIMSubframeCloseListener } from '../../slot/interfaces/IOIMSubframeCloseListener';
 import type { TOIMCollectorSlot } from '../../collector/types/TOIMCollectorSlot';
 import type { IOIMErrorPolicy } from '../../error/interfaces/IOIMErrorPolicy';
 import type { TOIMFlushSchedulerSlot } from '../../schedule/types/TOIMFlushSchedulerSlot';
@@ -17,15 +16,8 @@ export type TOIMChannelSlot = TOIMFlushSchedulerSlot & {
     readonly effectChannelQueue: OIMChannelQueue<TOIMEffect>;
     readonly afterEachFlush: Set<() => void>;
     readonly afterEachFrameHandlerChannelQueue: OIMChannelQueue<() => void>;
-    readonly subframeStoreSlotChannelQueues: OIMChannelQueue<TOIMStoreSlot>[];
-    readonly changedStoreSlotChannelQueue: OIMChannelQueue<TOIMStoreSlot>;
-    readonly changedStoreSlotOwnerChannelQueue: OIMChannelQueue<IOIMSubframeCloseListener>;
     commandsStoreSlotChannelQueue: OIMChannelQueue<TOIMStoreSlot> | undefined;
     changedColumnNames: string[] | undefined;
-    subframesOpen: number;
-    contentSubframeDepth: number;
-    subframeDeliveryDepth: number;
-    flushRequestedInSubframe: boolean;
     flushRequested: boolean;
     isFlushing: boolean;
     dropped: boolean;

@@ -1,7 +1,8 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: TOIMStoreKey };
 
@@ -55,7 +56,7 @@ const disagreements = (rule: (had: TOIMStoreKey, next: TOIMStoreKey) => boolean)
  */
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 
@@ -140,7 +141,7 @@ describe('the container answering, at the values a hand-written rule gets wrong'
     it('writes into the identity a hold already resolved at that key', () => {
         const { cardsService, cards } = createFixture();
         const heldSlot = cardsService.holdSlotByKey(cards,Number.NaN);
-        const written = cardsService.slotContentService.upsertEntity(cards, { id: Number.NaN });
+        const written = cardsService.writeSlotContentByKey(cards, Number.NaN, { id: Number.NaN });
 
         expect(written).toBe(heldSlot);
         expect(cardsService.getSlotCount(cards)).toBe(1);

@@ -130,7 +130,7 @@ new-db.vs-the-same-object-graph-by-hand   [per declaration]   1.11x
   whether the price of a database is its OBJECT GRAPH — twenty allocations that a person
   keeping the same state would also have made — or something about the class that carries it.
   This floor allocates the graph and nothing else, read off `OIMDB`, `OIMUnusedSlotCollector`,
-  `OIMChannel` and the default `OIMErrorPolicyLogAndContinue`: the root, the collector and its
+  `OIMChannel` and the default `OIMLogAndContinueErrorPolicy`: the root, the collector and its
   tracked list, the options object `OIMDB` spreads for the channel, the channel, its frame
   record with its handler set, the error policy, the pending-effect list, the clock, the
   subframe-close and after-each-flush sets, the after-each-frame buffer, and the seven bound

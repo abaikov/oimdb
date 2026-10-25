@@ -1,9 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 /** `deckId` is optional, which is what puts it on a model class's prototype. */
 type TCard = { id: string; deckId?: string; title?: string };
@@ -22,18 +23,18 @@ Object.defineProperty(Card.prototype, 'deckId', { value: 'unset', enumerable: tr
 const definedColumnNamesOf = (entity: object | undefined): string[] =>
     Object.entries(entity ?? {}).filter(([, value]) => value !== undefined).map(([name]) => name);
 
-const cardsOn = (db: OIMDB) => createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+const cardsOn = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 
 describe('a name only the prototype supplies does not keep a column, on a collection row', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
         const db = new OIMDB();
         const cardsService = cardsOn(db);
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', deckId: 'd1' }), { id: 'c1', deckId: 'd1' });
         db.flush();
 
         const changed: TOIMEntitySlot<TCard, TOIMStoreKey>[] = [];
-        cardsService.slotContentService.upsertEntity(cards,new Card('c1'), changed);
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)(new Card('c1')), new Card('c1'), changed);
         db.flush();
 
         // `'deckId' in card` is TRUE through the prototype, so an `in` probe
@@ -56,13 +57,13 @@ describe('a name only the prototype supplies does not keep a column, on a collec
         const cards = cardsService.createStoreSlot(db);
         // A stored column called `toString`: `oimIsProtoKey` flags `__proto__`
         // and nothing else, so this is an ordinary column of the row.
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', toString: 'x' } as unknown as TCard);
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', toString: 'x' } as unknown as TCard), { id: 'c1', toString: 'x' } as unknown as TCard);
         db.flush();
         expect(Object.keys(cardsService.getSlotByKey(cards,'c1')?.entity ?? {}).sort())
             .toEqual(['id', 'toString']);
 
         const changed: TOIMEntitySlot<TCard, TOIMStoreKey>[] = [];
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1' }, changed);
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1' }), { id: 'c1' }, changed);
         db.flush();
 
         // No class anywhere: `'toString' in { id: 'c1' }` is true of the plainest
@@ -75,7 +76,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
         const db = new OIMDB();
         const cardsService = cardsOn(db);
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards,{ id: 'c1', deckId: 'd1' });
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', deckId: 'd1' }), { id: 'c1', deckId: 'd1' });
         db.flush();
         const slot = cardsService.getSlotByKey(cards,'c1')!;
         let runCount = 0;
@@ -83,7 +84,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
         db.flush();
         runCount = 0;
 
-        cardsService.slotContentService.upsertEntity(cards,new Card('c1'));
+        cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)(new Card('c1')), new Card('c1'));
         db.flush();
 
         // A departure is a change, and a subscriber that is not told reads a
@@ -96,11 +97,11 @@ describe('a name only the prototype supplies does not keep a column, on a collec
 describe('a name only the prototype supplies does not keep a column, on a standalone record', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleEntityService<TCard>(db);
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { id: 'c1', deckId: 'd1' });
+        recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
 
-        recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), new Card('c1'));
+        recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), new Card('c1'));
 
         expect(recordService.getSingleSlot(record).entity).toEqual({ id: 'c1' });
         expect(definedColumnNamesOf(recordService.getSingleSlot(record).entity)).toEqual(['id']);
@@ -108,27 +109,27 @@ describe('a name only the prototype supplies does not keep a column, on a standa
 
     it('takes away a column named after an `Object.prototype` method', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleEntityService<TCard>(db);
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { id: 'c1', toString: 'x' } as unknown as TCard);
+        recordService.writeSingleSlotContent(record, { id: 'c1', toString: 'x' } as unknown as TCard);
         expect(Object.keys(recordService.getSingleSlot(record).entity ?? {}).sort()).toEqual(['id', 'toString']);
 
-        recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), { id: 'c1' });
+        recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), { id: 'c1' });
 
         expect(definedColumnNamesOf(recordService.getSingleSlot(record).entity)).toEqual(['id']);
     });
 
     it('wakes the readers of the record whose column it took away', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleEntityService<TCard>(db);
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { id: 'c1', deckId: 'd1' });
+        recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
         let runCount = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, [recordService.getSingleSlot(record)], [], () => { runCount++; });
         db.flush();
         runCount = 0;
 
-        recordService.slotContentService.writeEntity(recordService.getSingleSlot(record), new Card('c1'));
+        recordService.slotContentService.writeSlotContent(recordService.getSingleSlot(record), new Card('c1'));
         db.flush();
 
         expect(runCount).toBe(1);

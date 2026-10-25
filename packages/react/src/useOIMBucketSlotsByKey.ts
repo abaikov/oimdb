@@ -3,7 +3,7 @@ import type {
 } from '@oimdb/core';
 import { useOIMSlotByKey } from './useOIMSlotByKey';
 
-export function useOIMBucketSlotsByKey<TEntity extends object, TSlots = unknown, TKey = TOIMStoreKey, TStore = unknown>(
+export function useOIMBucketSlotsByKey<TEntity extends object, TSlots = unknown, TKey extends NonNullable<unknown> = TOIMStoreKey, TStore = unknown>(
     bucketCollectionService: Pick<
         OIMSlotCollectionService<
             TKey, TOIMBucketSlot<TSlots, TKey>, TStore,

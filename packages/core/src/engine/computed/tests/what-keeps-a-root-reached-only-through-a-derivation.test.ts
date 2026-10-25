@@ -1,18 +1,16 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMEffectService } from '../OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; n: number };
 
@@ -25,35 +23,29 @@ const somethingIsListening = (slot: TOIMSlot): boolean =>
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row: TRow) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const byTagService = createOIMBucketService<
-        TOIMEntitySlot<TRow>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow>>,
-        OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>() });
+    const byTagService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
     const byTag = byTagService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
     return { db, flushUnusedSlots, effectService, rowsService, rows, byTagService, byTag };
 };
 
-const derivationOver = (source: TOIMSlot, db: OIMDB): TOIMComputedSlot<number, void> => {
+const derivationOver = (source: TOIMSlot, db: OIMDB): TOIMComputedContentSlot<number> => {
     let ran = 0;
-    const derivationService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
+    const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
     const derivationStore = derivationService.createComputedStoreSlot(
         db,
         () => ++ran,
         () => ({ sourceSlots: [source] }),
     );
-    return derivationService.computedCollectionService.getSlotByKey(derivationStore, undefined);
+    return derivationService.computedSingleSlotService.getSingleSlot(derivationStore);
 };
 
 describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_MAKE_IT_PASS})`, () => {
     it('is held by the effect that never named it, which is what the rest of this file rests on', () => {
         const { db, effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
         const slot = rowsService.getSlotByKey(rows, 'r1') as TOIMEntitySlot<TRow, TOIMStoreKey>;
 

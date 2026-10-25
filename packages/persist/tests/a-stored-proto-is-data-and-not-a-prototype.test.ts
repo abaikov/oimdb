@@ -1,10 +1,10 @@
 import {
-    OIMPersistCodecIdentity,
-    OIMPersistCodecVersioned,
+    OIMPersistIdentityCodec,
+    OIMPersistVersionedCodec,
     OIMPersistKeyValueBackend,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistKeyValuePathStrategy,
-    OIMPersistKeyValueStorageItemDriven,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistKeyValuePathSnapshotService,
+    OIMPersistItemKeyValueStorage,
 } from '../src';
 import { oimDeletePath } from '../src/keyvalue/utils/oimDeletePath';
 import { oimGetPath } from '../src/keyvalue/utils/oimGetPath';
@@ -16,7 +16,7 @@ type TSettings = { theme: string };
 function buildPersistKeyValueBackend() {
     const testKeyValueItemStorage = new OIMTestKeyValueItemStorage();
     const persistKeyValueBackend = new OIMPersistKeyValueBackend({
-        persistKeyValueStorage: new OIMPersistKeyValueStorageItemDriven({ persistKeyValueItemStorage: testKeyValueItemStorage }),
+        persistKeyValueStorage: new OIMPersistItemKeyValueStorage({ persistKeyValueItemStorage: testKeyValueItemStorage }),
     });
     return { itemByStorageKey: testKeyValueItemStorage.itemByStorageKey, persistKeyValueBackend };
 }
@@ -69,27 +69,27 @@ describe('a path walk stays inside the document it was given', () => {
 describe('a key-value path strategy whose path names __proto__', () => {
     it('stores the segment as data through the write batch, and reads it back', async () => {
         const { itemByStorageKey, persistKeyValueBackend } = buildPersistKeyValueBackend();
-        const persistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<TSettings>({
+        const persistKeyValuePathSnapshotService = new OIMPersistKeyValuePathSnapshotService<TSettings>({
             storageKey: 'app',
             path: ['__proto__', 'settings'],
         });
 
         const persistKeyValueWriteBatch = persistKeyValueBackend.createWriteBatch();
-        persistKeyValuePathStrategy.writeSnapshot(persistKeyValueWriteBatch, { theme: 'dark' });
+        persistKeyValuePathSnapshotService.writeSnapshot(persistKeyValueWriteBatch, { theme: 'dark' });
         await persistKeyValueWriteBatch.commit();
 
         expect(itemByStorageKey.get('app')).toBe('{"__proto__":{"settings":{"theme":"dark"}}}');
         expect(({} as { settings?: unknown }).settings).toBeUndefined();
-        expect(await persistKeyValuePathStrategy.readSnapshot(persistKeyValueBackend)).toEqual({ theme: 'dark' });
+        expect(await persistKeyValuePathSnapshotService.readSnapshot(persistKeyValueBackend)).toEqual({ theme: 'dark' });
     });
 
     it('keeps a sibling under a stored __proto__ when a later batch writes next to it', async () => {
         const { itemByStorageKey, persistKeyValueBackend } = buildPersistKeyValueBackend();
-        const settingsPersistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<TSettings>({
+        const settingsPersistKeyValuePathStrategy = new OIMPersistKeyValuePathSnapshotService<TSettings>({
             storageKey: 'app',
             path: ['__proto__', 'settings'],
         });
-        const draftPersistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<TSettings>({
+        const draftPersistKeyValuePathStrategy = new OIMPersistKeyValuePathSnapshotService<TSettings>({
             storageKey: 'app',
             path: ['__proto__', 'draft'],
         });
@@ -109,19 +109,19 @@ describe('a key-value path strategy whose path names __proto__', () => {
 
     it('deletes the stored segment and nothing on Object.prototype', async () => {
         const { itemByStorageKey, persistKeyValueBackend } = buildPersistKeyValueBackend();
-        const persistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<TSettings>({
+        const persistKeyValuePathSnapshotService = new OIMPersistKeyValuePathSnapshotService<TSettings>({
             storageKey: 'app',
             path: ['__proto__', 'plantedByThisTest'],
         });
         const firstPersistKeyValueWriteBatch = persistKeyValueBackend.createWriteBatch();
-        persistKeyValuePathStrategy.writeSnapshot(firstPersistKeyValueWriteBatch, { theme: 'dark' });
+        persistKeyValuePathSnapshotService.writeSnapshot(firstPersistKeyValueWriteBatch, { theme: 'dark' });
         await firstPersistKeyValueWriteBatch.commit();
 
         const prototype = Object.prototype as unknown as Record<string, unknown>;
         prototype.plantedByThisTest = 'still here';
         try {
             const secondPersistKeyValueWriteBatch = persistKeyValueBackend.createWriteBatch();
-            persistKeyValuePathStrategy.deleteSnapshot(secondPersistKeyValueWriteBatch);
+            persistKeyValuePathSnapshotService.deleteSnapshot(secondPersistKeyValueWriteBatch);
             await secondPersistKeyValueWriteBatch.commit();
 
             expect(prototype.plantedByThisTest).toBe('still here');
@@ -129,19 +129,19 @@ describe('a key-value path strategy whose path names __proto__', () => {
             delete prototype.plantedByThisTest;
         }
         expect(itemByStorageKey.get('app')).toBe('{"__proto__":{}}');
-        expect(await persistKeyValuePathStrategy.readSnapshot(persistKeyValueBackend)).toBeUndefined();
+        expect(await persistKeyValuePathSnapshotService.readSnapshot(persistKeyValueBackend)).toBeUndefined();
     });
 });
 
 describe('a write batch that receives a whole value and path writes under the same storage key', () => {
     it('leaves the snapshot objects it was handed unchanged after the commit', async () => {
         const { itemByStorageKey, persistKeyValueBackend } = buildPersistKeyValueBackend();
-        const appPersistKeyValueEntryStrategy = new OIMPersistKeyValueEntryStrategy<Record<string, unknown>>({ storageKey: 'app' });
-        const settingsPersistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<TSettings>({
+        const appPersistKeyValueEntryStrategy = new OIMPersistKeyValueEntrySnapshotService<Record<string, unknown>>({ storageKey: 'app' });
+        const settingsPersistKeyValuePathStrategy = new OIMPersistKeyValuePathSnapshotService<TSettings>({
             storageKey: 'app',
             path: ['settings'],
         });
-        const themePersistKeyValuePathStrategy = new OIMPersistKeyValuePathStrategy<string>({
+        const themePersistKeyValuePathStrategy = new OIMPersistKeyValuePathSnapshotService<string>({
             storageKey: 'app',
             path: ['settings', 'theme'],
         });
@@ -162,17 +162,17 @@ describe('a write batch that receives a whole value and path writes under the sa
 
 describe('a snapshot strategy or codec handed what it cannot honour', () => {
     it('refuses a path strategy with an empty path', () => {
-        expect(() => new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: [] })).toThrow(/path is empty/);
+        expect(() => new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: [] })).toThrow(/path is empty/);
     });
 
     it('refuses to decode a stored version above its own', () => {
-        const persistCodecVersioned = new OIMPersistCodecVersioned<TSettings, TSettings>({
+        const persistVersionedCodec = new OIMPersistVersionedCodec<TSettings, TSettings>({
             version: 1,
             migrations: {},
-            persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+            persistCodec: new OIMPersistIdentityCodec<TSettings>(),
         });
 
-        expect(() => persistCodecVersioned.decode({ version: 2, data: { theme: 'dark' } })).toThrow(/newer than/);
-        expect(persistCodecVersioned.decode({ version: 1, data: { theme: 'dark' } })).toEqual({ theme: 'dark' });
+        expect(() => persistVersionedCodec.decode({ version: 2, data: { theme: 'dark' } })).toThrow(/newer than/);
+        expect(persistVersionedCodec.decode({ version: 1, data: { theme: 'dark' } })).toEqual({ theme: 'dark' });
     });
 });

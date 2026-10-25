@@ -163,7 +163,7 @@ describe('exoPositionalList', () => {
         const applied = [...list.snapshot()];
         list.subscribeOps(op => applyOp(applied, op));
 
-        world.boardService.slotContentService.writeBucketMemberSlots(bucket, [two, one]);
+        world.boardService.slotContentService.writeSlotContent(bucket, [two, one]);
         world.db.flush();
 
         expect(applied).toEqual(['c2', 'c1']);

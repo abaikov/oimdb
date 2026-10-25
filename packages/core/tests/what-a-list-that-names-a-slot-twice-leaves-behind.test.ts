@@ -22,29 +22,26 @@
  */
 import { OIMDB } from '../src/factories/OIMDB';
 import { OIMChannelService } from '../src/engine/channel/OIMChannelService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../src/facade/bucket/OIMSlotContentBucketServiceArrayDriven';
-import { OIMSlotContentBucketServiceSetDriven } from '../src/facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMBucketArrayMembershipUnique } from '../src/engine/bucket/array/OIMBucketArrayMembershipUnique';
-import { createOIMBucketService } from '../src/factories/createOIMBucketService';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
 import type { OIMSlotContentBucketService } from '../src/facade/bucket/OIMSlotContentBucketService';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayUniqueStore';
 import type { TOIMBucketSlotsArrayStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { OIMBucketUniqueMemberSlotsArrayService } from '../src/engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
 
 type Card = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<Card, string>;
 
 const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketService<TCardSlot, TSlots>) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card, 'id' | 'title', string>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMBucketService<
-        TCardSlot, string, TSlots, OIMSlotContentBucketService<TCardSlot, TSlots>
-    >(db, { slotContentService });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService });
     const byDeck = byDeckService.createStoreSlot(db);
-    const card = (id: string): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id, title: id.toUpperCase() });
+    const card = (id: string): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });
     const bucket = byDeckService.holdSlotByKey(byDeck, 'page-1');
     const ids = (): string[] =>
         Array.from(slotContentService.getBucketMemberSlots(bucket)).map(slot => (slot.entity as Card).id);
@@ -54,11 +51,11 @@ const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketServi
     return { cards, cardsService, card, bucket, byDeck, byDeckService, moves, resetMoves, ids };
 };
 
-const createFixture = <TSlots extends TOIMBucketSlotsArrayStore<TCardSlot>>(
-    slotContentService: OIMSlotContentBucketServiceArrayDriven<TCardSlot, TSlots>,
-) => createFixtureOver<TSlots>(slotContentService);
+const createFixture = (
+    slotContentService: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+) => createFixtureOver<TOIMBucketSlotsArrayStore<TCardSlot>>(slotContentService);
 
-const createSetFixture = (slotContentService: OIMSlotContentBucketServiceSetDriven<TCardSlot>) =>
+const createSetFixture = (slotContentService: OIMSlotContentSetBucketService<TCardSlot>) =>
     createFixtureOver<TOIMBucketSlotsSetStore<TCardSlot>>(slotContentService);
 
 afterEach(() => {
@@ -67,11 +64,11 @@ afterEach(() => {
 
 describe('a list read as the caller sent it, on the branch whose order is the caller\'s', () => {
     it('leaves every mention where it was named, and not a deduplicated list', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const { card, bucket, byDeckService, ids } = createFixture<TOIMBucketSlotsArrayStore<TCardSlot>>(service);
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const { card, bucket, byDeckService, ids } = createFixture(service);
         const k3 = card('k3');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [card('k1'), k3, card('k2'), k3]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [card('k1'), k3, card('k2'), k3]);
 
         // The caller's list, verbatim. `writeBucketMemberSlots` does one `drain` and then
         // joins each mention, so nothing lifts the first `k3` out.
@@ -81,29 +78,29 @@ describe('a list read as the caller sent it, on the branch whose order is the ca
     });
 
     it('is not woken by that same list re-sent', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture<TOIMBucketSlotsArrayStore<TCardSlot>>(service);
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture(service);
         const k3 = card('k3');
         const sent = [card('k1'), k3, card('k2'), k3];
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, sent);
+        byDeckService.slotContentService.writeSlotContent(bucket, sent);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, sent.slice());
+        byDeckService.slotContentService.writeSlotContent(bucket, sent.slice());
 
         expect({ moves: moves(), ids: ids() })
             .toEqual({ moves: 0, ids: ['k1', 'k3', 'k2', 'k3'] });
     });
 
     it('IS a change when the repeat is dropped, because a reader sees three rows instead of four', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture<TOIMBucketSlotsArrayStore<TCardSlot>>(service);
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture(service);
         const k1 = card('k1');
         const k2 = card('k2');
         const k3 = card('k3');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [k1, k3, k2, k3]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [k1, k3, k2, k3]);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [k1, k3, k2]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [k1, k3, k2]);
 
         expect(ids()).toEqual(['k1', 'k3', 'k2']);
         expect(moves()).toBeGreaterThan(0);
@@ -117,14 +114,14 @@ describe('a list read as the caller sent it, on the branch whose order is the ca
      * so the write never lands and nobody is told.
      */
     it('lands a repeat added to a list that had none', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture<TOIMBucketSlotsArrayStore<TCardSlot>>(service);
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture(service);
         const a = card('a');
         const b = card('b');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, b]);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, b, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, b, b]);
 
         expect(ids()).toEqual(['a', 'b', 'b']);
         expect(moves()).toBeGreaterThan(0);
@@ -134,33 +131,33 @@ describe('a list read as the caller sent it, on the branch whose order is the ca
 
 describe('a list read as the caller sent it, once each, on the deduplicating service', () => {
     it('keeps the FIRST mention\'s position, because that is the one `add` let through', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>({
-            bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
+            bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
         });
-        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture<TOIMBucketSlotsArrayUniqueStore<TCardSlot>>(service);
+        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture(service);
         const a = card('a');
         const b = card('b');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [b, a, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [b, a, b]);
         expect(ids()).toEqual(['b', 'a']);
         expect(b.holdCount).toBe(1);
 
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [b, a, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [b, a, b]);
         expect({ moves: moves(), ids: ids() }).toEqual({ moves: 0, ids: ['b', 'a'] });
     });
 
     it('is still reordered by a list that names the same slots in another order', () => {
-        const service = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>({
-            bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
+        const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
+            bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
         });
-        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture<TOIMBucketSlotsArrayUniqueStore<TCardSlot>>(service);
+        const { card, bucket, byDeckService, moves, resetMoves, ids } = createFixture(service);
         const a = card('a');
         const b = card('b');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, b]);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [b, a]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [b, a]);
 
         expect(ids()).toEqual(['b', 'a']);
         expect(moves()).toBeGreaterThan(0);
@@ -169,27 +166,27 @@ describe('a list read as the caller sent it, once each, on the deduplicating ser
 
 describe('a list read as a set, on the service that records no second mention', () => {
     it('holds the slot once for two mentions and is not woken by the list re-sent', () => {
-        const service = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
+        const service = new OIMSlotContentSetBucketService<TCardSlot>();
         const { card, bucket, byDeckService, moves, resetMoves } = createSetFixture(service);
         const a = card('a');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, a]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, a]);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, a]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, a]);
 
         expect({ moves: moves(), size: byDeckService.slotContentService.getBucketMemberSlotCount(bucket), holds: a.holdCount })
             .toEqual({ moves: 0, size: 1, holds: 1 });
     });
 
     it('answers the same list in another order as the slots it already holds', () => {
-        const service = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
+        const service = new OIMSlotContentSetBucketService<TCardSlot>();
         const { card, bucket, byDeckService, moves, resetMoves } = createSetFixture(service);
         const a = card('a');
         const b = card('b');
 
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [a, b]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [a, b]);
         resetMoves();
-        byDeckService.slotContentService.writeBucketMemberSlots(bucket, [b, a]);
+        byDeckService.slotContentService.writeSlotContent(bucket, [b, a]);
 
         expect(moves()).toBe(0);
     });

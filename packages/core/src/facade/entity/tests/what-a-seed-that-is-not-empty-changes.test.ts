@@ -1,12 +1,12 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { IOIMSlotStamp } from '../../../engine/slot/interfaces/IOIMSlotStamp';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 type TCard = { id: string; title?: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
@@ -23,10 +23,7 @@ const onlyTheKeyIsLeft = {
 
 const createFixture = () => {
     const db = new OIMDB({ slotStamp: plantTheKey as unknown as IOIMSlotStamp<TOIMSlot> });
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, {
-        keyOf: (card: TCard) => card.id,
-        slotEmptiness: onlyTheKeyIsLeft,
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { slotEmptinessPolicy: onlyTheKeyIsLeft }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -45,7 +42,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
         const { cardsService, cards } = createFixture();
         cardsService.getSlotByKey(cards, 'c1');
 
-        const read = cardsService.slotContentService.findEntityByKey(cards, 'c1');
+        const read = cardsService.findSlotByKey(cards, 'c1')?.entity;
 
         expect(read).toEqual({ id: 'c1' });
     });
@@ -71,7 +68,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
     it('seeds nothing on a find, which files no identity', () => {
         const { cardsService, cards } = createFixture();
 
-        expect(cardsService.slotContentService.findEntityByKey(cards, 'c1')).toBeUndefined();
+        expect(cardsService.findSlotByKey(cards, 'c1')?.entity).toBeUndefined();
         expect(cardsService.getSlotCount(cards)).toBe(0);
     });
 
@@ -88,7 +85,7 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
     it('keeps a row the moment a value lands beside the key', () => {
         const { db, cardsService, cards } = createFixture();
         cardsService.getSlotByKey(cards, 'c1');
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
 
         db.flush();
 
@@ -99,11 +96,11 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
 
     it('puts the seed back on remove, rather than nothing', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const held = cardsService.holdSlotByKey(cards, 'c1');
 
-        cardsService.slotContentService.deleteEntity(held);
+        cardsService.slotContentService.clearSlotContent(held);
 
         expect(held.entity).toEqual({ id: 'c1' });
         expect(oimIsSlotEmpty(held)).toBe(true);
@@ -113,10 +110,10 @@ describe('a seed that is not empty, and an emptiness that knows why', () => {
 
     it('lets the row go once the hold that survived the remove is given back', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const held = cardsService.holdSlotByKey(cards, 'c1');
-        cardsService.slotContentService.deleteEntity(held);
+        cardsService.slotContentService.clearSlotContent(held);
 
         held.owner.unholdSlot(held);
 

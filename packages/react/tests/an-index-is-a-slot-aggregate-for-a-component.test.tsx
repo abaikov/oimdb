@@ -1,20 +1,20 @@
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import {
-    OIMDB, createOIMEntityService, createOIMIndexService,
-} from '@oimdb/core';
+import { OIMDB, createOIMSlotCollectionIndexService } from '@oimdb/core';
 import { OIMDBProvider, useOIMSlotsByKeys, useOIMValue } from '../src/index';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TCard = { id: string; deck: string };
 
 describe('an index passed to useOIMSlotsByKeys', () => {
     it('holds the bucket while mounted and renders its members', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const deckIndexService = createOIMIndexService(db, { entityService: cardsService, columns: ['deck'] });
+        const deckIndexService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: ['deck'] });
         const deckIndex = deckIndexService.createIndexStoreSlot(cards);
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', deck: 'spades' }, { id: 'c2', deck: 'hearts' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'spades' }, { id: 'c2', deck: 'hearts' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
         function Spades(): React.ReactElement {
@@ -30,7 +30,7 @@ describe('an index passed to useOIMSlotsByKeys', () => {
         );
         expect(screen.getByTestId('spades').textContent).toBe('c1');
 
-        act(() => { cardsService.slotContentService.upsertEntity(cards, { id: 'c3', deck: 'spades' }); db.flush(); });
+        act(() => { cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deck: 'spades' }); db.flush(); });
 
         expect(screen.getByTestId('spades').textContent).toBe('c1,c3');
     });

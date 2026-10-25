@@ -68,7 +68,7 @@ function buildAdapter() {
 describe('OIMReduxAdapter child-reducer sync-back', () => {
     test('a custom action handled by the child reducer lands in Redux state and syncs back into the engine', () => {
         const { db, usersService, users, adapter, reducer } = buildAdapter();
-        usersService.slotContentService.upsertEntities(users, [{ id: '1', name: 'Alice', age: 30 }]);
+        usersService.writeInBatch(users, () => ([{ id: '1', name: 'Alice', age: 30 }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const store: Store = createStore(reducer as never);
@@ -96,10 +96,10 @@ describe('OIMReduxAdapter child-reducer sync-back', () => {
 
     test('syncs an entity removed through the child reducer out of the collection', () => {
         const { db, usersService, users, adapter, reducer } = buildAdapter();
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: '1', name: 'Alice', age: 30 },
             { id: '2', name: 'Bob', age: 25 },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const store: Store = createStore(reducer as never);
@@ -113,7 +113,7 @@ describe('OIMReduxAdapter child-reducer sync-back', () => {
 
     test("the middleware's flush reports what it drained, including the sync-back's own writes", () => {
         const { db, usersService, users, adapter, reducer } = buildAdapter();
-        usersService.slotContentService.upsertEntities(users, [{ id: '1', name: 'Alice', age: 30 }]);
+        usersService.writeInBatch(users, () => ([{ id: '1', name: 'Alice', age: 30 }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();
 
         const store: Store = createStore(reducer as never, applyMiddleware(adapter.createMiddleware()));

@@ -9,7 +9,7 @@ const idOf = (slot: TOIMEntitySlot): string => (slot.entity as TCard).id;
 /**
  * The arm of the list fork for an order computed: the script is derived, by
  * `oimOrderedListCommandsOfTransition`, from the derivation
- * `createOIMComputedServiceBucketMemo` files per key or from an index order.
+ * `createOIMBucketMemoComputedService` files per key or from an index order.
  *
  * ONE BASELINE is what every case here is really about. `applied` is both what
  * `snapshot()` answers and the `prev` the diff is taken against, and it moves in
@@ -20,11 +20,11 @@ describe('exoDerivedList', () => {
     it('snapshots the current order and applies incremental ops for a reorder', () => {
         const world = build();
         const orderSlot = world.rankedOrdersService.holdSlotByKey(world.rankedOrders, 'd');
-        world.cardsService.slotContentService.upsertEntities(world.cards, [
+        world.cardsService.writeInBatch(world.cards, () => ([
             { id: 'c3', deckId: 'd', rank: 3, title: 'three' },
             { id: 'c1', deckId: 'd', rank: 1, title: 'one' },
             { id: 'c2', deckId: 'd', rank: 2, title: 'two' },
-        ]);
+        ]).map(entity => world.cardsService.writeSlotContentByKey(world.cards, entity.id, entity)));
         world.db.flush();
 
         const list = exoDerivedList(world.db, orderSlot, idOf);
@@ -48,7 +48,7 @@ describe('exoDerivedList', () => {
         const bucket = world.bucketOf(world.rankedService, world.ranked, 'main');
         const one = world.slotOf({ id: 'c1', deckId: 'd', rank: 1, title: 'one' });
         const two = world.slotOf({ id: 'c2', deckId: 'd', rank: 2, title: 'two' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two]);
         world.db.flush();
 
         const heldSlot = world.orderService.holdSlotByKey(world.order, 'main');
@@ -69,11 +69,11 @@ describe('exoDerivedList', () => {
         list.subscribeOps(op => ops.push(op));
 
         const three = world.slotOf({ id: 'c3', deckId: 'd', rank: 3, title: 'three' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two, three]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two, three]);
         world.db.flush();
         expect(ops).toEqual([{ type: 'insert', index: 2, item: { id: 'c3' } }]);
 
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [two, three]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [two, three]);
         world.db.flush();
         expect(ops).toContainEqual({ type: 'remove', index: 0 });
         expect(list.snapshot().map(row => row.id)).toEqual(['c2', 'c3']);
@@ -97,7 +97,7 @@ describe('exoDerivedList', () => {
         const bucket = world.bucketOf(world.rankedService, world.ranked, 'main');
         const one = world.slotOf({ id: 'c1', deckId: 'd', rank: 1, title: 'one' });
         const two = world.slotOf({ id: 'c2', deckId: 'd', rank: 2, title: 'two' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two]);
         world.db.flush();
 
         const heldSlot = world.orderService.holdSlotByKey(world.order, 'main');
@@ -106,7 +106,7 @@ describe('exoDerivedList', () => {
         // Written, NOT flushed — the ordinary shape of a view built during a
         // batch of writes.
         const three = world.slotOf({ id: 'c3', deckId: 'd', rank: 3, title: 'three' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two, three]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two, three]);
 
         const applied = [...list.snapshot()];
         list.subscribeOps(op => applyOp(applied, op));
@@ -124,11 +124,11 @@ describe('exoDerivedList', () => {
         const bucket = world.bucketOf(world.rankedService, world.ranked, 'main');
         const one = world.slotOf({ id: 'c1', deckId: 'd', rank: 1, title: 'one' });
         const two = world.slotOf({ id: 'c2', deckId: 'd', rank: 2, title: 'two' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two]);
         world.db.flush();
 
         const three = world.slotOf({ id: 'c3', deckId: 'd', rank: 3, title: 'three' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two, three]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two, three]);
 
         const heldSlot = world.orderService.holdSlotByKey(world.order, 'main');
         const list = exoDerivedList(world.db, heldSlot, idOf);
@@ -155,11 +155,11 @@ describe('exoDerivedList', () => {
     it('maps a reset through the same memo, so a reordered list keeps its rows', () => {
         const world = build();
         const orderSlot = world.rankedOrdersService.holdSlotByKey(world.rankedOrders, 'd');
-        world.cardsService.slotContentService.upsertEntities(world.cards, [
+        world.cardsService.writeInBatch(world.cards, () => ([
             { id: 'c1', deckId: 'd', rank: 1, title: 'one' },
             { id: 'c2', deckId: 'd', rank: 2, title: 'two' },
             { id: 'c3', deckId: 'd', rank: 3, title: 'three' },
-        ]);
+        ]).map(entity => world.cardsService.writeSlotContentByKey(world.cards, entity.id, entity)));
         world.db.flush();
 
         let renders = 0;
@@ -204,14 +204,14 @@ describe('exoDerivedList', () => {
         const world = build();
         const bucket = world.bucketOf(world.rankedService, world.ranked, 'main');
         const one = world.slotOf({ id: 'c1', deckId: 'd', rank: 1, title: 'one' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one]);
         world.db.flush();
 
         const heldSlot = world.orderService.holdSlotByKey(world.order, 'main');
         const list = exoDerivedList(world.db, heldSlot, idOf);
 
         const two = world.slotOf({ id: 'c2', deckId: 'd', rank: 2, title: 'two' });
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one, two]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one, two]);
         world.db.flush();
         // Nobody was listening, and the baseline still moved.
         expect(list.snapshot()).toEqual(['c1', 'c2']);
@@ -221,7 +221,7 @@ describe('exoDerivedList', () => {
         list.dispose();
         list.dispose();
 
-        world.rankedService.slotContentService.writeBucketMemberSlots(bucket, [one]);
+        world.rankedService.slotContentService.writeSlotContent(bucket, [one]);
         world.db.flush();
         expect(ops).toHaveLength(0);
         expect(list.snapshot()).toEqual(['c1', 'c2']);

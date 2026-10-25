@@ -50,9 +50,7 @@ functions, `exoRows` re-reads a key array and reconciles by key, while the two
 consumer can apply ops, and `exoRows` when it wants a fresh array.
 
 ```ts setup
-import {
-    OIMDB, createOIMEntityService, createOIMBucketService, createOIMComputedServiceBucketMemo,
-} from '@oimdb/core';
+import { OIMDB, createOIMBucketMemoComputedService, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
     exoBinding, exoSource, exoCombine, exoFollowKey, exoRows, exoDerivedList, exoPositionalList,
@@ -62,18 +60,18 @@ import type { TExoBindable } from '@exodra/reactivity-types';
 type Card = { id: string; title: string; deck: string };
 
 const db = new OIMDB();
-const cardService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
-const byDeckService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const bucket = byDeckService.getSlotByKey(byDeck, 'spades');
-const orderService = createOIMComputedServiceBucketMemo({
+const orderService = createOIMBucketMemoComputedService({
     bucketCollectionService: byDeckService,
 });
 const order = orderService.createBucketMemoStoreSlot(byDeck);
 const orders = orderService.computedCollectionService;
-const boardService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const boardService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
 
 const renderCard = (cardSlot: TOIMEntitySlot): string => String(cardSlot.key);
@@ -162,10 +160,10 @@ const groupFor = (deckId: TOIMStoreKey) => {
 ```
 
 Under the default policy of entity and bucket services,
-`OIMSlotReleasePolicyAtEmpty`, getting this wrong exposes only a **valueless**
+`OIMSlotAtEmptyReleasePolicy`, getting this wrong exposes only a **valueless**
 identity: an empty bucket, a key resolved before its entity arrived, or an
 entity since removed. A slot holding a value is kept by that value. A computed slot
-is different: `OIMComputedService` defaults to `OIMSlotReleasePolicyAtUnhold`
+is different: `OIMComputedService` defaults to `OIMSlotAtUnholdReleasePolicy`
 and never counts as empty, so an unheld, unsubscribed derivation goes whatever it
 holds. That is why every example above holds the computed it binds.
 
@@ -240,8 +238,8 @@ moved nothing.
 ## Lists are a fork, and both arms ship
 
 **Who decides the order** is the whole difference. The engine's order is a
-derivation of entity slots: `createOIMComputedServiceSorted` over an index, or
-`createOIMComputedServiceBucketMemo` over a bucket. The caller's order is a bucket under
+derivation of entity slots: `createOIMSortedComputedService` over an index, or
+`createOIMBucketMemoComputedService` over a bucket. The caller's order is a bucket under
 `OIMBucketCommands`, which keeps the positions it is given. Which arm applies
 depends on which of the two you hand the bridge.
 
@@ -256,8 +254,8 @@ const board = exoPositionalList(db, boardService.slotContentService, boardBucket
 ```
 
 `exoDerivedList(db, computedSlot, render, maxCommandsPerSlot?)` takes a `TOIMComputedSlot` of
-`readonly TOIMEntitySlot[]`, one held from `createOIMComputedServiceSorted`,
-`createOIMComputedServiceBucketMemo`, or a computed service of your own. It reads the list through
+`readonly TOIMEntitySlot[]`, one held from `createOIMSortedComputedService`,
+`createOIMBucketMemoComputedService`, or a computed service of your own. It reads the list through
 `computedSlot.computedValueService.getValueForSlot(computedSlot)`. A frame that
 moved the list costs one `oimOrderedListCommandsOfTransition`: a pass over both lists, a
 longest-increasing-subsequence pass, and `common − LIS` moves, which is the
@@ -267,7 +265,7 @@ optimum. A quiet frame costs nothing, because the effect does not run.
 nothing at all. It takes the bucket collection's **content service**
 (`boardService.slotContentService`), which holds the bucket's slots and its reads. That
 content service must be built with an `OIMBucketCommands` as its `bucketCommands`, which is
-what `createOIMBucketService(db)` gives when you pass no `slotContentService`: its default
+what `createOIMSlotCollectionService(db)` gives when you pass no `slotContentService`: its default
 is the array-driven content service with commands.
 `OIMBucketCommands` recorded `insertBucketMemberSlotAt`,
 `moveBucketMemberSlotToPosition`, `removeBucketMemberSlotRange` and the rest on the bucket slot

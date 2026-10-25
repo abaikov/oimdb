@@ -1,12 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMEffectService } from '../OIMEffectService';
 import type { TOIMEffect } from '../types/TOIMEffect';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; title: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -14,7 +13,7 @@ type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -33,7 +32,7 @@ const slotOf = (
 describe('when an effect is called and when it is not', () => {
     it('an effect is coalesced, one call per frame however many writes landed', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let calls = 0;
@@ -45,7 +44,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('an effect is not called when nothing moved', () => {
         const { db, effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let calls = 0;
@@ -56,11 +55,11 @@ describe('when an effect is called and when it is not', () => {
 
     it('a column effect wakes only when that named column moved', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { titleWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { titleWoke++; });
         updateRow('r1', { title: 'b' });
         db.flush();
         expect(titleWoke).toBe(1);
@@ -68,11 +67,11 @@ describe('when an effect is called and when it is not', () => {
 
     it('a column effect is not woken by another column\'s write', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { titleWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { titleWoke++; });
         updateRow('r1', { n: 5 });
         db.flush();
         expect(titleWoke).toBe(0);
@@ -80,7 +79,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('the whole-slot effect still wakes for both columns', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let wholeWoke = 0;
@@ -98,8 +97,8 @@ describe('when an effect is called and when it is not', () => {
         // through the door that does: `hold`.
         const heldSlot = rowsService.holdSlotByKey(rows, 'r1');
         let titleWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(heldSlot, 'title')], [], () => { titleWoke++; });
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(heldSlot, 'title')], [], () => { titleWoke++; });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         expect(titleWoke).toBe(1);
         heldSlot.owner.unholdSlot(heldSlot);
@@ -107,7 +106,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('a column effect wakes when a slot is removed — all its columns count as moved', () => {
         const { db, effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let titleWoke = 0;
@@ -115,8 +114,8 @@ describe('when an effect is called and when it is not', () => {
         // effect on the slot is a reference, and the value is not the only thing
         // that keeps a slot filed.
         const keep = effectService.createEffect(db, [slot], [], () => { /* held */ });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { titleWoke++; });
-        rowsService.slotContentService.deleteEntity(slot);
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { titleWoke++; });
+        rowsService.slotContentService.clearSlotContent(slot);
         db.flush();
         expect(titleWoke).toBe(1);
         effectService.disposeEffect(keep);
@@ -124,7 +123,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('detach stops an effect', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let calls = 0;
@@ -137,11 +136,11 @@ describe('when an effect is called and when it is not', () => {
 
     it('detach stops a column effect', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let calls = 0;
-        const effect = effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { calls++; });
+        const effect = effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { calls++; });
         effectService.disposeEffect(effect);
         updateRow('r1', { title: 'zzz' });
         db.flush();
@@ -150,14 +149,14 @@ describe('when an effect is called and when it is not', () => {
 
     it('detaching twice is harmless, for both kinds of effect', () => {
         const { db, effectService, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         // `dispose` splices by identity and skips a list it is not in, and the
         // second call arrives at an owner holding an identity that has already
         // been given back — which is declined rather than acted on.
         const onSlot = effectService.createEffect(db, [slot], [], () => { /* nothing */ });
-        const onColumn = effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { /* nothing */ });
+        const onColumn = effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { /* nothing */ });
         expect(() => {
             effectService.disposeEffect(onSlot); effectService.disposeEffect(onSlot);
             effectService.disposeEffect(onColumn); effectService.disposeEffect(onColumn);
@@ -166,7 +165,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('an effect built from inside a body is not run in that same frame', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let lateRan = 0;
@@ -186,7 +185,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('a body that swaps a stale binding for a fresh one does not get the fresh one called in that frame', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let freshRan = 0;
@@ -215,7 +214,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('an effect built before a batch of two writes is told once, and not again on the empty frame after', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let runCount = 0;
@@ -231,7 +230,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('a column effect built after a write in the same batch is not told about that write, only about the next one', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         // Something already reads the whole slot, which is the ordinary state of
@@ -243,7 +242,7 @@ describe('when an effect is called and when it is not', () => {
         // Subscribed after the write and before the flush: the timing of a
         // reader subscribing in response to the render that write caused.
         let titleWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { titleWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { titleWoke++; });
         db.flush();
 
         expect(wholeWoke).toBe(1);
@@ -256,14 +255,14 @@ describe('when an effect is called and when it is not', () => {
 
     it('the same for one effect over several columns at once: nothing from the batch it was built behind', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         updateRow('r1', { title: 'b' });
         let runCount = 0;
         effectService.createEffect(
             db,
-            (['title', 'n'] as const).map((name) => rowsService.getColumn(slot, name)),
+            (['title', 'n'] as const).map((name) => rowsService.columnSlotService.getColumn(slot, name)),
             [],
             () => { runCount++; },
         );
@@ -277,12 +276,12 @@ describe('when an effect is called and when it is not', () => {
 
     it('that late column effect is told nothing whichever column moved, and is exact from the next frame', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         updateRow('r1', { n: 5 });
         let titleWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { titleWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { titleWoke++; });
         db.flush();
         expect(titleWoke).toBe(0);
 
@@ -297,7 +296,7 @@ describe('when an effect is called and when it is not', () => {
 
     it('an effect detached by an earlier effect in the same frame is skipped', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'a', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'a', n: 0 });
         db.flush();
         const slot = slotOf(rowsService, rows,'r1');
         let victimRan = 0;
@@ -331,15 +330,13 @@ describe('when an effect is called and when it is not', () => {
      */
     it('wakes a slot and a bucket alike, and answers for both from one list', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        const byTitleService = createOIMBucketService<
-            TRowSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentBucketServiceSetDriven<TRowSlot>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TRowSlot>() });
+        const byTitleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
         const byTitle = byTitleService.createStoreSlot(db);
         // The shape a screen holds: the bucket at a key, minted through a door
         // that leaves a counted reference behind.
         const acesSlot = byTitleService.holdSlotByKey(byTitle, 'ace');
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'ace', n: 0 });
-        byTitleService.slotContentService.writeBucketMemberSlots(acesSlot, [slotOf(rowsService, rows,'r1')]);
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'ace', n: 0 });
+        byTitleService.slotContentService.writeSlotContent(acesSlot, [slotOf(rowsService, rows,'r1')]);
         db.flush();
 
         let rowWoke = 0;
@@ -348,7 +345,7 @@ describe('when an effect is called and when it is not', () => {
         effectService.createEffect(db, [acesSlot], [], () => { bucketWoke++; });
 
         updateRow('r1', { title: 'king' });
-        byTitleService.slotContentService.writeBucketMemberSlots(acesSlot, []);
+        byTitleService.slotContentService.writeSlotContent(acesSlot, []);
         db.flush();
 
         expect([rowWoke, bucketWoke]).toEqual([1, 1]);

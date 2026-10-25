@@ -127,15 +127,10 @@ describe('what a getter hands to the collector', () => {
 
     it('is the whole list of ways an identity gets filed, so a new one cannot hide behind a getter', () => {
         expect(mints.map(signature).sort()).toEqual([
-            'engine/column/OIMColumnOwner.ts getColumn',
-            'engine/column/OIMColumnOwner.ts holdColumn',
-            'engine/column/OIMColumnOwner.ts mintUnfiledColumnSlot',
-            'engine/computed/OIMSlotContentComputedStrategy.ts createSlot',
-            'engine/entity/OIMSlotContentEntityService.ts constructor',
-            'engine/entity/OIMSlotContentEntityService.ts fillEachEntity',
-            'engine/entity/OIMSlotContentEntityService.ts insertEntity',
-            'engine/slot/OIMSlotOwnerService.ts createSlot',
-            'facade/bucket/OIMSlotContentBucketService.ts constructor',
+            'engine/column/OIMColumnSlotOwner.ts getColumn',
+            'engine/column/OIMColumnSlotOwner.ts holdColumn',
+            'engine/column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
+            'engine/entity/OIMSlotContentEntityService.ts createSlot',
             'facade/bucket/OIMSlotContentBucketService.ts createSlot',
             'facade/slot/OIMSingleSlotService.ts getSingleSlot',
             'facade/slot/OIMSingleSlotService.ts holdSingleSlot',
@@ -143,6 +138,7 @@ describe('what a getter hands to the collector', () => {
             'facade/slot/OIMSlotCollectionService.ts getSlotByKey',
             'facade/slot/OIMSlotCollectionService.ts holdSlotByKey',
             'facade/slot/OIMSlotCollectionService.ts mintSlotByKey',
+            'facade/slot/OIMWritableSlotCollectionService.ts writeSlotContentByKey',
         ]);
     });
 
@@ -151,7 +147,7 @@ describe('what a getter hands to the collector', () => {
         const untracked = gettersThatMint.filter(method => !TRACKS.test(method.body));
 
         expect(gettersThatMint.map(signature).sort()).toEqual([
-            'engine/column/OIMColumnOwner.ts getColumn',
+            'engine/column/OIMColumnSlotOwner.ts getColumn',
             'facade/slot/OIMSingleSlotService.ts getSingleSlot',
             'facade/slot/OIMSlotCollectionService.ts getSlotByKey',
         ]);
@@ -166,19 +162,15 @@ describe('what a getter hands to the collector', () => {
             .sort();
 
         expect(unnamed).toEqual([
-            'engine/column/OIMColumnOwner.ts holdColumn',
-            'engine/column/OIMColumnOwner.ts mintUnfiledColumnSlot',
-            'engine/computed/OIMSlotContentComputedStrategy.ts createSlot',
-            'engine/entity/OIMSlotContentEntityService.ts constructor',
-            'engine/entity/OIMSlotContentEntityService.ts fillEachEntity',
-            'engine/entity/OIMSlotContentEntityService.ts insertEntity',
-            'engine/slot/OIMSlotOwnerService.ts createSlot',
-            'facade/bucket/OIMSlotContentBucketService.ts constructor',
+            'engine/column/OIMColumnSlotOwner.ts holdColumn',
+            'engine/column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
+            'engine/entity/OIMSlotContentEntityService.ts createSlot',
             'facade/bucket/OIMSlotContentBucketService.ts createSlot',
             'facade/slot/OIMSingleSlotService.ts holdSingleSlot',
             'facade/slot/OIMSingleSlotService.ts mintSingleSlot',
             'facade/slot/OIMSlotCollectionService.ts holdSlotByKey',
             'facade/slot/OIMSlotCollectionService.ts mintSlotByKey',
+            'facade/slot/OIMWritableSlotCollectionService.ts writeSlotContentByKey',
         ]);
     });
 
@@ -191,13 +183,13 @@ describe('what a getter hands to the collector', () => {
             .sort();
 
         expect(borrowers).toEqual([
-            'engine/column/OIMColumnOwner.ts getAnyColumn',
-            'facade/index/OIMIndexService.ts getAnyBucketColumnByKey',
-            'facade/index/OIMIndexService.ts getBucketColumnByKey',
-            'facade/index/OIMIndexService.ts getEntitiesByKey',
-            'facade/index/OIMIndexService.ts getSlotByKey',
-            'facade/index/OIMIndexService.ts getSlotsByKeys',
-            'facade/slot/OIMSlotColumnService.ts getColumn',
+            'engine/column/OIMColumnSlotOwner.ts getAnyColumn',
+            'facade/column/OIMColumnSlotService.ts getColumn',
+            'facade/index/OIMSlotCollectionIndexService.ts getAnyBucketColumnByKey',
+            'facade/index/OIMSlotCollectionIndexService.ts getBucketColumnByKey',
+            'facade/index/OIMSlotCollectionIndexService.ts getEntitiesByKey',
+            'facade/index/OIMSlotCollectionIndexService.ts getSlotByKey',
+            'facade/index/OIMSlotCollectionIndexService.ts getSlotsByKeys',
         ]);
     });
 });

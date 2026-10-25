@@ -1,12 +1,13 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
 import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
 import { oimInsertEntityWithSanitizedCopy } from '../utils/oimInsertEntityWithSanitizedCopy';
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import type { TOIMEntityInsertStrategy } from '../types/TOIMEntityInsertStrategy';
+import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 
 type TRow = { id: string; n: number; label?: string };
 
@@ -61,33 +62,27 @@ const cases: readonly TCase[] = [
     },
 ];
 
-const spreadWithoutDeletingTheKey: TOIMEntityInsertStrategy = <TEntity extends object>(
-    slot: TOIMEntitySlot<TEntity>, entity: TEntity,
+const spreadWithoutDeletingTheKey: TOIMEntityInserter = <TEntity extends object>(
+    slot: TOIMEntityContentSlot<TEntity>, entity: TEntity,
 ): void => {
-    (slot as TOIMSlotEditable<TOIMEntitySlot<TEntity>>).entity = { ...entity };
+    (slot as TOIMSlotEditable<TOIMEntityContentSlot<TEntity>>).entity = { ...entity };
 };
 
-const rowsFilledBy = (entityInsertStrategy: TOIMEntityInsertStrategy) => {
+const rowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMEntityService<TRow>(db, {
-        keyOf: (row: TRow) => row.id,
-        entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy }),
-    });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
-const replacingRowsFilledBy = (entityInsertStrategy: TOIMEntityInsertStrategy) => {
+const replacingRowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMEntityService<TRow>(db, {
-        keyOf: (row: TRow) => row.id,
-        entityWriter: createOIMEntityWriterReplacing({ entityInsertStrategy }),
-    });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMEntityWriterReplacing({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
-const storedBy = (entityInsertStrategy: TOIMEntityInsertStrategy, handed: TRow): TRow => {
-    const { rowsService, rows } = rowsFilledBy(entityInsertStrategy);
-    return rowsService.slotContentService.upsertEntity(rows, handed).entity as TRow;
+const storedBy = (entityInserter: TOIMEntityInserter, handed: TRow): TRow => {
+    const { rowsService, rows } = rowsFilledBy(entityInserter);
+    return rowsService.writeSlotContentByKey(rows, handed.id, handed).entity as TRow;
 };
 
 describe('what an own __proto__ key on an inserted row becomes', () => {
@@ -125,7 +120,7 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
 
     it('is absent after a PATCH on a row inserted through the sanitized copy', () => {
         const { rowsService, rows } = replacingRowsFilledBy(oimInsertEntityWithSanitizedCopy);
-        rowsService.slotContentService.upsertEntity(rows,JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
+        rowsService.writeSlotContentByKey(rows, (JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow).id, JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
 
         const stored = rowsService.slotContentService.updateEntity(rowsService.findSlotByKey(rows, 'r1')!, { n: 2 }).entity as TRow;
 
@@ -136,9 +131,9 @@ describe('what an own __proto__ key on an inserted row becomes', () => {
 
     it('is gone from the row the sanitized arm stores, and from every write after it', () => {
         const { rowsService, rows } = replacingRowsFilledBy(oimInsertEntityWithSanitizedCopy);
-        rowsService.slotContentService.upsertEntity(rows,JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
+        rowsService.writeSlotContentByKey(rows, (JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow).id, JSON.parse(`{"id":"r1","n":1,"label":"l","${PROTO_KEY}":{"polluted":true}}`) as TRow);
 
-        const stored = rowsService.slotContentService.upsertEntity(rows,{ id: 'r1', n: 2 }).entity as TRow;
+        const stored = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 }).entity as TRow;
 
         expect(Object.getOwnPropertyNames(stored)).toEqual(['id', 'n', 'label']);
         expect(stored.label).toBeUndefined();

@@ -1,24 +1,20 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
-import { OIMErrorPolicyLogAndContinue } from '../../error/OIMErrorPolicyLogAndContinue';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
-import type { TOIMSingleSlotStore } from '../../store/types/TOIMSingleSlotStore';
+import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TCard = { id: string; n: number };
 
 const createFixture = () => {
-    const db = new OIMDB({ errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: () => undefined }) });
+    const db = new OIMDB({ errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: () => undefined }) });
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const failing = cardsService.slotContentService.upsertEntity(cards, { id: 'failing', n: 0 });
-    const other = cardsService.slotContentService.upsertEntity(cards, { id: 'other', n: 0 });
-    const constantOfOtherComputedService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    });
+    const failing = cardsService.writeSlotContentByKey(cards, 'failing', { id: 'failing', n: 0 });
+    const other = cardsService.writeSlotContentByKey(cards, 'other', { id: 'other', n: 0 });
+    const constantOfOtherComputedService = createOIMSingleComputedService<number>();
     const constantOfOther = constantOfOtherComputedService.createComputedStoreSlot(
         db,
         () => 0,
@@ -31,7 +27,7 @@ const createFixture = () => {
     };
     return {
         db, effectService, updateCard, failing, constantOfOther,
-        constantOfOtherService: constantOfOtherComputedService.computedCollectionService,
+        constantOfOtherService: constantOfOtherComputedService.computedSingleSlotService,
     };
 };
 
@@ -44,7 +40,7 @@ describe('what an effect that threw does next', () => {
         const { db, effectService, updateCard, failing, constantOfOther, constantOfOtherService } = createFixture();
         let throwNext = false;
         const seen: number[] = [];
-        effectService.createEffect(db, [failing], [constantOfOtherService.holdSlotByKey(constantOfOther, undefined)], () => {
+        effectService.createEffect(db, [failing], [constantOfOtherService.holdSingleSlot(constantOfOther)], () => {
             if (throwNext) { throwNext = false; throw new Error('the body failed'); }
             seen.push(failing.entity?.n ?? -1);
         });
@@ -75,7 +71,7 @@ describe('what an effect that threw does next', () => {
     it('a body that succeeds after a wake from an unchanged computed is not run for it', () => {
         const { db, effectService, updateCard, failing, constantOfOther, constantOfOtherService } = createFixture();
         let runs = 0;
-        effectService.createEffect(db, [failing], [constantOfOtherService.holdSlotByKey(constantOfOther, undefined)], () => { runs++; });
+        effectService.createEffect(db, [failing], [constantOfOtherService.holdSingleSlot(constantOfOther)], () => { runs++; });
         updateCard('failing', { n: 1 });
         db.flush();
         runs = 0;

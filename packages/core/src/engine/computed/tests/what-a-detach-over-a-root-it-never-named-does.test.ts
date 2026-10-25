@@ -1,28 +1,24 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type Card = { id: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', rank: 1 });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1 });
     db.flush();
     const slot = cardsService.getSlotByKey(cards, 'c1');
-    const rankComputedService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard: oimSameValueZeroGuard,
-    });
+    const rankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
     const rank = rankComputedService.createComputedStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
-    const rankSlot = rankComputedService.computedCollectionService.getSlotByKey(rank, undefined);
+    const rankSlot = rankComputedService.computedSingleSlotService.getSingleSlot(rank);
     return { db, effectService, cardsService, cards, slot, rankSlot };
 };
 
@@ -34,7 +30,7 @@ describe('an effect reaching a root through a derivation', () => {
         expect(slot.holdCount).toBe(2);
         expect(slot.effects?.length).toBe(1);
 
-        cardsService.slotContentService.deleteEntity(slot);
+        cardsService.slotContentService.clearSlotContent(slot);
         expect(oimIsSlotReleased(slot)).toBe(false);
 
         effectService.disposeEffect(effect);
@@ -50,7 +46,7 @@ describe('an effect reaching a root through a derivation', () => {
         expect(slot.effects?.length).toBe(1);
 
         held.owner.unholdSlot(held);
-        cardsService.slotContentService.deleteEntity(slot);
+        cardsService.slotContentService.clearSlotContent(slot);
         expect(oimIsSlotReleased(slot)).toBe(false);
 
         expect(() => { effectService.disposeEffect(effect); }).not.toThrow();

@@ -1,5 +1,5 @@
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
-import type { TOIMEntityInsertStrategy } from '../types/TOIMEntityInsertStrategy';
+import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 
 import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { oimClearEntity } from '../utils/oimClearEntity';
@@ -16,8 +16,9 @@ import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntity
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 
-const patchNames = (writer: IOIMEntityWriter, slot: TOIMEntitySlot, patch: object): string[] => {
+const patchNames = (writer: IOIMEntityWriter, slot: TOIMEntityContentSlot, patch: object): string[] => {
     const changedColumnNames: string[] = [];
     writer.patchEntity(slot, patch, changedColumnNames);
     return changedColumnNames;
@@ -53,13 +54,13 @@ const replacingGuarded = createOIMEntityWriterReplacing(guardedPatch);
 const arms: readonly { name: string; writeService: IOIMEntityWriter; guardedWriteService: IOIMEntityWriter }[] = [
     {
         name: 'createOIMEntityWriterInPlace',
-        writeService: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy }),
-        guardedWriteService: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
+        writeService: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithSanitizedCopy }),
+        guardedWriteService: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
     },
     {
         name: 'createOIMEntityWriterReplacing',
-        writeService: createOIMEntityWriterReplacing({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy }),
-        guardedWriteService: createOIMEntityWriterReplacing({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
+        writeService: createOIMEntityWriterReplacing({ entityInserter: oimInsertEntityWithSanitizedCopy }),
+        guardedWriteService: createOIMEntityWriterReplacing({ entityInserter: oimInsertEntityWithSanitizedCopy, ...guardedPatch }),
     },
 ];
 
@@ -391,7 +392,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
 }
 
 describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
-    const fillDefiningAnOwnProtoKey: TOIMEntityInsertStrategy = (slot, entity) => {
+    const fillDefiningAnOwnProtoKey: TOIMEntityInserter = (slot, entity) => {
         const stored = { ...entity } as Record<string, unknown>;
         Object.defineProperty(stored, '__proto__', {
             value: { injected: true }, enumerable: true, writable: true, configurable: true,
@@ -408,7 +409,7 @@ describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
     }
 
     it('leaves an own `__proto__` on the row with no door to take it off', () => {
-        const writeService = createOIMEntityWriterInPlace({ entityInsertStrategy: fillDefiningAnOwnProtoKey });
+        const writeService = createOIMEntityWriterInPlace({ entityInserter: fillDefiningAnOwnProtoKey });
         const slot = filledSlot(writeService, { id: 'k1', title: 'A' });
         expect(Object.prototype.hasOwnProperty.call(slot.entity as object, '__proto__')).toBe(true);
 

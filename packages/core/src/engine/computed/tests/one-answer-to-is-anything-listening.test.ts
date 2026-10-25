@@ -1,12 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -21,7 +19,7 @@ const somethingIsListening = (slot: TOIMSlot): boolean =>
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
     return { db, effectService, cardsService, cards };
 };
@@ -82,10 +80,7 @@ describe('one answer to "is anything listening"', () => {
     // `OIMSlotOwnerService.releaseSlotIfUnheld` over the emptiness the bucket injects.
     it('lets a bucket go once its last effect leaves, with the empty list still on it', () => {
         const { db, effectService } = createFixture();
-        const byTitleService = createOIMBucketService<
-            TOIMEntitySlot<TCard>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>() });
+        const byTitleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
         const byTitle = byTitleService.createStoreSlot(db);
         const spadesSlot = byTitleService.holdSlotByKey(byTitle, 'spades');
         const effect = effectService.createEffect(db, [spadesSlot], [], () => { /* held */ });

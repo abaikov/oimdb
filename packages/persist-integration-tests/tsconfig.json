@@ -15,5 +15,6 @@
       "@oimdb/persist-idb": ["../persist-idb/src/index.ts"]
     }
   },
-  "include": ["tests"]
+  "include": ["tests"],
+  "exclude": []
 }

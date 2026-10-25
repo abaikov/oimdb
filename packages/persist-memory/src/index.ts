@@ -1,5 +1,5 @@
 export { OIMPersistMemoryBackend } from './OIMPersistMemoryBackend';
 export { OIMPersistMemoryWriteBatch } from './OIMPersistMemoryWriteBatch';
-export { OIMPersistMemorySnapshotStrategy } from './OIMPersistMemorySnapshotStrategy';
-export { OIMPersistMemoryRecordsStrategy } from './OIMPersistMemoryRecordsStrategy';
-export type { TOIMPersistMemoryStrategyOptions } from './types/TOIMPersistMemoryStrategyOptions';
+export { OIMPersistMemorySnapshotService } from './OIMPersistMemorySnapshotService';
+export { OIMPersistMemoryRecordsService } from './OIMPersistMemoryRecordsService';
+export type { TOIMPersistMemoryServiceOptions } from './types/TOIMPersistMemoryServiceOptions';

@@ -1,26 +1,21 @@
 import { OIMDB } from '../../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../../factories/createOIMBucketService';
-import { OIMSlotContentBucketServiceArrayDriven } from '../../../../facade/bucket/OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../../../../facade/bucket/OIMSlotContentPositionalArrayBucketService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string };
 type TCardSlot = TOIMEntitySlot<Card>;
-type TSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 
 const REFUSAL = 'a position must be a whole number';
 
 const openBucket = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const cardSlot = (id: string): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id });
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const pageService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const cardSlot = (id: string): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const pageService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const page = pageService.createStoreSlot(db);
     const bucketSlot = pageService.holdSlotByKey(page, 'page');
     for (const id of ['a', 'b', 'c']) membersService.addBucketMemberSlot(bucketSlot, cardSlot(id));
@@ -82,15 +77,13 @@ describe('what a position that is not a whole number does', () => {
 
     it('keeps the row, its hold and the bucket untouched when a collection door is refused', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const pageService = createOIMBucketService<
-            TCardSlot, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-        >(db, { slotContentService: membersService });
+        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const pageService = createOIMSlotCollectionService(db, { slotContentService: membersService });
         const page = pageService.createStoreSlot(db);
         const bucket = pageService.holdSlotByKey(page, 'p');
-        const first = cardsService.slotContentService.upsertEntity(cards, { id: 'a' });
+        const first = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         membersService.insertBucketMemberSlotAt(bucket, 0, first);
         db.flush();
         const holdsBefore = first.holdCount;

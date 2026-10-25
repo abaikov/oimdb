@@ -365,7 +365,7 @@ update.column-vs-field-store-a-patch-per-write   [per write]   9.39x
   moves nothing does not: one store into the entity, the moved-names array and its push, two
   `OIMChannelService.write` calls — the row and the population — one
   `columnSlotStoreService.get` probe for the moved column inside
-  `OIMColumnOwner.markColumnsChanged`, and the frame that closes the batch. EIGHT PATCH
+  `OIMColumnSlotOwner.markColumnsChanged`, and the frame that closes the batch. EIGHT PATCH
   ARRAYS, ONE PER TITLE, so this row moves the column on exactly the writes the row above
   moves it on. The title advances by one of eight per batch and every row in a batch is
   written with the same title, which is the row above's rotation with the shared object
@@ -377,7 +377,7 @@ update.column-vs-field-store-a-patch-per-write   [per write]   9.39x
   measured  1,515,050 ops/pass ours, 26,192,570 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 0.9%/2.5%; load 3.53 → 3.53 on 8 cores
 
 release-after-idle.64-per-sweep   [per row per write]   8.95x
-  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 64 new keys under OIMSlotReleasePolicyAfterIdle; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
+  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 64 new keys under OIMSlotAfterIdleReleasePolicy; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
   floor  the same entities set into a Map, each key and its due time pushed onto a FIFO queue, the clock moved past the window, and the queue drained from its head deleting every due key from the Map
   One operation is one entity inserted under a new key and later released when its idle window
   has passed; the id names how many entities one sweep inserts before the clock jumps. Both
@@ -452,7 +452,7 @@ update.unchanged-vs-field-store   [per write]   6.49x
   measured  4,612,540 ops/pass ours, 26,121,344 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 15.3%/5.4%; load 3.36 → 3.57 on 8 cores
 
 release-after-idle.1024-per-sweep   [per row per write]   6.01x
-  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 1024 new keys under OIMSlotReleasePolicyAfterIdle; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
+  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 1024 new keys under OIMSlotAfterIdleReleasePolicy; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
   floor  the same entities set into a Map, each key and its due time pushed onto a FIFO queue, the clock moved past the window, and the queue drained from its head deleting every due key from the Map
   One operation is one entity inserted under a new key and later released when its idle window
   has passed; the id names how many entities one sweep inserts before the clock jumps. Both
@@ -547,7 +547,7 @@ bucket-adds.unheld.one-bucket-1-adds-with-a-listener   [per row per write]   4.4
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -576,7 +576,7 @@ sweep.poll-unchanged.in-place-default   [per write]   4.31x
   measured  453,772 ops/pass ours, 1,913,834 floor; 9 samples; warm-up 21 planned, 21/21 reached; spread 1.8%/1.6%; load 1.70 → 1.70 on 8 cores
 
 new-index-service.vs-new-map-of-sets   [per declaration]   4.28x
-  ours   createOIMIndexService(db, { entityService, slotContentService: new OIMSlotContentBucketServiceSetDriven(), keyOf: row => row.group })
+  ours   createOIMSlotCollectionIndexService(db, { entityService, slotContentService: new OIMSlotContentSetBucketService(), keyOf: row => row.group })
   floor  new Map() of Sets, empty
   THE INDEX TYPE ALONE: no store slot is made, so no listener is installed and no row is
   walked; `index.hold-every-group-of-a-loaded-population-vs-hand-built-map` is where the
@@ -626,7 +626,7 @@ sweep.poll-unchanged.one-index-declared   [per write]   4.05x
   arm takes the flat path and opens none. THE HASH IS ON BOTH SIDES: ours calls `keyOf` and
   the store's `get`, the floor calls `byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes a
   batch that queued nothing. AN INDEX LISTENS AND IS NEVER REACHED. This arm carries one
-  `OIMIndexService` store slot over `group` with every bucket held, so the collection has a
+  `OIMSlotCollectionIndexService` store slot over `group` with every bucket held, so the collection has a
   content-change listener; a write that lands nothing never calls it. [FIGURE STATED IN
   ADVANCE] Expect this arm to be indistinguishable from the un-indexed one within both rows'
   noise. The floor keeps no groups on this arm either, so the index is charged entirely to us.
@@ -676,7 +676,7 @@ bucket-adds.held.one-bucket-1-adds-with-a-listener   [per row per write]   4.03x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -684,7 +684,7 @@ bucket-adds.held.one-bucket-1-adds-with-a-listener   [per row per write]   4.03x
   measured  118,120 ops/pass ours, 950,694 floor; 9 samples; warm-up 26 planned, 26/26 reached; spread 6.6%/1.6%; load 2.88 → 3.69 on 8 cores
 
 release-after-idle.1-per-sweep   [per row per write]   3.73x
-  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 1 new keys under OIMSlotReleasePolicyAfterIdle; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
+  ours   entityService.slotContentService.upsertEntity(entityStoreSlot, entity) for 1 new keys under OIMSlotAfterIdleReleasePolicy; db.flush(); the clock moved past the window; OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot)
   floor  the same entities set into a Map, each key and its due time pushed onto a FIFO queue, the clock moved past the window, and the queue drained from its head deleting every due key from the Map
   One operation is one entity inserted under a new key and later released when its idle window
   has passed; the id names how many entities one sweep inserts before the clock jumps. Both
@@ -751,9 +751,9 @@ sweep.grouped-column.index-in-place   [per write]   3.47x
   measured  150,290 ops/pass ours, 532,432 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 2.1%/1.6%; load 1.70 → 1.70 on 8 cores
 
 update.indexed-column-vs-hand-index   [per write]   3.42x
-  ours   slotContentService.updateEntity(slot, { group }) — an OIMIndexService store slot over `group` re-files the row
+  ours   slotContentService.updateEntity(slot, { group }) — an OIMSlotCollectionIndexService store slot over `group` re-files the row
   floor  delete from the old Set, store the column, add to the new Set
-  THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. The `OIMIndexService` store
+  THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. The `OIMSlotCollectionIndexService` store
   slot hears its source collection through a content-change listener: `updateEntity` marks the
   row, the listener reads the key the row was last filed under from the row's own `indexKeys`
   cell, compares it with `keyOf(entity)` and moves the slot with `removeBucketMemberSlotByKey`
@@ -794,13 +794,13 @@ graph.derived-collection.bulk-read-column.n128   [per frame]   3.30x
   measured  2,048 ops/pass ours, 8,150 floor; 9 samples; warm-up 23 planned, 23/23 reached; spread 0.5%/2.3%; load 2.26 → 2.26 on 8 cores
 
 order.resort-within-a-bucket-vs-sorted-array-splice   [per row per write]   3.09x
-  ours   entityService.slotContentService.updateEntity(slot, { rank }), then sortedComputedService.computedCollectionService.slotContentService.getValueForSlot(sortedComputed) — createOIMComputedServiceSorted createSortedStoreSlot over an index store slot (createIndexStoreSlot), sortColumns [rank asc]
+  ours   entityService.slotContentService.updateEntity(slot, { rank }), then sortedComputedService.computedCollectionService.slotContentService.getValueForSlot(sortedComputed) — createOIMSortedComputedService createSortedStoreSlot over an index store slot (createIndexStoreSlot), sortColumns [rank asc]
   floor  swap the ranks, then indexOf/splice out and upperBound/splice in, on a sorted array
   AN ENTITY MOVES WITHIN ITS GROUP, NOTHING JOINS OR LEAVES. A frame swaps the ranks of band
   `m` and band `m + 64` in every one of the sixty-four groups for 4 values of `m`, so each
   group of 128 sees 8 movers. OURS IS THE SHIPPED ORDER: an index store slot over `group`
-  (`createOIMIndexService` with `OIMSlotContentBucketServiceSetDriven`) and a
-  `createOIMComputedServiceSorted` and its `createSortedStoreSlot` over it with `sortColumns:
+  (`createOIMSlotCollectionIndexService` with `OIMSlotContentSetBucketService`) and a
+  `createOIMSortedComputedService` and its `createSortedStoreSlot` over it with `sortColumns:
   [{ column: 'rank', direction: 'asc' }]`, one sorted computed held per group. NOTHING IS
   REPORTED BY HAND: `updateEntity` hands the index the changed columns, the index writes the
   group's `rank` bucket column slot, and that slot is a source of the group's sorted computed.
@@ -841,7 +841,7 @@ graph.subscription.build.d64   [per relationship]   3.03x
   dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
   measured as what subscribing costs. Ours builds ONE OIMComputedService per side outside the
   clock and, per node inside it, one createComputedStoreSlot over
-  OIMSlotStoreServiceSingleSlotDriven with its own derive and createSources: a store slot per
+  OIMSingleSlotStoreService with its own derive and createSources: a store slot per
   relationship, not a service per node. Each node then mints its slot, holds its sources,
   merges the root list the effect subscribes to and subscribes the effect to the root and the
   head; disposal unsubscribes, and the flush that ends the operation releases every node,
@@ -873,7 +873,7 @@ sweep.grouped-column.manual-positional   [per write]   3.00x
   count. THE ADDRESS IS RESOLVED THE SAME WAY ON BOTH SIDES: one `getSlotByKey` per end of the
   move, which is the hash the floor pays as `byGroup.get(next)`. THE OLD GROUP IS READ OFF THE
   STORED ROW BEFORE THE WRITE LANDS, which a caller holding the slot can always do. THIS ARM
-  TAKES THE POSITIONAL DOOR on an `OIMSlotContentBucketServiceArrayDriven`, so the caller owns
+  TAKES THE POSITIONAL DOOR on an `OIMSlotContentPositionalArrayBucketService`, so the caller owns
   the order: `getBucketMemberSlotPosition` finds the member in the bucket it is leaving — an
   `indexOf` over that group — `removeBucketMemberSlotAt` splices it out, and
   `insertBucketMemberSlotAt` at `getBucketMemberSlotCount` appends it to the one it joins. It
@@ -919,7 +919,7 @@ bucket-adds.unheld.one-bucket-1-adds   [per row per write]   2.93x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -965,7 +965,7 @@ graph.subscription.build.d1   [per relationship]   2.86x
   dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
   measured as what subscribing costs. Ours builds ONE OIMComputedService per side outside the
   clock and, per node inside it, one createComputedStoreSlot over
-  OIMSlotStoreServiceSingleSlotDriven with its own derive and createSources: a store slot per
+  OIMSingleSlotStoreService with its own derive and createSources: a store slot per
   relationship, not a service per node. Each node then mints its slot, holds its sources,
   merges the root list the effect subscribes to and subscribes the effect to the root and the
   head; disposal unsubscribes, and the flush that ends the operation releases every node,
@@ -1006,7 +1006,7 @@ graph.subscription.build.d8   [per relationship]   2.74x
   dispose the effect. ARCHITECTURAL POINT: build at subscription against lazy linking,
   measured as what subscribing costs. Ours builds ONE OIMComputedService per side outside the
   clock and, per node inside it, one createComputedStoreSlot over
-  OIMSlotStoreServiceSingleSlotDriven with its own derive and createSources: a store slot per
+  OIMSingleSlotStoreService with its own derive and createSources: a store slot per
   relationship, not a service per node. Each node then mints its slot, holds its sources,
   merges the root list the effect subscribes to and subscribes the effect to the root and the
   head; disposal unsubscribes, and the flush that ends the operation releases every node,
@@ -1055,7 +1055,7 @@ bucket-adds.unheld.8-buckets-one-add-each   [per row per write]   2.72x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1089,7 +1089,7 @@ bucket-adds.held.one-bucket-1-adds   [per row per write]   2.51x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1124,7 +1124,7 @@ bucket-adds.unheld.64-buckets-one-add-each   [per row per write]   2.51x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1159,7 +1159,7 @@ bucket-adds.held.8-buckets-one-add-each   [per row per write]   2.43x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1184,7 +1184,7 @@ flush.empty-vs-noop   [per frame]   2.41x
   measured  18,529,620 ops/pass ours, 44,200,186 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 13.4%/3.8%; load 3.18 → 3.18 on 8 cores
 
 remove.indexed-vs-hand-index   [per write]   2.41x
-  ours   slotContentService.deleteEntity(slot) with one OIMIndexService store slot over `group`
+  ours   slotContentService.deleteEntity(slot) with one OIMSlotCollectionIndexService store slot over `group`
   floor  map.delete(id) and Set.delete(row) from the group it was in
   Ours finds the bucket to leave through the key the row's own `indexKeys` cell carries — one
   cell read and one bucket-store `Map.get` — where the floor hashes the id and then hashes the
@@ -1225,7 +1225,7 @@ bucket-adds.held.one-bucket-8-adds-with-a-listener   [per row per write]   2.34x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1264,7 +1264,7 @@ bucket-adds.unheld.one-bucket-8-adds-with-a-listener   [per row per write]   2.3
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1299,7 +1299,7 @@ bucket-adds.held.64-buckets-one-add-each   [per row per write]   2.25x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1314,7 +1314,7 @@ new-db.vs-the-same-object-graph-by-hand   [per declaration]   2.21x
   whether the price of a database is its OBJECT GRAPH — twenty allocations that a person
   keeping the same state would also have made — or something about the class that carries it.
   This floor allocates the graph and nothing else, read off `OIMDB`, `OIMUnusedSlotCollector`,
-  `OIMChannel` and the default `OIMErrorPolicyLogAndContinue`: the root, the collector and its
+  `OIMChannel` and the default `OIMLogAndContinueErrorPolicy`: the root, the collector and its
   tracked list, the options object `OIMDB` spreads for the channel, the channel, its frame
   record with its handler set, the error policy, the pending-effect list, the clock, the
   subframe-close and after-each-flush sets, the after-each-frame buffer, and the seven bound
@@ -1361,7 +1361,7 @@ bucket-adds.held.one-bucket-8-adds   [per row per write]   2.16x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1407,7 +1407,7 @@ bucket-adds.held.one-bucket-64-adds   [per row per write]   2.12x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1475,7 +1475,7 @@ bucket-adds.unheld.one-bucket-8-adds   [per row per write]   2.01x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1488,12 +1488,12 @@ index.hold-every-group-of-a-loaded-population-vs-hand-built-map   [per declarati
   THE ENGINE WALKS THE POPULATION AGAIN, SO THIS IS A DECLARATION ONCE MORE. It replaces
   `index-fill.over-a-loaded-population-vs-hand-built-map`, whose caller did the walk and the
   per-bucket write because the index of that day touched no population; the auto-index files
-  every row it can see into a bucket the moment the bucket is minted (`OIMIndexService`'s
+  every row it can see into a bucket the moment the bucket is minted (`OIMSlotCollectionIndexService`'s
   source-slot collection, through `collectBucketMemberSlotsForKey`), so a `holdSlotsByKeys`
   over all sixty-four groups is one walk of the thousand rows, one `keyOf` per row, one
   index-key write per row and one hold per row. No figure recorded under the old id attaches
   to this one. THE INDEX SERVICE IS BUILT ONCE OUTSIDE THE CLOCK, so the type is not in this
-  number: `new-index-service.vs-new-map-of-sets` prices `createOIMIndexService` on its own.
+  number: `new-index-service.vs-new-map-of-sets` prices `createOIMSlotCollectionIndexService` on its own.
   BOTH SIDES BUILD AND THEN GIVE BACK INSIDE THE CLOCK: ours disposes the index store slot —
   which drops its listener, releases its index-key position (a second walk of the population,
   clearing each row's cell) and clears every bucket, unholding each row — and then unholds the
@@ -1530,7 +1530,7 @@ bucket-adds.unheld.one-bucket-64-adds   [per row per write]   1.91x
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1580,7 +1580,7 @@ bucket-adds.unheld.one-bucket-64-adds-with-a-listener   [per row per write]   1.
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -1595,7 +1595,7 @@ buckets.find-vs-map-get   [per read]   1.84x
   getSlotByKey's minting branch never runs; ours is `OIMSlotCollectionService.getSlotByKey`
   into its slot store service's get, one `Map.get` and the `=== undefined` compare against the
   floor's one `Map.get`. Both sides cycle through all sixty-four addresses. The store
-  `OIMSlotStoreServiceMapDriven` reads is one `Map` and nothing else, so there is no cell to
+  `OIMSlotMapStoreService` reads is one `Map` and nothing else, so there is no cell to
   hit or miss.
   measured  2,097,152 ops/pass ours, 6,286,146 floor; 9 samples; warm-up 24 planned, 24/24 reached; spread 3.6%/9.3%; load 3.92 → 3.92 on 8 cores
 
@@ -1621,7 +1621,7 @@ graph.coalescing.batched.k16   [per frame]   1.83x
   measured  175,064 ops/pass ours, 338,002 floor; 9 samples; warm-up 25 planned, 25/25 reached; spread 37.4%/1.5%; load 1.97 → 1.97 on 8 cores
 
 insert-gap.the-bucket-join   [per row per write]   1.77x
-  ours   slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSlotContentBucketServiceSetDriven
+  ours   slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSlotContentSetBucketService
   floor  the same loop with no row set kept at all
   WHAT A ROW SET OF EVERY INSERTED SLOT COSTS TO MAINTAIN, and it is charged to us alone:
   `baseline-array` keeps no such list, so the floor arm here is the honest shape of not having
@@ -1688,7 +1688,7 @@ bucket-adds.held.one-bucket-64-adds-with-a-listener   [per row per write]   1.70
   member's hold and runs each member's release check. The floor keeps plain objects and holds
   nothing. All of that pushes the ratio up, against ours. No flush runs inside a pass: the
   channel has no scheduler and the bucket no effect, so nothing asks for a frame and the clock
-  only advances. The bucket collection is built with OIMSlotReleasePolicyNever and the floor's
+  only advances. The bucket collection is built with OIMSlotNeverReleasePolicy and the floor's
   release check mirrors it, keeping an empty bucket: under the default policy an unheld bucket
   emptied by the per-pass clear is released and unfiled, and the next pass's adds would find
   no bucket and land nowhere. The release check is therefore priced as its tests, never as a
@@ -2603,7 +2603,7 @@ chain-address.resolve-vs-nested-map-get   [per read]   0.80x
   ours   bucketService.getSlotByKey(bucketStoreSlot, [deckSlot, shelfSlot]) on a tree-driven bucket store
   floor  byDeck.get(deck).get(shelf)
   AN ADDRESS OF TWO IDENTITIES AGAINST AN ADDRESS OF TWO STRINGS. Ours walks the composite key
-  tree `OIMSlotStoreServiceTreeDriven` keeps: one `Map.get` keyed by the deck slot, one keyed
+  tree `OIMSlotTreeStoreService` keeps: one `Map.get` keyed by the deck slot, one keyed
   by the shelf slot, then the bucket on the node — object-keyed hashes, no string hashing. The
   floor makes two string-keyed `Map.get`s and an `undefined` test. The key arrays are built
   outside the clock, as a caller holding the two segment identities would hold the pair. Every

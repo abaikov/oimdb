@@ -1,5 +1,5 @@
 import type { Store } from 'redux';
-import { OIMChannelService, OIMDB, OIMErrorPolicyThrowAtOnce } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMThrowAtOnceErrorPolicy } from '@oimdb/core';
 import { applyMiddleware, createStore } from 'redux';
 import type {
     TOIMReduxDefaultCollectionState,
@@ -48,7 +48,7 @@ const countFramesEnded = (db: OIMDB): (() => number) => {
 };
 
 function buildWorld(withLinkedIndex: boolean) {
-    const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+    const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
     const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
     const decks = decksService.createStoreSlot(db);
     const cardsService = entityServiceOf<TCard>(db,card => card.id);
@@ -57,11 +57,11 @@ function buildWorld(withLinkedIndex: boolean) {
     const cardsByDeck = cardsByDeckService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
 
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', title: 'Ace' },
         { id: 'c2', title: 'King' },
-    ]);
-    decksService.slotContentService.upsertEntity(decks, { id: 'd1', name: 'Starter', cardIds: ['c1'] });
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+    decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: ['c1'] });
 
     const linkedIndexes: ReadonlyArray<TOIMReduxLinkedIndex<TDeck, TCard>> = [
         {
@@ -179,15 +179,15 @@ describe('what a dispatch made after a frame is allowed to write', () => {
 
 describe('what the channel refuses to the frame tail directly', () => {
     test('an after-each-frame handler writing to a collection', () => {
-        const db = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+        const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
         const cardsService = entityServiceOf<TCard>(db,card => card.id);
         const cards = cardsService.createStoreSlot(db);
         const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
         const decks = decksService.createStoreSlot(db);
 
-        decksService.slotContentService.upsertEntity(decks, { id: 'd1', name: 'Starter', cardIds: [] });
+        decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: [] });
         OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => {
-            cardsService.slotContentService.upsertEntity(cards, { id: 'c9', title: 'Nine' });
+            cardsService.writeSlotContentByKey(cards, 'c9', { id: 'c9', title: 'Nine' });
         });
         updateEntityByKey(decksService, decks,'d1', { name: 'Renamed' });
 
@@ -207,7 +207,7 @@ describe('what the channel refuses to the frame tail directly', () => {
     test('onBeforeFlush writing to a collection, the door the docs call the last accepted moment', () => {
         let writeFromBeforeFlush: () => void = () => { return; };
         const db = new OIMDB({
-            errorPolicy: new OIMErrorPolicyThrowAtOnce(),
+            errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             onBeforeFlush: () => { writeFromBeforeFlush(); },
         });
         const cardsService = entityServiceOf<TCard>(db,card => card.id);
@@ -215,8 +215,8 @@ describe('what the channel refuses to the frame tail directly', () => {
         const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
         const decks = decksService.createStoreSlot(db);
 
-        decksService.slotContentService.upsertEntity(decks, { id: 'd1', name: 'Starter', cardIds: [] });
-        writeFromBeforeFlush = () => { cardsService.slotContentService.upsertEntity(cards, { id: 'c9', title: 'Nine' }); };
+        decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: [] });
+        writeFromBeforeFlush = () => { cardsService.writeSlotContentByKey(cards, 'c9', { id: 'c9', title: 'Nine' }); };
 
         const escaped = whatEscaped(() => { db.flush(); });
 

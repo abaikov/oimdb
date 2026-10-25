@@ -2,11 +2,12 @@ import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMStoreSlot } from '../types/TOIMStoreSlot';
 import type { TOIMChannelSlot } from '../../channel/types/TOIMChannelSlot';
 
-export function createOIMStoreSlot<TStore, TSlot extends TOIMSlot, TPatch>(
-    store: TStore, channelSlot: TOIMChannelSlot, sourceStoreSlot?: TOIMStoreSlot,
-): TOIMStoreSlot<TStore, TSlot, TPatch> {
+export function createOIMStoreSlot<TStore, TSlot extends TOIMSlot, TPatch, TSlotService>(
+    store: TStore, channelSlot: TOIMChannelSlot, slotService: TSlotService, sourceStoreSlot?: TOIMStoreSlot,
+): TOIMStoreSlot<TStore, TSlot, TPatch, TSlotService> {
     return {
         store,
+        slotService,
         channelSlot,
         contentChangeListeners: undefined,
         contentChangeListenerReadColumnNames: undefined,
@@ -17,10 +18,10 @@ export function createOIMStoreSlot<TStore, TSlot extends TOIMSlot, TPatch>(
         columnGroupSlotCountsByKey: undefined,
         columnReadersByColumnName: undefined,
         anyColumnSlotCount: 0,
-        subframeSlotChannelQueues: undefined,
-        subframePatchChannelQueues: undefined,
-        subframeChangedColumnsChannelQueues: undefined,
-        changedBucketSlotChannelQueue: undefined,
+        batchDepth: 0,
+        batchSlotChannelQueue: undefined,
+        batchPatchChannelQueue: undefined,
+        batchChangedColumnsChannelQueue: undefined,
         arrivedBucketMemberSlotChannelQueues: undefined,
         departedBucketMemberSlotChannelQueues: undefined,
         removedAtChannelQueues: undefined,

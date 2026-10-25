@@ -54,7 +54,7 @@ Measured 2026-10-22 on node v24.16.0, Apple M1, 8 cores, 100,000 rows per row of
   reference in the array holding it, and its numeric value. It does not include the entities,
   which are the same on both sides of the subtraction.
 - **What it does not cover.** A derivation with a different fan-in, or one whose value is a list
-  (`createOIMComputedServiceBucketMemo`), is a different figure: the source array grows with the
+  (`createOIMBucketMemoComputedService`), is a different figure: the source array grows with the
   fan-in, and a list is dominated by its own array.
 - **The per-slot readings row is a model.** It prices the arm of the clock fork that does not
   ship, so it is the cost the shipped global stamps avoid, about a quarter of a derivation

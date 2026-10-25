@@ -209,13 +209,15 @@ export class OIMReduxReducerFactory {
                         collectEntitiesByName<TEntity>(defaultState.entities, reduxEntityKeysDiff.updated)
                     );
                     if (entitiesToUpsert.length > 0) {
-                        entityService.slotContentService.upsertEntities(entityStoreSlot, entitiesToUpsert);
+                        entityService.writeInBatch(entityStoreSlot, () => {
+                            for (const entity of entitiesToUpsert) entityService.writeSlotContentByKey(entityStoreSlot, keyOf(entity), entity);
+                        });
                     }
 
                     // Removal walks the IDENTITIES, never `reduxEntityKeysDiff.removed` — those
                     // are string keys, and a numeric population would remove
-                    // nothing. THE WALK ONLY COLLECTS: `delete` edits the store for
-                    // an unheld entity slot, so the deletes run after it, in one call.
+                    // nothing. THE WALK ONLY COLLECTS: `clearSlotContent` edits the store for
+                    // an unheld entity slot, so the clears run after it, in one batch.
                     const removedPks: TOIMStoreKey[] = [];
                     const removedSlots: TOIMEntitySlot<TEntity, TOIMStoreKey>[] = [];
                     for (const entitySlot of entityService.getSlots(entityStoreSlot)) {
@@ -224,7 +226,11 @@ export class OIMReduxReducerFactory {
                         removedPks.push(entitySlot.key);
                         removedSlots.push(entitySlot);
                     }
-                    if (removedSlots.length > 0) entityService.slotContentService.deleteEntities(entityStoreSlot, removedSlots);
+                    if (removedSlots.length > 0) {
+                        entityService.writeInBatch(entityStoreSlot, () => {
+                            for (const removedSlot of removedSlots) entityService.slotContentService.clearSlotContent(removedSlot);
+                        });
+                    }
 
                     if (
                         reduxCollectionReducerChildOptions.linkedIndexes &&
@@ -364,13 +370,13 @@ export class OIMReduxReducerFactory {
             for (let j = 0; j < entry.ids.length; j++) {
                 entitySlots.push(keyedIndex.entityService.getSlotByKey(keyedIndex.entityStoreSlot, entry.ids[j]));
             }
-            bucketContentService.writeBucketMemberSlots(bucketService.getSlotByKey(keyedIndex.bucketStoreSlot, entry.id), entitySlots);
+            bucketContentService.writeSlotContent(bucketService.getSlotByKey(keyedIndex.bucketStoreSlot, entry.id), entitySlots);
         }
 
         for (const filedBucketSlot of bucketService.getSlots(keyedIndex.bucketStoreSlot)) {
             if (seen.has(filedBucketSlot.key)) continue;
             if (bucketContentService.getBucketMemberSlotCount(filedBucketSlot) === 0) continue;
-            bucketContentService.writeBucketMemberSlots(filedBucketSlot, []);
+            bucketContentService.writeSlotContent(filedBucketSlot, []);
         }
     }
 
@@ -425,7 +431,7 @@ export class OIMReduxReducerFactory {
                             globalIndex.entityService.getSlotByKey(globalIndex.entityStoreSlot, defaultState.ids[i])
                         );
                     }
-                    globalIndex.bucketService.slotContentService.writeBucketMemberSlots(globalIndex.bucketSlot, entitySlots);
+                    globalIndex.bucketService.slotContentService.writeSlotContent(globalIndex.bucketSlot, entitySlots);
                 },
             },
         }).reduce;

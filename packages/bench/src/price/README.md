@@ -127,7 +127,7 @@ A LAZY variant is a third design and is NOT priced here: renumber on the first p
 
 ### What the rejected arm is built on
 
-The positions map is `OIMBucketSlotsServiceArrayDriven` over a hand-written `IOIMBucketArrayMembership` whose store carries a `Map` to positions, renumbered on every structural edit, `moveToPosition` and `moveRangeToPosition` included. Ours is the shipped service over `OIMBucketArrayMembershipUnique`. Nothing in the timed bodies subscribes to the bucket.
+The positions map is `OIMSlotContentPositionalArrayBucketService` with a member slots service whose store carries a `Map` to positions, renumbered on every structural edit, moves included, and a `getBucketMemberSlotPosition` that reads it. Ours is the same bucket with the shipped `OIMBucketUniqueMemberSlotsArrayService`. Nothing in the timed bodies subscribes to the bucket.
 
 ## alternativePairsLegacyPosts
 
@@ -216,13 +216,13 @@ SHARING BETWEEN CONSUMERS IS THE SAME AXIS AS READS PER WRITE, measured once: si
         10 000      44 ns   1 749 ns
         50 000      63 ns   4 723 ns
 
-plus "Both iterate at around 2 ns per element". NO SCRIPT, NO LOG, NO ARTIFACT stands behind any of it. `alternativePairsMutator.ts` was the measurement those numbers never had. IT IS NOT THAT MEASUREMENT ANY MORE: the operation the four rows were stated about — one `remove` and one `add` driven by a derived source — has no door in the shipped surface, and a whole-bucket `writeBucketMemberSlots` on BOTH halves is what is left. The iteration sentence is still checked, unchanged, by the fifth row. THE READINGS RECORDED UNDER `alt.remove-member.unordered-vs-ordered.*` IN `packages/bench/measurements/2026-08-20-alternatives/mutator` — for the 100, 1k and 10k rows — PRICED THAT OTHER OPERATION. The sizes are kept even though the table's "ours flat, the floor growing" shape is no longer checkable, because the container difference is still a function of the bucket and a single size would be a row that picked its own answer.
+plus "Both iterate at around 2 ns per element". NO SCRIPT, NO LOG, NO ARTIFACT stands behind any of it. `alternativePairsMutator.ts` was the measurement those numbers never had. IT IS NOT THAT MEASUREMENT ANY MORE: the operation the four rows were stated about — one `remove` and one `add` driven by a derived source — has no door in the shipped surface, and a whole-bucket `writeSlotContent` on BOTH halves is what is left. The iteration sentence is still checked, unchanged, by the fifth row. THE READINGS RECORDED UNDER `alt.remove-member.unordered-vs-ordered.*` IN `packages/bench/measurements/2026-08-20-alternatives/mutator` — for the 100, 1k and 10k rows — PRICED THAT OTHER OPERATION. The sizes are kept even though the table's "ours flat, the floor growing" shape is no longer checkable, because the container difference is still a function of the bucket and a single size would be a row that picked its own answer.
 
 ### Neither side here is a rejected design, and every ratio is a lower bound
 
 Both services are exported and documented, and only the ordered one answers "which slot is third". So a ratio here is a PRICE and never a verdict. OURS IS THE UNORDERED SERVICE on all five rows, so a row at 0.05x reads "the order costs twenty times what going without it does" and sorts to the bottom of a worst-first table rather than to the top, where it would read as a regression.
 
-The reconciliation inside `writeBucketMemberSlots`, the mark, the flush and the read are IDENTICAL IN SHAPE on the two sides and inside both numbers, so every ratio is pulled toward 1.00 and is a LOWER BOUND. The two absolute nanosecond figures are not pulled anywhere; their DIFFERENCE is the container difference.
+The reconciliation inside `writeSlotContent`, the mark, the flush and the read are IDENTICAL IN SHAPE on the two sides and inside both numbers, so every ratio is pulled toward 1.00 and is a LOWER BOUND. The two absolute nanosecond figures are not pulled anywhere; their DIFFERENCE is the container difference.
 
 ### Why the sweep repeats quickly, and what the counts rest on
 
@@ -230,7 +230,7 @@ An ordered removal's cost is a function of position, and the estimator is the mi
 
 THE SWAP IS AN INVARIANT: every page holds one slot of every band, for ever, at the position the band is numbered with. That is what lets a caveat state an operation count instead of an adjective, and it is checked rather than argued.
 
-A slot-list write that changes nothing is not a short row, it is a FAST one: `writeBucketMemberSlots` returns `false` without marking when its reconciliation finds nothing arrived and nothing departed, so both halves would time a frame in which nothing moved. This suite has already published a wrong number that way.
+A slot-list write that changes nothing is not a short row, it is a FAST one: `writeSlotContent` returns `false` without marking when its reconciliation finds nothing arrived and nothing departed, so both halves would time a frame in which nothing moved. This suite has already published a wrong number that way.
 
 ## alternativePairsSettle
 
@@ -321,8 +321,8 @@ ours and calling the result a subscription cost.
 ### The write path's rejected designs
 
 Every row hands a writer (`IOIMEntityWriter`) or a subclass to the SHIPPED
-`OIMEntityCollection`, so the rejected design is driven through the same
-`updateEntity` or `upsertEntity` as the one it lost to. Each floor holds the shipped walk's
+entity content service, so the rejected design is driven through the same
+`updateEntity` or `writeSlotContentByKey` as the one it lost to. Each floor holds the shipped walk's
 own helpers — `oimIsProtoKey`, `oimIsPlain`, `oimOwnedColumnNames`,
 `OIM_FROZEN_EMPTY_COLUMN_NAMES` — imported from `packages/core/src/engine/entity/`, so
 a row differs by the one thing it is named after. `changedColumns`, the detection half
@@ -407,7 +407,7 @@ So consecutive frames always write a value the store does not already hold — `
 
 ### Why the floor's rows are copies
 
-`upsertEntity` copies what it is handed, and a floor holding the caller's own object would be one allocation per row cheaper for a reason unrelated to either design.
+`writeSlotContentByKey` copies what it is handed, and a floor holding the caller's own object would be one allocation per row cheaper for a reason unrelated to either design.
 
 ### Why every fixture has a channel
 
@@ -442,7 +442,7 @@ The controls are NOT part of `priced` and are never sorted with it. A control ra
 Two rows: `order.resort-within-a-bucket-vs-sorted-array-splice` (on
 `createOIMComputedCollectionSorted` over an `OIMIndex` by group, columns `rank`
 ascending) and `chain-address.resolve-vs-nested-map-get` (a bucket addressed by two
-segment identities through `OIMSlotStoreServiceTreeDriven`, against nested string
+segment identities through `OIMSlotTreeStoreService`, against nested string
 maps).
 
 ### The three rules against timing an empty frame

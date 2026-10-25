@@ -24,15 +24,7 @@ channel slot first. `db.defaultChannelSlot` is the one every `createStoreSlot(db
 </InShort>
 
 ```typescript setup
-import {
-    OIMChannelService,
-    OIMDB,
-    OIMEffectService,
-    OIMErrorPolicyLogAndContinue,
-    createOIMEntityService,
-    type TOIMEntitySlot,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -40,7 +32,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
@@ -68,7 +60,7 @@ how long a burst is.
 ```typescript
 const scheduledDb = new OIMDB({
     channelScheduler: (flush) => { void Promise.resolve().then(flush); },
-    errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: (error) => report(error) }),
+    errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: (error) => report(error) }),
     onBeforeFlush: () => { /* the flush has begun; read only, no writes */ },
 });
 ```
@@ -76,7 +68,7 @@ const scheduledDb = new OIMDB({
 | `OIMDB` option | What it is |
 |---|---|
 | `channelScheduler` | What defers a flush. Absent means you flush by hand: nothing is ever delivered until you call `db.flush()`. |
-| `errorPolicy` | What a throw from `onBeforeFlush`, an effect or a handler does. Absent means `OIMErrorPolicyLogAndContinue.INSTANCE`: `console.error`, then its `onError`, and the frame goes on. `OIMErrorPolicyThrowAtOnce` throws the first one out of `flush()` instead. |
+| `errorPolicy` | What a throw from `onBeforeFlush`, an effect or a handler does. Absent means `OIMLogAndContinueErrorPolicy.INSTANCE`: `console.error`, then its `onError`, and the frame goes on. `OIMThrowAtOnceErrorPolicy` throws the first one out of `flush()` instead. |
 | `onBeforeFlush` | Called once at the start of a flush, immediately before the frame opens. It runs inside the flush, so a write from it is refused like any other. |
 
 `db.flush()` is `OIMChannelService.INSTANCE.flush(db.defaultChannelSlot)`. A channel slot of your own is
@@ -144,7 +136,7 @@ The revision wraps into the next epoch after 2^30 revisions
 
 ```ts
 let runs = 0;
-const king = cardContentService.upsertEntity(cards, { id: 'k', title: 'King', rank: 13 });
+const king = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', title: 'King', rank: 13 });
 const kingEffect = effectService.createEffect(db, [king], [], () => { runs++; });
 cardContentService.updateEntity(king, { title: 'Queen' });
 cardContentService.updateEntity(king, { title: 'Jack' });
@@ -212,43 +204,37 @@ handler hands to later work:
 const stop = channelService.subscribeAfterEachFrame(channelSlot, () => {
     const work = whatJustHappened();
     void Promise.resolve().then(() => {
-        cardContentService.upsertEntity(cards, somethingDerivedFrom(work));
+        cardService.writeSlotContentByKey(cards, (somethingDerivedFrom(work)).id, somethingDerivedFrom(work));
     });
 });
 stop();
 ```
 
 The microtask runs after `flush()` has returned, so the write is accepted and
-asks for a frame of its own. A handler that calls `upsertEntity` directly throws,
+asks for a frame of its own. A handler that calls `writeSlotContentByKey` directly throws,
 and the refusal goes to the error policy. It is logged by default and thrown out of
-`flush()` under `OIMErrorPolicyThrowAtOnce`.
+`flush()` under `OIMThrowAtOnceErrorPolicy`.
 
-### The subframe
+### Batches
 
-A subframe is one logical change: the span in which a write is still landing. Write
-doors open one, so a `keyOf` or a listener that runs inside a write cannot deliver a
-half-applied write. Subframes nest. Open one yourself to make several writes one change:
+There are no subframes. A write is filed and delivered as it lands, and several writes are one
+delivery anyway: the frame runs each effect once, at the next `flush()`, however many writes touched its
+sources. What a batch changes is who hears the writes: `cardService.writeInBatch(cards, () => { … })` on a
+collection queues the writes on the store slot and hands an index on the collection the whole batch in one
+`onContentChangedMany` when the outermost batch closes.
 
 ```ts
-const jack = cardContentService.upsertEntity(cards, { id: 'j', title: 'Jack', rank: 11 });
-channelService.openSubframe(channelSlot);
-try {
+const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', title: 'Jack', rank: 11 });
+cardService.writeInBatch(cards, () => {
     cardContentService.updateEntity(jack, { title: 'Jack of clubs' });
-    cardContentService.upsertEntity(cards, { id: 't', title: 'Ten', rank: 10 });
-} finally {
-    channelService.closeSubframe(channelSlot);
-}
+    cardService.writeSlotContentByKey(cards, 't', { id: 't', title: 'Ten', rank: 10 });
+});
 db.flush();
 ```
 
-The frame cannot close while a subframe is open: a frame asked for meanwhile is run by the
-`closeSubframe` that closes the outermost one. `flush()` called while a subframe is open throws
-(`a subframe is open`), and the write in progress stays whole. Close from a `finally`, so a
-subframe that threw part-way still delivers what landed. `isSubframeOpen(channelSlot)` says whether
-one is open.
-
-Inside a subframe, bucket writes are batched: filing many entities into one bucket wakes and
-checks that bucket once, at the close, instead of once per entity.
+`openBatch(storeSlot)` / `closeBatch(storeSlot)` are the same pair without the function, and nest by a count.
+Code inside a batch reads the index as it was before the batch, and a `flush()` inside one is allowed: the
+index catches up when the batch closes.
 
 ### Work that needs the whole settled frame
 
@@ -283,7 +269,7 @@ are called in registration order.
 
 ```typescript
 const stopAfterFlush = channelService.subscribeAfterEachFlush(channelSlot, () => {
-    cardContentService.upsertEntity(cards, somethingDerivedFrom(whatJustHappened()));
+    cardService.writeSlotContentByKey(cards, (somethingDerivedFrom(whatJustHappened())).id, somethingDerivedFrom(whatJustHappened()));
 });
 stopAfterFlush();
 ```
@@ -303,13 +289,13 @@ its way to deciding whether to run. See
 
 By default, one throwing handler does not abort the frame. The throw goes to
 the error policy. Under the default policy it is logged and handed to `onError`, and the
-rest of that frame's deliveries still happen. Under `OIMErrorPolicyThrowAtOnce` it
+rest of that frame's deliveries still happen. Under `OIMThrowAtOnceErrorPolicy` it
 leaves `flush()` at once, and the deliveries not yet made wait for the next flush.
 A policy is one method, `onErrorCaught(error)`, so an object literal
 `{ onErrorCaught: (error) => { … } }` is a policy too (`IOIMErrorPolicy`).
 
 A comparator that throws is rethrown at the reader that asked, out of the
-`getValueForSlot` of a sorted list built by `createOIMComputedServiceSorted`, because the sort
+`getValueForSlot` of a sorted list built by `createOIMSortedComputedService`, because the sort
 runs inside that computed's derive. A bucket never sorts, so its own reads cannot throw
 for an order.
 

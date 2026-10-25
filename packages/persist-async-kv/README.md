@@ -18,18 +18,18 @@ npm install @oimdb/persist-async-kv @oimdb/persist @oimdb/core
 | `TOIMPersistAsyncKVMultiStorage` | `{ multiGet(storageKeys), multiSet(itemEntries), multiRemove(storageKeys) }`, each returning a promise |
 
 A store with only `getItem` / `setItem` / `removeItem` needs no package: the engine's
-`OIMPersistKeyValueStorageItemDriven({ persistKeyValueItemStorage })` accepts those methods,
+`OIMPersistItemKeyValueStorage({ persistKeyValueItemStorage })` accepts those methods,
 synchronous or returning promises, and calls them once per key.
 
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
-    OIMPersistCodecIdentity, OIMPersistEntityWriter, OIMPersistKeyValueBackend, OIMPersistKeyValueEntryStrategy,
-    OIMPersistKeyValueWriteBatch, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceSnapshot,
-    OIMPersistSchedulerMicrotaskDriven, OIMPersistor,
+    OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistKeyValueBackend, OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistKeyValueWriteBatch, OIMPersistCollectionWriteRecordSource, OIMPersistSnapshotResource,
+    OIMPersistMicrotaskScheduler, OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistRecords } from '@oimdb/persist';
 import { OIMPersistAsyncKVStorage } from '@oimdb/persist-async-kv';
@@ -44,32 +44,29 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TNote, TOIMStoreKey>({
     entityWriter: createOIMEntityWriterInPlace(),
 });
-const noteCollectionService = createOIMEntityService<TNote>(db, {
-    keyOf: note => note.id,
-    entityWriter: persistEntityWriter,
-});
+const noteCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNote>(db, { entityWriter: persistEntityWriter }) });
 const noteEntityStoreSlot = noteCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
     persistBackend: new OIMPersistKeyValueBackend({
         persistKeyValueStorage: new OIMPersistAsyncKVStorage({ persistAsyncKVMultiStorage }),
     }),
-    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+    persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceSnapshot({
-    persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistSnapshotResource({
+    persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
         entityCollectionService: noteCollectionService,
         entityStoreSlot: noteEntityStoreSlot,
         persistEntityWriter,
     }),
-    persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TNotePersistRecords>({ storageKey: 'notes' }),
-    persistCodec: new OIMPersistCodecIdentity<TNotePersistRecords>(),
+    persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TNotePersistRecords>({ storageKey: 'notes' }),
+    persistCodec: new OIMPersistIdentityCodec<TNotePersistRecords>(),
 }));
 
 await persistor.hydrate();
 persistor.start();
 
-noteCollectionService.slotContentService.upsertEntity(noteEntityStoreSlot, { id: 'n1', text: 'buy milk' });
+noteCollectionService.writeSlotContentByKey(noteEntityStoreSlot, 'n1', { id: 'n1', text: 'buy milk' });
 await persistor.persist();
 ```
 
@@ -81,7 +78,7 @@ Pass the store itself as `persistAsyncKVMultiStorage`; in React Native that is t
 One drain is one write batch, and its commit makes at most three calls to the store:
 
 - one `multiGet`, for the keys that have path writes or path deletions and no whole-value write in
-  the batch (`OIMPersistKeyValuePathStrategy`), skipped when there are none;
+  the batch (`OIMPersistKeyValuePathSnapshotService`), skipped when there are none;
 - one `multiSet` with every written key, skipped when nothing is written;
 - one `multiRemove` with every removed key, skipped when nothing is removed.
 

@@ -6,8 +6,9 @@ import type { TOIMIndexKeysPositions } from '../../index/types/TOIMIndexKeysPosi
 import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
 import type { TOIMColumnReaders } from '../../column/types/TOIMColumnReaders';
 
-export type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, TPatch = unknown> = {
+export type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, TPatch = unknown, TSlotService = unknown> = {
     readonly store: TStore;
+    readonly slotService: TSlotService;
     readonly channelSlot: TOIMChannelSlot;
     readonly contentChangeListeners: IOIMContentChangeListener<TSlot, TPatch>[] | undefined;
     readonly contentChangeListenerReadColumnNames: (readonly string[] | undefined)[] | undefined;
@@ -18,10 +19,10 @@ export type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, T
     readonly columnGroupSlotCountsByKey: Map<string, number> | undefined;
     readonly columnReadersByColumnName: Map<string, TOIMColumnReaders> | undefined;
     readonly anyColumnSlotCount: number;
-    readonly subframeSlotChannelQueues: OIMChannelQueue<TSlot>[] | undefined;
-    readonly subframePatchChannelQueues: OIMChannelQueue<TPatch | undefined>[] | undefined;
-    readonly subframeChangedColumnsChannelQueues: OIMChannelQueue<readonly string[] | undefined>[] | undefined;
-    readonly changedBucketSlotChannelQueue: OIMChannelQueue<TSlot> | undefined;
+    readonly batchDepth: number;
+    readonly batchSlotChannelQueue: OIMChannelQueue<TSlot> | undefined;
+    readonly batchPatchChannelQueue: OIMChannelQueue<TPatch | undefined> | undefined;
+    readonly batchChangedColumnsChannelQueue: OIMChannelQueue<readonly string[] | undefined> | undefined;
     readonly arrivedBucketMemberSlotChannelQueues: OIMChannelQueue<TOIMSlot>[] | undefined;
     readonly departedBucketMemberSlotChannelQueues: OIMChannelQueue<TOIMSlot>[] | undefined;
     readonly removedAtChannelQueues: OIMChannelQueue<number>[] | undefined;

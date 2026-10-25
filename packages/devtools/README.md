@@ -42,7 +42,7 @@ The registry holds every store slot it hears, and every store slot you register,
 
 ```ts file=src/store/db.ts
 // src/store/db.ts
-import { OIMDB, OIMErrorPolicyLogAndContinue } from '@oimdb/core';
+import { OIMDB, OIMLogAndContinueErrorPolicy } from '@oimdb/core';
 import { oimDevRegistry, oimInitDevtools } from '@oimdb/devtools';
 
 oimInitDevtools();
@@ -50,31 +50,30 @@ oimInitDevtools();
 // The engine's error policy is a construction option, so the devtools sink is
 // wired where the database is built — see `recordError` below.
 export const db = new OIMDB({
-    errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: error => oimDevRegistry.recordError(error) }),
+    errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: error => oimDevRegistry.recordError(error) }),
 });
 ```
 
 ```ts file=src/store/users.ts
 // src/store/users.ts
-import { createOIMBucketService, createOIMEntityService, type TOIMEntitySlot } from '@oimdb/core';
+import { type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 import { db } from './db';
 
 export type TUser = { id: string; name: string; role: string };
 
-export const usersService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+export const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
 export const users = usersService.createStoreSlot(db);
 
 // A bucket's slots are yours: a write to a user moves the value and files
-// nothing, so whoever writes the entity also calls `writeBucketMemberSlots(...)`.
-export const usersByRoleService = createOIMBucketService<TOIMEntitySlot<TUser>>(db);
+// nothing, so whoever writes the entity also calls `writeSlotContent(...)`.
+export const usersByRoleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const usersByRole = usersByRoleService.createStoreSlot(db);
 
 export function fileUser(user: TUser, everyoneInThatRole: readonly TUser[]): void {
-    const userContentService = usersService.slotContentService;
-    userContentService.upsertEntity(users, user);
+    usersService.writeSlotContentByKey(users, user.id, user);
     const bucket = usersByRoleService.holdSlotByKey(usersByRole, user.role);
-    usersByRoleService.slotContentService.writeBucketMemberSlots(
-        bucket, everyoneInThatRole.map(u => userContentService.upsertEntity(users, u)),
+    usersByRoleService.slotContentService.writeSlotContent(
+        bucket, everyoneInThatRole.map(u => usersService.writeSlotContentByKey(users, u.id, u)),
     );
     bucket.owner.unholdSlot(bucket);
 }
@@ -82,24 +81,18 @@ export function fileUser(user: TUser, everyoneInThatRole: readonly TUser[]): voi
 
 ```ts file=src/store/tasks.ts
 // src/store/tasks.ts
-import {
-    OIMSlotStoreServiceSingleSlotDriven, createOIMBucketService, createOIMComputedService,
-    createOIMEntityService, oimSameValueZeroGuard,
-    type TOIMComputedSlot, type TOIMEntitySlot, type TOIMSingleSlotStore,
-} from '@oimdb/core';
+import { createOIMSingleComputedService, oimSameValueZeroGuard, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 import { db } from './db';
 
 export type TTask = { id: string; title: string; assigneeId: string; done: boolean };
 
-export const tasksService = createOIMEntityService<TTask>(db, { keyOf: task => task.id });
+export const tasksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTask>(db) });
 export const tasks = tasksService.createStoreSlot(db);
-export const tasksByAssigneeService = createOIMBucketService<TOIMEntitySlot<TTask>>(db);
+export const tasksByAssigneeService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TTask>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const tasksByAssignee = tasksByAssigneeService.createStoreSlot(db);
 
 const firstTask = tasksService.holdSlotByKey(tasks, 't1');
-export const openTaskCountService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-    computedSlotStoreService:
-        OIMSlotStoreServiceSingleSlotDriven.INSTANCE as unknown as OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>,
+export const openTaskCountService = createOIMSingleComputedService<number>({
     sameValueGuard: oimSameValueZeroGuard,
 });
 export const openTaskCount = openTaskCountService.createComputedStoreSlot(
@@ -155,7 +148,7 @@ if (typeof window !== 'undefined') {
 ## Inspecting
 
 ```ts setup
-import { OIMDB, OIMErrorPolicyLogAndContinue } from '@oimdb/core';
+import { OIMDB, OIMLogAndContinueErrorPolicy } from '@oimdb/core';
 import { oimDevRegistry, oimInitDevtools } from '@oimdb/devtools';
 
 oimInitDevtools();
@@ -197,11 +190,11 @@ Registers a population: one store slot of an entity collection (`entityStoreSlot
 
 | Option | Type | Description |
 |---|---|---|
-| `indexes` | `Record<string, { bucketCollectionService: Pick<OIMSlotCollectionService<TOIMStoreKey, …>, 'getSlots'>; bucketStoreSlot: TOIMStoreSlot<…> }>` | Named buckets, keyed by whatever name you choose: a bucket collection (from `createOIMBucketService` or `createOIMIndexService`) and the store slot it made. These are the engine's own, so they cannot go stale behind the report. Each store slot is held weakly. |
+| `indexes` | `Record<string, { bucketCollectionService: Pick<OIMSlotCollectionService<TOIMStoreKey, …>, 'getSlots'>; bucketStoreSlot: TOIMStoreSlot<…> }>` | Named buckets, keyed by whatever name you choose: a bucket collection (from `createOIMSlotCollectionService` or `createOIMSlotCollectionIndexService`) and the store slot it made. These are the engine's own, so they cannot go stale behind the report. Each store slot is held weakly. |
 | `relations` | `Record<string, string>` | FK field name → registered population name |
 | `description` | `string` | Optional human/AI description |
 
-A bucket service filed by a **chain** (one built over `OIMSlotStoreServiceTreeDriven`, on either walk) cannot be registered. The option is typed over `TOIMStoreKey` keys, so the compiler refuses it instead of reporting it under a name that would collide.
+A bucket service filed by a **chain** (one built over `OIMSlotTreeStoreService`, on either walk) cannot be registered. The option is typed over `TOIMStoreKey` keys, so the compiler refuses it instead of reporting it under a name that would collide.
 
 A **population** addressed that way can be registered, and each entity is reported by the keys of the identities in its chain, in order. That is the one name a reader could resolve back.
 
@@ -209,7 +202,7 @@ Returns `this`.
 
 ### `oimDevRegistry.computed(name, computedService, computedStoreSlot)`
 
-Registers a single computed: a void-key `OIMComputedService` (`createOIMComputedService<void, TValue, TOIMSingleSlotStore<…>>({ computedSlotStoreService: OIMSlotStoreServiceSingleSlotDriven.INSTANCE as unknown as …, … })`) and the store slot from its `createComputedStoreSlot(db, derive, createSources)`. The report reads `computedCollectionService.getSlotByKey(computedStoreSlot, undefined)` and the value through `getValueForSlot`, which mints the computed slot if none is live and settles the derivation against its own clock, so the report shows what the graph answers at the moment it is taken. The store slot is held weakly, like a population's.
+Registers a single computed: a void-key `OIMComputedService` (`createOIMComputedService<void, TValue, TOIMSingleSlotStore<…>>({ computedSlotStoreService: OIMSingleSlotStoreService.INSTANCE as unknown as …, … })`) and the store slot from its `createComputedStoreSlot(db, derive, createSources)`. The report reads `computedCollectionService.getSlotByKey(computedStoreSlot, undefined)` and the value through `getValueForSlot`, which mints the computed slot if none is live and settles the derivation against its own clock, so the report shows what the graph answers at the moment it is taken. The store slot is held weakly, like a population's.
 
 There is no "not computed yet" and no observable "stale". The sources are not reported either. They are `sourceSlots` and `sourceComputeds`, returned by `createSources` and carrying no names, so to see what a derivation depends on, read the `createComputedStoreSlot(...)` call in the source.
 
@@ -231,7 +224,7 @@ It is a sink rather than a subscription because there is nothing to subscribe to
 
 ```ts
 const debugDb = new OIMDB({
-    errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: error => oimDevRegistry.recordError(error) }),
+    errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: error => oimDevRegistry.recordError(error) }),
 });
 ```
 

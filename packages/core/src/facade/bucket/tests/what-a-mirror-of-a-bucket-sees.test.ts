@@ -1,15 +1,14 @@
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import type { TOIMEffect } from '../../../engine/computed/types/TOIMEffect';
 import type { TOIMBucketSlot } from '../../../engine/bucket/types/TOIMBucketSlot';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; title: string; draft: boolean };
 type TSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>;
@@ -22,7 +21,7 @@ type TSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>;
 function mirrorBucket(
     db: OIMDB,
     effectService: OIMEffectService,
-    collection: OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>,
+    collection: OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>,
     bucket: TOIMBucketSlot<TSlots, TOIMStoreKey>,
     onFrame: (written: TOIMEntitySlot<TCard>[], deleted: TOIMEntitySlot<TCard>[]) => void,
 ): () => void {
@@ -74,11 +73,9 @@ function mirrorBucket(
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const viewService = createOIMBucketService<
-        TOIMEntitySlot<TCard>, TOIMStoreKey, TSlots, OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>() });
+    const viewService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
     const view = viewService.createStoreSlot(db);
     const bucketAt =(key: TOIMStoreKey): TOIMBucketSlot<TSlots, TOIMStoreKey> => {
         return viewService.holdSlotByKey(view, key);
@@ -89,13 +86,13 @@ const createFixture =() => {
 describe('what a mirror of a bucket sees', () => {
     it('sees content changes, arrivals and departures, all as effects', () => {
         const { db, effectService, cards, cardsService, viewService, bucketAt } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', draft: false },
             { id: 'c2', deckId: 'd1', title: 'beta', draft: false },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         const bucket = bucketAt('everything');
-        viewService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c2')]);
+        viewService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c2')]);
         db.flush();
 
         const frames: { written: string[]; deleted: string[] }[] = [];
@@ -119,9 +116,9 @@ describe('what a mirror of a bucket sees', () => {
         // caller writes in; the departure is a slot whose value went, which the
         // slot's own effect reports whether or not the caller has taken it out
         // of the list yet.
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c3', deckId: 'd1', title: 'gamma', draft: false });
-        viewService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c3')]);
-        cardsService.slotContentService.deleteEntity(cardsService.getSlotByKey(cards, 'c2'));
+        cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deckId: 'd1', title: 'gamma', draft: false });
+        viewService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c3')]);
+        cardsService.slotContentService.clearSlotContent(cardsService.getSlotByKey(cards, 'c2'));
         db.flush();
         expect(frames[2].written).toEqual(['c3']);
         expect(frames[2].deleted).toEqual(['c2']);
@@ -131,13 +128,13 @@ describe('what a mirror of a bucket sees', () => {
     // written by hand, keeping it out is the caller's discipline, not the engine's.
     it('mirrors only what the bucket holds, so what was never put in is never seen', () => {
         const { db, effectService, cards, cardsService, viewService, bucketAt } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', draft: false },
             { id: 'c2', deckId: 'd1', title: 'scratch', draft: true },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         const bucket = bucketAt('keep');
-        viewService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1')]);
+        viewService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1')]);
         db.flush();
 
         const frames: { written: string[]; deleted: string[] }[] = [];
@@ -160,12 +157,12 @@ describe('what a mirror of a bucket sees', () => {
         expect(frames.length).toBe(1);
 
         // Until the caller puts it in, and then it simply arrives.
-        viewService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c2')]);
+        viewService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1'), cardsService.getSlotByKey(cards, 'c2')]);
         db.flush();
         expect(frames[1]).toEqual({ written: ['c2'], deleted: [] });
 
         // And leaves again when the caller takes it out.
-        viewService.slotContentService.writeBucketMemberSlots(bucket, [cardsService.getSlotByKey(cards, 'c1')]);
+        viewService.slotContentService.writeSlotContent(bucket, [cardsService.getSlotByKey(cards, 'c1')]);
         db.flush();
         expect(frames[2]).toEqual({ written: [],deleted: ['c2'] });
     });

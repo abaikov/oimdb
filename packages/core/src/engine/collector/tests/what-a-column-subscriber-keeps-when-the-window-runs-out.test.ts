@@ -1,13 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMReleaseSlotCollectorServiceAfterIdle,
-    OIMSlotReleasePolicyAfterIdle,
-    OIMUnusedSlotCollectorService,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMUnusedSlotCollectorService, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../../index';
 import type { TOIMDisposer } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -16,26 +10,23 @@ const START = 1_000_000;
 const createFixtureAt = (after: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: (_run): TOIMDisposer => (): void => undefined });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: after }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, at: (value: number): void => { ms = value; } };
 };
 
 const flushAfterIdle = (db: OIMDB): void => {
-    OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+    oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
 };
 
 describe('a sweep that meets a slot somebody watches by column', () => {
     it('leaves the identity where it is', () => {
         const fixture =createFixtureAt(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         let heard = 0;
-        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, [fixture.cardsService.getColumn(slot, 'title')], [], () => { heard++; });
+        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, [fixture.cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { heard++; });
 
         fixture.at(START + 31_000);
         flushAfterIdle(fixture.db);
@@ -45,7 +36,7 @@ describe('a sweep that meets a slot somebody watches by column', () => {
         // same key and a subscriber nothing will write to again.
         expect(fixture.cardsService.getSlotByKey(fixture.cards, 'c1')).toBe(slot);
 
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'two' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'two' });
         fixture.db.flush();
         expect(heard).toBe(1);
 
@@ -54,9 +45,9 @@ describe('a sweep that meets a slot somebody watches by column', () => {
 
     it('and takes it the moment that watcher goes, because it is still condemned', () => {
         const fixture =createFixtureAt(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
-        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, [fixture.cardsService.getColumn(slot, 'title')], [], () => undefined);
+        const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, [fixture.cardsService.columnSlotService.getColumn(slot, 'title')], [], () => undefined);
 
         fixture.at(START + 31_000);
         flushAfterIdle(fixture.db);

@@ -4,9 +4,9 @@ JSON-dump backend for [`@oimdb/persist`](../persist): the transport for server-s
 The server persists into memory and dumps that memory as one plain object; the client starts its
 backend from the dump and hydrates from it.
 
-It depends on [`@oimdb/persist-memory`](../persist-memory): `OIMPersistJsonBackend` extends
-`OIMPersistMemoryBackend`, so it takes the memory strategies (`OIMPersistMemoryRecordsStrategy`,
-`OIMPersistMemorySnapshotStrategy`) and behaves like the memory backend in every other respect.
+It depends on [`@oimdb/persist-memory`](../persist-memory): `OIMPersistJsonMemoryBackend` extends
+`OIMPersistMemoryBackend`, so it takes the memory strategies (`OIMPersistMemoryRecordsService`,
+`OIMPersistMemorySnapshotService`) and behaves like the memory backend in every other respect.
 
 ```bash
 npm install @oimdb/persist-json @oimdb/persist-memory @oimdb/persist @oimdb/core
@@ -16,8 +16,8 @@ npm install @oimdb/persist-json @oimdb/persist-memory @oimdb/persist @oimdb/core
 
 | export | what it is |
 |---|---|
-| `OIMPersistJsonBackend` | `new OIMPersistJsonBackend({ initialPersistJsonDump? })`; `dehydrate()` returns the dump |
-| `TOIMPersistJsonBackendOptions` | `{ initialPersistJsonDump? }` |
+| `OIMPersistJsonMemoryBackend` | `new OIMPersistJsonMemoryBackend({ initialPersistJsonDump? })`; `dehydrate()` returns the dump |
+| `TOIMPersistJsonMemoryBackendOptions` | `{ initialPersistJsonDump? }` |
 | `TOIMPersistJsonDump` | `{ snapshotValues, recordsByStorageKey }`: snapshot values by `storageKey`, and the `{ key, entity }` records of every records `storageKey` |
 
 Records are dumped as arrays of `{ key, entity }`, so a numeric key comes back a number. The
@@ -29,14 +29,14 @@ persistor involved.
 The server and the client register the same resources under the same `storageKey`s.
 
 ```ts setup
-import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
-    OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven, OIMPersistor, oimReconcileByKey,
+    OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler, OIMPersistor, oimReconcileByKey,
 } from '@oimdb/persist';
-import { OIMPersistMemoryRecordsStrategy, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
-import { OIMPersistJsonBackend } from '@oimdb/persist-json';
+import { OIMPersistMemoryRecordsService, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
+import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
 import type { TOIMPersistJsonDump } from '@oimdb/persist-json';
 
 type TQuestion = { id: string; text: string; answer?: string };
@@ -45,24 +45,21 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
     entityWriter: createOIMEntityWriterInPlace(),
 });
-const questionCollectionService = createOIMEntityService<TQuestion>(db, {
-    keyOf: question => question.id,
-    entityWriter: persistEntityWriter,
-});
+const questionCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
 const questionEntityStoreSlot = questionCollectionService.createStoreSlot(db);
 
-const createQuestionPersistor = (persistJsonBackend: OIMPersistJsonBackend) => {
-    const persistor = new OIMPersistor<OIMPersistJsonBackend, OIMPersistMemoryWriteBatch>({
-        persistBackend: persistJsonBackend,
-        persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+const createQuestionPersistor = (persistJsonMemoryBackend: OIMPersistJsonMemoryBackend) => {
+    const persistor = new OIMPersistor<OIMPersistJsonMemoryBackend, OIMPersistMemoryWriteBatch>({
+        persistBackend: persistJsonMemoryBackend,
+        persistScheduler: new OIMPersistMicrotaskScheduler(),
     });
-    persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+    persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistCollectionWriteRecordSource({
             entityCollectionService: questionCollectionService,
             entityStoreSlot: questionEntityStoreSlot,
             persistEntityWriter,
         }),
-        persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
+        persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
     }));
     return persistor;
 };
@@ -71,16 +68,16 @@ const createQuestionPersistor = (persistJsonBackend: OIMPersistJsonBackend) => {
 ### Server: fill, persist, dump
 
 ```ts
-const persistJsonBackend = new OIMPersistJsonBackend();
-const persistor = createQuestionPersistor(persistJsonBackend);
+const persistJsonMemoryBackend = new OIMPersistJsonMemoryBackend();
+const persistor = createQuestionPersistor(persistJsonMemoryBackend);
 
-questionCollectionService.slotContentService.upsertEntities(questionEntityStoreSlot, [
+questionCollectionService.writeInBatch(questionEntityStoreSlot, () => ([
     { id: 'q1', text: 'What is your name?' },
     { id: 'q2', text: 'What is your quest?' },
-]);
+]).map(entity => questionCollectionService.writeSlotContentByKey(questionEntityStoreSlot, entity.id, entity)));
 await persistor.persist();
 
-const jsonText = JSON.stringify(persistJsonBackend.dehydrate());
+const jsonText = JSON.stringify(persistJsonMemoryBackend.dehydrate());
 ```
 
 `persist()` is queued on the persistor's chain, so the backend holds nothing until its promise
@@ -93,7 +90,7 @@ memory backend keeps values by reference), so serialize it at once.
 declare const jsonText: string;
 
 const initialPersistJsonDump = JSON.parse(jsonText) as TOIMPersistJsonDump;
-const persistor = createQuestionPersistor(new OIMPersistJsonBackend({ initialPersistJsonDump }));
+const persistor = createQuestionPersistor(new OIMPersistJsonMemoryBackend({ initialPersistJsonDump }));
 
 await persistor.hydrate();
 ```
@@ -117,19 +114,19 @@ The server ships the questions; the user's answers live in a durable backend suc
 declare const initialPersistJsonDump: TOIMPersistJsonDump;
 declare const answerPersistJsonDump: TOIMPersistJsonDump;
 
-await createQuestionPersistor(new OIMPersistJsonBackend({ initialPersistJsonDump })).hydrate();
+await createQuestionPersistor(new OIMPersistJsonMemoryBackend({ initialPersistJsonDump })).hydrate();
 
-const answerPersistor = new OIMPersistor<OIMPersistJsonBackend, OIMPersistMemoryWriteBatch>({
-    persistBackend: new OIMPersistJsonBackend({ initialPersistJsonDump: answerPersistJsonDump }),
-    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+const answerPersistor = new OIMPersistor<OIMPersistJsonMemoryBackend, OIMPersistMemoryWriteBatch>({
+    persistBackend: new OIMPersistJsonMemoryBackend({ initialPersistJsonDump: answerPersistJsonDump }),
+    persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-answerPersistor.addPersistResource(new OIMPersistResourceRecords({
-    persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+answerPersistor.addPersistResource(new OIMPersistRecordsResource({
+    persistRecordSource: new OIMPersistCollectionWriteRecordSource({
         entityCollectionService: questionCollectionService,
         entityStoreSlot: questionEntityStoreSlot,
         persistEntityWriter,
     }),
-    persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
+    persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TQuestion>({ storageKey: 'questions' }),
     persistHydrateReconcile: oimReconcileByKey<TOIMStoreKey, TQuestion>(
         (currentQuestion, incomingQuestion) => currentQuestion === undefined
             ? incomingQuestion
@@ -141,7 +138,7 @@ answerPersistor.start();
 ```
 
 A second JSON backend stands in for the durable one here; in an application it is an
-`OIMPersistIndexedDbBackend` with an `OIMPersistIndexedDbRecordsStrategy`. `oimReconcileByKey` calls the
+`OIMPersistIndexedDbBackend` with an `OIMPersistIndexedDbRecordsService`. `oimReconcileByKey` calls the
 resolver for every stored key with what memory holds (`currentQuestion`, from the server) and what
 the cache holds (`incomingQuestion`); keys only in memory are kept as they are.
 

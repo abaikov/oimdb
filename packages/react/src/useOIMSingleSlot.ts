@@ -1,16 +1,21 @@
 import { useMemo } from 'react';
+import { OIM_FROZEN_EMPTY_SLOTS } from '@oimdb/core';
 import type {
-    OIMSingleSlotService, TOIMDisposer, TOIMKeyedSlot, TOIMSingleSlotStore, TOIMStoreSlot,
+    OIMSingleSlotService, TOIMComputedContentSlot, TOIMDisposer, TOIMSlot, TOIMSingleSlotStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import { oimAssertOneChannel } from './oimAssertOneChannel';
+import { oimSubscribeHeldSlot } from './oimSubscribeHeldSlot';
 import { useOIMDB } from './useOIMDB';
 import { OIMSnapshotVersion } from './OIMSnapshotVersion';
 import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
 
-export function useOIMSingleSlot<TSlot extends TOIMKeyedSlot<void>>(
+const sourcesOfRootSlot = (rootSlot: TOIMSlot): readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] =>
+    [[rootSlot], OIM_FROZEN_EMPTY_SLOTS];
+
+export function useOIMSingleSlot<TSlot extends TOIMSlot>(
     hookName: string,
     singleSlotService: Pick<OIMSingleSlotService<TSlot, unknown>, 'getSingleSlot' | 'holdSingleSlot'>,
     singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot>,
+    sourcesOfSlot: (slot: NoInfer<TSlot>) => readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] = sourcesOfRootSlot,
 ): TSlot {
     const db = useOIMDB();
     const store = useMemo(() => {
@@ -20,21 +25,16 @@ export function useOIMSingleSlot<TSlot extends TOIMKeyedSlot<void>>(
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => {
                 const holdingSlot = singleSlotService.holdSingleSlot(singleSlotStoreSlot);
-                try {
-                    oimAssertOneChannel(db, holdingSlot, hookName);
-                    const disposeEffect = snapshotVersion.subscribeEffect(db, [holdingSlot], [], onStoreChange);
-                    subscribedSlot = holdingSlot;
-                    return () => {
-                        subscribedSlot = undefined;
-                        disposeEffect();
-                    };
-                } finally {
-                    holdingSlot.owner.unholdSlot(holdingSlot);
-                }
+                const disposeEffect = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
+                subscribedSlot = holdingSlot;
+                return () => {
+                    subscribedSlot = undefined;
+                    disposeEffect();
+                };
             },
             getSlot: (): TSlot => subscribedSlot ?? singleSlotService.getSingleSlot(singleSlotStoreSlot),
         };
-    }, [hookName, db, singleSlotService, singleSlotStoreSlot]);
+    }, [hookName, db, singleSlotService, singleSlotStoreSlot, sourcesOfSlot]);
 
     useOIMSnapshotVersion(store.snapshotVersion, store.subscribe);
     return store.getSlot();

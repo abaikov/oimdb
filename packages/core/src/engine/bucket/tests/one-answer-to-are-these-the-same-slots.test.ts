@@ -1,37 +1,51 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceArrayDriven, OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService, createOIMEntityService,
-} from '../../../index';
-import { OIMBucketArrayMembershipUnique } from '../array/OIMBucketArrayMembershipUnique';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService } from '../../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
-import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayUniqueStore } from '../array/types/TOIMBucketSlotsArrayUniqueStore';
+import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
 
 type Card = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<Card, string>;
-type TDeck = TOIMBucketSlot<TOIMBucketSlotsArrayUniqueStore<TCardSlot>, string>;
+type TDeck = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, string>;
+
+class UniqueSequenceProbe extends OIMBucketUniqueMemberSlotsArrayService<TCardSlot> {
+    public createStore(): TOIMBucketSlotsArrayStore<TCardSlot> {
+        return this.createBucketSlotsArrayStore();
+    }
+
+    public holds(store: TOIMBucketSlotsArrayStore<TCardSlot>, slots: readonly TCardSlot[]): boolean {
+        return this.isSameBucketMemberSlotSequence(store, slots);
+    }
+}
+
+const heldStore = (probe: UniqueSequenceProbe, held: readonly TCardSlot[]): TOIMBucketSlotsArrayStore<TCardSlot> => {
+    const store = probe.createStore();
+    for (const slot of held) {
+        store.uniqueBucketMemberSlots!.add(slot);
+        store.bucketMemberSlots.push(slot);
+    }
+    return store;
+};
 
 const setReconcileFindsNothing = (db: OIMDB, held: readonly TCardSlot[], slots: readonly TCardSlot[]): boolean => {
-    const membersService = new OIMSlotContentBucketServiceSetDriven<TCardSlot>();
-    const setsService = createOIMBucketService<TCardSlot, string, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>>(
-        db, { slotContentService: membersService },
-    );
+    const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
+    const setsService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const bucket = setsService.holdSlotByKey(setsService.createStoreSlot(db), 'held');
     membersService.addBucketMemberSlots(bucket, held);
-    return !membersService.writeBucketMemberSlots(bucket, slots);
+    return !membersService.writeSlotContent(bucket, slots);
 };
 
 const named = (): { db: OIMDB; slots: Record<string, TCardSlot> } => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: Card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
         slots: {
-            a: cardsService.slotContentService.upsertEntity(cards, { id: 'a', rank: 1 }),
-            b: cardsService.slotContentService.upsertEntity(cards, { id: 'b', rank: 2 }),
-            c: cardsService.slotContentService.upsertEntity(cards, { id: 'c', rank: 3 }),
+            a: cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 1 }),
+            b: cardsService.writeSlotContentByKey(cards, 'b', { id: 'b', rank: 2 }),
+            c: cardsService.writeSlotContentByKey(cards, 'c', { id: 'c', rank: 3 }),
         },
     };
 };
@@ -67,21 +81,15 @@ const firstMentions = (asks: string): string => [...new Set(asks)].join('');
 
 describe('two bodies for one question', () => {
     it('answer the same thing about every list whose first mentions keep the held order', () => {
-        const bucketArrayMembershipUnique = new OIMBucketArrayMembershipUnique<TCardSlot>();
+        const probe = new UniqueSequenceProbe();
         const disagreed: string[] = [];
         for (const { held, asks } of CASES) {
             const { db, slots } = named();
             const heldSlots = [...held].map(id => slots[id]);
             const list = [...asks].map(id => slots[id]);
 
-            const bucketSlotsArrayUniqueStore = bucketArrayMembershipUnique.createStore();
-            for (const id of held) {
-                bucketArrayMembershipUnique.addSlot(bucketSlotsArrayUniqueStore, slots[id]);
-                bucketSlotsArrayUniqueStore.bucketMemberSlots.push(slots[id]);
-            }
-
             const bySet = setReconcileFindsNothing(db, heldSlots, list) && firstMentions(asks) === held;
-            const byUnique = bucketArrayMembershipUnique.containsTheSameSequence(bucketSlotsArrayUniqueStore, list);
+            const byUnique = probe.holds(heldStore(probe, heldSlots), list);
             if (bySet === byUnique) continue;
             disagreed.push(`{${held}} asked for [${asks}] — set reconcile in held order ${bySet}, distinct ${byUnique}`);
         }
@@ -93,27 +101,20 @@ describe('two bodies for one question', () => {
      * the wrong answer would pass the case above.
      */
     it('and the answer to a repeat of exactly what is held is UNCHANGED', () => {
-        const bucketArrayMembershipUnique = new OIMBucketArrayMembershipUnique<TCardSlot>();
+        const probe = new UniqueSequenceProbe();
         const { db, slots } = named();
-        const bucketSlotsArrayUniqueStore = bucketArrayMembershipUnique.createStore();
-        bucketArrayMembershipUnique.addSlot(bucketSlotsArrayUniqueStore, slots.a);
-        bucketSlotsArrayUniqueStore.bucketMemberSlots.push(slots.a);
 
-        expect(bucketArrayMembershipUnique.containsTheSameSequence(bucketSlotsArrayUniqueStore, [slots.a, slots.a])).toBe(true);
+        expect(probe.holds(heldStore(probe, [slots.a]), [slots.a, slots.a])).toBe(true);
         expect(setReconcileFindsNothing(db, [slots.a], [slots.a, slots.a])).toBe(true);
     });
 
     it('while a repeat that hides a slot the caller never named is still CHANGED', () => {
-        const bucketArrayMembershipUnique = new OIMBucketArrayMembershipUnique<TCardSlot>();
+        const probe = new UniqueSequenceProbe();
         const { slots } = named();
-        const bucketSlotsArrayUniqueStore = bucketArrayMembershipUnique.createStore();
-        bucketArrayMembershipUnique.addSlot(bucketSlotsArrayUniqueStore, slots.a);
-        bucketArrayMembershipUnique.addSlot(bucketSlotsArrayUniqueStore, slots.b);
-        bucketSlotsArrayUniqueStore.bucketMemberSlots.push(slots.a, slots.b);
 
         // The defect the distinct run was written against, and the reason the
         // length guard alone can never be the answer.
-        expect(bucketArrayMembershipUnique.containsTheSameSequence(bucketSlotsArrayUniqueStore, [slots.a, slots.a])).toBe(false);
+        expect(probe.holds(heldStore(probe, [slots.a, slots.b]), [slots.a, slots.a])).toBe(false);
     });
 });
 
@@ -121,17 +122,12 @@ describe('two bodies for one question', () => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: Card) => card.id });
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>({
-        bucketArrayMembership: new OIMBucketArrayMembershipUnique<TCardSlot>(),
-    });
-    const decksService = createOIMBucketService<
-        TCardSlot, string, TOIMBucketSlotsArrayUniqueStore<TCardSlot>,
-        OIMSlotContentBucketServiceArrayDriven<TCardSlot, TOIMBucketSlotsArrayUniqueStore<TCardSlot>>
-    >(db, { slotContentService: membersService });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const cards = cardsService.createStoreSlot(db);
     const decks = decksService.createStoreSlot(db);
-    const put = (id: string, rank: number): TCardSlot => cardsService.slotContentService.upsertEntity(cards, { id, rank });
+    const put = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
     const idsIn = (bucket: TDeck): (string | undefined)[] =>
         [...membersService.getBucketMemberSlots(bucket)].map((slot) => slot.entity?.id);
     return { db, membersService, decksService, decks, put, idsIn };
@@ -142,7 +138,7 @@ describe('a poll that names one slot four times against a bucket holding it once
         const { db, membersService, decksService, decks, put, idsIn } = createFixture();
         const a = put('a', 10);
         const heldSlot = decksService.holdSlotByKey(decks, 'deck');
-        membersService.writeBucketMemberSlots(heldSlot,[a]);
+        membersService.writeSlotContent(heldSlot,[a]);
         db.flush();
 
         let runCount = 0;
@@ -150,7 +146,7 @@ describe('a poll that names one slot four times against a bucket holding it once
         db.flush();
         const before = runCount;
 
-        membersService.writeBucketMemberSlots(heldSlot,[a, a, a, a]);
+        membersService.writeSlotContent(heldSlot,[a, a, a, a]);
         db.flush();
 
         expect(runCount).toBe(before);

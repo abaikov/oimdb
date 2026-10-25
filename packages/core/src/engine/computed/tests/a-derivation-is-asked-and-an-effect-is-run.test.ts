@@ -1,23 +1,21 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; title: string; n: number };
 
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -29,7 +27,7 @@ const createFixture =() => {
 /** The row every case below reads, with the first write already delivered. */
 const settled = () => {
     const { db, effectService, rowsService, rows, updateRow } = createFixture();
-    rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'gamma', n: 0 });
+    rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'gamma', n: 0 });
     db.flush();
     return { db, effectService, rowsService, rows, updateRow, slot: rowsService.getSlotByKey(rows, 'r1') };
 };
@@ -40,23 +38,20 @@ const titleLengthOf = (slot: TOIMEntitySlot<TRow, TOIMStoreKey>) =>
 const createDerived = (
     db: OIMDB,
     sourceSlots: readonly TOIMSlot[],
-    sourceComputeds: ReadonlyArray<() => TOIMComputedSlot>,
+    sourceComputeds: ReadonlyArray<() => TOIMComputedContentSlot>,
     derive: () => number,
     sameValueGuard: (a: number, b: number) => boolean = oimSameValueZeroGuard,
 ) => {
-    const computedService = createOIMComputedService<void, number>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-        sameValueGuard,
-    });
+    const computedService = createOIMSingleComputedService<number>({ sameValueGuard });
     const derived = computedService.createComputedStoreSlot(
         db,
         derive,
         () => ({ sourceSlots, sourceComputeds: sourceComputeds.map(source => source()) }),
     );
     const derivedService = {
-        getSlotByKey: (storeSlot: typeof derived, key: undefined) => computedService.computedCollectionService.getSlotByKey(storeSlot, key),
-        getValueByKey: (storeSlot: typeof derived, key: undefined) => {
-            const computedSlot = computedService.computedCollectionService.getSlotByKey(storeSlot, key);
+        getSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
+        getSingleValue: (storeSlot: typeof derived) => {
+            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
             return computedSlot.computedValueService.getValueForSlot(computedSlot);
         },
     };
@@ -73,9 +68,9 @@ describe('a derivation is asked, never woken', () => {
         );
         expect(derivations).toBe(0);
 
-        titleLengthService.getValueByKey(titleLength, undefined);
+        titleLengthService.getSingleValue(titleLength);
         expect(derivations).toBe(1);
-        expect(titleLengthService.getValueByKey(titleLength, undefined)).toBe(5);
+        expect(titleLengthService.getSingleValue(titleLength)).toBe(5);
     });
 
     it('tells an effect that reads it in the same frame that changed it', () => {
@@ -83,7 +78,7 @@ describe('a derivation is asked, never woken', () => {
         const { derivedService: titleLengthService, derived: titleLength } = createDerived(db, [slot], [], () => titleLengthOf(slot));
 
         let runCount = 0;
-        effectService.createEffect(db, [], [titleLengthService.getSlotByKey(titleLength, undefined)], () => { runCount++; });
+        effectService.createEffect(db, [], [titleLengthService.getSingleSlot(titleLength)], () => { runCount++; });
         // Born between frames with nothing written since the last flush: it
         // inherits nothing and is owed nothing.
         db.flush();
@@ -92,7 +87,7 @@ describe('a derivation is asked, never woken', () => {
         updateRow('r1', { title: 'alphaalpha' });
         db.flush();
         expect(runCount).toBe(1);
-        expect(titleLengthService.getValueByKey(titleLength, undefined)).toBe(10);
+        expect(titleLengthService.getSingleValue(titleLength)).toBe(10);
     });
 
     /**
@@ -111,21 +106,21 @@ describe('a derivation is asked, never woken', () => {
         let sinkRuns = 0;
         const { derivedService: baseService, derived: base } = createDerived(db, [slot], [], () => { baseRuns++; return titleLengthOf(slot); });
         const { derivedService: leftService, derived: left } = createDerived(
-            db, [], [() => baseService.getSlotByKey(base, undefined)], () => { leftRuns++; return baseService.getValueByKey(base, undefined) * 2; },
+            db, [], [() => baseService.getSingleSlot(base)], () => { leftRuns++; return baseService.getSingleValue(base) * 2; },
         );
         const { derivedService: rightService, derived: right } = createDerived(
-            db, [], [() => baseService.getSlotByKey(base, undefined)], () => { rightRuns++; return baseService.getValueByKey(base, undefined) + 1; },
+            db, [], [() => baseService.getSingleSlot(base)], () => { rightRuns++; return baseService.getSingleValue(base) + 1; },
         );
         const { derivedService: sinkService, derived: sink } = createDerived(
-            db, [], [() => leftService.getSlotByKey(left, undefined), () => rightService.getSlotByKey(right, undefined)],
-            () => { sinkRuns++; return leftService.getValueByKey(left, undefined) + rightService.getValueByKey(right, undefined); },
+            db, [], [() => leftService.getSingleSlot(left), () => rightService.getSingleSlot(right)],
+            () => { sinkRuns++; return leftService.getSingleValue(left) + rightService.getSingleValue(right); },
         );
-        effectService.createEffect(db, [], [sinkService.getSlotByKey(sink, undefined)], () => { /* the reader that makes the sink asked */ });
+        effectService.createEffect(db, [], [sinkService.getSingleSlot(sink)], () => { /* the reader that makes the sink asked */ });
 
         // A first settle, so the frame below has a previous value to be a stale
         // mix OF. 'gamma' is 5, so left is 10 and right is 6.
-        sinkService.getValueByKey(sink, undefined);
-        expect(sinkService.getValueByKey(sink, undefined)).toBe(16);
+        sinkService.getSingleValue(sink);
+        expect(sinkService.getSingleValue(sink)).toBe(16);
         baseRuns = leftRuns = rightRuns = sinkRuns = 0;
 
         updateRow('r1', { title: 'gammagamma' });
@@ -139,7 +134,7 @@ describe('a derivation is asked, never woken', () => {
         // And the sink saw SETTLED inputs: base went 5 -> 10, so left = 20,
         // right = 11, sink = 31, never a mix of one frame's left with the last
         // frame's right.
-        expect(sinkService.getValueByKey(sink, undefined)).toBe(20 + 11);
+        expect(sinkService.getSingleValue(sink)).toBe(20 + 11);
     });
 
     it('wakes nobody when the derived value did not move', () => {
@@ -147,7 +142,7 @@ describe('a derivation is asked, never woken', () => {
         const { derivedService: titleLengthService, derived: titleLength } = createDerived(db, [slot], [], () => titleLengthOf(slot));
 
         let runCount = 0;
-        effectService.createEffect(db, [], [titleLengthService.getSlotByKey(titleLength, undefined)], () => { runCount++; });
+        effectService.createEffect(db, [], [titleLengthService.getSingleSlot(titleLength)], () => { runCount++; });
         db.flush();
 
         // The identical string: nothing moved at the SOURCE either, so the write
@@ -156,8 +151,8 @@ describe('a derivation is asked, never woken', () => {
         db.flush();
         expect(runCount).toBe(0);
 
-        titleLengthService.getValueByKey(titleLength, undefined);
-        expect(titleLengthService.getValueByKey(titleLength, undefined)).toBe(5);
+        titleLengthService.getSingleValue(titleLength);
+        expect(titleLengthService.getSingleValue(titleLength)).toBe(5);
     });
 
     it('honours a `held` of the caller\'s, and reports only what it calls a move', () => {
@@ -170,7 +165,7 @@ describe('a derivation is asked, never woken', () => {
         );
 
         let runCount = 0;
-        effectService.createEffect(db, [], [titleLengthService.getSlotByKey(titleLength, undefined)], () => { runCount++; });
+        effectService.createEffect(db, [], [titleLengthService.getSingleSlot(titleLength)], () => { runCount++; });
 
         // A real write first, so the derivation has a reading of its own for the
         // `held` to be asked against.
@@ -191,7 +186,7 @@ describe('a derivation is asked, never woken', () => {
         updateRow('r1', { title: '' });             // 10 -> 0: a real move
         db.flush();
         expect(runCount).toBe(1);
-        expect(titleLengthService.getValueByKey(titleLength, undefined)).toBe(0);
+        expect(titleLengthService.getSingleValue(titleLength)).toBe(0);
     });
 });
 
@@ -255,7 +250,7 @@ describe('an effect is the only thing a frame runs', () => {
             db, [slot], [], () => { derivations++; return titleLengthOf(slot); },
         );
         let runCount = 0;
-        const effect = effectService.createEffect(db, [], [titleLengthService.getSlotByKey(titleLength, undefined)], () => { runCount++; });
+        const effect = effectService.createEffect(db, [], [titleLengthService.getSingleSlot(titleLength)], () => { runCount++; });
         db.flush();
         derivations = 0;
         runCount = 0;
@@ -273,8 +268,8 @@ describe('an effect is the only thing a frame runs', () => {
         const { derivedService: valueService, derived: value } = createDerived(db, [slot], [], () => titleLengthOf(slot));
         let watcherRuns = 0;
         let keptRuns = 0;
-        const watcher = effectService.createEffect(db, [], [valueService.getSlotByKey(value, undefined)], () => { watcherRuns++; });
-        const kept = effectService.createEffect(db, [], [valueService.getSlotByKey(value, undefined)], () => { keptRuns++; });
+        const watcher = effectService.createEffect(db, [], [valueService.getSingleSlot(value)], () => { watcherRuns++; });
+        const kept = effectService.createEffect(db, [], [valueService.getSingleSlot(value)], () => { keptRuns++; });
 
         updateRow('r1', { title: 'ab' });
         db.flush();
@@ -288,7 +283,7 @@ describe('an effect is the only thing a frame runs', () => {
         // Only the watcher's OWN edges went; the derivation is still read, still
         // settled, and the other reader still hears about it.
         expect(keptRuns).toBe(2);
-        expect(valueService.getValueByKey(value, undefined)).toBe(6);
+        expect(valueService.getSingleValue(value)).toBe(6);
         effectService.disposeEffect(kept);
     });
 });
@@ -306,7 +301,7 @@ describe('when a node was born decides which frames it hears about', () => {
         expect(derivations).toBe(0);
 
         let seen = -1;
-        effectService.createEffect(db, [], [titleLengthService.getSlotByKey(titleLength, undefined)], () => { seen = titleLengthService.getValueByKey(titleLength, undefined); });
+        effectService.createEffect(db, [], [titleLengthService.getSingleSlot(titleLength)], () => { seen = titleLengthService.getSingleValue(titleLength); });
         db.flush();
 
         expect(derivations).toBe(0);
@@ -322,12 +317,9 @@ describe('when a node was born decides which frames it hears about', () => {
 describe('what a write reaches, and what only the caller reaches', () => {
     it('wakes the slot and the column a write moved, and never a bucket', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        const byDeckService = createOIMBucketService<
-            TOIMEntitySlot<TRow, TOIMStoreKey>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow, TOIMStoreKey>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow, TOIMStoreKey>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', title: 'gamma', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'gamma', n: 0 });
         db.flush();
         const slot = rowsService.getSlotByKey(rows, 'r1');
 
@@ -336,7 +328,7 @@ describe('what a write reaches, and what only the caller reaches', () => {
         // test holds it.
         const byDeck = byDeckService.createStoreSlot(db);
         const deckSlot = byDeckService.holdSlotByKey(byDeck, 'd1');
-        byDeckService.slotContentService.writeBucketMemberSlots(deckSlot, [slot]);
+        byDeckService.slotContentService.writeSlotContent(deckSlot, [slot]);
         db.flush();
         const bucketSlotsService = [...byDeckService.slotContentService.getBucketMemberSlots(deckSlot)];
         expect(bucketSlotsService.length).toBe(1);
@@ -346,7 +338,7 @@ describe('what a write reaches, and what only the caller reaches', () => {
         let columnWoke = 0;
         let deckWoke = 0;
         effectService.createEffect(db, [slot], [], () => { slotWoke++; });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'title')], [], () => { columnWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'title')], [], () => { columnWoke++; });
         effectService.createEffect(db, [deckSlot], [], () => { deckWoke++; });
         db.flush();
 
@@ -358,12 +350,12 @@ describe('what a write reaches, and what only the caller reaches', () => {
         expect(deckWoke).toBe(0);
 
         // Nor does a slot arriving in the collection.
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r2', title: 'zeta', n: 0 });
+        rowsService.writeSlotContentByKey(rows, 'r2', { id: 'r2', title: 'zeta', n: 0 });
         db.flush();
         expect(deckWoke).toBe(0);
 
         // And the one thing that does: the caller writing the list.
-        byDeckService.slotContentService.writeBucketMemberSlots(deckSlot, [slot, rowsService.getSlotByKey(rows, 'r2')]);
+        byDeckService.slotContentService.writeSlotContent(deckSlot, [slot, rowsService.getSlotByKey(rows, 'r2')]);
         db.flush();
         expect(deckWoke).toBe(1);
 

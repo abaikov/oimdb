@@ -2,9 +2,7 @@ import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
 import { createOIMEntityWriterInPlace } from '../../../factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEntityWriterReplacing';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import { oimInsertEntityWithCopy } from '../../../engine/entity/utils/oimInsertEntityWithCopy';
 import { oimInsertEntityWithSanitizedCopy } from '../../../engine/entity/utils/oimInsertEntityWithSanitizedCopy';
 // Not a public export — the rule about which names may be a column, imported by
@@ -13,10 +11,10 @@ import { oimIsProtoKey } from '../../../engine/entity/utils/oimIsProtoKey';
 import { oimPatchEntityColumnsGuarded } from '../../../engine/entity/utils/oimPatchEntityColumnsGuarded';
 import { oimPatchEntityColumnGuarded } from '../../../engine/entity/utils/oimPatchEntityColumnGuarded';
 import type { IOIMEntityWriter } from '../../../engine/entity/interfaces/IOIMEntityWriter';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number; label?: string };
 type TCard = { id: string; deckId: string };
@@ -28,10 +26,7 @@ type TCard = { id: string; deckId: string };
  * it holds for every slot written through it.
  */
 const rowsOn = (db: OIMDB, write: IOIMEntityWriter) => {
-    const rowsService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, TOIMStoreKey>(db, {
-        keyOf: (row: TRow) => row.id,
-        entityWriter: write,
-    });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>(db, { entityWriter: write }) });
     return { rowsService, rowsContentService: rowsService.slotContentService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -42,10 +37,10 @@ const replacingOn = (db: OIMDB) =>
     rowsOn(db, createOIMEntityWriterReplacing());
 
 const copyingInPlaceOn = (db: OIMDB) =>
-    rowsOn(db, createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }));
+    rowsOn(db, createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }));
 
 const sanitizingInPlaceOn = (db: OIMDB) =>
-    rowsOn(db, createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithSanitizedCopy }));
+    rowsOn(db, createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithSanitizedCopy }));
 
 const guardedPatch = { patchEntityColumns: oimPatchEntityColumnsGuarded, patchEntityColumn: oimPatchEntityColumnGuarded };
 
@@ -70,7 +65,7 @@ describe('the default patch does not filter a prototype key', () => {
     it('lets an own __proto__ in a patch reach the stored entity\'s prototype on an in-place write', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = inPlaceOn(db);
-        rowsContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
 
         rowsContentService.updateEntity(rowsService.getSlotByKey(rows, 'r1'), parsedPatch('{"__proto__":{"polluted":true},"n":2}'));
@@ -85,7 +80,7 @@ describe('the default patch does not filter a prototype key', () => {
     it('lets it reach the rebuilt entity\'s prototype on a replacing write', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = replacingOn(db);
-        rowsContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
 
         rowsContentService.updateEntity(rowsService.getSlotByKey(rows, 'r1'), parsedPatch('{"__proto__":{"polluted":true},"n":2}'));
@@ -102,7 +97,7 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
     it('leaves the prototype alone on an in-place write', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = guardedInPlaceOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
 
         rowsContentService.updateEntity(rowsService.getSlotByKey(rows,'r1'), parsedPatch('{"__proto__":{"polluted":true},"n":2}'));
@@ -118,7 +113,7 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
     it('leaves the prototype alone on a replacing write', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = guardedReplacingOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
 
         rowsContentService.updateEntity(rowsService.getSlotByKey(rows,'r1'), parsedPatch('{"__proto__":{"polluted":true},"n":2}'));
@@ -136,8 +131,8 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
 
     it('drops the own __proto__ key on an insert under oimInsertEntityWithSanitizedCopy', () => {
         const db = new OIMDB();
-        const { rowsService, rowsContentService, rows } = sanitizingInPlaceOn(db);
-        rowsContentService.upsertEntity(rows,JSON.parse('{"id":"r1","n":1,"__proto__":{"polluted":true}}') as TRow);
+        const { rowsService, rows } = sanitizingInPlaceOn(db);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(JSON.parse('{"id":"r1","n":1,"__proto__":{"polluted":true}}') as TRow), JSON.parse('{"id":"r1","n":1,"__proto__":{"polluted":true}}') as TRow);
         db.flush();
 
         const stored = rowsService.getSlotByKey(rows,'r1').entity as TRow;
@@ -147,9 +142,9 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
 
     it('keeps the handed object, own __proto__ key included, on an insert under the default', () => {
         const db = new OIMDB();
-        const { rowsService, rowsContentService, rows } = inPlaceOn(db);
+        const { rowsService, rows } = inPlaceOn(db);
         const payload = JSON.parse('{"id":"r1","n":1,"__proto__":{"polluted":true}}') as TRow;
-        rowsContentService.upsertEntity(rows,payload);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(payload), payload);
         db.flush();
 
         const stored = rowsService.getSlotByKey(rows,'r1').entity as TRow;
@@ -161,7 +156,7 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const { rowsService, rowsContentService, rows } = guardedInPlaceOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
         let runCount = 0;
         effectService.createEffect(db, [rowsService.getSlotByKey(rows,'r1')], [], () => { runCount++; });
@@ -175,7 +170,7 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
     it('allocates nothing under the replacing strategy, because nothing moved', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = guardedReplacingOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
         const before = rowsService.getSlotByKey(rows,'r1').entity;
 
@@ -189,8 +184,8 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
         const db = new OIMDB();
         const { rowsService: inPlaceService, rowsContentService: inPlaceContentService, rows: inPlace } = guardedInPlaceOn(db);
         const { rowsService: replacingService, rowsContentService: replacingContentService, rows: replacing } = guardedReplacingOn(db);
-        inPlaceContentService.upsertEntity(inPlace,{ id: 'r1', n: 1 });
-        replacingContentService.upsertEntity(replacing,{ id: 'r1', n: 1 });
+        inPlaceService.writeSlotContentByKey(inPlace, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
+        replacingService.writeSlotContentByKey(replacing, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
 
         inPlaceContentService.updateEntity(inPlaceService.getSlotByKey(inPlace,'r1'), parsedPatch('{"__proto__":{"polluted":true},"n":2}'));
@@ -213,8 +208,8 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
             const db = new OIMDB();
             const { rowsService: inPlaceService, rowsContentService: inPlaceContentService, rows: inPlace } = guardedInPlaceOn(db);
             const { rowsService: replacingService, rowsContentService: replacingContentService, rows: replacing } = guardedReplacingOn(db);
-            inPlaceContentService.upsertEntity(inPlace,{ id: 'r1', n: 1 });
-            replacingContentService.upsertEntity(replacing,{ id: 'r1', n: 1 });
+            inPlaceService.writeSlotContentByKey(inPlace, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
+            replacingService.writeSlotContentByKey(replacing, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
             db.flush();
 
             // A COMPUTED key, so the `{ __proto__: … }` literal special case
@@ -238,9 +233,9 @@ describe('a guarded patch cannot reach a stored entity\'s prototype', () => {
 describe('by default the collection keeps the object handed to it', () => {
     it('stores the very object handed to a fresh insert', () => {
         const db = new OIMDB();
-        const { rowsService, rowsContentService, rows } = inPlaceOn(db);
+        const { rowsService, rows } = inPlaceOn(db);
         const item: TRow = { id: 'r1', n: 1 };
-        rowsContentService.upsertEntity(rows,item);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(item), item);
         db.flush();
 
         expect(rowsService.getSlotByKey(rows,'r1').entity).toBe(item);
@@ -249,9 +244,9 @@ describe('by default the collection keeps the object handed to it', () => {
     it('shows a later mutation of what the caller passed, and wakes nobody', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const { rowsService, rowsContentService, rows } = inPlaceOn(db);
+        const { rowsService, rows } = inPlaceOn(db);
         const item: TRow = { id: 'r1', n: 1 };
-        rowsContentService.upsertEntity(rows,item);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(item), item);
         db.flush();
         let runCount = 0;
         effectService.createEffect(db, [rowsService.getSlotByKey(rows,'r1')], [], () => { runCount++; });
@@ -268,7 +263,7 @@ describe('by default the collection keeps the object handed to it', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = inPlaceOn(db);
         const item: TRow = { id: 'r1', n: 1 };
-        rowsContentService.upsertEntity(rows,item);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(item), item);
         db.flush();
 
         rowsContentService.updateEntity(rowsService.getSlotByKey(rows,'r1'), { n: 2 });
@@ -282,9 +277,9 @@ describe('by default the collection keeps the object handed to it', () => {
 describe('the collection built with oimInsertEntityWithCopy owns its entities', () => {
     it('does not keep the object handed to a fresh insert', () => {
         const db = new OIMDB();
-        const { rowsService, rowsContentService, rows } = copyingInPlaceOn(db);
+        const { rowsService, rows } = copyingInPlaceOn(db);
         const item: TRow = { id: 'r1', n: 1 };
-        rowsContentService.upsertEntity(rows,item);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(item), item);
         db.flush();
 
         expect(rowsService.getSlotByKey(rows,'r1').entity).not.toBe(item);
@@ -294,9 +289,9 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
     it('ignores a later mutation of what the caller passed', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const { rowsService, rowsContentService, rows } = copyingInPlaceOn(db);
+        const { rowsService, rows } = copyingInPlaceOn(db);
         const item: TRow = { id: 'r1', n: 1 };
-        rowsContentService.upsertEntity(rows,item);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(item), item);
         db.flush();
         let runCount = 0;
         effectService.createEffect(db, [rowsService.getSlotByKey(rows,'r1')], [], () => { runCount++; });
@@ -310,13 +305,13 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
 
     it('behaves the same whether or not the key had a value already', () => {
         const db = new OIMDB();
-        const { rowsService, rowsContentService, rows } = copyingInPlaceOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'live', n: 1 });
+        const { rowsService, rows } = copyingInPlaceOn(db);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'live', n: 1 }), { id: 'live', n: 1 });
         db.flush();
         const fresh: TRow = { id: 'fresh', n: 1 };
         const overwrite: TRow = { id: 'live', n: 1 };
-        rowsContentService.upsertEntity(rows,fresh);
-        rowsContentService.upsertEntity(rows,overwrite);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(fresh), fresh);
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)(overwrite), overwrite);
         db.flush();
 
         fresh.n = 99;
@@ -344,20 +339,14 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
      */
     it('under oimInsertEntityWithCopy, a caller mutating behind the engine changes neither the value nor the list', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, {
-            entityWriter: createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }),
-            keyOf: (card: TCard) => card.id,
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMBucketService<
-            TOIMEntitySlot<TCard, TOIMStoreKey>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard, TOIMStoreKey>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard, TOIMStoreKey>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
         const item: TCard = { id: 'c1', deckId: 'spades' };
-        cardsService.slotContentService.upsertEntity(cards, item);
+        cardsService.writeSlotContentByKey(cards, item.id, item);
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
-        byDeckService.slotContentService.writeBucketMemberSlots(spadesSlot, [cardsService.getSlotByKey(cards, 'c1')]);
+        byDeckService.slotContentService.writeSlotContent(spadesSlot, [cardsService.getSlotByKey(cards, 'c1')]);
         db.flush();
 
         item.deckId = 'hearts';
@@ -371,7 +360,7 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
     it('keeps the stored reference stable across in-place writes', () => {
         const db = new OIMDB();
         const { rowsService, rowsContentService, rows } = copyingInPlaceOn(db);
-        rowsContentService.upsertEntity(rows,{ id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
         const stored = rowsService.getSlotByKey(rows,'r1').entity;
 

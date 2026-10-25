@@ -1,14 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMReleaseSlotCollectorServiceAfterIdle,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotReleasePolicyAfterIdle,
-    createOIMBucketService,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
-import type { TOIMStoreKey, TOIMBucketSlotsSetStore, TOIMEntitySlot } from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../../index';
+import type { TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -20,17 +13,15 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 const createFixture =(after: number) => {
     let ms = 1_000_000;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-    const slotReleasePolicy = new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: after });
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id, slotReleasePolicy });
-    const byDeckService = createOIMBucketService<
-        TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(), slotReleasePolicy });
+    const slotReleasePolicy = new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy });
+    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
     const cards = cardsService.createStoreSlot(db);
     const byDeck = byDeckService.createStoreSlot(db);
     return {
         db, cardsService, cards, byDeckService, byDeck,
         flushAfterIdle: (): void => {
-            OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         at: (v: number): void => { ms = v; },
     };
@@ -39,12 +30,12 @@ const createFixture =(after: number) => {
 /** The rows, and the bucket naming them, filed by hand as a consumer does. */
 const load = (fixture: ReturnType<typeof createFixture>) => {
     const rows = [
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', deck: 'spades' }),
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c2', deck: 'spades' }),
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', deck: 'spades' }),
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c2', { id: 'c2', deck: 'spades' }),
     ];
     fixture.db.flush();
     const heldSlot = fixture.byDeckService.holdSlotByKey(fixture.byDeck, 'spades');
-    fixture.byDeckService.slotContentService.writeBucketMemberSlots(heldSlot, rows);
+    fixture.byDeckService.slotContentService.writeSlotContent(heldSlot, rows);
     fixture.db.flush();
     return { rows, heldSlot };
 };

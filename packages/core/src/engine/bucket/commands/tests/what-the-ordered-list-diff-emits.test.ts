@@ -214,9 +214,9 @@ describe('what the ordered-list diff emits', () => {
             if (!sameEntitySlotSequence(applied, next)) {
                 throw new Error(
                     `seed=${SEED} round=${round}: diff did not reproduce next. ` +
-                    `prev=[${prev.map(s => (s as { key: number }).key)}] ` +
-                    `next=[${next.map(s => (s as { key: number }).key)}] ` +
-                    `applied=[${applied.map(s => (s as TOIMEntitySlot as { key: number }).key)}]`,
+                    `prev=[${prev.map(s => s.key)}] ` +
+                    `next=[${next.map(s => s.key)}] ` +
+                    `applied=[${applied.map(s => (s as TOIMEntitySlot).key)}]`,
                 );
             }
         }
@@ -273,9 +273,9 @@ describe('what the ordered-list diff emits', () => {
             if (!sameEntitySlotSequence(applied, next)) {
                 throw new Error(
                     `seed=${SEED} round=${round}: diff did not reproduce next. ` +
-                    `prev=[${prev.map(s => (s as { key: number }).key)}] ` +
-                    `next=[${next.map(s => (s as { key: number }).key)}] ` +
-                    `applied=[${applied.map(s => (s as TOIMEntitySlot as { key: number }).key)}]`,
+                    `prev=[${prev.map(s => s.key)}] ` +
+                    `next=[${next.map(s => s.key)}] ` +
+                    `applied=[${applied.map(s => (s as TOIMEntitySlot).key)}]`,
                 );
             }
 
@@ -286,8 +286,8 @@ describe('what the ordered-list diff emits', () => {
             if (moves > optimum) {
                 throw new Error(
                     `seed=${SEED} round=${round}: ${moves} moves exceeds optimum ${optimum}. ` +
-                    `prev=[${prev.map(s => (s as { key: number }).key)}] ` +
-                    `next=[${next.map(s => (s as { key: number }).key)}]`,
+                    `prev=[${prev.map(s => s.key)}] ` +
+                    `next=[${next.map(s => s.key)}]`,
                 );
             }
 

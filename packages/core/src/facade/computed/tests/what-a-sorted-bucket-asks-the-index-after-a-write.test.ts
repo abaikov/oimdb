@@ -1,4 +1,6 @@
-import { OIMDB, createOIMComputedServiceSorted, createOIMEntityService, createOIMIndexService } from '../../../index';
+import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; rank: number };
 
@@ -6,19 +8,19 @@ const MEMBER_COUNT = 200;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    const sortedService = createOIMComputedServiceSorted({
+    const sortedService = createOIMSortedComputedService({
         indexService: byDeckService,
         sortColumns: [{ column: 'rank', direction: 'asc' }],
     });
     const sorted = sortedService.createSortedStoreSlot(byDeck);
     const cardsToInsert: TCard[] = [];
     for (let i = 0; i < MEMBER_COUNT; i++) cardsToInsert.push({ id: `c${i}`, deck: 'd', rank: MEMBER_COUNT - i });
-    cardsService.slotContentService.upsertEntities(cards, cardsToInsert);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'away', deck: 'other', rank: 0 });
+    cardsService.writeInBatch(cards, () => (cardsToInsert).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+    cardsService.writeSlotContentByKey(cards, 'away', { id: 'away', deck: 'other', rank: 0 });
     db.flush();
     const sortedSlot = sortedService.computedCollectionService.holdSlotByKey(sorted, 'd');
     const order = (): string[] => sortedSlot.computedValueService.getValueForSlot(sortedSlot).map(entitySlot => String(entitySlot.key));

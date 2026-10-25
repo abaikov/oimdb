@@ -1004,7 +1004,7 @@ alt.ladder.remove.9-flat-door-candidate   [per write]   0.81x
   rungs unfile into a Map of their own keyed by the same key strings; the collection's own
   store still holds the slots and is dropped at reset. This rung adds: nothing over rung 8 in
   shape: the shipped deleteEntity is itself flat on this fixture, so this rung differs from it
-  by about the isOnFastPath read, markEmptiness with a slotEmptiness.isEmpty call against a
+  by about the isOnFastPath read, markEmptiness with a slotEmptinessPolicy.isEmpty call against a
   bare isEmpty = true, and the hand-inlined asserts against the assertWritable call; both keep
   the shipped release check and unfile.
   measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1017 planned, 1017/1017 reached; spread 273.5%/70.2%; load 2.92 → 2.92 on 8 cores
@@ -1398,7 +1398,7 @@ alt.ladder.insert.9-content-changed   [per row per write]   0.97x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: contentChanged,
@@ -1646,7 +1646,7 @@ alt.ladder.insert.5-key-of   [per row per write]   1.00x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the keyOf call
@@ -1759,7 +1759,7 @@ alt.ladder.insert.4-identity-store   [per row per write]   1.01x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the store
@@ -1792,7 +1792,7 @@ alt.ladder.insert.8-emptiness   [per row per write]   1.01x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: updateEmptiness:
@@ -1809,7 +1809,7 @@ alt.ladder.insert.6-writer-and-channel   [per row per write]   1.01x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: what
@@ -1824,7 +1824,7 @@ alt.slot-layout.write-door-three-shapes-against-one-shape   [per write]   1.01x
   One operation is one write; the pool cycles entity, bucket, push column, the only kinds
   whose slots reach OIMChannel.writeWithoutFlushCheck
   (how-many-shapes-reach-the-write-door.test.ts pins three). The literals copy the key order
-  of createOIMEntitySlot, createOIMBucketSlot and OIMColumnOwnerPushDriven.createColumnSlot.
+  of createOIMEntitySlot, createOIMBucketSlot and OIMPushColumnSlotOwner.createColumnSlot.
   Three shapes are still under the polymorphic ceiling of four, which is what this pair asks
   about. Every slot is held, so the gate never returns early.
   measured  16,122,226 ops/pass ours, 16,256,570 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 9.7%/1.4%; load 2.13 → 2.13 on 8 cores
@@ -1932,7 +1932,7 @@ alt.ladder.insert.10-release-check   [per row per write]   1.04x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
@@ -1950,7 +1950,7 @@ alt.ladder.insert.12-collection-door   [per row per write]   1.04x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the shipped
@@ -1983,7 +1983,7 @@ alt.ladder.insert.7-assert-writable   [per row per write]   1.04x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: assertWritable.
@@ -2012,7 +2012,7 @@ alt.ladder.insert.2-slot   [per row per write]   1.05x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the
@@ -2028,7 +2028,7 @@ alt.ladder.insert.11-subframe   [per row per write]   1.05x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the subframe the
@@ -2580,7 +2580,7 @@ alt.ladder.insert.1-copy   [per row per write]   1.15x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds:
@@ -2608,7 +2608,7 @@ alt.ladder.insert.3-probe   [per row per write]   1.16x
   distinct rows into an empty world rebuilt outside the clock, and adds exactly one step of
   the insert branch of OIMEntityCollection.writeContentByKey to the rung below it, written by
   hand around the shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot,
-  OIMSlotStoreServiceMapDriven, an in-place writer with oimInsertEntityWithSanitizedCopy, the
+  OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the
   channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung
   below as its floor in its own run, so a ratio prices only what its rung adds. From the
   writer-and-channel rung on, each pass ends with db.flush(). This rung adds: the probe

@@ -1,22 +1,22 @@
 import { useMemo, useRef } from 'react';
 import { OIM_FROZEN_EMPTY_SLOTS } from '@oimdb/core';
 import type {
-    OIMSlotCollectionService, TOIMComputedSlot, TOIMDisposer, TOIMKeyedSlot, TOIMSlot, TOIMStoreSlot,
+    OIMSlotCollectionService, TOIMComputedContentSlot, TOIMDisposer, TOIMKeyedSlot, TOIMSlot, TOIMStoreSlot,
 } from '@oimdb/core';
-import { oimAssertOneChannel } from './oimAssertOneChannel';
+import { oimSubscribeHeldSlot } from './oimSubscribeHeldSlot';
 import { useOIMDB } from './useOIMDB';
 import { OIMSnapshotVersion } from './OIMSnapshotVersion';
 import { useOIMSnapshotVersion } from './useOIMSnapshotVersion';
 
-const sourcesOfRootSlot = (rootSlot: TOIMSlot): readonly [readonly TOIMSlot[], readonly TOIMComputedSlot[]] =>
+const sourcesOfRootSlot = (rootSlot: TOIMSlot): readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] =>
     [[rootSlot], OIM_FROZEN_EMPTY_SLOTS];
 
-export function useOIMSlotByKey<TKey, TSlot extends TOIMKeyedSlot<TKey>, TStore>(
+export function useOIMSlotByKey<TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>, TStore>(
     hookName: string,
     slotCollectionService: Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>,
     storeSlot: TOIMStoreSlot<TStore, TSlot>,
     key: TKey,
-    sourcesOfSlot: (slot: NoInfer<TSlot>) => readonly [readonly TOIMSlot[], readonly TOIMComputedSlot[]] = sourcesOfRootSlot,
+    sourcesOfSlot: (slot: NoInfer<TSlot>) => readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] = sourcesOfRootSlot,
 ): TSlot {
     const db = useOIMDB();
     const lastSeenKeyRef = useRef(key);
@@ -35,18 +35,12 @@ export function useOIMSlotByKey<TKey, TSlot extends TOIMKeyedSlot<TKey>, TStore>
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => {
                 const holdingSlot = slotCollectionService.holdSlotByKey(storeSlot, settledKey);
-                try {
-                    oimAssertOneChannel(db, holdingSlot, hookName);
-                    const [sourceSlots, sourceComputeds] = sourcesOfSlot(holdingSlot);
-                    const disposeEffect = snapshotVersion.subscribeEffect(db, sourceSlots, sourceComputeds, onStoreChange);
-                    subscribedSlot = holdingSlot;
-                    return () => {
-                        subscribedSlot = undefined;
-                        disposeEffect();
-                    };
-                } finally {
-                    holdingSlot.owner.unholdSlot(holdingSlot);
-                }
+                const disposeEffect = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
+                subscribedSlot = holdingSlot;
+                return () => {
+                    subscribedSlot = undefined;
+                    disposeEffect();
+                };
             },
             getSlot: (): TSlot => subscribedSlot ?? slotCollectionService.getSlotByKey(storeSlot, settledKey),
         };

@@ -1,23 +1,20 @@
 // Prose: ./README.md#pricefixture
-import {
-    OIMDB,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-} from '../../../core/src/index';
+import { OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type {
-    OIMColumnOwnerPushDriven, OIMSlotCollectionService, OIMSlotContentEntityService,
+    OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMSlotContentEntityService,
     TOIMColumnSlot, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey, IOIMEntityWriter,
 } from '../../../core/src/index';
 import { priceDataset } from './priceDataset';
 import type { TPriceDataRow } from './TPriceDataRow';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const inPlaceShared: IOIMEntityWriter = createOIMEntityWriterInPlace();
 
-export type TPriceEntityService<TEntity extends object> = OIMSlotCollectionService<
-    TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>,
-    OIMSlotContentEntityService<TEntity, TOIMStoreKey, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TOIMEntityColumnName<TEntity>>,
-    TOIMEntityColumnName<TEntity>, TOIMColumnSlot, OIMColumnOwnerPushDriven, Partial<TEntity>
+export type TPriceEntityService<TEntity extends object> = OIMWritableSlotCollectionService<
+    TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TEntity,
+    OIMSlotContentEntityService<TEntity, TOIMStoreKey, TOIMEntityColumnName<TEntity>>,
+    TOIMEntityColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
 >;
 
 export const priceLoadedCollection = <TEntity extends { id: string }>(
@@ -27,7 +24,7 @@ export const priceLoadedCollection = <TEntity extends { id: string }>(
     entities: readonly TEntity[],
 ) => {
     const slots: TOIMEntitySlot<TEntity, TOIMStoreKey>[] = [];
-    for (let i = 0; i < entities.length; i++) slots.push(entityService.slotContentService.upsertEntity(entityStoreSlot, entities[i]));
+    for (let i = 0; i < entities.length; i++) slots.push(entityService.writeSlotContentByKey(entityStoreSlot, entities[i].id, entities[i]));
     db.flush();
     return { db, entityService, entityStoreSlot, slots };
 };
@@ -37,11 +34,7 @@ export const priceCollectionFixture = <TEntity extends { id: string }>(
     write: IOIMEntityWriter = inPlaceShared,
 ) => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TEntity> = createOIMEntityService<TEntity>(db, {
-        keyOf: (entity: TEntity) => entity.id,
-        entityWriter: write,
-        columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-    });
+    const entityService: TPriceEntityService<TEntity> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db, { entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), entities);
 };
 

@@ -1,19 +1,19 @@
 import { computed, effect, endBatch, signal, startBatch } from 'alien-signals';
-import {
-    OIMDB, OIMEffectService, OIMSlotStoreServiceSingleSlotDriven, createOIMComputedService, createOIMSingleEntityService,
-} from '../../../core/src/index';
+import { OIMDB, OIMEffectService, createOIMSingleComputedService } from '../../../core/src/index';
 import type {
-    OIMColumnOwnerPushDriven, OIMComputedService, OIMEffectSourceTracker, OIMSingleSlotService, OIMSlotContentEntityService,
-    TOIMColumnSlot, TOIMComputedSlot, TOIMComputedStoreSlot, TOIMEntityColumnName, TOIMEntitySlot, TOIMSingleSlotStore,
+    OIMSingleComputedService, OIMEffectSourceTracker,
+    TOIMComputedContentSlot, TOIMComputedStoreSlot, TOIMEntityContentSlot, TOIMSingleSlotStore,
 } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSingleSlotService } from '../../../core/src/index';
 
 type TGraphRoot = { value: number };
 
-type TGraphRootSlot = TOIMEntitySlot<TGraphRoot, void>;
+type TGraphRootSlot = TOIMEntityContentSlot<TGraphRoot>;
 
 type TAlienSignal = { (): number; (value: number): void };
 
@@ -29,37 +29,28 @@ const WRITES_PER_COALESCED_FRAME: readonly number[] = [1, 4, 16];
 
 const valueOfRoot = (rootSlot: TGraphRootSlot): number => rootSlot.entity?.value ?? 0;
 
-type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedSlot<number, void>>, number, void>;
+type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<number>>, number>;
 
-type TGraphRootEntityService<TRoot extends object> = OIMSingleSlotService<
-    TOIMEntitySlot<TRoot, void>,
-    OIMSlotContentEntityService<TRoot, void, TOIMSingleSlotStore<TOIMEntitySlot<TRoot, void>>, TOIMEntityColumnName<TRoot>>,
-    TOIMEntityColumnName<TRoot>, TOIMColumnSlot, OIMColumnOwnerPushDriven, Partial<TRoot>
->;
+type TGraphComputedService = OIMSingleComputedService<number>;
 
-type TGraphComputedService = OIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>;
+const createRootEntityService = <TRoot extends object = TGraphRoot>(db: OIMDB) =>
+    createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TRoot>(db) });
 
-const createRootEntityService = <TRoot extends object = TGraphRoot>(db: OIMDB): TGraphRootEntityService<TRoot> =>
-    createOIMSingleEntityService<TRoot>(db);
+type TGraphRootEntityService<TRoot extends object> = ReturnType<typeof createRootEntityService<TRoot>>;
 
 const createRootSlot = <TRoot extends object = TGraphRoot>(
     db: OIMDB, rootEntityService: TGraphRootEntityService<TRoot>, root: TRoot,
-): TOIMEntitySlot<TRoot, void> => {
+): TOIMEntityContentSlot<TRoot> => {
     const rootStoreSlot = rootEntityService.createStoreSlot(db);
-    rootEntityService.slotContentService.upsertEntity(rootStoreSlot, root);
+    rootEntityService.writeSingleSlotContent(rootStoreSlot, root);
     return rootEntityService.holdSingleSlot(rootStoreSlot);
 };
 
-const createGraphComputedService = (): TGraphComputedService =>
-    createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    });
+const createGraphComputedService = (): TGraphComputedService => createOIMSingleComputedService<number>();
 
 const valueOfComputedStoreSlot = (computedService: TGraphComputedService, computedStoreSlot: TGraphComputedStoreSlot): number => {
-    const computedCollectionService = computedService.computedCollectionService;
-    return computedCollectionService.slotContentService.getValueForSlot(
-        computedCollectionService.getSlotByKey(computedStoreSlot, undefined),
-    );
+    const computedSlot = computedService.computedSingleSlotService.getSingleSlot(computedStoreSlot);
+    return computedSlot.computedValueService.getValueForSlot(computedSlot);
 };
 
 const createHeadOfComputedChain = (
@@ -75,7 +66,7 @@ const createHeadOfComputedChain = (
         headComputedStoreSlot = computedService.createComputedStoreSlot(
             db,
             () => valueOfComputedStoreSlot(computedService, previousComputedStoreSlot) + 1,
-            () => ({ sourceComputeds: [computedService.computedCollectionService.getSlotByKey(previousComputedStoreSlot, undefined)] }),
+            () => ({ sourceComputeds: [computedService.computedSingleSlotService.getSingleSlot(previousComputedStoreSlot)] }),
         );
     }
     return headComputedStoreSlot;
@@ -92,7 +83,7 @@ const createHeadOfAlienChain = (rootSignal: TAlienSignal, depth: number): (() =>
 
 type TGraphSourceReader = { readSourceSlot: (rootSlot: TGraphRootSlot) => TGraphRootSlot };
 
-type TGraphHeadComputedSlot = TOIMComputedSlot<number, void>;
+type TGraphHeadComputedSlot = TOIMComputedContentSlot<number>;
 
 type TGraphEffectStrategy = {
     createRootsEffect: (
@@ -132,7 +123,7 @@ const oursStandingChain = (depth: number, writesPerFrame: number, graphEffectStr
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const computedService = createGraphComputedService();
     const headComputedStoreSlot = createHeadOfComputedChain(db, computedService, rootSlot, depth);
-    const headComputedSlot = computedService.computedCollectionService.holdSlotByKey(headComputedStoreSlot, undefined);
+    const headComputedSlot = computedService.computedSingleSlotService.holdSingleSlot(headComputedStoreSlot);
     const headEffect = graphEffectStrategy.createHeadEffect(db, headComputedSlot, headValue => {
         priceSink.number = headValue;
     }, computedService, headComputedStoreSlot);
@@ -192,13 +183,13 @@ const oursBuildAndDispose = (depth: number): TPriceSide => {
     const rootEntityService = createRootEntityService(db);
     const rootSlot = createRootSlot(db, rootEntityService, { value: 1 });
     const computedService = createGraphComputedService();
-    const computedCollectionService = computedService.computedCollectionService;
+    const computedSingleSlotService = computedService.computedSingleSlotService;
     return {
         reset: () => undefined,
         run: times => {
             for (let i = 0; i < times; i++) {
                 const headComputedStoreSlot = createHeadOfComputedChain(db, computedService, rootSlot, depth);
-                const headEffect = effectService.createEffectImmediate(db, [], [computedCollectionService.getSlotByKey(headComputedStoreSlot, undefined)], () => {
+                const headEffect = effectService.createEffectImmediate(db, [], [computedSingleSlotService.getSingleSlot(headComputedStoreSlot)], () => {
                     priceSink.number = valueOfComputedStoreSlot(computedService, headComputedStoreSlot);
                 });
                 effectService.disposeEffect(headEffect);
@@ -385,8 +376,8 @@ const floorBatchedDelivery = (writesPerFrame: number): TPriceSide => {
 };
 
 const BOTH_ARMS = [
-    'Ours is @oimdb/core from source: a void-key entity store slot root (createStoreSlot, slotContentService.upsertEntity, holdSingleSlot) of an OIMSingleSlotService from createOIMSingleEntityService, written through slotContentService.updateEntityColumn,',
-    'void-key computed store slots (createComputedStoreSlot, computedCollectionService.slotContentService.getValueForSlot) of an OIMComputedService for anything derived, one effect from OIMEffectService, and db.flush() as the settle.',
+    'Ours is @oimdb/core from source: a single entity store slot root (createStoreSlot, writeSingleSlotContent, holdSingleSlot) from createOIMSingleSlotService with createOIMSlotContentEntityService, written through slotContentService.updateEntityColumn,',
+    'single computed store slots (createComputedStoreSlot, getSingleSlot, computedValueService.getValueForSlot) of an OIMSingleComputedService for anything derived, one effect from OIMEffectService, and db.flush() as the settle.',
     'The floor is alien-signals 3.2: signal, computed, effect, and startBatch/endBatch where the row says so.',
     'Every write stores a new number from a counter, so no write on either arm is stopped by a same-value check.',
     'Each arm runs in its own process.',
@@ -424,7 +415,7 @@ const subscriptionBuildCaveat = (depth: number): string => caveatOf([
     `ONE OPERATION IS ONE MOUNT AND UNMOUNT: create a chain of ${depth} derived nodes over a standing root,`,
     'create one effect over the head and run it once (which reads the whole chain), then dispose the effect.',
     'ARCHITECTURAL POINT: build at subscription against lazy linking, measured as what subscribing costs.',
-    'Ours builds ONE OIMComputedService per side outside the clock and, per node inside it, one createComputedStoreSlot over OIMSlotStoreServiceSingleSlotDriven with its own derive and createSources:',
+    'Ours builds ONE OIMSingleComputedService per side outside the clock and, per node inside it, one createComputedStoreSlot with its own derive and createSources:',
     'a store slot per relationship, not a service per node. Each node then mints its slot, holds its sources, merges the root list the effect subscribes to and subscribes the effect to the root and the head;',
     'disposal unsubscribes, and the flush that ends the operation releases every node, which unholds its sources down the chain.',
     'Alien-signals allocates one closure-backed node per computed and links dependencies as the first run reads them;',
@@ -503,7 +494,7 @@ const revisionClockPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
 const subscriptionBuildPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
     id: `graph.subscription.build.d${depth}`,
     path: EPricePath.PerRelationship,
-    ours: `${depth} createComputedStoreSlot calls on one standing void-key OIMComputedService in a chain, createEffectImmediate over the head, disposeEffect, db.flush()`,
+    ours: `${depth} createComputedStoreSlot calls on one standing OIMSingleComputedService in a chain, createEffectImmediate over the head, disposeEffect, db.flush()`,
     floor: `${depth} alien computed() in a chain, effect() over the head, then its dispose()`,
     caveat: subscriptionBuildCaveat(depth),
     isolate: true,
@@ -667,7 +658,7 @@ const oursScrollWindow = (writesPerFrame: number): TPriceSide => {
     );
     let renderCount = 0;
     const renderEffect = effectService.createEffectImmediate(
-        db, [], [indexComputedService.computedCollectionService.getSlotByKey(indexComputedStoreSlot, undefined)], () => {
+        db, [], [indexComputedService.computedSingleSlotService.getSingleSlot(indexComputedStoreSlot)], () => {
             priceSink.number = valueOfComputedStoreSlot(indexComputedService, indexComputedStoreSlot);
             renderCount++;
         },
@@ -713,7 +704,7 @@ const scrollWindowCaveat = (writesPerFrame: number): string => caveatOf([
     `A derived first visible index, floor(position / ${ROW_HEIGHT_PX}), sits on the position and one effect reads the index,`,
     `so the position changes on every write and the index once per ${ROW_HEIGHT_PX} writes: the effect body runs once per ${ROW_HEIGHT_PX} pixels on both arms.`,
     'THE SAME-VALUE STATEMENT BELOW HOLDS FOR THE POSITION AND NOT FOR THE INDEX: the index is stopped by each arm\'s own equality check',
-    '(the default sameValueGuard of OIMComputedService, and alien\'s computed comparison), which is what this row prices.',
+    '(the default sameValueGuard of OIMSingleComputedService, and alien\'s computed comparison), which is what this row prices.',
     'ARCHITECTURAL POINT: a value written every frame whose consumer wakes rarely, which is the shape of a virtualised list under scroll.',
     'Ours enlists the effect on the write, and at the flush the effect asks the index, which re-derives, finds the same value and stops.',
     'Alien-signals propagates pending flags to the computed and the effect on the write, and the effect checks the computed, which re-derives and stops.',
@@ -794,7 +785,7 @@ const oursDeliveryWriteWithAnotherColumnHeld = (): TPriceSide => {
     const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>(db);
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0, note: 0 });
-    const valueColumnSlot = rootEntityService.holdColumn(rootSlot, 'value');
+    const valueColumnSlot = rootEntityService.columnSlotService.holdColumn(rootSlot, 'value');
     let written = 0;
     return {
         reset: () => undefined,
@@ -858,7 +849,7 @@ const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
     const derivedComputedService = createGraphComputedService();
     const roots = Array.from({ length: DERIVED_COLLECTION_SIZE }, (_, i) => {
         const rootSlot = createRootSlot(db, rootEntityService, { value: i, note: i });
-        const valueColumnSlot = rootEntityService.holdColumn(rootSlot, 'value');
+        const valueColumnSlot = rootEntityService.columnSlotService.holdColumn(rootSlot, 'value');
         const derivedComputedStoreSlot = derivedComputedService.createComputedStoreSlot(
             db,
             () => (rootSlot.entity?.value ?? 0) * 2,
@@ -867,7 +858,7 @@ const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
         return { rootSlot, derivedComputedStoreSlot };
     });
     const derivedComputedSlots = roots.map(
-        root => derivedComputedService.computedCollectionService.getSlotByKey(root.derivedComputedStoreSlot, undefined),
+        root => derivedComputedService.computedSingleSlotService.getSingleSlot(root.derivedComputedStoreSlot),
     );
     let renderCount = 0;
     const listEffect = effectService.createEffectImmediate(db, [], derivedComputedSlots, () => {

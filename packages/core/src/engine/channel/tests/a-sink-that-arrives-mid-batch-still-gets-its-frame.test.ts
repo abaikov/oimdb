@@ -1,6 +1,7 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMSingleEntityService } from '../../../factories/createOIMSingleEntityService';
 import { OIMChannelService } from '../OIMChannelService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSingleSlotService } from '../../../factories/createOIMSingleSlotService';
 
 type TRow = { n: number };
 
@@ -10,14 +11,14 @@ const withManualScheduler = () => {
     return { db, pending };
 };
 
-const recordServiceOn = (db: OIMDB) => createOIMSingleEntityService<TRow>(db);
+const recordServiceOn = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
 
 describe('a sink that arrives mid-batch still gets its frame', () => {
     it('asks the host once a sink subscribes after the batch has begun', () => {
         const { db, pending } = withManualScheduler();
         const recordService = recordServiceOn(db);
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { n: 0 });
+        recordService.writeSingleSlotContent(record, { n: 0 });
         recordService.getSingleSlot(record).owner.holdSlot(recordService.getSingleSlot(record));
 
         recordService.slotContentService.updateEntity(recordService.getSingleSlot(record), { n: 1 });
@@ -37,7 +38,7 @@ describe('a sink that arrives mid-batch still gets its frame', () => {
         const { db, pending } = withManualScheduler();
         const recordService = recordServiceOn(db);
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { n: 0 });
+        recordService.writeSingleSlotContent(record, { n: 0 });
         recordService.getSingleSlot(record).owner.holdSlot(recordService.getSingleSlot(record));
 
         let told = 0;
@@ -56,7 +57,7 @@ describe('a sink that arrives mid-batch still gets its frame', () => {
         const { db, pending } = withManualScheduler();
         const recordService = recordServiceOn(db);
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { n: 0 });
+        recordService.writeSingleSlotContent(record, { n: 0 });
 
         recordService.slotContentService.updateEntity(recordService.getSingleSlot(record), { n: 1 });
         recordService.slotContentService.updateEntity(recordService.getSingleSlot(record), { n: 2 });

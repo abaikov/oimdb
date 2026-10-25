@@ -22,36 +22,24 @@ derived value all come through it. Every bridge here takes that same `db` as its
 The examples on this page share this store:
 
 ```typescript setup
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-    type TOIMBucketSlotsSetStore,
-    type TOIMEntitySlot,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const db = new OIMDB();
-const cardService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMBucketService<
-    TCardSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentBucketServiceSetDriven<TCardSlot>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>() });
+const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 const byDeck = byDeckService.createStoreSlot(db);
-const boardService = createOIMBucketService<TCardSlot>(db);
+const boardService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     columns: ['deckId'],
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
-const orderService = createOIMComputedServiceSorted({
+const orderService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -142,7 +130,7 @@ Four things, because they do work that no core primitive does on its own:
 ## Lists are a fork, and both arms ship
 
 **Who decides the order** is the whole difference. The engine's order is a
-derivation: `createOIMComputedServiceSorted` over an index, or any computed of
+derivation: `createOIMSortedComputedService` over an index, or any computed of
 entity slots. The caller's order is a bucket under `OIMBucketCommands`, which keeps
 the positions it is given. Which arm you get depends on which of the two you hand
 the bridge.
@@ -160,8 +148,8 @@ const board = exoPositionalList(db, boardService.slotContentService, bucket, ren
 ```
 
 `exoDerivedList(db, computedSlot, render, maxCommandsPerSlot?)` takes a `TOIMComputedSlot` of
-`readonly TOIMEntitySlot[]` (one held from `createOIMComputedServiceSorted`,
-`createOIMComputedServiceBucketMemo`, or a computed service of your own). It pays one
+`readonly TOIMEntitySlot[]` (one held from `createOIMSortedComputedService`,
+`createOIMBucketMemoComputedService`, or a computed service of your own). It pays one
 `oimOrderedListCommandsOfTransition` per frame that moved the list: one pass over both lists,
 one longest-increasing-subsequence pass, and `common − LIS` moves, which is the optimum.
 
@@ -172,7 +160,7 @@ object that holds the bucket's slots and its reads. `OIMBucketCommands` records
 the rest on the bucket slot (`bucket.commands`, `bucket.isWholeListRecorded`) as this frame's
 script, and the bridge forwards it from inside the frame. The script is cleared once the flush
 that delivered it has ended. The content service must be built with an `OIMBucketCommands` as
-its `bucketCommands`, which is what `createOIMBucketService(db)` gives you when you pass no
+its `bucketCommands`, which is what `createOIMSlotCollectionService(db)` gives you when you pass no
 `slotContentService`: its default is the array-driven content service with commands.
 
 ### One baseline, in one place

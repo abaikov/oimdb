@@ -1,35 +1,35 @@
-import {
-    OIMDB, OIMSlotContentBucketServiceSetDriven, OIMSlotReleasePolicyAtUnhold, createOIMEntityService, createOIMIndexService,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../../index';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../../engine/entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TCardsService = ReturnType<typeof createOIMEntityService<TCard>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 
-const createByDeckService = (db: OIMDB, cardsService: TCardsService) => createOIMIndexService<
+const createByDeckService = (db: OIMDB, cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
-    OIMSlotContentBucketServiceSetDriven<TCardSlot>
+    OIMSlotContentSetBucketService<TCardSlot, string>
 >(db, {
     entityService: cardsService,
-    slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+    slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
     keyOf: (card: TCard) => card.deck,
 });
 
 describe('a bucket filled by a scan of the source after a hand mutation', () => {
     it('takes the row out of the bucket its old key named, so it is in one bucket, not two', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(db, cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
         (card.entity as TCard).deck = 'clubs';
 
         byDeckService.holdSlotByKey(byDeck, 'clubs');
@@ -40,13 +40,13 @@ describe('a bucket filled by a scan of the source after a hand mutation', () => 
     });
 
     it('keeps the row alive across the move even when its last hold is the one it leaves', () => {
-        const db = new OIMDB({ slotReleasePolicy: new OIMSlotReleasePolicyAtUnhold() });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(db, cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
         (card.entity as TCard).deck = 'clubs';
 
         expect(() => byDeckService.holdSlotByKey(byDeck, 'clubs')).not.toThrow();

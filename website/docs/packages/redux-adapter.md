@@ -55,10 +55,7 @@ registered with a collection service and the store slot it reads: the service is
 and the store slot is the one instance it mirrors.
 
 ```ts setup
-import {
-  OIMDB, OIMKeyTreeWalkComposite, OIMSlotStoreServiceTreeDriven, createOIMBucketService, createOIMEntityService,
-  type TOIMStoreKey, type TOIMEntitySlot, type TOIMEntityColumnName, type TOIMSlotStoreTree,
-} from '@oimdb/core';
+import { OIMDB, OIMCompositeKeyTreeWalk, OIMSlotTreeStoreService, type TOIMStoreKey, type TOIMEntitySlot, type TOIMEntityColumnName, type TOIMSlotStoreTree, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 import { OIMReduxAdapter } from '@oimdb/redux-adapter';
 import type {
   TOIMReduxDefaultCollectionState, TOIMReduxDefaultIndexState,
@@ -78,9 +75,9 @@ const uiReducer = (state: { open: boolean } = { open: false }): { open: boolean 
 
 const db = new OIMDB();
 
-const userService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
 const users = userService.createStoreSlot(db);
-const byTeamService = createOIMBucketService<TOIMEntitySlot<TUser>>(db);
+const byTeamService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byTeam = byTeamService.createStoreSlot(db);
 
 const adapter = new OIMReduxAdapter({ channelMap: db });
@@ -105,26 +102,21 @@ const store = createStore(
 
 adapter.setStore(store); // bind so the adapter can dispatch OIMDB_UPDATE
 
-const cardService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 const cards = cardService.createStoreSlot(db);
-const cardsByDeckService = createOIMBucketService<TOIMEntitySlot<TCard>>(db);
+const cardsByDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const cardsByDeck = cardsByDeckService.createStoreSlot(db);
 type TProgressKey = readonly TOIMEntitySlot[];
 type TProgressSlot = TOIMEntitySlot<TProgress, TProgressKey>;
-const progressService = createOIMEntityService<
-  TProgress, TOIMEntityColumnName<TProgress>, TProgressKey, TOIMSlotStoreTree<TProgressSlot, TOIMEntitySlot>
->(db, {
-  entitySlotStoreService: new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TProgressSlot>(new OIMKeyTreeWalkComposite()),
-  keyOf: item => [userService.holdSlotByKey(users, item.userId), cardService.holdSlotByKey(cards, item.cardId)],
-});
+const progressService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TProgress, TProgressKey>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(new OIMCompositeKeyTreeWalk()) });
 const progress = progressService.createStoreSlot(db);
 ```
 
-`userService` is the collection service `createOIMEntityService` returns. Its own doors read and
+`userService` is the collection service `createOIMSlotCollectionService` returns. Its own doors read and
 mint slots (`getSlots`, `getSlotByKey`, `holdSlotByKey`); every write goes through its
-`slotContentService` (`upsertEntity`, `updateEntity`, `deleteEntities`, …). A bucket collection
-from `createOIMBucketService` is the same shape: its `slotContentService` holds the bucket's
-slots, and `writeBucketMemberSlots` and the other bucket doors are on it.
+`slotContentService` (`writeSlotContentByKey`, `updateEntity`, `deleteEntities`, …). A bucket collection
+from `createOIMSlotCollectionService` is the same shape: its `slotContentService` holds the bucket's
+slots, and `writeSlotContent` and the other bucket doors are on it.
 
 `TOIMReduxKeyedIndex`, `TOIMReduxGlobalIndex` and `TOIMReduxLinkedIndex` all
 carry an **entity** parameter, and it cannot be widened: the entity collection service
@@ -142,7 +134,7 @@ their mapper and return the new Redux slice. A frame that touched nothing regist
 nothing.
 
 ```typescript
-userService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', teamId: 'team1' });
+userService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', teamId: 'team1' });
 db.flush();
 
 store.getState().users; // { entities: { u1: {...} }, ids: ['u1'] }
@@ -164,12 +156,12 @@ exist before the store does.
   slots in order.
 
 A keyless index names the bucket service and the bucket slot separately, because what writes a bucket is
-`bucketService.slotContentService.writeBucketMemberSlots(bucketSlot, slots)`, which is handed the bucket it is about
+`bucketService.slotContentService.writeSlotContent(bucketSlot, slots)`, which is handed the bucket it is about
 and looks nothing up. So the writer and the identity are named separately: one
 bucket held under a fixed key, in a bucket store slot of its own:
 
 ```ts setup
-const recentService = createOIMBucketService<TOIMEntitySlot<TUser>>(db);
+const recentService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const recentStoreSlot = recentService.createStoreSlot(db);
 const recent = recentService.holdSlotByKey(recentStoreSlot, 'recent');
 ```
@@ -192,8 +184,8 @@ In a keyed index, a bucket is watched while it holds something and let go of whe
 so the adapter does not keep emptied buckets alive. The bucket of a keyless index is watched for
 the adapter's whole life, since the caller holds it.
 
-Your application fills that bucket. A `userService.slotContentService.upsertEntity(users, user)` puts nothing in
-`recent`; `recentService.slotContentService.writeBucketMemberSlots(recent, slots)` does, and whatever list you
+Your application fills that bucket. A `userService.slotContentService.writeSlotContentByKey(users, user)` puts nothing in
+`recent`; `recentService.slotContentService.writeSlotContent(recent, slots)` does, and whatever list you
 hand it is what Redux mirrors. Every id is resolved with a hold, because minting by
 key is the only way to name an entity whose value has not arrived. The hold is
 given back after the write, because the holds that the write itself leaves behind
@@ -201,9 +193,9 @@ are what keep whatever joined:
 
 ```typescript
 function saveUser(user: TUser, everyone: readonly TUser[]): void {
-  userService.slotContentService.upsertEntity(users, user);
+  userService.writeSlotContentByKey(users, user.id, user);
   const held = everyone.map(u => userService.holdSlotByKey(users, u.id));
-  recentService.slotContentService.writeBucketMemberSlots(recent, held);
+  recentService.slotContentService.writeSlotContent(recent, held);
   for (const one of held) one.owner.unholdSlot(one);
 }
 ```
@@ -211,13 +203,13 @@ function saveUser(user: TUser, everyone: readonly TUser[]): void {
 The reducer above is a read-only mirror: it projects the bucket into
 `{ ids }` and never writes back. Sync-back is the other direction. A child
 reducer whose state carries `ids` hands that list to
-`bucketService.slotContentService.writeBucketMemberSlots`. Since every bucket's slots are the caller's, no
+`bucketService.slotContentService.writeSlotContent`. Since every bucket's slots are the caller's, no
 bucket collection refuses the write, so the two directions can meet on one
 bucket, and the last writer wins. Give Redux its own bucket when Redux is the
 one deciding who is in it.
 
 That is also why an **auto-index cannot be registered** as a keyed, keyless or linked
-index. An `OIMIndexService` files its buckets itself from the entities' keys, and its
+index. An `OIMSlotCollectionIndexService` files its buckets itself from the entities' keys, and its
 `slotContentService` only reads (`getBucketMemberSlots`, `getBucketMemberSlotCount`,
 `hasBucketMemberSlot`, and on an array bucket `getBucketMemberSlotAt` /
 `getBucketMemberSlotPosition`). A sync-back write into one would move a member without
@@ -426,7 +418,7 @@ const diff = oimDiffEntityKeys(before, after);
 | Method | Description |
 |---|---|
 | `new OIMReduxAdapter({ channelMap: db })` | Create the adapter over `db.defaultChannelSlot` |
-| `.createCollectionReducer(entityService, entityStoreSlot, child?, mapper?)` | Reducer backed by an entity store slot of a collection from `createOIMEntityService` |
+| `.createCollectionReducer(entityService, entityStoreSlot, child?, mapper?)` | Reducer backed by an entity store slot of a collection from `createOIMSlotCollectionService` |
 | `.createKeyedIndexReducer({ bucketService, bucketStoreSlot, entityService, entityStoreSlot }, child?, mapper?)` | Reducer backed by a key-addressed bucket store slot |
 | `.createGlobalIndexReducer({ bucketService, bucketSlot, entityService, entityStoreSlot }, child?, mapper?)` | Reducer backed by one bucket slot held under a fixed key |
 | `.createMiddleware()` | Redux middleware — flushes the channel after every action |
@@ -437,7 +429,7 @@ const diff = oimDiffEntityKeys(before, after);
 
 The middleware's flush drains the whole pending frame, and every change it drains is
 reported. Whoever writes first arms a frame: a socket callback running
-`cardService.slotContentService.upsertEntity(cards, { id: 'c9', title: 'Nine' })` with no explicit flush leaves one pending, and the
+`cardService.slotContentService.writeSlotContentByKey(cards, { id: 'c9', title: 'Nine' })` with no explicit flush leaves one pending, and the
 next action your application dispatches, whatever it is, drains it and reports it.
 
 The cost is one extra `OIMDB_UPDATE` per action whose child reducer
@@ -470,12 +462,12 @@ behind:
 ```typescript
 // `progress` is addressed by
 // [userService.holdSlotByKey(users, userId), cardService.holdSlotByKey(cards, cardId)] — no scalar key of its own.
-const flatService = createOIMEntityService<TFlatProgress>(db, { keyOf: item => item.id });
+const flatService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TFlatProgress>(db) });
 const flat = flatService.createStoreSlot(db);
 
 function saveProgress(item: TProgress): void {
-  progressService.slotContentService.upsertEntity(progress, item);
-  flatService.slotContentService.upsertEntity(flat, { id: `${item.userId}:${item.cardId}`, box: item.box });
+  progressService.writeSlotContentByKey(progress, (item => [userService.holdSlotByKey(users, item.userId), cardService.holdSlotByKey(cards, item.cardId)])(item), item);
+  flatService.writeSlotContentByKey(flat, `${item.userId}:${item.cardId}`, { id: `${item.userId}:${item.cardId}`, box: item.box });
 }
 
 const flatReducer = adapter.createCollectionReducer<TFlatProgress, string, TFlatState>(flatService, flat);

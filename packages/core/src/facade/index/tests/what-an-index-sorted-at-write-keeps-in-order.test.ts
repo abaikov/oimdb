@@ -1,4 +1,6 @@
-import { OIMDB, OIMEffectService, createOIMEntityService, createOIMIndexServiceSortedArrayDriven } from '../../../index';
+import { OIMDB, OIMEffectService, createOIMSlotCollectionSortedArrayIndexService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; rank: number; score: number; label: string };
 
@@ -16,11 +18,11 @@ const compareCards = (left: TCard, right: TCard): number => (left.rank - right.r
 
 const createFixture = (initialCards: readonly TCard[]) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, initialCards.map(card => ({ ...card })));
+    cardsService.writeInBatch(cards, () => (initialCards.map(card => ({ ...card }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
-    const byDeckService = createOIMIndexServiceSortedArrayDriven(db, {
+    const byDeckService = createOIMSlotCollectionSortedArrayIndexService(db, {
         entityService: cardsService,
         columns: ['deck'],
         sortColumns: [{ column: 'rank', direction: 'asc' }, { column: 'score', direction: 'desc' }],
@@ -95,7 +97,7 @@ const run = (seed: number, steps: number): void => {
 
         if (liveIds.length === 0 || choice < 0.15) {
             const card = freshCard();
-            cardsService.slotContentService.upsertEntity(cards, { ...card });
+            cardsService.writeSlotContentByKey(cards, ({ ...card }).id, { ...card });
             model.set(card.id, card);
             arrive(card.deck, card.id);
             wakingDecks.add(card.deck);
@@ -103,7 +105,7 @@ const run = (seed: number, steps: number): void => {
             const id = pick(liveIds);
             const card = model.get(id)!;
             const cardSlot = cardsService.findSlotByKey(cards, id);
-            if (cardSlot !== undefined) cardsService.slotContentService.deleteEntity(cardSlot);
+            if (cardSlot !== undefined) cardsService.slotContentService.clearSlotContent(cardSlot);
             model.delete(id);
             leave(card.deck, id);
             wakingDecks.add(card.deck);
@@ -123,7 +125,7 @@ const run = (seed: number, steps: number): void => {
             const card = model.get(id)!;
             const isRank = random() < 0.5;
             const next = isRank ? { ...card, rank: card.rank + 1 + Math.floor(random() * 3) } : { ...card, score: (card.score + 1) % 3 };
-            cardsService.slotContentService.upsertEntity(cards, { ...next });
+            cardsService.writeSlotContentByKey(cards, ({ ...next }).id, { ...next });
             model.set(id, next);
             leave(card.deck, id);
             arrive(card.deck, id);
@@ -144,7 +146,7 @@ const run = (seed: number, steps: number): void => {
             const arriving: TCard[] = [];
             const arrivingCount = 1 + Math.floor(random() * 20);
             for (let i = 0; i < arrivingCount; i++) arriving.push(freshCard());
-            cardsService.slotContentService.upsertEntities(cards, arriving.map(card => ({ ...card })));
+            cardsService.writeInBatch(cards, () => (arriving.map(card => ({ ...card }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
             for (const card of arriving) {
                 model.set(card.id, card);
                 arrive(card.deck, card.id);
@@ -156,7 +158,7 @@ const run = (seed: number, steps: number): void => {
                 const card = model.get(id)!;
                 return { ...card, rank: card.rank + 1 + Math.floor(random() * 3) };
             });
-            cardsService.slotContentService.upsertEntities(cards, nextCards.map(card => ({ ...card })));
+            cardsService.writeInBatch(cards, () => (nextCards.map(card => ({ ...card }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
             for (const card of nextCards) {
                 model.set(card.id, card);
                 leave(card.deck, card.id);
@@ -191,7 +193,7 @@ describe('an index sorted at write time', () => {
         const arriving: TCard[] = [];
         for (let i = 0; i < 40; i++) arriving.push({ id: `c${i}`, deck: 'd0', rank: (i * 7) % 5, score: i % 3, label: '' });
 
-        cardsService.slotContentService.upsertEntities(cards, arriving);
+        cardsService.writeInBatch(cards, () => (arriving).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
         expect(idsOf('d0')).toEqual(arriving.slice().sort(compareCards).map(card => card.id));
@@ -241,7 +243,7 @@ describe('an index sorted at write time', () => {
         ]);
 
         const b = cardsService.findSlotByKey(cards, 'b');
-        if (b !== undefined) cardsService.slotContentService.deleteEntity(b);
+        if (b !== undefined) cardsService.slotContentService.clearSlotContent(b);
         db.flush();
 
         expect(idsOf('d0')).toEqual(['a', 'c']);

@@ -42,11 +42,11 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createKeyedIndexReducer<string, string, TOIMReduxDefaultIndexState<string, string>, TUser>(keyedIndex);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice', department: 'eng' },
             { id: 'u2', name: 'Bob', department: 'eng' },
             { id: 'u3', name: 'Carol', department: 'design' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setDepartment('eng', ['u1', 'u2']);
         setDepartment('design', ['u3']);
         db.flush();
@@ -65,10 +65,10 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createKeyedIndexReducer<string, string, TOIMReduxDefaultIndexState<string, string>, TUser>(keyedIndex);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice', department: 'eng' },
             { id: 'u3', name: 'Carol', department: 'design' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setDepartment('eng', ['u1']);
         setDepartment('design', ['u3']);
         db.flush();
@@ -95,11 +95,11 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createKeyedIndexReducer<string, string, TOIMReduxDefaultIndexState<string, string>, TUser>(keyedIndex);
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice', department: 'eng' },
             { id: 'u2', name: 'Bob', department: 'design' },
             { id: 'u3', name: 'Carol', department: 'ops' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setDepartment('eng', ['u1']);
         setDepartment('design', ['u2']);
         setDepartment('ops', ['u3']);
@@ -145,10 +145,10 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
             }
         );
 
-        usersService.slotContentService.upsertEntities(users, [
+        usersService.writeInBatch(users, () => ([
             { id: 'u1', name: 'Alice', department: 'eng' },
             { id: 'u2', name: 'Bob', department: 'eng' },
-        ]);
+        ]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         setDepartment('eng', ['u1', 'u2']);
         db.flush();
 
@@ -164,7 +164,7 @@ describe('OIMReduxAdapter.createKeyedIndexReducer', () => {
         adapter.setStore(reduxStore);
         const dispatchSpy = jest.spyOn(reduxStore, 'dispatch');
 
-        usersService.slotContentService.upsertEntity(users, { id: 'u1', name: 'Alice', department: 'eng' });
+        usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', department: 'eng' });
         setDepartment('eng', ['u1']);
         db.flush();
         expect(dispatchSpy).toHaveBeenCalledTimes(1);

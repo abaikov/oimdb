@@ -1,31 +1,29 @@
 import type { TOIMStoreKey } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
+import type { IOIMPersistSnapshotService, OIMPersistKeyValueWriteBatch, TOIMPersistRecords } from '@oimdb/persist';
 import {
-    OIMDB,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMSingleEntityService,
-} from '@oimdb/core';
-import type { IOIMPersistSnapshotStrategy, OIMPersistKeyValueWriteBatch, TOIMPersistRecords } from '@oimdb/persist';
-import {
-    OIMPersistCodecIdentity,
+    OIMPersistIdentityCodec,
     OIMPersistEntityWriter,
     OIMPersistKeyValueBackend,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistKeyValuePathStrategy,
-    OIMPersistRecordSourceCollectionChangeDriven,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerFrameDriven,
-    OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistKeyValuePathSnapshotService,
+    OIMPersistCollectionChangeWriteRecordSource,
+    OIMPersistSnapshotResource,
+    OIMPersistFrameScheduler,
+    OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistAsyncKVMultiStorage } from '../src';
 import { OIMPersistAsyncKVStorage } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
+import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TSettings = { theme: string };
 type TUserRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 type TKeyValuePersistor = OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>;
-type TKeyValueSnapshotStrategy<TSnapshot> = IOIMPersistSnapshotStrategy<
+type TKeyValueSnapshotStrategy<TSnapshot> = IOIMPersistSnapshotService<
     OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSnapshot
 >;
 
@@ -60,40 +58,37 @@ function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
         entityWriter: createOIMEntityWriterInPlace(),
     });
-    const entityService = createOIMEntityService<TUser>(db, {
-        keyOf: user => user.id,
-        entityWriter: persistEntityWriter,
-    });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const persistRecordSource = new OIMPersistRecordSourceCollectionChangeDriven<TOIMStoreKey, TUser>({
+    const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
         entityCollectionService: entityService,
         entityStoreSlot,
         persistEntityWriter,
     });
-    const createPersistResource = (persistSnapshotStrategy: TKeyValueSnapshotStrategy<TUserRecords>) =>
-        new OIMPersistResourceSnapshot<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TUserRecords, TUserRecords>({
+    const createPersistResource = (persistSnapshotService: TKeyValueSnapshotStrategy<TUserRecords>) =>
+        new OIMPersistSnapshotResource<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TUserRecords, TUserRecords>({
             persistSnapshotSource: persistRecordSource,
-            persistSnapshotStrategy,
-            persistCodec: new OIMPersistCodecIdentity<TUserRecords>(),
+            persistSnapshotService,
+            persistCodec: new OIMPersistIdentityCodec<TUserRecords>(),
         });
     return { entityService, entityStoreSlot, createPersistResource };
 }
 
 function buildSettings(db: OIMDB) {
-    const singleEntityService = createOIMSingleEntityService<TSettings>(db);
+    const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
     const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
-    singleEntityService.slotContentService.upsertEntity(singleEntityStoreSlot, { theme: '' });
+    singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: '' });
     db.flush();
-    const persistResourceSnapshot = new OIMPersistResourceSnapshot<
+    const persistSnapshotResource = new OIMPersistSnapshotResource<
         OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TSettings, TSettings
     >({
-        persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven<TSettings>({
+        persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource<TSettings>({
             channelMap: db, singleSlotService: singleEntityService, entityStoreSlot: singleEntityStoreSlot,
         }),
-        persistSnapshotStrategy: new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: ['settings'] }),
-        persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+        persistSnapshotService: new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: ['settings'] }),
+        persistCodec: new OIMPersistIdentityCodec<TSettings>(),
     });
-    return { singleEntityService, singleEntityStoreSlot, persistResourceSnapshot };
+    return { singleEntityService, singleEntityStoreSlot, persistSnapshotResource };
 }
 
 function createPersistor(persistAsyncKVMultiStorage: TOIMPersistAsyncKVMultiStorage, db: OIMDB): TKeyValuePersistor {
@@ -101,7 +96,7 @@ function createPersistor(persistAsyncKVMultiStorage: TOIMPersistAsyncKVMultiStor
         persistBackend: new OIMPersistKeyValueBackend({
             persistKeyValueStorage: new OIMPersistAsyncKVStorage({ persistAsyncKVMultiStorage }),
         }),
-        persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+        persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
     });
 }
 
@@ -123,20 +118,20 @@ describe('one flush of several snapshot resources on an async key-value storage'
         const guests = buildUsers(db);
         const persistor = createPersistor(persistAsyncKVMultiStorage, db);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         persistor.addPersistResource(admins.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:admins' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:admins' }),
         ));
         persistor.addPersistResource(guests.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:guests' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:guests' }),
         ));
         startedPersistors.push(persistor);
         persistor.start();
 
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ id: 'u1', name: 'Ada' });
-        admins.entityService.slotContentService.upsertEntity(admins.entityStoreSlot,{ id: 'a1', name: 'Grace' });
-        guests.entityService.slotContentService.upsertEntity(guests.entityStoreSlot,{ id: 'g1', name: 'Edsger' });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
+        admins.entityService.writeSlotContentByKey(admins.entityStoreSlot, 'a1', { id: 'a1', name: 'Grace' });
+        guests.entityService.writeSlotContentByKey(guests.entityStoreSlot, 'g1', { id: 'g1', name: 'Edsger' });
         db.flush();
         await persistor.whenIdle();
 
@@ -154,18 +149,18 @@ describe('one flush of several snapshot resources on an async key-value storage'
         const settings = buildSettings(db);
         const persistor = createPersistor(persistAsyncKVMultiStorage, db);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         persistor.addPersistResource(admins.createPersistResource(
-            new OIMPersistKeyValuePathStrategy<TUserRecords>({ storageKey: 'prefs', path: ['admins'] }),
+            new OIMPersistKeyValuePathSnapshotService<TUserRecords>({ storageKey: 'prefs', path: ['admins'] }),
         ));
-        persistor.addPersistResource(settings.persistResourceSnapshot);
+        persistor.addPersistResource(settings.persistSnapshotResource);
         startedPersistors.push(persistor);
         persistor.start();
 
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ id: 'u1', name: 'Ada' });
-        admins.entityService.slotContentService.upsertEntity(admins.entityStoreSlot,{ id: 'a1', name: 'Grace' });
-        settings.singleEntityService.slotContentService.upsertEntity(settings.singleEntityStoreSlot, { theme: 'dark' });
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
+        admins.entityService.writeSlotContentByKey(admins.entityStoreSlot, 'a1', { id: 'a1', name: 'Grace' });
+        settings.singleEntityService.writeSingleSlotContent(settings.singleEntityStoreSlot, { theme: 'dark' });
         db.flush();
         await persistor.whenIdle();
 
@@ -186,14 +181,14 @@ describe('one flush of several snapshot resources on an async key-value storage'
         const settings = buildSettings(db);
         const persistor = createPersistor(persistAsyncKVMultiStorage, db);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         persistor.addPersistResource(admins.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:admins' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:admins' }),
         ));
-        persistor.addPersistResource(settings.persistResourceSnapshot);
-        users.entityService.slotContentService.upsertEntity(users.entityStoreSlot,{ id: 'u1', name: 'Ada' });
-        admins.entityService.slotContentService.upsertEntity(admins.entityStoreSlot,{ id: 'a1', name: 'Grace' });
+        persistor.addPersistResource(settings.persistSnapshotResource);
+        users.entityService.writeSlotContentByKey(users.entityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
+        admins.entityService.writeSlotContentByKey(admins.entityStoreSlot, 'a1', { id: 'a1', name: 'Grace' });
         await persistor.persist();
         forgetCalls();
 
@@ -215,7 +210,7 @@ describe('one flush of several snapshot resources on an async key-value storage'
         const users = buildUsers(db);
         const persistor = createPersistor(persistAsyncKVMultiStorage, db);
         persistor.addPersistResource(users.createPersistResource(
-            new OIMPersistKeyValueEntryStrategy<TUserRecords>({ storageKey: 'app:users' }),
+            new OIMPersistKeyValueEntrySnapshotService<TUserRecords>({ storageKey: 'app:users' }),
         ));
         startedPersistors.push(persistor);
         persistor.start();

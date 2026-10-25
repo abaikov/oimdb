@@ -15,9 +15,6 @@ export class OIMContentChangeListenerService {
         if (storeSlotEditable.contentChangeListeners === undefined) {
             storeSlotEditable.contentChangeListeners = [];
             storeSlotEditable.contentChangeListenerReadColumnNames = [];
-            storeSlotEditable.subframeSlotChannelQueues = [];
-            storeSlotEditable.subframePatchChannelQueues = [];
-            storeSlotEditable.subframeChangedColumnsChannelQueues = [];
         }
         storeSlotEditable.contentChangeListeners.push(listener);
         (storeSlotEditable.contentChangeListenerReadColumnNames as (readonly string[] | undefined)[]).push(readColumnNames);

@@ -1,10 +1,6 @@
-import {
-    OIMDB,
-    OIMReleaseSlotCollectorServiceAfterWrite,
-    OIMSlotReleasePolicyAfterWrite,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMDB, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased, oimMintAfterWriteSlotReleaseWheel } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -14,15 +10,12 @@ const START = 1_000_000;
 const createAgingFixture = (after: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: after }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
         flushAfterWrite: (): void => {
-            OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(db.collectorSlot.afterWriteReleaseSlotCollectorSlot);
+            oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
         },
         cardsService,
         cards,
@@ -33,7 +26,7 @@ const createAgingFixture = (after: number) => {
 describe('a row condemned while something still referred to it', () => {
     it('is not still condemned after it has been written again', () => {
         const fixture =createAgingFixture(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         slot.owner.holdSlot(slot);
 
@@ -45,7 +38,7 @@ describe('a row condemned while something still referred to it', () => {
 
         // A ROW OF AGE ZERO — and, before the mark was lifted, one that vanished
         // the moment the hold was given back.
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'two' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'two' });
         fixture.db.flush();
 
         slot.owner.unholdSlot(slot);
@@ -55,13 +48,13 @@ describe('a row condemned while something still referred to it', () => {
 
     it('gets a WHOLE window from that write, and goes when it runs out', () => {
         const fixture =createAgingFixture(30_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         slot.owner.holdSlot(slot);
 
         fixture.at(START + 31_000);
         fixture.flushAfterWrite();
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'two' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'two' });
         fixture.db.flush();
         slot.owner.unholdSlot(slot);
 

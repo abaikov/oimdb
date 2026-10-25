@@ -15,11 +15,7 @@ collection service first and the store slot after it.
 ```ts setup
 import { memo } from 'react';
 import type { ReactNode } from 'react';
-import {
-  OIMDB, OIMSlotContentBucketServiceSetDriven, OIMSlotStoreServiceSingleSlotDriven, createOIMBucketService,
-  createOIMComputedService, createOIMComputedServiceSorted, createOIMEntityService, createOIMIndexService,
-  oimSameValueZeroGuard,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMDBProvider, useOIMBucketSlotsByKey, useOIMComputedValue, useOIMDB, useOIMEntity,
@@ -30,21 +26,18 @@ type Card = { id: string; deckId: string; title: string; rank: number };
 type User = { id: string; name: string; avatarUrl: string; bio: string };
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
-const userService = createOIMEntityService<User>(db, { keyOf: (user) => user.id });
+const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
 const users = userService.createStoreSlot(db);
-const searchResultService = createOIMBucketService<
-  TOIMEntitySlot<Card>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>,
-  OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>
->(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<Card>>() });
+const searchResultService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 const searchResults = searchResultService.createStoreSlot(db);
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
   entityService: cardService,
   keyOf: (card: Card) => card.deckId,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
-const cardsByRankService = createOIMComputedServiceSorted({
+const cardsByRankService = createOIMSortedComputedService({
   indexService: cardsByDeckService,
   sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -99,7 +92,7 @@ React throws away leaves nothing standing past the next flush; the counted hold
 is taken in `subscribe`, when the component commits, and the effect's own hold
 then keeps the identity until unmount or a key change. Unmounting the last
 component watching a key that never arrived releases it under the default
-`OIMSlotReleasePolicyAtEmpty`.
+`OIMSlotAtEmptyReleasePolicy`.
 
 **Reference:** [React — `useOIMEntity`](/docs/packages/react#useoimentity--one-entity-by-key).
 
@@ -155,7 +148,7 @@ function SearchResults({ query }: { query: string }) {
 
 declare const found: readonly Card[];
 const aceResults = searchResultService.holdSlotByKey(searchResults, 'ace');
-searchResultService.slotContentService.writeBucketMemberSlots(aceResults, cardService.slotContentService.upsertEntities(cards, found));
+searchResultService.slotContentService.writeSlotContent(aceResults, cardService.writeInBatch(cards, () => (found).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
 aceResults.owner.unholdSlot(aceResults);
 ```
 
@@ -166,7 +159,7 @@ item, and `memo` keeps the others from re-rendering with the list. The hook owns
 the bucket's lifetime — it resolves with `holdSlotByKey` on commit, never in a
 render, and gives the count back on unmount and on every key change — and the
 key may be built inline. What fills the bucket is your write, here
-`writeBucketMemberSlots` with the slots `upsertEntities` returns; a bucket never sorts
+`writeSlotContent` with the slots `upsertEntities` returns; a bucket never sorts
 and never fills itself.
 
 **Reference:** [React — `useOIMBucketSlotsByKey`](/docs/packages/react#useoimbucketslotsbykey--one-bucket-by-key),
@@ -199,7 +192,7 @@ derivation over the index instead, as in the next recipe.
 
 ## Render a group sorted by a column
 
-**Take:** `createOIMComputedServiceSorted({ indexService, sortColumns })` and its
+**Take:** `createOIMSortedComputedService({ indexService, sortColumns })` and its
 `createSortedStoreSlot(indexStoreSlot)` in a module; in the component,
 `useOIMSlotsByKeys(cardsByRankService.computedCollectionService, cardsByRank, [key])` to own the
 derivation and `useOIMComputedValue(ranked)` to re-render.
@@ -235,7 +228,7 @@ component is mounted; it owns a lifetime, not a subscription, which is why
 ## Show a derived value
 
 **Take:** a void-keyed computed service from `createOIMComputedService<void, V, …>` with a
-`sameValueGuard` and `OIMSlotStoreServiceSingleSlotDriven.INSTANCE` as its `computedSlotStoreService`,
+`sameValueGuard` and `OIMSingleSlotStoreService.INSTANCE` as its `computedSlotStoreService`,
 the store slot from its `createComputedStoreSlot(db, derive, createSources)`, its slot held in a module with
 `computedCollectionService.holdSlotByKey(storeSlot, undefined)`, and `useOIMComputedValue` with that
 slot. Not a value computed in the render from the raw data: the component would have to subscribe to every input
@@ -243,17 +236,15 @@ and re-render on each of them.
 
 ```tsx
 const hearts = cardsByDeckService.holdSlotByKey(cardsByDeck, 'hearts');
-const heartsCountService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
+const heartsCountService = createOIMSingleComputedService<number>({
   sameValueGuard: oimSameValueZeroGuard,
-  computedSlotStoreService:
-    OIMSlotStoreServiceSingleSlotDriven.INSTANCE as unknown as OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>,
 });
 const heartsCount = heartsCountService.createComputedStoreSlot(
   db,
   () => cardsByDeckService.slotContentService.getBucketMemberSlotCount(hearts),
   () => ({ sourceSlots: [hearts] }),
 );
-const heartsCountSlot = heartsCountService.computedCollectionService.holdSlotByKey(heartsCount, undefined);
+const heartsCountSlot = heartsCountService.computedSingleSlotService.holdSingleSlot(heartsCount);
 
 function HeartsBadge() {
   const count = useOIMComputedValue(heartsCountSlot);
@@ -268,7 +259,7 @@ equal to the old keeps its stamp — a frame in which one card leaves hearts and
 another arrives renders nothing. `useOIMComputedValue` settles the
 computed through its value service before reading it, because a derivation is asked,
 never woken. The default release policy of a computed is
-`OIMSlotReleasePolicyAtUnhold`, so the module-level hold is what keeps it between
+`OIMSlotAtUnholdReleasePolicy`, so the module-level hold is what keeps it between
 components.
 
 **Reference:** [React — Binding a derivation](/docs/packages/react#binding-a-derivation),
@@ -285,7 +276,7 @@ never reach a component.
 const paintedDb = new OIMDB({
   channelScheduler: (flush) => { requestAnimationFrame(() => { flush(); }); },
 });
-const paintedCardService = createOIMEntityService<Card>(paintedDb, { keyOf: (card) => card.id });
+const paintedCardService = createOIMSlotCollectionService(paintedDb, { slotContentService: createOIMSlotContentEntityService<Card>(paintedDb) });
 const paintedCards = paintedCardService.createStoreSlot(paintedDb);
 
 function PaintedApp({ children }: { children: ReactNode }) {

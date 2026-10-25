@@ -286,7 +286,7 @@ alt.prepend-list-vs-positions-map   [per write]   0.09x
   invalidates every position after it: the renumber is exactly `list.length - at` map writes,
   so 1025 of them here, against one memmove and one `Set.add` on our side. EACH OPERATION IS A
   PREPEND AND A REMOVAL OF THE TAIL, so the list stays the length it is named for; the removal
-  renumbers nothing on either design. Ours is `OIMSlotContentBucketServiceArrayDriven` over
+  renumbers nothing on either design. Ours is `OIMSlotContentPositionalArrayBucketService` over
   `OIMBucketArrayMembershipUnique`; the floor is the same service subclassed to keep a
   positions map. DIRECTION: the bucket collection's own epilogue — the hold, the unhold, the
   `OIMChannelService.writeWithoutFlushCheck` and the emptiness update — is identical on both
@@ -1250,7 +1250,7 @@ alt.ladder.remove.9-flat-door-candidate   [per write]   0.90x
   strings; the collection's own store still holds the slots and is dropped at reset. This rung
   adds: nothing over rung 8 in shape: the shipped deleteEntity is itself flat on this fixture,
   so this rung differs from it by about the isOnFastPath read, markEmptiness with a
-  slotEmptiness.isEmpty call against a bare isEmpty = true, and the hand-inlined asserts
+  slotEmptinessPolicy.isEmpty call against a bare isEmpty = true, and the hand-inlined asserts
   against the assertWritable call; both keep the shipped release check and unfile.
   measured  8,192 ops/pass ours, 8,192 floor; 15 samples; warm-up 1039 planned, 1039/1039 reached; spread 11.9%/8.1%; load 1.87 → 2.05 on 8 cores
 
@@ -1418,7 +1418,7 @@ alt.ladder.insert.12-collection-door   [per row per write]   0.95x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1547,7 +1547,7 @@ alt.ladder.insert.5-key-of   [per row per write]   0.98x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1647,7 +1647,7 @@ alt.ladder.insert.9-content-changed   [per row per write]   1.00x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1690,7 +1690,7 @@ alt.ladder.insert.2-slot   [per row per write]   1.01x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1731,7 +1731,7 @@ alt.ladder.insert.7-assert-writable   [per row per write]   1.01x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1825,7 +1825,7 @@ alt.ladder.insert.4-identity-store   [per row per write]   1.02x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -1922,7 +1922,7 @@ alt.ladder.insert.8-emptiness   [per row per write]   1.03x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -2011,7 +2011,7 @@ alt.ladder.insert.3-probe   [per row per write]   1.04x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -2048,7 +2048,7 @@ alt.ladder.insert.6-writer-and-channel   [per row per write]   1.05x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -2065,7 +2065,7 @@ alt.ladder.insert.10-release-check   [per row per write]   1.05x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -2249,7 +2249,7 @@ alt.ladder.insert.11-subframe   [per row per write]   1.08x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -2264,7 +2264,7 @@ alt.slot-layout.write-door-three-shapes-against-one-shape   [per write]   1.08x
   One operation is one write; the pool cycles entity, bucket, push column, the only kinds
   whose slots reach OIMChannel.writeWithoutFlushCheck
   (how-many-shapes-reach-the-write-door.test.ts pins three). The literals copy the key order
-  of createOIMEntitySlot, createOIMBucketSlot and OIMColumnOwnerPushDriven.createColumnSlot.
+  of createOIMEntitySlot, createOIMBucketSlot and OIMPushColumnSlotOwner.createColumnSlot.
   Three shapes are still under the polymorphic ceiling of four, which is what this pair asks
   about. Every slot is held, so the gate never returns early.
   measured  14,198,886 ops/pass ours, 13,929,782 floor; 9 samples; warm-up 20 planned, 20/20 reached; spread 0.3%/31.5%; load 3.54 → 3.81 on 8 cores
@@ -2653,7 +2653,7 @@ alt.ladder.insert.1-copy   [per row per write]   1.15x
   seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world
   rebuilt outside the clock, and adds exactly one step of the insert branch of
   OIMSlotContentEntityService.insertEntity to the rung below it, written by hand around the
-  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotStoreServiceMapDriven,
+  shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService,
   an in-place writer with oimInsertEntityWithSanitizedCopy, the channel, the emptiness check,
   the AtEmpty release policy. Each pair re-measures the rung below as its floor in its own
   run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each
@@ -3687,8 +3687,8 @@ alt.ladder.update-by-key.0c-catalogue-copy   [per write]   2.25x
 
 alt.remove-member.unordered-vs-ordered.50k   [per row per write]   2.49x
   verdict  !  THE REJECTED DESIGN WINS — 2.49x DEARER. This decision came out wrong.
-  ours     a member leaves a bucket of 50000 and joins another, membership in a Set (OIMSlotContentBucketServiceSetDriven)
-  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentBucketServiceArrayDriven)
+  ours     a member leaves a bucket of 50000 and joins another, membership in a Set (OIMSlotContentSetBucketService)
+  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentPositionalArrayBucketService)
   A BUCKET OF 50000, and the size is in the id because the answer is a function of it on BOTH
   halves. THE COUNT THIS PREDICTS, per member moved, through
   `slotContentService.writeBucketMemberSlots`: on the ordered half, `reconcileSlots` compares
@@ -3720,7 +3720,7 @@ alt.remove-member.unordered-vs-ordered.50k   [per row per write]   2.49x
   DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are
   identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward
   1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF
-  DIFFS: `OIMSlotContentBucketServiceSetDriven.reconcileSlots` takes the set difference (one
+  DIFFS: `OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one
   Set of the list handed in, one probe per held member) and moves one hold each way, while the
   ordered half's `reconcileSlots` compares the two sequences up to the first mismatch, then
   drains the whole list and re-adds every member, so every member it holds is unheld and held
@@ -3735,8 +3735,8 @@ alt.remove-member.unordered-vs-ordered.50k   [per row per write]   2.49x
 
 alt.remove-member.unordered-vs-ordered.1k   [per row per write]   2.61x
   verdict  !  THE REJECTED DESIGN WINS — 2.61x DEARER. This decision came out wrong.
-  ours     a member leaves a bucket of 1000 and joins another, membership in a Set (OIMSlotContentBucketServiceSetDriven)
-  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentBucketServiceArrayDriven)
+  ours     a member leaves a bucket of 1000 and joins another, membership in a Set (OIMSlotContentSetBucketService)
+  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentPositionalArrayBucketService)
   A BUCKET OF 1000, and the size is in the id because the answer is a function of it on BOTH
   halves. THE COUNT THIS PREDICTS, per member moved, through
   `slotContentService.writeBucketMemberSlots`: on the ordered half, `reconcileSlots` compares
@@ -3768,7 +3768,7 @@ alt.remove-member.unordered-vs-ordered.1k   [per row per write]   2.61x
   DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are
   identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward
   1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF
-  DIFFS: `OIMSlotContentBucketServiceSetDriven.reconcileSlots` takes the set difference (one
+  DIFFS: `OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one
   Set of the list handed in, one probe per held member) and moves one hold each way, while the
   ordered half's `reconcileSlots` compares the two sequences up to the first mismatch, then
   drains the whole list and re-adds every member, so every member it holds is unheld and held
@@ -3798,8 +3798,8 @@ alt.computed-dedup.getter-vs-channel.all-read-four-times   [per write]   3.38x
 
 alt.remove-member.unordered-vs-ordered.100   [per row per write]   4.02x
   verdict  !  THE REJECTED DESIGN WINS — 4.02x DEARER. This decision came out wrong.
-  ours     a member leaves a bucket of 100 and joins another, membership in a Set (OIMSlotContentBucketServiceSetDriven)
-  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentBucketServiceArrayDriven)
+  ours     a member leaves a bucket of 100 and joins another, membership in a Set (OIMSlotContentSetBucketService)
+  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentPositionalArrayBucketService)
   A BUCKET OF 100, and the size is in the id because the answer is a function of it on BOTH
   halves. THE COUNT THIS PREDICTS, per member moved, through
   `slotContentService.writeBucketMemberSlots`: on the ordered half, `reconcileSlots` compares
@@ -3831,7 +3831,7 @@ alt.remove-member.unordered-vs-ordered.100   [per row per write]   4.02x
   DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are
   identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward
   1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF
-  DIFFS: `OIMSlotContentBucketServiceSetDriven.reconcileSlots` takes the set difference (one
+  DIFFS: `OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one
   Set of the list handed in, one probe per held member) and moves one hold each way, while the
   ordered half's `reconcileSlots` compares the two sequences up to the first mismatch, then
   drains the whole list and re-adds every member, so every member it holds is unheld and held
@@ -3864,8 +3864,8 @@ alt.memo.node-vs-recompute.cheap-body.1-reads-per-write   [per read]   4.34x
 
 alt.remove-member.unordered-vs-ordered.10k   [per row per write]   4.55x
   verdict  !  THE REJECTED DESIGN WINS — 4.55x DEARER. This decision came out wrong.
-  ours     a member leaves a bucket of 10000 and joins another, membership in a Set (OIMSlotContentBucketServiceSetDriven)
-  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentBucketServiceArrayDriven)
+  ours     a member leaves a bucket of 10000 and joins another, membership in a Set (OIMSlotContentSetBucketService)
+  floor    the same move, membership in a list kept in the caller's order (OIMSlotContentPositionalArrayBucketService)
   A BUCKET OF 10000, and the size is in the id because the answer is a function of it on BOTH
   halves. THE COUNT THIS PREDICTS, per member moved, through
   `slotContentService.writeBucketMemberSlots`: on the ordered half, `reconcileSlots` compares
@@ -3897,7 +3897,7 @@ alt.remove-member.unordered-vs-ordered.10k   [per row per write]   4.55x
   DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are
   identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward
   1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF
-  DIFFS: `OIMSlotContentBucketServiceSetDriven.reconcileSlots` takes the set difference (one
+  DIFFS: `OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one
   Set of the list handed in, one probe per held member) and moves one hold each way, while the
   ordered half's `reconcileSlots` compares the two sequences up to the first mismatch, then
   drains the whole list and re-adds every member, so every member it holds is unheld and held

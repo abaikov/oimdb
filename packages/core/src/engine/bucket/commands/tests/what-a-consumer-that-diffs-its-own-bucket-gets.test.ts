@@ -1,6 +1,4 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceArrayDriven, createOIMBucketService, createOIMEntityService,
-} from '../../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService } from '../../../../index';
 import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
 import type { TOIMEffect } from '../../../computed/types/TOIMEffect';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
@@ -8,6 +6,8 @@ import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../types/TOIMOrderedListCommand';
 import type { TOIMBucketSlotsArrayStore } from '../../array/types/TOIMBucketSlotsArrayStore';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../../tests/support/orderedListConsumer';
+import { createOIMSlotContentEntityService } from '../../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number; label: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -17,25 +17,23 @@ const byRank = (a: TCardSlot, b: TCardSlot): number => (a.entity?.rank ?? 0) - (
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-    const listService = createOIMBucketService<
-        TCardSlot, string, TSlots, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-    >(db, { slotContentService: membersService });
+    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
+    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
     const list = listService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', rank: 1, label: 'one' },
         { id: 'c2', rank: 2, label: 'two' },
         { id: 'c3', rank: 3, label: 'three' },
-    ]);
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
     const bucket = listService.holdSlotByKey(list, 'l');
-    membersService.writeBucketMemberSlots(bucket, ['c1', 'c2', 'c3'].map(id => cardsService.getSlotByKey(cards, id)));
+    membersService.writeSlotContent(bucket, ['c1', 'c2', 'c3'].map(id => cardsService.getSlotByKey(cards, id)));
     db.flush();
 
     const restateInRankOrder = (): void => {
-        membersService.writeBucketMemberSlots(bucket, Array.from(membersService.getBucketMemberSlots(bucket)).sort(byRank));
+        membersService.writeSlotContent(bucket, Array.from(membersService.getBucketMemberSlots(bucket)).sort(byRank));
     };
 
     const updateByKey = (key: string, patch: Partial<TCard>): void => {
@@ -45,7 +43,7 @@ function createFixture() {
 
     const deleteByKey = (key: string): void => {
         const slot = cardsService.findSlotByKey(cards, key);
-        if (slot !== undefined) cardsService.slotContentService.deleteEntity(slot);
+        if (slot !== undefined) cardsService.slotContentService.clearSlotContent(slot);
     };
 
     return { db, cardsService, cards, membersService, bucket, restateInRankOrder, updateByKey, deleteByKey };
@@ -59,7 +57,7 @@ function createFixture() {
  */
 function orderedCommandsOf(
     db: OIMDB,
-    membersService: OIMSlotContentBucketServiceArrayDriven<TCardSlot>,
+    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
     bucket: TOIMBucketSlot<TSlots, string>,
     maxCommandsPerSlot?: number,
 ) {
@@ -123,13 +121,13 @@ describe('a consumer that diffs the bucket inside its own effect', () => {
         db.flush();
 
         for (const id of ['c1', 'c2', 'c3']) deleteByKey(id);
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c4', rank: 4, label: 'four' },
             { id: 'c5', rank: 5, label: 'five' },
             { id: 'c6', rank: 6, label: 'six' },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         // The list is what the caller says it is: three cards out, three in.
-        membersService.writeBucketMemberSlots(bucket, ['c4', 'c5', 'c6'].map(id => cardsService.getSlotByKey(cards, id)));
+        membersService.writeSlotContent(bucket, ['c4', 'c5', 'c6'].map(id => cardsService.getSlotByKey(cards, id)));
         db.flush();
 
         const commands = impatient.commands();
@@ -157,12 +155,12 @@ describe('a consumer that diffs the bucket inside its own effect', () => {
         db.flush();
 
         for (const id of ['c1', 'c2', 'c3']) deleteByKey(id);
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c4', rank: 4, label: 'four' },
             { id: 'c5', rank: 5, label: 'five' },
             { id: 'c6', rank: 6, label: 'six' },
-        ]);
-        membersService.writeBucketMemberSlots(bucket, ['c4', 'c5', 'c6'].map(id => cardsService.getSlotByKey(cards, id)));
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        membersService.writeSlotContent(bucket, ['c4', 'c5', 'c6'].map(id => cardsService.getSlotByKey(cards, id)));
         db.flush();
 
         const commands = patient.commands();

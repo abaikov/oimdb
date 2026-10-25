@@ -184,7 +184,7 @@ against the reference model's (`firstSingleMismatch`). That is a complete audit 
 a store, not a partial one; the store is simply very small.
 
 **How much it is worth also varies by adapter, and is stated in the contract.**
-For a store that keeps a grouping (`byGroup`, an `OIMIndexService` store slot, a library
+For a store that keeps a grouping (`byGroup`, an `OIMSlotCollectionIndexService` store slot, a library
 index), this is a genuine second witness. For a store that derives its views by
 rescanning its rows, the answer comes from the same rows the column audit already
 compared, so the column audit implies the check. It is asked of everybody alike so that

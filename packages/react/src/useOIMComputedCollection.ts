@@ -1,16 +1,16 @@
 import { useMemo } from 'react';
 import type { DependencyList } from 'react';
 import type {
-    OIMComputedService, TOIMComputedSlot, TOIMComputedSources, TOIMComputedStoreSlot, TOIMStoreSlot,
+    OIMComputedService, TOIMComputedSlot, TOIMComputedSources, TOIMComputedStoreSlot,
 } from '@oimdb/core';
 import { useOIMDB } from './useOIMDB';
 
-export function useOIMComputedCollection<TKey, TValue, TStore>(
+export function useOIMComputedCollection<TKey extends NonNullable<unknown>, TValue, TStore>(
     computedService: OIMComputedService<TKey, TValue, TStore>,
     derive: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined,
-    createSources: ((key: TKey, storeSlot: TOIMStoreSlot | undefined) => Partial<TOIMComputedSources>) | undefined,
+    createSources: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined,
     dependencyList: DependencyList,
-): TOIMComputedStoreSlot<TStore, TValue, TKey> {
+): TOIMComputedStoreSlot<TStore, TValue, TOIMComputedSlot<TValue, TKey>> {
     const db = useOIMDB();
     return useMemo(
         () => computedService.createComputedStoreSlot(db, derive, createSources),

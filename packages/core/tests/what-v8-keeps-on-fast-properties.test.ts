@@ -1,22 +1,12 @@
 import { setFlagsFromString } from 'node:v8';
 
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotReleasePolicyAfterUnhold,
-    OIMSlotStoreServiceSingleSlotDriven,
-    createOIMComputedService,
-    createOIMEntityService,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    createOIMIndexService,
-    createOIMSingleEntityService,
-} from '../src/index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterUnholdReleasePolicy, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService } from '../src/index';
 import type { IOIMEntityWriter, TOIMDBOptions } from '../src/index';
-import type { TOIMSingleSlotStore } from '../src/engine/store/types/TOIMSingleSlotStore';
-import type { TOIMComputedSlot } from '../src/engine/computed/types/TOIMComputedSlot';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMSlotCollectionService } from '../src/index';
+import { createOIMSingleSlotService } from '../src/index';
+import { createOIMSingleComputedService } from '../src/index';
 
 setFlagsFromString('--allow-natives-syntax');
 const hasFastProperties = new Function('o', 'return %HasFastProperties(o)') as (o: object) => boolean;
@@ -32,22 +22,20 @@ const slotOwnerServiceOf = (collectionService: object): object =>
 const exercise = (dbOptions: TOIMDBOptions) => {
     const db = new OIMDB(dbOptions);
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
+        slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     for (let i = 0; i < CARDS; i++) {
-        cardsService.slotContentService.upsertEntity(cards, { id: `c${i}`, deck: `d${i % 5}`, rank: i, note: 'n' });
+        cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, deck: `d${i % 5}`, rank: i, note: 'n' });
     }
     const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
     cardSlot.owner.unholdSlot(cardSlot);
-    const topService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    });
+    const topService = createOIMSingleComputedService<number>();
     const top = topService.createComputedStoreSlot(
         db,
         () => cardsService.getSlotByKey(cards, 'c2').entity?.rank ?? 0,
@@ -56,10 +44,10 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     const effect = effectService.createEffect(
         db,
         [cardsService.getSlotByKey(cards, 'c3'), byDeckService.getSlotByKey(byDeck, 'd0')],
-        [topService.computedCollectionService.getSlotByKey(top, undefined)], () => undefined,
+        [topService.computedSingleSlotService.getSingleSlot(top)], () => undefined,
     );
     db.flush();
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c3', deck: 'd1', rank: 1.5 });
+    cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deck: 'd1', rank: 1.5 });
     const c5Slot = cardsService.findSlotByKey(cards, 'c5');
     if (c5Slot !== undefined) cardsService.slotContentService.updateEntity(c5Slot, { rank: 7 });
     db.flush();
@@ -68,10 +56,10 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     const entitySlots = Array.from({ length: CARDS }, (_, i) => cardsService.getSlotByKey(cards, `c${i}`));
     const bucketSlots = Array.from({ length: 5 }, (_, d) => byDeckService.getSlotByKey(byDeck, `d${d}`));
     const columnSlots = [
-        cardsService.holdColumn(entitySlots[6], 'rank'), cardsService.holdColumn(entitySlots[7], 'deck'),
+        cardsService.columnSlotService.holdColumn(entitySlots[6], 'rank'), cardsService.columnSlotService.holdColumn(entitySlots[7], 'deck'),
         byDeckService.holdBucketColumnByKey(byDeck, 'd1', 'rank'),
     ];
-    cardsService.unholdColumn(cardsService.holdColumn(entitySlots[8], 'note'));
+    cardsService.columnSlotService.unholdColumn(cardsService.columnSlotService.holdColumn(entitySlots[8], 'note'));
     return { db, cards, cardsService, byDeck, byDeckService, top, topService, entitySlots, bucketSlots, columnSlots };
 };
 
@@ -85,7 +73,7 @@ const oneFastMap = (objects: readonly object[]): void => {
 const dbOptionsByPolicy: [string, () => TOIMDBOptions][] = [
     ['no policy', () => ({})],
     ['a deadline written into the slot', () => ({
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterUnhold({ keepAfterUnholdMs: 60_000 }),
+        slotReleasePolicy: new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 60_000 }),
         getNowMs: () => 1_760_000_000_000,
         releaseTimer: () => () => undefined,
     })],
@@ -107,8 +95,8 @@ describe.each(dbOptionsByPolicy)('what V8 keeps on fast properties, under %s', (
     it('the computed slot, the channel, the collection, the index and the root stay on fast properties', () => {
         const { db, cards, cardsService, byDeck, byDeckService, top, topService } = exercise(dbOptionsFor());
         for (const object of [
-            topService.computedCollectionService.getSlotByKey(top, undefined), db.defaultChannelSlot, db, top,
-            slotOwnerServiceOf(topService.computedCollectionService), topService.computedCollectionService.slotContentService,
+            topService.computedSingleSlotService.getSingleSlot(top), db.defaultChannelSlot, db, top,
+            slotOwnerServiceOf(topService.computedSingleSlotService), topService.computedSingleSlotService.slotContentService,
             cards, cardsService, slotOwnerServiceOf(cardsService),
             byDeck, byDeckService, byDeckService.slotContentService, slotOwnerServiceOf(byDeckService),
         ]) {
@@ -125,20 +113,20 @@ const writers: [string, () => IOIMEntityWriter][] = [
 describe.each(writers)('what V8 keeps on fast properties, an entity written %s', (_, createWriter) => {
     it('stays fast after an upsert that drops a column', () => {
         const db = new OIMDB({ entityWriter: createWriter() });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', rank: 2 });
 
         expect(hasFastProperties(cardsService.getSlotByKey(cards, 'c1').entity as object)).toBe(true);
     });
 
     it('stays fast after a patch that adds a column', () => {
         const db = new OIMDB({ entityWriter: createWriter() });
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'd1', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', rank: 1 });
 
         cardsService.slotContentService.updateEntity(cardsService.getSlotByKey(cards, 'c1'), { note: 'n' });
 
@@ -150,13 +138,13 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
             ['id', 'w'], ...Array.from({ length: 40 }, (_, i) => [`f${i}`, i]).filter(([name]) => name !== skipped),
         ]);
         const db = new OIMDB({ entityWriter: createWriter() });
-        const itemsService = createOIMEntityService<Record<string, unknown>>(db, { keyOf: item => item.id as string });
+        const itemsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Record<string, unknown>>(db) });
         const items = itemsService.createStoreSlot(db);
-        itemsService.slotContentService.upsertEntity(items, wide(''));
-        itemsService.slotContentService.upsertEntity(items, wide('f0'));
-        const recordService = createOIMSingleEntityService<Record<string, unknown>>(db, { entityWriter: createWriter() });
+        itemsService.writeSlotContentByKey(items, (item => item.id as string)(wide('')), wide(''));
+        itemsService.writeSlotContentByKey(items, (item => item.id as string)(wide('f0')), wide('f0'));
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Record<string, unknown>>(db, { entityWriter: createWriter() }) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, wide(''));
+        recordService.writeSingleSlotContent(record, wide(''));
         recordService.slotContentService.deleteEntityColumns(recordService.getSingleSlot(record), ['f1']);
 
         expect(hasFastProperties(itemsService.getSlotByKey(items, 'w').entity as object)).toBe(true);
@@ -165,9 +153,9 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
 
     it('stays fast after columns are taken away from a standalone record', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleEntityService<TCard>(db, { entityWriter: createWriter() });
+        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: createWriter() }) });
         const record = recordService.createStoreSlot(db);
-        recordService.slotContentService.upsertEntity(record, { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
+        recordService.writeSingleSlotContent(record, { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
 
         recordService.slotContentService.deleteEntityColumns(recordService.getSingleSlot(record), ['note', 'rank']);
 

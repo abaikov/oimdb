@@ -1,8 +1,8 @@
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 import { oimIsProtoKey } from './oimIsProtoKey';
 
 export function oimOwnedColumnNames(
-    slot: TOIMEntitySlot,
+    slot: TOIMEntityContentSlot,
     names: readonly string[],
 ): string[] | undefined {
     const entity = slot.entity as Record<string, unknown> | undefined;

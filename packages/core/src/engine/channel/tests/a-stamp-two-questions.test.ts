@@ -1,17 +1,14 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMSlotStoreServiceMapDriven } from '../../store/OIMSlotStoreServiceMapDriven';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
+import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
-import type { TOIMComputedSlot } from '../../computed/types/TOIMComputedSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -20,26 +17,20 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const byGroupService = createOIMBucketService<
-        TRowSlot, TOIMStoreKey, TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentBucketServiceSetDriven<TRowSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TRowSlot>() });
+    const byGroupService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
     const byGroup = byGroupService.createStoreSlot(db);
     return { db, rowsService, rows, byGroupService, byGroup };
 };
 
-const createDoubledService = () => createOIMComputedService<void, number>({
-    computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    sameValueGuard: oimSameValueZeroGuard,
-    columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMComputedColumnSlot, string>(),
-});
+const createDoubledService = () => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
 
 describe('an effect hears nothing of a change that preceded it', () => {
     it('says nothing to an effect that arrived after the write, in the batch that made it', () => {
         const { db, rowsService, rows } = createFixture();
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
 
         let runCount = 0;
         effectService.createEffect(db, [rowsService.getSlotByKey(rows, 'r1')], [], () => { runCount++; });
@@ -47,14 +38,14 @@ describe('an effect hears nothing of a change that preceded it', () => {
 
         expect(runCount).toBe(0);
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 2 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 });
         db.flush();
         expect(runCount).toBe(1);
     });
 
     it('says nothing to an effect on a row slot the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         db.flush();
 
@@ -72,9 +63,9 @@ describe('an effect hears nothing of a change that preceded it', () => {
 
     it('says nothing to an effect on a column the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const column = rowsService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
 
         let early = 0;
         const watching = effectService.createEffect(db, [column], [], () => { early++; });
@@ -95,27 +86,27 @@ describe('an effect hears nothing of a change that preceded it', () => {
 
     it('says nothing to an effect on a bucket the open batch had already written', () => {
         const { db, rowsService, rows, byGroupService, byGroup } = createFixture();
-        const first = rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
-        const second = rowsService.slotContentService.upsertEntity(rows, { id: 'r2', n: 2 });
+        const first = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
+        const second = rowsService.writeSlotContentByKey(rows, 'r2', { id: 'r2', n: 2 });
         const group = byGroupService.holdSlotByKey(byGroup, 'g1');
-        byGroupService.slotContentService.writeBucketMemberSlots(group, [first]);
+        byGroupService.slotContentService.writeSlotContent(group, [first]);
         db.flush();
 
-        byGroupService.slotContentService.writeBucketMemberSlots(group, [first, second]);
+        byGroupService.slotContentService.writeSlotContent(group, [first, second]);
 
         let runCount = 0;
         effectService.createEffect(db, [group], [], () => { runCount++; });
         db.flush();
         expect(runCount).toBe(0);
 
-        byGroupService.slotContentService.writeBucketMemberSlots(group, [second]);
+        byGroupService.slotContentService.writeSlotContent(group, [second]);
         db.flush();
         expect(runCount).toBe(1);
     });
 
     it('says nothing to an effect on a computed whose source the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const doubledService = createDoubledService();
         const doubled = doubledService.createComputedStoreSlot(
@@ -128,7 +119,7 @@ describe('an effect hears nothing of a change that preceded it', () => {
         rowsService.slotContentService.updateEntity(slot,{ n: 5 });
 
         let runCount = 0;
-        effectService.createEffect(db, [], [doubledService.computedCollectionService.getSlotByKey(doubled, undefined)], () => { runCount++; });
+        effectService.createEffect(db, [], [doubledService.computedSingleSlotService.getSingleSlot(doubled)], () => { runCount++; });
         db.flush();
         expect(runCount).toBe(0);
 
@@ -141,7 +132,7 @@ describe('an effect hears nothing of a change that preceded it', () => {
 describe('effectImmediate is the door onto a value the batch has already written', () => {
     it('reads a row slot the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         db.flush();
 
@@ -157,9 +148,9 @@ describe('effectImmediate is the door onto a value the batch has already written
 
     it('reads a column the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
-        const column = rowsService.holdColumn(slot, 'n');
+        const column = rowsService.columnSlotService.holdColumn(slot, 'n');
         db.flush();
 
         rowsService.slotContentService.updateEntity(slot,{ n: 2 });
@@ -174,13 +165,13 @@ describe('effectImmediate is the door onto a value the batch has already written
 
     it('reads a bucket the open batch had already written', () => {
         const { db, rowsService, rows, byGroupService, byGroup } = createFixture();
-        const first = rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
-        const second = rowsService.slotContentService.upsertEntity(rows, { id: 'r2', n: 2 });
+        const first = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
+        const second = rowsService.writeSlotContentByKey(rows, 'r2', { id: 'r2', n: 2 });
         const group = byGroupService.holdSlotByKey(byGroup, 'g1');
-        byGroupService.slotContentService.writeBucketMemberSlots(group, [first]);
+        byGroupService.slotContentService.writeSlotContent(group, [first]);
         db.flush();
 
-        byGroupService.slotContentService.writeBucketMemberSlots(group, [first, second]);
+        byGroupService.slotContentService.writeSlotContent(group, [first, second]);
 
         const seen: number[] = [];
         const effect = effectService.createEffectImmediate(
@@ -194,7 +185,7 @@ describe('effectImmediate is the door onto a value the batch has already written
 
     it('reads a computed whose source the open batch had already written', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const doubledService = createDoubledService();
         const doubled = doubledService.createComputedStoreSlot(
@@ -207,9 +198,9 @@ describe('effectImmediate is the door onto a value the batch has already written
         rowsService.slotContentService.updateEntity(slot,{ n: 5 });
 
         const seen: number[] = [];
-        const doubledSlot = doubledService.computedCollectionService.getSlotByKey(doubled, undefined);
+        const doubledSlot = doubledService.computedSingleSlotService.getSingleSlot(doubled);
         const effect = effectService.createEffectImmediate(db, [], [doubledSlot], () => {
-            seen.push(doubledService.computedCollectionService.slotContentService.getValueForSlot(doubledSlot));
+            seen.push(doubledSlot.computedValueService.getValueForSlot(doubledSlot));
         });
         db.flush();
 
@@ -225,8 +216,8 @@ describe('the frame stamp answers one question: has this slot walked its depende
         let runCount = 0;
         effectService.createEffect(db, [rowsService.holdSlotByKey(rows, 'r1')], [], () => { runCount++; });
 
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 2 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 2 });
         db.flush();
 
         expect(runCount).toBe(1);

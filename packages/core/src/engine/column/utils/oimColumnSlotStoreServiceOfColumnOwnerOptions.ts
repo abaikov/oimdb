@@ -1,13 +1,13 @@
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMKeyedSlot } from '../../slot/types/TOIMKeyedSlot';
-import type { TOIMColumnOwnerOptions } from '../types/TOIMColumnOwnerOptions';
-import { OIMColumnSlotStoreServiceOrdinalDriven } from '../OIMColumnSlotStoreServiceOrdinalDriven';
+import type { TOIMColumnSlotOwnerOptions } from '../types/TOIMColumnSlotOwnerOptions';
+import { OIMColumnSlotOrdinalStoreService } from '../OIMColumnSlotOrdinalStoreService';
 
 export function oimColumnSlotStoreServiceOfColumnOwnerOptions<TColumnSlot extends TOIMKeyedSlot<string>>(
-    columnOwnerOptions: TOIMColumnOwnerOptions<TColumnSlot>,
+    columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot>,
 ): IOIMSlotStoreService<string, TColumnSlot> {
-    if (columnOwnerOptions.columnNames !== undefined) {
-        return new OIMColumnSlotStoreServiceOrdinalDriven<TColumnSlot>({ columnNames: columnOwnerOptions.columnNames });
+    if (columnSlotOwnerOptions.columnNames !== undefined) {
+        return new OIMColumnSlotOrdinalStoreService<TColumnSlot>({ columnNames: columnSlotOwnerOptions.columnNames });
     }
-    return columnOwnerOptions.columnSlotStoreService;
+    return columnSlotOwnerOptions.columnSlotStoreService;
 }

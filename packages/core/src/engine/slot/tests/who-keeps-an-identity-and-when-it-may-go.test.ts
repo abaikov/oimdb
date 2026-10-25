@@ -1,19 +1,18 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row: TRow) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
     return { db, rowsService, rows };
 };
@@ -56,7 +55,7 @@ describe('who keeps an identity, and when it may go', () => {
         const { db, rowsService, rows } = createFixture();
 
         const first = reserve(rowsService, rows, 'r1');
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
         // The value is what keeps it from here, so the reservation can go — and
         // that is the guarantee: the identity outlives the hold that reserved it.
@@ -141,16 +140,13 @@ describe('who keeps an identity, and when it may go', () => {
         const { db, rowsService, rows } = createFixture();
         // The store and the bucket service are this bucket collection's own, so
         // they are constructed here beside it: those two are what it IS.
-        const searchService = createOIMBucketService<
-            TOIMEntitySlot<TRow>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TRow>>() });
+        const searchService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
         const search = searchService.createStoreSlot(db);
 
         // A slot with no value at all, joined into a manual bucket by hand.
         const slot = reserve(rowsService, rows, 'ghost');
         const bucketSlot = searchService.holdSlotByKey(search, 'q');
-        searchService.slotContentService.writeBucketMemberSlots(bucketSlot, [slot]);
+        searchService.slotContentService.writeSlotContent(bucketSlot, [slot]);
         // Both reservations go once the bucket holds the slot, so the count
         // asserted below is the BUCKET's one hold and not this fixture's.
         slot.owner.unholdSlot(slot);
@@ -169,7 +165,7 @@ describe('who keeps an identity, and when it may go', () => {
 
     it('an identity that carries a value is not let go of after its last effect goes', () => {
         const { db, rowsService, rows } = createFixture();
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', n: 1 });
+        rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         db.flush();
 
         const slot = rowsService.getSlotByKey(rows, 'r1')!;

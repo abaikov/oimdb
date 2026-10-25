@@ -1,17 +1,18 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     const doubledComputedService = createOIMComputedService<string, number>({
-        createSources: (id: string) => {
+        createSources: ({ key: id }) => {
             const slot = cardsService.getSlotByKey(cards, id);
             return { sourceSlots: [slot, slot] };
         },
@@ -25,7 +26,7 @@ const createFixture =() => {
 describe('a derivation that names one ROW twice', () => {
     it('takes a reference per mention and gives every one of them back', () => {
         const { db, cardsService, cards, doubledService, doubled } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 3 });
         db.flush();
 
         const derived = doubledService.holdSlotByKey(doubled, 'c1');
@@ -44,7 +45,7 @@ describe('a derivation that names one ROW twice', () => {
 
     it('does not take the row with it while the row still carries a value', () => {
         const { db, cardsService, cards, doubledService, doubled } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 3 });
         db.flush();
         const derived = doubledService.holdSlotByKey(doubled, 'c1');
 
@@ -58,7 +59,7 @@ describe('a derivation that names one ROW twice', () => {
 describe('a derivation that names one DERIVATION twice', () => {
     it('takes a reference per mention and gives every one of them back', () => {
         const { db, cardsService, cards, doubledService, doubled } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 3 });
         db.flush();
         const base = doubledService.holdSlotByKey(doubled, 'c1');
 

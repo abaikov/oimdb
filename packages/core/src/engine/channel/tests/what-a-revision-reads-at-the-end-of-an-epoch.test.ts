@@ -1,9 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIM_REVISIONS_PER_EPOCH } from '../constants/OIM_REVISIONS_PER_EPOCH';
 import { oimIsRevisionAfter } from '../utils/oimIsRevisionAfter';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; n: number };
 
@@ -12,8 +14,8 @@ const LARGEST_SMALL_INTEGER_UNDER_POINTER_COMPRESSION = 2 ** 30 - 1;
 const channelService = OIMChannelService.INSTANCE;
 
 const updateEntityByKey = (
-    cardsService: ReturnType<typeof createOIMEntityService<TCard>>,
-    cards: ReturnType<ReturnType<typeof createOIMEntityService<TCard>>['createStoreSlot']>,
+    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>,
+    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>['createStoreSlot']>,
     key: string, patch: Partial<TCard>,
 ): void => {
     const slot = cardsService.findSlotByKey(cards, key);
@@ -23,9 +25,9 @@ const updateEntityByKey = (
 const openCards = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', n: 0 });
+    const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', n: 0 });
     const held = cardsService.holdSlotByKey(cards, 'c1');
     db.flush();
     return { db, effectService, cardsService, cards, card, held };

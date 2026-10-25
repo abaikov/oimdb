@@ -1,10 +1,4 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMEntityService,
-    createOIMIndexService,
-} from '../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../../core/src/index';
 import type { TOIMComputedSlot, TOIMEntitySlot, TOIMSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -12,6 +6,8 @@ import { priceFixture } from './priceFixture';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 /**
  * How many rows the index-declaration row builds over. 1024, so that one
@@ -23,7 +19,7 @@ const DECLARED_OVER = 1024;
 
 const noComputeds: readonly TOIMComputedSlot[] = [];
 
-// Twenty allocations, read off OIMDB, OIMUnusedSlotCollector, OIMChannel and OIMErrorPolicyLogAndContinue: seven objects, three arrays, three sets, seven closures.
+// Twenty allocations, read off OIMDB, OIMUnusedSlotCollector, OIMChannel and OIMLogAndContinueErrorPolicy: seven objects, three arrays, three sets, seven closures.
 const handWrittenDatabase = (): object => {
     const slotsHeldUntilFlush: object[] = [];
     const unusedSlotCollector = { slotsHeldUntilFlush, openDepth: 0, isFlushing: false };
@@ -150,7 +146,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'that a person keeping the same state would also have made — or something about the ' +
             'class that carries it. This floor allocates the graph and nothing else, read off ' +
             '`OIMDB`, `OIMUnusedSlotCollector`, `OIMChannel` and the default ' +
-            '`OIMErrorPolicyLogAndContinue`: the root, the collector and its ' +
+            '`OIMLogAndContinueErrorPolicy`: the root, the collector and its ' +
             'tracked list, the options object `OIMDB` spreads for the channel, the channel, its ' +
             'frame record with its handler set, the error policy, the pending-effect list, the clock, ' +
             'the subframe-close and after-each-flush sets, the after-each-frame buffer, and the seven ' +
@@ -204,7 +200,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'our ratio; paid once per population.',
         build: () => {
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             return {
                 ours: {
                     reset: () => undefined,
@@ -229,16 +225,13 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-entity-service.vs-new-map',
         path: EPricePath.PerDeclaration,
-        ours: 'createOIMEntityService(db, row => row.id)',
+        ours: 'createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) })',
         floor: 'new Map()',
         caveat:
             'THE TYPE AGAINST THE CONTAINER THAT WOULD HAVE HELD ITS INSTANCES, and it does not ' +
             'include a store slot: no population is made here. Ours reads the defaults off `OIMDB` ' +
-            'and `OIMDefaults`, builds the content-change listener list, the content batch list ' +
-            'and the index-key positions, wires the internal owner, the entity content service and ' +
-            'the store aggregate to one another, and keeps the key selector — which is the closure ' +
-            'a caller passes and which the floor does not need because the caller writes `row.id` ' +
-            'at every call site instead. The floor is the same `new Map()` as ' +
+            'and `OIMDefaults`, builds the entity content service and the collection service with its ' +
+            'slot owner service and column owner, and wires them to one another. The floor is the same `new Map()` as ' +
             '`new-collection.vs-new-map`, because a hand-written store has no per-type object ' +
             'at all: everything here is charged to us. Direction: inflates our ratio; paid once ' +
             'per entity type, however many populations are then made from it.',
@@ -249,7 +242,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
                     reset: () => undefined,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+                            priceSink.ours = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
                         }
                     },
                 },
@@ -277,12 +270,12 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             '`index-fill.over-a-loaded-population-vs-hand-built-map`, whose caller did the walk and ' +
             'the per-bucket write because the index of that day touched no population; the auto-index ' +
             'files every row it can see into a bucket the moment the bucket is minted ' +
-            '(`OIMIndexService`\'s source-slot collection, through `collectBucketMemberSlotsForKey`), so a ' +
+            '(`OIMSlotCollectionIndexService`\'s source-slot collection, through `collectBucketMemberSlotsForKey`), so a ' +
             '`holdSlotsByKeys` over all sixty-four groups is one walk of the thousand rows, one ' +
             '`keyOf` per row, one index-key write per row and one hold per row. No figure recorded ' +
             'under the old id attaches to this one. ' +
             'THE INDEX SERVICE IS BUILT ONCE OUTSIDE THE CLOCK, so the type is not in this number: ' +
-            '`new-index-service.vs-new-map-of-sets` prices `createOIMIndexService` on its own. ' +
+            '`new-index-service.vs-new-map-of-sets` prices `createOIMSlotCollectionIndexService` on its own. ' +
             'BOTH SIDES BUILD AND THEN GIVE BACK INSIDE THE CLOCK: ours disposes the index store slot — which ' +
             'drops its listener, releases its index-key position (a second walk of the population, ' +
             'clearing each row\'s cell) and clears every bucket, unholding each row — and then ' +
@@ -295,15 +288,15 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(DECLARED_OVER);
             const names = priceDataset.groupNames();
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             const entityStoreSlot = entityService.createStoreSlot(db);
-            entityService.slotContentService.upsertEntities(entityStoreSlot, rows);
+            entityService.writeInBatch(entityStoreSlot, () => (rows).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
             db.flush();
             const held: TPriceDataRow[] = [];
             for (let i = 0; i < rows.length; i++) held.push({ ...rows[i] });
-            const indexService = createOIMIndexService(db, {
+            const indexService = createOIMSlotCollectionIndexService(db, {
                 entityService,
-                slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
             });
             const probeIndexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
@@ -366,7 +359,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-index-service.vs-new-map-of-sets',
         path: EPricePath.PerDeclaration,
-        ours: 'createOIMIndexService(db, { entityService, slotContentService: new OIMSlotContentBucketServiceSetDriven(), keyOf: row => row.group })',
+        ours: 'createOIMSlotCollectionIndexService(db, { entityService, slotContentService: new OIMSlotContentSetBucketService(), keyOf: row => row.group })',
         floor: 'new Map() of Sets, empty',
         caveat:
             'THE INDEX TYPE ALONE: no store slot is made, so no listener is installed and no row is ' +
@@ -379,15 +372,15 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'Direction: inflates our ratio; paid once per index type.',
         build: () => {
             const db = new OIMDB();
-            const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
             return {
                 ours: {
                     reset: () => undefined,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = createOIMIndexService(db, {
+                            priceSink.ours = createOIMSlotCollectionIndexService(db, {
                                 entityService,
-                                slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+                                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                                 keyOf: (row: TPriceDataRow) => row.group,
                             });
                         }

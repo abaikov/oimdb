@@ -7,7 +7,7 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 
 | You want | Take | Not |
 |---|---|---|
-| a value once, now | `getSlotByKey(storeSlot, key).entity`, or `slotContentService.findEntityByKey(storeSlot, pk)` | an effect you dispose straight away |
+| a value once, now | `getSlotByKey(storeSlot, key).entity`, or `slotContentService.findSlotByKey(storeSlot, pk)` | an effect you dispose straight away |
 | to know whether a key has a value, without minting it | `hasSlotContentByKey(storeSlot, key)` | `getSlotByKey(storeSlot, key).entity !== undefined`, which mints |
 | an identity that must outlive this turn | `holdSlotByKey(storeSlot, key)` … `unholdSlot(slot)` | keeping a `getSlotByKey` result across a `flush()` |
 | to be told when a slot moves | `effectService.createEffect` | polling |
@@ -21,7 +21,7 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 
 - There is no observable wrapper: you read the slot.
 - `getSlotByKey` mints, and the unused-slot collector gives back what you do not keep.
-- `findSlotByKey`, `findEntityByKey` and `hasSlotContentByKey` look a key up and mint nothing.
+- `findSlotByKey`, `findSlotByKey` and `hasSlotContentByKey` look a key up and mint nothing.
 - Subscribing is building an effect over an entity, a column or a computed.
 
 </InShort>
@@ -31,30 +31,15 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 There is no observable wrapper in this engine. You read the slot.
 
 ```typescript setup
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotStoreServiceSingleSlotDriven,
-    OIMUnusedSlotCollectorService,
-    createOIMBucketService,
-    createOIMComputedService,
-    createOIMEntityService,
-    type TOIMBucketSlot,
-    type TOIMBucketSlotsArrayStore,
-    type TOIMComputedSlot,
-    type TOIMSingleSlotStore,
-    type TOIMDisposer,
-    type TOIMEntitySlot,
-    type TOIMStoreKey,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, OIMUnusedSlotCollectorService, createOIMComputedService, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMComputedSlot, type TOIMSingleSlotStore, type TOIMDisposer, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands, createOIMSingleComputedService, type TOIMSlot, type IOIMSlotSubscriptionListener } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMBucketService<TOIMEntitySlot<Card>>(db);
+const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
 declare const slot: TOIMEntitySlot<Card, TOIMStoreKey>;
@@ -70,7 +55,7 @@ declare const poll: () => void;
 const cardSlot = cardService.getSlotByKey(cards, 'c1');   // TOIMEntitySlot<Card>, never undefined
 cardSlot.entity;                                         // Card | undefined
 cardSlot.entity?.title;
-cardService.slotContentService.findEntityByKey(cards, 'c1');   // the entity or undefined, and nothing minted
+cardService.findSlotByKey(cards, 'c1')?.entity;   // the entity or undefined, and nothing minted
 cardService.findSlotByKey(cards, 'c1');                  // the slot or undefined, and nothing minted
 cardService.hasSlotContentByKey(cards, 'c2');            // false, and nothing minted
 
@@ -98,14 +83,14 @@ the turn. See [the four doors](/docs/core/model#the-four-doors).
 
 `slot.entity` is `TEntity | undefined` because an identity outlives its value:
 a key you reserved with `holdSlotByKey` has an identity and no value yet, and
-`deleteEntity` takes the value away and leaves the identity filed for as long as something holds it.
+`clearSlotContent` takes the value away and leaves the identity filed for as long as something holds it.
 
 ### Which read mints
 
 | Read | Mints when the key has no identity | What keeps the mint |
 |---|---|---|
 | `getSlotByKey(storeSlot, key)`, `getSingleSlot(storeSlot)` | the slot | the unused-slot collector, until the next `flush()` |
-| `findEntityByKey(storeSlot, pk)`, `findSlotByKey(storeSlot, key)`, `findSingleSlot(storeSlot)` | nothing | — |
+| `findSlotByKey(storeSlot, pk)?.entity`, `findSlotByKey(storeSlot, key)`, `findSingleSlot(storeSlot)` | nothing | — |
 | `getEntitiesByKey(indexStoreSlot, key)` on an index service | the bucket | the unused-slot collector |
 | `getBucketColumnByKey(indexStoreSlot, key, columnName)` on an index service | the bucket and its column slot | the unused-slot collector |
 | `getColumn(slot, name)`, `getAnyColumn(slot)` | the column slot | the unused-slot collector |
@@ -144,9 +129,9 @@ need to `holdSlotUntilFlush`, and `flush` it when you are done.
 ### "Live" carries one rule
 
 `getBucketMemberSlots(bucket)` hands back the live slots the bucket content service maintains — the
-`Set` itself for `OIMSlotContentBucketServiceSetDriven`, the list itself for the array-driven one.
+`Set` itself for `OIMSlotContentSetBucketService`, the list itself for the array-driven one.
 `cardService.getSlots(cards)` carries the same rule: it iterates the store the store slot carries rather
-than a copy of it. So a `deleteEntity`, or a `removeBucketMemberSlots` / `addBucketMemberSlots`, inside the
+than a copy of it. So a `clearSlotContent`, or a `removeBucketMemberSlots` / `addBucketMemberSlots`, inside the
 loop edits the thing the loop is walking. Nothing throws. On an array-driven bucket the slot is spliced
 out under the loop's own index, so the loop silently skips the slot after each one it removed.
 
@@ -195,16 +180,13 @@ those computeds; `disposeEffect(effect)` gives each back.
 ### Reading a computed from an effect
 
 ```typescript
-const rankService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-    computedSlotStoreService:
-        OIMSlotStoreServiceSingleSlotDriven.INSTANCE as unknown as OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>,
-});
+const rankService = createOIMSingleComputedService<number>();
 const rankOf = rankService.createComputedStoreSlot(
     db,
     () => slot.entity?.rank ?? 0,
     () => ({ sourceSlots: [slot] }),
 );
-const rankSlot = rankService.computedCollectionService.holdSlotByKey(rankOf, undefined);
+const rankSlot = rankService.computedSingleSlotService.holdSingleSlot(rankOf);
 
 const rankEffect = effectService.createEffect(db, [], [rankSlot], () => {
     show(rankSlot.computedValueService.getValueForSlot(rankSlot));
@@ -226,7 +208,7 @@ not soften this: writes accumulate until `flush()`, so subscribing behind a writ
 of the still-open batch is subscribing *after* that write, and it stays silent.
 
 ```typescript
-cardService.slotContentService.upsertEntity(cards, { id: 'a', title: 'A', rank: 1 });
+cardService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
 const cardSlot = cardService.getSlotByKey(cards, 'a');
 
 effectService.createEffect(db, [cardSlot], [], () => { /* never runs for the upsert above */ });
@@ -269,7 +251,7 @@ ignored, so an expression-bodied arrow such as `() => set.add(key)` is safe.
 ### Subscribing to one column
 
 ```typescript
-const onRank = effectService.createEffect(db, [cardService.holdColumn(slot, 'rank')], [], () => { render(slot.entity); });
+const onRank = effectService.createEffect(db, [cardService.columnSlotService.holdColumn(slot, 'rank')], [], () => { render(slot.entity); });
 ```
 
 It wakes only when that named column moves. A write that changes
@@ -295,7 +277,7 @@ holds it and nothing subscribes to it. A column holds no value: what moved is on
 have (`slot.entity?.rank`); the effect says *when* to look.
 
 Column names are type-checked. `holdColumn` takes the collection's column name type,
-which `createOIMEntityService<Card>` sets to `TOIMEntityColumnName<Card>`, the
+which `createOIMSlotCollectionService<Card>` sets to `TOIMEntityColumnName<Card>`, the
 keys of `Card`, so a misspelt column fails to compile.
 `deleteEntityColumns` on the entity content service takes `readonly TOIMEntityColumnName<TEntity>[]`.
 
@@ -352,6 +334,37 @@ directly too.
 By keeping the array yourself, you also take on the reverse ordering and the try/catch. For holds on slots
 alone, a collector slot of your own is the scope (see
 [the unused-slot collector](#the-unused-slot-collector)).
+
+## Knowing when a slot is watched
+
+A collection type can be built with a `slotSubscriptionListener`. It is told when a slot of
+the collection gets its first subscriber and when it loses its last, which is what a loader
+needs to fetch a key only while something shows it:
+
+```typescript
+
+declare function startLoading(slot: TOIMSlot): void;
+declare function stopLoading(slot: TOIMSlot): void;
+
+const loadWhileWatched: IOIMSlotSubscriptionListener = {
+    onSlotFirstSubscribed: watchedSlot => { startLoading(watchedSlot); },
+    onSlotLastUnsubscribed: watchedSlot => { stopLoading(watchedSlot); },
+};
+
+const loadedCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotSubscriptionListener: loadWhileWatched });
+```
+
+- Only subscribers count. A hold, a `getSlotByKey` and membership in a bucket do not tell the
+  listener anything.
+- An effect over a computed is subscribed to the computed's root slots, so the collection
+  those roots belong to is told.
+- A subscription to a column is handed over as the column slot itself, through the listener of
+  its entity's collection; its entity is `columnSlot.carrierSlot`. A listener that tracks
+  entities counts the entity slot and its column slots together.
+- The hooks can run inside a flush (an effect created from an effect body), where writes are
+  refused. Record what to do and act on it from `subscribeAfterEachFlush`.
+- Bucket and index factories take the same option. Left out, it is
+  `OIMNoSlotSubscriptionListener.INSTANCE`, which hears nothing.
 
 ## Interop
 

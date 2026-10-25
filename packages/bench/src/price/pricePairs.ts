@@ -55,8 +55,8 @@ const ALTERNATIVE_PREFIX = 'alt.';
  *
  * WHAT IS DELIBERATELY NOT HERE, so the absence is a decision, not an oversight:
  *
- *   - `upsertEntities`, `deleteEntities` and `deleteEntitiesByKeys` are loops
- *     over calls that ARE priced; pricing them prints one number under two names.
+ *   - A batch of writes (`writeInBatch` around `writeSlotContentByKey` or `clearSlotContent`) is a loop
+ *     over calls that ARE priced; pricing it prints one number under two names.
  *   - The ordered bucket service has no primitive floor here, but IS measured in
  *     the ALTERNATIVES catalogue against the unordered service at four bucket
  *     sizes — the comparison the documentation asks a reader to make.

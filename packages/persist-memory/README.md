@@ -15,9 +15,9 @@ npm install @oimdb/persist-memory @oimdb/persist @oimdb/core
 |---|---|
 | `OIMPersistMemoryBackend` | the backend; `new OIMPersistMemoryBackend()` takes no options |
 | `OIMPersistMemoryWriteBatch` | its write batch: queues every change and applies them in order on `commit()` |
-| `OIMPersistMemoryRecordsStrategy` | records strategy, `new OIMPersistMemoryRecordsStrategy({ storageKey })`: one `Map` of key to entity per `storageKey` |
-| `OIMPersistMemorySnapshotStrategy` | snapshot strategy, `new OIMPersistMemorySnapshotStrategy({ storageKey })`: one value per `storageKey` |
-| `TOIMPersistMemoryStrategyOptions` | `{ storageKey }`, the options of both strategies |
+| `OIMPersistMemoryRecordsService` | records strategy, `new OIMPersistMemoryRecordsService({ storageKey })`: one `Map` of key to entity per `storageKey` |
+| `OIMPersistMemorySnapshotService` | snapshot strategy, `new OIMPersistMemorySnapshotService({ storageKey })`: one value per `storageKey` |
+| `TOIMPersistMemoryServiceOptions` | `{ storageKey }`, the options of both strategies |
 
 Snapshot values and records live in two separate maps, so a snapshot and a records resource can use
 the same `storageKey` without meeting.
@@ -27,7 +27,7 @@ test asserts what was committed. `readRecords` answers `undefined` for a `storag
 no records, and the records strategy passes that on, so a hydrate over an empty backend applies
 nothing.
 
-`readRecordsOfKeys(storageKey, keys)` is the read behind `persistor.load(persistResourceRecords, keys)`:
+`readRecordsOfKeys(storageKey, keys)` is the read behind `persistor.load(persistRecordsResource, keys)`:
 it looks each key up in the `storageKey`'s map and answers the records of the keys the map holds,
 leaving out the rest, with no copy of the other entities. A `storageKey` that holds no records
 answers an empty list.
@@ -35,13 +35,13 @@ answers an empty list.
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
-    OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven, OIMPersistor,
+    OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler, OIMPersistor,
 } from '@oimdb/persist';
-import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsStrategy, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
+import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsService, OIMPersistMemoryWriteBatch } from '@oimdb/persist-memory';
 
 type TUser = { id: string; name: string };
 
@@ -49,30 +49,27 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
     entityWriter: createOIMEntityWriterInPlace(),
 });
-const userCollectionService = createOIMEntityService<TUser>(db, {
-    keyOf: user => user.id,
-    entityWriter: persistEntityWriter,
-});
+const userCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
 
 const persistMemoryBackend = new OIMPersistMemoryBackend();
 const persistor = new OIMPersistor<OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch>({
     persistBackend: persistMemoryBackend,
-    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+    persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-persistor.addPersistResource(new OIMPersistResourceRecords({
-    persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+persistor.addPersistResource(new OIMPersistRecordsResource({
+    persistRecordSource: new OIMPersistCollectionWriteRecordSource({
         entityCollectionService: userCollectionService,
         entityStoreSlot: userEntityStoreSlot,
         persistEntityWriter,
     }),
-    persistRecordsStrategy: new OIMPersistMemoryRecordsStrategy<TOIMStoreKey, TUser>({ storageKey: 'users' }),
+    persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TUser>({ storageKey: 'users' }),
 }));
 
 await persistor.hydrate();
 persistor.start();
 
-userCollectionService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
+userCollectionService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
 await persistor.persist();
 
 persistMemoryBackend.readRecords('users');

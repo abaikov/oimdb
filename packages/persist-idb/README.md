@@ -14,11 +14,11 @@ npm install @oimdb/persist-idb @oimdb/persist @oimdb/core
 |---|---|
 | `OIMPersistIndexedDbBackend` | `new OIMPersistIndexedDbBackend({ databaseName, databaseVersion?, indexedDb? })` |
 | `OIMPersistIndexedDbWriteBatch` | its write batch: queues `put`, `delete` and `clear` per table and runs them in one `readwrite` transaction on `commit()` |
-| `OIMPersistIndexedDbRecordsStrategy` | records strategy, `new OIMPersistIndexedDbRecordsStrategy({ tableName })`: one table, one value per entity key |
-| `OIMPersistIndexedDbSnapshotStrategy` | snapshot strategy, `new OIMPersistIndexedDbSnapshotStrategy({ tableName, primaryKey })`: one value at `primaryKey` |
+| `OIMPersistIndexedDbRecordsService` | records strategy, `new OIMPersistIndexedDbRecordsService({ tableName })`: one table, one value per entity key |
+| `OIMPersistIndexedDbSnapshotService` | snapshot strategy, `new OIMPersistIndexedDbSnapshotService({ tableName, primaryKey })`: one value at `primaryKey` |
 | `TOIMPersistIndexedDbBackendOptions` | `{ databaseName, databaseVersion?, indexedDb? }` |
-| `TOIMPersistIndexedDbRecordsStrategyOptions` | `{ tableName }` |
-| `TOIMPersistIndexedDbSnapshotStrategyOptions` | `{ tableName, primaryKey }` |
+| `TOIMPersistIndexedDbRecordsServiceOptions` | `{ tableName }` |
+| `TOIMPersistIndexedDbSnapshotServiceOptions` | `{ tableName, primaryKey }` |
 | `TOIMPersistIndexedDbPrimaryKey` | an `IDBValidKey`, or a plain object |
 | `TOIMPersistIndexedDbTableRecord` | `{ key, value }`, one value read back from a table |
 
@@ -28,13 +28,13 @@ npm install @oimdb/persist-idb @oimdb/persist @oimdb/core
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
-    OIMPersistEntityWriter, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceRecords,
-    OIMPersistSchedulerMicrotaskDriven, OIMPersistor,
+    OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
+    OIMPersistMicrotaskScheduler, OIMPersistor,
 } from '@oimdb/persist';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy, OIMPersistIndexedDbWriteBatch } from '@oimdb/persist-idb';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService, OIMPersistIndexedDbWriteBatch } from '@oimdb/persist-idb';
 
 type TUser = { id: string; name: string };
 
@@ -42,30 +42,27 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
     entityWriter: createOIMEntityWriterInPlace(),
 });
-const userCollectionService = createOIMEntityService<TUser>(db, {
-    keyOf: user => user.id,
-    entityWriter: persistEntityWriter,
-});
+const userCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({
     persistBackend: new OIMPersistIndexedDbBackend({ databaseName: 'app' }),
-    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+    persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-const userPersistResourceRecords = persistor.addPersistResource(new OIMPersistResourceRecords({
-    persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven({
+const userPersistResourceRecords = persistor.addPersistResource(new OIMPersistRecordsResource({
+    persistRecordSource: new OIMPersistCollectionWriteRecordSource({
         entityCollectionService: userCollectionService,
         entityStoreSlot: userEntityStoreSlot,
         persistEntityWriter,
     }),
-    persistRecordsStrategy: new OIMPersistIndexedDbRecordsStrategy<TOIMStoreKey, TUser>({ tableName: 'users' }),
+    persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TUser>({ tableName: 'users' }),
 }));
 
 await persistor.hydrate();
 persistor.start();
 
-userCollectionService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u1', name: 'Ada' });
-userCollectionService.slotContentService.upsertEntity(userEntityStoreSlot, { id: 'u2', name: 'Grace' });
+userCollectionService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
+userCollectionService.writeSlotContentByKey(userEntityStoreSlot, 'u2', { id: 'u2', name: 'Grace' });
 await persistor.persist();
 
 await persistor.unload(userPersistResourceRecords, ['u2']);
@@ -83,7 +80,7 @@ resource over the same entity store slot is not silenced: it sees the removal as
 `u2` from its own storage.
 
 `load` runs after the pending writes and reads only `u2`, through
-`OIMPersistIndexedDbRecordsStrategy.readRecordsOfKeys`. It puts the stored value back into the
+`OIMPersistIndexedDbRecordsService.readRecordsOfKeys`. It puts the stored value back into the
 entity store slot without writing it back, unless `u2` holds a value in memory or has a change the resource
 has not written yet, so a write or a heard deletion made during the read is not overwritten. `u2`
 then stops counting as unloaded, and once no key is, `persist()` clears the table again.

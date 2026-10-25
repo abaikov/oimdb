@@ -1,7 +1,6 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../../facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
+import { OIMSlotContentSetBucketService } from '../../../facade/bucket/OIMSlotContentSetBucketService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
@@ -9,6 +8,8 @@ import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlots
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMDefaultSlotStore } from '../../store/types/TOIMDefaultSlotStore';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
 type TCardRow = TOIMEntitySlot<Card>;
@@ -19,7 +20,7 @@ type TCardStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMEntitySlot<Card, TOIMSt
 const effectService = OIMEffectService.INSTANCE;
 
 const makeCards = (db: OIMDB) => {
-    const cardsService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 
@@ -28,12 +29,12 @@ const makeIndex = (
     cardsService: ReturnType<typeof makeCards>['cardsService'],
     cards: TOIMStoreSlot<TCardStore, TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>>,
 ) => {
-    const byDeckService = createOIMIndexService<
+    const byDeckService = createOIMSlotCollectionIndexService<
         Card, TOIMStoreKey, readonly ('id' | 'deck' | 'rank')[], string, TCardStore, TDeckSlots,
-        OIMSlotContentBucketServiceSetDriven<TCardRow>
+        OIMSlotContentSetBucketService<TCardRow, string>
     >(db, {
         entityService: cardsService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardRow>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardRow, string>(),
         keyOf: card => card.deck,
     });
     return { byDeckService, byDeck: byDeckService.createIndexStoreSlot(cards) };
@@ -86,7 +87,7 @@ describe('a frame does not open in the middle of one logical change', () => {
         // ONE `upsert`, AND THE WHOLE FRAME HAPPENS INSIDE IT. The row's value
         // lands, the row joins the collection's bucket, and only then may a
         // frame open.
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'red', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
 
         expect(readIds(byDeckService, redSlot)).toEqual(['a']);
         // Told once, with the row in the list: the frame ran on a settled world.
@@ -101,12 +102,12 @@ describe('a frame does not open in the middle of one logical change', () => {
         const redSlot = byDeckService.holdSlotByKey(byDeck, 'red');
         const watcher = watch(db, byDeckService, redSlot);
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'red', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
         // A SECOND, UNRELATED ROW. It advances the collection, so the derivation
         // is behind its source and settles again — the settle that confirms the
         // loss rather than repairing it, because a stale 'a' sends the walk to a
         // previous answer that never named it.
-        cardsService.slotContentService.upsertEntity(cards, { id: 'b', deck: 'blue', rank: 2 });
+        cardsService.writeSlotContentByKey(cards, 'b', { id: 'b', deck: 'blue', rank: 2 });
 
         expect(readIds(byDeckService, redSlot)).toEqual(['a']);
 
@@ -125,8 +126,8 @@ describe('a frame does not open in the middle of one logical change', () => {
         const watcher = watch(db, byDeckService, redSlot);
         pending.length = 0;
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'red', rank: 1 });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c', deck: 'red', rank: 3 });
+        cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'red', rank: 1 });
+        cardsService.writeSlotContentByKey(cards, 'c', { id: 'c', deck: 'red', rank: 3 });
 
         // One frame asked for, however many writes.
         expect(pending).toHaveLength(1);

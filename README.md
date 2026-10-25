@@ -20,15 +20,15 @@ npm install @oimdb/core
 ## Example
 
 ```typescript
-import { OIMDB, OIMEffectService, createOIMEntityService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 
 const db = new OIMDB();
-const userService = createOIMEntityService<TUser>(db, { keyOf: (user) => user.id });
+const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
 const users = userService.createStoreSlot(db);
 
-userService.slotContentService.upsertEntities(users, [{ id: 'u1', name: 'Ann' }]);
+userService.writeInBatch(users, () => ([{ id: 'u1', name: 'Ann' }]).map(entity => userService.writeSlotContentByKey(users, entity.id, entity)));
 
 const ann = userService.getSlotByKey(users, 'u1');
 const watching = OIMEffectService.INSTANCE.createEffect(db, [ann], [], () => {

@@ -32,26 +32,21 @@
  * key, so the case below asks them both directly.
  *
  * AND `isAddressedBy` WENT WITH THE BUCKET KEY STORES. A bucket is filed in an
- * ordinary `OIMSlotStoreServiceMapDriven`, which is a `Map` — so the store's rule
+ * ordinary `OIMSlotMapStoreService`, which is a `Map` — so the store's rule
  * is the container's, asked below by resolving the same `NaN` key twice, beside
  * `oimSameValueZeroGuard` asked directly.
  */
 import { OIMDB } from '../src/factories/OIMDB';
 import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../src/engine/store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../src/engine/slot/utils/oimSameValueZeroGuard';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
-import { createOIMBucketService } from '../src/factories/createOIMBucketService';
-import { createOIMComputedService } from '../src/factories/createOIMComputedService';
 import { createOIMEntityWriterInPlace } from '../src/factories/createOIMEntityWriterInPlace';
 import { createOIMEntityWriterReplacing } from '../src/factories/createOIMEntityWriterReplacing';
-import { OIMSlotContentBucketServiceSetDriven } from '../src/facade/bucket/OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
 import type { IOIMEntityWriter } from '../src/engine/entity/interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
-import type { TOIMComputedSlot } from '../src/engine/computed/types/TOIMComputedSlot';
-import type { TOIMSingleSlotStore } from '../src/engine/store/types/TOIMSingleSlotStore';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../src/factories/createOIMSingleComputedService';
 
 type TReading = { id: string; score: number; label: string };
 
@@ -63,10 +58,7 @@ type TReading = { id: string; score: number; label: string };
 const createFixture =(strategy: IOIMEntityWriter = createOIMEntityWriterInPlace()) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const readingsService = createOIMEntityService<TReading>(db, {
-        keyOf: (reading: TReading) => reading.id,
-        entityWriter: strategy,
-    });
+    const readingsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TReading>(db, { entityWriter: strategy }) });
     const readings = readingsService.createStoreSlot(db);
     const updateReading = (key: string, patch: Partial<TReading>): void => {
         const readingSlot = readingsService.findSlotByKey(readings, key);
@@ -83,7 +75,7 @@ describe('a column that is not equal to itself', () => {
     it('does not report a NaN column as moved when the same NaN is written back', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
 
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: Number('not a number'), label: 'x' });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number('not a number'), label: 'x' });
         db.flush();
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
@@ -93,7 +85,7 @@ describe('a column that is not equal to itself', () => {
         // `OIMSlotContentEntityStrategy` writes both, so a column
         // wrongly called displaced is heard on either of them.
         effectService.createEffect(db, [slot], [], () => { slotWoke++; });
-        effectService.createEffect(db, [readingsService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
         db.flush();
         slotWoke = 0;
         columnWoke = 0;
@@ -121,12 +113,12 @@ describe('a column that is not equal to itself', () => {
     it('still reports the column when the value really does move', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
 
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: 1, label: 'x' });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: 1, label: 'x' });
         db.flush();
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
 
         updateReading('r1',{ score: 2 });
         db.flush();
@@ -161,18 +153,15 @@ describe('a column that is not equal to itself', () => {
      */
     it('gives the write path the answer the key store already gave', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
-        const byScoreService = createOIMBucketService<
-            TOIMEntitySlot<TReading>, TOIMStoreKey, TOIMBucketSlotsSetStore<TOIMEntitySlot<TReading>>,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TReading>>
-        >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TReading>>() });
+        const byScoreService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TReading>>() });
         const byScore = byScoreService.createStoreSlot(db);
 
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: Number.NaN, label: 'x' });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number.NaN, label: 'x' });
         db.flush();
         const slot = readingsService.getSlotByKey(readings, 'r1');
         // Keyed by the value the entity carries, which is the caller's act now.
         const heldSlot = byScoreService.holdSlotByKey(byScore, Number.NaN);
-        byScoreService.slotContentService.writeBucketMemberSlots(heldSlot, [slot]);
+        byScoreService.slotContentService.writeSlotContent(heldSlot, [slot]);
 
         // The store's rule, asked of the container that keeps it and of the
         // function that states it.
@@ -180,7 +169,7 @@ describe('a column that is not equal to itself', () => {
         expect(oimSameValueZeroGuard(Number.NaN, Number.NaN)).toBe(true);
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
 
         updateReading('r1',{ score: Number.NaN });
         db.flush();
@@ -208,7 +197,7 @@ describe('a column that is not equal to itself', () => {
     it('does not allocate a new entity when a NaN entity is re-sent under createOIMEntityWriterReplacing', () => {
         const { db, readingsService, readings, updateReading } = createFixture(createOIMEntityWriterReplacing());
 
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: Number('not a number'), label: 'x' });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number('not a number'), label: 'x' });
         db.flush();
         const slot = readingsService.getSlotByKey(readings, 'r1');
         const first = slot.entity;
@@ -250,35 +239,29 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.holdSlotByKey(readings, 'r1');
 
         let runs = 0;
-        const scoreService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-            sameValueGuard: oimSameValueZeroGuard,
-        });
-        const scoreCollectionService = scoreService.computedCollectionService;
+        const scoreService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+        const scoreCollectionService = scoreService.computedSingleSlotService;
         const score = scoreService.createComputedStoreSlot(
             db,
             () => { runs++; return Number(slot.entity?.label); },
             () => ({ sourceSlots: [slot], sourceComputeds: [] }),
         );
         const scoreValue = (): number => {
-            const scoreSlot = scoreCollectionService.getSlotByKey(score, undefined);
+            const scoreSlot = scoreCollectionService.getSingleSlot(score);
             return scoreSlot.computedValueService.getValueForSlot(scoreSlot);
         };
         const belowRuns: number[] = [];
-        const belowService = createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-            sameValueGuard: oimSameValueZeroGuard,
-        });
+        const belowService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
         const below = belowService.createComputedStoreSlot(
             db,
             () => { belowRuns.push(scoreValue()); return 0; },
-            () => ({ sourceSlots: [], sourceComputeds: [scoreCollectionService.getSlotByKey(score, undefined)] }),
+            () => ({ sourceSlots: [], sourceComputeds: [scoreCollectionService.getSingleSlot(score)] }),
         );
 
         let runCount = 0;
-        const reader = effectService.createEffect(db, [], [scoreCollectionService.getSlotByKey(score, undefined)], () => { runCount++; });
-        const readerBelow = effectService.createEffect(db, [], [belowService.computedCollectionService.getSlotByKey(below, undefined)], () => { /* keeps the lower level asked */ });
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: 1, label: 'x' });
+        const reader = effectService.createEffect(db, [], [scoreCollectionService.getSingleSlot(score)], () => { runCount++; });
+        const readerBelow = effectService.createEffect(db, [], [belowService.computedSingleSlotService.getSingleSlot(below)], () => { /* keeps the lower level asked */ });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: 1, label: 'x' });
         db.flush();
         expect(Number.isNaN(scoreValue())).toBe(true);
         runs = 0;
@@ -321,12 +304,12 @@ describe('a column that is not equal to itself', () => {
     it('does not report a column moved from 0 to -0, which is what Object.is would do', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
 
-        readingsService.slotContentService.upsertEntity(readings,{ id: 'r1', score: 0, label: 'x' });
+        readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: 0, label: 'x' });
         db.flush();
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
 
         updateReading('r1',{ score: -0 });
         db.flush();

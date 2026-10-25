@@ -1,15 +1,12 @@
-import {
-    OIMDB, OIMSlotStoreServiceSingleSlotDriven, createOIMComputedService, createOIMEntityService, createOIMSingleEntityService,
-} from '../../index';
-import type { TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore } from '../../index';
+import { OIMDB, createOIMComputedService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotContentEntityService } from '../../index';
 
 type TSettings = { theme: string };
 type TCard = { id: string };
 
 export function aStoreSlotFitsOnlyItsOwnStore(): void {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
-    const settingsService = createOIMSingleEntityService<TSettings>(db);
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
     const cards = cardsService.createStoreSlot(db);
     const settings = settingsService.createStoreSlot(db);
 
@@ -20,13 +17,6 @@ export function aStoreSlotFitsOnlyItsOwnStore(): void {
     // @ts-expect-error a keyed service reads a map, which a single's store is not
     cardsService.getSlotByKey(settings, 'c1');
 
-    // @ts-expect-error a keyed factory takes no void key; a single has its own factory
-    createOIMEntityService<TSettings, keyof TSettings, void>(db, {});
-    // @ts-expect-error the same for a computed
+    // @ts-expect-error a keyed computed takes no void key; a single computed has its own factory
     createOIMComputedService<void, number>({ derive: () => 1, createSources: () => ({}) });
-    createOIMComputedService<void, number, TOIMSingleSlotStore<TOIMComputedSlot<number, void>>>({
-        computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-    });
-    // @ts-expect-error a store named other than the map default must bring its service
-    createOIMEntityService<TCard, keyof TCard, string, TOIMSingleSlotStore<TOIMEntitySlot<TCard, string>>>(db, { keyOf: card => card.id });
 }

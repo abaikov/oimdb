@@ -1,25 +1,25 @@
-import {
-    OIMDB, OIMSlotContentBucketServiceSetDriven, OIMSlotReleasePolicyAtUnhold, createOIMEntityService, createOIMIndexService,
-} from '../../../index';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService } from '../../../index';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
-    const db = new OIMDB({ slotReleasePolicy: new OIMSlotReleasePolicyAtUnhold() });
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService<
+    const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
-        OIMSlotContentBucketServiceSetDriven<TCardSlot>
+        OIMSlotContentSetBucketService<TCardSlot, string>
     >(db, {
         entityService: cardsService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
         keyOf: (card: TCard) => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -31,9 +31,9 @@ const createFixture = () => {
 describe('what a row moving between two held buckets keeps', () => {
     it('keeps the row and files it under the new key, even when the last unhold would release it', () => {
         const { cardsService, cards, byDeckService, byDeck } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'clubs' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'clubs' });
 
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(true);
         expect(byDeckService.getEntitiesByKey(byDeck, 'clubs').map(card => card?.id)).toEqual(['c1']);
@@ -42,9 +42,9 @@ describe('what a row moving between two held buckets keeps', () => {
 
     it('keeps every row of a batch that moves them all', () => {
         const { cardsService, cards, byDeckService, byDeck } = createFixture();
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', deck: 'spades' }, { id: 'c2', deck: 'spades' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'spades' }, { id: 'c2', deck: 'spades' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', deck: 'clubs' }, { id: 'c2', deck: 'clubs' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'clubs' }, { id: 'c2', deck: 'clubs' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
         expect(byDeckService.getEntitiesByKey(byDeck, 'clubs').map(card => card?.id).sort()).toEqual(['c1', 'c2']);
         expect(byDeckService.getEntitiesByKey(byDeck, 'spades')).toEqual([]);

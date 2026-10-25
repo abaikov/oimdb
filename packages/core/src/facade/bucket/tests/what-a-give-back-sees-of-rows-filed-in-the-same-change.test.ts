@@ -1,22 +1,23 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
-import { OIMSlotContentBucketServiceSetDriven } from '../OIMSlotContentBucketServiceSetDriven';
+import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService(db, {
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     return { db, cardsService, cards, byDeckService, byDeck };
@@ -31,11 +32,8 @@ describe('what a give-back sees of rows filed in the same change', () => {
         const fixture = createFixture();
         const deck = fixture.byDeckService.holdSlotByKey(fixture.byDeck, 'd');
         fixture.db.flush();
-
-        OIMChannelService.INSTANCE.openSubframe(fixture.db.defaultChannelSlot);
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, [{ id: 'c0', deck: 'd' }, { id: 'c1', deck: 'd' }]);
+        fixture.cardsService.writeInBatch(fixture.cards, () => ([{ id: 'c0', deck: 'd' }, { id: 'c1', deck: 'd' }]).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         deck.owner.unholdSlot(deck);
-        OIMChannelService.INSTANCE.closeSubframe(fixture.db.defaultChannelSlot);
         fixture.db.flush();
 
         expect(oimIsSlotReleased(deck)).toBe(false);
@@ -46,14 +44,11 @@ describe('what a give-back sees of rows filed in the same change', () => {
         const fixture = createFixture();
         const deck = fixture.byDeckService.holdSlotByKey(fixture.byDeck, 'd');
         fixture.db.flush();
-
-        OIMChannelService.INSTANCE.openSubframe(fixture.db.defaultChannelSlot);
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, [{ id: 'c0', deck: 'd' }]);
+        fixture.cardsService.writeInBatch(fixture.cards, () => ([{ id: 'c0', deck: 'd' }]).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         deck.owner.unholdSlot(deck);
-        OIMChannelService.INSTANCE.closeSubframe(fixture.db.defaultChannelSlot);
         fixture.db.flush();
 
-        expect(fixture.cardsService.slotContentService.findEntityByKey(fixture.cards, 'c0')).toEqual({ id: 'c0', deck: 'd' });
+        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'c0')?.entity).toEqual({ id: 'c0', deck: 'd' });
         expect(fixture.byDeckService.hasSlotContentByKey(fixture.byDeck, 'd')).toBe(true);
     });
 
@@ -61,11 +56,8 @@ describe('what a give-back sees of rows filed in the same change', () => {
         const fixture = createFixture();
         const deck = fixture.byDeckService.holdSlotByKey(fixture.byDeck, 'd');
         fixture.db.flush();
-
-        OIMChannelService.INSTANCE.openSubframe(fixture.db.defaultChannelSlot);
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, [{ id: 'c0', deck: 'other' }]);
+        fixture.cardsService.writeInBatch(fixture.cards, () => ([{ id: 'c0', deck: 'other' }]).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         deck.owner.unholdSlot(deck);
-        OIMChannelService.INSTANCE.closeSubframe(fixture.db.defaultChannelSlot);
         fixture.db.flush();
 
         expect(oimIsSlotReleased(deck)).toBe(true);
@@ -77,11 +69,8 @@ describe('what a give-back sees of rows filed in the same change', () => {
         const deck = fixture.byDeckService.holdSlotByKey(fixture.byDeck, 'd');
         fixture.db.flush();
         const write = jest.spyOn(OIMChannelService.INSTANCE, 'writeWithoutFlushCheck');
-
-        OIMChannelService.INSTANCE.openSubframe(fixture.db.defaultChannelSlot);
-        fixture.cardsService.slotContentService.upsertEntities(fixture.cards, [{ id: 'c0', deck: 'd' }, { id: 'c1', deck: 'd' }]);
+        fixture.cardsService.writeInBatch(fixture.cards, () => ([{ id: 'c0', deck: 'd' }, { id: 'c1', deck: 'd' }]).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
         deck.owner.unholdSlot(deck);
-        OIMChannelService.INSTANCE.closeSubframe(fixture.db.defaultChannelSlot);
         fixture.db.flush();
 
         expect(write.mock.calls.filter(([, slot]) => slot === deck).length).toBe(1);

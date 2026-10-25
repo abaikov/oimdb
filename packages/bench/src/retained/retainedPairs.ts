@@ -25,7 +25,7 @@ import type { TRetainedPair } from './TRetainedPair';
  *   - The current engine's per-column identities (`slot.columnSlotStore`) — uncosted, and
  *     the next pair to add now that the shipped engine is in this catalogue at all.
  *   - A derivation whose value is a LIST of slots, which is what
- *     `createOIMComputedServiceBucketMemo` produces and what a consumer of this
+ *     `createOIMBucketMemoComputedService` produces and what a consumer of this
  *     engine most often holds. The
  *     `derivations` rows keep a number on purpose, so that they are about the
  *     derivation rather than about the array inside it; the list shape is a

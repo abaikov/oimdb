@@ -60,7 +60,7 @@ function slotKeysOf(cardsByDeckService: TBucketService<TCard>, cardsByDeck: TBuc
 describe('writing a linked index from an entity field', () => {
     it('makes the field the list, in its order, and reserves an id whose row has not arrived', () => {
         const { db, cardsService, cards, cardsByDeckService, cardsByDeck, linkedIndexes, updater } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'Ace' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace' });
         db.flush();
 
         updater.updateLinkedIndexesForEntities(linkedIndexes, [deck(['c1', 'c2'])]);
@@ -74,7 +74,7 @@ describe('writing a linked index from an entity field', () => {
         // updater gives its transient one back.
         expect(cardsService.getSlotByKey(cards, 'c2')?.entity).toBeUndefined();
 
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c2', title: 'King' });
+        cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'King' });
         db.flush();
         const bucket = cardsByDeckService.getSlotByKey(cardsByDeck, 'd1');
         expect(Array.from(cardsByDeckService.slotContentService.getBucketMemberSlots(bucket)).map(slot => slot.entity))
@@ -83,7 +83,7 @@ describe('writing a linked index from an entity field', () => {
 
     it('re-sending the list it already holds wakes nobody, and re-ordering it wakes nobody either', () => {
         const { db, cardsService, cards, cardsByDeckService, cardsByDeck, linkedIndexes, updater } = build();
-        cardsService.slotContentService.upsertEntities(cards, [{ id: 'c1', title: 'Ace' }, { id: 'c2', title: 'King' }]);
+        cardsService.writeInBatch(cards, () => ([{ id: 'c1', title: 'Ace' }, { id: 'c2', title: 'King' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         updater.updateLinkedIndexesForEntities(linkedIndexes, [deck(['c1', 'c2'])]);
         db.flush();
 
@@ -123,7 +123,7 @@ describe('writing a linked index from an entity field', () => {
 
     it('gives back the bucket and the reserved identities when the owning entity goes', () => {
         const { db, cardsService, cards, cardsByDeckService, cardsByDeck, linkedIndexes, updater } = build();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'Ace' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace' });
         updater.updateLinkedIndexesForEntities(linkedIndexes, [deck(['c1', 'c2'])]);
         db.flush();
 

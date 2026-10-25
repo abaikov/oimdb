@@ -23,62 +23,59 @@ const filesMatching = (pattern: RegExp): string[] => sourceFiles()
     .map(path => relative(SRC, path).split(sep).join('/'));
 
 describe('who may reach a column owner', () => {
-    it('is built only by the owners of content slots, each in its createColumnOwner, for its own slots', () => {
-        expect(filesMatching(/new OIMColumnOwner\w*\(/)).toEqual([
-            'engine/column/utils/createOIMColumnOwnerPullDriven.ts',
-            'engine/column/utils/createOIMColumnOwnerPushDriven.ts',
+    it('is built only by the owners of content slots, each in its createColumnSlotOwner, for its own slots', () => {
+        expect(filesMatching(/new OIM\w*ColumnSlotOwner\(/)).toEqual([
+            'engine/column/utils/createOIMPullColumnSlotOwner.ts',
+            'engine/column/utils/createOIMPushColumnSlotOwner.ts',
         ]);
-        expect(filesMatching(/\bcreateOIMColumnOwnerPullDriven\b/)).toEqual([
-            'engine/column/utils/createOIMColumnOwnerPullDriven.ts',
+        expect(filesMatching(/\bcreateOIMPullColumnSlotOwner\b/)).toEqual([
+            'engine/column/utils/createOIMPullColumnSlotOwner.ts',
+            'facade/computed/OIMSingleComputedService.ts',
             'facade/computed/utils/createOIMComputedCollectionService.ts',
         ]);
-        expect(filesMatching(/\bcreateOIMColumnOwnerPushDriven\b/)).toEqual([
-            'engine/column/utils/createOIMColumnOwnerPushDriven.ts',
-            'factories/createOIMSlotContentEntityService.ts',
-            'factories/utils/createOIMBucketSlotOwnerService.ts',
+        expect(filesMatching(/\bcreateOIMPushColumnSlotOwner\b/)).toEqual([
+            'engine/column/utils/createOIMPushColumnSlotOwner.ts',
+            'factories/utils/oimSlotOwnerOptionsWithDefault.ts',
         ]);
     });
 
     it('is named by no file but those, the content owner that keeps it and the owner strategies', () => {
-        expect(filesMatching(/\bOIMColumnOwner\w*\b/)).toEqual([
+        expect(filesMatching(/\bOIM\w*ColumnSlotOwner\w*\b/)).toEqual([
             'engine/bucket/types/TOIMBucketSlotOwnerService.ts',
-            'engine/column/OIMColumnOwner.ts',
-            'engine/column/OIMColumnOwnerPullDriven.ts',
-            'engine/column/OIMColumnOwnerPushDriven.ts',
-            'engine/column/utils/createOIMColumnOwnerPullDriven.ts',
-            'engine/column/utils/createOIMColumnOwnerPushDriven.ts',
-            'engine/entity/OIMSlotContentEntityService.ts',
+            'engine/column/OIMColumnSlotOwner.ts',
+            'engine/column/OIMPullColumnSlotOwner.ts',
+            'engine/column/OIMPushColumnSlotOwner.ts',
+            'engine/column/utils/createOIMPullColumnSlotOwner.ts',
+            'engine/column/utils/createOIMPushColumnSlotOwner.ts',
             'engine/entity/types/TOIMEntitySlotOwnerService.ts',
-            'engine/entity/types/TOIMSlotContentEntityServiceOptions.ts',
             'engine/slot/OIMSlotOwnerService.ts',
             'engine/slot/types/TOIMSlotOwnerServiceOptions.ts',
-            'facade/bucket/OIMSlotContentBucketService.ts',
+            'facade/column/OIMColumnSlotService.ts',
+            'facade/computed/OIMBucketMemoComputedService.ts',
             'facade/computed/OIMComputedService.ts',
-            'facade/computed/OIMComputedServiceBucketMemo.ts',
-            'facade/computed/OIMComputedServiceSorted.ts',
-            'facade/computed/types/TOIMComputedServiceBucketMemoOptions.ts',
+            'facade/computed/OIMSingleComputedService.ts',
+            'facade/computed/OIMSortedComputedService.ts',
+            'facade/computed/types/TOIMBucketMemoComputedServiceOptions.ts',
             'facade/computed/utils/createOIMComputedCollectionService.ts',
-            'facade/index/OIMIndexService.ts',
-            'facade/index/types/TOIMIndexServiceOptions.ts',
+            'facade/index/OIMSlotCollectionIndexService.ts',
+            'facade/index/types/TOIMSlotCollectionIndexServiceOptions.ts',
             'facade/slot/OIMSingleSlotService.ts',
             'facade/slot/OIMSlotCollectionService.ts',
-            'facade/slot/OIMSlotColumnService.ts',
+            'facade/slot/OIMWritableSingleSlotService.ts',
+            'facade/slot/OIMWritableSlotCollectionService.ts',
             'facade/slot/types/TOIMSingleSlotServiceOptions.ts',
             'facade/slot/types/TOIMSlotCollectionServiceOptions.ts',
-            'factories/createOIMBucketService.ts',
-            'factories/createOIMComputedServiceBucketMemo.ts',
-            'factories/createOIMEntityService.ts',
-            'factories/createOIMSingleBucketService.ts',
-            'factories/createOIMSingleEntityService.ts',
+            'factories/createOIMBucketMemoComputedService.ts',
             'factories/createOIMSingleSlotService.ts',
             'factories/createOIMSlotCollectionService.ts',
+            'factories/utils/oimSlotOwnerOptionsWithDefault.ts',
             'index.ts',
         ]);
     });
 
     it('is handed out by the package as the base a content owner builds and the pull strategy, and no instance', () => {
-        expect(Object.keys(core).filter(name => /ColumnOwner/.test(name)).sort())
-            .toEqual(['OIMColumnOwner', 'OIMColumnOwnerPullDriven']);
+        expect(Object.keys(core).filter(name => /ColumnSlotOwner/.test(name)).sort())
+            .toEqual(['OIMColumnSlotOwner', 'OIMPullColumnSlotOwner']);
         expect(Object.getOwnPropertyNames(core.OIMDefaults).filter(name => /COLUMN_OWNER/.test(name))).toEqual([]);
     });
 });

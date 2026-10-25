@@ -1,9 +1,11 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { OIMSlotReleasePolicyAfterIdle } from '../../collector/OIMSlotReleasePolicyAfterIdle';
-import { OIMSlotReleasePolicyAfterWrite } from '../../collector/OIMSlotReleasePolicyAfterWrite';
-import { OIMSlotReleasePolicyEarliest } from '../../collector/OIMSlotReleasePolicyEarliest';
+import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
+import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
+import { OIMSlotEarliestReleasePolicy } from '../../collector/OIMSlotEarliestReleasePolicy';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
+import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -14,14 +16,11 @@ function worldWhereTheTwoClocksDisagree() {
     let afterWriteNowMs = 1_000;
     const afterIdleNowMs = 500_000_000;
     const db = new OIMDB({ getNowMs: () => afterWriteNowMs });
-    Object.assign(db.collectorSlot.afterIdleReleaseSlotCollectorSlot, { getNowMs: () => afterIdleNowMs });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyEarliest([
-            new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }),
-            new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
-        ]),
-    });
+    Object.assign(oimMintAfterIdleSlotReleaseWheel(db.collectorSlot), { getNowMs: () => afterIdleNowMs });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+            new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }),
+            new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }),
+        ]) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db, cards, cardsService,
@@ -32,7 +31,7 @@ function worldWhereTheTwoClocksDisagree() {
 describe('each release deadline is measured against its own clock', () => {
     it('a row written a moment ago is kept, however far the OTHER collector\'s clock reads', () => {
         const { db, cards, cardsService, advanceAfterWriteClockBy } = worldWhereTheTwoClocksDisagree();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 
@@ -46,7 +45,7 @@ describe('each release deadline is measured against its own clock', () => {
 
     it('and it is let go once ITS OWN clock reaches the deadline, not before', () => {
         const { db, cards, cardsService, advanceAfterWriteClockBy } = worldWhereTheTwoClocksDisagree();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 
@@ -59,12 +58,9 @@ describe('each release deadline is measured against its own clock', () => {
     it('one collector alone still answers from its own clock', () => {
         let nowMs = 1_000;
         const db = new OIMDB({ getNowMs: () => nowMs });
-        const cardsService = createOIMEntityService<TCard>(db, {
-            keyOf: card => card.id,
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }),
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 

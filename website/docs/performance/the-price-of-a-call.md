@@ -9,7 +9,7 @@ import BenchPriceControls from '@site/src/components/Bench/BenchPriceControls';
 # The price of a call
 
 What does each call cost against the plain JavaScript you would have written
-instead of it? `upsertEntity` against `map.set(id, entity)`. A one-column update
+instead of it? `writeSlotContentByKey` against `map.set(id, entity)`. A one-column update
 against `entity.title = value`.
 
 Each table on this page is generated from the published price measurements

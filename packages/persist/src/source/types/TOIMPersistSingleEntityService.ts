@@ -1,13 +1,11 @@
 import type {
-    OIMColumnOwnerPushDriven, OIMSingleSlotService, OIMSlotContentEntityService, TOIMColumnSlot, TOIMEntitySlot,
-    TOIMSingleSlotStore,
+    OIMPushColumnSlotOwner, OIMSlotContentEntityService, OIMWritableSingleSlotService, TOIMColumnSlot, TOIMEntityContentSlot,
 } from '@oimdb/core';
 
 export type TOIMPersistSingleEntityService<TEntity extends object> = Pick<
-    OIMSingleSlotService<
-        TOIMEntitySlot<TEntity, void>,
-        Pick<OIMSlotContentEntityService<TEntity, void, TOIMSingleSlotStore<TOIMEntitySlot<TEntity, void>>>, 'upsertEntity'>,
-        string, TOIMColumnSlot, OIMColumnOwnerPushDriven, Partial<TEntity>
+    OIMWritableSingleSlotService<
+        TOIMEntityContentSlot<TEntity>, TEntity, OIMSlotContentEntityService<TEntity>,
+        string, TOIMColumnSlot, OIMPushColumnSlotOwner
     >,
-    'getSingleSlot' | 'findSingleSlot' | 'slotContentService'
+    'getSingleSlot' | 'findSingleSlot' | 'writeSingleSlotContent'
 >;

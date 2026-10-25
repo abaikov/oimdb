@@ -1,11 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMReleaseSlotCollectorServiceAfterWrite,
-    OIMSlotReleasePolicyAfterWrite,
-    createOIMEntityService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, oimMintAfterWriteSlotReleaseWheel } from '../../../index';
 import type { TOIMDisposer } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -32,17 +28,14 @@ const countingClock = () => {
 };
 
 const flushAfterWrite = (db: OIMDB): void => {
-    OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(db.collectorSlot.afterWriteReleaseSlotCollectorSlot);
+    oimMintAfterWriteSlotReleaseWheel(db.collectorSlot).flush();
 };
 
 /** The inactivity window: a subscribed identity is re-filed rather than condemned. */
 const inactiveWorld = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: after }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };
@@ -51,10 +44,7 @@ const inactiveWorld = (after: number) => {
 const createAgingFixture = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: after }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };
@@ -64,7 +54,7 @@ describe('a window shorter than one slice', () => {
         // 100ms, against a slice of 1024: everything this test files and re-files
         // lands in the same slice.
         const fixture =inactiveWorld(100);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         // SUBSCRIBED, which is what makes the sweep keep it rather than condemn it.
         const watching = OIMEffectService.INSTANCE.createEffect(fixture.db, [slot], [], () => undefined);
@@ -79,7 +69,7 @@ describe('a window shorter than one slice', () => {
 
     it('does not make the write-age sweep walk its own re-files', () => {
         const fixture =createAgingFixture(100);
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         // Half the window old, so the sweep re-reads the stamp and files it again

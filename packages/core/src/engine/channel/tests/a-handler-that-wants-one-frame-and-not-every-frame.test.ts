@@ -1,9 +1,10 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMChannelService } from '../OIMChannelService';
 import type { TOIMEntitySlot, TOIMDisposer } from '../../../index';
 import { OIMEffectService } from '../../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -13,13 +14,13 @@ const fixture = (caught?: (error: unknown) => void) => {
     const channelService = OIMChannelService.INSTANCE;
     const channelSlot = db.defaultChannelSlot;
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const slot = rowsService.slotContentService.upsertEntity(rows, { id: 'a', n: 0 });
+    const slot = rowsService.writeSlotContentByKey(rows, 'a', { id: 'a', n: 0 });
     db.flush();
     let n = 0;
     /** One write and one frame — the unit every count below is per. */
-    const frame = (): void => { rowsService.slotContentService.upsertEntity(rows, { id: 'a', n: ++n }); db.flush(); };
+    const frame = (): void => { rowsService.writeSlotContentByKey(rows, 'a', { id: 'a', n: ++n }); db.flush(); };
     return { db, channelService, channelSlot, effectService, slot, frame };
 };
 

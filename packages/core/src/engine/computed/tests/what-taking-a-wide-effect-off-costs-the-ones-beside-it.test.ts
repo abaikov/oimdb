@@ -1,8 +1,9 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEffect } from '../types/TOIMEffect';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
@@ -23,9 +24,9 @@ const countRootReads = (effect: TOIMEffect): (() => number) => {
 const wideWorld = (size: number) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: row => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    const slots = Array.from({ length: size }, (_, i) => rowsService.slotContentService.upsertEntity(rows, { id: `r${i}`, n: i }));
+    const slots = Array.from({ length: size }, (_, i) => rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}`, n: i }));
     db.flush();
     return { db, effectService, rowsService, rows, slots };
 };

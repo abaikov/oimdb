@@ -13,7 +13,7 @@ import { createOIMChannelSlot } from '../engine/channel/utils/createOIMChannelSl
 import { createOIMCollectorSlot } from '../engine/collector/utils/createOIMCollectorSlot';
 import { oimTimerOfChannelScheduler } from '../engine/schedule/utils/oimTimerOfChannelScheduler';
 import { OIM_TIMER_ON_TIMEOUT } from '../engine/schedule/constants/OIM_TIMER_ON_TIMEOUT';
-import { OIMErrorPolicyLogAndContinue } from '../engine/error/OIMErrorPolicyLogAndContinue';
+import { OIMLogAndContinueErrorPolicy } from '../engine/error/OIMLogAndContinueErrorPolicy';
 
 export class OIMDB implements IOIMChannelMap {
     public readonly clock: TOIMChannelClock = { revision: 0, epoch: 0 };
@@ -27,7 +27,7 @@ export class OIMDB implements IOIMChannelMap {
     public readonly indexKeysService: IOIMIndexKeysService | undefined;
 
     public constructor(options?: TOIMDBOptions) {
-        const errorPolicy = options?.errorPolicy ?? OIMErrorPolicyLogAndContinue.INSTANCE;
+        const errorPolicy = options?.errorPolicy ?? OIMLogAndContinueErrorPolicy.INSTANCE;
         this.collectorSlot = createOIMCollectorSlot({
             getNowMs: options?.getNowMs ?? Date.now,
             releaseTimer: options?.releaseTimer ?? OIM_TIMER_ON_TIMEOUT,

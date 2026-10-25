@@ -1,21 +1,23 @@
-import { OIMDB, createOIMComputedServiceSorted, createOIMEntityService, createOIMIndexService } from '../../../index';
+import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; a: number; b: number };
 
 const createFixture = (columns: readonly ('a' | 'b')[]) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    const sortedService = createOIMComputedServiceSorted({
+    const sortedService = createOIMSortedComputedService({
         indexService: byDeckService,
         sortColumns: columns.map(column => ({ column, direction: 'asc' as const })),
         comparator: (left: TCard, right: TCard) => left.b - right.b,
     });
     const sorted = sortedService.createSortedStoreSlot(byDeck);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'x', deck: 'd', a: 1, b: 1 });
-    cardsService.slotContentService.upsertEntity(cards, { id: 'y', deck: 'd', a: 1, b: 2 });
+    cardsService.writeSlotContentByKey(cards, 'x', { id: 'x', deck: 'd', a: 1, b: 1 });
+    cardsService.writeSlotContentByKey(cards, 'y', { id: 'y', deck: 'd', a: 1, b: 2 });
     const sortedSlot = sortedService.computedCollectionService.holdSlotByKey(sorted, 'd');
     const order = (): string => sortedSlot.computedValueService.getValueForSlot(sortedSlot).map(entitySlot => String(entitySlot.key)).join(',');
     order();

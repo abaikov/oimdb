@@ -1,6 +1,7 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -8,7 +9,7 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -16,7 +17,7 @@ const createFixture =() => {
 describe('an effect that runs at once', () => {
     it('runs before any change, where the ordinary one waits', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -32,7 +33,7 @@ describe('an effect that runs at once', () => {
 
     it('still wakes on the next change, and only once for it', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -49,7 +50,7 @@ describe('an effect that runs at once', () => {
 
     it('reads what is already there, which is the whole reason to ask for it', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -62,7 +63,7 @@ describe('an effect that runs at once', () => {
 
     it('gives its teardown back the same way, and stops waking after detach', () => {
         const { db, cardsService, cards } = createFixture();
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 

@@ -1,10 +1,11 @@
-import { OIMReleaseSlotCollectorServiceAfterIdle } from '../OIMReleaseSlotCollectorServiceAfterIdle';
-import { OIMReleaseSlotCollectorServiceAfterWrite } from '../OIMReleaseSlotCollectorServiceAfterWrite';
-import { OIMReleaseSlotQueueService } from '../OIMReleaseSlotQueueService';
-import { OIMSlotReleasePolicyAfterIdle } from '../OIMSlotReleasePolicyAfterIdle';
-import { OIMSlotReleasePolicyAfterWrite } from '../OIMSlotReleasePolicyAfterWrite';
-import { OIMSlotReleasePolicyEarliest } from '../OIMSlotReleasePolicyEarliest';
-import { OIMDB, OIMEffectService, createOIMEntityService, oimIsSlotReleased } from '../../../index';
+import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
+import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotReleaseWheel';
+import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
+import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
+import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
+import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 const DO_NOT_EDIT_TO_MAKE_IT_PASS = 'DO NOT EDIT TO MAKE IT PASS';
 
@@ -15,34 +16,31 @@ const START = 1_000_000;
 const createFixtureWith = (keepAfterIdleMs: number, keepAfterWriteMs: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyEarliest([
-            new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs }),
-            new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs }),
-        ]),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+            new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs }),
+            new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
+        ]) });
     const cards = cardsService.createStoreSlot(db);
-    const afterIdleReleaseSlotCollectorSlot = db.collectorSlot.afterIdleReleaseSlotCollectorSlot;
-    const afterWriteReleaseSlotCollectorSlot = db.collectorSlot.afterWriteReleaseSlotCollectorSlot;
+    const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
+    const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
     return {
         db,
         cardsService,
         cards,
-        afterIdleReleaseSlotCollectorSlot,
-        afterWriteReleaseSlotCollectorSlot,
+        afterIdleSlotReleaseWheel,
+        afterWriteSlotReleaseWheel,
         at: (value: number): void => { ms = value; },
-        flushAfterIdle: (): void => { OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot); },
-        flushAfterWrite: (): void => { OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(afterWriteReleaseSlotCollectorSlot); },
+        flushAfterIdle: (): void => { afterIdleSlotReleaseWheel.flush(); },
+        flushAfterWrite: (): void => { afterWriteSlotReleaseWheel.flush(); },
         collect: (): void => {
-            OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(afterIdleReleaseSlotCollectorSlot);
-            OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(afterWriteReleaseSlotCollectorSlot);
+            afterIdleSlotReleaseWheel.flush();
+            afterWriteSlotReleaseWheel.flush();
         },
     };
 };
 
 const watched = (fixture:ReturnType<typeof createFixtureWith>, card: TCard) => {
-    const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, card);
+    const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, card.id, card);
     fixture.db.flush();
     return { slot, effect: OIMEffectService.INSTANCE.createEffect(fixture.db, [slot], [], () => undefined) };
 };
@@ -123,34 +121,34 @@ describe(`the conflict one marker cannot hold — ${DO_NOT_EDIT_TO_MAKE_IT_PASS}
 describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_IT_PASS}`, () => {
     it('are two queues, and one filing lands in both at two different slices', () => {
         const fixture =createFixtureWith(20_000, 60_000);
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         const slot = fixture.cardsService.getSlotByKey(fixture.cards, 'c1');
 
-        expect(fixture.afterIdleReleaseSlotCollectorSlot).not.toBe(fixture.afterWriteReleaseSlotCollectorSlot);
-        expect(fixture.afterIdleReleaseSlotCollectorSlot.slotsBySliceNumber)
-            .not.toBe(fixture.afterWriteReleaseSlotCollectorSlot.slotsBySliceNumber);
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(fixture.afterIdleReleaseSlotCollectorSlot, slot)).toBe(true);
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(fixture.afterWriteReleaseSlotCollectorSlot, slot)).toBe(true);
-        expect(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(fixture.afterIdleReleaseSlotCollectorSlot))
-            .toBeLessThan(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(fixture.afterWriteReleaseSlotCollectorSlot) as number);
+        expect(fixture.afterIdleSlotReleaseWheel).not.toBe(fixture.afterWriteSlotReleaseWheel);
+        expect((fixture.afterIdleSlotReleaseWheel as unknown as { slotsBySliceNumber: unknown }).slotsBySliceNumber)
+            .not.toBe((fixture.afterWriteSlotReleaseWheel as unknown as { slotsBySliceNumber: unknown }).slotsBySliceNumber);
+        expect(fixture.afterIdleSlotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(true);
+        expect(fixture.afterWriteSlotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(true);
+        expect(fixture.afterIdleSlotReleaseWheel.getNextSliceNumber())
+            .toBeLessThan(fixture.afterWriteSlotReleaseWheel.getNextSliceNumber() as number);
     });
 
     it('stopping one leaves what the other is holding', () => {
         const fixture =createFixtureWith(20_000, 60_000);
-        fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
         const slot = fixture.cardsService.getSlotByKey(fixture.cards, 'c1');
 
-        OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.cancelAllSlotReleases(fixture.afterIdleReleaseSlotCollectorSlot);
+        fixture.afterIdleSlotReleaseWheel.cancelAllSlots();
 
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(fixture.afterIdleReleaseSlotCollectorSlot, slot)).toBe(false);
-        expect(OIMReleaseSlotQueueService.INSTANCE.isSlotReleaseScheduled(fixture.afterWriteReleaseSlotCollectorSlot, slot)).toBe(true);
+        expect(fixture.afterIdleSlotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(false);
+        expect(fixture.afterWriteSlotReleaseWheel.isSlotReleaseScheduled(slot)).toBe(true);
     });
 
     it('sweeping the idle collector alone takes a row its idle window has run out on', () => {
         const fixture =createFixtureWith(20_000, 60_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         fixture.at(START + 21_000);
@@ -164,7 +162,7 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
 
     it('sweeping the write collector alone takes a row only its own window answers for', () => {
         const fixture =createFixtureWith(60_000, 20_000);
-        const slot = fixture.cardsService.slotContentService.upsertEntity(fixture.cards, { id: 'c1', title: 'one' });
+        const slot = fixture.cardsService.writeSlotContentByKey(fixture.cards, 'c1', { id: 'c1', title: 'one' });
         fixture.db.flush();
 
         fixture.at(START + 21_000);
@@ -179,20 +177,17 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
     it('a collector whose marker was never stamped files nothing', () => {
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-        const afterWriteReleaseSlotCollectorSlot = db.collectorSlot.afterWriteReleaseSlotCollectorSlot;
-        const cardsService = createOIMEntityService<TCard>(db, {
-            keyOf: card => card.id,
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 60_000 }),
-        });
+        const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
         const cards = cardsService.createStoreSlot(db);
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
 
         expect(cardsService.getSlotByKey(cards, 'c1').releaseDueAfterWriteMs).toBe(-1);
-        expect(OIMReleaseSlotQueueService.INSTANCE.getNextReleaseSliceNumber(afterWriteReleaseSlotCollectorSlot)).toBeUndefined();
+        expect(afterWriteSlotReleaseWheel.getNextSliceNumber()).toBeUndefined();
 
         ms = START + 10_000_000;
-        OIMReleaseSlotCollectorServiceAfterWrite.INSTANCE.flush(afterWriteReleaseSlotCollectorSlot);
+        afterWriteSlotReleaseWheel.flush();
         expect(cardsService.getSlotByKey(cards, 'c1')?.entity).toEqual({ id: 'c1', title: 'one' });
     });
 });

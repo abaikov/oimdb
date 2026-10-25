@@ -1,9 +1,10 @@
 
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMColumnSlot, TOIMEntitySlot } from '../../../index';
 import { OIMEffectService } from '../../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TField = 'a' | 'b' | 'c' | 'd';
 const FIELDS: readonly TField[] = ['a', 'b', 'c', 'd'];
@@ -21,7 +22,7 @@ const makeRandom = (seed: number): (() => number) => {
     };
 };
 
-const makeCollection = (db: OIMDB) => createOIMEntityService<TRow>(db, { keyOf: (row) => row.id });
+const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;
@@ -33,12 +34,12 @@ const updateEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key:
 
 const deleteEntityByKey = (rowsService: TRowsService, rows: TRowsStoreSlot, key: string): void => {
     const slot = rowsService.findSlotByKey(rows, key);
-    if (slot !== undefined) rowsService.slotContentService.deleteEntity(slot);
+    if (slot !== undefined) rowsService.slotContentService.clearSlotContent(slot);
 };
 
 const columnsOf = (
     rowsService: TRowsService, slot: TRowSlot, names: readonly TField[],
-): TOIMColumnSlot[] => names.map((name) => rowsService.getColumn(slot, name));
+): TOIMColumnSlot[] => names.map((name) => rowsService.columnSlotService.getColumn(slot, name));
 
 // A slot arriving where there was none moved every column it carries; a value
 // leaving moved every column it had.
@@ -78,7 +79,7 @@ const run = (seed: number, steps: number): void => {
     const slots = new Map<string, TRowSlot>();
     for (const key of KEYS) {
         const row: TRow = { id: key, a: 0, b: 0, c: 0, d: 0 };
-        rowsService.slotContentService.upsertEntity(rows, { ...row });
+        rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...row }), { ...row });
         model.set(key, row);
     }
     db.flush();
@@ -110,18 +111,18 @@ const run = (seed: number, steps: number): void => {
         if (before === undefined || choice < 0.3) {
             after = { id: key };
             for (const name of FIELDS) after[name] = Math.floor(random() * 3);
-            rowsService.slotContentService.upsertEntity(rows, { ...after });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...after }), { ...after });
         } else if (choice < 0.42) {
             // A whole value with one column simply absent — the write a patch
             // cannot express, and the one that has to count as a move.
             const dropped = pick(FIELDS);
             after = { id: key };
             for (const name of FIELDS) if (name !== dropped) after[name] = Math.floor(random() * 3);
-            rowsService.slotContentService.upsertEntity(rows, { ...after });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...after }), { ...after });
         } else if (choice < 0.55) {
             // The value written back exactly as it stands. Nothing moved, so
             // nobody may be told anything.
-            rowsService.slotContentService.upsertEntity(rows, { ...before });
+            rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ ...before }), { ...before });
             after = before;
         } else if (choice < 0.85) {
             const patch: Partial<TRow> = {};
@@ -155,7 +156,7 @@ const run = (seed: number, steps: number): void => {
         };
         const tell = (): void => { hook.runCount++; };
         const effect = names.length === 1
-            ? effectService.createEffect(db, [rowsService.getColumn(slot, names[0])], [], tell)
+            ? effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, names[0])], [], tell)
             : effectService.createEffect(db, columnsOf(rowsService, slot, names), [], tell);
         hook.dispose = () => { effectService.disposeEffect(effect); };
         hooks.push(hook);
@@ -254,7 +255,7 @@ describe('the two column effects built together', () => {
         const effectService = OIMEffectService.INSTANCE;
         const rowsService = makeCollection(db);
         const rows = rowsService.createStoreSlot(db);
-        rowsService.slotContentService.upsertEntity(rows, { id: 'r1', a: 0, b: 0, c: 0, d: 0 });
+        rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id: 'r1', a: 0, b: 0, c: 0, d: 0 }), { id: 'r1', a: 0, b: 0, c: 0, d: 0 });
         db.flush();
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         // Something already reads the whole slot: the ordinary state of a slot
@@ -267,8 +268,8 @@ describe('the two column effects built together', () => {
         const { db, effectService, rowsService, rows, slot } = createFixture();
         let aWoke = 0;
         let bWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'a')], [], () => { aWoke++; });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'b')], [], () => { bWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'a')], [], () => { aWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'b')], [], () => { bWoke++; });
         updateEntityByKey(rowsService, rows, 'r1', { a: 1, b: 1 });
         db.flush();
         expect([aWoke, bWoke]).toEqual([1, 1]);
@@ -281,8 +282,8 @@ describe('the two column effects built together', () => {
         // The timing of two column subscriptions in one component arriving in
         // response to the render the write caused.
         updateEntityByKey(rowsService, rows, 'r1', { a: 1, b: 1 });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'a')], [], () => { aWoke++; });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'b')], [], () => { bWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'a')], [], () => { aWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'b')], [], () => { bWoke++; });
         db.flush();
 
         expect([aWoke, bWoke]).toEqual([0, 0]);
@@ -299,8 +300,8 @@ describe('the two column effects built together', () => {
         // Nothing watches `d`, so this write reaches no column identity at all:
         // `markColumnsChanged` is handed the name and finds nothing filed under it.
         updateEntityByKey(rowsService, rows, 'r1', { d: 1 });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'd')], [], () => { firstWoke++; });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'd')], [], () => { secondWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'd')], [], () => { firstWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'd')], [], () => { secondWoke++; });
         db.flush();
         expect([firstWoke, secondWoke]).toEqual([0, 0]);
 
@@ -316,7 +317,7 @@ describe('the two column effects built together', () => {
         let aWoke = 0;
         let cdWoke = 0;
         updateEntityByKey(rowsService, rows, 'r1', { a: 1, c: 1 });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'a')], [], () => { aWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'a')], [], () => { aWoke++; });
         effectService.createEffect(db, columnsOf(rowsService, slot, ['c', 'd']), [], () => { cdWoke++; });
         db.flush();
         expect([aWoke, cdWoke]).toEqual([0, 0]);
@@ -332,10 +333,10 @@ describe('the two column effects built together', () => {
         const { db, effectService, rowsService, rows, slot } = createFixture();
         let aWoke = 0;
         let bWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'a')], [], () => { aWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'a')], [], () => { aWoke++; });
         db.flush();
         updateEntityByKey(rowsService, rows, 'r1', { a: 1, b: 1 });
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'b')], [], () => { bWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'b')], [], () => { bWoke++; });
         db.flush();
         expect([aWoke, bWoke]).toEqual([1, 0]);
     });
@@ -343,7 +344,7 @@ describe('the two column effects built together', () => {
     it('an effect on a column that already exists is not woken by a write to another column', () => {
         const { db, effectService, rowsService, rows, slot } = createFixture();
         let aWoke = 0;
-        effectService.createEffect(db, [rowsService.getColumn(slot, 'a')], [], () => { aWoke++; });
+        effectService.createEffect(db, [rowsService.columnSlotService.getColumn(slot, 'a')], [], () => { aWoke++; });
         db.flush();
         updateEntityByKey(rowsService, rows, 'r1', { b: 1 });
         db.flush();

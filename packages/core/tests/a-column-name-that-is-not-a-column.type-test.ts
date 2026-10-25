@@ -1,13 +1,14 @@
 import { OIMDB } from '../src/factories/OIMDB';
-import { createOIMEntityService } from '../src/factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
 const cards = cardsService.createStoreSlot(db);
-const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 1 });
+const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
 
 cardsService.slotContentService.markEntityChanged(card, ['title']);
 cardsService.slotContentService.markEntityChanged(card, ['title', 'rank']);

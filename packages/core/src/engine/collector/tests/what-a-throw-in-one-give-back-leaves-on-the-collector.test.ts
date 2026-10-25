@@ -18,8 +18,11 @@ const createFixture =(refuses: string) => {
             gaveBack.push(key);
         },
         releaseSlotIfUnheld: () => undefined,
+        unsafeMutateSlot: () => undefined,
         subscribeToSlot: () => 0,
         unsubscribeFromSlot: () => false,
+        onSlotFirstSubscribed: () => undefined,
+        onSlotLastUnsubscribed: () => undefined,
     };
     const unusedSlotCollectorSlot = createOIMUnusedSlotCollectorSlot();
     const flushUnusedSlotCollector = (): void => { OIMUnusedSlotCollectorService.INSTANCE.flush(unusedSlotCollectorSlot); };

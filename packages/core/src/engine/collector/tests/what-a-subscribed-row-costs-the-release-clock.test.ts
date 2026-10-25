@@ -1,11 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMReleaseSlotCollectorServiceAfterIdle,
-    OIMSlotReleasePolicyAfterIdle,
-    createOIMEntityService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '../../../index';
 import type { TOIMDisposer } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
@@ -19,15 +15,12 @@ const watchedWorld = () => {
         getNowMs: () => ms,
         releaseTimer: (run): TOIMDisposer => { armed = run; return () => { armed = undefined; }; },
     });
-    const cardsService = createOIMEntityService<TCard>(db, {
-        keyOf: card => card.id,
-        slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: WINDOW }),
-    });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db, cardsService, cards,
         flushAfterIdle: (): void => {
-            OIMReleaseSlotCollectorServiceAfterIdle.INSTANCE.flush(db.collectorSlot.afterIdleReleaseSlotCollectorSlot);
+            oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush();
         },
         at: (value: number): void => { ms = value; },
         fire: (): void => { const run = armed; armed = undefined; run?.(); },
@@ -38,7 +31,7 @@ const watchedWorld = () => {
 describe('a row somebody is subscribed to', () => {
     it('costs the clock one pass, and then nothing however long the subscriber sits', () => {
         const world = watchedWorld();
-        const slot = world.cardsService.slotContentService.upsertEntity(world.cards, { id: 'c1', title: 'one' });
+        const slot = world.cardsService.writeSlotContentByKey(world.cards, 'c1', { id: 'c1', title: 'one' });
         world.db.flush();
         const effect = OIMEffectService.INSTANCE.createEffect(world.db, [slot], [], () => undefined);
 

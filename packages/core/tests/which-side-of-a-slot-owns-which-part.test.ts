@@ -20,7 +20,7 @@ import type { TOIMSlotEditable } from '../src/engine/slot/types/TOIMSlotEditable
  * Nothing shells out: BSD grep goes blind on a file containing a NUL byte, which
  * this package has had, and `latin1` makes string index i byte i.
  *
- * It will MISS a write through a local (`OIMColumnOwner.mintUnfiledColumnSlot` fills a
+ * It will MISS a write through a local (`OIMColumnSlotOwner.mintUnfiledColumnSlot` fills a
  * store it took into one), a `Reflect.set`, a destructuring assignment, and a
  * write whose `=` is on the next line — the reader looks forward within a line
  * and back across one. It also keys on the NAME, so same-named fields on
@@ -29,16 +29,10 @@ import type { TOIMSlotEditable } from '../src/engine/slot/types/TOIMSlotEditable
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../src/index';
-import type { TOIMEntityColumnName } from '../src/engine/entity/types/TOIMEntityColumnName';
 import type { TOIMColumnSlot } from '../src/engine/column/types/TOIMColumnSlot';
-import {
-    OIMDB,
-    createOIMEntityService,
-    OIMSlotStoreServiceMapDriven,
-    createOIMEntityWriterInPlace,
-    createOIMEntityWriterReplacing,
-    oimIsSlotReleased,
-} from '../src/index';
+import { OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimIsSlotReleased } from '../src/index';
+import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMSlotCollectionService } from '../src/index';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -116,7 +110,7 @@ const fileAt = (path: string): TFile => files.find(file => file.path === path) a
 /** Four-space indentation is what keeps a nested object type's fields out of the slot's. */
 const SLOT_TYPES = [
     'engine/slot/types/TOIMSlot.ts',
-    'engine/entity/types/TOIMEntitySlot.ts',
+    'engine/entity/types/TOIMEntityContentSlot.ts',
     'engine/slot/types/TOIMKeyedSlot.ts',
     'engine/slot/types/TOIMIndexableSlot.ts',
 ] as const;
@@ -240,21 +234,22 @@ const SIDES: Record<string, readonly string[]> = {
         'engine/computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1',
     ],
     /**
-     * `OIMSlotStoreServiceTreeDriven` NORMALISES a key rather than only filing
+     * `OIMSlotTreeStoreService` NORMALISES a key rather than only filing
      * it: a chain key is copied on the way in, because a caller mutating the
-     * array they passed would rename a filed identity. `OIMColumnOwner`'s
+     * array they passed would rename a filed identity. `OIMColumnSlotOwner`'s
      * `columnSlotStore×2` is the mint-and-drop pair, and this line is its only
      * enforcement — the field is bare on a shared struct.
      */
     filing: [
         'engine/slot/OIMSlotOwnerService.ts slotFlags×2',
         'engine/slot/utils/oimMarkSlotReleased.ts slotFlags×1',
-        'engine/column/OIMColumnOwner.ts columnSlotStore×2',
+        'engine/column/OIMColumnSlotOwner.ts columnSlotStore×2',
     ],
     registration: [
         'engine/index/OIMIndexKeysService.ts indexKeys×1',
     ],
     condemnation: [
+        'engine/collector/OIMSlotReleaseWheel.ts slotFlags×4',
         'engine/slot/utils/oimSetReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',
         'engine/slot/utils/oimSetReleaseDueAfterIdleMs.ts releaseDueAfterIdleMs×1',
         'engine/slot/utils/oimSetReleaseDueAfterUnholdMs.ts releaseDueAfterUnholdMs×1',
@@ -354,7 +349,7 @@ describe('which side of a slot owns which part', () => {
             .map(file => file.path)
             .sort();
         expect(callers).toEqual([
-            'facade/index/OIMIndexService.ts',
+            'facade/index/OIMSlotCollectionIndexService.ts',
         ]);
     });
 });
@@ -380,18 +375,14 @@ describe('a population writes its rows through the strategy it was given', () =>
 
     const collectionOver = (write: IOIMEntityWriter) => {
         const db = new OIMDB();
-        const rowCollectionService = createOIMEntityService<TRow, TOIMEntityColumnName<TRow>, string>(db, {
-            keyOf: row => row.id,
-            entityWriter: write,
-            columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-        });
+        const rowCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const rowEntityService = {
-            upsertEntity: (storeSlot: TRowStoreSlot, row: TRow) => rowCollectionService.slotContentService.upsertEntity(storeSlot, row),
+            upsertEntity: (storeSlot: TRowStoreSlot, row: TRow) => rowCollectionService.writeSlotContentByKey(storeSlot, row.id, row),
             updateEntityByKey: (storeSlot: TRowStoreSlot, key: string, patch: Partial<TRow>) => {
                 const slot = rowCollectionService.findSlotByKey(storeSlot, key);
                 if (slot !== undefined) rowCollectionService.slotContentService.updateEntity(slot, patch);
             },
-            deleteEntity: (slot: TOIMEntitySlot<TRow, string>) => rowCollectionService.slotContentService.deleteEntity(slot),
+            deleteEntity: (slot: TOIMEntitySlot<TRow, string>) => rowCollectionService.slotContentService.clearSlotContent(slot),
             getSlotByKey: (storeSlot: TRowStoreSlot, key: string) => rowCollectionService.getSlotByKey(storeSlot, key),
             getSlotCount: (storeSlot: TRowStoreSlot) => rowCollectionService.getSlotCount(storeSlot),
         };
@@ -455,7 +446,7 @@ describe('a population writes its rows through the strategy it was given', () =>
     });
 
     it('copies what the caller handed in when built with oimInsertEntityWithCopy', () => {
-        const [rowEntityService, rows, channel] = collectionOver(createOIMEntityWriterInPlace({ entityInsertStrategy: oimInsertEntityWithCopy }));
+        const [rowEntityService, rows, channel] = collectionOver(createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }));
         const item: TRow = { id: 'r1', n: 1 };
 
         rowEntityService.upsertEntity(rows, item);

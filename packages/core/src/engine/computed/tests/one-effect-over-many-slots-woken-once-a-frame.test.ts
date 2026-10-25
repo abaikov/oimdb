@@ -1,18 +1,19 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import { OIMEffectService } from '../OIMEffectService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number; title: string };
 
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: (card) => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    for (const id of ['a', 'b', 'c']) cardsService.slotContentService.upsertEntity(cards, { id, rank: 0, title: 't' });
+    for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id, rank: 0, title: 't' });
     db.flush();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
         const cardSlot = cardsService.findSlotByKey(cards, id);
@@ -39,7 +40,7 @@ const columnsOf = (
     cardsService: ReturnType<typeof createFixture>['cardsService'],
     slot: TOIMEntitySlot<TCard, TOIMStoreKey>,
     names: readonly (keyof TCard & string)[],
-): TOIMSlot[] => names.map((name) => cardsService.getColumn(slot, name));
+): TOIMSlot[] => names.map((name) => cardsService.columnSlotService.getColumn(slot, name));
 
 describe('one effect over many slots', () => {
     it('wakes once however many of its slots moved', () => {
@@ -124,8 +125,8 @@ describe('one effect over many columns of one slot', () => {
         const { db, effectService, cardsService, cards, updateCard } = createFixture();
         let woken = 0;
         const slot = slotOf(cardsService, cards,'a');
-        effectService.createEffect(db, [cardsService.getColumn(slot, 'rank')], [], () => { woken++; });
-        effectService.createEffect(db, [cardsService.getColumn(slot, 'title')], [], () => { woken++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.getColumn(slot, 'rank')], [], () => { woken++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.getColumn(slot, 'title')], [], () => { woken++; });
         updateCard('a', { rank: 1, title: 'x' });
         db.flush();
         expect(woken).toBe(2);
@@ -139,7 +140,7 @@ describe('which columns moved in the frame being delivered', () => {
         const ran: string[] = [];
         for (const name of ['rank', 'title'] as const) {
             effectService.createEffect(
-                db, [cardsService.getColumn(slot, name)], [], () => { ran.push(name); });
+                db, [cardsService.columnSlotService.getColumn(slot, name)], [], () => { ran.push(name); });
         }
         updateCard('a', { rank: 1, title: 'x' });
         db.flush();
@@ -162,10 +163,10 @@ describe('which columns moved in the frame being delivered', () => {
         const moving = slotOf(cardsService, cards,'b');
 
         let stillRan = 0;
-        effectService.createEffect(db, [cardsService.getColumn(still, 'rank')], [], () => { stillRan++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.getColumn(still, 'rank')], [], () => { stillRan++; });
 
         let movingRan = 0;
-        effectService.createEffect(db, [cardsService.getColumn(moving, 'rank')], [], () => { movingRan++; });
+        effectService.createEffect(db, [cardsService.columnSlotService.getColumn(moving, 'rank')], [], () => { movingRan++; });
 
         updateCard('b', { rank: 1 });
         db.flush();

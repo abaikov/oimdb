@@ -1,11 +1,12 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotReleasePolicyAfterWrite } from '../../../engine/collector/OIMSlotReleasePolicyAfterWrite';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
+import { OIMSlotAfterWriteReleasePolicy } from '../../../engine/collector/OIMSlotAfterWriteReleasePolicy';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMSlotEditable } from '../../../engine/slot/types/TOIMSlotEditable';
 import { oimIsSlotEmpty } from '../../../engine/slot/utils/oimIsSlotEmpty';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 
@@ -14,14 +15,14 @@ const KEEP_AFTER_WRITE_MS = 60_000;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 1 });
+    cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
     db.flush();
     const card = cardsService.getSlotByKey(cards, 'c1');
     const watch = (name: TOIMEntityColumnName<TCard>) => {
         let runCount = 0;
-        const effect = effectService.createEffect(db, [cardsService.holdColumn(card, name)], [], () => { runCount++; });
+        const effect = effectService.createEffect(db, [cardsService.columnSlotService.holdColumn(card, name)], [], () => { runCount++; });
         db.flush();
         return { seen: () => runCount, since: runCount, effect };
     };
@@ -108,12 +109,9 @@ describe('what a hand mutation has to say to wake anyone', () => {
     it('defers the after-write deadline, so the clock does not evict a row somebody just edited', () => {
         let nowMs = 1_000;
         const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: () => () => undefined });
-        const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, string>(db, {
-            keyOf: card => card.id,
-            slotReleasePolicy: new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }),
-        });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
         const cards = cardsService.createStoreSlot(db);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one', rank: 1 });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
         db.flush();
         const dueAfterTheWrite = card.releaseDueAfterWriteMs;
 

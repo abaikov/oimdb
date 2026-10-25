@@ -7,7 +7,7 @@ suite itself; see `packages/bench/PARTICIPANTS.md`.
 
 The group order is a strategy chosen when the participant is built: `oimdbAdapterWith` (oimdb.ts:1132) hands one
 `TGroupOrderStrategy` to every binding that keeps group orders. This row's strategy, `GROUP_ORDER_SORTED_AT_READ`
-(oimdb.ts:121), builds one `createOIMComputedServiceSorted` service over a `createOIMIndexServiceSetDriven` index service
+(oimdb.ts:121), builds one `createOIMSortedComputedService` service over a `createOIMIndexServiceSetDriven` index service
 keyed by `group`, with `BY_RANK_THEN_ID` as its sort columns; the index store slot is `indexService.createStoreSlot(entityStoreSlot)`
 and the sorted store slot is `sortedComputedService.createSortedStoreSlot(indexStoreSlot)`. A held group order is a
 `TOIMComputedSlot` from `sortedComputedService.holdSlotByKey(sortedComputedStoreSlot, group)`, read with
@@ -56,17 +56,16 @@ body runs again and `settle` paints nothing: the tearDown proof frame's write re
 
 ## Frames
 
-The window and read bindings run a frame inside `channel.openSubframe()` / `channel.closeSubframe()` (`bindRowWrites`,
-oimdb.ts:269-276). A bucket join or leave files its tail — the bucket's channel write, emptiness and release check — to the
-close of the outermost span, so a frame pays it once per bucket instead of once per call. In this harness that changes the
-cost only of frames that move rows between buckets through several calls (`mixedFrame`'s write, remove and group moves);
-a frame of label patches files no bucket tail and pays two calls for the span.
+The window and read bindings run a frame inside `entityService.writeInBatch(entityStoreSlot, run)` (`bindRowWrites`,
+oimdb.ts:266-268). The index hears every write of the frame in one `onContentChangedMany` when the batch closes; each
+bucket join or leave still pays its channel write, emptiness and release check per call. A frame of label patches
+moves no bucket and pays two calls for the batch.
 
 ## oimdb-sorted-index
 
 The same file and the same bindings (`oimdbSortedIndexAdapter`); the one difference is the group-order strategy handed
 to `oimdbAdapterWith`. `GROUP_ORDER_SORTED_AT_WRITE` (oimdb.ts:182, built by `createGroupOrdersSortedAtWrite` at :151)
-builds a `createOIMIndexServiceSortedArrayDriven` keyed by `group` with `sortColumns: BY_RANK_THEN_ID`, so every bucket is kept
+builds a `createOIMSlotCollectionSortedArrayIndexService` keyed by `group` with `sortColumns: BY_RANK_THEN_ID`, so every bucket is kept
 in rank-then-id order at the write and there is no sorted computed service. A held group order is the index's
 bucket slot (`indexService.holdSlotByKey(indexStoreSlot, group)`, given back with `slot.owner.unholdSlot(slot)`); a view reads its page with
 `getBucketMemberSlotCount` and `getBucketMemberSlotAt` from its offset. The view's order effect has that bucket slot as a

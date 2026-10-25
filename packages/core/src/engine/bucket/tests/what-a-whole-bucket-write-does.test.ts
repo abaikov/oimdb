@@ -1,11 +1,7 @@
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMSlotContentBucketServiceArrayDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '../../../index';
-import type { TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService } from '../../../index';
+import type { TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; day: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -21,14 +17,12 @@ const expectSlotsToBe = (
 describe('what a whole-bucket write does', () => {
     function setupManual() {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService(db, { keyOf: (card: TCard) => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
         // The caller's list, in the caller's order, IS what the
         // bucket holds here, which is what a page of ids from a server is.
         const cards = cardsService.createStoreSlot(db);
-        const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>();
-        const searchService = createOIMBucketService<
-            TCardSlot, string, TOIMBucketSlotsArrayStore<TCardSlot>, OIMSlotContentBucketServiceArrayDriven<TCardSlot>
-        >(db, { slotContentService: membersService });
+        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+        const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
         // MINTED THROUGH THE ONE DOOR, AND THE REFERENCE IS KEPT for the life of
         // the fixture. A give-back on the next line runs before any case has put
         // anything in the bucket, and `OIMSlotOwner.unholdSlot` asks
@@ -58,29 +52,29 @@ describe('what a whole-bucket write does', () => {
 
     it('write sets exactly the slots it names', () => {
         const { db, cardsService, cards, membersService, q } = setupManual();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', day: 'd', title: 'a', rank: 0 },
             { id: 'c2', deckId: 'd1', day: 'd', title: 'b', rank: 1 },
             { id: 'c3', deckId: 'd1', day: 'd', title: 'c', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         const c1 = cardsService.getSlotByKey(cards, 'c1')!;
         const c3 = cardsService.getSlotByKey(cards, 'c3')!;
 
-        membersService.writeBucketMemberSlots(q,[c3, c1]);
+        membersService.writeSlotContent(q,[c3, c1]);
         expectSlotsToBe(membersService.getBucketMemberSlots(q),[c3, c1]);
     });
 
     it('re-setting the identical list changes nothing and wakes nobody', () => {
         const { db, cardsService, cards, membersService, q } = setupManual();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', day: 'd', title: 'a', rank: 0 },
             { id: 'c2', deckId: 'd1', day: 'd', title: 'b', rank: 1 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         const c1 = cardsService.getSlotByKey(cards, 'c1')!;
         const c2 = cardsService.getSlotByKey(cards, 'c2')!;
-        membersService.writeBucketMemberSlots(q,[c1, c2]);
+        membersService.writeSlotContent(q,[c1, c2]);
         // DELIVERED FIRST, and the test says nothing without this line. That
         // `write` is a real change — the bucket was empty — so leaving it
         // undelivered means the effect below is born behind a write of the OPEN
@@ -91,7 +85,7 @@ describe('what a whole-bucket write does', () => {
 
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(db, [q], [], () => { runCount++; });
-        membersService.writeBucketMemberSlots(q,[c1, c2]);
+        membersService.writeSlotContent(q,[c1, c2]);
         db.flush();
 
         expect(runCount).toBe(0);
@@ -100,44 +94,44 @@ describe('what a whole-bucket write does', () => {
 
     it('evicted slots are truly out (assert via slot.holdCount)', () => {
         const { db, cardsService, cards, membersService, q } = setupManual();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', day: 'd', title: 'a', rank: 0 },
             { id: 'c2', deckId: 'd1', day: 'd', title: 'b', rank: 1 },
             { id: 'c3', deckId: 'd1', day: 'd', title: 'c', rank: 2 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         const c1 = cardsService.getSlotByKey(cards, 'c1')!;
         const c2 = cardsService.getSlotByKey(cards, 'c2')!;
         const c3 = cardsService.getSlotByKey(cards, 'c3')!;
 
-        membersService.writeBucketMemberSlots(q,[c1, c2, c3]);
+        membersService.writeSlotContent(q,[c1, c2, c3]);
         expect(c2.holdCount).toBe(1);
 
-        membersService.writeBucketMemberSlots(q,[c1, c3]);
+        membersService.writeSlotContent(q,[c1, c3]);
         expect(c2.holdCount).toBe(0);
         expectSlotsToBe(membersService.getBucketMemberSlots(q),[c1, c3]);
     });
 
     it('replacing every slot in the bucket keeps the bucket the collection filed', () => {
         const { db, cardsService, cards, membersService, searchService, search, q } = setupManual();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', day: 'd', title: 'a', rank: 0 },
             { id: 'c2', deckId: 'd1', day: 'd', title: 'b', rank: 1 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
         // Nobody is subscribed and nobody holds the bucket — the ordinary state
         // of a list being hydrated before anything renders, and all this ever
         // needed.
         const c1 = cardsService.getSlotByKey(cards, 'c1')!;
         const c2 = cardsService.getSlotByKey(cards, 'c2')!;
-        membersService.writeBucketMemberSlots(q,[c1]);
+        membersService.writeSlotContent(q,[c1]);
         db.flush();
 
         // Evicting one slot at a time took the bucket through empty, the
         // release fired, the collection dropped it — and the join below then
         // filled a bucket the collection no longer owned. Two live buckets for
         // one key, and nothing thrown.
-        membersService.writeBucketMemberSlots(q,[c2]);
+        membersService.writeSlotContent(q,[c2]);
 
         expect(searchService.getSlotByKey(search, 'q')).toBe(q);
         expect(searchService.getSlotCount(search)).toBe(1);
@@ -152,11 +146,11 @@ describe('what a whole-bucket write does', () => {
         // nothing points at them but this bucket.
         const g1 = reserved(cardsService, cards, 'g1');
         const g2 = reserved(cardsService, cards, 'g2');
-        membersService.writeBucketMemberSlots(q,[g1, g2]);
+        membersService.writeSlotContent(q,[g1, g2]);
         db.flush();
 
         // A reorder — every slot leaves and every slot arrives again.
-        membersService.writeBucketMemberSlots(q,[g2, g1]);
+        membersService.writeSlotContent(q,[g2, g1]);
         db.flush();
         expectSlotsToBe(membersService.getBucketMemberSlots(q),[g2, g1]);
         // Still the same identities the collection files under those keys.
@@ -172,13 +166,13 @@ describe('what a whole-bucket write does', () => {
      */
     it('a restored snapshot puts back the slots its caller decided, in its order', () => {
         const { db, cardsService, cards, membersService, q } = setupManual();
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', day: '08-01', title: 'a', rank: 0 },
             { id: 'c2', deckId: 'd1', day: '08-02', title: 'b', rank: 1 },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
-        membersService.writeBucketMemberSlots(q,[cardsService.getSlotByKey(cards, 'c2')!, cardsService.getSlotByKey(cards, 'c1')!]);
+        membersService.writeSlotContent(q,[cardsService.getSlotByKey(cards, 'c2')!, cardsService.getSlotByKey(cards, 'c1')!]);
         db.flush();
 
         expectSlotsToBe(membersService.getBucketMemberSlots(q),[cardsService.getSlotByKey(cards, 'c2')!, cardsService.getSlotByKey(cards, 'c1')!]);

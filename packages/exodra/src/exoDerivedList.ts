@@ -1,14 +1,14 @@
 import type { TExoListOp } from '@exodra/reactivity-types';
-import type { IOIMChannelMap, TOIMComputedSlot, TOIMEntitySlot } from '@oimdb/core';
+import type { IOIMChannelMap, TOIMComputedContentSlot, TOIMEntitySlot } from '@oimdb/core';
 import { OIMEffectService, oimOrderedListCommandsOfTransition } from '@oimdb/core';
 import { OIMExoListSchemas } from './OIMExoListSchemas';
 import { OIMExoListSubscribers } from './OIMExoListSubscribers';
 import { exoList } from './exoList';
 import type { TOIMExoList } from './types/TOIMExoList';
 
-export function exoDerivedList<TEntity extends object, TSchema, TKey = unknown>(
+export function exoDerivedList<TEntity extends object, TSchema>(
     channelMap: IOIMChannelMap,
-    computedSlot: TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>,
+    computedSlot: TOIMComputedContentSlot<readonly TOIMEntitySlot<TEntity>[]>,
     render: (slot: TOIMEntitySlot) => TSchema,
     maxCommandsPerSlot?: number,
 ): TOIMExoList<TSchema> {

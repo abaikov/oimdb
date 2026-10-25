@@ -3,14 +3,13 @@ import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMSlotEditable } from '../slot/types/TOIMSlotEditable';
 import type { TOIMDisposer } from '../schedule/types/TOIMDisposer';
 import type { TOIMChannelSlot } from './types/TOIMChannelSlot';
-import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
-import type { IOIMSubframeCloseListener } from '../slot/interfaces/IOIMSubframeCloseListener';
 import { OIMFlushSchedulerService } from '../schedule/OIMFlushSchedulerService';
+import type { IOIMFlushSchedulerListener } from '../schedule/interfaces/IOIMFlushSchedulerListener';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import { OIM_REVISIONS_PER_EPOCH } from './constants/OIM_REVISIONS_PER_EPOCH';
 import { oimIsRevisionAfter } from './utils/oimIsRevisionAfter';
 
-export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot> {
+export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannelSlot> {
     public static readonly INSTANCE = new OIMChannelService();
 
     public scheduleEffectRun(channelSlot: TOIMChannelSlot, effect: TOIMEffect): void {
@@ -29,47 +28,6 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
                 + 'after-each-frame handler included, not only the frame body. Write after flush() returns.',
             );
         }
-    }
-
-    public isSubframeOpen(channelSlot: TOIMChannelSlot): boolean { return channelSlot.subframesOpen > 0; }
-
-    public listChangedStoreSlot(
-        channelSlot: TOIMChannelSlot, storeSlot: TOIMStoreSlot, subframeCloseListener: IOIMSubframeCloseListener,
-    ): void {
-        channelSlot.changedStoreSlotChannelQueue.enqueueEntry(storeSlot);
-        channelSlot.changedStoreSlotOwnerChannelQueue.enqueueEntry(subframeCloseListener);
-    }
-
-    public openSubframe(channelSlot: TOIMChannelSlot): void { channelSlot.subframesOpen++; }
-
-    public closeSubframe(channelSlot: TOIMChannelSlot): void {
-        if (channelSlot.subframesOpen > 1) {
-            channelSlot.subframesOpen--;
-            return;
-        }
-        let hasFailed = false;
-        let firstFailure: unknown;
-        const changedStoreSlotChannelQueue = channelSlot.changedStoreSlotChannelQueue;
-        const changedStoreSlotOwnerChannelQueue = channelSlot.changedStoreSlotOwnerChannelQueue;
-        try {
-            for (let i = 0; i < changedStoreSlotChannelQueue.getEntryCount(); i++) {
-                try {
-                    changedStoreSlotOwnerChannelQueue.getEntryAt(i).onStoreSlotSubframeClosed(changedStoreSlotChannelQueue.getEntryAt(i));
-                } catch (failure) {
-                    if (!hasFailed) firstFailure = failure;
-                    hasFailed = true;
-                }
-            }
-        } finally {
-            changedStoreSlotChannelQueue.keepFirstEntries(0);
-            changedStoreSlotOwnerChannelQueue.keepFirstEntries(0);
-            channelSlot.subframesOpen--;
-        }
-        if (channelSlot.flushRequestedInSubframe) {
-            channelSlot.flushRequestedInSubframe = false;
-            this.requestFlush(channelSlot);
-        }
-        if (hasFailed) throw firstFailure;
     }
 
     public subscribeAfterEachFrame(channelSlot: TOIMChannelSlot, handler: () => void): TOIMDisposer {
@@ -137,14 +95,10 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
 
     private requestFlush(channelSlot: TOIMChannelSlot): void {
         if (channelSlot.dropped) return;
-        if (channelSlot.subframesOpen !== 0) {
-            channelSlot.flushRequestedInSubframe = true;
-            return;
-        }
         if (channelSlot.flushRequested || channelSlot.timer === undefined || channelSlot.frame.isRunning) return;
         channelSlot.flushRequested = true;
         try {
-            this.schedule(channelSlot, 0);
+            OIMFlushSchedulerService.INSTANCE.schedule(channelSlot, 0, this);
         } catch (failure) {
             channelSlot.flushRequested = false;
             throw failure;
@@ -153,11 +107,15 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
 
     public dropChannelSlot(channelSlot: TOIMChannelSlot): void {
         channelSlot.dropped = true;
-        this.cancelSchedule(channelSlot);
+        OIMFlushSchedulerService.INSTANCE.cancelSchedule(channelSlot);
         if (!channelSlot.isFlushing) OIMUnusedSlotCollectorService.INSTANCE.flush(channelSlot.collectorSlot.unusedSlotCollectorSlot);
         channelSlot.effectChannelQueue.keepFirstEntries(0);
         channelSlot.frame.afterEachFrame.clear();
         channelSlot.afterEachFlush.clear();
+    }
+
+    public onSchedulerTimerFired(channelSlot: TOIMChannelSlot): void {
+        this.flush(channelSlot);
     }
 
     public flush(channelSlot: TOIMChannelSlot): void {
@@ -166,13 +124,6 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
             throw new Error(
                 'OIMChannelService.flush: a frame is already running, and a second one inside it would end the first. ' +
                 'A subscriber is told during the frame; to do work after it, subscribe with subscribeAfterEachFrame.',
-            );
-        }
-        if (channelSlot.subframesOpen > 0) {
-            throw new Error(
-                'OIMChannelService.flush: a subframe is open — a write is still landing (or openSubframe() was called and ' +
-                'closeSubframe() was not yet), and the frame cannot close while a subframe is open. Flush after the ' +
-                'write returns; the outermost closeSubframe asks for the frame it owes by itself.',
             );
         }
         if (channelSlot.isFlushing) return;
@@ -185,7 +136,7 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
                 this.runFrame(channelSlot);
             } else {
                 channelSlot.flushRequested = false;
-                this.cancelSchedule(channelSlot);
+                OIMFlushSchedulerService.INSTANCE.cancelSchedule(channelSlot);
                 frame.openedAtRevision = clock.revision;
                 frame.openedAtEpoch = clock.epoch;
             }
@@ -203,7 +154,7 @@ export class OIMChannelService extends OIMFlushSchedulerService<TOIMChannelSlot>
 
     private runFrame(channelSlot: TOIMChannelSlot): void {
         channelSlot.flushRequested = false;
-        this.cancelSchedule(channelSlot);
+        OIMFlushSchedulerService.INSTANCE.cancelSchedule(channelSlot);
         const onBeforeFlush = channelSlot.onBeforeFlush;
         if (onBeforeFlush !== undefined) {
             try {

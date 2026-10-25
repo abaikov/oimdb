@@ -1,17 +1,18 @@
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMChannelSlot } from '../../../engine/channel/types/TOIMChannelSlot';
-import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import type { OIMSlotContentEntityService } from '../../../engine/entity/OIMSlotContentEntityService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
-type TCardsService = ReturnType<typeof createOIMEntityService<TCard>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 
 type TCounted = {
     db: OIMDB;
@@ -33,7 +34,7 @@ afterEach(() => {
 const createFixture = (): TCounted => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard, TOIMEntityColumnName<TCard>, TOIMStoreKey>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
     const cards = cardsService.createStoreSlot(db);
     let all = 0;
     const channelService = OIMChannelService.INSTANCE;
@@ -57,10 +58,10 @@ const createFixture = (): TCounted => {
                 const slot = cardsService.findSlotByKey(cards, key);
                 if (slot !== undefined) slots.push(slot);
             }
-            cardsService.slotContentService.deleteEntities(cards, slots);
+            cardsService.writeInBatch(cards, () => { for (const entitySlot of slots) cardsService.slotContentService.clearSlotContent(entitySlot); });
         },
         deleteEntities: (slots) => {
-            cardsService.slotContentService.deleteEntities(cards, slots);
+            cardsService.writeInBatch(cards, () => { for (const entitySlot of slots) cardsService.slotContentService.clearSlotContent(entitySlot); });
         },
     };
 };
@@ -79,7 +80,7 @@ const keysOfHundred = (): TOIMStoreKey[] => {
 
 const filled = (): TCounted => {
     const fixture = createFixture();
-    fixture.cardsService.slotContentService.upsertEntities(fixture.cards, hundred('A'));
+    fixture.cardsService.writeInBatch(fixture.cards, () => (hundred('A')).map(entity => fixture.cardsService.writeSlotContentByKey(fixture.cards, entity.id, entity)));
     fixture.db.flush();
     fixture.reset();
     return fixture;
@@ -152,6 +153,6 @@ describe('what a batch of removals tells the channel', () => {
         fixture.db.flush();
 
         expect(slot.entity).toBeUndefined();
-        expect(fixture.cardsService.slotContentService.findEntityByKey(fixture.cards, 'c7')).toBeUndefined();
+        expect(fixture.cardsService.findSlotByKey(fixture.cards, 'c7')?.entity).toBeUndefined();
     });
 });

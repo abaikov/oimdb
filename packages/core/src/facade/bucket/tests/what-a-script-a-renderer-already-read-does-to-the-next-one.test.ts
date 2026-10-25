@@ -1,13 +1,13 @@
-import { OIMSlotContentBucketServiceArrayDriven } from '../OIMSlotContentBucketServiceArrayDriven';
+import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../../../engine/channel/OIMChannelService';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { createOIMBucketService } from '../../../factories/createOIMBucketService';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../../../engine/bucket/commands/types/TOIMOrderedListCommand';
 import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -24,18 +24,18 @@ const replay = (rendered: TOIMSlot[], commands: readonly TOIMOrderedListCommand[
 describe('a script a renderer already read', () => {
     it('is not replayed when a write lands after the flush ahead of the recorder\'s own reset', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const ace = cardsService.slotContentService.upsertEntity(cards, { id: 'ace', title: 'ace' });
-        const two = cardsService.slotContentService.upsertEntity(cards, { id: 'two', title: 'two' });
+        const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'ace' });
+        const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', title: 'two' });
         let insertTwoOnce: (() => void) | undefined;
         OIMChannelService.INSTANCE.subscribeAfterEachFlush(db.defaultChannelSlot, () => {
             const insertTwo = insertTwoOnce;
             insertTwoOnce = undefined;
             insertTwo?.();
         });
-        const membersService = new OIMSlotContentBucketServiceArrayDriven<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
-        const decksService = createOIMBucketService(db, { slotContentService: membersService });
+        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
+        const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd1');
         db.flush();

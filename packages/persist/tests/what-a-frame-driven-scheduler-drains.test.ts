@@ -1,10 +1,10 @@
 import type { TOIMStoreKey } from '@oimdb/core';
 import { OIMChannelService, OIMDB, oimIsSlotReleased } from '@oimdb/core';
 import {
-    OIMPersistRecordSourceCollectionWriteDriven,
-    OIMPersistResourceRecords,
-    OIMPersistSchedulerFrameDriven,
-    OIMPersistSchedulerMicrotaskDriven,
+    OIMPersistCollectionWriteRecordSource,
+    OIMPersistRecordsResource,
+    OIMPersistFrameScheduler,
+    OIMPersistMicrotaskScheduler,
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
@@ -21,13 +21,13 @@ function buildFrameDrivenPersistor(selfFlushingDb?: OIMDB) {
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
-        persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+        persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
     });
-    persistor.addPersistResource(new OIMPersistResourceRecords({
-        persistRecordSource: new OIMPersistRecordSourceCollectionWriteDriven<TOIMStoreKey, TCard>({
+    persistor.addPersistResource(new OIMPersistRecordsResource({
+        persistRecordSource: new OIMPersistCollectionWriteRecordSource<TOIMStoreKey, TCard>({
             entityCollectionService: cardEntityCollectionService, entityStoreSlot: cardEntityStoreSlot, persistEntityWriter,
         }),
-        persistRecordsStrategy: testPersistBackend.createRecordsStrategy(),
+        persistRecordsService: testPersistBackend.createRecordsStrategy(),
     }));
     persistor.start();
     return { db, cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor };
@@ -35,22 +35,22 @@ function buildFrameDrivenPersistor(selfFlushingDb?: OIMDB) {
 
 function buildFrameDrivenScheduler() {
     const db = new OIMDB();
-    const persistSchedulerFrameDriven = new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot });
+    const persistFrameScheduler = new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot });
     const drainLog: string[] = [];
-    persistSchedulerFrameDriven.attachDrain(() => { drainLog.push('drain'); });
-    return { db, persistSchedulerFrameDriven, drainLog };
+    persistFrameScheduler.attachDrain(() => { drainLog.push('drain'); });
+    return { db, persistFrameScheduler, drainLog };
 }
 
-describe('OIMPersistSchedulerFrameDriven', () => {
+describe('OIMPersistFrameScheduler', () => {
     it('drains after a frame only when a drain was requested', () => {
-        const { db, persistSchedulerFrameDriven, drainLog } = buildFrameDrivenScheduler();
-        persistSchedulerFrameDriven.start();
+        const { db, persistFrameScheduler, drainLog } = buildFrameDrivenScheduler();
+        persistFrameScheduler.start();
 
         db.flush();
         expect(drainLog).toEqual([]);
 
-        persistSchedulerFrameDriven.requestDrain();
-        persistSchedulerFrameDriven.requestDrain();
+        persistFrameScheduler.requestDrain();
+        persistFrameScheduler.requestDrain();
         expect(drainLog).toEqual([]);
 
         db.flush();
@@ -61,50 +61,50 @@ describe('OIMPersistSchedulerFrameDriven', () => {
     });
 
     it('re-subscribes on start, so a second start neither drains twice nor drains ahead of a later handler', () => {
-        const { db, persistSchedulerFrameDriven, drainLog } = buildFrameDrivenScheduler();
-        persistSchedulerFrameDriven.start();
+        const { db, persistFrameScheduler, drainLog } = buildFrameDrivenScheduler();
+        persistFrameScheduler.start();
         OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => { drainLog.push('later handler'); });
-        persistSchedulerFrameDriven.start();
+        persistFrameScheduler.start();
 
-        persistSchedulerFrameDriven.requestDrain();
+        persistFrameScheduler.requestDrain();
         db.flush();
 
         expect(drainLog).toEqual(['later handler', 'drain']);
     });
 
     it('forgets a requested drain on stop, and drains again after the next start', () => {
-        const { db, persistSchedulerFrameDriven, drainLog } = buildFrameDrivenScheduler();
-        persistSchedulerFrameDriven.start();
+        const { db, persistFrameScheduler, drainLog } = buildFrameDrivenScheduler();
+        persistFrameScheduler.start();
 
-        persistSchedulerFrameDriven.requestDrain();
-        persistSchedulerFrameDriven.stop();
+        persistFrameScheduler.requestDrain();
+        persistFrameScheduler.stop();
         db.flush();
         expect(drainLog).toEqual([]);
 
-        persistSchedulerFrameDriven.start();
+        persistFrameScheduler.start();
         db.flush();
         expect(drainLog).toEqual([]);
 
-        persistSchedulerFrameDriven.requestDrain();
+        persistFrameScheduler.requestDrain();
         db.flush();
         expect(drainLog).toEqual(['drain']);
     });
 
     it('refuses to start with no persistor attached', () => {
-        const persistSchedulerFrameDriven = new OIMPersistSchedulerFrameDriven({ channelSlot: new OIMDB().defaultChannelSlot });
-        expect(() => { persistSchedulerFrameDriven.start(); }).toThrow(/no persistor is attached/);
+        const persistFrameScheduler = new OIMPersistFrameScheduler({ channelSlot: new OIMDB().defaultChannelSlot });
+        expect(() => { persistFrameScheduler.start(); }).toThrow(/no persistor is attached/);
     });
 
     it('refuses a second persistor', () => {
-        const persistSchedulerFrameDriven = new OIMPersistSchedulerFrameDriven({ channelSlot: new OIMDB().defaultChannelSlot });
+        const persistFrameScheduler = new OIMPersistFrameScheduler({ channelSlot: new OIMDB().defaultChannelSlot });
         const testPersistBackend = new OIMTestPersistBackend();
         new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: persistSchedulerFrameDriven,
+            persistScheduler: persistFrameScheduler,
         });
         expect(() => new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: persistSchedulerFrameDriven,
+            persistScheduler: persistFrameScheduler,
         })).toThrow(/already drains another persistor/);
     });
 });
@@ -113,7 +113,7 @@ describe('a frame-driven persistor over the write-driven arm', () => {
     it('holds a changed slot until the frame that saves it, then gives the hold back', async () => {
         const { db, cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor } = buildFrameDrivenPersistor();
 
-        const cardSlot = cardEntityCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        const cardSlot = cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         expect(cardSlot.holdCount).toBe(1);
         await persistor.whenIdle();
         expect(testPersistBackend.entityByKey.has('c1')).toBe(false);
@@ -139,7 +139,7 @@ describe('a frame-driven persistor over the write-driven arm', () => {
         const { cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor } =
             buildFrameDrivenPersistor(selfFlushingDb);
 
-        cardEntityCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         await reachMicrotask();
         await persistor.whenIdle();
 
@@ -150,12 +150,12 @@ describe('a frame-driven persistor over the write-driven arm', () => {
 
     it('keeps a deleted entity slot until the frame that writes the delete, then lets it go', async () => {
         const { db, cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor } = buildFrameDrivenPersistor();
-        const cardSlot = cardEntityCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        const cardSlot = cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         db.flush();
         await persistor.whenIdle();
         expect(testPersistBackend.entityByKey.has('c1')).toBe(true);
 
-        cardEntityCollectionService.slotContentService.deleteEntity(cardSlot);
+        cardEntityCollectionService.slotContentService.clearSlotContent(cardSlot);
         expect(oimIsSlotReleased(cardSlot)).toBe(false);
 
         db.flush();
@@ -168,7 +168,7 @@ describe('a frame-driven persistor over the write-driven arm', () => {
 
     it('writes nothing for a change made before a stop, at the frame after it', async () => {
         const { db, cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor } = buildFrameDrivenPersistor();
-        const cardSlot = cardEntityCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        const cardSlot = cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
 
         persistor.stop();
         db.flush();
@@ -185,7 +185,7 @@ describe('a frame-driven persistor over the write-driven arm', () => {
 describe('a persistor destroyed while a write is in flight', () => {
     it('gives the hold back even when that write then fails', async () => {
         const { db, cardEntityCollectionService, cardEntityStoreSlot, testPersistBackend, persistor } = buildFrameDrivenPersistor();
-        const cardSlot = cardEntityCollectionService.slotContentService.upsertEntity(cardEntityStoreSlot, { id: 'c1', title: 'alpha' });
+        const cardSlot = cardEntityCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'alpha' });
         testPersistBackend.closeGate();
         db.flush();
         await reachMicrotask();
@@ -200,20 +200,20 @@ describe('a persistor destroyed while a write is in flight', () => {
     });
 });
 
-describe('OIMPersistSchedulerMicrotaskDriven', () => {
+describe('OIMPersistMicrotaskScheduler', () => {
     function buildMicrotaskDrivenScheduler() {
-        const persistSchedulerMicrotaskDriven = new OIMPersistSchedulerMicrotaskDriven();
+        const persistMicrotaskScheduler = new OIMPersistMicrotaskScheduler();
         let drainCount = 0;
-        persistSchedulerMicrotaskDriven.attachDrain(() => { drainCount++; });
-        return { persistSchedulerMicrotaskDriven, readDrainCount: () => drainCount };
+        persistMicrotaskScheduler.attachDrain(() => { drainCount++; });
+        return { persistMicrotaskScheduler, readDrainCount: () => drainCount };
     }
 
     it('drains once at the next microtask however many drains were requested', async () => {
-        const { persistSchedulerMicrotaskDriven, readDrainCount } = buildMicrotaskDrivenScheduler();
-        persistSchedulerMicrotaskDriven.start();
+        const { persistMicrotaskScheduler, readDrainCount } = buildMicrotaskDrivenScheduler();
+        persistMicrotaskScheduler.start();
 
-        persistSchedulerMicrotaskDriven.requestDrain();
-        persistSchedulerMicrotaskDriven.requestDrain();
+        persistMicrotaskScheduler.requestDrain();
+        persistMicrotaskScheduler.requestDrain();
         expect(readDrainCount()).toBe(0);
         await reachMicrotask();
 
@@ -221,36 +221,36 @@ describe('OIMPersistSchedulerMicrotaskDriven', () => {
     });
 
     it('cancels a scheduled drain on stop', async () => {
-        const { persistSchedulerMicrotaskDriven, readDrainCount } = buildMicrotaskDrivenScheduler();
-        persistSchedulerMicrotaskDriven.start();
+        const { persistMicrotaskScheduler, readDrainCount } = buildMicrotaskDrivenScheduler();
+        persistMicrotaskScheduler.start();
 
-        persistSchedulerMicrotaskDriven.requestDrain();
-        persistSchedulerMicrotaskDriven.stop();
+        persistMicrotaskScheduler.requestDrain();
+        persistMicrotaskScheduler.stop();
         await reachMicrotask();
 
         expect(readDrainCount()).toBe(0);
     });
 
     it('schedules nothing for a drain requested before start', async () => {
-        const { persistSchedulerMicrotaskDriven, readDrainCount } = buildMicrotaskDrivenScheduler();
+        const { persistMicrotaskScheduler, readDrainCount } = buildMicrotaskDrivenScheduler();
 
-        persistSchedulerMicrotaskDriven.requestDrain();
-        persistSchedulerMicrotaskDriven.start();
+        persistMicrotaskScheduler.requestDrain();
+        persistMicrotaskScheduler.start();
         await reachMicrotask();
 
         expect(readDrainCount()).toBe(0);
     });
 
     it('refuses a second persistor', () => {
-        const persistSchedulerMicrotaskDriven = new OIMPersistSchedulerMicrotaskDriven();
+        const persistMicrotaskScheduler = new OIMPersistMicrotaskScheduler();
         const testPersistBackend = new OIMTestPersistBackend();
         new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: persistSchedulerMicrotaskDriven,
+            persistScheduler: persistMicrotaskScheduler,
         });
         expect(() => new OIMPersistor({
             persistBackend: testPersistBackend,
-            persistScheduler: persistSchedulerMicrotaskDriven,
+            persistScheduler: persistMicrotaskScheduler,
         })).toThrow(/already drains another persistor/);
     });
 });

@@ -1,6 +1,6 @@
 # @oimdb/persist-localstorage
 
-Web storage backend for [`@oimdb/persist`](../persist). `OIMPersistLocalStorageBackend` is the
+Web storage backend for [`@oimdb/persist`](../persist). `OIMPersistLocalStorageKeyValueBackend` is the
 engine's `OIMPersistKeyValueBackend` over `localStorage`, or over any object with synchronous
 `getItem` / `setItem` / `removeItem`.
 
@@ -12,8 +12,8 @@ npm install @oimdb/persist-localstorage @oimdb/persist @oimdb/core
 
 | export | what it is |
 |---|---|
-| `OIMPersistLocalStorageBackend` | `new OIMPersistLocalStorageBackend({ persistKeyValueItemStorage?, persistKeyValueSerializer? })` |
-| `TOIMPersistLocalStorageBackendOptions` | `{ persistKeyValueItemStorage?, persistKeyValueSerializer? }` |
+| `OIMPersistLocalStorageKeyValueBackend` | `new OIMPersistLocalStorageKeyValueBackend({ persistKeyValueItemStorage?, persistKeyValueSerializer? })` |
+| `TOIMPersistLocalStorageKeyValueBackendOptions` | `{ persistKeyValueItemStorage?, persistKeyValueSerializer? }` |
 
 `persistKeyValueItemStorage` is a `TOIMPersistKeyValueItemStorage` from `@oimdb/persist`
 (`{ getItem, setItem, removeItem }`). It defaults to `globalThis.localStorage`; the constructor throws when neither is
@@ -24,26 +24,26 @@ The strategies come from `@oimdb/persist`:
 
 | strategy | options | stored as |
 |---|---|---|
-| `OIMPersistKeyValueEntryStrategy` | `{ storageKey }` | the whole snapshot, serialized, under `storageKey` |
-| `OIMPersistKeyValuePathStrategy` | `{ storageKey, path }` | the snapshot at `path` inside one object stored under `storageKey`; several resources can share that key. An empty `path` is refused by the constructor |
+| `OIMPersistKeyValueEntrySnapshotService` | `{ storageKey }` | the whole snapshot, serialized, under `storageKey` |
+| `OIMPersistKeyValuePathSnapshotService` | `{ storageKey, path }` | the snapshot at `path` inside one object stored under `storageKey`; several resources can share that key. An empty `path` is refused by the constructor |
 
-Both are snapshot strategies, so every resource here is an `OIMPersistResourceSnapshot`.
+Both are snapshot strategies, so every resource here is an `OIMPersistSnapshotResource`.
 
 ## Example
 
 A collection stored as one entry, and a single entity stored at a path of a shared key.
 
 ```ts
-import { OIMDB, createOIMEntityService, createOIMEntityWriterInPlace, createOIMSingleEntityService } from '@oimdb/core';
+import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
-    OIMPersistCodecIdentity, OIMPersistEntityWriter, OIMPersistKeyValueEntryStrategy, OIMPersistKeyValuePathStrategy,
-    OIMPersistKeyValueWriteBatch, OIMPersistRecordSourceCollectionWriteDriven, OIMPersistResourceSnapshot,
-    OIMPersistSchedulerFrameDriven, OIMPersistSchedulerMicrotaskDriven, OIMPersistSnapshotSourceSingleEntityDriven,
+    OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistKeyValueEntrySnapshotService, OIMPersistKeyValuePathSnapshotService,
+    OIMPersistKeyValueWriteBatch, OIMPersistCollectionWriteRecordSource, OIMPersistSnapshotResource,
+    OIMPersistFrameScheduler, OIMPersistMicrotaskScheduler, OIMPersistSingleEntitySnapshotSource,
     OIMPersistor,
 } from '@oimdb/persist';
 import type { TOIMPersistRecords } from '@oimdb/persist';
-import { OIMPersistLocalStorageBackend } from '@oimdb/persist-localstorage';
+import { OIMPersistLocalStorageKeyValueBackend } from '@oimdb/persist-localstorage';
 
 type TTodo = { id: string; title: string; done: boolean };
 type TTodoPersistRecords = TOIMPersistRecords<TOIMStoreKey, TTodo>;
@@ -53,43 +53,40 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TTodo, TOIMStoreKey>({
     entityWriter: createOIMEntityWriterInPlace(),
 });
-const todoCollectionService = createOIMEntityService<TTodo>(db, {
-    keyOf: todo => todo.id,
-    entityWriter: persistEntityWriter,
-});
+const todoCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTodo>(db, { entityWriter: persistEntityWriter }) });
 const todoEntityStoreSlot = todoCollectionService.createStoreSlot(db);
-const settingsSingleEntityService = createOIMSingleEntityService<TSettings>(db);
+const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
-settingsSingleEntityService.slotContentService.upsertEntity(settingsEntityStoreSlot, { theme: 'light' });
+settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'light' });
 
-const persistLocalStorageBackend = new OIMPersistLocalStorageBackend();
+const persistLocalStorageKeyValueBackend = new OIMPersistLocalStorageKeyValueBackend();
 
-const todoPersistor = new OIMPersistor<OIMPersistLocalStorageBackend, OIMPersistKeyValueWriteBatch>({
-    persistBackend: persistLocalStorageBackend,
-    persistScheduler: new OIMPersistSchedulerMicrotaskDriven(),
+const todoPersistor = new OIMPersistor<OIMPersistLocalStorageKeyValueBackend, OIMPersistKeyValueWriteBatch>({
+    persistBackend: persistLocalStorageKeyValueBackend,
+    persistScheduler: new OIMPersistMicrotaskScheduler(),
 });
-todoPersistor.addPersistResource(new OIMPersistResourceSnapshot({
-    persistSnapshotSource: new OIMPersistRecordSourceCollectionWriteDriven({
+todoPersistor.addPersistResource(new OIMPersistSnapshotResource({
+    persistSnapshotSource: new OIMPersistCollectionWriteRecordSource({
         entityCollectionService: todoCollectionService,
         entityStoreSlot: todoEntityStoreSlot,
         persistEntityWriter,
     }),
-    persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TTodoPersistRecords>({ storageKey: 'todos' }),
-    persistCodec: new OIMPersistCodecIdentity<TTodoPersistRecords>(),
+    persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TTodoPersistRecords>({ storageKey: 'todos' }),
+    persistCodec: new OIMPersistIdentityCodec<TTodoPersistRecords>(),
 }));
 
-const settingsPersistor = new OIMPersistor<OIMPersistLocalStorageBackend, OIMPersistKeyValueWriteBatch>({
-    persistBackend: persistLocalStorageBackend,
-    persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+const settingsPersistor = new OIMPersistor<OIMPersistLocalStorageKeyValueBackend, OIMPersistKeyValueWriteBatch>({
+    persistBackend: persistLocalStorageKeyValueBackend,
+    persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
 });
-settingsPersistor.addPersistResource(new OIMPersistResourceSnapshot({
-    persistSnapshotSource: new OIMPersistSnapshotSourceSingleEntityDriven({
+settingsPersistor.addPersistResource(new OIMPersistSnapshotResource({
+    persistSnapshotSource: new OIMPersistSingleEntitySnapshotSource({
         channelMap: db,
         singleSlotService: settingsSingleEntityService,
         entityStoreSlot: settingsEntityStoreSlot,
     }),
-    persistSnapshotStrategy: new OIMPersistKeyValuePathStrategy<TSettings>({ storageKey: 'app', path: ['settings'] }),
-    persistCodec: new OIMPersistCodecIdentity<TSettings>(),
+    persistSnapshotService: new OIMPersistKeyValuePathSnapshotService<TSettings>({ storageKey: 'app', path: ['settings'] }),
+    persistCodec: new OIMPersistIdentityCodec<TSettings>(),
 }));
 
 await todoPersistor.hydrate();
@@ -97,7 +94,7 @@ await settingsPersistor.hydrate();
 todoPersistor.start();
 settingsPersistor.start();
 
-todoCollectionService.slotContentService.upsertEntity(todoEntityStoreSlot, { id: 't1', title: 'write the docs', done: false });
+todoCollectionService.writeSlotContentByKey(todoEntityStoreSlot, 't1', { id: 't1', title: 'write the docs', done: false });
 await todoPersistor.persist();
 
 settingsSingleEntityService.slotContentService.updateEntity(
@@ -113,7 +110,7 @@ causes no frame, so its persistor drains on a microtask. The single entity repor
 inside the channel's frame, which `db.flush()` runs here, and the frame scheduler drains right
 after it. Starting reports the single entity's current value once unless hydrate restored it, so
 with nothing stored the first drain of `settingsPersistor` writes `app`. The single entity gets its
-first value from `upsertEntity`, before the persistor reads it: its source's `readSnapshot` throws
+first value from `writeSlotContentByKey`, before the persistor reads it: its source's `readSnapshot` throws
 while no entity has been upserted or restored.
 
 ## What one drain costs

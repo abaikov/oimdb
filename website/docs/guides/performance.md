@@ -19,13 +19,13 @@ This page describes where the engine spends work. The measured cost of each call
 ## The identity path and the key path
 
 ```ts setup
-import { OIMDB, OIMEffectService, createOIMEntityService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; title: string; deck: string };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const entityService = cardService.slotContentService;
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
@@ -42,7 +42,7 @@ if (found !== undefined) entityService.updateEntity(found, patch);
 Every write door takes the slot. There are no by-key write doors, so the map read is
 always a call you can see: `findSlotByKey` or `getSlotByKey`. If a key arrives from outside (a
 route param, a server payload), the read is unavoidable. If you already hold the slot, from the
-return value of `upsertEntity` or from an earlier `getSlotByKey`, going back through the key is
+return value of `writeSlotContentByKey` or from an earlier `getSlotByKey`, going back through the key is
 pure waste.
 
 **Not measured:** a price pair for each against its own floor (`findSlotByKey` plus
@@ -55,7 +55,7 @@ A write reports the columns it moved, and each column anybody has subscribed to
 is a slot with its own dependent list:
 
 ```typescript
-const deckColumn = cardService.getColumn(slot, 'deck');
+const deckColumn = cardService.columnSlotService.getColumn(slot, 'deck');
 effectService.createEffect(db, [deckColumn], [], handler);
 entityService.updateEntity(slot, { title: 'ACE' });   // never reaches handler
 entityService.updateEntity(slot, { deck: 'hearts' }); // reaches handler
@@ -103,9 +103,9 @@ recomputing.
 ## Ordering is a derivation over an index
 
 A bucket on the set-driven or array-driven content service never sorts: its order is the caller's.
-The sorted-array-driven one (`createOIMIndexServiceSortedArrayDriven`) keeps the order at the
+The sorted-array-driven one (`createOIMSlotCollectionSortedArrayIndexService`) keeps the order at the
 write instead. The other sorted list is
-`createOIMComputedServiceSorted({ indexService, sortColumns?, comparator? })`,
+`createOIMSortedComputedService({ indexService, sortColumns?, comparator? })`,
 whose `createSortedStoreSlot(indexStoreSlot)` builds it over one index store slot: a pull computed re-derived on the read that asks. Its sources are the
 bucket slot (membership) and one bucket column slot per sort column, so a write that
 changes no sort column on a member does not re-derive it; with only a `comparator`
@@ -117,7 +117,7 @@ several bucket sizes.
 
 ## Emptying a bucket
 
-`writeBucketMemberSlots` and `clearBucketMemberSlots` empty a bucket in one call, with zero
+`writeSlotContent` and `clearSlotContent` empty a bucket in one call, with zero
 element moves. Removing slots one at a time from an array-driven bucket closes the gap with a
 `splice` each time, so evicting *n* slots that way costs n(n-1)/2 element moves: **499 500** for
 a thousand.
@@ -157,11 +157,11 @@ price on this engine.** The guidance below rests on architecture, not measuremen
 | Fork | Pick the first strategy when | Pick the second when |
 |---|---|---|
 | `createOIMEntityWriterInPlace` / `createOIMEntityWriterReplacing` | consumers are subscription-driven | something downstream compares by reference |
-| `OIMSlotContentBucketServiceSetDriven` / `OIMSlotContentBucketServiceArrayDriven` | you never render this bucket in the caller's order | you do, and you want the reorder commands |
-| `OIMSlotContentBucketServiceArrayDriven` with `OIMBucketArrayMembershipNonUnique` / with `OIMBucketArrayMembershipUnique` | duplicates in a bucket are meaningful | a slot must appear once |
-| `createOIMComputedServiceSorted` with `sortColumns` / with only a `comparator` | the order is a function of named columns | the comparator reads what no column list can name, so any member write re-sorts |
-| `createOIMComputedServiceSorted` / `createOIMIndexServiceSortedArrayDriven` | the list is read less often than it is written | the list is read on every frame, so the order is kept at the write |
-| `createOIMBucketService` / `createOIMIndexService` | what a bucket holds is a fact about a response | belonging really is a function of the entity |
+| `OIMSlotContentSetBucketService` / `OIMSlotContentPositionalArrayBucketService` | you never render this bucket in the caller's order | you do, and you want the reorder commands |
+| `OIMSlotContentPositionalArrayBucketService` / `OIMBucketUniqueMemberSlotsArrayService` | duplicates in a bucket are meaningful | a slot must appear once |
+| `createOIMSortedComputedService` with `sortColumns` / with only a `comparator` | the order is a function of named columns | the comparator reads what no column list can name, so any member write re-sorts |
+| `createOIMSortedComputedService` / `createOIMSlotCollectionSortedArrayIndexService` | the list is read less often than it is written | the list is read on every frame, so the order is kept at the write |
+| `createOIMSlotCollectionService` / `createOIMSlotCollectionIndexService` | what a bucket holds is a fact about a response | belonging really is a function of the entity |
 
 Pick one strategy per fork for the whole app unless a task needs two: the
 engine's shared call sites see every strategy in the process, and five of one

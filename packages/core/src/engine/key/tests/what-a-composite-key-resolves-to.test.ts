@@ -1,6 +1,6 @@
 
 import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
-import { OIMSlotStoreServiceTreeDriven } from '../../store/OIMSlotStoreServiceTreeDriven';
+import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
@@ -18,7 +18,7 @@ const filed = (): TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]> =>
 
 /** The identity arm of the chain store: the walk is the argument that picks it. */
 const filedStore = () =>
-    new OIMSlotStoreServiceTreeDriven<
+    new OIMSlotTreeStoreService<
         TOIMEntitySlot, TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>
     >(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue());
 

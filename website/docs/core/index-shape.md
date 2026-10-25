@@ -13,15 +13,15 @@ what order**. OIMDB deliberately answers them with two different mechanisms:
 
 | Question | Answered by | Mechanism |
 |---|---|---|
-| which entities | a bucket, kept by `OIMIndexService` | **push**: every write is delivered to the index, which edits the bucket |
-| in what order | a computed, kept by `OIMComputedServiceSorted` | **pull**: the order is derived when somebody reads it |
+| which entities | a bucket, kept by `OIMSlotCollectionIndexService` | **push**: every write is delivered to the index, which edits the bucket |
+| in what order | a computed, kept by `OIMSortedComputedService` | **pull**: the order is derived when somebody reads it |
 
 This page explains why membership cannot be a computed and why the order should be one.
 
 <InShort>
 
-- Which entities are under a key is a bucket kept by `OIMIndexService`, and every write is delivered to the index.
-- In what order is a computed kept by `OIMComputedServiceSorted`, derived when somebody reads it.
+- Which entities are under a key is a bucket kept by `OIMSlotCollectionIndexService`, and every write is delivered to the index.
+- In what order is a computed kept by `OIMSortedComputedService`, derived when somebody reads it.
 - A computed learns that something changed and is never told what, and its sources are fixed when it is created.
 - So membership is a bucket, because the pull mechanism can find out that something is new only by looking at everything.
 
@@ -87,8 +87,8 @@ into one bucket, and a bucket that nobody renders in order does not need an orde
 Pushing the order (re-placing a slot on every write) pays for each write. Pulling it pays
 once per frame, at the read, and never for a bucket nobody reads.
 
-`OIMComputedServiceSorted` is a computed service over an
-`OIMIndexService`, and each store slot it creates reads one index store slot. Its computed for a key has
+`OIMSortedComputedService` is a computed service over an
+`OIMSlotCollectionIndexService`, and each store slot it creates reads one index store slot. Its computed for a key has
 these sources:
 
 - the bucket slot of that key — it moves when membership changes;
@@ -103,7 +103,7 @@ A write that changes neither membership nor a sort column — a title edit — m
 these sources, and the order is not derived again.
 
 For point updates into large buckets the other arm ships too: an index that keeps its own
-buckets sorted at write, `createOIMIndexServiceSortedArrayDriven`
+buckets sorted at write, `createOIMSlotCollectionSortedArrayIndexService`
 ([Sorted at write](/docs/core/oimindex#sorted-at-write)).
 
 ## Derive is a reconcile
@@ -131,7 +131,7 @@ the next read. Move one: the index pushes it between two buckets.
 ## In code
 
 ```ts
-import { OIMDB, OIMEffectService, createOIMComputedServiceSorted, createOIMEntityService, createOIMIndexService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string; rank: number };
 
@@ -139,15 +139,15 @@ declare function render(value: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
-const cardsByRankService = createOIMComputedServiceSorted({
+const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -163,8 +163,8 @@ edit wakes neither.
 
 ## What follows for your code
 
-- If the entity decides which entities belong to a key, use an `OIMIndexService`.
-- If the entities' columns decide the order, use `createOIMComputedServiceSorted`
+- If the entity decides which entities belong to a key, use an `OIMSlotCollectionIndexService`.
+- If the entities' columns decide the order, use `createOIMSortedComputedService`
   over the index service, which already skips the frames in which no sort column moved.
 - If the user decides the order, use an array-driven bucket
   service whose positions are the caller's
@@ -176,7 +176,7 @@ edit wakes neither.
 
 <DocCards>
 <DocCard to="/docs/core/indexes" title="Buckets">The full API of buckets.</DocCard>
-<DocCard to="/docs/core/oimindex" title="Indexes">The full API of `OIMIndexService`.</DocCard>
-<DocCard to="/docs/core/computed-effects" title="The compute graph">`OIMComputedServiceSorted` and the other derivations.</DocCard>
+<DocCard to="/docs/core/oimindex" title="Indexes">The full API of `OIMSlotCollectionIndexService`.</DocCard>
+<DocCard to="/docs/core/computed-effects" title="The compute graph">`OIMSortedComputedService` and the other derivations.</DocCard>
 <DocCard to="/docs/core/architecture" title="Architecture">Push and pull in the reactive model.</DocCard>
 </DocCards>

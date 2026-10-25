@@ -5,21 +5,21 @@ import type { TOIMEntityWriterOptions } from './types/TOIMEntityWriterOptions';
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../engine/entity/constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
 import { oimOwnedColumnNames } from '../engine/entity/utils/oimOwnedColumnNames';
 import { oimEntityWriterOptionsWithDefault } from './utils/oimEntityWriterOptionsWithDefault';
-import type { TOIMEntitySlot } from '../engine/entity/types/TOIMEntitySlot';
+import type { TOIMEntityContentSlot } from '../engine/entity/types/TOIMEntityContentSlot';
 import type { TOIMSlotEditable } from '../engine/slot/types/TOIMSlotEditable';
 
-function storeReplacement(slot: TOIMEntitySlot, next: Record<string, unknown> | undefined): boolean {
+function storeReplacement(slot: TOIMEntityContentSlot, next: Record<string, unknown> | undefined): boolean {
     if (next === undefined) return false;
-    (slot as TOIMSlotEditable<TOIMEntitySlot>).entity = next;
+    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = next;
     return true;
 }
 
-function deleteColumnsReplacing(slot: TOIMEntitySlot, names: readonly string[]): readonly string[] {
+function deleteColumnsReplacing(slot: TOIMEntityContentSlot, names: readonly string[]): readonly string[] {
     const deleted = oimOwnedColumnNames(slot, names);
     if (deleted === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
     const next = oimCopyEntity(slot.entity as object);
     for (let i = 0; i < deleted.length; i++) next[deleted[i]] = undefined;
-    (slot as TOIMSlotEditable<TOIMEntitySlot>).entity = next;
+    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = next;
     return deleted;
 }
 
@@ -27,10 +27,10 @@ export function createOIMEntityWriterReplacing(
     options?: TOIMEntityWriterOptions,
 ): IOIMEntityWriter {
     const {
-        sameValueGuard, entityInsertStrategy, putEntityColumns, patchEntityColumns, patchEntityColumn,
+        sameValueGuard, entityInserter, putEntityColumns, patchEntityColumns, patchEntityColumn,
     } = oimEntityWriterOptionsWithDefault(options);
     return {
-        fillEntity: entityInsertStrategy,
+        fillEntity: entityInserter,
         clearEntity: oimClearEntity,
         putEntity: (slot, entity, changedColumnNames) =>
             storeReplacement(slot, putEntityColumns(slot, entity, sameValueGuard, changedColumnNames, oimCopyEntity)),

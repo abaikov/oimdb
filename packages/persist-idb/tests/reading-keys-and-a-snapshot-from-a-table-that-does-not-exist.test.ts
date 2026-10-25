@@ -1,5 +1,5 @@
 import { IDBFactory } from 'fake-indexeddb';
-import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsStrategy, OIMPersistIndexedDbSnapshotStrategy } from '../src';
+import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService, OIMPersistIndexedDbSnapshotService } from '../src';
 
 type TCard = { id: string; title: string };
 
@@ -20,24 +20,24 @@ describe('reading from a table that was never written', () => {
 
     test('a records strategy loads no record for the keys asked', async () => {
         const persistIndexedDbBackend = await createBackendWithOneTable('missing-records-db');
-        const persistIndexedDbRecordsStrategy = new OIMPersistIndexedDbRecordsStrategy<string, TCard>({ tableName: 'decks' });
+        const persistIndexedDbRecordsService = new OIMPersistIndexedDbRecordsService<string, TCard>({ tableName: 'decks' });
 
-        expect(await persistIndexedDbRecordsStrategy.readRecordsOfKeys(persistIndexedDbBackend, ['d1', 'd2'])).toEqual({ records: [] });
+        expect(await persistIndexedDbRecordsService.readRecordsOfKeys(persistIndexedDbBackend, ['d1', 'd2'])).toEqual({ records: [] });
     });
 
     test('a snapshot strategy reads no snapshot', async () => {
         const persistIndexedDbBackend = await createBackendWithOneTable('missing-snapshot-db');
-        const persistIndexedDbSnapshotStrategy = new OIMPersistIndexedDbSnapshotStrategy<TCard>({ tableName: 'settings', primaryKey: 'app' });
+        const persistIndexedDbSnapshotService = new OIMPersistIndexedDbSnapshotService<TCard>({ tableName: 'settings', primaryKey: 'app' });
 
-        expect(await persistIndexedDbSnapshotStrategy.readSnapshot(persistIndexedDbBackend)).toBeUndefined();
+        expect(await persistIndexedDbSnapshotService.readSnapshot(persistIndexedDbBackend)).toBeUndefined();
     });
 
     test('a read of keys that are missing from a table that exists answers undefined only for those', async () => {
         const persistIndexedDbBackend = await createBackendWithOneTable('partly-missing-db');
-        const persistIndexedDbRecordsStrategy = new OIMPersistIndexedDbRecordsStrategy<string, TCard>({ tableName: 'cards' });
+        const persistIndexedDbRecordsService = new OIMPersistIndexedDbRecordsService<string, TCard>({ tableName: 'cards' });
 
         expect(await persistIndexedDbBackend.readTableValues('cards', ['c0', 'c1'])).toEqual([undefined, { id: 'c1', title: 'alpha' }]);
-        expect(await persistIndexedDbRecordsStrategy.readRecordsOfKeys(persistIndexedDbBackend, ['c0', 'c1'])).toEqual({
+        expect(await persistIndexedDbRecordsService.readRecordsOfKeys(persistIndexedDbBackend, ['c0', 'c1'])).toEqual({
             records: [{ key: 'c1', entity: { id: 'c1', title: 'alpha' } }],
         });
     });

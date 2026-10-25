@@ -18,15 +18,7 @@ frame errors at all but refusals thrown at the call.
 </InShort>
 
 ```ts setup
-import {
-    OIMDB,
-    OIMEffectService,
-    OIMErrorPolicyLogAndContinue,
-    OIMErrorPolicyThrowAtOnce,
-    OIMSlotReleasePolicyAfterIdle,
-    createOIMEntityService,
-    type IOIMErrorPolicy,
-} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotAfterIdleReleasePolicy, type IOIMErrorPolicy, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
@@ -34,7 +26,7 @@ declare function reportToSentry(error: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMEntityService<Card>(db, { keyOf: card => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 ```
 
@@ -47,7 +39,7 @@ tick. What a throw then does is the **error policy**, chosen once at
 construction. A call that does have a caller, such as a write or a hand-called
 release collector `flush`, throws to that caller instead.
 
-**The default digests and logs.** `OIMErrorPolicyLogAndContinue` writes each throw
+**The default digests and logs.** `OIMLogAndContinueErrorPolicy` writes each throw
 to `console.error`, hands it to the optional `onError`, and the flush goes on:
 every other effect and handler still runs. That `onError` is where an error
 tracker plugs in. An effect stamps `ranAtRevision` / `ranAtEpoch` only after its
@@ -56,7 +48,7 @@ at its next wake.
 
 ```typescript
 const reportingDb = new OIMDB({
-    errorPolicy: new OIMErrorPolicyLogAndContinue({ onError: (error) => reportToSentry(error) }),
+    errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: (error) => reportToSentry(error) }),
 });
 ```
 
@@ -65,23 +57,23 @@ const slot = cardService.getSlotByKey(cards, 'c1');
 effectService.createEffect(db, [slot], [], () => { throw new Error('bad effect'); });
 effectService.createEffect(db, [slot], [], () => { console.log('still runs'); });
 
-cardService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'x' });
+cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'x' });
 db.flush();   // logs the error, logs "still runs", returns
 ```
 
-**Or it fails on the first throw.** `OIMErrorPolicyThrowAtOnce` throws the first
+**Or it fails on the first throw.** `OIMThrowAtOnceErrorPolicy` throws the first
 error out of `flush()` the moment it happens. The effects the frame had not
 reached yet stay queued and run at the next `flush()`. This is the mode for tests
 and development, where a bug should stop the run at the line that caused it.
 
 ```typescript
-const strictDb = new OIMDB({ errorPolicy: new OIMErrorPolicyThrowAtOnce() });
+const strictDb = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
 ```
 
 **Or your own.** A policy is anything with `onErrorCaught(error: unknown): void`,
 that is, `IOIMErrorPolicy`. Whatever `onErrorCaught` does is what a throw does: if it returns, the
 flush goes on; if it throws, the flush stops there, exactly as under
-`OIMErrorPolicyThrowAtOnce`. A test that wants every error of a frame, not only
+`OIMThrowAtOnceErrorPolicy`. A test that wants every error of a frame, not only
 the first, collects them:
 
 ```typescript
@@ -99,19 +91,19 @@ arms is right for someone. Production wants one broken subscriber not to
 stop the rest, and a test wants the run to stop at the line that broke. So both ship
 and the db is built with one. The flush loop then calls
 `errorPolicy.onErrorCaught(error)` and never asks which mode it is in. When no
-`errorPolicy` is passed, the db is built with `OIMErrorPolicyLogAndContinue.INSTANCE`.
+`errorPolicy` is passed, the db is built with `OIMLogAndContinueErrorPolicy.INSTANCE`.
 
 **One policy for the whole database.** `new OIMDB({ errorPolicy })` hands the same policy to the channel slot
 and to every release collector of that db, so every error lands in one place:
 
 ```typescript
 const oneSinkDb = new OIMDB({
-    errorPolicy: new OIMErrorPolicyThrowAtOnce(),
-    slotReleasePolicy: new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 30_000 }),
+    errorPolicy: new OIMThrowAtOnceErrorPolicy(),
+    slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 ```
 
-A release collector's tick has no caller, so even under `OIMErrorPolicyThrowAtOnce`
+A release collector's tick has no caller, so even under `OIMThrowAtOnceErrorPolicy`
 its throw goes to the timer's context, just as a scheduled `flush()` does below.
 
 In both modes **the frame always finishes cleanly**: the frame is marked done
@@ -121,7 +113,7 @@ normally. A throw never leaves the runtime mid-frame.
 A `subscribeOnceAfterFrame` handler comes off **before** its body runs, so one
 that throws is not left standing for the next frame.
 
-If `flush()` runs from a `channelScheduler` callback, `OIMErrorPolicyThrowAtOnce`
+If `flush()` runs from a `channelScheduler` callback, `OIMThrowAtOnceErrorPolicy`
 has no synchronous caller to throw to, so the throw becomes an uncaught exception in
 whatever context the scheduler runs in.
 
@@ -130,7 +122,7 @@ an emptiness check maintain what other reads depend on; letting the
 operation carry on past them would leave an index that disagrees with its source.
 A throw there is thrown at the call in either mode. For an entity that did not exist
 before the write, the write is withdrawn first: every index that already filed the
-entity lets it go, the entity is not filed, and only then does the throw leave `insertEntity` / `upsertEntity`.
+entity lets it go, the entity is not filed, and only then does the throw leave `writeSlotContentByKey`.
 An update of an entity that already exists, and a batch (`upsertEntities`), are **not** rolled back: undoing them
 would mean copying every entity before every write, a cost paid on every write for a failure that should not
 happen. The throw still reaches the caller. The indexes that ran before the one that threw have
@@ -173,13 +165,13 @@ so neither is a door for a write. To write in response to a change, write after
 A refusal raised from a tail handler is the one case where this error does *not*
 reach the caller at the call: it goes to the error policy like any other handler
 throw (logged by default, thrown out of `flush()` under
-`OIMErrorPolicyThrowAtOnce`) rather than out of the `upsertEntity` that made it.
+`OIMThrowAtOnceErrorPolicy`) rather than out of the `writeSlotContentByKey` that made it.
 
 The same refusal comes from every write door, for an entity in a store slot, a single entity and
 a bucket alike, and from `disposeIndexStoreSlot`. A write to a released identity throws too.
 
-**A refused write does not leave a filed, valueless slot behind.** When `insertEntity` or
-`upsertEntity` minted an identity for the write and the write throws, the new identity is
+**A refused write does not leave a filed, valueless slot behind.** When `writeSlotContentByKey` or
+`writeSlotContentByKey` minted an identity for the write and the write throws, the new identity is
 released again before the throw leaves the call, unless something already holds it.
 
 **Refused is not the same as unchanged**, and only one of them unwinds anything:
@@ -189,7 +181,7 @@ released again before the throw leaves the call, unless something already holds 
 | **Refused** | The write threw; no content ever arrived | The throw. That identity is unwound — nothing is filed |
 | **Unchanged** | The write *did* happen and the content was already there | The identity, like any other write. Nothing is unwound |
 
-`insertEntity` is total: it always hands back the identity it resolved or minted,
+`writeSlotContentByKey` is total: it always hands back the identity it resolved or minted,
 whatever the write said about the content. Whether an identity nothing keeps is
 worth keeping is the owner's question, asked through `releaseSlotIfUnheld`.
 
@@ -235,9 +227,9 @@ instance between bucket collections is allowed.
 - **`fillEntities` on a non-empty entity store slot.** It files every key it is given, and refuses outright when
   the store slot already holds anything. Use `upsertEntities`, which asks per entity, or `insertEntities`, which
   checks each key.
-- **There is no `writeBucketMemberSlots` / `clearBucketMemberSlots` on an index.** An index files entities
+- **There is no `writeSlotContent` / `clearSlotContent` on an index.** An index files entities
   automatically on write, using its `keyOf`; its `slotContentService` is typed to the reads only. If you need
-  manual control over a bucket's slots, use a bucket collection (`createOIMBucketService`) instead.
+  manual control over a bucket's slots, use a bucket collection (`createOIMSlotCollectionService`) instead.
 
 Handing a bucket the slots it already has is **not** a change and is not
 refused: the content service is asked, and an identical list returns without evicting
@@ -247,7 +239,7 @@ anything. That is what re-applying an unchanged server page does.
 
 **Thrown at the reader that asked.** A bucket never sorts, so its own reads never
 run a comparator. A sorted list is a computed
-(`createOIMComputedServiceSorted`), and its comparator runs inside that computed's
+(`createOIMSortedComputedService`), and its comparator runs inside that computed's
 derive, so a throw leaves `getValueForSlot` for the reader that asked. It is
 derived state, so it is not under the error policy.
 
@@ -266,8 +258,8 @@ holds, its slots and its effects.
 
 | Question | Answer |
 |---|---|
-| Do other effects run if one throws? | By default yes — `OIMErrorPolicyLogAndContinue` logs it, calls `onError`, and goes on. |
-| Can I make it stop at the first error? | Yes — `OIMErrorPolicyThrowAtOnce`; effects not yet reached run at the next flush. |
+| Do other effects run if one throws? | By default yes — `OIMLogAndContinueErrorPolicy` logs it, calls `onError`, and goes on. |
+| Can I make it stop at the first error? | Yes — `OIMThrowAtOnceErrorPolicy`; effects not yet reached run at the next flush. |
 | Can the runtime get stuck mid-frame? | No — frame state is restored in a `finally`. |
 | A throwing `keyOf` or emptiness check? | Derived state: thrown at the call in either mode. |
 | Writing, or flushing, during a frame? | Throws at the call — a refusal, not a collected error. |

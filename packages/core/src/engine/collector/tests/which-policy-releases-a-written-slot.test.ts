@@ -1,37 +1,28 @@
-import {
-    OIMDB,
-    OIMSlotReleasePolicyAfterIdle,
-    OIMSlotReleasePolicyAfterUnhold,
-    OIMSlotReleasePolicyAfterWrite,
-    OIMSlotReleasePolicyAtEmpty,
-    OIMSlotReleasePolicyAtUnhold,
-    OIMSlotReleasePolicyEarliest,
-    OIMSlotReleasePolicyNever,
-    createOIMEntityService,
-    oimIsSlotReleased,
-} from '../../../index';
+import { OIMDB, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, oimIsSlotReleased } from '../../../index';
 import type { IOIMSlotReleasePolicy } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
 const POLICIES: [string, () => IOIMSlotReleasePolicy, boolean][] = [
-    ['at empty', () => new OIMSlotReleasePolicyAtEmpty(), false],
-    ['never', () => new OIMSlotReleasePolicyNever(), false],
-    ['at unhold', () => new OIMSlotReleasePolicyAtUnhold(), true],
-    ['after write', () => new OIMSlotReleasePolicyAfterWrite({ keepAfterWriteMs: 1_000 }), true],
-    ['after idle', () => new OIMSlotReleasePolicyAfterIdle({ keepAfterIdleMs: 1_000 }), true],
-    ['after unhold', () => new OIMSlotReleasePolicyAfterUnhold({ keepAfterUnholdMs: 1_000 }), true],
-    ['earliest of at empty and never', () => new OIMSlotReleasePolicyEarliest([
-        new OIMSlotReleasePolicyAtEmpty(), new OIMSlotReleasePolicyNever(),
+    ['at empty', () => new OIMSlotAtEmptyReleasePolicy(), false],
+    ['never', () => new OIMSlotNeverReleasePolicy(), false],
+    ['at unhold', () => new OIMSlotAtUnholdReleasePolicy(), true],
+    ['after write', () => new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 1_000 }), true],
+    ['after idle', () => new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 1_000 }), true],
+    ['after unhold', () => new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 1_000 }), true],
+    ['earliest of at empty and never', () => new OIMSlotEarliestReleasePolicy([
+        new OIMSlotAtEmptyReleasePolicy(), new OIMSlotNeverReleasePolicy(),
     ]), false],
-    ['earliest of at empty and at unhold', () => new OIMSlotReleasePolicyEarliest([
-        new OIMSlotReleasePolicyAtEmpty(), new OIMSlotReleasePolicyAtUnhold(),
+    ['earliest of at empty and at unhold', () => new OIMSlotEarliestReleasePolicy([
+        new OIMSlotAtEmptyReleasePolicy(), new OIMSlotAtUnholdReleasePolicy(),
     ]), true],
 ];
 
 const cardsUnder = (slotReleasePolicy: IOIMSlotReleasePolicy) => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id, slotReleasePolicy });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 
@@ -41,23 +32,23 @@ describe('which policy releases a written slot', () => {
     });
 
     it('at empty keeps a written slot nobody holds, through an insert, a rewrite and a patch', () => {
-        const { cardsService, cards } = cardsUnder(new OIMSlotReleasePolicyAtEmpty());
+        const { cardsService, cards } = cardsUnder(new OIMSlotAtEmptyReleasePolicy());
 
-        cardsService.slotContentService.insertEntities(cards, [{ id: 'c2', title: 'four' }]);
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
-        cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'two' });
+        cardsService.writeInBatch(cards, () => ([{ id: 'c2', title: 'four' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
+        cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'two' });
         cardsService.slotContentService.updateEntity(card, { title: 'three' });
 
         expect(oimIsSlotReleased(card)).toBe(false);
-        expect(cardsService.slotContentService.findEntityByKey(cards, 'c1')?.title).toBe('three');
+        expect(cardsService.findSlotByKey(cards, 'c1')?.entity?.title).toBe('three');
         expect(cardsService.hasSlotContentByKey(cards, 'c2')).toBe(true);
     });
 
     it('at unhold releases a written slot nobody holds, right after the write', () => {
-        const { cardsService, cards } = cardsUnder(new OIMSlotReleasePolicyAtUnhold());
+        const { cardsService, cards } = cardsUnder(new OIMSlotAtUnholdReleasePolicy());
 
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', title: 'one' });
-        cardsService.slotContentService.insertEntities(cards, [{ id: 'c2', title: 'two' }]);
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
+        cardsService.writeInBatch(cards, () => ([{ id: 'c2', title: 'two' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
 
         expect(oimIsSlotReleased(card)).toBe(true);
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(false);

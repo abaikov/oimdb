@@ -1,21 +1,10 @@
 // Prose: ./README.md#pricepairsgrouped
-import {
-    OIMDB,
-    OIMKeyTreeWalkComposite,
-    OIMSlotContentBucketServiceSetDriven,
-    OIMSlotStoreServiceMapDriven,
-    OIMSlotStoreServiceTreeDriven,
-    createOIMBucketService,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-} from '../../../core/src/index';
+import { OIMDB, OIMCompositeKeyTreeWalk, OIMSlotContentSetBucketService, OIMSlotMapStoreService, OIMSlotTreeStoreService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../../core/src/index';
 import type {
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
     TOIMColumnSlot,
     TOIMEntitySlot,
-    TOIMSlotStoreTree,
     TOIMStoreKey,
 } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
@@ -24,6 +13,8 @@ import { priceFixture } from './priceFixture';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
+import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const BUCKET_SIZE = priceDataset.batch / priceDataset.groups;
 const SWAPS_PER_FRAME = 4;
@@ -47,8 +38,8 @@ const ORDER_CAVEAT =
     'AN ENTITY MOVES WITHIN ITS GROUP, NOTHING JOINS OR LEAVES. A frame swaps the ranks of band `m` ' +
     `and band \`m + ${BANDS_SWAPPED}\` in every one of the sixty-four groups for ${SWAPS_PER_FRAME} ` +
     `values of \`m\`, so each group of ${BUCKET_SIZE} sees ${MOVERS_PER_FRAME} movers. ` +
-    'OURS IS THE SHIPPED ORDER: an index store slot over `group` (`createOIMIndexService` with `OIMSlotContentBucketServiceSetDriven`) and a ' +
-    '`createOIMComputedServiceSorted` and its `createSortedStoreSlot` over it with `sortColumns: [{ column: \'rank\', direction: \'asc\' }]`, ' +
+    'OURS IS THE SHIPPED ORDER: an index store slot over `group` (`createOIMSlotCollectionIndexService` with `OIMSlotContentSetBucketService`) and a ' +
+    '`createOIMSortedComputedService` and its `createSortedStoreSlot` over it with `sortColumns: [{ column: \'rank\', direction: \'asc\' }]`, ' +
     'one sorted computed held per group. NOTHING IS REPORTED BY HAND: `updateEntity` hands the ' +
     'index the changed columns, the index writes the group\'s `rank` bucket column slot, and that ' +
     'slot is a source of the group\'s sorted computed. THE READ IS INSIDE THE TIMED BODY: the ' +
@@ -69,24 +60,24 @@ const ORDER_CAVEAT =
 const orderPair: TPricePair = {
     id: 'order.resort-within-a-bucket-vs-sorted-array-splice',
     path: EPricePath.PerRowPerWrite,
-    ours: 'entityService.slotContentService.updateEntity(slot, { rank }), then sortedComputedService.computedCollectionService.slotContentService.getValueForSlot(sortedComputed) — createOIMComputedServiceSorted createSortedStoreSlot over an index store slot (createIndexStoreSlot), sortColumns [rank asc]',
+    ours: 'entityService.slotContentService.updateEntity(slot, { rank }), then sortedComputed.computedValueService.getValueForSlot(sortedComputed) — createOIMSortedComputedService createSortedStoreSlot over an index store slot (createIndexStoreSlot), sortColumns [rank asc]',
     floor: 'swap the ranks, then indexOf/splice out and upperBound/splice in, on a sorted array',
     caveat: ORDER_CAVEAT,
     build: () => {
         const rows = priceDataset.makeRows(priceDataset.batch);
         const held: TPriceDataRow[] = rows.map(row => ({ ...row }));
         const db = new OIMDB();
-        const entityService = createOIMEntityService<TPriceDataRow>(db, { keyOf: row => row.id });
+        const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
         const entityStoreSlot = entityService.createStoreSlot(db);
         const slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
-        for (let i = 0; i < rows.length; i++) slots.push(entityService.slotContentService.upsertEntity(entityStoreSlot, rows[i]));
-        const indexService = createOIMIndexService(db, {
+        for (let i = 0; i < rows.length; i++) slots.push(entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]));
+        const indexService = createOIMSlotCollectionIndexService(db, {
             entityService,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
             keyOf: (row: TPriceDataRow) => row.group,
         });
         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
-        const sortedComputedService = createOIMComputedServiceSorted({
+        const sortedComputedService = createOIMSortedComputedService({
             indexService,
             sortColumns: [{ column: 'rank', direction: 'asc' }],
         });
@@ -97,7 +88,7 @@ const orderPair: TPricePair = {
         db.flush();
         const sortedByGroup: TPriceDataRow[][] = names.map(() => []);
         for (let i = 0; i < held.length; i++) sortedByGroup[i % names.length].push(held[i]);
-        const computedValueService = computedCollectionService.slotContentService;
+        const computedValueService = sortedComputeds[0].computedValueService;
         for (let g = 0; g < sortedComputeds.length; g++) {
             const order = computedValueService.getValueForSlot(sortedComputeds[g]);
             if (order.length !== sortedByGroup[g].length) {
@@ -189,7 +180,7 @@ const chainPair: TPricePair = {
     floor: 'byDeck.get(deck).get(shelf)',
     caveat:
         'AN ADDRESS OF TWO IDENTITIES AGAINST AN ADDRESS OF TWO STRINGS. Ours walks the composite ' +
-        'key tree `OIMSlotStoreServiceTreeDriven` keeps: one `Map.get` keyed by the deck slot, one ' +
+        'key tree `OIMSlotTreeStoreService` keeps: one `Map.get` keyed by the deck slot, one ' +
         'keyed by the shelf slot, then the bucket on the node — object-keyed hashes, no string ' +
         'hashing. The floor makes two string-keyed `Map.get`s and an `undefined` test. The key ' +
         'arrays are built outside the clock, as a caller holding the two segment identities would ' +
@@ -202,26 +193,15 @@ const chainPair: TPricePair = {
         const fixture = priceFixture(SEGMENTS_PER_LEVEL);
         const db = fixture.db;
         const segmentEntityService = () =>
-            createOIMEntityService<TSegmentRow>(db, {
-                keyOf: row => row.id,
-                columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-            });
+            createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TSegmentRow>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const deckEntityService = segmentEntityService();
         const deckEntityStoreSlot = deckEntityService.createStoreSlot(db);
         const shelfEntityService = segmentEntityService();
         const shelfEntityStoreSlot = shelfEntityService.createStoreSlot(db);
-        const bucketSlotStoreService = new OIMSlotStoreServiceTreeDriven<TOIMEntitySlot, TChainBucket>(
-            OIMKeyTreeWalkComposite.INSTANCE,
+        const bucketSlotStoreService = new OIMSlotTreeStoreService<TOIMEntitySlot, TChainBucket>(
+            OIMCompositeKeyTreeWalk.INSTANCE,
         );
-        const bucketService = createOIMBucketService<
-            TOIMEntitySlot<TPriceDataRow>, TChainKey, TUnorderedSlots,
-            OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>,
-            TOIMSlotStoreTree<TChainBucket, TOIMEntitySlot>
-        >(db, {
-            bucketSlotStoreService,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TPriceDataRow>>(),
-            columnSlotStoreService: new OIMSlotStoreServiceMapDriven<TOIMColumnSlot>(),
-        });
+        const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>, TChainKey>(), slotStoreService: bucketSlotStoreService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const bucketStoreSlot = bucketService.createStoreSlot(db);
         const chainKeys: TChainKey[] = [];
         const heldBuckets: TChainBucket[] = [];
@@ -230,12 +210,12 @@ const chainPair: TPricePair = {
         const byDeck = new Map<string, Map<string, Set<TPriceDataRow>>>();
         for (let d = 0; d < SEGMENTS_PER_LEVEL; d++) {
             const deck = `deck-${d}`;
-            const deckSlot = deckEntityService.slotContentService.upsertEntity(deckEntityStoreSlot, { id: deck });
+            const deckSlot = deckEntityService.writeSlotContentByKey(deckEntityStoreSlot, deck, { id: deck });
             const byShelf = new Map<string, Set<TPriceDataRow>>();
             byDeck.set(deck, byShelf);
             for (let s = 0; s < SEGMENTS_PER_LEVEL; s++) {
                 const shelf = `shelf-${s}`;
-                const shelfSlot = shelfEntityService.slotContentService.upsertEntity(shelfEntityStoreSlot, { id: shelf });
+                const shelfSlot = shelfEntityService.writeSlotContentByKey(shelfEntityStoreSlot, shelf, { id: shelf });
                 const chainKey: TChainKey = [deckSlot, shelfSlot];
                 chainKeys.push(chainKey);
                 heldBuckets.push(bucketService.holdSlotByKey(bucketStoreSlot, chainKey));

@@ -1,30 +1,31 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMIndexService<
+    const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
-        OIMSlotContentBucketServiceSetDriven<TCardSlot>
+        OIMSlotContentSetBucketService<TCardSlot, string>
     >(db, {
         entityService: cardsService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
         keyOf: (card: TCard) => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
-    cardsService.slotContentService.upsertEntity(cards, { id: 'a', deck: 'x', title: 'ace' });
+    cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace' });
     return { db, byDeckService, byDeck };
 };
 
@@ -38,8 +39,8 @@ describe('what a disposed index still takes back', () => {
         byDeckService.disposeIndexStoreSlot(byDeck);
 
         expect(() => {
-            byDeckService.unholdColumn(column);
-            byDeckService.unholdColumn(anyColumn);
+            byDeckService.columnSlotService.unholdColumn(column);
+            byDeckService.columnSlotService.unholdColumn(anyColumn);
             bucket.owner.unholdSlot(bucket);
         }).not.toThrow();
     });

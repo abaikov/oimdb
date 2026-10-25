@@ -1,21 +1,18 @@
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import {
-    OIMDB,
-    OIMSlotContentBucketServiceSetDriven,
-    createOIMBucketService,
-    createOIMEntityService,
-} from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
 import type { OIMPersistKeyValueWriteBatch, TOIMPersistRecords } from '../src';
 import {
-    OIMPersistCodecIdentity,
+    OIMPersistIdentityCodec,
     OIMPersistKeyValueBackend,
-    OIMPersistKeyValueEntryStrategy,
-    OIMPersistRecordSourceBucketDriven,
-    OIMPersistResourceSnapshot,
-    OIMPersistSchedulerFrameDriven,
+    OIMPersistKeyValueEntrySnapshotService,
+    OIMPersistBucketRecordSource,
+    OIMPersistSnapshotResource,
+    OIMPersistFrameScheduler,
     OIMPersistor,
 } from '../src';
 import { OIMTestKeyValueItemStorage } from './shared/OIMTestKeyValueItemStorage';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 type TUserSlot = TOIMEntitySlot<TUser, TOIMStoreKey>;
@@ -24,37 +21,35 @@ type TUserPersistRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 
 function buildPersistor() {
     const db = new OIMDB();
-    const userEntityCollectionService = createOIMEntityService<TUser>(db, { keyOf: user => user.id });
+    const userEntityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
     const userEntityStoreSlot = userEntityCollectionService.createStoreSlot(db);
-    const userBucketCollectionService = createOIMBucketService<
-        TUserSlot, TOIMStoreKey, TUserSlots, OIMSlotContentBucketServiceSetDriven<TUserSlot>
-    >(db, { slotContentService: new OIMSlotContentBucketServiceSetDriven<TUserSlot>() });
+    const userBucketCollectionService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const userBucketStoreSlot = userBucketCollectionService.createStoreSlot(db);
     const bucketSlot = userBucketCollectionService.holdSlotByKey(userBucketStoreSlot, 'all');
     const testKeyValueItemStorage = new OIMTestKeyValueItemStorage();
     const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({
         persistBackend: new OIMPersistKeyValueBackend({ persistKeyValueStorage: testKeyValueItemStorage }),
-        persistScheduler: new OIMPersistSchedulerFrameDriven({ channelSlot: db.defaultChannelSlot }),
+        persistScheduler: new OIMPersistFrameScheduler({ channelSlot: db.defaultChannelSlot }),
     });
     const upsertUser = (user: TUser): void => {
-        userEntityCollectionService.slotContentService.upsertEntity(userEntityStoreSlot, user);
+        userEntityCollectionService.writeSlotContentByKey(userEntityStoreSlot, user.id, user);
         const userSlots: TUserSlot[] = [];
         for (const userSlot of userEntityCollectionService.getSlots(userEntityStoreSlot)) {
             if (userSlot.entity !== undefined) userSlots.push(userSlot);
         }
-        userBucketCollectionService.slotContentService.writeBucketMemberSlots(bucketSlot, userSlots);
+        userBucketCollectionService.slotContentService.writeSlotContent(bucketSlot, userSlots);
     };
     const addPersistResourceSnapshot = (storageKey: string): void => {
-        persistor.addPersistResource(new OIMPersistResourceSnapshot({
-            persistSnapshotSource: new OIMPersistRecordSourceBucketDriven<TOIMStoreKey, TUser, TUserSlots, TOIMStoreKey>({
+        persistor.addPersistResource(new OIMPersistSnapshotResource({
+            persistSnapshotSource: new OIMPersistBucketRecordSource<TOIMStoreKey, TUser, TUserSlots>({
                 channelMap: db,
                 entityCollectionService: userEntityCollectionService,
                 entityStoreSlot: userEntityStoreSlot,
                 slotContentBucketService: userBucketCollectionService.slotContentService,
                 bucketSlot,
             }),
-            persistSnapshotStrategy: new OIMPersistKeyValueEntryStrategy<TUserPersistRecords>({ storageKey }),
-            persistCodec: new OIMPersistCodecIdentity<TUserPersistRecords>(),
+            persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TUserPersistRecords>({ storageKey }),
+            persistCodec: new OIMPersistIdentityCodec<TUserPersistRecords>(),
         }));
     };
     const readStoredKeys = (storageKey: string): TOIMStoreKey[] | undefined => {

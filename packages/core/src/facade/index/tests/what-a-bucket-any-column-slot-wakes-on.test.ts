@@ -1,13 +1,14 @@
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMEffectService } from '../../../engine/computed/OIMEffectService';
-import { OIMSlotContentBucketServiceSetDriven } from '../../bucket/OIMSlotContentBucketServiceSetDriven';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMIndexService } from '../../../factories/createOIMIndexService';
+import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlotsSetStore } from '../../../engine/bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../../engine/entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../../engine/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../engine/store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../../engine/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -15,20 +16,20 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 function setUp() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
     const cards = cardsService.createStoreSlot(db);
-    cardsService.slotContentService.upsertEntities(cards, [
+    cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'spades', title: 'Ace' },
         { id: 'c2', deck: 'spades', title: 'King' },
         { id: 'c3', deck: 'hearts', title: 'Queen' },
-    ]);
-    const byDeckService = createOIMIndexService<
+    ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
+    const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
-        OIMSlotContentBucketServiceSetDriven<TCardSlot>
+        OIMSlotContentSetBucketService<TCardSlot, string>
     >(db, {
         entityService: cardsService,
-        slotContentService: new OIMSlotContentBucketServiceSetDriven<TCardSlot>(),
+        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
         keyOf: card => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -93,10 +94,10 @@ describe('the any-column slot of an index bucket', () => {
         let anyColumnRuns = 0;
         effectService.createEffect(db, [spadesAnyColumn], [], () => { anyColumnRuns++; });
 
-        cardsService.slotContentService.upsertEntities(cards, [
+        cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'spades', title: 'Ace of Spades' },
             { id: 'c2', deck: 'spades', title: 'King of Spades' },
-        ]);
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
 
         expect(anyColumnRuns).toBe(1);
@@ -109,7 +110,7 @@ describe('the any-column slot of an index bucket', () => {
         db.flush();
         expect(oimIsSlotReleased(spades)).toBe(false);
 
-        byDeckService.unholdColumn(spadesAnyColumn);
+        byDeckService.columnSlotService.unholdColumn(spadesAnyColumn);
         db.flush();
 
         expect(oimIsSlotReleased(spadesAnyColumn)).toBe(true);
@@ -129,6 +130,6 @@ describe('the any-column slot of an index bucket', () => {
         const spadesAnyColumn = byDeckService.holdAnyBucketColumnByKey(byDeck, 'spades');
 
         expect(spadesAnyColumn.carrierSlot).toBe(byDeckService.getSlotByKey(byDeck, 'spades'));
-        byDeckService.unholdColumn(spadesAnyColumn);
+        byDeckService.columnSlotService.unholdColumn(spadesAnyColumn);
     });
 });

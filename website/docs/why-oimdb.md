@@ -354,12 +354,7 @@ and is never told.
 ### OIMDB
 
 ```tsx
-import {
-    OIMDB,
-    createOIMComputedServiceSorted,
-    createOIMEntityService,
-    createOIMIndexService,
-} from '@oimdb/core';
+import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import {
     OIMDBProvider,
     useOIMComputedValue,
@@ -370,15 +365,15 @@ import {
 type Card = { id: string; deck: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardService = createOIMEntityService<Card>(db, { keyOf: (card) => card.id });
+const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
 const cards = cardService.createStoreSlot(db);
 
-const cardsByDeckService = createOIMIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
-const cardsByRankService = createOIMComputedServiceSorted({
+const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
     sortColumns: [{ column: 'rank', direction: 'asc' }],
 });
@@ -405,11 +400,11 @@ export function App() {
 }
 
 const cardContentService = cardService.slotContentService;
-cardContentService.upsertEntities(cards, [
+cardService.writeInBatch(cards, () => ([
     { id: 'c1', deck: 'red', title: 'Ace', rank: 1 },
     { id: 'c2', deck: 'red', title: 'King', rank: 2 },
     { id: 'c3', deck: 'red', title: 'Queen', rank: 3 },
-]);
+]).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
 db.flush();
 
 cardContentService.updateEntity(cardService.getSlotByKey(cards, 'c1'), { title: 'Ace of hearts' });
@@ -418,7 +413,7 @@ db.flush();
 cardContentService.updateEntity(cardService.getSlotByKey(cards, 'c2'), { deck: 'black' });
 db.flush();
 
-cardContentService.deleteEntity(cardService.getSlotByKey(cards, 'c3'));
+cardService.slotContentService.clearSlotContent(cardService.getSlotByKey(cards, 'c3'));
 db.flush();
 ```
 
@@ -445,10 +440,10 @@ and `useOIMComputedValue` subscribes to it and reads it through its value servic
 6. When `Deck` unmounts, its sorted derivation goes at the last unhold, and its
    hold on the index bucket goes with it. Entity slots follow the release policy
    the collection was built with. Without a `slotReleasePolicy` option that is
-   `OIMSlotReleasePolicyAtEmpty`: an empty slot goes once nothing holds it, and a
+   `OIMSlotAtEmptyReleasePolicy`: an empty slot goes once nothing holds it, and a
    slot with content stays until it is cleared. To drop content nobody watches,
-   pass another policy (`OIMSlotReleasePolicyAfterIdle`,
-   `OIMSlotReleasePolicyAtUnhold`, …). See
+   pass another policy (`OIMSlotAfterIdleReleasePolicy`,
+   `OIMSlotAtUnholdReleasePolicy`, …). See
    [Releasing an identity](/docs/core/lifecycle#releasing-an-identity-on-a-clock--opt-in-and-off-it-costs-nothing).
 
 How each version compares in time, task by task, is on the
@@ -575,11 +570,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 103361 B | 25288 B |
-| One entity store slot: `OIMDB`, `createOIMEntityService`, `upsertEntity`, `getSlotByKey` | 41485 B | 10710 B |
-| The same, plus one effect and `db.flush()` | 50131 B | 12876 B |
-| The same, plus one index: `createOIMIndexService` | 71765 B | 17728 B |
-| An ordered bucket with commands: `createOIMBucketService`, `OIMSlotContentBucketServiceArrayDriven`, `OIMBucketCommands` | 56072 B | 13880 B |
+| Everything `@oimdb/core` exports | 98686 B | 24049 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35379 B | 9243 B |
+| The same, plus one effect and `db.flush()` | 44020 B | 11357 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 64398 B | 16048 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48515 B | 12218 B |
 {/* bundle-size:end */}
 
 ## Next steps

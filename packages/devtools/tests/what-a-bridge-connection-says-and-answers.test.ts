@@ -1,5 +1,7 @@
-import { OIMDB, createOIMEntityService } from '@oimdb/core';
+import { OIMDB } from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
+import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TSocketListener = (event: { data?: unknown }) => void;
 
@@ -89,7 +91,7 @@ describe('what a bridge connection says and answers', () => {
 
     test('answers a request it failed to read the registry for with the error and no data', () => {
         const db = new OIMDB();
-        const usersService = createOIMEntityService<{ id: string }>(db, { keyOf: user => user.id });
+        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ id: string }>(db) });
         const users = usersService.createStoreSlot(db);
         const registry = new OIMDevRegistry();
         registry.collection('users', { getSlots: () => { throw new Error('the store is unreadable'); } }, users);

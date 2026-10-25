@@ -1,24 +1,24 @@
-import {
-    OIMDB, OIMEffectService, OIMSlotContentBucketServiceSetDriven, createOIMEntityService, createOIMIndexService,
-} from '../../../index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../../index';
 import type { TOIMEntitySlot } from '../../../index';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
 
 describe('a bucket minted inside a frame after a hand mutation', () => {
     it('leaves the row in one bucket, and the announced change moves it', () => {
         const db = new OIMDB();
-        const cardsService = createOIMEntityService<TCard>(db, { keyOf: card => card.id });
+        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService(db, {
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentBucketServiceSetDriven<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
-        const card = cardsService.slotContentService.upsertEntity(cards, { id: 'c1', deck: 'spades' });
-        const trigger = cardsService.slotContentService.upsertEntity(cards, { id: 't', deck: 'none' });
+        const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
+        const trigger = cardsService.writeSlotContentByKey(cards, 't', { id: 't', deck: 'none' });
         db.flush();
         (card.entity as TCard).deck = 'clubs';
 

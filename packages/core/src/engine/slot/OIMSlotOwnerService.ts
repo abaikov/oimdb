@@ -1,21 +1,21 @@
 import type { IOIMSlotStamp } from './interfaces/IOIMSlotStamp';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
-import type { IOIMSubframeCloseListener } from './interfaces/IOIMSubframeCloseListener';
-import type { IOIMSlotContentStrategy } from './interfaces/IOIMSlotContentStrategy';
-import type { IOIMSlotContentFlushStrategy } from './interfaces/IOIMSlotContentFlushStrategy';
-import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreService';
+import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
+import type { IOIMSlotContentService } from './interfaces/IOIMSlotContentService';
+import type { IOIMSlotFilingService } from '../store/interfaces/IOIMSlotFilingService';
 import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import { OIMChannelService } from '../channel/OIMChannelService';
+import { OIMNoSlotSubscriptionListener } from './OIMNoSlotSubscriptionListener';
 import { OIMContentChangeDeliveryService } from './OIMContentChangeDeliveryService';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
-import type { OIMColumnOwner } from '../column/OIMColumnOwner';
+import type { OIMColumnSlotOwner } from '../column/OIMColumnSlotOwner';
 import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMSlotEditable } from './types/TOIMSlotEditable';
 import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSlotOwnerServiceOptions } from './types/TOIMSlotOwnerServiceOptions';
 import { OIMSlotOwner } from './OIMSlotOwner';
-import { OIMSlotReleasePolicyAtEmpty } from '../collector/OIMSlotReleasePolicyAtEmpty';
+import { OIMSlotAtEmptyReleasePolicy } from '../collector/OIMSlotAtEmptyReleasePolicy';
 import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
 import { oimGetChannelSlot } from './utils/oimGetChannelSlot';
 import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
@@ -25,14 +25,14 @@ import { OIM_SLOT_FLAG_RELEASED } from './constants/OIM_SLOT_FLAG_RELEASED';
 
 
 export class OIMSlotOwnerService<
-    TKey, TSlot extends TOIMKeyedSlot<TKey>, TStore, TColumnName extends string, TColumnSlot extends TOIMKeyedSlot<string>,
-    TColumnOwner extends OIMColumnOwner<TOIMSlot, TColumnSlot>, TPatch = unknown,
-> extends OIMSlotOwner implements IOIMSubframeCloseListener {
-    private readonly slotContentStrategy: IOIMSlotContentStrategy<
-        TSlot, TKey, OIMSlotOwnerService<TKey, TSlot, TStore, TColumnName, TColumnSlot, TColumnOwner, TPatch>
+    TSlot extends TOIMSlot, TStore, TColumnName extends string, TColumnSlot extends TOIMKeyedSlot<string>,
+    TColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TColumnSlot>, TPatch = unknown,
+> extends OIMSlotOwner {
+    private readonly slotContentService: IOIMSlotContentService<
+        TSlot, OIMSlotOwnerService<TSlot, TStore, TColumnName, TColumnSlot, TColumnSlotOwner, TPatch>
     >;
 
-    private readonly slotStoreService: IOIMSlotStoreService<TKey, TSlot, TStore>;
+    private readonly slotFilingService: IOIMSlotFilingService<TSlot, TStore>;
 
     private readonly slotStamp: IOIMSlotStamp<TSlot> | undefined;
 
@@ -42,41 +42,30 @@ export class OIMSlotOwnerService<
 
     private readonly schedulesReleaseOnWrite: boolean;
 
-    public readonly columnOwner: TColumnOwner;
+    public readonly settlesWrittenSlots: boolean;
 
-    private readonly slotContentFlushStrategy: IOIMSlotContentFlushStrategy<
-        TSlot, OIMSlotOwnerService<TKey, TSlot, TStore, TColumnName, TColumnSlot, TColumnOwner, TPatch>
-    > | undefined;
+    private readonly slotSubscriptionListener: IOIMSlotSubscriptionListener;
+
+    public readonly columnSlotOwner: TColumnSlotOwner;
 
     public constructor(
-        options: TOIMSlotOwnerServiceOptions<TKey, TSlot, TStore, TColumnName, TColumnSlot, TColumnOwner, TPatch>,
+        options: TOIMSlotOwnerServiceOptions<TSlot, TStore, TColumnName, TColumnSlot, TColumnSlotOwner, TPatch>,
     ) {
         super();
-        this.slotContentStrategy = options.slotContentStrategy;
-        this.slotStoreService = options.slotStoreService;
+        this.slotContentService = options.slotContentService;
+        this.slotFilingService = options.slotFilingService;
         this.slotStamp = options.slotStamp;
-        const slotReleasePolicy = options.slotReleasePolicy ?? OIMSlotReleasePolicyAtEmpty.INSTANCE;
+        const slotReleasePolicy = options.slotReleasePolicy ?? OIMSlotAtEmptyReleasePolicy.INSTANCE;
         this.slotReleasePolicy = slotReleasePolicy;
         this.releasesWrittenSlots = slotReleasePolicy.releasesWrittenSlots;
         this.schedulesReleaseOnWrite = slotReleasePolicy.schedulesReleaseOnWrite;
-        this.columnOwner = options.createColumnOwner(options.columnOwnerOptions);
-        this.slotContentFlushStrategy = options.slotContentFlushStrategy;
-    }
-
-    public listChangedStoreSlot(storeSlot: TOIMStoreSlot<unknown, TSlot>): void {
-        OIMChannelService.INSTANCE.listChangedStoreSlot(storeSlot.channelSlot, storeSlot as TOIMStoreSlot, this);
-    }
-
-    public onStoreSlotSubframeClosed(storeSlot: TOIMStoreSlot): void {
-        this.slotContentFlushStrategy?.onSubframeClosed(storeSlot as TOIMStoreSlot<unknown, TSlot>, this);
-    }
-
-    public createSlot(key: TKey, storeSlot: TOIMStoreSlot | undefined): TSlot {
-        return this.slotContentStrategy.createSlot(key, storeSlot, this);
+        this.settlesWrittenSlots = this.releasesWrittenSlots || this.schedulesReleaseOnWrite || options.slotStamp !== undefined;
+        this.slotSubscriptionListener = options.slotSubscriptionListener ?? OIMNoSlotSubscriptionListener.INSTANCE;
+        this.columnSlotOwner = options.createColumnSlotOwner(options.columnSlotOwnerOptions);
     }
 
     public isSlotEmpty(slot: TSlot): boolean {
-        return this.slotContentStrategy.isSlotEmpty(slot);
+        return this.slotContentService.isSlotEmpty(slot);
     }
 
     public hasColumnSlots(slot: TOIMSlot): boolean {
@@ -96,10 +85,8 @@ export class OIMSlotOwnerService<
         const listeners = storeSlot.contentChangeListeners;
         if (listeners === undefined || listeners.length === 0) return;
         if (changedColumns !== undefined && !this.isAnyColumnRead(storeSlot, changedColumns)) return;
-        const channelSlot = storeSlot.channelSlot;
-        const contentChangeDeliveryService = OIMContentChangeDeliveryService.INSTANCE;
-        if (contentChangeDeliveryService.isDeliveryDeferred(channelSlot)) {
-            contentChangeDeliveryService.enqueueContentChange(channelSlot, storeSlot, slot, patch, changedColumns);
+        if (storeSlot.batchDepth > 0) {
+            OIMContentChangeDeliveryService.INSTANCE.enqueueContentChange(storeSlot, slot, patch, changedColumns);
             return;
         }
         for (let i = 0; i < listeners.length; i++) listeners[i].onContentChanged(slot, patch, changedColumns);
@@ -108,7 +95,7 @@ export class OIMSlotOwnerService<
     public isAnyColumnReferenced(slot: TOIMSlot, changedColumns: readonly string[]): boolean {
         const storeSlot = slot.storeSlot;
         if (storeSlot === undefined) return false;
-        return (slot.columnSlotStore !== undefined && this.columnOwner.isAnyColumnReferenced(storeSlot, changedColumns))
+        return (slot.columnSlotStore !== undefined && this.columnSlotOwner.isAnyColumnReferenced(storeSlot, changedColumns))
             || this.isAnyColumnRead(storeSlot, changedColumns);
     }
 
@@ -131,12 +118,8 @@ export class OIMSlotOwnerService<
 
     public releaseSlotIfUnheldAfterListeners(slot: TSlot): void {
         const storeSlot = slot.storeSlot;
-        if (storeSlot !== undefined) {
-            const contentChangeDeliveryService = OIMContentChangeDeliveryService.INSTANCE;
-            const channelSlot = storeSlot.channelSlot;
-            if (contentChangeDeliveryService.isDeliveryDeferred(channelSlot)
-                && contentChangeDeliveryService.isLastEnqueuedSlot(channelSlot, storeSlot, slot)) return;
-        }
+        if (storeSlot !== undefined && storeSlot.batchDepth > 0
+            && OIMContentChangeDeliveryService.INSTANCE.isLastEnqueuedSlot(storeSlot, slot)) return;
         this.releaseSlotIfUnheld(slot);
     }
 
@@ -149,8 +132,8 @@ export class OIMSlotOwnerService<
         oimAssertSlotNotReleased(slot);
     }
 
-    public fileSlot(storeSlot: TOIMStoreSlot<TStore, TSlot>, slot: TSlot): void {
-        this.slotStoreService.set(storeSlot.store, slot.key, slot);
+    public fileSlot(slot: TSlot): void {
+        this.slotFilingService.fileSlot((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
     }
 
     public writeSlotToChannelAndSettle(slot: TSlot, wasEmpty: boolean): void {
@@ -187,6 +170,14 @@ export class OIMSlotOwnerService<
         if (this.slotReleasePolicy.onSlotIdle(slot)) this.releaseSlotIfUnheld(slot);
     }
 
+    public override onSlotFirstSubscribed(slot: TOIMSlot): void {
+        this.slotSubscriptionListener.onSlotFirstSubscribed(slot);
+    }
+
+    public override onSlotLastUnsubscribed(slot: TOIMSlot): void {
+        this.slotSubscriptionListener.onSlotLastUnsubscribed(slot);
+    }
+
     protected override onSlotUnheld(slot: TSlot): void {
         this.slotReleasePolicy.onSlotUnheld(slot);
     }
@@ -215,16 +206,16 @@ export class OIMSlotOwnerService<
         if (slot.holdCount > 0) return false;
         if (slot.owner !== this) return false;
         if (slot.columnSlotStore !== undefined) return false;
-        return !this.slotContentStrategy.hasReference(slot);
+        return !this.slotContentService.hasReference(slot);
     }
 
     private releaseSlot(slot: TSlot, isEmpty: boolean): void {
         if (!isEmpty) this.assertWritable(slot);
-        this.slotContentStrategy.releaseSlotContent(slot, this);
+        this.slotContentService.releaseSlotContent(slot, this);
         (slot as TOIMSlotEditable<TSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
         this.slotReleasePolicy.cancelSlotRelease(slot);
         const storeSlot = slot.storeSlot as TOIMStoreSlot<TStore, TSlot> | undefined;
-        if (storeSlot !== undefined) this.slotStoreService.remove(storeSlot.store, slot.key);
+        if (storeSlot !== undefined) this.slotFilingService.unfileSlot(storeSlot.store, slot);
         oimMarkSlotReleased(slot);
     }
 }

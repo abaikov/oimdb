@@ -1,32 +1,27 @@
 import { OIMDB } from '../../../factories/OIMDB';
-import { createOIMEntityService } from '../../../factories/createOIMEntityService';
-import { createOIMComputedService } from '../../../factories/createOIMComputedService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMEffectService } from '../OIMEffectService';
-import { OIMSlotStoreServiceSingleSlotDriven } from '../../store/OIMSlotStoreServiceSingleSlotDriven';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import type { TOIMComputedSlot } from '../types/TOIMComputedSlot';
+import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
 
 type TRow = { id: string; n: number };
 
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMEntityService<TRow>(db, { keyOf: (row: TRow) => row.id });
+    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
     const rows = rowsService.createStoreSlot(db);
-    for (let i = 0; i < 8; i++) rowsService.slotContentService.upsertEntity(rows, { id: `r${i}`, n: i });
+    for (let i = 0; i < 8; i++) rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}`, n: i });
     db.flush();
     const slots: TOIMSlot[] = [];
     for (let i = 0; i < 8; i++) slots.push(rowsService.getSlotByKey(rows, `r${i}`) as TOIMSlot);
-    const computedOver = (sourceSlots: readonly TOIMSlot[], sourceComputeds: readonly TOIMComputedSlot[]): TOIMComputedSlot<number, void> => {
-        const computedService = createOIMComputedService<void, number>({
-            computedSlotStoreService: new OIMSlotStoreServiceSingleSlotDriven<TOIMComputedSlot<number, void>>(),
-            sameValueGuard: oimSameValueZeroGuard,
-        });
-        return computedService.computedCollectionService.getSlotByKey(
-            computedService.createComputedStoreSlot(db, () => 0, () => ({ sourceSlots, sourceComputeds })), undefined,
-        );
+    const computedOver = (sourceSlots: readonly TOIMSlot[], sourceComputeds: readonly TOIMComputedContentSlot[]): TOIMComputedContentSlot<number> => {
+        const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
+        return computedService.computedSingleSlotService.getSingleSlot(computedService.createComputedStoreSlot(db, () => 0, () => ({ sourceSlots, sourceComputeds })));
     };
     return { db, effectService, slots, computedOver };
 };
