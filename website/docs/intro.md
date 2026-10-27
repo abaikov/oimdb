@@ -117,7 +117,8 @@ See [Writing](/docs/core/writing).
 | [`@oimdb/exodra`](/docs/packages/exodra) | Bridge into an Exodra reactive surface. |
 | [`@oimdb/redux-adapter`](/docs/packages/redux-adapter) | Mirrors entity and bucket store slots into Redux. |
 | `@oimdb/devtools` | A debug registry: name store slots and indexes, inspect runtime state. |
-| `@oimdb/mcp` | An MCP server and CDP inspector that connects AI assistants to live browser state. |
+| `@oimdb/cli` | The command line: inspect a live page, a model module or Chrome over CDP, and run the DevTools UI. |
+| `@oimdb/mcp` | An MCP server that connects AI assistants without a shell to live browser state. |
 
 See [Packages](/docs/packages/) for what each one imports from the core.
 
@@ -147,7 +148,7 @@ See [Packages](/docs/packages/) for what each one imports from the core.
   <DocCard to="/docs/core/oimindex" title="Indexes">Group entities by a column, and sort a group.</DocCard>
   <DocCard to="/docs/core/computed-effects" title="The compute graph">Derive a value from other slots.</DocCard>
   <DocCard to="/docs/core/reading-subscribing" title="Reading and subscribing">Read, and subscribe to an entity or one column.</DocCard>
-  <DocCard to="/docs/core/channel" title="The channel">When a write is delivered: frames, subframes, schedulers.</DocCard>
+  <DocCard to="/docs/core/channel" title="The channel">When a write is delivered: frames, batches, schedulers.</DocCard>
   <DocCard to="/docs/core/lifecycle" title="Slot lifecycle">How long a slot lives and when it is released.</DocCard>
 </DocCards>
 

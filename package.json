@@ -1,7 +1,8 @@
 {
   "name": "oimdb",
   "version": "2.0.0",
-  "description": "Deprecated umbrella package for OIMDB. Use @oimdb/core for collections, indexes, selectors, and DX factories.",
+  "private": true,
+  "description": "OIMDB monorepo: state management with normalised entities, indexes, computed values and effects.",
   "keywords": [
     "typescript",
     "library",
@@ -16,11 +17,6 @@
     "packages/*",
     "website"
   ],
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "sideEffects": false,
-  "deprecated": "This package has been split into scoped packages. Use @oimdb/core for collections, indexes, selectors, and DX factories.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abaikov/oimdb.git"
@@ -29,15 +25,7 @@
     "url": "https://github.com/abaikov/oimdb/issues"
   },
   "homepage": "https://abaikov.github.io/oimdb/",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.cjs"
-    }
-  },
   "scripts": {
-    "build": "tsup --config tsup.config.ts",
     "build:llms-full": "node scripts/build-llms-full.mjs",
     "build:core": "cd packages/core && npm run build",
     "build:react": "cd packages/react && npm run build",
@@ -60,15 +48,14 @@
     "size:write": "node scripts/check-bundle-size.mjs --write",
     "verify": "npm run lint && npm run clones && npm run check-structure && npm run build:core && npm run type-check && npm run check:docs && npm run size && npm run coverage && npm test --workspace @oimdb/bench && npm run build:packages",
     "check-structure": "npm --workspaces --if-present run check-structure",
-    "prepublishOnly": "npm run verify && npm run build",
     "prepare": "husky",
     "test": "jest",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage",
-    "lint": "eslint \"src/**/*.ts\" \"packages/*/src/**/*.{ts,tsx}\" \"packages/*/tests/**/*.{ts,tsx}\" \"packages/*/bench/**/*.ts\" \"packages/*/scripts/**/*.ts\" --max-warnings 0 --no-error-on-unmatched-pattern",
+    "lint": "eslint \"packages/*/src/**/*.{ts,tsx}\" \"packages/*/tests/**/*.{ts,tsx}\" \"packages/*/bench/**/*.ts\" \"packages/*/scripts/**/*.ts\" --max-warnings 0 --no-error-on-unmatched-pattern",
     "lint:fix": "npm run lint -- --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
-    "clean": "rimraf dist packages/core/dist packages/react/dist packages/async/dist packages/persist/dist packages/persist-memory/dist packages/persist-localstorage/dist packages/persist-idb/dist packages/persist-async-kv/dist packages/persist-json/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
+    "format": "prettier --write \"packages/core/src/**/*.ts\" \"packages/react/src/**/*.ts\"",
+    "clean": "rimraf packages/core/dist packages/react/dist packages/async/dist packages/persist/dist packages/persist-memory/dist packages/persist-localstorage/dist packages/persist-idb/dist packages/persist-async-kv/dist packages/persist-json/dist packages/snapshot-manager/dist packages/redux-adapter/dist",
     "docs:dev": "npm run start --workspace website",
     "docs:build": "npm run build --workspace website",
     "docs:serve": "npm run serve --workspace website",
@@ -85,6 +72,7 @@
     "publish:snapshot-manager": "npm publish --workspace @oimdb/snapshot-manager --access public",
     "publish:redux-adapter": "npm publish --workspace @oimdb/redux-adapter --access public",
     "publish:devtools": "npm publish --workspace @oimdb/devtools --access public",
+    "publish:cli": "npm publish --workspace @oimdb/cli --access public",
     "publish:mcp": "npm publish --workspace @oimdb/mcp --access public",
     "publish:bumped": "node scripts/publish-bumped.mjs",
     "publish:bumped:dry": "node scripts/publish-bumped.mjs --dry-run",
@@ -92,19 +80,10 @@
     "publish:all": "npm run publish:core && npm run publish:react && npm run publish:persist && npm run publish:persist-memory && npm run publish:persist-localstorage && npm run publish:persist-idb && npm run publish:persist-async-kv && npm run publish:persist-json && npm run publish:snapshot-manager && npm run publish:redux-adapter && npm run publish:devtools && npm run publish:mcp",
     "build:core-legacy": "cd packages/core-legacy && npm run build"
   },
-  "files": [
-    "dist"
-  ],
   "lint-staged": {
-    "{packages,src}/**/*.{ts,tsx}": [
-      "eslint --max-warnings 0"
-    ],
-    "tsup.config.ts": [
+    "packages/**/*.{ts,tsx}": [
       "eslint --max-warnings 0"
     ]
-  },
-  "dependencies": {
-    "@oimdb/core": "^2.0.0"
   },
   "author": "Andrei Baikov",
   "license": "MIT",

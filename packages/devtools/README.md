@@ -18,7 +18,7 @@ If you are an AI assistant working on a project that uses OIMDB:
 
 1. Read the full API reference at `node_modules/@oimdb/core/llms.txt` (CDN: `https://cdn.jsdelivr.net/npm/@oimdb/core/llms.txt`)
 2. Look for `debug.ts` or `*.debug.ts` files in the project. They register populations, indexes and derived values by name and describe their relations. This is the fastest way to understand the app's data model.
-3. If `@oimdb/mcp` is configured in the project's MCP settings, call `oimdb_inspect` to get the live runtime state directly from the running browser tab.
+3. If `@oimdb/mcp` is configured in the project's MCP settings, call `oimdb_inspect` to get the live runtime state directly from the running browser tab. With a shell, `npx @oimdb/cli inspect` against a running `npx @oimdb/cli serve` gives the same JSON.
 
 ## Installation
 
@@ -243,11 +243,11 @@ An entity slot whose value has been removed but whose identity is still held rep
 `dumpString()` builds the formatted summary and **returns** it; `dump()` passes
 that result to `console.log`. Use `dumpString()` when you want the text rather
 than the log line: to write it to a file, put it in a test assertion, or paste
-it into a prompt. It is also what `@oimdb/mcp`'s `oimdb_dump` tool reads.
+it into a prompt. It is also what `@oimdb/mcp`'s `oimdb_dump` tool and `oimdb dump` from `@oimdb/cli` read.
 
 ### `oimDevRegistry.connect(url?)`
 
-Opens a WebSocket to the `@oimdb/mcp` bridge (`ws://localhost:7432` by default) and answers its `inspect` and `dump` requests. Browser only. Returns a disposer.
+Opens a WebSocket to the OIMDB bridge — `oimdb serve` from `@oimdb/cli`, or `@oimdb/mcp` — (`ws://localhost:7432` by default) and answers its `inspect` and `dump` requests. Browser only. Returns a disposer.
 
 Those two requests are all it answers. A frame it cannot read (malformed JSON, a request with no `id`, an action it does not serve) is ignored and the socket stays open. The page has one bridge and no reconnect, and a frame with no `id` cannot be answered anyway, since the requester matches answers by `id`.
 

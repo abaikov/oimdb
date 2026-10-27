@@ -73,8 +73,8 @@ store.getState();
 ```
 
 `userService` is the collection service `createOIMSlotCollectionService` returns: its own doors read and
-mint slots (`getSlots`, `getSlotByKey`, `holdSlotByKey`), and every write goes through its
-`slotContentService` (`upsertEntities`, `updateEntity`, `deleteEntities`, …).
+mint slots (`getSlots`, `getSlotByKey`, `holdSlotByKey`) and write by key (`writeSlotContentByKey`); the slot
+writes go through its `slotContentService` (`updateEntity`, `clearSlotContent`, …).
 
 When no custom mapper is given, `createCollectionReducer` uses an RTK-Entity-Adapter-style default mapper
 (`entities` + `ids`). A collection mapper is `(entityService, entityStoreSlot, updatedKeys, currentState)`.
@@ -227,7 +227,7 @@ by default, thrown out of `flush()` under `OIMThrowAtOnceErrorPolicy`), Redux ke
 slice's previous value, and the change is **not** just late:
 `updatedKeys` is cleared before the linked-index block runs, so no later frame recovers it.
 A reducer with no `linkedIndexes` is unaffected, and the sync-back write paths
-(`slotContentService.upsertEntities`, `syncIndexEntities`) are not on the `OIMDB_UPDATE` path at all.
+(`writeSlotContentByKey`, `syncIndexEntities`) are not on the `OIMDB_UPDATE` path at all.
 `tests/what-a-dispatch-after-a-frame-is-allowed-to-write.test.ts` records the whole
 outcome. Do not configure `linkedIndexes` on a collection reducer
 whose channel is flushed by this adapter's middleware.

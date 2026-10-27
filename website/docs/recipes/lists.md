@@ -244,7 +244,7 @@ const inboxOrder = feedOrderService.computedCollectionService.holdSlotByKey(feed
 effectService.createEffectImmediate(db, [], [inboxOrder], () => render(inboxOrder.computedValueService.getValueForSlot(inboxOrder)));
 ```
 
-Why this way: `upsertEntities` hands back the slots it wrote, in the order of the
+Why this way: the `writeSlotContentByKey` loop hands back the slots it wrote, in the order of the
 response, so the list is built from identities without a second lookup by id.
 `writeSlotContent` is for a caller holding the whole answer: it works out arrivals and
 departures, and an unchanged list wakes nobody. `addBucketMemberSlots` is for a caller

@@ -154,10 +154,11 @@ const manifestOf = (directory: string): TManifest => {
  * Derived on purpose. A hard-coded list would go stale the moment somebody adds
  * a package, and the failure mode of a stale list here is silence: the new
  * package is the one that would have reached the registry, and it is the one the
- * test never looked at. The three exclusions each carry a reason:
+ * test never looked at. The exclusions each carry a reason:
  *
  *   `private: true`      never published, so no application installs it.
  *   `*-legacy`           superseded, kept for the differential suite.
+ *   `@oimdb/cli`         a Node command a developer runs, never code a browser ships.
  *   `@oimdb/mcp`         a Node process a developer runs, never code a browser
  *                        ships. It is also the ONE place in this repository that
  *                        names the registry — inside a string of setup advice it
@@ -173,7 +174,8 @@ const shippingPackages = (): readonly { directory: string; name: string }[] =>
             manifest.private !== true
             && manifest.name !== undefined
             && manifest.name !== DEVTOOLS
-            && manifest.name !== '@oimdb/mcp')
+            && manifest.name !== '@oimdb/mcp'
+            && manifest.name !== '@oimdb/cli')
         .map(({ directory, manifest }) => ({ directory, name: manifest.name as string }));
 
 describe('what a production bundle can reach', () => {

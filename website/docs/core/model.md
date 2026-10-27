@@ -267,9 +267,7 @@ arrived: the write did not happen and that identity is unwound, so a refused key
 is not filed. An unchanged write did happen and the content was already
 there: the door completed and the caller is handed the identity, and whether an
 identity nothing keeps is worth keeping is the owner's question, asked through
-`releaseSlotIfUnheld`. The bulk loads `insertEntities` and `fillEntities` do not hand out a
-reference: they return `void`, and on a key that is taken or named twice they throw and roll
-back only the entities that call filed.
+`releaseSlotIfUnheld`.
 
 ## A slot goes when nothing refers to it
 
@@ -395,7 +393,7 @@ yourself.
   throws it out of `flush()` and leaves the effects not yet reached for the next
   flush.
 
-The full rules, with subframes and the after-frame hooks, are in
+The full rules, with batches and the after-frame hooks, are in
 [The channel](/docs/core/channel#the-frame).
 
 ## Forks are strategies chosen at construction
@@ -435,7 +433,7 @@ over a `createOIMChannelSlot(…)`. See
 <DocCard to="/docs/core/collections" title="Collections and identities">Stores, keys, and the chain-of-identities key.</DocCard>
 <DocCard to="/docs/core/writing" title="Writing">The write API and the strategies in full.</DocCard>
 <DocCard to="/docs/core/reading-subscribing" title="Reading and subscribing">Effects and columns.</DocCard>
-<DocCard to="/docs/core/channel" title="The channel: frames and subframes">Channels and frame rules.</DocCard>
+<DocCard to="/docs/core/channel" title="The channel: frames and batches">Channels and frame rules.</DocCard>
 <DocCard to="/docs/core/indexes" title="Buckets">A bucket's slots written by hand, the bucket content services and positions.</DocCard>
 <DocCard to="/docs/core/oimindex" title="Indexes">The auto-index.</DocCard>
 <DocCard to="/docs/core/computed-effects" title="The compute graph">Computed slots, chains and effects.</DocCard>

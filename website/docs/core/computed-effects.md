@@ -533,7 +533,7 @@ last. Its slots are filed in a Map store unless the factory is given a `computed
 ## Where to next
 
 <DocCards>
-<DocCard to="/docs/core/channel" title="The channel: frames and subframes">The frame rules in full.</DocCard>
+<DocCard to="/docs/core/channel" title="The channel: frames and batches">The frame rules in full.</DocCard>
 <DocCard to="/docs/core/indexes" title="Buckets">Slot lists whose slots the caller states.</DocCard>
 <DocCard to="/docs/core/oimindex" title="Indexes">Buckets filled from a source collection by a key function.</DocCard>
 </DocCards>

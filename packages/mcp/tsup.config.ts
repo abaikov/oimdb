@@ -4,5 +4,5 @@ export default defineConfig({
     entry: ['src/index.ts'],
     format: ['esm', 'cjs'],
     dts: { resolve: false },
-    external: ['@modelcontextprotocol/sdk', 'ws', 'zod'],
+    external: ['@modelcontextprotocol/sdk', '@oimdb/cli', 'zod'],
 });

@@ -13,7 +13,7 @@ const VIRTUAL_DIR = join(ROOT, '.docs-examples');
 
 const filesUnder = (directory, keep) => readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
     const full = join(directory, entry.name);
-    if (entry.isDirectory()) return entry.name === 'node_modules' ? [] : filesUnder(full, keep);
+    if (entry.isDirectory()) return entry.name === 'node_modules' || entry.name.startsWith('.') ? [] : filesUnder(full, keep);
     return keep(entry.name) ? [full] : [];
 });
 

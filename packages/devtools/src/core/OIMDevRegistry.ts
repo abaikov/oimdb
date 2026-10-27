@@ -209,7 +209,7 @@ export class OIMDevRegistry implements IOIMStoreSlotListener {
         });
 
         ws.addEventListener('error', () => {
-            console.warn(`[OIMDB DevTools] Could not connect to MCP bridge at ${url}. Is @oimdb/mcp running?`);
+            console.warn(`[OIMDB DevTools] Could not connect to the OIMDB bridge at ${url}. Is "oimdb serve" (@oimdb/cli) or @oimdb/mcp running?`);
         });
 
         return () => ws.close();

@@ -2,7 +2,8 @@ import {
     OIMDB,
     OIMEffectService,
     createOIMSortedComputedService,
-    createOIMEntityService,
+    createOIMSlotCollectionService,
+    createOIMSlotContentEntityService,
     createOIMSlotCollectionIndexService,
     type TOIMEntitySlot,
     type TOIMStoreKey,
@@ -41,7 +42,7 @@ export class DemoEngine {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly taskService = createOIMEntityService<TTask>(this.db, { keyOf: (task) => task.id });
+    private readonly taskService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TTask>(this.db) });
 
     private readonly tasks = this.taskService.createStoreSlot(this.db);
 
@@ -77,7 +78,7 @@ export class DemoEngine {
 
     public constructor(private readonly onChange: (view: TDemoView) => void) {
         const seeded = TITLES.map((title, i): TTask => ({ id: `t${i}`, column: COLUMNS[i % 3], title, priority: i + 1 }));
-        for (const task of seeded) this.taskSlots.push(this.taskService.slotContentService.upsertEntity(this.tasks, task));
+        for (const task of seeded) this.taskSlots.push(this.taskService.writeSlotContentByKey(this.tasks, task.id, task));
         for (const column of COLUMNS) {
             const sortedSlot = this.tasksByPriorityService.computedCollectionService.holdSlotByKey(this.tasksByPriority, column);
             const effect = this.effectService.createEffectImmediate(this.db, [], [sortedSlot], () => {

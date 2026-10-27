@@ -105,20 +105,10 @@ db.flush();
 // hydrateRoot(document.getElementById('root')!, <App />);
 ```
 
-`insertEntities` fits both sides for the same reason: its precondition is the one
-an SSR fill meets. It refuses a key that already has an identity in the store slot, and a key
-named twice in the same load. An empty identity counts: a `getSlotByKey` read or a hold on a key
-mints one, and it makes the next `insertEntities` of that key refuse. On a refusal it rolls back
-the entities that call filed and nothing else. The whole load runs inside one
-subframe, so it is one frame's worth of writes rather than one per entity. Per key it still does
-a lookup and a store, the same two hash operations an `writeSlotContentByKey` does, so what it buys is the
-refusal, not fewer hashes. `fillEntities(storeSlot, keys, entities)` is the stricter companion: it
-also refuses when the store slot holds any identity at all. If anything may have read the store
-slot first (a cache seeded before the SSR blob arrives, a component that called `getSlotByKey`),
-use `upsertEntities`, which asks per entity and works in any state.
-
-Pick between `insertEntities` and `upsertEntities` by precondition: the first
-refuses a key that already has an identity, the second takes any state.
+A loop of `writeSlotContentByKey` inside one `writeInBatch` fits both sides: a new key gets an identity,
+and a key something already minted (a cache seeded before the SSR blob arrives, a component that called
+`getSlotByKey`) is brought to the value sent. Per key it does a lookup and a store, and an index on the
+collection hears the whole load once, when the batch closes.
 
 ## Restating a bucket's slots evicts, and that is the contract
 
@@ -203,6 +193,6 @@ server that *does* subscribe, keep that guarantee yourself or do not call it. Se
 
 <DocCards>
 <DocCard to="/docs/core/indexes" title="Buckets">Why a bucket's slots are stated separately.</DocCard>
-<DocCard to="/docs/core/writing" title="Writing">`insertEntities` and its precondition.</DocCard>
+<DocCard to="/docs/core/writing" title="Writing">A load as a loop in a batch.</DocCard>
 <DocCard to="/docs/getting-started/quick-start" title="Quick Start">Build a working program step by step.</DocCard>
 </DocCards>

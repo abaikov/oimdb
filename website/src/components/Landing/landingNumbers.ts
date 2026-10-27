@@ -50,7 +50,7 @@ export const HEADLINE_OPERATIONS: TOperation[] = [
     {
         pairId: 'upsert.insert-by-reference-vs-map-set',
         title: 'to insert',
-        ours: 'entityService.slotContentService.upsertEntity(storeSlot, entity)',
+        ours: 'entityService.writeSlotContentByKey(storeSlot, entity.id, entity)',
         handWritten: 'if (!map.get(id)) map.set(id, entity)',
         buys: 'The extra time registers the entity so a component can subscribe to it, and announces the insert at db.flush() to every list and component watching the collection.',
     },
@@ -60,7 +60,7 @@ export const OPERATIONS: TOperation[] = [
     {
         pairId: 'remove.vs-map-delete',
         title: 'to delete',
-        ours: 'entityService.slotContentService.deleteEntity(slot)',
+        ours: 'entityService.slotContentService.clearSlotContent(slot)',
         handWritten: 'map.delete(id)',
         buys: 'With a plain Map nothing tells the component, so it keeps showing the deleted object. Here it gets undefined at the next db.flush().',
     },

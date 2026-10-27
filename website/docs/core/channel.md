@@ -1,12 +1,12 @@
 ---
 sidebar_position: 5
-title: 'The channel: frames and subframes'
-description: How the channel slot stamps writes with its clock, which scheduler drives a flush, what one flush does in order, and how subframes and teardown work.
+title: 'The channel: frames and batches'
+description: How the channel slot stamps writes with its clock, which scheduler drives a flush, what one flush does in order, and how batches and teardown work.
 ---
 
 import FrameDemo from '@site/src/components/DocDemos/FrameDemo';
 
-# The channel: frames and subframes
+# The channel: frames and batches
 
 Every write goes through a channel slot. It stamps each write with its clock,
 schedules the effects of the slot that moved, and delivers them together in
@@ -217,7 +217,7 @@ and the refusal goes to the error policy. It is logged by default and thrown out
 
 ### Batches
 
-There are no subframes. A write is filed and delivered as it lands, and several writes are one
+A write is filed and delivered as it lands, and several writes are one
 delivery anyway: the frame runs each effect once, at the next `flush()`, however many writes touched its
 sources. What a batch changes is who hears the writes: `cardService.writeInBatch(cards, () => { … })` on a
 collection queues the writes on the store slot and hands an index on the collection the whole batch in one

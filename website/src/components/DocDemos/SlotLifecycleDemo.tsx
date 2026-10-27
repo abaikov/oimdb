@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import {
     OIMDB,
-    createOIMEntityService,
+    createOIMSlotCollectionService,
+    createOIMSlotContentEntityService,
     oimIsSlotEmpty,
     oimIsSlotReleased,
     type TOIMEntitySlot,
@@ -25,7 +26,7 @@ const KEY = 'ace';
 class LifecycleModel {
     private readonly db = new OIMDB();
 
-    private readonly cardService = createOIMEntityService<TCard>(this.db, { keyOf: (card) => card.id });
+    private readonly cardService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TCard>(this.db) });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 
@@ -60,15 +61,15 @@ class LifecycleModel {
 
     public write(): void {
         this.track(
-            this.cardService.slotContentService.upsertEntity(this.cards, { id: KEY, title: 'Ace' }),
-            'upsertEntity — the value keeps it under the default policy',
+            this.cardService.writeSlotContentByKey(this.cards, KEY, { id: KEY, title: 'Ace' }),
+            'writeSlotContentByKey — the value keeps it under the default policy',
         );
     }
 
     public remove(): void {
         const slot = this.cardService.findSlotByKey(this.cards, KEY);
-        if (slot !== undefined) this.cardService.slotContentService.deleteEntity(slot);
-        this.note('deleteEntity — the value leaves; the identity stays while something keeps it');
+        if (slot !== undefined) this.cardService.slotContentService.clearSlotContent(slot);
+        this.note('clearSlotContent — the value leaves; the identity stays while something keeps it');
     }
 
     public flush(): void {
@@ -123,8 +124,8 @@ export default function SlotLifecycleDemo(): ReactNode {
                 <button type="button" onClick={() => model?.get()}>getSlotByKey</button>
                 <button type="button" onClick={() => model?.hold()}>holdSlotByKey</button>
                 <button type="button" onClick={() => model?.unhold()}>unholdSlot</button>
-                <button type="button" onClick={() => model?.write()}>upsertEntity</button>
-                <button type="button" onClick={() => model?.remove()}>deleteEntity</button>
+                <button type="button" onClick={() => model?.write()}>writeSlotContentByKey</button>
+                <button type="button" onClick={() => model?.remove()}>clearSlotContent</button>
                 <button type="button" className={styles.primary} onClick={() => model?.flush()}>flush()</button>
             </div>
             <div className={styles.facts}>

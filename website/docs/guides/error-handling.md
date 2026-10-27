@@ -120,19 +120,11 @@ whatever context the scheduler runs in.
 **Code that keeps derived state is outside the policy.** An index's `keyOf` and
 an emptiness check maintain what other reads depend on; letting the
 operation carry on past them would leave an index that disagrees with its source.
-A throw there is thrown at the call in either mode. For an entity that did not exist
-before the write, the write is withdrawn first: every index that already filed the
-entity lets it go, the entity is not filed, and only then does the throw leave `writeSlotContentByKey`.
-An update of an entity that already exists, and a batch (`upsertEntities`), are **not** rolled back: undoing them
-would mean copying every entity before every write, a cost paid on every write for a failure that should not
-happen. The throw still reaches the caller. The indexes that ran before the one that threw have
-already moved the entity, and it stays that way until the entity is written again. The bulk loads
-`insertEntities` and `fillEntities` release the slots that call filed and nothing holds.
-
-**A subframe-close listener is not under the policy either.** The store slots listed with
-`listChangedStoreSlot` are drained by the `closeSubframe` that ends the outermost subframe. Every entry runs even
-when one before it throws, the frame the subframe owed is still asked for, and then the first throw leaves
-`closeSubframe` to whoever opened the subframe.
+A throw there is thrown at the call in either mode. **No write is rolled back:** the slot is filed
+first and the index is told after, so when an index throws, the write stays and the throw reaches the
+caller. The indexes that ran before the one that threw have already moved the entity, and it stays that
+way until the entity is written again. The same holds for a batch: the writes that landed stay, and the
+throw leaves `closeBatch`.
 
 ## Errors from derivations
 
@@ -185,11 +177,6 @@ released again before the throw leaves the call, unless something already holds 
 whatever the write said about the content. Whether an identity nothing keeps is
 worth keeping is the owner's question, asked through `releaseSlotIfUnheld`.
 
-`insertEntities` and `fillEntities(storeSlot, keys, entities)` are the companions and do not carry
-that rule, because they return `void` and hand out no reference at all. On a key that is taken or named twice
-they throw and roll back only the entities that call filed; on a throw from `keyOf` or a writer they release the
-slots that call filed and nothing holds.
-
 When a computed slot is minted, a `createSources` that throws leaves nothing held. A source that
 cannot be held, for example one already released, throws part-way through, and the holds already
 taken on the sources before it are never given back. Keep `createSources` total, and pass only
@@ -224,9 +211,6 @@ instance between bucket collections is allowed.
 
 ## Write-time refusals
 
-- **`fillEntities` on a non-empty entity store slot.** It files every key it is given, and refuses outright when
-  the store slot already holds anything. Use `upsertEntities`, which asks per entity, or `insertEntities`, which
-  checks each key.
 - **There is no `writeSlotContent` / `clearSlotContent` on an index.** An index files entities
   automatically on write, using its `keyOf`; its `slotContentService` is typed to the reads only. If you need
   manual control over a bucket's slots, use a bucket collection (`createOIMSlotCollectionService`) instead.

@@ -31,9 +31,8 @@ declare function fetchMessages(chatId: string): Promise<readonly Message[]>;
 
 ## Load an API response into an entity store slot
 
-Take: `upsertEntities(storeSlot, entities)` for any response; `insertEntities(storeSlot, entities)` for a bulk
-load of keys the store slot does not hold yet. Do not loop over `writeSlotContentByKey` yourself: the batch form tells
-indexes once for the whole batch.
+Take: a loop of `writeSlotContentByKey(storeSlot, key, entity)` inside `writeInBatch(storeSlot, …)` for any
+response: the batch tells indexes once for the whole response.
 
 ```ts
 async function loadChat(chatId: string): Promise<void> {
@@ -54,19 +53,14 @@ userService.writeInBatch(seeded, () => ([
 ]).map(entity => userService.writeSlotContentByKey(seeded, entity.id, entity)));
 ```
 
-Why this way: `upsertEntities` opens one subframe around the whole batch, so no
-frame (the delivery of every write since the previous one; see the
-[glossary](/docs/core/model#glossary)) can close halfway through it, and each content-change listener (an index) is
-called once with every slot of the batch. It returns the slot of every entity in
-input order, so the result can go straight into a bucket. The optional array
-collects only the slots whose content actually changed — re-sent, unchanged
-entities wake nobody and are not in it. `insertEntities` refuses a key that is already filed or named twice,
-and rolls back only what that call filed, because "these keys are new, trust me" on a key that already had an
-identity would mint a second identity and strand every subscriber of the first.
+Why this way: each content-change listener (an index) is called once with every slot of the batch, when
+the batch closes. `writeInBatch` returns what its function returns — here the slot of every entity in
+input order, so the result can go straight into a bucket. The optional array collects only the slots whose
+content actually changed — re-sent, unchanged entities wake nobody and are not in it.
 
 Reference: [Writing — the writes](/docs/core/writing#the-writes),
 [Which entities actually changed](/docs/core/writing#which-entities-actually-changed),
-[The bulk loads check their precondition](/docs/core/writing#the-bulk-loads-check-their-precondition-rather-than-declaring-it).
+[A load is a loop in a batch](/docs/core/writing#a-load-is-a-loop-in-a-batch).
 
 ## Update part of an entity, replace it whole, or drop a column
 
@@ -103,7 +97,7 @@ Reference: [Writing — which write to take](/docs/core/writing#which-door-to-ta
 
 ## Delete an entity, and what happens to its subscribers
 
-Take: `clearSlotContent(slot)` on the slot, `deleteEntities(storeSlot, slots)` for many. There is no call that
+Take: `clearSlotContent(slot)` on the slot, a loop of it inside `writeInBatch` for many. There is no call that
 destroys an identity: a delete takes the value away, and the slot goes only when
 nothing refers to it.
 

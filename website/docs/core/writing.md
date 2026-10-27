@@ -43,27 +43,24 @@ a store slot too, so it always reports.
 
 ## The writes
 
-Every write door is on the content service. A door that works on a whole collection takes its store
-slot first; a door that works on one slot you hold takes only the slot, because the slot carries the
-store slot it is filed in. There are no by-key write doors: a key that arrives from outside is resolved
-with `cardService.getSlotByKey(cards, key)` (or `findSlotByKey`, which mints nothing) and written through.
+The by-key write is on the collection service; every other write door is on its content service and
+takes the slot you hold, because the slot carries the store slot it is filed in. A key that arrives
+from outside is resolved with `cardService.getSlotByKey(cards, key)` (or `findSlotByKey`, which mints
+nothing) and written through.
 
 | Call | What it does |
 |---|---|
-| `writeSlotContentByKey(storeSlot, entity, changed?)` | Write a whole value under `keyOf(entity)`. A key with no value gets one and every column counts as new; a key that has one is brought to the value given — columns that moved are written, columns the new value does not carry are taken away. The slot always comes back, whatever the write changed. |
-| `writeSlotContentByKey(storeSlot, key, entity, changed?)` | The same under a key you name. `writeSlotContentByKey` is `writeSlotContentByKey(storeSlot, keyOf(entity), …)`. |
-| `upsertEntities(storeSlot, entities, changed?)` | The loop. Returns the slot of every entity, in input order, whether or not its write changed anything — so `bucketService.slotContentService.writeSlotContent(bucketSlot, cardContentService.upsertEntities(cards, payload))` files every entity. |
-| `insertEntities(storeSlot, entities)` | A bulk load of new keys. No `changed`: a bulk load changes every entity. |
-| `fillEntities(storeSlot, keys, entities)` | The same under keys you name, into an empty collection only. |
+| `cardService.writeSlotContentByKey(storeSlot, key, entity, changed?)` | Write a whole value under the key you name. A key with no value gets one and every column counts as new; a key that has one is brought to the value given — columns that moved are written, columns the new value does not carry are taken away. The slot always comes back, whatever the write changed. |
 | `updateEntity(slot, patch)` | Patch through an identity you hold. The columns named move, the ones not named stay. Returns the slot. |
 | `updateEntityColumn(slot, columnName, value)` | One column through an identity you hold, with no patch object to build and walk. Returns the slot. |
 | `writeSlotContent(slot, entity)` | A whole value onto a slot you hold (PUT). Answers whether the content landed. |
 | `clearSlotContent(slot)` | The value leaves; the identity stays for as long as anything still refers to it. |
-| `deleteEntities(storeSlot, slots)` | The batch form. |
-| `clearAllEntities(storeSlot)` | Every value out. Identities something still holds survive without one. |
 | `deleteEntityColumns(slot, names)` | Take named columns away from an identity you hold. Returns the slot. |
 | `markEntityChanged(slot, changedColumns?)` | Report a change you made to `slot.entity` yourself. |
-| `findSlotByKey(storeSlot, key)?.entity` | Not a write: the entity or `undefined`, minting nothing. |
+| `cardService.findSlotByKey(storeSlot, key)?.entity` | Not a write: the entity or `undefined`, minting nothing. |
+
+There are no bulk writes: many entities are a loop of these, inside `cardService.writeInBatch(cards, () => …)`
+when an index on the collection should hear them at once.
 
 `deleteEntityColumns` is a slot door, so it takes a column away from a slot of a collection
 as it does from a [standalone record](#writing-a-standalone-record). A column also leaves
@@ -88,10 +85,10 @@ door's checks first, so during a flush it is refused like any other write.
 There is no `updateEntityByKey`: resolve a key once when it arrives from outside, and keep the slot.
 The write that returned the slot already paid for the lookup.
 
-The batch forms (`upsertEntities`, `insertEntities`, `fillEntities`, `deleteEntities`,
-`clearAllEntities`) are for many entities at once. No frame can close in the middle of a batch, and an
-index over the collection is told once, with every slot of the batch. An index is current as soon as
-the door returns.
+A batch (`openBatch` / `closeBatch`, or `writeInBatch`) is for many writes at once: an index over the
+collection is told once, with every slot of the batch, when the outermost batch closes. Code inside the
+batch reads the index as it was before the batch. A flush inside a batch is allowed; the index catches up
+when the batch closes.
 
 ### What a write wakes
 
@@ -161,7 +158,7 @@ release policy.
 An `writeSlotContentByKey` onto a slot that holds an entity your `slotEmptinessPolicy` calls empty (a soft delete)
 is still a PUT onto that entity, not a fresh fill: only the columns that moved wake.
 
-### The bulk loads check their precondition rather than declaring it
+### A load is a loop in a batch
 
 ```ts
 const freshCards = cardService.createStoreSlot(db);
@@ -171,26 +168,10 @@ cardService.writeInBatch(freshCards, () => ([
 ]).map(entity => cardService.writeSlotContentByKey(freshCards, entity.id, entity)));
 ```
 
-`insertEntities` is a bulk load with the keys taken from `keyOf`; `fillEntities(storeSlot, keys, entities)`
-takes them from you, in step with the entities. What they buy over `upsertEntities` is one
-content subframe for the whole load and a load that is all or nothing as far as keys go. They do not
-save a store lookup: each key is still looked up once, to catch a key that is taken or named twice, and
-set once.
-
-Trusting, per entity, that "these keys are new" would strand subscribers. A key that did have an
-identity silently gets a second one, and every effect on the first is left on a slot nothing writes to
-again. So on a key that is taken or named twice, both throw and roll back only the entities that call
-filed; what was in the collection before stays:
-
-```
-OIMSlotContentEntityService.fillEntities: the pairs name one key more than once. …
-The collection is left as fillEntities found it.
-```
-
-`fillEntities` additionally requires an empty collection, which is checked once, in constant time, and
-throws on lists of different lengths.
-
-They do not save the two allocations an entity costs: the slot and, under a copying strategy, the copy.
+Each `writeSlotContentByKey` looks its key up once: a new key gets a new identity, a key named twice is
+written twice into the same identity. The batch only changes who hears the writes: an index on the
+collection gets them in one `onContentChangedMany` when the batch closes. If an index throws, the writes
+that landed stay.
 
 ### The store keeps the object you insert
 
@@ -265,7 +246,7 @@ neither is true. So the convenient overload brings back the per-column walk this
 to avoid.
 
 An empty list wakes nothing at all, neither the columns nor the slot. `[]` is the caller saying nothing moved, so
-`markEntityChanged` returns before it opens the subframe. The flush check runs
+`markEntityChanged` returns before it writes anything. The flush check runs
 before that return, so even `[]` is refused during a flush.
 
 Both of the reporting forms write the entity slot too, so an effect on the slot
@@ -312,14 +293,14 @@ object, so they cannot disagree.
 
 ```ts signature
 interface IOIMEntityWriter {
-    readonly fillEntity: (slot: TOIMEntitySlot, entity: object) => void;
-    readonly putEntity: (slot: TOIMEntitySlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
-    readonly patchEntity: (slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly fillEntity: (slot: TOIMEntityContentSlot, entity: object) => void;
+    readonly putEntity: (slot: TOIMEntityContentSlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly patchEntity: (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
     readonly patchColumn: (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ) => boolean;
-    readonly deleteColumns: (slot: TOIMEntitySlot, names: readonly string[]) => readonly string[];
-    readonly clearEntity: (slot: TOIMEntitySlot) => void;
+    readonly deleteColumns: (slot: TOIMEntityContentSlot, names: readonly string[]) => readonly string[];
+    readonly clearEntity: (slot: TOIMEntityContentSlot) => void;
 }
 
 createOIMEntityWriterInPlace(options?)   // the stored object keeps its identity
@@ -508,10 +489,9 @@ microtask or a later callback, or use `OIMChannelService.INSTANCE.subscribeAfter
 whose handlers run after the flush and may write. See
 [The channel](/docs/core/channel#the-rules).
 
-To group several writes so no frame closes between them, bracket them with
-`OIMChannelService.INSTANCE.openSubframe(channelSlot)` and `closeSubframe(channelSlot)`.
-`flush()` throws while a subframe is open, and that includes a `flush()` called from your
-own code running inside a write: an index's `keyOf`, `slotEmptinessPolicy.isEmpty`, a writer.
+With a scheduler on the channel, a frame may run between two writes. With none, the frame runs when you
+call `flush()`, so writes made before it land in one frame. To have an index hear several writes at once,
+put them in `cardService.writeInBatch(cards, () => …)`; a flush inside a batch is allowed.
 
 ## Where to next
 

@@ -9,7 +9,7 @@ import SlotLifecycleDemo from '@site/src/components/DocDemos/SlotLifecycleDemo';
 # Slot lifecycle
 
 This page covers when an identity is created, what keeps it, and when it goes. When a write is
-delivered (frames and subframes) is the channel's business and is covered in
+delivered (frames and batches) is the channel's business and is covered in
 [The channel](/docs/core/channel#the-frame).
 
 <InShort>
@@ -131,9 +131,9 @@ try {
 }
 ```
 
-`clearSlotContent` / `deleteEntities` are not a release: they take the **value** away
+`clearSlotContent` is not a release: they take the **value** away
 and leave the identity standing for as long as something keeps it. A subscriber of a
-deleted entity is still subscribed, and a later upsert under the same key lands on the
+deleted entity is still subscribed, and a later `writeSlotContentByKey` under the same key lands on the
 same slot.
 
 ## Releasing an identity on a clock — opt-in, and off it costs nothing
@@ -351,7 +351,7 @@ entity in it whatever the entities' own age.
 ## Where to next
 
 <DocCards>
-<DocCard to="/docs/core/channel#the-frame" title="The channel: the frame">When a write is delivered: frames, the clock and subframes.</DocCard>
+<DocCard to="/docs/core/channel#the-frame" title="The channel: the frame">When a write is delivered: frames, the clock and batches.</DocCard>
 <DocCard to="/docs/core/model" title="The model">The four doors and the terms.</DocCard>
 <DocCard to="/docs/core/writing" title="Writing">Which door to take and what a write wakes.</DocCard>
 <DocCard to="/docs/core/computed-effects" title="The compute graph">Why a computed is pulled.</DocCard>

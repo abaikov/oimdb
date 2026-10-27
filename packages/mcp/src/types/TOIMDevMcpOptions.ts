@@ -1,4 +1,4 @@
-import type { IOIMDevRegistry } from '../interfaces/IOIMDevRegistry';
+import type { IOIMDevRegistry } from '@oimdb/cli';
 
 export type TOIMDevMcpOptions = {
     /** Default 7432; unused when `registry` is given — no bridge is started. */

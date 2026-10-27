@@ -4,7 +4,8 @@ import {
     OIMChannelService,
     OIMDB,
     OIMEffectService,
-    createOIMEntityService,
+    createOIMSlotCollectionService,
+    createOIMSlotContentEntityService,
     type TOIMEntitySlot,
     type TOIMStoreKey,
 } from '@oimdb/core';
@@ -23,7 +24,7 @@ class FrameModel {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly cardService = createOIMEntityService<TCard>(this.db, { keyOf: (card) => card.id });
+    private readonly cardService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TCard>(this.db) });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 
@@ -40,7 +41,7 @@ class FrameModel {
     private readonly disposers: (() => void)[] = [];
 
     public constructor(private readonly onChange: (view: TView) => void) {
-        this.slots = IDS.map((id) => this.cardService.slotContentService.upsertEntity(this.cards, { id, title: id.toUpperCase() }));
+        this.slots = IDS.map((id) => this.cardService.writeSlotContentByKey(this.cards, id, { id, title: id.toUpperCase() }));
         for (const slot of this.slots) {
             const effect = this.effectService.createEffect(this.db, [slot], [], () => {
                 const id = slot.entity?.id ?? '';

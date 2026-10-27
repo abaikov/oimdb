@@ -25,7 +25,7 @@ export class OIMDevUIServer {
             host: this.host,
             allowedOrigins: this.allowedOrigins,
             logPrefix: '[OIMDB DevTools]',
-            portInUseHint: 'npx @oimdb/mcp devtools',
+            portInUseHint: 'npx @oimdb/cli serve',
             requestTimeoutMessage: 'timeout',
         });
     }
@@ -86,6 +86,19 @@ export class OIMDevUIServer {
                 return;
             }
 
+            if (url.split('?', 1)[0] === '/api/dump') {
+                this.requestBrowser('dump')
+                    .then((data) => {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ connected: this.bridge.connectedBrowser !== null, data }));
+                    })
+                    .catch(() => {
+                        res.writeHead(200, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ connected: false, data: null }));
+                    });
+                return;
+            }
+
             const asset = this.devUIAssetCatalog.resolve(url);
             if (asset === null) {
                 res.writeHead(404);
@@ -105,7 +118,7 @@ export class OIMDevUIServer {
             if (err.code === 'EADDRINUSE') {
                 process.stderr.write(
                     `[OIMDB DevTools] UI port ${this.uiPort} is already in use.\n` +
-                    `Set a different port: OIMDB_UI_PORT=7434 npx @oimdb/mcp devtools\n`
+                    `Set a different port: OIMDB_UI_PORT=7434 npx @oimdb/cli serve\n`
                 );
                 process.exit(1);
             }

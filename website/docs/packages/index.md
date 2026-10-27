@@ -28,7 +28,8 @@ One engine, `@oimdb/core`, and integrations built on it.
 | fill the store on the server and hand it to the client | `@oimdb/core` alone | [Server-side rendering](/docs/guides/ssr) |
 | decide when frames are delivered from an orchestrator | `@oimdb/core` alone, with cnstra calling `flush()` | [Delivery with cnstra](/docs/guides/with-cnstra) |
 | name collections and inspect them while debugging | `@oimdb/devtools` | [below](#oimdbdevtools) |
-| let an AI assistant read live browser state | `@oimdb/mcp` | its [README](https://github.com/abaikov/oimdb/blob/master/packages/mcp/README.md) |
+| read live browser state from a shell (you or an AI assistant with a terminal) | `@oimdb/cli` | its [README](https://github.com/abaikov/oimdb/blob/master/packages/cli/README.md) |
+| let an AI assistant without a shell read live browser state | `@oimdb/mcp` | its [README](https://github.com/abaikov/oimdb/blob/master/packages/mcp/README.md) |
 | load data asynchronously | nothing extra: `await` the I/O, then write | [Stubs](#stubs) |
 | read which entities changed since you last asked | nothing extra: an effect, a content-change listener, or `@oimdb/persist` | [Snapshot Manager](/docs/packages/snapshot-manager) |
 
@@ -42,13 +43,13 @@ registrations in `*.debug.ts` files next to the collections they describe, impor
 `debug.ts` that only your debug entry point imports, and call `oimInitDevtools()` at startup; a
 production build then contains none of it. Its
 [README](https://github.com/abaikov/oimdb/blob/master/packages/devtools/README.md) has the full
-API. `@oimdb/mcp` reads the same registry.
+API. `@oimdb/cli` and `@oimdb/mcp` read the same registry.
 
 ## Stubs
 
 - **`@oimdb/async`** is deprecated and exports nothing. Do the waiting outside the store: `await`
   your network or IndexedDB read, then write the result with
-  `collectionService.slotContentService.upsertEntities(entityStoreSlot, ...)`. A pending request is
+  `collectionService.writeSlotContentByKey(entityStoreSlot, key, entity)`. A pending request is
   ordinary state, an entity or a bucket you write when the request starts and again when it settles.
   [Delivery with cnstra](/docs/guides/with-cnstra) shows the loading-then-data sequence written that way.
 - **`@oimdb/snapshot-manager`** exports nothing either. [Snapshot Manager](/docs/packages/snapshot-manager)

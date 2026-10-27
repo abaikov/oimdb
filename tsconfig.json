@@ -20,9 +20,6 @@
     "sourceMap": true,
     "downlevelIteration": true
   },
-  "include": [
-    "src/**/*"
-  ],
   "exclude": [
     "node_modules",
     "dist",

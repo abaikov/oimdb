@@ -183,10 +183,8 @@ effectService.disposeEffect(jackEffect);
 
 Why this way: a frame is one delivery — every effect whose sources moved runs
 once, however many writes touched them. Above, two updates and one flush run the body once.
-A subframe is a counter for one logical change: while it is open the frame cannot
-close — a frame asked for is owed by the `closeSubframe` that brings the count to
-zero, and `flush()` inside it throws. Batch writes such as `upsertEntities` open a
-subframe of their own.
+A batch (`writeInBatch` on a collection) does not hold the frame back: it changes only when an index
+on the collection hears the writes — once, when the batch closes.
 
 Reference: [The frame](/docs/core/channel#the-frame),
 [Batches](/docs/core/channel#batches).

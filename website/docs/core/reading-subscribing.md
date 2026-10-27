@@ -392,7 +392,7 @@ reference does move on every write, which is the whole reason that strategy ship
 ## Where to next
 
 <DocCards>
-<DocCard to="/docs/core/channel" title="The channel: frames and subframes">Stamps writes with its clock and drives a flush.</DocCard>
+<DocCard to="/docs/core/channel" title="The channel: frames and batches">Stamps writes with its clock and drives a flush.</DocCard>
 <DocCard to="/docs/core/lifecycle" title="Slot lifecycle">How a slot is minted, kept and released.</DocCard>
 <DocCard to="/docs/core/computed-effects" title="The compute graph">How computeds are pulled and effects are woken.</DocCard>
 <DocCard to="/docs/core/indexes" title="Buckets">Slot lists whose slots the caller states.</DocCard>

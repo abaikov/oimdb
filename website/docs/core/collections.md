@@ -124,14 +124,13 @@ cardService.isSameKey(key, otherKey)                     // what the store means
 slot.owner.unholdSlot(slot)                              // give one hold back; the owner then asks whether it may go
 ```
 
-The writes are the content service's, `cardService.slotContentService`:
+The by-key write is the collection's; the slot writes are the content service's, `cardService.slotContentService`:
 
 ```typescript signature
+cardService.writeSlotContentByKey(cards, key, entity, changed?)  // mints if there is none; always returns the slot
+cardService.findSlotByKey(cards, key)?.entity                    // the entity or undefined; never mints
 const cardContentService = cardService.slotContentService;
-cardContentService.upsertEntity(cards, entity, changed?)      // mints if there is none; always returns the slot
-cardContentService.insertEntity(cards, pk, entity, changed?)  // the same under a key you name
-cardContentService.findEntityByKey(cards, key)                // the entity or undefined; never mints
-cardContentService.updateEntity(slot, patch)                  // a door handed a slot takes no store slot
+cardContentService.updateEntity(slot, patch)                     // a door handed a slot takes no store slot
 ```
 
 A door that works on one slot it is handed (`updateEntity`, `writeSlotContent`,
@@ -531,7 +530,7 @@ reader is the consumer's to say, not the entity collection's.
 <DocCards>
 <DocCard to="/docs/core/writing" title="Writing">Every write and both writers.</DocCard>
 <DocCard to="/docs/core/reading-subscribing" title="Reading and subscribing">Effects and columns.</DocCard>
-<DocCard to="/docs/core/channel" title="The channel: frames and subframes">How frames deliver writes.</DocCard>
+<DocCard to="/docs/core/channel" title="The channel: frames and batches">How frames deliver writes.</DocCard>
 <DocCard to="/docs/core/indexes" title="Buckets">Slot lists you compose.</DocCard>
 <DocCard to="/docs/core/oimindex" title="Indexes">A slot list that fills itself.</DocCard>
 <DocCard to="/docs/core/object" title="Standalone records">The single entity, the keyless half of the pair.</DocCard>

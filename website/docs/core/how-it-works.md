@@ -79,12 +79,10 @@ own last run.
   once.
 - **Why a clock and not a set of changed slots:** "did this move since…?" becomes a
   comparison of two numbers stored on the slot.
-- **Why subframes:** a write runs user code (a `keyOf`, a listener) while it is
-  still landing. A frame closed from there would deliver a half-applied write, so a
-  frame cannot close while a subframe is open, and a batch is one subframe whose
-  per-bucket work runs once at its close.
+- **Why batches:** an index on a collection would otherwise be told once per write. A batch
+  queues the writes on the store slot and tells the index once, with all of them, when it closes.
 
-[The channel: frames and subframes](/docs/core/channel)
+[The channel: frames and batches](/docs/core/channel)
 
 ## Membership is pushed; order and derived values are pulled
 

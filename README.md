@@ -51,6 +51,7 @@ OIMEffectService.INSTANCE.disposeEffect(watching);
 | [@oimdb/persist](packages/persist/README.md) | Persistence, with memory, localStorage, IndexedDB, async KV and JSON backends |
 | [@oimdb/exodra](packages/exodra/README.md) | Exodra bridge |
 | [@oimdb/devtools](packages/devtools/README.md) | Debug registry |
+| [@oimdb/cli](packages/cli/README.md) | Command line: inspect a live page, a model module or Chrome over CDP; the DevTools UI |
 | [@oimdb/mcp](packages/mcp/README.md) | MCP server for assistants |
 
 ## Documentation

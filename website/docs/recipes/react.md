@@ -159,7 +159,7 @@ item, and `memo` keeps the others from re-rendering with the list. The hook owns
 the bucket's lifetime — it resolves with `holdSlotByKey` on commit, never in a
 render, and gives the count back on unmount and on every key change — and the
 key may be built inline. What fills the bucket is your write, here
-`writeSlotContent` with the slots `upsertEntities` returns; a bucket never sorts
+`writeSlotContent` with the slots the `writeSlotContentByKey` loop returns; a bucket never sorts
 and never fills itself.
 
 **Reference:** [React — `useOIMBucketSlotsByKey`](/docs/packages/react#useoimbucketslotsbykey--one-bucket-by-key),

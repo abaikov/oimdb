@@ -187,8 +187,8 @@ Reference: [Asked to go — the release policy answers](/docs/core/lifecycle#ask
 
 Take: `OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot)`, then drop every reference to that
 `OIMDB`, its services, their store slots and their slots, and build a new `OIMDB` for the next
-session. Do not call `deleteEntities` or `clearAllEntities` over every
-store slot: those take values away one by one and leave every identity something keeps.
+session. Do not call `clearSlotContent` over every
+slot: it takes values away one by one and leaves every identity something keeps.
 
 ```ts
 

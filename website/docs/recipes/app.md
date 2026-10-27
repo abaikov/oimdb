@@ -145,8 +145,7 @@ entity, and `OIMPersistRecordsResource` writes only the entities that changed
 since the last write batch: one put or one delete per changed key, in one
 transaction. The change-driven source also persists an in-place edit announced
 with `markEntityChanged`; the price is that, while the resource listens, every
-write to `offlineCardEntityStoreSlot` leaves the core fast path (one subframe
-opened and closed, the changed-column bookkeeping and the content-change listener
+write to `offlineCardEntityStoreSlot` leaves the core fast path (the changed-column bookkeeping and the content-change listener
 loop per write). Where every change goes through the upsert, update and delete
 doors, `OIMPersistCollectionWriteRecordSource` takes the same options and
 skips that cost. An object store that does not exist yet is created on write by
@@ -163,7 +162,7 @@ Reference: [Persist — Records: per-key deltas](/docs/packages/persist#records-
 
 ## Render on the server and hydrate on the client
 
-Take: on the server, a fresh `OIMDB` per request, `insertEntities` for the
+Take: on the server, a fresh `OIMDB` per request, `writeSlotContentByKey` in one `writeInBatch` for the
 content and `writeSlotContent` for each bucket's list, then serialize both; on the
 client, the same services and store slots and the same two writes before the first render.
 A persistor is unnecessary unless the application already registers its store slots
@@ -204,9 +203,8 @@ hydrateApp();
 
 Why this way: two things cross the wire, the entities and which slots are
 in which bucket, because a bucket's list is a fact about the response and no
-column can express it. `insertEntities` fits both sides because its precondition
-is the one an SSR fill meets: its keys are new, and the whole load is one subframe. A client that may
-already hold some of those keys takes `upsertEntities` instead. `writeSlotContent` states the whole list,
+column can express it. The same `writeSlotContentByKey` loop fits both sides: a new key gets an identity,
+a key the client already holds is brought to the value sent. `writeSlotContent` states the whole list,
 so restating it evicts what the snapshot does not name. The hold keeps a bucket filed even when
 it is empty, and `dropChannelSlot` ends a per-request channel that
 nothing subscribes to without walking a slot; it does not check that
@@ -259,10 +257,8 @@ Reference: [Writing — The writes](/docs/core/writing#the-writes),
 
 ## Apply a server push or a websocket patch
 
-Take: `upsertEntities` for whole entities and `deleteEntities` for removals,
-which are batch writes, and `updateEntity` for a patch, which writes one entity,
-all inside one `openSubframe` / `closeSubframe` pair on the channel slot. A loop of
-`writeSlotContentByKey` for a patch message would take away every column the patch does not
+Take: `writeSlotContentByKey` for whole entities and `clearSlotContent` for removals, and `updateEntity`
+for a patch, all inside one `writeInBatch` on the store slot. `writeSlotContentByKey` for a patch message would take away every column the patch does not
 carry, because a whole-value write replaces the entity.
 
 ```ts

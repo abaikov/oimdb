@@ -7,7 +7,7 @@ export default function IndexDiagram(): ReactNode {
   return (
     <figure className={styles.diagram}>
       <div className={styles.flow}>
-        <DiagramNode title="Entity collection" note={<><code>upsertEntity</code>, <code>updateEntity</code>, <code>deleteEntityByKey</code></>} />
+        <DiagramNode title="Entity collection" note={<><code>writeSlotContentByKey</code>, <code>updateEntity</code>, <code>clearSlotContent</code></>} />
         <DiagramArrow />
         <DiagramNode tone="accent" title="Index" note={<><code>keyOf</code> or <code>columns</code> gives each entity its key; a write that moves the key refiles it</>} />
         <DiagramArrow />

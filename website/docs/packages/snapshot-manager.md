@@ -52,7 +52,7 @@ const cards = cardService.createStoreSlot(db);
 
 A content-change listener is told synchronously, at the write, about every slot
 whose content moved. It hears once per write through `onContentChanged`, or once
-per batch (`upsertEntities`, `insertEntities`, `deleteEntities`, …) through
+per batch (`writeInBatch`, `openBatch` / `closeBatch`) through
 `onContentChangedMany`. `OIMChannelService.INSTANCE.subscribeAfterEachFrame(channelSlot, handler)` gives you the
 boundary. The set below is yours, so clearing it after reading takes nothing
 away from anybody else:

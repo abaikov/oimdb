@@ -82,9 +82,8 @@ A collection type is:
 
 The doors follow from that. A door that works on a whole collection takes the
 store slot first: `getSlotByKey(storeSlot, key)`, `holdSlotByKey`, `findSlotByKey`, `hasSlotContentByKey`,
-`getSlots`, `getSlotCount` on the collection service; `writeSlotContentByKey`, `writeSlotContentByKey`, `insertEntities`,
-`fillEntities`, `clearAllEntities`, `deleteEntities` on the entity content service. A door that works on one
-slot takes only the slot, since the slot names its store slot: the content writes (`updateEntity`,
+`getSlots`, `getSlotCount`, `writeSlotContentByKey`, `writeInBatch` on the collection service. A door that
+works on one slot takes only the slot, since the slot names its store slot: the content writes (`updateEntity`,
 `addBucketMemberSlots`, …) and `slot.owner.releaseSlotIfUnheld(slot)`.
 
 A single is the same content service with the key type `void`, built over
@@ -154,18 +153,18 @@ that, so code that writes a field has to name itself.
 | `TOIMKeyedSlot` | `key` |
 | `TOIMIndexableSlot` | keyed, plus `indexKeys`, the engine's per-index cells |
 | `TOIMEntitySlot` | indexable, plus `entity` and `data` (the consumer's; clearing or removing the slot does not reset it) |
-| `TOIMBucketSlot` | indexable, plus `bucketSlotsStore` (the members); `commands` and `isWholeListRecorded` (this frame's render script); `commandsStartedAtRevision` and `commandsStartedAtEpoch` (the clock the script started at, so a script older than the frame is cleared before anything is recorded into it); `wasEmptyBeforeChange` and `isChangedAgainInSubframe` |
+| `TOIMBucketSlot` | indexable, plus `bucketSlotsStore` (the members); `commands` and `isWholeListRecorded` (this frame's render script); `commandsStartedAtRevision` and `commandsStartedAtEpoch` (the clock the script started at, so a script older than the frame is cleared before anything is recorded into it) |
 | `TOIMComputedSlot` | indexable, plus `computedValueService`, `value`, `sourceSlots`, `sourceComputeds`, `allRootSlots`, `ranAtRevision`/`ranAtEpoch`, `checkedAtRevision`/`checkedAtEpoch`, `isDeriving`; its `owner` is the slot owner of the collection that minted it |
 | `TOIMColumnSlot` | `carrierSlot`, the entity or bucket slot it hangs off, and a `string` key |
 | `TOIMComputedColumnSlot` | a `TOIMComputedSlot` keyed by a column name whose only source is the carrier computed; its value is that field of the carrier's value |
 
 A store slot is not a slot. `TOIMStoreSlot` has no owner, hold count or effects:
 it carries `store`, `channelSlot`, the content-change listeners with the columns each reads, the column
-reader counts and column groups, the per-index positions, and the queues that hold content changes and
-bucket member changes until a subframe closes. `TOIMComputedStoreSlot` adds `derive` and `createSources`;
+reader counts and column groups, the per-index positions, the batch depth and the queues that hold content
+changes until the outermost batch closes, and `slotService`, the service that created it. `TOIMComputedStoreSlot` adds `derive` and `createSources`;
 `TOIMIndexStoreSlot` adds `sourceStoreSlot`, the listener it registered there, its `indexKeysPosition` and
 `isDisposed`. The channel slot `TOIMChannelSlot` carries the clock, the frame, the effect queue, the
-subframe counters, the after-frame and after-flush handlers and the collector slot.
+after-frame and after-flush handlers and the collector slot.
 
 ## Object shapes
 
@@ -211,13 +210,11 @@ the engine's reach.
 |---|---|
 | `getSlotByKey(storeSlot, key)`, `getSingleSlot(storeSlot)` | the unused-slot collector, which holds the new slot and gives the hold back at the next flush |
 | `holdSlotByKey(storeSlot, key)`, `holdSingleSlot(storeSlot)` | the caller's hold |
-| `writeSlotContentByKey(storeSlot, key, entity)`, and `writeSlotContentByKey`, `upsertEntities` | the content; an entity that lands empty is held by the unused-slot collector until the flush |
-| `insertEntities(storeSlot, entities)`, `fillEntities(storeSlot, keys, entities)` | the content at every position; a key that is taken or named twice throws and rolls back only what that call filed, and `fillEntities` refuses outright if the store slot already holds anything |
+| `writeSlotContentByKey(storeSlot, key, entity)` | the content; an entity that lands empty is held by the unused-slot collector until the flush |
 | `getColumn(slot, columnName)`, `getAnyColumn`; `holdColumn`, `holdAnyColumn`, `holdColumnGroup` | a column slot under its carrier, minted by the column owner and kept by the unused-slot collector or by the caller's hold |
 
-The getters and holds mint through the slot owner: `createSlot` (the content strategy's), then file the
-slot. For a single the path is the same with the key `undefined`, and
-`OIMSingleSlotStoreService` files the slot as the store's `slot`. A first value asks the release
+The getters and holds mint through the content service's `createSlot` (`createSingleSlot` for a single),
+then the slot owner files the slot; `OIMSingleSlotStoreService` files a single as the store's `slot`. A first value asks the release
 policy's `onSlotIdle` only when the policy schedules releases on write and the slot goes from empty to filled
 with no effect filed on it, so a slot minted empty is on no release clock. `writeSlotContentByKey` creates the slot,
 writes the content and only then files it, so a refused write leaves nothing filed.
@@ -236,7 +233,7 @@ There are no by-key write doors.
 | an effect, on every root slot and computed source it is filed on | `OIMEffectService.INSTANCE.createEffect`, through `owner.subscribeToSlot` | `disposeEffect` |
 | the unused-slot collector, on what a getter minted and on a slot whose release must wait for the flush | `OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush` | its `flush`, which the channel's flush calls in a `finally` |
 | a bucket, on every member that arrived | the bucket content service's writes (`writeSlotContent`, `addBucketMemberSlots`, …) | the member departing, or the bucket's content being released |
-| a computed's owner, on a computed's `sourceSlots` and `sourceComputeds` | the computed content strategy's `createSlot` | its `releaseSlotContent` |
+| a computed's owner, on a computed's `sourceSlots` and `sourceComputeds` | the computed content service's `createSlot` | its `releaseSlotContent` |
 | the caller | `holdSlotByKey`, `holdSingleSlot`, `holdColumn` | `owner.unholdSlot(slot)`, or `unholdColumn(columnSlot)` for a column |
 
 ### When a slot goes
@@ -249,7 +246,7 @@ the slot owner that is each of its slots' `owner`. It returns having done nothin
 3. `slot.holdCount === 0`;
 4. `slot.owner === this`, so only the owner that filed the slot can release it;
 5. `slot.columnSlotStore` is `undefined`, so a watched column keeps its carrier;
-6. the content strategy's `hasReference(slot)` is false;
+6. the content service's `hasReference(slot)` is false;
 7. the policy agrees: `isEmptySlotReleasable(slot)` for an empty slot,
    `isSlotReleasable(slot)` for a filled one. A policy with a finite deadline that
    answers `false` has already filed the slot into its release queue.
@@ -261,7 +258,7 @@ computed collections use `OIMSlotAtUnholdReleasePolicy`.
 
 A filled slot that passes all of this while the channel refuses writes is handed
 to the unused-slot collector and tried again when it gives the hold back.
-Otherwise the release lets the content strategy release the content, marks the slot empty, cancels any
+Otherwise the release lets the content service release the content, marks the slot empty, cancels any
 queued release, unfiles the slot from its store slot's store (for a single, `store.slot` becomes
 `undefined`) and sets the RELEASED flag.
 
@@ -314,8 +311,7 @@ marker on the slot, handing its listener every watched slot that came due.
    frame queues nothing;
 4. stamps `changedAtRevision` and `changedAtEpoch` on the slot;
 5. asks the scheduler for a flush when it queued an effect, or when
-   after-each-frame handlers or queued effects are waiting. Inside an open subframe
-   the request waits for the outermost `closeSubframe`. With no `channelScheduler`
+   after-each-frame handlers or queued effects are waiting. With no `channelScheduler`
    nothing is asked, and the frame runs when `flush()` is called.
 
 The entity content service's write path marks each changed column that has a column slot
@@ -326,11 +322,10 @@ same way. Nothing writes a computed slot or a store slot to the channel, so no
 write announces "something in this collection changed"; an index keyed on a
 constant gives that.
 
-`openSubframe(channelSlot)` and `closeSubframe(channelSlot)` nest around a compound write. The content
-services open a content subframe (which opens a channel subframe) around a batch (`upsertEntities`,
-`deleteEntities`) and around a write that has column slots or content-change listeners to tell, and deliver
-the queued content changes when the outermost closes. The frame cannot run until the outermost subframe
-closes, and `flush()` throws while one is open.
+A batch on a collection (`openBatch` / `closeBatch` / `writeInBatch`) counts its depth on the store slot.
+While it is open, the content changes are queued on the store slot instead of handed to the listeners, and
+the outermost `closeBatch` delivers them in one call. The channel does not know about batches: a flush
+inside a batch runs as usual.
 
 ### Subscribing: the graph is folded once
 
@@ -375,7 +370,7 @@ source.
 
 ### The flush
 
-`OIMChannelService.INSTANCE.flush(channelSlot)` throws inside a running frame or while a subframe is open,
+`OIMChannelService.INSTANCE.flush(channelSlot)` throws inside a running frame,
 and returns having done nothing when called from the tail of a flush
 (`onBeforeFlush` or an after-each-frame handler). Otherwise:
 
@@ -461,7 +456,7 @@ Each fork ships every strategy, injected once; no flag is read on a hot path.
 <DocCard to="/docs/core/collections" title="Collections and identities">Stores and keys.</DocCard>
 <DocCard to="/docs/core/writing" title="Writing">The write API.</DocCard>
 <DocCard to="/docs/core/reading-subscribing" title="Reading and subscribing">Effects and columns.</DocCard>
-<DocCard to="/docs/core/channel" title="The channel: frames and subframes">Channels and their frame rules.</DocCard>
+<DocCard to="/docs/core/channel" title="The channel: frames and batches">Channels and their frame rules.</DocCard>
 <DocCard to="/docs/core/lifecycle" title="Slot lifecycle">Minting, holding and release in practice.</DocCard>
 <DocCard to="/docs/core/indexes" title="Buckets">Bucket content services and positions.</DocCard>
 <DocCard to="/docs/core/oimindex" title="Indexes">The auto-index.</DocCard>

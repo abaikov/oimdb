@@ -161,7 +161,7 @@ choice made at construction:
 | collection source | in-place edit announced with `markEntityChanged` | cost on the collection while a resource listens | pick it when |
 |---|---|---|---|
 | `OIMPersistCollectionWriteRecordSource` | not persisted | none: every write stays on the core fast path | every change goes through the upsert, update and delete doors |
-| `OIMPersistCollectionChangeWriteRecordSource` | persisted: it adds a content-change listener of every column to the store slot while subscribed | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: one subframe opened and closed, the changed-column bookkeeping and the listener loop per write | the application edits entities in place |
+| `OIMPersistCollectionChangeWriteRecordSource` | persisted: it adds a content-change listener of every column to the store slot while subscribed | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: the changed-column bookkeeping and the listener loop per write | the application edits entities in place |
 
 ```ts
 const inPlaceCardPersistRecordSource = new OIMPersistCollectionChangeWriteRecordSource({

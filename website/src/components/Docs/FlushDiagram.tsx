@@ -8,7 +8,7 @@ export default function FlushDiagram(): ReactNode {
     <figure className={styles.diagram}>
       <div className={styles.flow}>
         <div className={styles.flowColumn}>
-          <DiagramNode title="Writes" note={<>any number, in any order: <code>upsertEntity</code>, <code>updateEntity</code>, …</>} />
+          <DiagramNode title="Writes" note={<>any number, in any order: <code>writeSlotContentByKey</code>, <code>updateEntity</code>, …</>} />
           <DiagramNode tone="muted" title="The channel" note="stamps each moved slot and schedules the effects filed on it, once each" />
         </div>
         <DiagramArrow />

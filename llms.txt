@@ -273,7 +273,7 @@ interface IOIMSlotStamp<TSlot> { stamp(slotEditable: TOIMSlotEditable<TSlot>): v
 ```
 
 **What a kind of content answers is not a seam.** Mint, write, clear and release
-belong to the content service, which the factory wires into the owner as its content strategy.
+belong to the content service, which the collection service hands its owner as `slotContentService`.
 "Does this still hold something" no part declares — the owner asks `oimIsSlotEmpty(slot)`,
 `hasReference` and the release policy's `isSlotReleasable` separately.
 
@@ -595,7 +595,7 @@ happens to it. On a slot that is not empty with time still owed, `isSlotReleasab
 answers `false` and the policy files the slot into its queue at its own marker, so a
 filing can neither shorten nor extend a deadline. That is the path from `unholdSlot` and from a write, never from a
 sweep, which had already re-filed at step 4. Releasing hands the slot to the
-content strategy's `releaseSlotContent` (which gives back what the content held),
+content service's `releaseSlotContent` (which gives back what the content held),
 marks the slot empty, calls the policy's `cancelSlotRelease(slot)`, unfiles the key
 through the store service's `remove`, and sets the RELEASED flag in `slot.slotFlags`. The `owner` is NOT cleared — the slot keeps
 pointing at the object that let it go, which is what makes `slot.owner !== this`
@@ -918,7 +918,7 @@ effectService.createEffect(db, [slot], [], () => {
 
 ### Batches: `openBatch` / `closeBatch` / `writeInBatch` on a collection
 
-There are no subframes and no bulk writes. A load or a sync is a loop of single writes, and a collection
+There are no bulk writes. A load or a sync is a loop of single writes, and a collection
 service wraps it in a batch on its store slot:
 
 ```ts
@@ -1535,14 +1535,14 @@ Both strategies ship as factories; the fork is chosen once, as the content servi
 
 ```ts signature
 interface IOIMEntityWriter {
-    readonly fillEntity: (slot: TOIMEntitySlot, entity: object) => void;
-    readonly putEntity: (slot: TOIMEntitySlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
-    readonly patchEntity: (slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly fillEntity: (slot: TOIMEntityContentSlot, entity: object) => void;
+    readonly putEntity: (slot: TOIMEntityContentSlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly patchEntity: (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
     readonly patchColumn: (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ) => boolean;
-    readonly deleteColumns: (slot: TOIMEntitySlot, names: readonly string[]) => readonly string[];
-    readonly clearEntity: (slot: TOIMEntitySlot) => void;
+    readonly deleteColumns: (slot: TOIMEntityContentSlot, names: readonly string[]) => readonly string[];
+    readonly clearEntity: (slot: TOIMEntityContentSlot) => void;
 }
 
 type TOIMEntityWriterOptions = {
@@ -1773,7 +1773,7 @@ Every door below is the bucket content service's and takes the bucket slot:
 | `clearSlotContent(bucketSlot)` | empties it |
 | `getBucketMemberSlots(bucketSlot)` | `Iterable<TBucketMemberSlot>` |
 | `getBucketMemberSlotCount(bucketSlot)` | `number` |
-| `hasBucketMemberSlot(bucketSlot, bucketMemberSlot)` | `boolean` — the content service's own membership test: one `Set.has` on a set-driven bucket, the membership's `hasSlot` on an array-driven one |
+| `hasBucketMemberSlot(bucketSlot, bucketMemberSlot)` | `boolean` — the content service's own membership test: one `Set.has` on a set bucket; on an array bucket its `bucketMemberSlotsArrayService.hasBucketMemberSlot` (a `Set.has` when unique, `indexOf` otherwise) |
 | `markBucketColumnsChanged(bucketSlot, patch, changedColumns)` | `void` — tell the bucket's column slots which member columns moved |
 | `markContentChanged(bucketSlot)` | `void` — re-settle emptiness and re-ask the release guard after a write made another way |
 | `fillBucketMemberSlots(bucketSlot, bucketMemberSlots)` | `void` — fills a bucket slot nobody was told about yet; it throws on one that was already announced, which `addBucketMemberSlots` / `writeSlotContent` are for |
@@ -2834,7 +2834,7 @@ guard at all (it exists so a library that adds its own release wheel can keep it
 it is on the owner so a subclass can hook every such mutation), and a `protected
 onSlotIdle` does nothing; a `protected assertNotReleased` is what every refusing
 door above calls. `OIMSlotOwnerService` overrides `onSlotIdle` and
-`releaseSlotIfUnheld`, asking its release policy and its content strategy; the clock is the slot's channel slot's.
+`releaseSlotIfUnheld`, asking its release policy and its content service; the clock is the slot's channel slot's.
 Extend `OIMSlotOwner` when you own slots that no collection files.
 **`OIMDefaults.STANDALONE_SLOT_OWNER`** is one shared instance of it — the owner of a
 computed slot nobody has filed. It never releases anything, which is exactly what

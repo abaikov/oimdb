@@ -113,8 +113,8 @@ const progress = progressService.createStoreSlot(db);
 ```
 
 `userService` is the collection service `createOIMSlotCollectionService` returns. Its own doors read and
-mint slots (`getSlots`, `getSlotByKey`, `holdSlotByKey`); every write goes through its
-`slotContentService` (`writeSlotContentByKey`, `updateEntity`, `deleteEntities`, …). A bucket collection
+mint slots (`getSlots`, `getSlotByKey`, `holdSlotByKey`) and write by key (`writeSlotContentByKey`); the slot
+writes go through its `slotContentService` (`updateEntity`, `clearSlotContent`, …). A bucket collection
 from `createOIMSlotCollectionService` is the same shape: its `slotContentService` holds the bucket's
 slots, and `writeSlotContent` and the other bucket doors are on it.
 
@@ -348,9 +348,9 @@ Redux keeps.
 The default sync-backs, read off `OIMReduxReducerFactory`:
 
 - **Collection.** Diffs the live store slot against `nextState.entities`, calls
-  `entityService.slotContentService.upsertEntities(entityStoreSlot, …)` with what was added or changed (by reference), and
-  `entityService.slotContentService.deleteEntities(entityStoreSlot, …)` with every live entity slot whose key is no longer in
-  `nextState.entities`. It runs only when the state has both `entities` and `ids`.
+  `entityService.writeSlotContentByKey(entityStoreSlot, keyOf(entity), entity)` for what was added or changed (by
+  reference), and `entityService.slotContentService.clearSlotContent(slot)` for every live entity slot whose key is no
+  longer in `nextState.entities`, each inside `writeInBatch`. It runs only when the state has both `entities` and `ids`.
 - **Keyed index.** For every entry of `nextState.entities`, writes the bucket
   under `entry.id` with the entities named by `entry.ids`; every bucket the state no
   longer lists is written empty.

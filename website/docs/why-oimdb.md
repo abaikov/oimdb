@@ -422,7 +422,7 @@ channel slot. `useOIMSlotsByKeys` holds the sorted derivation for `deck` while `
 and `useOIMComputedValue` subscribes to it and reads it through its value service
 (`computedValueService.getValueForSlot`). Taking the six steps in turn:
 
-1. `upsertEntities` is one subframe: every entity lands, and then the **frame**
+1. The load is a loop of `writeSlotContentByKey` in one `writeInBatch`: every entity lands, and then the **frame**
    (the delivery of every write since the previous one, see the
    [glossary](/docs/core/model#glossary)) delivers once.
 2. The order is a derivation over the index. Its sources are the deck's bucket

@@ -105,7 +105,7 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 
 | Layer | What is in it |
 |---|---|
-| `src/engine/` | The primitives, each a stateless service over a plain struct: `OIMChannelService.INSTANCE` over a `TOIMChannelSlot` (frames, the revision, subframes), `OIMEffectService.INSTANCE` (effects, handed the `db` on every call), `OIMSlotOwnerService` (the owner of every slot a collection filed: holds, release, emptiness, columns), the column owners (abstract `OIMColumnSlotOwner`, `OIMPushColumnSlotOwner` written by the collection, `OIMPullColumnSlotOwner` derived by a computed), the content services (`OIMSlotContentEntityService` for entities, `OIMComputedValueService` for computeds), the key stores and key tree walks, the release policies, the unused-slot collector (`OIMUnusedSlotCollectorService`) over the collector slot, the wheels (`OIMSlotReleaseWheel`, `OIMSlotRefetchWheel`), `TOIMStoreSlot`, `TOIMComputedSlot`, `TOIMEffect`. |
+| `src/engine/` | The primitives, each a stateless service over a plain struct: `OIMChannelService.INSTANCE` over a `TOIMChannelSlot` (frames, the revision), `OIMEffectService.INSTANCE` (effects, handed the `db` on every call), `OIMSlotOwnerService` (the owner of every slot a collection filed: holds, release, emptiness, columns), the column owners (abstract `OIMColumnSlotOwner`, `OIMPushColumnSlotOwner` written by the collection, `OIMPullColumnSlotOwner` derived by a computed), the content services (`OIMSlotContentEntityService` for entities, `OIMComputedValueService` for computeds), the key stores and key tree walks, the release policies, the unused-slot collector (`OIMUnusedSlotCollectorService`) over the collector slot, the wheels (`OIMSlotReleaseWheel`, `OIMSlotRefetchWheel`), `TOIMStoreSlot`, `TOIMComputedSlot`, `TOIMEffect`. |
 | `src/facade/` | What a caller holds. The collection services `OIMSlotCollectionService` (keyed) and `OIMSingleSlotService` (one slot, no key), each with its `slotContentService`; the bucket content services `OIMSlotContentSetBucketService`, `OIMSlotContentPositionalArrayBucketService`, `OIMSlotContentSortedArrayBucketService` and `OIMBucketCommands`; the auto-index `OIMSlotCollectionIndexService` and `OIMSlotCollectionSortedArrayIndexService`; `OIMComputedService`, `OIMSortedComputedService`, `OIMBucketMemoComputedService`. |
 | `src/factories/` | `OIMDB`, `OIMDefaults`, `OIMDefaultValue`, and the doors that build a service: the base ones, `createOIMSlotCollectionService`, `createOIMSingleSlotService` and `createOIMSlotContentEntityService`, and the convenience ones over them, `createOIMSlotCollectionService`, `createOIMSingleSlotService`, `createOIMSlotCollectionService`, `createOIMSingleSlotService`, `createOIMSlotCollectionIndexService`, `createOIMSlotCollectionSortedArrayIndexService`, `createOIMComputedService`, `createOIMSortedComputedService`, `createOIMBucketMemoComputedService`, `createOIMEntityWriterInPlace`, `createOIMEntityWriterReplacing`. |
 
@@ -272,11 +272,10 @@ const deliveringCards = deliveringCardService.createStoreSlot(db);
 ```
 
 The entity collection overrides nothing. `createOIMSlotContentEntityService` builds an
-`OIMSlotContentEntityService`, whose constructor builds the type's `OIMSlotOwnerService` and hands
-it a private content strategy (`createSlot`, `isSlotEmpty`, `releaseSlotContent`,
-`hasReference`), which is how the owner asks the content about a slot without the content's write
-doors being reachable from the owner. `createOIMSlotCollectionService` then wraps that content
-service's owner and store service in an `OIMSlotCollectionService`.
+`OIMSlotContentEntityService`; `createOIMSlotCollectionService` builds an `OIMSlotCollectionService` over it,
+and that constructor builds the type's `OIMSlotOwnerService`. The owner asks the content about a slot
+through `IOIMSlotContentService` (`isSlotEmpty`, `releaseSlotContent`, `hasReference`); the collection
+service mints through the content service's `createSlot`.
 
 `keyOf` is the one required option. `entityWriter` falls back to `db.entityWriter`, then to
 `OIMDefaults.ENTITY_WRITER`; `slotEmptinessPolicy` to `OIMDefaults.ENTITY_SLOT_EMPTINESS`;
@@ -377,8 +376,8 @@ is the only thing that leaves. *Filing first and writing second is the obvious
 alternative, and it is wrong. One `writeSlotContentByKey` of an unseen key from inside a
 subscriber body (the service's write opens with the frame guard)
 would leave the key filed holding nothing, with nothing in a position to let it go.
-`getSlotByKey` would answer a slot with no value, `insertEntities` would refuse for the life of the
-store slot, and nothing would throw except the refusal the caller had asked for.* The
+`getSlotByKey` would answer a slot with no value, and nothing would throw except the refusal the
+caller had asked for.* The
 unwind is the release guard rather than a `store.remove` because the write may
 have half landed, and the hit path never mints and stays outside the guard.
 
@@ -392,11 +391,6 @@ the owner's question, asked through its release guard.
 So `writeSlotContentByKey` is **total**: it always hands back the identity it resolved or
 minted, whatever it decided about the content, because a door that mints must
 leave a reference behind.
-
-`fillEntities(storeSlot, keys, entities)` is the companion and does not carry that rule, because it returns
-`void` and hands out no reference at all. On a throw it runs the release guard
-over everything it filed and keeps only what something holds. This is bounded by the
-precondition that the store slot was empty when the call began.
 
 A fifth door is admitted by this test and by nothing else: the act has to leave
 a reference behind that nothing can take away under its caller. A helper over an
@@ -442,27 +436,21 @@ Every collection is three parts: a **store service** (`IOIMSlotStoreService`: th
 key, in the store each store slot carries; `OIMSlotMapStoreService`,
 `OIMSlotTreeStoreService`, `OIMSingleSlotStoreService`), a **slot owner**
 (`OIMSlotOwnerService`, an `OIMSlotOwner`: the owner of every slot it filed, with holds, release,
-emptiness, the channel's subframes and the column owner) and a **content service**
+emptiness and the column owner) and a **content service**
 (`OIMSlotContentEntityService`, an `OIMSlotContentBucketService*`, or a computed's
 `OIMComputedValueService`), with the collection service (`OIMSlotCollectionService` /
-`OIMSingleSlotService`) lending the first two their by-key doors. The owner asks the content
-about a slot through a content strategy the content service hands it, never through an override:
+`OIMSingleSlotService`) building the owner and lending it the by-key doors. The owner asks the content
+about a slot through `IOIMSlotContentService`, never through an override:
 
-| Strategy member | Called by the owner when |
+| Member | Called when |
 |---|---|
-| `createSlot(key, storeSlot, slotOwnerService)` | a key is minted |
+| `createSlot(key, storeSlot, slotOwner)` / `createSingleSlot(storeSlot, slotOwner)` | a key (or a single) is minted, by the collection service |
 | `isSlotEmpty(slot)` | emptiness is settled after a write |
 | `releaseSlotContent(slot, slotOwnerService)` | the identity is going. Give back what its content held |
 | `hasReference(slot)` | something outside `holdCount` and `effects` may keep it |
 
-The strategy is private to the content service: the owner holds it, the caller never sees it.
-An entity content service builds its owner itself, in its constructor, so the owner and the
-content are fixed together once per type; a bucket content service hands a factory
-(`createOIMSlotCollectionService`) its owner through `createSlotOwnerService`.
-
-The entity content service is the example to follow in the package: it supplies the content
-answers, the owner unfiles through the store service, and every write door opens the channel's
-content subframe around it.
+The content service's write doors reach the owner through `slot.owner`; the owner files and unfiles
+through the store service.
 
 ### The injected seams
 
@@ -894,29 +882,25 @@ goes to `oimSameKeySequence`, which compares each key by SameValueZero, the way 
 
 ## Writing
 
-Every write on an entity collection is on its `slotContentService`, and is stated in terms of an
-**entity** or of an **identity you already hold**. There is no write by key: a key is resolved
-to a slot once, with `findSlotByKey` (mints nothing) or `getSlotByKey` / `holdSlotByKey` on the
-collection, and the write goes through the slot. A door by key takes the store slot first; a door
-on a slot takes only the slot.
+The by-key write is on the collection service; every other write on an entity collection is on its
+`slotContentService` and goes through an **identity you already hold**. A key from outside is resolved
+to a slot once, with `findSlotByKey` (mints nothing) or `getSlotByKey` / `holdSlotByKey`.
 
-| Call on `entityService.slotContentService` | What it does |
+| Call | What it does |
 |---|---|
-| `writeSlotContentByKey(storeSlot, entity, changedEntitySlots?)` | Write a whole value. A key with no value gets one and every column counts as new; a key that has one is brought to the value given, and columns the new value does not carry are taken away. **The identity always comes back**, whatever the write changed. |
-| `upsertEntities(storeSlot, entities, changedEntitySlots?)` | The loop. Correct at any moment. **Returns the slot of every entity, in input order**, whether or not its write changed anything — so `bucketService.slotContentService.writeSlotContent(bucketSlot, entityService.slotContentService.upsertEntities(storeSlot, entities))` files every entity. |
-| `writeSlotContentByKey(storeSlot, key, entity, changedEntitySlots?)` | `writeSlotContentByKey` under a key you name instead of `keyOf`'s. |
-| `insertEntities(storeSlot, entities)` / `fillEntities(storeSlot, keys, entities)` | A **first load only** — refuses unless the store slot is empty, so it checks emptiness once instead of per entity. No `changed`: a first load changes every entity. |
+| `entityService.writeSlotContentByKey(storeSlot, key, entity, changedEntitySlots?)` | Write a whole value under the key you name. A key with no value gets one and every column counts as new; a key that has one is brought to the value given, and columns the new value does not carry are taken away. **The identity always comes back**, whatever the write changed. |
 | `writeSlotContent(slot, entity)` | A whole value through an identity you hold; `false` when nothing changed. |
 | `updateEntity(slot, patch)` | Patch through an identity you hold. Only the columns the patch actually moved are routed. |
 | `updateEntityColumn(slot, columnName, value)` | One column through an identity you hold, with no patch object to build and walk. |
 | `deleteEntityColumns(slot, columnNames)` | Take those columns off the value. |
 | `clearSlotContent(slot)` | The **value** leaves; the identity stays for as long as anything still refers to it. |
-| `deleteEntities(storeSlot, slots)` | The batch form. One change span for the whole batch, like `upsertEntities` — the store slot is named to the channel once for the batch, not once per entity. |
-| `clearAllEntities(storeSlot)` | Every value out. Identities something still holds survive without one. |
-| `findSlotByKey(storeSlot, key)?.entity` | The entity itself rather than the slot. Mints nothing. |
+| `entityService.findSlotByKey(storeSlot, key)?.entity` | The entity itself rather than the slot. Mints nothing. |
 | `markEntityChanged(slot, changedColumns?)` | Report a change you made to `slot.entity` by hand. |
 
 By key, compose the two halves: `const s = entityService.findSlotByKey(storeSlot, key); if (s !== undefined) entityService.slotContentService.updateEntity(s, patch);`.
+
+There are no bulk writes: many entities are a loop of these inside `entityService.writeInBatch(storeSlot, () => …)`,
+so an index on the collection hears them in one call when the batch closes.
 
 **Who owns the entity is a strategy you pick, and there are two strategies.** The
 writer takes an `entityInserter` through `TOIMEntityWriterOptions`, so the choice is
@@ -977,7 +961,7 @@ per-column walk.
 
 **An empty list wakes nothing at all** (not the columns, not the entity, not the
 store slot), because `[]` is the caller saying that nothing moved, and the call returns
-before the subframe opens.
+before it writes anything.
 
 **It re-stamps emptiness** itself when the list is left out, when the entity is gone, or when
 the service recomputes emptiness on a column write. A hand
@@ -1030,14 +1014,14 @@ and the grace left on the idle window, asked by the release guard.
 
 ```typescript signature
 interface IOIMEntityWriter {
-    readonly fillEntity: (slot: TOIMEntitySlot, entity: object) => void;
-    readonly putEntity: (slot: TOIMEntitySlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
-    readonly patchEntity: (slot: TOIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly fillEntity: (slot: TOIMEntityContentSlot, entity: object) => void;
+    readonly putEntity: (slot: TOIMEntityContentSlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly patchEntity: (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
     readonly patchColumn: (
-        slot: TOIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ) => boolean;
-    readonly deleteColumns: (slot: TOIMEntitySlot, names: readonly string[]) => readonly string[];
-    readonly clearEntity: (slot: TOIMEntitySlot) => void;
+    readonly deleteColumns: (slot: TOIMEntityContentSlot, names: readonly string[]) => readonly string[];
+    readonly clearEntity: (slot: TOIMEntityContentSlot) => void;
 }
 
 createOIMEntityWriterInPlace(options?)       // the stored object keeps its identity
@@ -1283,43 +1267,20 @@ doors default it to the shared map-driven `OIMDefaults.COLUMN_SLOT_STORE_SERVICE
   handler hands the work to a microtask or a later callback instead of writing
   itself. A refusal raised from a tail handler goes to the error policy, not out of
   the write call.
-- **The frame cannot close while a subframe is open.** A subframe is one logical
-  change inside the frame. `OIMChannelService.INSTANCE.openSubframe(channelSlot)` and
-  `closeSubframe(channelSlot)` bracket it, and a write that asks for a frame while one is open is owed it by
-  the `closeSubframe` that brings the count to zero. **`flush()` called while a
-  subframe is open throws** (`a subframe is open`), whether it comes from a `keyOf` or a
-  listener that a write runs, or from between a caller's own open and close. Subframes are counted,
-  because a subframe is routinely inside another one, and closed from a `finally`,
-  so a subframe that threw part-way still delivers what landed. It is not the frame
-  guard seen from the other side: that guard refuses a *write* made while a frame closes, while this
-  refuses a *frame* asked for while a subframe is open. A content service's write doors open
-  a content subframe, which opens the channel's subframe and delivers the content-change
-  listeners at its outermost close.
+- **A batch changes who hears the writes, not when the frame runs.** `openBatch(storeSlot)` /
+  `closeBatch(storeSlot)` on a collection service, or `writeInBatch(storeSlot, write)`, count a depth on
+  the store slot. While it is open, the content changes are queued there, and the outermost close hands
+  the content-change listeners (an index) the whole batch in one call. A flush inside a batch runs as
+  usual; the index catches up when the batch closes. Nothing is rolled back if a listener throws.
 - **Every bucket door wakes the bucket the same way.** Each bucket content service
   door that changed the bucket (adds, removes, positional inserts and removes, both moves,
-  `writeSlotContent`, `clearSlotContent`)
-  files it once and sets the bucket's EMPTY flag at once. The outermost subframe close
-  stamps it once, tells the release policy `onSlotWritten` once, then asks whether
-  it may go. So `hasSlotContentByKey` is accurate inside an open batch, a batch that mixes
-  doors stamps the bucket once, a move renews a write deadline, and a door that
-  changed nothing stamps nothing and tells the policy nothing. Commands are still
-  recorded at the door, where the position is true.
+  `writeSlotContent`, `clearSlotContent`) settles its EMPTY flag, writes it to the channel, tells the
+  content-change listeners and asks whether it may go. A door that changed nothing stamps nothing and
+  tells nobody. Commands are recorded at the door, where the position is true.
 - **A released identity is refused before the bucket changes.** Every door that
   takes a member checks first whether what it was handed is released (`oimIsSlotReleased`), and throws, so a
   refused door leaves the members, their holds and the EMPTY flag as they were. The check costs one
   field read per member handed in.
-- **The span belongs to the door.** `writeSlotContent`, `clearSlotContent`, `insertEntities`, `fillEntities`,
-  `updateEntity` (when it is more than one channel write) and `markEntityChanged` each open exactly one; the entity writer's `fillEntity`,
-  `putEntity`, `patchEntity`, `deleteColumns` and `clearEntity` open none. So one `upsertEntities` opens
-  one, and one `insertEntities` opens one however many entities it carries. A write that is exactly
-  one channel write opens none, because one write cannot be seen half-done and there is nobody to batch for:
-  `writeSlotContentByKey` of a new key, `updateEntity`/`updateEntityColumn`/`writeSlotContent` and `clearSlotContent`
-  when the store slot has no content listener, no column of the
-  entity is read and emptiness is not recomputed on a column write. `deleteEntityColumns`
-  always opens one, because it always names the columns it took. The content service's
-  `releaseSlotContent` is the exception and keeps its own, because `releaseSlotIfUnheld`
-  reaches it from the release queue through no door at all.
-
 ### `subscribeOnceAfterFrame` — one frame, and the caller picks which
 
 ```typescript
@@ -1665,9 +1626,8 @@ path for rendering**, because one edit of one entity wakes the whole list. Subsc
 to the bucket and each entity to its own slot. The any-column slot costs
 something only while somebody holds or subscribes to it.
 
-Batch doors (`upsertEntities`, `insertEntities`/`fillEntities`, `deleteEntities`,
-`clearAllEntities`) notify the index once per batch. The index groups entities by key and moves each
-group with one bucket write.
+Writes inside `writeInBatch` (or `openBatch` / `closeBatch`) notify the index once per batch. The index
+groups entities by key and moves each group with one bucket write.
 
 Know these four things before choosing it:
 
@@ -2058,7 +2018,7 @@ always reports.
 
 Keep your own `Map` or `WeakMap`, or use `TOIMEntitySlot.data`
 (`unknown[] | undefined`). It belongs to you, and the core never reads or writes
-it. Clearing or removing the slot (`slotContentService.clearSlotContent(slot)`, `slotContentService.deleteEntities(storeSlot, …)`)
+it. Clearing the slot (`slotContentService.clearSlotContent(slot)`)
 does not reset it either, so clear what you put there yourself. Each index keeps its last key for
 the entity in a separate field, `indexKeys`, which is read and written only through the
 index's `IOIMIndexKeysService` (`get` / `set`).

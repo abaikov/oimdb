@@ -31,7 +31,7 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `TOIMSingleSlotServiceOptions` | type | Constructor options of `OIMSingleSlotService`. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `createOIMSingleSlotService` | function | Builds an `OIMWritableSingleSlotService` over a content service with `createSingleSlot` (entity or bucket). | [Standalone records](./object.md) |
 | `OIMWritableSingleSlotService` | class | What `createOIMSingleSlotService` returns: an `OIMSingleSlotService` plus `writeSingleSlotContent(storeSlot, content, changedSlots?)` and `clearSingleSlotContent(storeSlot)`. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
-| `OIMSlotOwnerService` | type only | The slot owner of one collection type: holds, subscriptions, columns and release, over its content strategy, store service, release policy and column owner. Built by the factories. | [When a slot goes](./architecture.md#when-a-slot-goes) |
+| `OIMSlotOwnerService` | type only | The slot owner of one collection type: holds, subscriptions, columns and release, over its content service, store service, release policy and column owner. Built by the factories. | [When a slot goes](./architecture.md#when-a-slot-goes) |
 | `TOIMSlotOwnerServiceOptions` | type | Constructor options of `OIMSlotOwnerService`. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `IOIMSlotContentService` | interface | What a content service answers its slot owner: `isSlotEmpty`, `releaseSlotContent`, `hasReference`. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
 | `IOIMSlotContentWriter` | interface | The content writes a collection drives: `insertSlotContent`, `writeSlotContent`, `clearSlotContent`. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
@@ -50,7 +50,7 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
-| `OIMSlotContentEntityService` | class | The entity content service: `keyOf`, `slotOwner`, `slotStoreService`; the writes `writeSlotContentByKey`, `upsertEntities`, `writeSlotContentByKey`, `insertEntities`, `fillEntities`, `clearAllEntities`, `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`, `deleteEntities`, and `findSlotByKey`. | [The writes](./writing.md#the-writes) |
+| `OIMSlotContentEntityService` | class | The entity content service: the slot writes `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`; `createSlot`, `createSingleSlot`, `insertSlotContent`, `isSlotEmpty`, `hasReference` and `releaseSlotContent` for the collection service and the slot owner. | [The writes](./writing.md#the-writes) |
 | `TOIMSlotContentEntityServiceOptions` | type | Constructor options of `OIMSlotContentEntityService`: `keyOf`, `entityWriter`, `slotEmptinessPolicy`, `slotStamp`, `slotReleasePolicy`, `slotStoreService`, the column owner options. | [Building one](./collections.md#building-one) |
 | `TOIMEntitySlotOwnerService` | type | The slot owner type of an entity collection. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `createOIMSlotContentEntityService` | function | Builds an `OIMSlotContentEntityService` and its slot owner on an `OIMDB`; a Map store unless `slotStoreService` is passed, and no `keyOf` for a single. | [Building one](./collections.md#building-one) |
@@ -169,8 +169,8 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
-| `OIMChannelService` | class | `INSTANCE`: runs a channel slot — `write`, `writeWithoutFlushCheck`, `flush`, `openSubframe`, `closeSubframe`, `isSubframeOpen`, `listChangedStoreSlot`, `subscribeAfterEachFrame`, `subscribeOnceAfterFrame`, `subscribeAfterEachFlush`, `isChangedInCurrentFrame`, `assertNotFlushing`, `dropChannelSlot`. | [The channel](./channel.md) |
-| `TOIMChannelSlot` | type | The channel's state: clock, frame, effect queue, subframe counters, handlers, collector slot. | [The channel](./channel.md) |
+| `OIMChannelService` | class | `INSTANCE`: runs a channel slot — `write`, `writeWithoutFlushCheck`, `flush`, `subscribeAfterEachFrame`, `subscribeOnceAfterFrame`, `subscribeAfterEachFlush`, `isChangedInCurrentFrame`, `assertNotFlushing`, `dropChannelSlot`. | [The channel](./channel.md) |
+| `TOIMChannelSlot` | type | The channel's state: clock, frame, effect queue, handlers, collector slot. | [The channel](./channel.md) |
 | `TOIMChannelSlotOptions` | type | Options of `createOIMChannelSlot`. | [The channel](./channel.md) |
 | `createOIMChannelSlot` | function | Builds a channel slot over a clock and a collector slot. | [The channel](./channel.md) |
 | `IOIMChannelMap` | interface | `{ defaultChannelSlot }`, what `createStoreSlot` and the effect doors take; `OIMDB` is one. | [Every collection has a channel](./model.md#every-collection-has-a-channel) |

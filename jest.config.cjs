@@ -16,10 +16,10 @@ module.exports = {
     coverageReporters: ['json-summary', 'text-summary', 'lcov'],
     coverageThreshold: {
         global: { statements: 88, branches: 78, functions: 81, lines: 89 },
+        './packages/cli/src/': { statements: 17, branches: 12, functions: 21, lines: 18 },
         './packages/core/src/': { statements: 96, branches: 90, functions: 88, lines: 97 },
         './packages/devtools/src/': { statements: 92, branches: 73, functions: 91, lines: 94 },
         './packages/exodra/src/': { statements: 88, branches: 80, functions: 85, lines: 92 },
-        './packages/mcp/src/': { statements: 8, branches: 7, functions: 10, lines: 9 },
         './packages/persist/src/': { statements: 84, branches: 69, functions: 81, lines: 87 },
         './packages/persist-async-kv/src/': { statements: 86, branches: 63, functions: 71, lines: 86 },
         './packages/persist-idb/src/': { statements: 85, branches: 81, functions: 81, lines: 88 },

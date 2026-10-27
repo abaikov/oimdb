@@ -2,7 +2,12 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
-    "rootDir": "."
+    "rootDir": "..",
+    "paths": {
+      "@oimdb/cli": [
+        "../cli/src/index.ts"
+      ]
+    }
   },
   "include": [
     "src/**/*",
