@@ -90,11 +90,11 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 98686 B | 24049 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35379 B | 9243 B |
-| The same, plus one effect and `db.flush()` | 44020 B | 11357 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 64398 B | 16048 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48515 B | 12218 B |
+| Everything `@oimdb/core` exports | 98595 B | 24021 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35378 B | 9265 B |
+| The same, plus one effect and `db.flush()` | 44019 B | 11377 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 64397 B | 16056 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48514 B | 12234 B |
 <!-- bundle-size:end -->
 
 ---
@@ -299,7 +299,6 @@ class of static `OIMDefaultValue` fields and nothing else; you never construct o
 | `OIMDefaults.COMPUTED_COLUMN_SLOT_STORE_SERVICE` | `IOIMSlotStoreService<string, TOIMComputedColumnSlot>` | a map-driven store service for the column slots of computed services, keyed or single; the computed factories pass it to every one they build without `columnNames` |
 | `OIMDefaults.KEY_TREE_WALK_SCALAR` | `OIMScalarKeyTreeWalk` | the chain-of-values walk |
 | `OIMDefaults.KEY_TREE_WALK_COMPOSITE` | `OIMCompositeKeyTreeWalk` | the chain-of-identities walk |
-| `OIMDefaults.STANDALONE_SLOT_OWNER` | `OIMSlotOwner` | the owner of a slot nobody filed |
 | `OIMDefaults.ENTITY_WRITER` | `IOIMEntityWriter` | `createOIMEntityWriterInPlace()` |
 | `OIMDefaults.ENTITY_SLOT_EMPTINESS` | `IOIMSlotEmptinessPolicy<TOIMEntitySlot>` | "empty means `slot.entity === undefined`" |
 | `OIMDefaults.INDEX_KEYS_SERVICE` | `IOIMIndexKeysService` | an `OIMAppendingIndexKeysService`; see [Index keys strategy](#index-keys-strategy) |
@@ -2132,7 +2131,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 
 **Shared stateless defaults** — the statics of `OIMDefaults`: `COLUMN_SLOT_STORE_SERVICE`,
 `COMPUTED_COLUMN_SLOT_STORE_SERVICE`, `KEY_TREE_WALK_SCALAR`, `KEY_TREE_WALK_COMPOSITE`,
-`STANDALONE_SLOT_OWNER`, `ENTITY_WRITER`, `ENTITY_SLOT_EMPTINESS`, `INDEX_KEYS_SERVICE`,
+`ENTITY_WRITER`, `ENTITY_SLOT_EMPTINESS`, `INDEX_KEYS_SERVICE`,
 `STORE_SLOT_LISTENER`. Each is minted on its first `getValue()` instead of at module load, so a
 consumer that names none of them constructs none of them. The cost of the single door is described under **Every optional
 dependency has a default** above.

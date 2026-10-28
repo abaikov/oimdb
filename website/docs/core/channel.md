@@ -232,7 +232,8 @@ cardService.writeInBatch(cards, () => {
 db.flush();
 ```
 
-`openBatch(storeSlot)` / `closeBatch(storeSlot)` are the same pair without the function, and nest by a count.
+`openBatch(storeSlot)` / `closeBatch(storeSlot)` are the same pair without the function, and nest by a count;
+`closeBatch` with no batch open throws.
 Code inside a batch reads the index as it was before the batch, and a `flush()` inside one is allowed: the
 index catches up when the batch closes.
 

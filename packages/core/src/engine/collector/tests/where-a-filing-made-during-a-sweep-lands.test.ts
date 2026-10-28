@@ -1,6 +1,5 @@
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIM_SLICE_LENGTH_MS, oimSliceOfMs } from '../../../index';
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { oimGetReleaseDueAfterWriteMs } from '../../slot/utils/oimGetReleaseDueAfterWriteMs';
@@ -10,6 +9,11 @@ import { OIM_SLOT_FLAG_RELEASE_SCHEDULED_AFTER_WRITE } from '../constants/OIM_SL
 import type { TOIMSlot } from '../../../index';
 import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 /** Every slot in the same slice: 1_000_000 through 1_000_500 all fall in slice 976. */
 const START = 1_000_000;
@@ -27,8 +31,8 @@ const slot = (): TOIMSlot => ({
     releaseDueAfterIdleMs: -1,
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: testStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 const ownerThatOnGiveBack = (giveBack: () => void): IOIMSlotOwner => ({

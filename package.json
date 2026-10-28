@@ -39,7 +39,7 @@
     "build:redux-adapter": "cd packages/redux-adapter && npm run build",
     "build:devtools": "cd packages/devtools && npm run build",
     "build:mcp": "cd packages/mcp && npm run build",
-    "build:packages": "npm run build --workspace @oimdb/core --workspace @oimdb/persist --workspace @oimdb/persist-memory --workspace @oimdb/devtools && npm --workspaces --if-present run build",
+    "build:packages": "npm run build --workspace @oimdb/core --workspace @oimdb/persist --workspace @oimdb/persist-memory --workspace @oimdb/devtools --workspace @oimdb/cli && npm --workspaces --if-present run build",
     "bench": "npm run bench --workspace @oimdb/bench",
     "type-check": "npm --workspaces --if-present run type-check",
     "clones": "jscpd packages",

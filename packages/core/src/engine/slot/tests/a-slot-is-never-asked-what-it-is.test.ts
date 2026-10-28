@@ -1,4 +1,3 @@
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMDB } from '../../../factories/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../../factories/createOIMSlotCollectionIndexService';
@@ -6,6 +5,10 @@ import { createOIMSortedComputedService } from '../../../factories/createOIMSort
 import { OIM_SLOT_FLAG_EMPTY } from '../constants/OIM_SLOT_FLAG_EMPTY';
 import { createOIMSlotContentEntityService } from '../../../factories/createOIMSlotContentEntityService';
 import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMStoreSlot } from '../utils/createOIMStoreSlot';
+import { OIMSlotOwner } from '../OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TEntity = { id: string; queue: string; rank: number };
 
@@ -26,8 +29,8 @@ describe('subscribing to an identity the engine did not mint', () => {
         releaseDueAfterIdleMs: -1,
         releaseDueAfterUnholdMs: -1,
             columnSlotStore: undefined,
-            storeSlot: undefined,
-            owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+            storeSlot: testStoreSlot,
+            owner: new OIMSlotOwner(),
             index: {
                 probe: () => { probed++; },
             },

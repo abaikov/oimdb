@@ -132,7 +132,6 @@ const PINNED: readonly (readonly [string, string])[] = [
         'one OIMDefaultValue whose value is the appending index-keys service, which holds no state and closes over nothing',
     ],
     ['core/factories/defaults/OIM_DEFAULT_KEY_TREE_WALK_SCALAR.ts:OIM_DEFAULT_KEY_TREE_WALK_SCALAR', DEFAULT_VALUE],
-    ['core/factories/defaults/OIM_DEFAULT_STANDALONE_SLOT_OWNER.ts:OIM_DEFAULT_STANDALONE_SLOT_OWNER', DEFAULT_VALUE],
     [
         'devtools/oimDevRegistry.ts:oimDevRegistry',
         'THE ONE UNBOUNDED HOLDER OF A SLOT GRAPH IN THIS REPOSITORY, and the only one on this list that '

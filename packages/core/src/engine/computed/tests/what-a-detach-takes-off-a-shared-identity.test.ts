@@ -1,10 +1,13 @@
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMEffectService } from '../OIMEffectService';
 import type { TOIMEffect } from '../types/TOIMEffect';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 /**
  * A detach takes ITS OWN edge off a list and nobody else's.
@@ -26,8 +29,8 @@ const makeSlot = (): TOIMSlot => ({
         releaseDueAfterIdleMs: -1,
         releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: testStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 /** Wake everybody on this identity and report who ran, in the order they ran. */

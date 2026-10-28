@@ -1,4 +1,3 @@
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { oimGetReleaseDueAfterIdleMs } from '../../slot/utils/oimGetReleaseDueAfterIdleMs';
 import { oimSetReleaseDueAfterIdleMs } from '../../slot/utils/oimSetReleaseDueAfterIdleMs';
@@ -11,6 +10,11 @@ import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TSlicesThatCountVisits = Map<number, TOIMSlot[]> & { visits: number };
 
@@ -25,8 +29,8 @@ const slotDueAt = (dueMs: number): TOIMSlotEditable<TOIMSlot> => ({
     releaseDueAfterIdleMs: dueMs,
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: testStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 const ownerThatOnRelease = (released: () => void): IOIMSlotOwner => ({

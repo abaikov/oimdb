@@ -10,7 +10,7 @@ export function createOIMComputedSlot<TValue, TKey extends NonNullable<unknown>>
     owner: IOIMSlotOwner,
     computedValueService: IOIMComputedValueService<TValue>,
     initialValue: TValue,
-    storeSlot: TOIMStoreSlot | undefined = undefined,
+    storeSlot: TOIMStoreSlot,
 ): TOIMComputedSlot<TValue, TKey> {
     return {
         effects: undefined,

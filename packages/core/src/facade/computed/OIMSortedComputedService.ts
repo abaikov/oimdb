@@ -78,12 +78,12 @@ function createSortedSources<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
 >(
     key: TKey,
-    storeSlot: TOIMStoreSlot | undefined,
+    storeSlot: TOIMStoreSlot,
     indexService: OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>,
     sortColumns: readonly TOIMSortColumn<TEntity>[] | undefined,
     hasComparator: boolean,
 ): Partial<TOIMComputedSources> {
-    const indexStoreSlot = (storeSlot as TOIMStoreSlot).sourceStoreSlot as TOIMIndexStoreSlot as
+    const indexStoreSlot = storeSlot.sourceStoreSlot as TOIMIndexStoreSlot as
         TOIMSlotCollectionIndexServiceStoreSlot<TKey, TEntity, TSlots, TSourceKey, TSourceStore>;
     const sourceSlots: TOIMSlot[] = [indexService.getSlotByKey(indexStoreSlot, key)];
     if (sortColumns !== undefined) {

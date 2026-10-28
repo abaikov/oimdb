@@ -1,7 +1,8 @@
 // Publishes the @oimdb packages that have declared themselves releasable and
 // whose local version is NOT yet on npm. Idempotent: skips anything already
-// published (so a re-run after a partial failure just continues), and publishes
-// `@oimdb/core` first (dependents peer on it). Reads the registry with
+// published (so a re-run after a partial failure just continues), publishes
+// dependencies before dependents, and keeps going past a failed package, skipping
+// only what depends on it. Reads the registry with
 // --prefer-online (npm's cache lies).
 //
 //   node scripts/publish-bumped.mjs            # publish what's bumped
@@ -183,10 +184,27 @@ if (DRY) {
     process.exit(0);
 }
 
+const notPublished = new Map();
 for (const p of toPublish) {
+    const failedDependency = p.oimdbDependencies.find(dep => notPublished.has(dep));
+    if (failedDependency !== undefined) {
+        notPublished.set(p.name, `not attempted: ${failedDependency} did not publish`);
+        continue;
+    }
     console.log(`\n=== npm publish ${p.name}@${p.version} ===`);
-    execSync(`npm publish --workspace ${p.name} --access public`, {
-        stdio: 'inherit',
-    });
+    try {
+        execSync(`npm publish --workspace ${p.name} --access public`, {
+            stdio: 'inherit',
+        });
+    } catch (failure) {
+        notPublished.set(p.name, failure instanceof Error ? failure.message.split('\n')[0] : String(failure));
+    }
+}
+if (notPublished.size > 0) {
+    console.error(
+        `\nNOT PUBLISHED: ${notPublished.size} of ${toPublish.length} package(s).\n\n` +
+            [...notPublished].map(([name, reason]) => `  ${name} — ${reason}`).join('\n') + '\n'
+    );
+    process.exit(1);
 }
 console.log('\nDone.');

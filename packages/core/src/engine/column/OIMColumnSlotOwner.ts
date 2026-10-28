@@ -105,11 +105,11 @@ export abstract class OIMColumnSlotOwner<
     }
 
     protected getColumnGroupsByKeyOf(carrierSlot: TCarrierSlot): Map<string, TOIMColumnGroup> | undefined {
-        return (carrierSlot.storeSlot as TOIMStoreSlot).columnGroupsByKey;
+        return carrierSlot.storeSlot.columnGroupsByKey;
     }
 
     protected getColumnReadersOf(carrierSlot: TCarrierSlot): Map<string, TOIMColumnReaders> | undefined {
-        return (carrierSlot.storeSlot as TOIMStoreSlot).columnReadersByColumnName;
+        return carrierSlot.storeSlot.columnReadersByColumnName;
     }
 
     private getColumnIfFiled(carrierSlot: TCarrierSlot, key: string): TColumnSlot | undefined {

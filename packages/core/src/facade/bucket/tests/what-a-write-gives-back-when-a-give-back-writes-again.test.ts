@@ -7,6 +7,9 @@ import type { TOIMSlot } from '../../../engine/slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../../../engine/slot/types/TOIMStoreSlot';
 import type { OIMChannelQueue } from '../../../engine/channel/OIMChannelQueue';
 import { createOIMSlotCollectionService } from '../../../factories/createOIMSlotCollectionService';
+import { createOIMStoreSlot } from '../../../engine/slot/utils/createOIMStoreSlot';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -41,7 +44,7 @@ const createFixture =(rows: number) => {
     const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const byDeck = byDeckService.createStoreSlot(db);
     const rowsOf = (deckId: string): TCardSlot[] => Array.from(
-        { length: rows }, (_unused, at) => createOIMEntitySlot<TCard, string>(`${deckId}r${at}`, rowOwner),
+        { length: rows }, (_unused, at) => createOIMEntitySlot<TCard, string>(`${deckId}r${at}`, rowOwner, testStoreSlot),
     );
     return { db, byDeckService, byDeck, rowOwner, rowsOf };
 };

@@ -79,15 +79,32 @@ if (badPeers.length > 0) {
     process.exit(1);
 }
 
+const changedPathsSince = (since, dir, packageJson) => {
+    const diffArgs = STAGED ? ['diff', '--cached', '--name-only', since] : ['diff', '--name-only', since, 'HEAD'];
+    return git(...diffArgs, '--', `packages/${dir}`).split('\n').filter(Boolean)
+        .map(path => path.slice(`packages/${dir}/`.length))
+        .filter(path => isShipped(path) || (path === 'package.json'
+            && withoutVersion(readPackageJsonAt(since, dir)) !== withoutVersion(packageJson)));
+};
+
+const publishedGitHead = (name, version) => {
+    try {
+        const gitHead = execFileSync('npm', ['view', `${name}@${version}`, 'gitHead', '--prefer-online'], {
+            stdio: ['ignore', 'pipe', 'ignore'],
+        }).toString().trim();
+        if (gitHead === '') return undefined;
+        git('cat-file', '-e', `${gitHead}^{commit}`);
+        return gitHead;
+    } catch {
+        return undefined;
+    }
+};
+
 for (const { dir, packageJson } of packageJsons) {
     if (packageJson.private || packageJson.oimdbRelease?.publish !== true) continue;
     const since = commitThatSetVersion(dir, packageJson.version);
     if (since === undefined) continue;
-    const diffArgs = STAGED ? ['diff', '--cached', '--name-only', since] : ['diff', '--name-only', since, 'HEAD'];
-    const changed = git(...diffArgs, '--', `packages/${dir}`).split('\n').filter(Boolean)
-        .map(path => path.slice(`packages/${dir}/`.length))
-        .filter(path => isShipped(path) || (path === 'package.json'
-            && withoutVersion(readPackageJsonAt(since, dir)) !== withoutVersion(packageJson)));
+    const changed = changedPathsSince(since, dir, packageJson);
     if (changed.length === 0) continue;
     let versions;
     try {
@@ -96,7 +113,10 @@ for (const { dir, packageJson } of packageJsons) {
         unreachable.push(packageJson.name);
         continue;
     }
-    if (versions.includes(packageJson.version)) stale.push({ dir, packageJson, changed });
+    if (!versions.includes(packageJson.version)) continue;
+    const publishedFrom = publishedGitHead(packageJson.name, packageJson.version);
+    const changedSincePublish = publishedFrom === undefined ? changed : changedPathsSince(publishedFrom, dir, packageJson);
+    if (changedSincePublish.length > 0) stale.push({ dir, packageJson, changed: changedSincePublish });
 }
 
 if (unreachable.length > 0) {

@@ -1,11 +1,14 @@
 
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMDB } from '../../../factories/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
@@ -21,8 +24,8 @@ const slot = (): TOIMSlot => ({
         releaseDueAfterIdleMs: -1,
         releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: testStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 describe('a body that writes during the frame is refused rather than half-honoured', () => {

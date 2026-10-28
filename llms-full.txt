@@ -932,8 +932,8 @@ cardService.writeInBatch(cards, () => {
 });
 ```
 
-- `openBatch(storeSlot)` / `closeBatch(storeSlot)` nest by a count on the store slot; `writeInBatch` is the
-  `try/finally` form and returns what its function returns.
+- `openBatch(storeSlot)` / `closeBatch(storeSlot)` nest by a count on the store slot; `closeBatch` with no batch open
+  throws. `writeInBatch` is the `try/finally` form and returns what its function returns.
 - **What the batch changes is who hears the writes, and when.** A content-change listener on the store slot (an
   index on the collection) hears every write of the batch in ONE call, `onContentChangedMany`, when the
   outermost batch closes. Code inside the batch reads the index as it was before the batch.
@@ -1206,7 +1206,6 @@ construct one, never subclass it.
 | `OIMDefaults.INDEX_KEYS_SERVICE` | `IOIMIndexKeysService` | `OIMAppendingIndexKeysService`; the factories pass it when `db.indexKeysService` is not set |
 | `OIMDefaults.KEY_TREE_WALK_SCALAR` | `OIMScalarKeyTreeWalk` | the chain-of-values walk |
 | `OIMDefaults.KEY_TREE_WALK_COMPOSITE` | `OIMCompositeKeyTreeWalk` | the chain-of-identities walk |
-| `OIMDefaults.STANDALONE_SLOT_OWNER` | `OIMSlotOwner` | the owner of a slot nobody filed |
 | `OIMDefaults.ENTITY_WRITER` | `IOIMEntityWriter` | `createOIMEntityWriterInPlace()` |
 | `OIMDefaults.ENTITY_SLOT_EMPTINESS` | `IOIMSlotEmptinessPolicy<TOIMEntitySlot>` | "empty means `slot.entity === undefined`" |
 | `OIMDefaults.STORE_SLOT_LISTENER` | `IOIMStoreSlotListener` | `OIMNoStoreSlotListener`: hears nothing. Not a constructor option: every service reads it when it is built and calls `onStoreSlotCreated(storeSlot)` for each store slot it creates. A tool that wants to see every store slot sets its own with `setValue` before the first service is built; once one has been built, `setValue` throws |
@@ -2480,7 +2479,7 @@ class OIMComputedService<TKey, TValue, TComputedStore> {
 }
 
 createOIMComputedService<TKey, TValue, TComputedStore = Map<TKey, TOIMComputedSlot<TValue, TKey>>>({
-    createSources?: (key: TKey, storeSlot: TOIMStoreSlot | undefined) => Partial<TOIMComputedSources>;
+    createSources?: (computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>;
     derive?: (computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue;
     sameValueGuard?: TOIMSameValueGuard<TValue>;   // default Object.is
     initialValue?: TValue;
@@ -2806,8 +2805,7 @@ address" for the address the tree is looking at.
 ## Lifetime — the owner protocol
 
 **`slot.owner` is the only reference a slot carries, and it is never
-`undefined`.** Every slot minted anywhere has one; a slot nothing filed carries
-`OIMDefaults.STANDALONE_SLOT_OWNER.getValue()`, a slot a collection filed carries that collection type's slot owner (an `OIMSlotOwnerService`) — keyed or single alike — and a slot that has been released KEEPS its owner
+`undefined`.** Every slot minted anywhere has one: a slot a collection filed carries that collection type's slot owner (an `OIMSlotOwnerService`) — keyed or single alike — and a slot that has been released KEEPS its owner
 and raises the RELEASED flag in `slot.slotFlags` instead, which the doors below read.
 
 ```ts signature
@@ -2835,16 +2833,13 @@ At a deadline the release queue reads its MARKER off the slot, decides, and call
 Its `releaseSlotIfUnheld` does nothing, its
 `unsafeMutateSlot(slot, mutateSlot)` hands `mutateSlot` the slot as `TOIMSlotEditable` with no
 guard at all (it exists so a library that adds its own release wheel can keep its own bit in
-`slot.slotFlags`; the engine owns bits `1`, `2`, `4`, `8` and `16`, so a library starts at `32`;
+`slot.slotFlags`; the engine owns bits `1`, `2`, `4`, `8`, `16` and `32`, so a library starts at `64`;
 it is on the owner so a subclass can hook every such mutation), and a `protected
 onSlotIdle` does nothing; a `protected assertNotReleased` is what every refusing
 door above calls. `OIMSlotOwnerService` overrides `onSlotIdle` and
 `releaseSlotIfUnheld`, asking its release policy and its content service; the clock is the slot's channel slot's.
-Extend `OIMSlotOwner` when you own slots that no collection files.
-**`OIMDefaults.STANDALONE_SLOT_OWNER`** is one shared instance of it — the owner of a
-computed slot nobody has filed. It never releases anything, which is exactly what
-"filed nowhere, so nothing can unfile it" means. A single's slot is not such a slot: its
-owner is its collection type's slot owner, and that release policy applies to it.
+A single's slot is owned the same way: its owner is its collection type's slot owner, and that release policy
+applies to it.
 
 ### The column owner
 
@@ -2957,9 +2952,9 @@ type TOIMSlot = {
     readonly releaseDueAfterWriteMs: number; // -1 until a write stamps it
     readonly releaseDueAfterIdleMs: number;  // -1 until idleness stamps it
     readonly releaseDueAfterUnholdMs: number; // -1 until the last unhold stamps it
-    readonly slotFlags: number;        // OIM_SLOT_FLAG_EMPTY = 1, OIM_SLOT_FLAG_RELEASED = 2
+    readonly slotFlags: number;        // OIM_SLOT_FLAG_EMPTY = 1, OIM_SLOT_FLAG_RELEASED = 2; bits up to 32 are the engine's
     readonly columnSlotStore: unknown; // the column slots this slot carries; undefined while none
-    readonly storeSlot: TOIMStoreSlot | undefined;
+    readonly storeSlot: TOIMStoreSlot;  // the store slot it belongs to; a column slot's is its carrier's
     readonly owner: IOIMSlotOwner;     // never undefined, never cleared
 };
 
@@ -2996,7 +2991,7 @@ type TOIMIndexStoreSlot<TStore, TBucketSlot, TBucketPatch, TSourceSlot, TSourceP
 type TOIMComputedStoreSlot<TStore = unknown, TValue = unknown, TKey = unknown> =
     TOIMStoreSlot<TStore, TOIMComputedSlot<TValue, TKey>> & {
         readonly derive: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined;
-        readonly createSources: ((key: TKey, storeSlot: TOIMStoreSlot | undefined) => Partial<TOIMComputedSources>) | undefined;
+        readonly createSources: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined;
     };
 
 type TOIMSlotEditable<TSlot> = { -readonly [K in keyof TSlot]: TSlot[K] };
@@ -3170,8 +3165,7 @@ on its `sourceComputeds` before `derive`, so the derive never reads a stale comp
 *Comparison and diffing* — `oimSameValueZeroGuard` ·
 `oimSameSlotSequence` · `oimSameKeySequence` · `oimOrderedListCommandsOfTransition` · `TOIMOrderedListCommand`
 
-*Shared defaults* — `OIMDefaults.STANDALONE_SLOT_OWNER`,
-`OIMDefaults.KEY_TREE_WALK_SCALAR` and `OIMDefaults.KEY_TREE_WALK_COMPOSITE`.
+*Shared defaults* — `OIMDefaults.KEY_TREE_WALK_SCALAR` and `OIMDefaults.KEY_TREE_WALK_COMPOSITE`.
 
 **Nothing else is exported.** If a symbol is not on this list, it does not exist.
 

@@ -2,7 +2,6 @@ import type { TOIMComputedContentSlot } from '../computed/types/TOIMComputedCont
 import type { IOIMComputedValueService } from '../computed/interfaces/IOIMComputedValueService';
 import type { TOIMComputedColumnSlot } from './types/TOIMComputedColumnSlot';
 import type { TOIMColumnSlotOwnerOptions } from './types/TOIMColumnSlotOwnerOptions';
-import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
 import { oimColumnSlotStoreServiceOfColumnOwnerOptions } from './utils/oimColumnSlotStoreServiceOfColumnOwnerOptions';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
@@ -39,7 +38,7 @@ export class OIMPullColumnSlotOwner
     public getValueForSlot(computedSlot: TOIMComputedContentSlot): unknown {
         this.assertNotReleased(computedSlot);
         const columnSlot = computedSlot as TOIMComputedColumnSlot;
-        const carrierStoreSlot = this.carrierSlotOf(columnSlot).storeSlot as TOIMStoreSlot;
+        const carrierStoreSlot = columnSlot.storeSlot;
         oimRefreshComputedSlot(
             columnSlot,
             this.deriveColumnSlotValue,
@@ -50,7 +49,7 @@ export class OIMPullColumnSlotOwner
     }
 
     protected createColumnSlot(carrierSlot: TOIMComputedContentSlot, key: string): TOIMComputedColumnSlot {
-        const columnSlot = createOIMComputedSlot<unknown, string>(key, this, this, undefined);
+        const columnSlot = createOIMComputedSlot<unknown, string>(key, this, this, undefined, carrierSlot.storeSlot);
         (columnSlot as TOIMSlotEditable<TOIMComputedColumnSlot>).sourceComputeds = [carrierSlot];
         this.getValueForSlot(columnSlot);
         return columnSlot;

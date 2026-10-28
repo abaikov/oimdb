@@ -1,0 +1,1 @@
+export const OIM_SLOT_FLAG_QUEUED_IN_BATCH = 32;

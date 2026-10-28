@@ -69,10 +69,10 @@ function deriveBucketMemo<TKey extends NonNullable<unknown>, TBucketMemberSlot e
 
 function createBucketMemoSources<TKey extends NonNullable<unknown>, TBucketMemberSlot extends TOIMSlot, TSlots, TBucketStore>(
     key: TKey,
-    storeSlot: TOIMStoreSlot | undefined,
+    storeSlot: TOIMStoreSlot,
     bucketCollectionService: TOIMBucketSlotCollectionService<TKey, TBucketMemberSlot, TSlots, TBucketStore>,
 ): Partial<TOIMComputedSources> {
-    const bucketStoreSlot = (storeSlot as TOIMStoreSlot).sourceStoreSlot as TOIMStoreSlot<
+    const bucketStoreSlot = storeSlot.sourceStoreSlot as TOIMStoreSlot<
         TBucketStore, TOIMBucketSlot<TSlots, TKey>, readonly TBucketMemberSlot[]
     >;
     return { sourceSlots: [bucketCollectionService.getSlotByKey(bucketStoreSlot, key)] };

@@ -3,6 +3,19 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.2.0
+
+### Changed
+
+- `closeBatch` throws when no batch is open.
+- A slot written inside a batch is released only after the batch is delivered.
+- Slot flag bit `32` is taken by the engine; a library's own bits start at `64`.
+- `TOIMSlot.storeSlot` is required; a column slot carries its carrier's store slot.
+
+### Removed
+
+- `OIMDefaults.STANDALONE_SLOT_OWNER`. Use `new OIMSlotOwner()`.
+
 ## 4.1.0
 
 Breaking: exports removed and renamed, `IOIMSlotOwner` has new required members.

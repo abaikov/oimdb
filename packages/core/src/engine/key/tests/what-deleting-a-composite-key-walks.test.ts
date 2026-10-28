@@ -4,12 +4,16 @@ import { OIMScalarKeyTreeWalk } from '../OIMScalarKeyTreeWalk';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, readonly TOIMStoreKey[]>;
 
 const filed = (key: readonly TOIMStoreKey[]): TCardSlot =>
-    createOIMEntitySlot<TCard, readonly TOIMStoreKey[]>(key, new OIMSlotOwner());
+    createOIMEntitySlot<TCard, readonly TOIMStoreKey[]>(key, new OIMSlotOwner(), testStoreSlot);
 
 const createFixture = () => {
     const slotTreeStoreService = new OIMSlotTreeStoreService<TOIMStoreKey, TCardSlot>(new OIMScalarKeyTreeWalk());

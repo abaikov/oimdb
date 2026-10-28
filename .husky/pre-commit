@@ -2,3 +2,4 @@
 # The full suite is CI's job (see .github/workflows/ci.yml).
 npx lint-staged
 node scripts/check-version-bumped.mjs --staged
+if git diff --cached --name-only | grep -q '^packages/core/src/'; then node scripts/check-bundle-size.mjs; fi

@@ -17,6 +17,10 @@ import { createOIMEntityWriterReplacing } from '../../../factories/createOIMEnti
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const patchNames = (writer: IOIMEntityWriter, slot: TOIMEntityContentSlot, patch: object): string[] => {
     const changedColumnNames: string[] = [];
@@ -32,7 +36,7 @@ type TRecord = Record<string, unknown>;
 type TRecordSlot = TOIMEntitySlot<TRecord, string>;
 
 function emptySlot(): TRecordSlot {
-    return createOIMEntitySlot<TRecord, string>('k1', new OIMSlotOwner());
+    return createOIMEntitySlot<TRecord, string>('k1', new OIMSlotOwner(), testStoreSlot);
 }
 
 /** A slot already holding a record, filed through the strategy under test. */

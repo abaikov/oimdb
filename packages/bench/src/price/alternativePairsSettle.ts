@@ -1,7 +1,6 @@
 import {
     OIMChannelService,
     OIMDB,
-    OIMDefaults,
     OIMSlotMapStoreService,
     createOIMComputedService,
     oimSameValueZeroGuard,
@@ -11,6 +10,10 @@ import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
+import { OIMSlotOwner } from '../../../core/src/index';
+import { createOIMStoreSlot } from '../../../core/src/engine/slot/utils/createOIMStoreSlot';
+
+const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 /**
  * WHO GOES LOOKING — a computed walking its sources when it is READ, or a source
@@ -79,8 +82,8 @@ const makeRoot = (): TChainRoot => ({
     releaseDueAfterUnholdMs: -1,
     slotFlags: OIM_SLOT_FLAG_EMPTY,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: priceStoreSlot,
+    owner: new OIMSlotOwner(),
     value: 0,
     dependents: undefined,
 });

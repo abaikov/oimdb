@@ -1,3 +1,4 @@
+import type { TOIMStoreSlot } from '../../../core/src/index';
 import { OIMDB, OIMSlotContentSetBucketService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMEntityWriterInPlace } from '../../../core/src/index';
 import type {
     TOIMBucketContentSlot,
@@ -62,9 +63,9 @@ const reportingEntityFixture = () => {
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
 
-const slotOwner = (() => {
+const { slotOwner, ownerEntityStoreSlot } = (() => {
     const { entityService, entityStoreSlot } = reportingEntityFixture();
-    return entityService.getSlotByKey(entityStoreSlot, 'owner').owner;
+    return { slotOwner: entityService.getSlotByKey(entityStoreSlot, 'owner').owner, ownerEntityStoreSlot: entityStoreSlot as TOIMStoreSlot };
 })();
 
 type TRowBucketSlots = TOIMBucketSlotsSetStore<TRowSlot>;
@@ -77,7 +78,7 @@ const holdSingleBucketSlot = (
 };
 
 const mintSlot = (key: string): TRowSlotEditable =>
-    createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(key, slotOwner);
+    createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(key, slotOwner, ownerEntityStoreSlot);
 
 /**
  * THE INSERT GAP, ONE PART PER ROW.

@@ -37,8 +37,8 @@ jobs:
         run: npm install -g npm@^11.5.1
       - name: Install
         run: npm ci
-      - name: Build the cores the bench imports from dist
-        run: npm run build --workspace @oimdb/core --workspace @oimdb/core-legacy
+      - name: Build every package, as CI does
+        run: npm run build:packages
       - name: Copy llms.txt to static
         run: cp llms.txt website/static/llms.txt
       - name: Plan against the registry

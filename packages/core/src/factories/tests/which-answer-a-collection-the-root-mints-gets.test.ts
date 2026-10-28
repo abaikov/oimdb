@@ -45,7 +45,7 @@ const HELPERS_A_DOOR_CALLS: Readonly<Record<string, string>> = {
     'oimSlotCollectionIndexServiceOptionsWithDefault(': 'factories/utils/oimSlotCollectionIndexServiceOptionsWithDefault.ts',
 };
 
-const GLOBAL_DEFAULTS_NOBODY_PASSES = ['KEY_TREE_WALK_COMPOSITE', 'KEY_TREE_WALK_SCALAR', 'STANDALONE_SLOT_OWNER'] as const;
+const GLOBAL_DEFAULTS_NOBODY_PASSES = ['KEY_TREE_WALK_COMPOSITE', 'KEY_TREE_WALK_SCALAR'] as const;
 
 const occurrencesOf = (pattern: RegExp, text: string): number => (text.match(pattern) ?? []).length;
 

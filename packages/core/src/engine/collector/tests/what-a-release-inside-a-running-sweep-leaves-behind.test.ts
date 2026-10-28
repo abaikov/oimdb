@@ -1,4 +1,3 @@
-import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { OIMSlotReleaseWheel } from '../OIMSlotReleaseWheel';
 import { oimGetReleaseDueAfterWriteMs } from '../../slot/utils/oimGetReleaseDueAfterWriteMs';
 import { oimSetReleaseDueAfterWriteMs } from '../../slot/utils/oimSetReleaseDueAfterWriteMs';
@@ -11,6 +10,11 @@ import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const START = 1_000_000;
 const WINDOW = 100;
@@ -26,8 +30,8 @@ const anIdentity = (): TOIMSlotEditable<TOIMSlot> => ({
     releaseDueAfterIdleMs: -1,
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: testStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 const ownerThatWhenAsked = (asked: () => void): IOIMSlotOwner => ({

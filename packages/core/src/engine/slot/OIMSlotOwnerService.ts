@@ -20,6 +20,7 @@ import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
 import { oimGetChannelSlot } from './utils/oimGetChannelSlot';
 import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
 import { oimMarkSlotReleased } from './utils/oimMarkSlotReleased';
+import { OIM_SLOT_FLAG_QUEUED_IN_BATCH } from './constants/OIM_SLOT_FLAG_QUEUED_IN_BATCH';
 import { OIM_SLOT_FLAG_EMPTY } from './constants/OIM_SLOT_FLAG_EMPTY';
 import { OIM_SLOT_FLAG_RELEASED } from './constants/OIM_SLOT_FLAG_RELEASED';
 
@@ -73,15 +74,12 @@ export class OIMSlotOwnerService<
     }
 
     public hasContentChangeListeners(slot: TOIMSlot): boolean {
-        const storeSlot = slot.storeSlot;
-        if (storeSlot === undefined) return false;
-        const listeners = storeSlot.contentChangeListeners;
+        const listeners = slot.storeSlot.contentChangeListeners;
         return listeners !== undefined && listeners.length !== 0;
     }
 
     public dispatchContentChange(slot: TSlot, patch?: TPatch, changedColumns?: readonly string[]): void {
-        const storeSlot = slot.storeSlot as TOIMStoreSlot<unknown, TSlot, TPatch> | undefined;
-        if (storeSlot === undefined) return;
+        const storeSlot = slot.storeSlot as TOIMStoreSlot<unknown, TSlot, TPatch>;
         const listeners = storeSlot.contentChangeListeners;
         if (listeners === undefined || listeners.length === 0) return;
         if (changedColumns !== undefined && !this.isAnyColumnRead(storeSlot, changedColumns)) return;
@@ -94,7 +92,6 @@ export class OIMSlotOwnerService<
 
     public isAnyColumnReferenced(slot: TOIMSlot, changedColumns: readonly string[]): boolean {
         const storeSlot = slot.storeSlot;
-        if (storeSlot === undefined) return false;
         return (slot.columnSlotStore !== undefined && this.columnSlotOwner.isAnyColumnReferenced(storeSlot, changedColumns))
             || this.isAnyColumnRead(storeSlot, changedColumns);
     }
@@ -117,9 +114,7 @@ export class OIMSlotOwnerService<
     }
 
     public releaseSlotIfUnheldAfterListeners(slot: TSlot): void {
-        const storeSlot = slot.storeSlot;
-        if (storeSlot !== undefined && storeSlot.batchDepth > 0
-            && OIMContentChangeDeliveryService.INSTANCE.isLastEnqueuedSlot(storeSlot, slot)) return;
+        if ((slot.slotFlags & OIM_SLOT_FLAG_QUEUED_IN_BATCH) !== 0) return;
         this.releaseSlotIfUnheld(slot);
     }
 
@@ -167,7 +162,7 @@ export class OIMSlotOwnerService<
 
     protected override onSlotIdle(slot: TSlot): void {
         if (oimIsSlotEmpty(slot)) return;
-        if (this.slotReleasePolicy.onSlotIdle(slot)) this.releaseSlotIfUnheld(slot);
+        this.slotReleasePolicy.onSlotIdle(slot);
     }
 
     public override onSlotFirstSubscribed(slot: TOIMSlot): void {
@@ -214,8 +209,7 @@ export class OIMSlotOwnerService<
         this.slotContentService.releaseSlotContent(slot, this);
         (slot as TOIMSlotEditable<TSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
         this.slotReleasePolicy.cancelSlotRelease(slot);
-        const storeSlot = slot.storeSlot as TOIMStoreSlot<TStore, TSlot> | undefined;
-        if (storeSlot !== undefined) this.slotFilingService.unfileSlot(storeSlot.store, slot);
+        this.slotFilingService.unfileSlot((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
         oimMarkSlotReleased(slot);
     }
 }

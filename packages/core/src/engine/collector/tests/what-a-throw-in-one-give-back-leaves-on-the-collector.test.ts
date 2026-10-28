@@ -4,6 +4,10 @@ import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -27,7 +31,7 @@ const createFixture =(refuses: string) => {
     const unusedSlotCollectorSlot = createOIMUnusedSlotCollectorSlot();
     const flushUnusedSlotCollector = (): void => { OIMUnusedSlotCollectorService.INSTANCE.flush(unusedSlotCollectorSlot); };
     const tracked = ['first', 'second', 'third'].map(key => {
-        const slot = createOIMEntitySlot<TCard, string>(key, owner);
+        const slot = createOIMEntitySlot<TCard, string>(key, owner, testStoreSlot);
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(unusedSlotCollectorSlot, slot);
         return slot;
     });

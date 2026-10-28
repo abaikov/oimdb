@@ -7,11 +7,14 @@ import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSlotEditable } from '../../slot/types/TOIMSlotEditable';
 import { createOIMSingleComputedService } from '../../../factories/createOIMSingleComputedService';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TRow = { isOn: boolean; text: string };
 
 const makeSlot = (key: string, row: TRow): TOIMEntitySlot<TRow, string> => {
-    const slot = createOIMEntitySlot<TRow, string>(key, new OIMSlotOwner());
+    const slot = createOIMEntitySlot<TRow, string>(key, new OIMSlotOwner(), testStoreSlot);
     (slot as TOIMSlotEditable<typeof slot>).entity = row;
     return slot;
 };

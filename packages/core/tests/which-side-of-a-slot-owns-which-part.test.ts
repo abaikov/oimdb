@@ -248,6 +248,9 @@ const SIDES: Record<string, readonly string[]> = {
     registration: [
         'engine/index/OIMIndexKeysService.ts indexKeys×1',
     ],
+    delivery: [
+        'engine/slot/OIMContentChangeDeliveryService.ts slotFlags×2',
+    ],
     condemnation: [
         'engine/collector/OIMSlotReleaseWheel.ts slotFlags×4',
         'engine/slot/utils/oimSetReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',

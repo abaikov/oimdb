@@ -5,16 +5,20 @@ import { OIMDefaults } from '../../../factories/OIMDefaults';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type Segment = { id: string };
 
 /** A bare identity to be a KEY SEGMENT — it is addressed by nothing itself. */
 const segment = (id: string): TOIMEntitySlot =>
-    createOIMEntitySlot<Segment, string>(id, new OIMSlotOwner()) as TOIMEntitySlot;
+    createOIMEntitySlot<Segment, string>(id, new OIMSlotOwner(), testStoreSlot) as TOIMEntitySlot;
 
 /** A slot to be FILED under a composite key. */
 const filed = (): TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]> =>
-    createOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>([], new OIMSlotOwner());
+    createOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>([], new OIMSlotOwner(), testStoreSlot);
 
 /** The identity arm of the chain store: the walk is the argument that picks it. */
 const filedStore = () =>

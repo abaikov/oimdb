@@ -5,11 +5,14 @@ import { OIMEffectService } from '../../computed/OIMEffectService';
 import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type Row = { n: number };
 
 const makeSlot = (key: string): TOIMEntitySlot<Row, string> =>
-    createOIMEntitySlot<Row, string>(key, new OIMSlotOwner());
+    createOIMEntitySlot<Row, string>(key, new OIMSlotOwner(), testStoreSlot);
 
 const messagesOf = (error: unknown): string => {
     if (error instanceof AggregateError) {

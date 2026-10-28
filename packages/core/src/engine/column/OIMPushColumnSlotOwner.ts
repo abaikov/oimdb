@@ -29,7 +29,7 @@ export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMCol
             releaseDueAfterUnholdMs: -1,
             slotFlags: OIM_SLOT_FLAG_EMPTY,
             columnSlotStore: undefined,
-            storeSlot: undefined,
+            storeSlot: carrierSlot.storeSlot,
             owner: this,
             key,
             carrierSlot,

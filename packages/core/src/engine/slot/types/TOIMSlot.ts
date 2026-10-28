@@ -13,7 +13,7 @@ export type TOIMSlot = {
     readonly releaseDueAfterUnholdMs: number;
     readonly slotFlags: number;
     readonly columnSlotStore: unknown;
-    readonly storeSlot: TOIMStoreSlot | undefined;
+    readonly storeSlot: TOIMStoreSlot;
 
     readonly owner: IOIMSlotOwner;
 };

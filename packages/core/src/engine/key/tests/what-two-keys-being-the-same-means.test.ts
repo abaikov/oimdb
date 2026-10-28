@@ -5,9 +5,13 @@ import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimSameKeySequence } from '../utils/oimSameKeySequence';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
+import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { OIMDB } from '../../../factories/OIMDB';
+
+const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const slot = (id: string): TOIMSlot =>
-    createOIMEntitySlot<{ id: string }, string>(id, new OIMSlotOwner()) as TOIMSlot;
+    createOIMEntitySlot<{ id: string }, string>(id, new OIMSlotOwner(), testStoreSlot) as TOIMSlot;
 
 describe('a scalar key is the same key when a Map would say so', () => {
     it('answers yes for two of the same value', () => {

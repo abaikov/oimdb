@@ -1,11 +1,15 @@
 // Prose: ./README.md#alternativepairssubscription
-import { OIMChannelService, OIMDB, OIMDefaults, OIMEffectService } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMEffectService } from '../../../core/src/index';
 import type { TOIMEffect, TOIMSlot } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { OIMEventQueue, createOIMCollectionKit } from '../../../core-legacy/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
+import { OIMSlotOwner } from '../../../core/src/index';
+import { createOIMStoreSlot } from '../../../core/src/engine/slot/utils/createOIMStoreSlot';
+
+const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 /** How many subscribers a row mounts. The churn family's largest count. */
 const SUBSCRIBERS = 256;
@@ -22,8 +26,8 @@ const makeSlot = (): TOIMSlot => ({
     releaseDueAfterUnholdMs: -1,
     slotFlags: OIM_SLOT_FLAG_EMPTY,
     columnSlotStore: undefined,
-    storeSlot: undefined,
-    owner: OIMDefaults.STANDALONE_SLOT_OWNER.getValue(),
+    storeSlot: priceStoreSlot,
+    owner: new OIMSlotOwner(),
 });
 
 /**

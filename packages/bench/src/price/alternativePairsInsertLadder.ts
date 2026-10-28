@@ -63,7 +63,7 @@ const keyOf = (row: TPriceDataRow): string => row.id;
 
 const mint = (world: TWorld, key: string): TRowSlot | undefined => {
     if (storeService.get(world.store, key) !== undefined) return undefined;
-    return createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner);
+    return createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
 };
 
 const fill = (world: TWorld, slot: TRowSlot, row: TPriceDataRow): void => {
@@ -128,7 +128,7 @@ const slotIntoMap: TRung = (world, rows, times) => {
     const map = world.slotMap;
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner);
+        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
         map.set(row.id, slot);
     }
@@ -140,7 +140,7 @@ const probedSlotIntoMap: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
         if (map.get(row.id) !== undefined) continue;
-        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner);
+        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
         map.set(row.id, slot);
     }
@@ -151,7 +151,7 @@ const slotIntoStore: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
         if (storeService.get(world.store, row.id) !== undefined) continue;
-        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(row.id), slotOwner);
+        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(row.id), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
         storeService.set(world.store, row.id, slot);
     }
@@ -163,7 +163,7 @@ const keyedSlotIntoStore: TRung = (world, rows, times) => {
         const row = rows[i];
         const key = keyOf(row);
         if (storeService.get(world.store, key) !== undefined) continue;
-        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner);
+        const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
         storeService.set(world.store, key, slot);
     }
