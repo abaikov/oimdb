@@ -144,7 +144,7 @@ mechanism, smaller, reaches Immer and hence redux-toolkit.
 number in it is re-attributed to the current one.** A write reaches no index at
 all. The column is addressed by a per-column identity —
 `TOIMEntitySlot.columnSlotStore`, minted on the first subscription to that column and
-written only by `packages/core/src/engine/column/OIMColumnSlotOwner.ts`. The one
+written only by `packages/core/src/column/OIMColumnSlotOwner.ts`. The one
 door onto a column is `holdColumn(slot, name)` on the collection, which mints the
 column identity, handed to `OIMChannel.effectOnColumn(column, body)`, which builds
 an ordinary effect on it. Nothing has re-run this row since.
@@ -639,7 +639,7 @@ same reason in three different vocabularies: their routing is at the LEAF, so th
 **WHAT THE ENGINE DOES.** A column of a
 row is its own identity, minted lazily on the first subscription and hanging on
 the row (`TOIMEntitySlot.columnSlotStore`, sole writer
-`packages/core/src/engine/column/OIMColumnSlotOwner.ts`); subscribing to a column
+`packages/core/src/column/OIMColumnSlotOwner.ts`); subscribing to a column
 is an ordinary effect on THAT identity: `holdColumn` mints and resolves the
 column through `OIMColumnSlotOwner`, and `OIMChannel.effectOnColumn` hands it to
 `OIMChannel.effect` as its single root. A write marks only the column identities that already
@@ -802,8 +802,8 @@ between calls, but in the ORDERED-LIST machinery and not in delivery.
 `oimOrderedListCommandsOfTransition` reuses six scratch buffers rather than reallocating them and
 DROPS one above `OIM_MAX_DIFF_SCRATCH_SLOTS = 4096` entries — "one
 allocation on the call after a giant one, and none on any call that stays under
-it" (`packages/core/src/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts`,
-against `packages/core/src/engine/bucket/commands/constants/OIM_MAX_DIFF_SCRATCH_SLOTS.ts`);
+it" (`packages/core/src/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts`,
+against `packages/core/src/bucket/commands/constants/OIM_MAX_DIFF_SCRATCH_SLOTS.ts`);
 the ordered bucket service keeps three working buffers between settles "so that a
 steady-state frame allocates nothing here", dropped above
 `SLOTS_A_SHARED_BUFFER_KEEPS_AT_MOST = 32`
@@ -1019,7 +1019,7 @@ that sentence has missed the point of the sweep. In short: select one task
 enters one compiled body whose inline caches belong to that body —
 `OIMEntityCollection.prototype.upsert` / `.update` — and reaches its
 strategies through `this.writer`, an `IOIMEntityWriter` from
-`createOIMEntityWriterInPlace` or `createOIMEntityWriterReplacing`, reached
+`createOIMInPlaceEntityWriter` or `createOIMReplacingEntityWriter`, reached
 through `OIMEntityCollection`'s own `fillSlot` and `mutateSlot` forwarders, and
 through `bucketSlotsService`. A write reaches no index. The hazard is a property
 of one shared compiled body and not of which strategies hang off it. Two arms in one process would measure the second
@@ -1060,9 +1060,9 @@ The three are TWO store services and the key walk one of them is handed —
 
 | arm | key type | what keeps a branch |
 |---|---|---|
-| `OIMSlotMapStoreService` | `TOIMStoreKey` = `string \| number` — one scalar (`packages/core/src/engine/store/OIMSlotMapStoreService.ts`) | one `Map`; there is no branch |
-| `OIMSlotTreeStoreService` + `OIMScalarKeyTreeWalk` | `readonly TOIMStoreKey[]` — a chain of VALUES (`packages/core/src/engine/key/OIMScalarKeyTreeWalk.ts`) | the subtree under an edge and nothing else; `holdSegment` and `unholdSegment` both return, so no hold is taken |
-| `OIMSlotTreeStoreService` + `OIMCompositeKeyTreeWalk` | `readonly TOIMEntitySlot[]` — a chain of IDENTITIES (`packages/core/src/engine/key/OIMCompositeKeyTreeWalk.ts`) | a counted hold per edge (`segment.owner.hold`), given back at the prune |
+| `OIMSlotMapStoreService` | `TOIMStoreKey` = `string \| number` — one scalar (`packages/core/src/store/OIMSlotMapStoreService.ts`) | one `Map`; there is no branch |
+| `OIMSlotTreeStoreService` + `OIMScalarKeyTreeWalk` | `readonly TOIMStoreKey[]` — a chain of VALUES (`packages/core/src/key/OIMScalarKeyTreeWalk.ts`) | the subtree under an edge and nothing else; `holdSegment` and `unholdSegment` both return, so no hold is taken |
+| `OIMSlotTreeStoreService` + `OIMCompositeKeyTreeWalk` | `readonly TOIMEntitySlot[]` — a chain of IDENTITIES (`packages/core/src/key/OIMCompositeKeyTreeWalk.ts`) | a counted hold per edge (`segment.owner.hold`), given back at the prune |
 
 **What a segment IS belongs to the walk and not to the store**: there is no
 branch on a key's kind anywhere in `OIMSlotTreeStoreService`
@@ -1091,20 +1091,20 @@ What is left is the key type, and it does different work in each pair:
   segment, so a row keyed by `[user, card]` keeps that user resolvable for as
   long as the row is addressable, and the value arm holds nothing, so removing
   `u1` is invisible to a row filed at `['u1', …]`
-  (`packages/core/src/engine/key/OIMScalarKeyTreeWalk.ts`;
+  (`packages/core/src/key/OIMScalarKeyTreeWalk.ts`;
   `packages/core/src/index.ts`). That is a fork about LIFETIME. A pair
   whose arms leave different state is not a measurement of one task.
 - **map against scalar-tree — this IS a sweep, and it is unswept.** For a
   population keyed by ONE scalar both arms accept the task with no resolution
   moved anywhere: the selector is `row => row.id` against `row => [row.id]`, and
   a one-segment chain is legal — `mintNodeAt` refuses only
-  an EMPTY key (`packages/core/src/engine/key/OIMKeyTreeWalk.ts`) —
+  an EMPTY key (`packages/core/src/key/OIMKeyTreeWalk.ts`) —
   and takes no hold at one segment any more than at three. What the second arm
   costs over the first is countable in the source and nothing else: per
   resolution one caller-allocated array plus one `Map.get` on the root node and
-  one field read (`packages/core/src/engine/key/OIMKeyTreeWalk.ts`) against the map store's
+  one field read (`packages/core/src/key/OIMKeyTreeWalk.ts`) against the map store's
   single `Map.get`; per insert a `parts.slice()` and a `Set.add`
-  (`packages/core/src/engine/store/OIMSlotTreeStoreService.ts`) against one `Map.set`. **No
+  (`packages/core/src/store/OIMSlotTreeStoreService.ts`) against one `Map.set`. **No
   adapter in `src/adapters/` constructs the scalar store**, so the arm is
   shipped and unmeasured.
   That is a gap in this report, not a property of the engine.
@@ -1116,8 +1116,8 @@ population keyed by a combination, against a floor of nested maps.
 
 Insert a population, read one row back by key. **One axis varies: the write
 strategy**, and the sweep's job is to find out whether the fork is *free* here
-rather than to find a winner. `createOIMEntityWriterInPlace.ts` and
-`createOIMEntityWriterReplacing.ts` both default `entityInserter` to the same
+rather than to find a winner. `createOIMInPlaceEntityWriter.ts` and
+`createOIMReplacingEntityWriter.ts` both default `entityInserter` to the same
 strategy (the copying one when this was measured; `oimInsertEntityWithoutCopy` since 2026-10-21), and `upsert`'s insert branch calls
 `fillSlot` and no other method of the strategy
 (`packages/core/src/facade/entity/OIMEntityCollection.ts`, `upsert`). The two arms should be the
@@ -1200,7 +1200,7 @@ where the floor is genuinely reachable**, because the whole job is deciding that
 nothing changed and a hand-written store has to decide it too.
 
 Axes: the *write strategy* (both strategies walk the patch and return
-`nothingChanged`; `createOIMEntityWriterReplacing.ts` allocates only on the branch where something
+`nothingChanged`; `createOIMReplacingEntityWriter.ts` allocates only on the branch where something
 changed, which this arm turns into a reading), and *whether an index is held* —
 not a strategy fork but the question a consumer asks before adding a grouping to
 a polled population. A write reaches no index whatever it changes, so
@@ -1457,7 +1457,7 @@ instead of iterating `byGroup.read(bucket)`.
 (`packages/core/src/facade/bucket/OIMBucketCollection.ts`, `write`), and the two-call
 protocol for an in-place sort-key change ends the same way. The filter lives in
 `oimRefreshComputedSlot`, which advances `changedAt*` only when its `held` says
-the value changed (`packages/core/src/engine/computed/utils/oimRefreshComputedSlot.ts`), and
+the value changed (`packages/core/src/computed/utils/oimRefreshComputedSlot.ts`), and
 `OIMEffect.run` returns without calling the body when nothing it reads has moved
 (`packages/core/src/engine/computed/OIMEffect.ts`, `run`). An effect over the raw bucket sits upstream of that
 filter and receives every report. Measuring it compared sixteen libraries against
@@ -1928,7 +1928,7 @@ churn scripts a resident subscriber, change the engine's node construction, or s
 | oimdb, every removable step off | 79–80 |
 
 Removing one step at a time moves the median by: the generic patch walk
-(`patchEntityColumns`: `for…in`, `oimIsProtoKey`, `oimIsPlain`, the guard) −22 to −26 ns; each of
+(`patchEntityColumns`: `for…in`, `oimIsProtoKey`, `oimIsPlainObject`, the guard) −22 to −26 ns; each of
 assert, subframe open/close, `hasChangedColumnReaders`, column marking, `updateEmptiness`,
 content-change listeners, the flush tail (collector + after-each-flush), the frame tail
 (`cancelSchedule`, after-each-frame) and the effect gate (`oimRefreshSourceComputeds`,
@@ -2015,11 +2015,11 @@ itself: `oimRefreshComputedSlot`, `mintComputedSlot`, `createEffect`, `releaseSl
 
 ## `singleResend` — `Object.getPrototypeOf` and a frame with nothing in it
 
-A profile of the cell put `oimIsPlain` at 17% and `flush` at 18%. `oimIsPlain` was one
+A profile of the cell put `oimIsPlainObject` at 17% and `flush` at 18%. `oimIsPlainObject` was one
 `Object.getPrototypeOf` per patch so that a plain source skipped the per-key own-property
 check; measured, the check per key is cheaper than the one prototype read. Probe, one
 `OIMSingleEntity.update` of the value it holds + `flush`, load 3.5, three runs: 32.2–33.3 ns as
-it was, 17.7–18.7 with the per-key check and no `oimIsPlain`; a 10-column patch 134–136 → 123–125,
+it was, 17.7–18.7 with the per-key check and no `oimIsPlainObject`; a 10-column patch 134–136 → 123–125,
 a 10-column put 160–166 → 149–155. `patchEntityColumns` and `putEntityColumns` now check
 every key, and the two proxy-count tests that pinned "a plain source pays no own check" count
 the extra descriptor reads. `OIMChannel.flush` skips `runFrame` when the clock has not moved

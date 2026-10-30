@@ -85,7 +85,7 @@ path branches on it:
 | `entityWriter` | the db's, then `OIMDefaults.ENTITY_WRITER.getValue()` | how a write lands on the stored object — see [The two writers](/docs/core/writing#the-two-writers) |
 | `columnSlotStoreService` | `OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` | where column slots live — see [Column slots](#column-slots) |
 | `columnNames` | none | the column names, filed in an ordinal store — see [Naming the columns up front](#naming-the-columns-up-front) |
-| `slotEmptinessPolicy` | `OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue()` | what counts as "no value" — see [Emptiness is a strategy](#emptiness-is-a-strategy) |
+| `slotEmptinessPolicy` | `OIMDefaults.ENTITY_SLOT_EMPTINESS_POLICY.getValue()` | what counts as "no value" — see [Emptiness is a strategy](#emptiness-is-a-strategy) |
 | `slotReleasePolicy` | the db's, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` | how long an identity stays filed — see [How long an identity stays](#how-long-an-identity-stays) |
 
 Two more strategies are the db's, for every collection of it: `slotStamp` (an `IOIMSlotStamp` whose
@@ -164,9 +164,9 @@ watch a key whose value has not arrived:
 
 ```typescript
 const reserved = cardService.holdSlotByKey(cards, 'c2');    // the identity exists; entity is undefined
-const effect = effectService.createEffect(db, [reserved], [], () => {
+const effect = effectService.createEffect(db, () => {
     render(reserved.entity);                   // undefined, then the card
-});
+}, [reserved]);
 
 cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Two', rank: 2 });
 db.flush();
@@ -217,8 +217,8 @@ at run time.
 
 | Walk | Key | What keeps a branch |
 |---|---|---|
-| `OIMDefaults.KEY_TREE_WALK_SCALAR` | `readonly TOIMStoreKey[]` — a chain of **values** | the subtree under it, and nothing else |
-| `OIMDefaults.KEY_TREE_WALK_COMPOSITE` | `readonly TOIMEntitySlot[]` — a chain of **identities** | that, plus a counted hold on each composite key part |
+| `OIMDefaults.SCALAR_KEY_TREE_WALK` | `readonly TOIMStoreKey[]` — a chain of **values** | the subtree under it, and nothing else |
+| `OIMDefaults.COMPOSITE_KEY_TREE_WALK` | `readonly TOIMEntitySlot[]` — a chain of **identities** | that, plus a counted hold on each composite key part |
 
 Both keep order significant and prefixes apart: `[a]` and `[a, b]` are different
 keys. Both keep each composite key part's own type, so `1` and `'1'` are two composite key parts.
@@ -242,7 +242,7 @@ type TTallyStore = TOIMSlotStoreTree<TOIMEntitySlot<Tally, TScalarChain>, TOIMSt
 const tallyService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<Tally, TScalarChain>>, TTallyStore>(db, {
     slotContentService: createOIMSlotContentEntityService<Tally, TScalarChain>(db),
     slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<Tally, TScalarChain>>(
-        OIMDefaults.KEY_TREE_WALK_SCALAR.getValue(),
+        OIMDefaults.SCALAR_KEY_TREE_WALK.getValue(),
     ),
 });
 const tallies = tallyService.createStoreSlot(db);
@@ -286,7 +286,7 @@ type TEnrollmentStore = TOIMSlotStoreTree<TOIMEntitySlot<Enrollment, TChain>, TO
 const enrollmentService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<Enrollment, TChain>>, TEnrollmentStore>(db, {
     slotContentService: createOIMSlotContentEntityService<Enrollment, TChain>(db),
     slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TOIMEntitySlot<Enrollment, TChain>>(
-        OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
+        OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue(),
     ),
 });
 const enrollments = enrollmentService.createStoreSlot(db);
@@ -308,8 +308,8 @@ encoded into a string: the tree descends one composite key part at a time, so `[
 
 The key's shape is what `TKey` carries and what the store is built from:
 `OIMSlotMapStoreService` for one value, `OIMSlotTreeStoreService` for a chain, given
-`OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()` for a chain of values or
-`OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()` for a chain of identities, and
+`OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()` for a chain of values or
+`OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()` for a chain of identities, and
 `OIMSingleSlotStoreService.INSTANCE` for no key. Pass the store you want.
 
 Each is an `IOIMSlotStoreService<TKey, TSlot, TStore>`: a stateless service with
@@ -322,7 +322,7 @@ as `slotStoreService`.
 
 The slot's EMPTY flag (`oimIsSlotEmpty(slot)`) is settled once per write by the injected `IOIMSlotEmptinessPolicy`,
 never recomputed at the read. An entity content service's default is
-`OIMDefaults.ENTITY_SLOT_EMPTINESS.getValue()` — "the entity is `undefined`". `hasSlotContentByKey`,
+`OIMDefaults.ENTITY_SLOT_EMPTINESS_POLICY.getValue()` — "the entity is `undefined`". `hasSlotContentByKey`,
 the population walk below and the release policy all read that one flag.
 
 Inject your own when "no value" means more than `undefined` — a soft delete, a
@@ -386,7 +386,7 @@ write to `title` does not wake a reader of `rank`:
 ```typescript
 const card = cardService.holdSlotByKey(cards, 'c1');
 const rank = cardService.columnSlotService.holdColumn(card, 'rank');
-const onRank = effectService.createEffect(db, [rank], [], () => render(card.entity));
+const onRank = effectService.createEffect(db, () => render(card.entity), [rank]);
 
 effectService.disposeEffect(onRank);
 cardService.columnSlotService.unholdColumn(rank);
@@ -415,7 +415,7 @@ write to its carrier, where `holdColumn` wakes on one named column. Give it back
 ```typescript
 const anyColumnCard = cardService.holdSlotByKey(cards, 'c1');
 const anyColumn = cardService.columnSlotService.holdAnyColumn(anyColumnCard);
-const onAnyColumn = effectService.createEffect(db, [anyColumn], [], () => render(anyColumnCard.entity));
+const onAnyColumn = effectService.createEffect(db, () => render(anyColumnCard.entity), [anyColumn]);
 
 effectService.disposeEffect(onAnyColumn);
 cardService.columnSlotService.unholdColumn(anyColumn);
@@ -431,7 +431,7 @@ renders `rank` and `title` and should wake once when either changes:
 const rendered = cardService.columnSlotService.getColumnGroup(['rank', 'title']);
 const card = cardService.holdSlotByKey(cards, 'c1');
 const renderedOfCard = cardService.columnSlotService.holdColumnGroup(card, rendered);
-const onRendered = effectService.createEffect(db, [renderedOfCard], [], () => render(card.entity));
+const onRendered = effectService.createEffect(db, () => render(card.entity), [renderedOfCard]);
 
 effectService.disposeEffect(onRendered);
 cardService.columnSlotService.unholdColumn(renderedOfCard);
@@ -469,7 +469,7 @@ A collection's store slot is not a slot: it has no owner, no hold count and no e
 so it is never held or subscribed, and no write announces it. "Something in this population changed" is an index over the
 collection and a subscription to its bucket, whose door is written when an entity
 joins it or leaves it — or a content-change listener on the store slot
-(`OIMContentChangeListenerService.INSTANCE.addContentChangeListener`, see
+(`OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener`, see
 [the content-change hook](/docs/core/oimindex#the-content-change-hook-and-indexkeys)):
 
 ```typescript
@@ -479,7 +479,7 @@ const cardsByConstantService = createOIMSlotCollectionIndexService(db, {
 });
 const cardsByConstant = cardsByConstantService.createIndexStoreSlot(cards);
 const everyCard = cardsByConstantService.holdSlotByKey(cardsByConstant, 'all');
-effectService.createEffect(db, [everyCard], [], () => { /* a card joined or left */ });
+effectService.createEffect(db, () => { /* a card joined or left */ }, [everyCard]);
 ```
 
 The reason: a collection-wide subscription would have to be woken by every write to
@@ -518,7 +518,7 @@ const byIdService = createOIMSlotCollectionIndexService(db, {
 const byId = byIdService.createIndexStoreSlot(cards);
 
 const bucket = byIdService.holdSlotByKey(byId, 'c1');   // maintained from here until the last give-back
-effectService.createEffect(db, [bucket], [], () => { /* this entity joined or left */ });
+effectService.createEffect(db, () => { /* this entity joined or left */ }, [bucket]);
 ```
 
 An index's bucket carries a lifetime its consumer injects — a

@@ -116,9 +116,9 @@ After this step the store slot `cards` holds `c1` (deck `d1`, title `alpha`, ran
 ## 4. Subscribe and flush
 
 ```typescript
-const effect = effectService.createEffect(db, [first], [], () => {
+const effect = effectService.createEffect(db, () => {
     console.log('card is now', first.entity?.title);
-});
+}, [first]);
 
 cardContentService.updateEntity(first, { title: 'ALPHA' });
 cardContentService.updateEntity(first, { title: 'ALPHA!' });
@@ -128,9 +128,9 @@ effectService.disposeEffect(effect);
 ```
 
 An effect is a plain object, built and disposed by `OIMEffectService.INSTANCE`.
-`effectService.createEffect(db, sourceSlots, sourceComputeds, body)` builds an effect. Its body
+`effectService.createEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)` builds an effect. Its body
 runs in the next frame after one of its sources moved, once per frame. It only reacts to writes
-made after it was created. `effectService.createEffectImmediate(…)` is the same, but also runs
+made after it was created. `effectService.createAndRunEffect(…)` is the same, but also runs
 the body once at creation. `effectService.subscribeEffect(…)` is `createEffect` that hands back a
 disposer. `effectService.disposeEffect(effect)` gives the subscription back.
 
@@ -144,9 +144,9 @@ Now `c1` has the title `ALPHA!`.
 
 ```typescript
 const titleColumn = cardService.columnSlotService.holdColumn(first, 'title');
-const titleEffect = effectService.createEffect(db, [titleColumn], [], () => {
+const titleEffect = effectService.createEffect(db, () => {
     console.log('title is now', first.entity?.title);
-});
+}, [titleColumn]);
 
 cardContentService.updateEntity(first, { rank: 5 });         // does not run it
 db.flush();                                            // logs nothing
@@ -183,9 +183,9 @@ const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 ```typescript
 const deckOne = cardsByDeckService.holdSlotByKey(cardsByDeck, 'd1');
 const deckContentService = cardsByDeckService.slotContentService;
-const onDeckOne = effectService.createEffect(db, [deckOne], [], () => {
+const onDeckOne = effectService.createEffect(db, () => {
     console.log('d1 has', deckContentService.getBucketMemberSlotCount(deckOne), 'card(s)');
-});
+}, [deckOne]);
 
 console.log(deckContentService.getBucketMemberSlotCount(deckOne));   // 2: c1 and c2, filed when the bucket was minted
 
@@ -236,16 +236,16 @@ import { createOIMSortedComputedService } from '@oimdb/core';
 
 const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 ```
 
 ```typescript
 const sortedDeckOne = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'd1');
-const onSorted = effectService.createEffectImmediate(db, [], [sortedDeckOne], () => {
+const onSorted = effectService.createAndRunEffect(db, () => {
     console.log(sortedDeckOne.computedValueService.getValueForSlot(sortedDeckOne).map((slot) => slot.entity?.title));
-});
+}, [], [sortedDeckOne]);
 // -> [ 'gamma', 'Alpha' ]
 
 cardContentService.updateEntity(first, { title: 'ALPHA' });
@@ -297,9 +297,9 @@ const resultContentService = searchResultService.slotContentService;
 resultContentService.writeSlotContent(alphaQuery, [first]);
 db.flush();
 
-const onResults = effectService.createEffect(db, [alphaQuery], [], () => {
+const onResults = effectService.createEffect(db, () => {
     console.log('q:alpha has', resultContentService.getBucketMemberSlotCount(alphaQuery), 'result(s)');
-});
+}, [alphaQuery]);
 
 resultContentService.writeSlotContent(alphaQuery, [first, second]);
 db.flush();          // -> "q:alpha has 2 result(s)"

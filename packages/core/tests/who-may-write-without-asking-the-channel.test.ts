@@ -3,16 +3,16 @@ import { join, relative } from 'node:path';
 
 const sourceRoot = join(__dirname, '..', 'src');
 
-const CHANNEL = 'engine/channel/OIMChannelService.ts';
+const CHANNEL = 'channel/OIMChannelService.ts';
 
 const engineLayersThatWriteForACallerWhoAsked = [
-    'engine/column/OIMPushColumnSlotOwner.ts',
-    'engine/slot/OIMSlotOwnerService.ts',
+    'column/OIMPushColumnSlotOwner.ts',
+    'slot/OIMSlotOwnerService.ts',
 ].sort();
 
 const filesAllowedToWriteWithoutAsking = [
     CHANNEL,
-    'engine/entity/OIMSlotContentEntityService.ts',
+    'entity/OIMSlotContentEntityService.ts',
     ...engineLayersThatWriteForACallerWhoAsked,
 ].sort();
 
@@ -34,9 +34,9 @@ const engineLayerNames = (): string[] => engineLayersThatWriteForACallerWhoAsked
     .map(path => path.replace(/^.*\//, '').replace(/\.ts$/, ''))
     .sort();
 
-const facadeFiles = (): string[] => typeScriptFilesUnder(join(sourceRoot, 'facade'))
+const facadeFiles = (): string[] => typeScriptFilesUnder(sourceRoot)
     .map(path => relative(sourceRoot, path).split('\\').join('/'))
-    .filter(path => !isATest(path))
+    .filter(path => !isATest(path) && !isAnEngineLayer(path))
     .sort();
 
 const namesTheUncheckedDoor = (path: string): boolean =>
@@ -77,7 +77,7 @@ const firstAt = (body: string, pattern: RegExp): number => {
     return match === null ? Infinity : match.index;
 };
 
-const ASKS = /\b(?:assertWritable|assertNotFlushing)\(/;
+const ASKS = /\b(?:assertWritable|assertNotFlushing|oimAssertSlotUnheld)\(/;
 
 const membersThatWriteBeforeAsking = (code: string): TMember[] => {
     const members = membersOf(code).filter(member => member.name !== 'constructor');
@@ -146,7 +146,7 @@ describe('who may write without asking the channel whether it is flushing', () =
     });
 
     it('has the content owner\'s assertWritable ask the channel', () => {
-        const contentOwner = readFileSync(join(sourceRoot, 'engine/slot/OIMSlotOwnerService.ts'), 'utf8');
+        const contentOwner = readFileSync(join(sourceRoot, 'slot/OIMSlotOwnerService.ts'), 'utf8');
         expect(contentOwner).toContain(
             'public assertWritable(slot: TOIMSlot): void {\n        OIMChannelService.INSTANCE.assertNotFlushing(oimGetChannelSlot(slot));',
         );

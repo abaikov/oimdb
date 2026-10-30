@@ -6,12 +6,12 @@ import {
     oimSameValueZeroGuard,
 } from '../../../core/src/index';
 import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMSlot } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import { OIMSlotOwner } from '../../../core/src/index';
-import { createOIMStoreSlot } from '../../../core/src/engine/slot/utils/createOIMStoreSlot';
+import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
 
 const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 

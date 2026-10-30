@@ -149,12 +149,12 @@ const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 
 const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
-effectService.createEffectImmediate(db, [], [red], () => render(red.computedValueService.getValueForSlot(red)));
+effectService.createAndRunEffect(db, () => render(red.computedValueService.getValueForSlot(red)), [], [red]);
 ```
 
 `cardsByDeck` is pushed to on every write to `cards`. `red` is derived when the effect

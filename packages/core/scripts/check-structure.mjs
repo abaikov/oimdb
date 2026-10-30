@@ -1,7 +1,7 @@
 /**
  * Mechanical half of the file rules: one file one named export,
  * the filename equal to that name, the prefix the kind of declaration must
- * carry, and the three folders `src/` is allowed to hold. `src/index.ts` is the
+ * carry, and the domain folders `src/` is allowed to hold. `src/index.ts` is the
  * barrel and is exempt; `tests/` is exempt because the style rules say so.
  *
  * Exit code 0 means the tree obeys the rules. Nothing here is advisory.
@@ -15,7 +15,7 @@ const src = join(root, 'src');
 
 const EXPORT = /^export\s+(?:(abstract)\s+)?(class|interface|type|function|const|enum)\s+(\w+)/gm;
 const PREFIX = { class: 'OIM', interface: 'IOIM', type: 'TOIM', enum: 'EOIM' };
-const LAYERS = ['engine', 'facade', 'factories'];
+const DOMAINS = ['bucket', 'channel', 'collector', 'column', 'computed', 'db', 'effect', 'entity', 'error', 'index', 'key', 'schedule', 'slot', 'store'];
 
 function walk(dir) {
     const found = [];
@@ -60,11 +60,11 @@ for (const file of files) {
     }
 
     const where = relative(src, dirname(file)).split(sep).filter(part => part !== '');
-    const [layer] = where;
-    if (!LAYERS.includes(layer)) {
+    const [domain] = where;
+    if (!DOMAINS.includes(domain)) {
         problems.push(
-            `${rel}: sits in src/${where.join('/') || '.'}, and src/ holds ${LAYERS.join('/')} and `
-            + 'index.ts and nothing else. A fourth folder is a decision, not a directory.',
+            `${rel}: sits in src/${where.join('/') || '.'}, and src/ holds the domains ${DOMAINS.join('/')} and `
+            + 'index.ts and nothing else. A new domain is a decision, not a directory.',
         );
     }
 }
@@ -74,4 +74,4 @@ if (problems.length > 0) {
     for (const problem of problems) console.error('  ' + problem);
     process.exit(1);
 }
-console.log(`structure clean: ${files.length} files, one export each, each in a layer src/ declares`);
+console.log(`structure clean: ${files.length} files, one export each, each in a domain src/ declares`);

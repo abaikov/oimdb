@@ -28,7 +28,7 @@ after each write. The entity service is constructed with an `OIMPersistEntityWri
 the source learns which entity slot was written.
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistIdentityCodec, OIMPersistVersionedCodec, OIMPersistEntityWriter, OIMPersistKeyValueBackend,
@@ -48,7 +48,7 @@ type TSettings = { theme: 'light' | 'dark'; density: 'compact' | 'comfortable' }
 const db = new OIMDB();
 
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
@@ -484,7 +484,7 @@ written as own properties, so a stored `__proto__` is data.
   watched slot on each change of the bucket slot, and keeps one effect per member.
 - **The memory and JSON backends keep values by reference.** With the in-place writer, the stored
   entity is the live entity object, so a later in-place write moves the stored value before any
-  commit. Use `createOIMEntityWriterReplacing()` with a copying insert strategy where the stored value
+  commit. Use `createOIMReplacingEntityWriter()` with a copying insert strategy where the stored value
   must stay what was committed.
 - **A key-value commit is not atomic across keys.** `writeItems` and `removeItems` are separate
   calls, and the item-driven storage calls `setItem` once per key.

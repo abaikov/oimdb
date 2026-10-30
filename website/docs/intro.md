@@ -76,9 +76,9 @@ const deckOne = byDeckService.holdSlotByKey(byDeck, 'd1');
 byDeckService.slotContentService.writeSlotContent(deckOne, [first]);
 db.flush();
 
-const effect = effectService.createEffect(db, [deckOne], [], () => {
+const effect = effectService.createEffect(db, () => {
     console.log('deck d1 now has', byDeckService.slotContentService.getBucketMemberSlotCount(deckOne), 'card(s)');
-});
+}, [deckOne]);
 
 const second = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'd1', title: 'beta' });
 byDeckService.slotContentService.writeSlotContent(deckOne, [first, second]);

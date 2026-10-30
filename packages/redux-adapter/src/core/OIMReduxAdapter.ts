@@ -1,6 +1,6 @@
 import type {
     IOIMChannelMap,
-    IOIMContentChangeListener,
+    IOIMSlotContentChangeListener,
     TOIMBucketSlot,
     TOIMDefaultSlotStore,
     TOIMEffect,
@@ -9,7 +9,7 @@ import type {
     TOIMStoreKey,
     TOIMStoreSlot,
 } from '@oimdb/core';
-import { OIMChannelService, OIMContentChangeListenerService, OIMEffectService } from '@oimdb/core';
+import { OIMChannelService, OIMSlotContentChangeListenerService, OIMEffectService } from '@oimdb/core';
 import type { TOIMReduxEntityCollectionService } from '../types/TOIMReduxEntityCollectionService';
 import type { Store, Reducer, Action, Middleware } from 'redux';
 import { EOIMReduxReducerActionType } from '../enums/EOIMReduxReducerActionType';
@@ -254,11 +254,11 @@ export class OIMReduxAdapter {
         this.instrumentedIndexes.add(globalIndex.bucketSlot);
 
         const bucketSlot = globalIndex.bucketSlot;
-        this.disposers.push(OIMEffectService.INSTANCE.subscribeEffect(this.channelMap, [bucketSlot], [], () => {
+        this.disposers.push(OIMEffectService.INSTANCE.subscribeEffect(this.channelMap, () => {
             const entries = this.globalIndexReducers.get(bucketSlot);
             if (entries === undefined) return;
             for (let i = 0; i < entries.length; i++) entries[i].dirty = true;
-        }));
+        }, [bucketSlot]));
     }
 
     /** Walk once, then watch the collection and each row: */
@@ -283,7 +283,7 @@ export class OIMReduxAdapter {
 
         const watch = (entitySlot: TOIMEntitySlot): boolean => {
             if (watched.has(entitySlot)) return false;
-            const effect: TOIMEffect = OIMEffectService.INSTANCE.createEffect(this.channelMap, [entitySlot], [], () => {
+            const effect: TOIMEffect = OIMEffectService.INSTANCE.createEffect(this.channelMap, () => {
                 noteChanged(nameOf(entitySlot));
                 // Report the removal BEFORE letting go: detaching first lets the
                 // engine reclaim the identity with the reducer never told.
@@ -291,7 +291,7 @@ export class OIMReduxAdapter {
                     watched.delete(entitySlot);
                     OIMEffectService.INSTANCE.disposeEffect(effect);
                 }
-            });
+            }, [entitySlot]);
             watched.set(entitySlot, effect);
             return true;
         };
@@ -303,16 +303,16 @@ export class OIMReduxAdapter {
 
         for (const entitySlot of entityService.getSlots(entityStoreSlot)) watchIfItHasAValue(entitySlot);
 
-        const contentChangeListener: IOIMContentChangeListener<TOIMEntitySlot<TEntity, TOIMStoreKey>, Partial<TEntity>> = {
+        const contentChangeListener: IOIMSlotContentChangeListener<TOIMEntitySlot<TEntity, TOIMStoreKey>, Partial<TEntity>> = {
             onContentChanged: entitySlot => { watchIfItHasAValue(entitySlot); },
-            onContentChangedMany: slotChannelQueue => {
+            onManyContentsChanged: slotChannelQueue => {
                 for (let i = 0; i < slotChannelQueue.getEntryCount(); i++) watchIfItHasAValue(slotChannelQueue.getEntryAt(i));
             },
         };
-        OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, contentChangeListener, undefined);
+        OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, contentChangeListener, undefined);
 
         this.disposers.push(() => {
-            OIMContentChangeListenerService.INSTANCE.removeContentChangeListener(entityStoreSlot, contentChangeListener);
+            OIMSlotContentChangeListenerService.INSTANCE.removeContentChangeListener(entityStoreSlot, contentChangeListener);
             for (const effect of watched.values()) OIMEffectService.INSTANCE.disposeEffect(effect);
             watched.clear();
         });
@@ -341,14 +341,14 @@ export class OIMReduxAdapter {
 
         const watchBucket = (bucketSlot: TOIMBucketSlot<unknown, TOIMStoreKey>): boolean => {
             if (watched.has(bucketSlot)) return false;
-            const effect: TOIMEffect = OIMEffectService.INSTANCE.createEffect(this.channelMap, [bucketSlot], [], () => {
+            const effect: TOIMEffect = OIMEffectService.INSTANCE.createEffect(this.channelMap, () => {
                 noteChanged(bucketSlot.key);
                 // Report the emptying BEFORE letting go, as the row watch does.
                 if (bucketContentService.getBucketMemberSlotCount(bucketSlot) === 0) {
                     watched.delete(bucketSlot);
                     OIMEffectService.INSTANCE.disposeEffect(effect);
                 }
-            });
+            }, [bucketSlot]);
             watched.set(bucketSlot, effect);
             return true;
         };
@@ -360,15 +360,15 @@ export class OIMReduxAdapter {
 
         for (const bucketSlot of bucketService.getSlots(bucketStoreSlot)) watchIfItHasSlots(bucketSlot);
 
-        const contentChangeListener: IOIMContentChangeListener<TOIMBucketSlot<unknown, TOIMStoreKey>, readonly TOIMEntitySlot[]> = {
+        const contentChangeListener: IOIMSlotContentChangeListener<TOIMBucketSlot<unknown, TOIMStoreKey>, readonly TOIMEntitySlot[]> = {
             onContentChanged: bucketSlot => { watchIfItHasSlots(bucketSlot); },
-            onContentChangedMany: bucketSlotChannelQueue => {
+            onManyContentsChanged: bucketSlotChannelQueue => {
                 for (let i = 0; i < bucketSlotChannelQueue.getEntryCount(); i++) watchIfItHasSlots(bucketSlotChannelQueue.getEntryAt(i));
             },
         };
-        OIMContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, contentChangeListener, undefined);
+        OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, contentChangeListener, undefined);
         this.disposers.push(() => {
-            OIMContentChangeListenerService.INSTANCE.removeContentChangeListener(bucketStoreSlot, contentChangeListener);
+            OIMSlotContentChangeListenerService.INSTANCE.removeContentChangeListener(bucketStoreSlot, contentChangeListener);
             for (const effect of watched.values()) OIMEffectService.INSTANCE.disposeEffect(effect);
             watched.clear();
         });

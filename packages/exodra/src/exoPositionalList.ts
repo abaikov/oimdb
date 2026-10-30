@@ -29,7 +29,7 @@ export function exoPositionalList<TBucketMemberSlot extends TOIMSlot, TSlots, TS
     );
     let effect: TOIMEffect;
     try {
-        effect = OIMEffectService.INSTANCE.createEffect(channelMap, [bucketSlot], [], () => {
+        effect = OIMEffectService.INSTANCE.createEffect(channelMap, () => {
             const script: readonly TOIMOrderedListCommand[] = bucketSlot.isWholeListRecorded
                 ? [{ type: 'reset', slots: Array.from(slotContentBucketService.getBucketMemberSlots(bucketSlot)) }]
                 : bucketSlot.commands ?? [];
@@ -42,7 +42,7 @@ export function exoPositionalList<TBucketMemberSlot extends TOIMSlot, TSlots, TS
                 ops[i - from] = schemas.opFor(script[i]);
             }
             subscribers.emit(ops);
-        });
+        }, [bucketSlot]);
     } catch (failure) {
         afterEachFlushDisposer();
         throw failure;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.0
+
+### Changed
+
+- Requires `@oimdb/core` 4.2.0.
+
 ## 2.1.0
 
 ### Changed

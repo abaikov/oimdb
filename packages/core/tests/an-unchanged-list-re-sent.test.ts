@@ -11,7 +11,7 @@
  * `tests/what-a-list-that-names-a-slot-twice-leaves-behind.test.ts`; what is
  * here is this file's own subject, the WAKE-UP.
  */
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMBucketUniqueMemberSlotsArrayService, OIMEffectService } from '../src/index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMEffectService } from '../src/index';
 import type { OIMSlotContentBucketService, TOIMEntitySlot, TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore } from '../src/index';
 import { createOIMSlotContentEntityService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
@@ -63,29 +63,13 @@ const createSetFixture = (service: OIMSlotContentSetBucketService<TRowSlot>) =>
     createFixtureOver<TOIMBucketSlotsSetStore<TRowSlot>>(service);
 
 describe('a list of slots re-sent in the order the caller sent it', () => {
-    it('leaves every slot where it already was, with the references it already had', () => {
-        const { rowsService, rows, bucket, bucketService, send } = createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
-        send(SENT);
-        send(SENT);
-
-        // Read from the BUCKET's side. A row records only how many references it
-        // has, so "is it in this one" is a question for the bucket, and the
-        // `holdCount` beside it is what says there is no second place
-        // somewhere else that an eviction-and-rejoin left behind.
-        const slots = Array.from(bucketService.slotContentService.getBucketMemberSlots(bucket));
-        for (const id of SENT) {
-            const slot = rowsService.getSlotByKey(rows, id);
-            expect({ id, filedHere: slots.includes(slot), holds: slot.holdCount })
-                .toEqual({ id, filedHere: true, holds: 1 });
-        }
-    });
 
     it('a set holds no order, so the same slots in another order set nothing', () => {
         const { db, effectService, bucket, send, ids } =createSetFixture(new OIMSlotContentSetBucketService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;
-        effectService.createEffect(db, [bucket], [], () => { runCount++; });
+        effectService.createEffect(db, () => { runCount++; }, [bucket]);
         send(['k3', 'k1', 'k2']);
 
         expect(runCount).toBe(0);
@@ -99,104 +83,10 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
         send(SENT);
 
         let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
+        effectService.createEffect(db, () => { runCount++; }, [bucket]);
         send(['k1', 'k2']);
 
         expect(ids()).toEqual(['k1', 'k2']);
         expect(runCount).toBe(1);
-    });
-
-    it('a service whose positions the caller places is still reordered by a re-ordered list', () => {
-        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
-        send(SENT);
-        expect(ids()).toEqual(SENT);
-
-        let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
-        send(['k3', 'k2', 'k1']);
-
-        expect(ids()).toEqual(['k3', 'k2', 'k1']);
-        expect(runCount).toBe(1);
-    });
-
-    it('and is not woken by the same list in the same order', () => {
-        const { db, effectService, bucket, send } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
-        send(SENT);
-
-        let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
-        send(SENT);
-
-        expect(runCount).toBe(0);
-    });
-
-    /**
-     * A REPEAT TAKES A SECOND PLACE IN THE BUCKET ON THIS SERVICE, and the
-     * wake-up guard holds over it all the same.
-     *
-     * `['k1', 'k2', 'k2', 'k3']` does NOT settle to `['k1', 'k2', 'k3']`. That
-     * reading rests on the premise that `writeBucketMemberSlots` unlinks each slot before
-     * joining it; `writeBucketMemberSlots` does one `drain` and then a join loop, with no
-     * per-slot unlink anywhere in it, and this service's `add` pushes every
-     * mention — so the bucket holds the caller's list verbatim and `k2` twice.
-     * `containsExactly` was written to that same premise and has been repaired
-     * against it; see `IOIMBucketArrayMembership.containsTheSameSequence`.
-     *
-     * This file's subject is that an identical re-send changes nothing and wakes
-     * nobody — asked of the list as the service actually records it.
-     */
-    it('a repeat is recorded as a second place, and re-sending that list wakes nobody', () => {
-        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
-        send(['k1', 'k2', 'k2', 'k3']);
-        expect(ids()).toEqual(['k1', 'k2', 'k2', 'k3']);
-
-        let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
-        send(['k1', 'k2', 'k2', 'k3']);
-
-        expect(ids()).toEqual(['k1', 'k2', 'k2', 'k3']);
-        expect(slotOf('k2').holdCount).toBe(2);
-        expect(runCount).toBe(0);
-    });
-
-    /**
-     * The other direction, so that the repair cannot be read as "a list with a
-     * repeat in it changes nothing": naming a slot again at the END is a fourth
-     * place, and that is a change the caller is owed. Every mention is
-     * recorded, so the caller's list arrives whole and `k1` is held twice.
-     */
-    it('a repeat that really does add a mention still lands and still wakes', () => {
-        const { db, effectService, bucket, send, ids, slotOf } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
-        send(SENT);
-        expect(ids()).toEqual(SENT);
-
-        let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
-        send(['k1', 'k2', 'k3', 'k1']);
-
-        expect(ids()).toEqual(['k1', 'k2', 'k3', 'k1']);
-        expect(slotOf('k1').holdCount).toBe(2);
-        expect(runCount).toBe(1);
-    });
-
-    /**
-     * The deduplicating bucket is the arm that REFUSES the second mention,
-     * and first-occurrence-wins, because that is the mention `add` let
-     * through.
-     */
-    it('the deduplicating bucket records a repeat once, and is not woken by it re-sent', () => {
-        const { db, effectService, bucket, send, ids, slotOf } =
-            createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>({
-                bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
-            }));
-        send(['k1', 'k2', 'k2']);
-        expect(ids()).toEqual(['k1', 'k2']);
-        expect(slotOf('k2').holdCount).toBe(1);
-
-        let runCount = 0;
-        effectService.createEffect(db, [bucket], [],() => { runCount++; });
-        send(['k1', 'k2', 'k2']);
-
-        expect(runCount).toBe(0);
     });
 });

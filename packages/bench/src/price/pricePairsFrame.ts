@@ -242,7 +242,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effectService = OIMEffectService.INSTANCE;
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
-                effects.push(effectService.createEffect(fixture.db, [fixture.slots[i]], [], handler));
+                effects.push(effectService.createEffect(fixture.db, handler, [fixture.slots[i]]));
             }
             priceSink.flag = effects.length > 0;
             const patch: { title: string } = { title: '' };
@@ -307,7 +307,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effectService = OIMEffectService.INSTANCE;
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
-                effects.push(effectService.createEffect(fixture.db, [fixture.slots[i]], [], handler));
+                effects.push(effectService.createEffect(fixture.db, handler, [fixture.slots[i]]));
             }
             // Kept for the life of the process; nothing here ever detaches,
             // which is what a mounted screen looks like.
@@ -385,7 +385,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effectService = OIMEffectService.INSTANCE;
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
-                effects.push(effectService.createEffect(fixture.db, [fixture.slots[i]], [], handler));
+                effects.push(effectService.createEffect(fixture.db, handler, [fixture.slots[i]]));
             }
             priceSink.flag = effects.length > 0;
             const ids = fixture.rows.map(row => row.id);
@@ -466,7 +466,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const effects: TOIMEffect[] = [];
             for (let i = 0; i < fixture.slots.length; i++) {
                 effects.push(effectService.createEffect(
-                    fixture.db, [fixture.entityService.columnSlotService.holdColumn(fixture.slots[i], 'title')], [], handler,
+                    fixture.db, handler, [fixture.entityService.columnSlotService.holdColumn(fixture.slots[i], 'title')],
                 ));
             }
             priceSink.flag = effects.length > 0;

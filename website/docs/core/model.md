@@ -114,7 +114,7 @@ A store slot (`TOIMStoreSlot`) is one collection, the state the two services wor
 it has no owner, no hold count and no effects, so it is never held or subscribed.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSlotAtUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMUnusedSlotCollectorService, createOIMComputedService, createOIMEntityWriterReplacing, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotAtUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMUnusedSlotCollectorService, createOIMComputedService, createOIMReplacingEntityWriter, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
@@ -173,7 +173,7 @@ Its constructor takes the channel's options (`channelScheduler`, `errorPolicy`,
 ```typescript
 const appDb = new OIMDB({
     channelScheduler: (flush) => { void Promise.resolve().then(flush); },
-    entityWriter: createOIMEntityWriterReplacing(),
+    entityWriter: createOIMReplacingEntityWriter(),
     slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
 });
 
@@ -194,7 +194,7 @@ is given back by the flush of the channel slot that owns that collector. `OIMDB`
 the place where those are made once and shared.
 
 `OIMDefaults` is process-wide, and it is set once. Its static `OIMDefaultValue` entries
-(`ENTITY_WRITER`, `ENTITY_SLOT_EMPTINESS`, `COLUMN_SLOT_STORE_SERVICE`, `COMPUTED_COLUMN_SLOT_STORE_SERVICE`,
+(`ENTITY_WRITER`, `ENTITY_SLOT_EMPTINESS_POLICY`, `COLUMN_SLOT_STORE_SERVICE`, `COMPUTED_COLUMN_SLOT_STORE_SERVICE`,
 `INDEX_KEYS_SERVICE`, `STORE_SLOT_LISTENER`, …) answer for every option left out anywhere. Calling `setValue` on one
 after its `getValue` has run throws: the objects built before the call would keep the
 old one. For the same reason the package refuses to load twice in one process —
@@ -210,7 +210,7 @@ can unfile the identity under the caller who just obtained it.
 ```typescript
 cardService.writeSlotContentByKey(cards, entity.id, entity);          // door 1: write. The value is the reference.
 cardService.writeSlotContentByKey(cards, key, entity);     //         the same door, stated by key.
-effectService.createEffect(db, [slot], [], body);                    // door 2: subscribe. The effect is the reference.
+effectService.createEffect(db, body, [slot]);                    // door 2: subscribe. The effect is the reference.
 const held = cardService.holdSlotByKey(cards, key);                  // door 3: hold. A counted reference and a give-back.
 slot.owner.holdSlot(slot);                                           //         the same door, on a slot you were handed.
 const read = cardService.getSlotByKey(cards, pk);                    // door 4: read. The collector's hold is the reference.
@@ -366,7 +366,7 @@ yourself.
 
 - An effect hears only what happens after it. `effectService.createEffect(...)` is stamped
   with the channel slot's clock at birth and its body first runs in a frame where one of
-  its sources moved. `effectService.createEffectImmediate(...)` also runs the body once, now.
+  its sources moved. `effectService.createAndRunEffect(...)` also runs the body once, now.
 - Writes are refused for the whole of a flush, not just the frame body. A
   subscriber is told during the frame, on a half-built world — the graph has
   not advanced, the delivery list has already been taken — so a write from there
@@ -406,7 +406,7 @@ The forks a consumer meets first:
 
 | Fork | Strategies | Chosen at |
 |---|---|---|
-| how a write lands | `createOIMEntityWriterInPlace()` / `createOIMEntityWriterReplacing()` | the `entityWriter` option of the entity content service, or of `OIMDB` |
+| how a write lands | `createOIMInPlaceEntityWriter()` / `createOIMReplacingEntityWriter()` | the `entityWriter` option of the entity content service, or of `OIMDB` |
 | whether the first value handed in is copied | `oimInsertEntityWithoutCopy` (default) / `oimInsertEntityWithCopy` / `oimInsertEntityWithSanitizedCopy` | the `entityInserter` option of either writer factory |
 | how a bucket holds slots | `OIMSlotContentSetBucketService` / `OIMSlotContentPositionalArrayBucketService` (the positions are the caller's; such a bucket never sorts) / `OIMSlotContentSortedArrayBucketService` | the `slotContentService` option of the bucket or index factory |
 | what naming a slot records | `OIMSlotContentPositionalArrayBucketService` (per mention) / `OIMBucketUniqueMemberSlotsArrayService` (per slot) | the `slotContentService` option of the bucket factory |

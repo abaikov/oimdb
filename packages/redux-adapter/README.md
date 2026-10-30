@@ -22,7 +22,7 @@ projection, a hydrating persistor) is mirrored the same way.
 **How arrivals are discovered.** When a store slot is first registered, the adapter walks
 `entityService.getSlots(entityStoreSlot)` once and watches every entity that holds a value. From then
 on a content change listener it adds with
-`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, listener, undefined)`
+`OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, listener, undefined)`
 tells it, synchronously at the write, about every slot whose content moved, and it starts watching any
 entity it has not seen before. Each entity it has already seen reports itself.
 
@@ -239,7 +239,7 @@ nothing, and one flush spends exactly one frame however many handlers ask for an
 ## Composite primary keys
 
 `@oimdb/core` also supports populations addressed by a **chain** of identities
-(`OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()`) or of values (`OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()`), so
+(`OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()`) or of values (`OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()`), so
 the collection's key is `readonly TOIMEntitySlot[]` instead of `TOIMStoreKey`. This adapter
 cannot mirror such a population directly, and that is deliberate: every reducer factory here is typed
 `TPk extends TOIMStoreKey`, and `TOIMStoreKey` is `string | number`. A chain of identities is a

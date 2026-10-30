@@ -31,7 +31,7 @@ Two facts about this engine decide it, and neither is a matter of taste.
 
 **A derivation records when it last asked, not only when it last derived.** A computed slot (`TOIMComputedSlot`) carries `ranAt*` — when it last derived — and the sources are compared against it. That stamp advances only when the ask ended in a derivation, so on its own it leaves an ask that found nothing changed no trace, and the next reader walks the same sources again. `checkedAt*` is the second stamp, written on every ask that completes whether or not it derived. A second ask at the same clock reading stops on two integer comparisons.
 
-Put those together and the arithmetic changes shape. Inside one frame, the first reader to reach a node walks that node's sources; every other reader that reaches it — from any direction, at any depth, in any component — stops at the stamp. **The first touch is not the first touch of one consumer. It is the first touch among all of them, and it is shared.** A diamond stops costing twice. A subgraph under two screens stops costing twice. The number of readers drops out of the cost of the frame entirely — which is a count, and it is pinned by a test rather than by a stopwatch: `packages/core/src/engine/computed/tests/one-walk-per-clock-reading-however-many-readers.test.ts`.
+Put those together and the arithmetic changes shape. Inside one frame, the first reader to reach a node walks that node's sources; every other reader that reaches it — from any direction, at any depth, in any component — stops at the stamp. **The first touch is not the first touch of one consumer. It is the first touch among all of them, and it is shared.** A diamond stops costing twice. A subgraph under two screens stops costing twice. The number of readers drops out of the cost of the frame entirely — which is a count, and it is pinned by a test rather than by a stopwatch: `packages/core/src/computed/tests/one-walk-per-clock-reading-however-many-readers.test.ts`.
 
 What is left is one comparison:
 
@@ -73,8 +73,8 @@ The stamp has a condition. It is sound because one clock numbers every write ben
 
 ## Where it lives
 
-- `packages/core/src/engine/computed/types/TOIMComputedSlot.ts` — the `checkedAt*` and `ranAt*` fields; `changedAt*` comes with the slot.
+- `packages/core/src/computed/types/TOIMComputedSlot.ts` — the `checkedAt*` and `ranAt*` fields; `changedAt*` comes with the slot.
 - `packages/core/src/engine/computed/utils/refreshComputedSlot.ts` — the refresh, and the stamps it writes.
 - `packages/core/src/engine/computed/utils/hasSourceChangedSinceLastRun.ts` — the comparison of source revisions, with its early exit.
 - `packages/core/src/engine/channel/OIMChannel.ts` — `assertNotFlushing` at the top of `write`, and the clock bump below it, which is why a frame has one clock reading.
-- `packages/core/src/engine/computed/tests/one-walk-per-clock-reading-however-many-readers.test.ts` — the shared-first-touch count, asserted rather than timed.
+- `packages/core/src/computed/tests/one-walk-per-clock-reading-however-many-readers.test.ts` — the shared-first-touch count, asserted rather than timed.

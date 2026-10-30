@@ -20,7 +20,7 @@
  * the column service, the owner's release — reached through a React cleanup,
  * where React logs the error and carries on. Nothing else notices.
  */
-import type { TOIMDisposer, TOIMSlot, TOIMSlotEditable, TOIMStoreSlot } from '@oimdb/core';
+import type { TOIMDisposer, TOIMSlot, TOIMEditable, TOIMStoreSlot } from '@oimdb/core';
 import { OIMDB, OIMSlotOwner, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 import { holdWhileSubscribed } from '../src/holdWhileSubscribed';
 
@@ -42,9 +42,9 @@ function countingOwnerSlot(): TOIMSlot {
         storeSlot,
         owner: new OIMSlotOwner(),
     };
-    (slot as TOIMSlotEditable<TOIMSlot>).owner = {
-        holdSlot: (held: TOIMSlot): void => { (held as TOIMSlotEditable<TOIMSlot>).holdCount++; },
-        unholdSlot: (held: TOIMSlot): void => { (held as TOIMSlotEditable<TOIMSlot>).holdCount--; },
+    (slot as TOIMEditable<TOIMSlot>).owner = {
+        holdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount++; },
+        unholdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount--; },
         releaseSlotIfUnheld: (): void => undefined,
         unsafeMutateSlot: (): void => undefined,
         subscribeToSlot: (): number => 0,

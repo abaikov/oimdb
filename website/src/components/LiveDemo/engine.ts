@@ -55,7 +55,7 @@ export class DemoEngine {
 
     private readonly tasksByPriorityService = createOIMSortedComputedService({
         indexService: this.tasksByColumnService,
-        sortColumns: [{ column: 'priority', direction: 'asc' }],
+        sortColumns: [{ columnName: 'priority', direction: 'asc' }],
     });
 
     private readonly tasksByPriority = this.tasksByPriorityService.createSortedStoreSlot(this.tasksByColumn);
@@ -81,20 +81,20 @@ export class DemoEngine {
         for (const task of seeded) this.taskSlots.push(this.taskService.writeSlotContentByKey(this.tasks, task.id, task));
         for (const column of COLUMNS) {
             const sortedSlot = this.tasksByPriorityService.computedCollectionService.holdSlotByKey(this.tasksByPriority, column);
-            const effect = this.effectService.createEffectImmediate(this.db, [], [sortedSlot], () => {
+            const effect = this.effectService.createAndRunEffect(this.db, () => {
                 const ordered = sortedSlot.computedValueService.getValueForSlot(sortedSlot);
                 this.columns[column] = ordered.flatMap((slot) => (slot.entity === undefined ? [] : [{ ...slot.entity }]));
                 this.frame.columnRuns.add(column);
-            });
+            }, [], [sortedSlot]);
             this.disposers.push(() => {
                 this.effectService.disposeEffect(effect);
                 sortedSlot.owner.unholdSlot(sortedSlot);
             });
         }
         for (const slot of this.taskSlots) {
-            const effect = this.effectService.createEffect(this.db, [slot], [], () => {
+            const effect = this.effectService.createEffect(this.db, () => {
                 if (slot.entity !== undefined) this.frame.taskRuns.add(slot.entity.id);
-            });
+            }, [slot]);
             this.disposers.push(() => { this.effectService.disposeEffect(effect); });
         }
         this.db.flush();

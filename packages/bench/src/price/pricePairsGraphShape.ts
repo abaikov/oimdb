@@ -1,7 +1,7 @@
 import { computed, effect, endBatch, signal, startBatch } from 'alien-signals';
-import { OIMDB, OIMEffectService, createOIMSingleComputedService } from '../../../core/src/index';
+import { OIMDB, OIMEffectService, OIM_FROZEN_EMPTY_SLOTS, createOIMSingleComputedService } from '../../../core/src/index';
 import type {
-    OIMSingleComputedService, OIMEffectSourceTracker,
+    OIMSingleComputedService, OIMSourceTracker,
     TOIMComputedContentSlot, TOIMComputedStoreSlot, TOIMEntityContentSlot, TOIMSingleSlotStore,
 } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
@@ -99,17 +99,17 @@ const declaredGraphSourceReader: TGraphSourceReader = { readSourceSlot: rootSlot
 
 const declaredGraphEffectStrategy: TGraphEffectStrategy = {
     createRootsEffect: (db, body, declaredRootSlots) => OIMEffectService.INSTANCE
-        .createEffectImmediate(db, declaredRootSlots, [], () => body(declaredGraphSourceReader)),
+        .createAndRunEffect(db, () => body(declaredGraphSourceReader), declaredRootSlots),
     createHeadEffect: (db, headComputedSlot, body, computedService, headComputedStoreSlot) => OIMEffectService.INSTANCE
-        .createEffectImmediate(db, [], [headComputedSlot], () => body(valueOfComputedStoreSlot(computedService, headComputedStoreSlot))),
+        .createAndRunEffect(db, () => body(valueOfComputedStoreSlot(computedService, headComputedStoreSlot)), OIM_FROZEN_EMPTY_SLOTS, [headComputedSlot]),
 };
 
 const trackedGraphEffectStrategy: TGraphEffectStrategy = {
     createRootsEffect: (db, body) => OIMEffectService.INSTANCE
-        .createEffectWithSourceTracking(db, (effectSourceTracker: OIMEffectSourceTracker) => body(effectSourceTracker)),
+        .createSourceTrackingEffect(db, (sourceTracker: OIMSourceTracker) => body(sourceTracker)),
     createHeadEffect: (db, headComputedSlot, body) => OIMEffectService.INSTANCE
-        .createEffectWithSourceTracking(db, (effectSourceTracker: OIMEffectSourceTracker) => {
-            body(effectSourceTracker.readSourceComputedValue(headComputedSlot));
+        .createSourceTrackingEffect(db, (sourceTracker: OIMSourceTracker) => {
+            body(sourceTracker.readSourceComputedValue(headComputedSlot));
         }),
 };
 
@@ -189,9 +189,9 @@ const oursBuildAndDispose = (depth: number): TPriceSide => {
         run: times => {
             for (let i = 0; i < times; i++) {
                 const headComputedStoreSlot = createHeadOfComputedChain(db, computedService, rootSlot, depth);
-                const headEffect = effectService.createEffectImmediate(db, [], [computedSingleSlotService.getSingleSlot(headComputedStoreSlot)], () => {
+                const headEffect = effectService.createAndRunEffect(db, () => {
                     priceSink.number = valueOfComputedStoreSlot(computedService, headComputedStoreSlot);
-                });
+                }, OIM_FROZEN_EMPTY_SLOTS, [computedSingleSlotService.getSingleSlot(headComputedStoreSlot)]);
                 effectService.disposeEffect(headEffect);
                 db.flush();
             }
@@ -388,8 +388,8 @@ const caveatOf = (sentences: readonly string[]): string => [...sentences, BOTH_A
 const trackedTwinCaveat = (declaredPairId: string, sentences: readonly string[]): string => caveatOf([
     ...sentences,
     `THIS IS THE SAME TASK AS ${declaredPairId}, with the same floor builder; only the ours effect differs.`,
-    'The effect comes from OIMEffectService.createEffectWithSourceTracking instead of createEffectImmediate, and its dependencies are tracked at run time:',
-    'each run reads its sources through effectSourceTracker (readSourceSlot for a root, readSourceComputedValue for a computed)',
+    'The effect comes from OIMEffectService.createSourceTrackingEffect instead of createAndRunEffect, and its dependencies are tracked at run time:',
+    'each run reads its sources through sourceTracker (readSourceSlot for a root, readSourceComputedValue for a computed)',
     'instead of the root and computed lists declared once at build.',
     `Read this row against ${declaredPairId}: the difference between the two is the price of tracking against declaring on this task.`,
 ]);
@@ -494,7 +494,7 @@ const revisionClockPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
 const subscriptionBuildPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
     id: `graph.subscription.build.d${depth}`,
     path: EPricePath.PerRelationship,
-    ours: `${depth} createComputedStoreSlot calls on one standing OIMSingleComputedService in a chain, createEffectImmediate over the head, disposeEffect, db.flush()`,
+    ours: `${depth} createComputedStoreSlot calls on one standing OIMSingleComputedService in a chain, createAndRunEffect over the head, disposeEffect, db.flush()`,
     floor: `${depth} alien computed() in a chain, effect() over the head, then its dispose()`,
     caveat: subscriptionBuildCaveat(depth),
     isolate: true,
@@ -520,11 +520,11 @@ const subscriptionRunPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
 const subscriptionRunTrackedPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
     id: `graph.subscription-tracked.run.d${depth}`,
     path: EPricePath.PerWrite,
-    ours: `one updateEntityColumn on the root, then db.flush(), under a standing chain of ${depth} computed single-slot store slots and one OIMEffectService.createEffectWithSourceTracking effect reading the head through readSourceComputedValue`,
+    ours: `one updateEntityColumn on the root, then db.flush(), under a standing chain of ${depth} computed single-slot store slots and one OIMEffectService.createSourceTrackingEffect effect reading the head through readSourceComputedValue`,
     floor: `one root(v) with no batch, under a standing chain of ${depth} alien computeds and one alien effect`,
     caveat: trackedTwinCaveat(`graph.subscription.run.d${depth}`, [
         `ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of ${depth} derived nodes and one effect over the head.`,
-        'The tracked effect reads the head through effectSourceTracker.readSourceComputedValue, so the head computed is the one source it tracks.',
+        'The tracked effect reads the head through sourceTracker.readSourceComputedValue, so the head computed is the one source it tracks.',
     ]),
     isolate: true,
     build: wanted => ({
@@ -549,11 +549,11 @@ const readsPerRunPairs: readonly TPricePair[] = ROOTS_READ_PER_RUN.map(rootCount
 const readsPerRunTrackedPairs: readonly TPricePair[] = ROOTS_READ_PER_RUN.map(rootCount => ({
     id: `graph.dependencies-tracked.reads-per-run.r${rootCount}`,
     path: EPricePath.PerWrite,
-    ours: `updateEntityColumn on one of ${rootCount} roots, then db.flush(); one OIMEffectService.createEffectWithSourceTracking effect reads all ${rootCount} root slots through readSourceSlot and sums them`,
+    ours: `updateEntityColumn on one of ${rootCount} roots, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reads all ${rootCount} root slots through readSourceSlot and sums them`,
     floor: `one of ${rootCount} alien signals written with no batch; one alien effect reads and sums all of them`,
     caveat: trackedTwinCaveat(`graph.dependencies.reads-per-run.r${rootCount}`, [
         `ONE OPERATION IS ONE WRITE TO ONE OF ${rootCount} ROOTS, chosen round-robin, AND ONE SETTLE; one effect reads every root and sums them.`,
-        `Each run reads the ${rootCount} roots through effectSourceTracker.readSourceSlot, so both arms re-track on every run.`,
+        `Each run reads the ${rootCount} roots through sourceTracker.readSourceSlot, so both arms re-track on every run.`,
     ]),
     isolate: true,
     build: wanted => ({
@@ -578,7 +578,7 @@ const inactiveBranchPair: TPricePair = {
 const inactiveBranchTrackedPair: TPricePair = {
     id: 'graph.dependencies-tracked.inactive-branch.s3',
     path: EPricePath.PerWrite,
-    ours: 'updateEntityColumn on the unread branch value, then db.flush(); the OIMEffectService.createEffectWithSourceTracking effect reads flag and then active only, through readSourceSlot',
+    ours: 'updateEntityColumn on the unread branch value, then db.flush(); the OIMEffectService.createSourceTrackingEffect effect reads flag and then active only, through readSourceSlot',
     floor: 'inactive(v) with no batch; the alien effect reads flag() and then active() only',
     caveat: trackedTwinCaveat('graph.dependencies.inactive-branch.s3', [
         'ONE OPERATION IS ONE WRITE TO THE INACTIVE BRANCH AND ONE SETTLE.',
@@ -610,7 +610,7 @@ const coalescingPairs: readonly TPricePair[] = WRITES_PER_COALESCED_FRAME.map(wr
 const coalescingTrackedPairs: readonly TPricePair[] = WRITES_PER_COALESCED_FRAME.map(writesPerFrame => ({
     id: `graph.coalescing-tracked.unbatched.k${writesPerFrame}`,
     path: EPricePath.PerFrame,
-    ours: `${writesPerFrame}× updateEntityColumn on one root, then db.flush(); one OIMEffectService.createEffectWithSourceTracking effect reading the root through readSourceSlot runs once`,
+    ours: `${writesPerFrame}× updateEntityColumn on one root, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reading the root through readSourceSlot runs once`,
     floor: `${writesPerFrame}× root(v) with no batch; the alien effect on the root runs after every write`,
     caveat: trackedTwinCaveat(`graph.coalescing.unbatched.k${writesPerFrame}`, [
         `ONE OPERATION IS ${writesPerFrame} WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.`,
@@ -657,11 +657,11 @@ const oursScrollWindow = (writesPerFrame: number): TPriceSide => {
         () => ({ sourceSlots: [rootSlot] }),
     );
     let renderCount = 0;
-    const renderEffect = effectService.createEffectImmediate(
-        db, [], [indexComputedService.computedSingleSlotService.getSingleSlot(indexComputedStoreSlot)], () => {
+    const renderEffect = effectService.createAndRunEffect(
+        db, () => {
             priceSink.number = valueOfComputedStoreSlot(indexComputedService, indexComputedStoreSlot);
             renderCount++;
-        },
+        }, [], [indexComputedService.computedSingleSlotService.getSingleSlot(indexComputedStoreSlot)],
     );
     db.flush();
     let scrollTopPx = 0;
@@ -763,9 +763,9 @@ const oursDeliveryWriteAndEffectRunWithoutFlush = (): TPriceSide => {
     const rootEntityService = createRootEntityService(db);
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
-    const rootEffect = effectService.createEffectImmediate(db, [rootSlot], [], () => {
+    const rootEffect = effectService.createAndRunEffect(db, () => {
         priceSink.number = valueOfRoot(rootSlot);
-    });
+    }, [rootSlot]);
     db.flush();
     let written = 0;
     return {
@@ -861,12 +861,12 @@ const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
         root => derivedComputedService.computedSingleSlotService.getSingleSlot(root.derivedComputedStoreSlot),
     );
     let renderCount = 0;
-    const listEffect = effectService.createEffectImmediate(db, [], derivedComputedSlots, () => {
+    const listEffect = effectService.createAndRunEffect(db, () => {
         let sum = 0;
         for (let i = 0; i < roots.length; i++) sum += valueOfComputedStoreSlot(derivedComputedService, roots[i].derivedComputedStoreSlot);
         priceSink.number = sum;
         renderCount++;
-    });
+    }, [], derivedComputedSlots);
     db.flush();
     let written = DERIVED_COLLECTION_SIZE;
     return {

@@ -11,7 +11,7 @@ npm install @oimdb/react @oimdb/core
 
 ## Why one binding
 
-Subscribing in this engine is one call: `OIMEffectService.INSTANCE.subscribeEffect(db, sourceSlots, sourceComputeds, body)`.
+Subscribing in this engine is one call: `OIMEffectService.INSTANCE.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
 It carries no value; what changed is read off the slots afterwards. So a component needs
 exactly three things: the roots a write can reach, the derivations to ask before reading,
 and the derive function. Together they make up `TOIMBinding`, and `useOIMValue` is the hook that applies it through
@@ -216,7 +216,7 @@ asked and never woken. Only a computed slot's `computedValueService.getValueForS
 
 **No wake is owed for what happened before the subscription.** An effect is stamped with the channel clock at
 birth (`ranAtRevision` / `ranAtEpoch`), so a frame runs the body only when a source moved *after* the subscription.
-Every hook here subscribes with `subscribeEffect`; `OIMEffectService.INSTANCE.createEffectImmediate` is the door
+Every hook here subscribes with `subscribeEffect`; `OIMEffectService.INSTANCE.createAndRunEffect` is the door
 that delivers a value at once.
 
 ## Holds per component
@@ -291,7 +291,7 @@ identity are one key.
 
 ## Things worth knowing
 
-- **The snapshot `useOIMValue` compares is a local counter, not the value.** `createOIMEntityWriterInPlace` keeps
+- **The snapshot `useOIMValue` compares is a local counter, not the value.** `createOIMInPlaceEntityWriter` keeps
   an entity's object reference stable, a bucket hands its slots back as the same live container, and a column
   subscription fires only for its own column; a value-comparing binding would fire on none of the three. The counter
   is bumped ON SUBSCRIBING too, so a write that lands between the render and the subscription is still shown. The

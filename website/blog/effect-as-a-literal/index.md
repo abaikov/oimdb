@@ -60,7 +60,7 @@ The same loss applies to `OIMSingleComputed`, which is still a class. It keeps o
 
 ## Where it lives
 
-- `packages/core/src/engine/computed/OIMEffectService.ts` — `createEffect`, the literal, and the methods that drive it.
-- `packages/core/src/engine/computed/types/TOIMEffect.ts` — the literal's fields.
-- `packages/core/src/engine/slot/OIMSlotOwner.ts` — `subscribeToSlot` / `unsubscribeFromSlot`, which both arms used.
+- `packages/core/src/effect/OIMEffectService.ts` — `createEffect`, the literal, and the methods that drive it.
+- `packages/core/src/effect/types/TOIMEffect.ts` — the literal's fields.
+- `packages/core/src/slot/OIMSlotOwner.ts` — `subscribeToSlot` / `unsubscribeFromSlot`, which both arms used.
 - `packages/core/src/facade/computed/OIMSingleComputed.ts` — `hiddenClassKeeper`.

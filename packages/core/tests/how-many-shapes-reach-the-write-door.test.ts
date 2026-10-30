@@ -1,17 +1,17 @@
-import { OIMBucketCommands } from '../src/facade/bucket/OIMBucketCommands';
-import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
-import { OIMChannelService } from '../src/engine/channel/OIMChannelService';
-import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
-import { OIMSlotOwner } from '../src/engine/slot/OIMSlotOwner';
-import { OIMDB } from '../src/factories/OIMDB';
-import { createOIMComputedService } from '../src/factories/createOIMComputedService';
-import { oimSameValueZeroGuard } from '../src/engine/slot/utils/oimSameValueZeroGuard';
-import type { TOIMChannelSlot } from '../src/engine/channel/types/TOIMChannelSlot';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMSlot } from '../src/engine/slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
-import { createOIMSingleSlotService } from '../src/factories/createOIMSingleSlotService';
+import { OIMBucketCommands } from '../src/bucket/OIMBucketCommands';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMChannelService } from '../src/channel/OIMChannelService';
+import { OIMEffectService } from '../src/effect/OIMEffectService';
+import { OIMSlotOwner } from '../src/slot/OIMSlotOwner';
+import { OIMDB } from '../src/db/OIMDB';
+import { createOIMComputedService } from '../src/computed/createOIMComputedService';
+import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
+import type { TOIMChannelSlot } from '../src/channel/types/TOIMChannelSlot';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
 
 /**
  * HOW MANY HIDDEN CLASSES REACH THE WRITE DOOR, AND WHERE THE THREE FIELDS IT
@@ -133,9 +133,9 @@ const driveEveryDoor = (db: OIMDB) => {
 
     const derived = doubledCollectionService.holdSlotByKey(doubled, 'a');
     doubledCollectionService.columnSlotService.holdAnyColumn(derived);
-    OIMEffectService.INSTANCE.createEffect(db, [], [derived], () => { void derived.computedValueService.getValueForSlot(derived); });
-    OIMEffectService.INSTANCE.createEffect(db, [cardsService.getSlotByKey(cards, 'b')], [], () => { void cardsService.getSlotCount(cards); });
-    OIMEffectService.INSTANCE.createEffect(db, [singleSlot], [], () => { void singleSlot.entity; });
+    OIMEffectService.INSTANCE.createEffect(db, () => { void derived.computedValueService.getValueForSlot(derived); }, [], [derived]);
+    OIMEffectService.INSTANCE.createEffect(db, () => { void cardsService.getSlotCount(cards); }, [cardsService.getSlotByKey(cards, 'b')]);
+    OIMEffectService.INSTANCE.createEffect(db, () => { void singleSlot.entity; }, [singleSlot]);
     db.flush();
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'renamed', rank: 9 });
     db.flush();
@@ -161,8 +161,8 @@ const THREE_SLOT_LITERALS: TArrivingShape[] = [
 
 const COMPUTED_SLOT_LITERAL: TArrivingShape = {
     label: 'literal{effectEdges,columnSlotStore,computedValueService,indexKeys,sourceSlots,sourceComputeds,value,'
-        + 'ranAtRevision,ranAtEpoch,checkedAtRevision,checkedAtEpoch,isDeriving,allRootSlots}',
-    keyCount: 24,
+        + 'ranAtRevision,ranAtEpoch,checkedAtRevision,checkedAtEpoch,isDeriving,allRootSlots,sourceTracker}',
+    keyCount: 25,
     whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
 };
 

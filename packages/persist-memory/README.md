@@ -35,7 +35,7 @@ answers an empty list.
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
@@ -47,7 +47,7 @@ type TUser = { id: string; name: string };
 
 const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const userCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
@@ -83,11 +83,11 @@ unloaded keys it sets every in-memory record into the map instead and removes no
 ## Values are kept by reference
 
 The backend stores the entity objects and snapshot values it is handed; it copies nothing. With
-`createOIMEntityWriterInPlace()` the stored entity is the live entity object, so an in-place write
+`createOIMInPlaceEntityWriter()` the stored entity is the live entity object, so an in-place write
 changes what the backend holds before any commit: reading the backend shows the live value whether
 or not a drain has written it yet. Where a
 test must see exactly what was committed, build the entity service over
-`createOIMEntityWriterReplacing()` with a copying insert strategy, or encode a snapshot resource
+`createOIMReplacingEntityWriter()` with a copying insert strategy, or encode a snapshot resource
 through a codec that copies.
 
 The engine (persistor, resources, sources, schedulers, codecs) is

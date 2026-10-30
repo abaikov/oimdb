@@ -61,8 +61,9 @@ an identity and leave it with no owner of its lifetime:
 - **`getSlotByKey(storeSlot, key)`** mints and hands the slot to the **unused-slot collector**,
   which holds it until the next flush. A read you do not keep is given back for you.
 - **`holdSlotByKey(storeSlot, key)`** mints and holds; the hold is yours to give back.
-- **A write** (`writeSlotContentByKey`, `writeSlotContentByKey`) mints and fills; the value keeps it
-  under the default policy.
+- **A write** (`writeSlotContentByKey`) mints and fills; the value keeps it under the default policy.
+  Two writes leave nothing that keeps the slot, and the unused-slot collector holds it until the collector
+  flushes instead, the same as for `getSlotByKey` — see below.
 - **An effect** holds every slot it subscribes to until `effectService.disposeEffect(effect)`.
 
 ```ts
@@ -76,6 +77,38 @@ const isNewIdentity = again !== peek;
 `peek` was minted empty and kept only by the collector. The flush gave that hold back,
 nothing else counted on the slot and it had no value, so it was released: `released` is
 `true`. The next read of `'c1'` mints a **new** identity, so `isNewIdentity` is `true`.
+
+#### Two writes that the collector keeps until it flushes
+
+A slot nothing holds is normally released at once. Two writes are the exception, because the slot they
+return would otherwise be dead on the very next line:
+
+1. **The value lands empty.** The collection's emptiness policy calls what was written empty — a
+   soft-deleted record under `slotEmptinessPolicy: { isEmpty: slot => slot.entity?.deleted === true }`, say.
+2. **The policy's window is already over at the write.** `OIMSlotAfterWriteReleasePolicy` or
+   `OIMSlotAfterIdleReleasePolicy` with a window of `0`, on a slot no effect subscribes to.
+
+In both, the slot goes to the unused-slot collector and is released when the collector flushes: at the
+end of `db.flush()`, or when a collector scope (`OIMUnusedSlotCollectorService.INSTANCE.run`) closes. Until
+then the caller can keep using what the write returned:
+
+```ts
+const briefService = createOIMSlotCollectionService(db, {
+    slotContentService: createOIMSlotContentEntityService<Card>(db),
+    slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 0 }),
+});
+const briefs = briefService.createStoreSlot(db);
+const brief = briefService.writeSlotContentByKey(briefs, 'b1', { id: 'b1', title: 'one' });
+briefService.slotContentService.updateEntity(brief, { title: 'two' });
+db.flush();
+const isGone = oimIsSlotReleased(brief);
+```
+
+The second write lands on the same slot, and the collector's flush at the end of `db.flush()` releases it:
+`isGone` is `true`. The case that
+needs this is a load that writes and then hands the result on, for example to a bucket: `writeInBatch`
+returning the slots of the writes, as persist's restore does. Without the collector, a record that lands
+empty would reach the bucket already released, and the bucket would refuse it.
 
 ### Kept — references are counted
 

@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService } from '../../../core/src/index';
+import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     OIMSlotContentBucketService,
@@ -171,8 +171,8 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
     floor: 'map.set(row.id, { ...row }) per row, then map.get(key)',
     caveat:
         `THE ARM IS ${arm.toUpperCase()}, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER THE ` +
-        'FORK COSTS ANYTHING AT ALL HERE. `createOIMEntityWriterInPlace` and ' +
-        '`createOIMEntityWriterReplacing` both default `fillEntity` to `oimInsertEntityWithoutCopy`, and ' +
+        'FORK COSTS ANYTHING AT ALL HERE. `createOIMInPlaceEntityWriter` and ' +
+        '`createOIMReplacingEntityWriter` both default `fillEntity` to `oimInsertEntityWithoutCopy`, and ' +
         'the insert branch of `OIMSlotContentEntityService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and no other ' +
         'member of the writer — so the two arms should run the same code on this path. [FIGURE ' +
         'STATED IN ADVANCE] Expect the two arms to differ by less than each row\'s own noise; a ' +
@@ -190,8 +190,8 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
         const readKey = rows[readBackAt].id;
         const db = new OIMDB();
         const entityWriter: IOIMEntityWriter = replacing
-            ? createOIMEntityWriterReplacing()
-            : createOIMEntityWriterInPlace();
+            ? createOIMReplacingEntityWriter()
+            : createOIMInPlaceEntityWriter();
         const build = () =>
             createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         let entityService = build();
@@ -336,7 +336,7 @@ const groupedIndexPair = (id: string, arm: string, replacing: boolean): TPricePa
     build: () => {
         const fixture = priceFixture(
             priceDataset.batch,
-            replacing ? createOIMEntityWriterReplacing() : createOIMEntityWriterInPlace(),
+            replacing ? createOIMReplacingEntityWriter() : createOIMInPlaceEntityWriter(),
         );
         const names = priceDataset.groupNames();
         const { indexService, indexStoreSlot } = groupIndexOf(fixture, names);
@@ -552,7 +552,7 @@ const pollUnchangedPair = (
     build: () => {
         const fixture = priceFixture(
             priceDataset.batch,
-            replacing ? createOIMEntityWriterReplacing() : createOIMEntityWriterInPlace(),
+            replacing ? createOIMReplacingEntityWriter() : createOIMInPlaceEntityWriter(),
         );
         if (indexed) groupIndexOf(fixture, priceDataset.groupNames());
         return {
@@ -601,7 +601,7 @@ const pollUnchangedPair = (
 
 export const pricePairsSweep: readonly TPricePair[] = [
     insertThenReadPair('sweep.insert-then-read.in-place-default', 'the shipped default, in place', false),
-    insertThenReadPair('sweep.insert-then-read.replacing', 'createOIMEntityWriterReplacing', true),
+    insertThenReadPair('sweep.insert-then-read.replacing', 'createOIMReplacingEntityWriter', true),
 
     groupedIndexPair('sweep.grouped-column.index-in-place', 'the auto-index, in place', false),
     groupedIndexPair('sweep.grouped-column.index-replacing', 'the auto-index, replacing', true),
@@ -609,6 +609,6 @@ export const pricePairsSweep: readonly TPricePair[] = [
     groupedManualPositionalPair,
 
     pollUnchangedPair('sweep.poll-unchanged.in-place-default', 'the shipped default, no index', false, false),
-    pollUnchangedPair('sweep.poll-unchanged.replacing', 'createOIMEntityWriterReplacing, no index', true, false),
+    pollUnchangedPair('sweep.poll-unchanged.replacing', 'createOIMReplacingEntityWriter, no index', true, false),
     pollUnchangedPair('sweep.poll-unchanged.one-index-declared', 'the shipped default, one index', false, true),
 ];

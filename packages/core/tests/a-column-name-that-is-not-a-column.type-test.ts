@@ -1,7 +1,7 @@
-import { OIMDB } from '../src/factories/OIMDB';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { OIMDB } from '../src/db/OIMDB';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 

@@ -124,5 +124,5 @@ to each entity's own slot. See [buckets](/docs/core/indexes).
 
 ```ts
 const spades = byDeckService.getSlotByKey(byDeck, 'spades');
-effectService.createEffect(db, [spades], [], () => console.log(byDeckService.slotContentService.getBucketMemberSlotCount(spades)));
+effectService.createEffect(db, () => console.log(byDeckService.slotContentService.getBucketMemberSlotCount(spades)), [spades]);
 ```

@@ -323,7 +323,7 @@ ours and calling the result a subscription cost.
 Every row hands a writer (`IOIMEntityWriter`) or a subclass to the SHIPPED
 entity content service, so the rejected design is driven through the same
 `updateEntity` or `writeSlotContentByKey` as the one it lost to. Each floor holds the shipped walk's
-own helpers — `oimIsProtoKey`, `oimIsPlain`, `oimOwnedColumnNames`,
+own helpers — `oimIsProtoKey`, `oimIsPlainObject`, `oimOwnedColumnNames`,
 `OIM_FROZEN_EMPTY_COLUMN_NAMES` — imported from `packages/core/src/engine/entity/`, so
 a row differs by the one thing it is named after. `changedColumns`, the detection half
 of the spreading arm, is no longer shipped and lives beside it in `./changedColumns.ts`. The equality every floor uses is
@@ -401,7 +401,7 @@ Values a timed body writes come out of `titles` rather than being built per writ
 
 ### Why there are eight titles
 
-So consecutive frames always write a value the store does not already hold — `createOIMEntityWriterInPlace` gates on the value guard (`oimSameValueZeroGuard`) and returns early on a re-send, which is a DIFFERENT price with its own row (`update.unchanged-vs-store`).
+So consecutive frames always write a value the store does not already hold — `createOIMInPlaceEntityWriter` gates on the value guard (`oimSameValueZeroGuard`) and returns early on a re-send, which is a DIFFERENT price with its own row (`update.unchanged-vs-store`).
 
 ## priceFixture
 

@@ -375,7 +375,7 @@ const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 
@@ -525,7 +525,7 @@ effort from the author, and the price is tracking work on every read inside a
 running effect. An OIMDB effect created with declared sources pays nothing per
 read beyond the read itself, but a conditional dependency subscribes to both
 branches, so a write to the inactive one still wakes the effect. OIMDB offers both
-models per effect: `effectService.createEffectWithSourceTracking(body)` learns its
+models per effect: `effectService.createSourceTrackingEffect(body)` learns its
 sources from what the body reads through the tracker, as a signal library does,
 and pays the tracking cost on each read.
 
@@ -570,11 +570,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 98595 B | 24021 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35378 B | 9265 B |
-| The same, plus one effect and `db.flush()` | 44019 B | 11377 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 64397 B | 16056 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48514 B | 12234 B |
+| Everything `@oimdb/core` exports | 102815 B | 24890 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35518 B | 9352 B |
+| The same, plus one effect and `db.flush()` | 45681 B | 11769 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 65917 B | 16408 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48571 B | 12301 B |
 {/* bundle-size:end */}
 
 ## Next steps

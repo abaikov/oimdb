@@ -16,8 +16,8 @@ export function exoSource<T>(
         // The snapshot below only exists so a subscriber may (un)subscribe DURING
         // notification; with exactly one there is nothing to skip or revisit.
         if (subscribers.length === 1) {
-            const only = subscribers[0];
-            if (only.live) only.handler();
+            const onlySubscription = subscribers[0];
+            if (onlySubscription.live) onlySubscription.handler();
             return;
         }
         for (const subscription of subscribers.slice()) {

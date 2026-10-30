@@ -12,7 +12,7 @@ many-to-many relations, composite keys, a single settings record, soft delete, a
 choosing between the in-place and the replacing writer.
 
 ```ts setup
-import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMSlotContentEntityService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMSlotContentEntityService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService } from '@oimdb/core';
 
 type User = { id: string; name: string };
 type Message = { id: string; chatId: string; text: string; pinned?: boolean };
@@ -103,7 +103,7 @@ nothing refers to it.
 
 ```ts
 const watched = messageService.writeSlotContentByKey(messages, 'm2', { id: 'm2', chatId: 'c1', text: 'Draft' });
-const onMessage = effectService.createEffect(db, [watched], [], () => render(watched.entity));
+const onMessage = effectService.createEffect(db, () => render(watched.entity), [watched]);
 db.flush();
 
 messageService.slotContentService.clearSlotContent(watched);
@@ -145,9 +145,9 @@ const messagesByChatService = createOIMSlotCollectionIndexService(db, {
 const messagesByChat = messagesByChatService.createIndexStoreSlot(messages);
 
 const chatBucket = messagesByChatService.holdSlotByKey(messagesByChat, 'c1');
-const onChat = effectService.createEffectImmediate(db, [chatBucket], [], () => {
+const onChat = effectService.createAndRunEffect(db, () => {
     for (const messageSlot of messagesByChatService.slotContentService.getBucketMemberSlots(chatBucket)) render(messageSlot.entity);
-});
+}, [chatBucket]);
 
 const joining = messageService.writeSlotContentByKey(messages, 'm4', { id: 'm4', chatId: 'c1', text: 'Joins c1' });
 messageContentService.updateEntity(joining, { chatId: 'c2' });   // leaves c1's bucket, joins c2's
@@ -201,12 +201,12 @@ const [, secondMembership] = membershipService.writeInBatch(memberships, () => (
 ]).map(entity => membershipService.writeSlotContentByKey(memberships, entity.id, entity)));
 
 const userMemberships = membershipsByUserService.holdSlotByKey(membershipsByUser, 'u1');
-const onUserGroups = effectService.createEffectImmediate(db, [userMemberships], [], () => {
+const onUserGroups = effectService.createAndRunEffect(db, () => {
     for (const membershipSlot of membershipsByUserService.slotContentService.getBucketMemberSlots(userMemberships)) {
         const membership = membershipSlot.entity;
         if (membership !== undefined) render(groupService.findSlotByKey(groups, membership.groupId)?.entity);
     }
-});
+}, [userMemberships]);
 
 membershipService.slotContentService.clearSlotContent(secondMembership);     // u1 leaves g2: both indexes drop it
 membershipsByGroupService.getEntitiesByKey(membershipsByGroup, 'g1');
@@ -227,7 +227,7 @@ Reference: [Indexes](/docs/core/oimindex).
 ## Key an entity by more than one field
 
 Take: an entity collection over `OIMSlotTreeStoreService`,
-handed `OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()`, with `keyOf` returning the parts in
+handed `OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()`, with `keyOf` returning the parts in
 order. Do not join the parts into one string: an encoding has to be injective, and
 a join on a separator is not.
 
@@ -239,7 +239,7 @@ type TReadMarkStore = TOIMSlotStoreTree<TOIMEntitySlot<ReadMark, TScalarChain>, 
 const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<ReadMark, TScalarChain>>, TReadMarkStore>(db, {
     slotContentService: createOIMSlotContentEntityService<ReadMark, TScalarChain>(db),
     slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<ReadMark, TScalarChain>>(
-        OIMDefaults.KEY_TREE_WALK_SCALAR.getValue(),
+        OIMDefaults.SCALAR_KEY_TREE_WALK.getValue(),
     ),
 });
 const readMarks = readMarkService.createStoreSlot(db);
@@ -254,7 +254,7 @@ order matters, and `[a]` and `[a, b]` are different keys. The walk is picked onc
 construction. The scalar walk holds nothing: deleting user `u1` does not touch keys
 that start with `'u1'`. When a key part is itself an entity whose identity the key
 must keep, key by slots instead and hand the store
-`OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()` — each edge then holds the entity slot it is
+`OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()` — each edge then holds the entity slot it is
 keyed by.
 
 Reference: [Composite keys come in two strategies](/docs/core/collections#composite-keys-come-in-two-strategies-and-you-pick-one).
@@ -277,7 +277,7 @@ settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, 
 const settingsSlot = settingsService.holdSingleSlot(settings);
 
 const themeColumn = settingsService.columnSlotService.holdColumn(settingsSlot, 'theme');
-const onTheme = effectService.createEffect(db, [themeColumn], [], () => render(settingsSlot.entity?.theme));
+const onTheme = effectService.createEffect(db, () => render(settingsSlot.entity?.theme), [themeColumn]);
 
 settingsContentService.updateEntity(settingsSlot, { fontSize: 16 });                 // PATCH; onTheme is not woken
 settingsContentService.deleteEntityColumns(settingsSlot, ['token']);                 // a column out, which a patch cannot say
@@ -339,13 +339,13 @@ Reference: [Emptiness is a strategy](/docs/core/collections#emptiness-is-a-strat
 
 ## Choose the in-place or the replacing writer
 
-Take: `createOIMEntityWriterReplacing()` when a reader decides "did it change?"
+Take: `createOIMReplacingEntityWriter()` when a reader decides "did it change?"
 by comparing the entity object to the last one it saw — a memoised component, a
-shallow-equality selector. Keep the default, `createOIMEntityWriterInPlace()`, when
+shallow-equality selector. Keep the default, `createOIMInPlaceEntityWriter()`, when
 every reader is an effect.
 
 ```ts
-const replacingDb = new OIMDB({ entityWriter: createOIMEntityWriterReplacing() });
+const replacingDb = new OIMDB({ entityWriter: createOIMReplacingEntityWriter() });
 const contactService = createOIMSlotCollectionService(replacingDb, { slotContentService: createOIMSlotContentEntityService<User>(replacingDb) });
 const contacts = contactService.createStoreSlot(replacingDb);
 
@@ -354,7 +354,7 @@ const before = alice.entity;
 contactService.slotContentService.updateEntity(alice, { name: 'Alicia' });
 alice.entity !== before;   // true: a new object per write that changed something
 
-const draftService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Message>(db, { entityWriter: createOIMEntityWriterReplacing() }) });
+const draftService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Message>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
 ```
 
 Why this way: under the in-place writer the stored object keeps its reference

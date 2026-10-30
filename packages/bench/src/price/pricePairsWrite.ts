@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     TOIMEntitySlot,
@@ -237,7 +237,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityWriter = createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithoutCopy });
+            const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithoutCopy });
             const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
@@ -560,7 +560,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         id: 'update.column-vs-the-strict-equality-default',
         path: EPricePath.PerWrite,
         ours: 'slotContentService.updateEntity(slot, patch) — the shipped default, which is SameValueZero',
-        floor: 'the same update on a population built with createOIMEntityWriterInPlace({ sameValueGuard: (a, b) => a === b })',
+        floor: 'the same update on a population built with createOIMInPlaceEntityWriter({ sameValueGuard: (a, b) => a === b })',
         caveat:
             'THE ONE ITEM OF THE WRITE PATH THAT IS IN NO RECORDED NUMBER, BECAUSE IT POSTDATES ' +
             'THEM ALL. Every write row in `2026-08-20-price/write` was measured against a ' +
@@ -624,7 +624,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                 ours: wanted === 'floor' ? inertWriteSide : side(undefined),
                 floor: wanted === 'ours'
                     ? inertWriteSide
-                    : side(createOIMEntityWriterInPlace({ sameValueGuard: strictEquality })),
+                    : side(createOIMInPlaceEntityWriter({ sameValueGuard: strictEquality })),
             };
         },
     },

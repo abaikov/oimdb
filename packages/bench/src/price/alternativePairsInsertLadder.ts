@@ -1,10 +1,10 @@
-import { OIMChannelService, OIMDB, OIMSlotOwner, OIMSlotAtEmptyReleasePolicy, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMEntityWriterInPlace, oimInsertEntityWithSanitizedCopy } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotOwner, OIMSlotAtEmptyReleasePolicy, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter, oimInsertEntityWithSanitizedCopy } from '../../../core/src/index';
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
-import { createOIMEntitySlot } from '../../../core/src/engine/entity/utils/createOIMEntitySlot';
-import { oimCopyEntitySanitized } from '../../../core/src/engine/entity/utils/oimCopyEntitySanitized';
-import { OIMSlotEntityPresenceEmptinessPolicy } from '../../../core/src/engine/entity/OIMSlotEntityPresenceEmptinessPolicy';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
+import { oimSanitizedCopyEntity } from '../../../core/src/entity/utils/oimSanitizedCopyEntity';
+import { OIMSlotEntityPresenceEmptinessPolicy } from '../../../core/src/entity/OIMSlotEntityPresenceEmptinessPolicy';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import type { TPriceEntityService } from './priceFixture';
@@ -29,7 +29,7 @@ type TWorld = {
 type TRung = (world: TWorld, rows: readonly TPriceDataRow[], times: number) => void;
 
 const storeService = new OIMSlotMapStoreService<TRowSlot>();
-const entityWriter = createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithSanitizedCopy });
+const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy });
 const slotReleasePolicy = new OIMSlotAtEmptyReleasePolicy();
 const slotOwner = new OIMSlotOwner();
 const channelService = OIMChannelService.INSTANCE;
@@ -119,7 +119,7 @@ const copyIntoMap: TRung = (world, rows, times) => {
     const map = world.plainMap;
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        map.set(row.id, oimCopyEntitySanitized(row));
+        map.set(row.id, oimSanitizedCopyEntity(row));
     }
     priceSink.number = map.size;
 };
@@ -129,7 +129,7 @@ const slotIntoMap: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner, world.entityStoreSlot as TOIMStoreSlot);
-        (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
+        (slot as { entity: TPriceDataRow | undefined }).entity = oimSanitizedCopyEntity(row) as TPriceDataRow;
         map.set(row.id, slot);
     }
     priceSink.number = map.size;
@@ -141,7 +141,7 @@ const probedSlotIntoMap: TRung = (world, rows, times) => {
         const row = rows[i];
         if (map.get(row.id) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(row.id, slotOwner, world.entityStoreSlot as TOIMStoreSlot);
-        (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
+        (slot as { entity: TPriceDataRow | undefined }).entity = oimSanitizedCopyEntity(row) as TPriceDataRow;
         map.set(row.id, slot);
     }
     priceSink.number = map.size;
@@ -152,7 +152,7 @@ const slotIntoStore: TRung = (world, rows, times) => {
         const row = rows[i];
         if (storeService.get(world.store, row.id) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(row.id), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
-        (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
+        (slot as { entity: TPriceDataRow | undefined }).entity = oimSanitizedCopyEntity(row) as TPriceDataRow;
         storeService.set(world.store, row.id, slot);
     }
     priceSink.number = world.store.size;
@@ -164,7 +164,7 @@ const keyedSlotIntoStore: TRung = (world, rows, times) => {
         const key = keyOf(row);
         if (storeService.get(world.store, key) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
-        (slot as { entity: TPriceDataRow | undefined }).entity = oimCopyEntitySanitized(row) as TPriceDataRow;
+        (slot as { entity: TPriceDataRow | undefined }).entity = oimSanitizedCopyEntity(row) as TPriceDataRow;
         storeService.set(world.store, key, slot);
     }
     priceSink.number = world.store.size;
@@ -265,7 +265,7 @@ const LADDER =
     'One rung of a ladder from `map.set(id, { ...entity })` to `entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)` for a key the population has '
     + 'never seen. Every rung inserts the same priceDataset.batch distinct rows into an empty world rebuilt outside the clock, '
     + 'and adds exactly one step of the insert branch of OIMSlotContentEntityService.insertSlotContent to the rung below it, written by hand around the '
-    + 'shipped pieces: oimCopyEntitySanitized, createOIMEntitySlot, OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the '
+    + 'shipped pieces: oimSanitizedCopyEntity, createOIMEntitySlot, OIMSlotMapStoreService, an in-place writer with oimInsertEntityWithSanitizedCopy, the '
     + 'channel, the emptiness check, the AtEmpty release policy. Each pair re-measures the rung below as its floor in its '
     + 'own run, so a ratio prices only what its rung adds. From the writer-and-channel rung on, each pass ends with db.flush().';
 
@@ -282,11 +282,11 @@ const ladderPair = (step: string, ours: TRung, oursText: string, floor: TRung, f
 });
 
 export const alternativePairsInsertLadder: readonly TPricePair[] = [
-    ladderPair('1-copy', copyIntoMap, 'map.set(id, oimCopyEntitySanitized(entity))',
+    ladderPair('1-copy', copyIntoMap, 'map.set(id, oimSanitizedCopyEntity(entity))',
         spreadIntoMap, 'map.set(id, { ...entity })',
-        'oimCopyEntitySanitized instead of the bare spread: the spread plus the own-`__proto__` probe and its delete.'),
+        'oimSanitizedCopyEntity instead of the bare spread: the spread plus the own-`__proto__` probe and its delete.'),
     ladderPair('2-slot', slotIntoMap, 'map.set(id, slot) with slot = createOIMEntitySlot(id, owner), slot.entity = the copy',
-        copyIntoMap, 'map.set(id, oimCopyEntitySanitized(entity))',
+        copyIntoMap, 'map.set(id, oimSanitizedCopyEntity(entity))',
         'the fourteen-field slot object the copy is stored in.'),
     ladderPair('3-probe', probedSlotIntoMap, 'map.get(id) first, then map.set(id, slot)',
         slotIntoMap, 'map.set(id, slot)',

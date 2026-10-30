@@ -6,7 +6,7 @@
  * plumbing, and every claim below about WHAT `write` does with the list it is
  * handed rides along invisibly inside it. These are that half, on its own: the
  * updater resolves pks through `linkedEntityService.holdSlotByKey` and hands the whole
- * list to `OIMBucketService.writeBucketMemberSlots`, and both of those are core's, both are
+ * list to `OIMSlotContentBucketService.writeSlotContent`, and both of those are core's, both are
  * silent when they change, and neither has a test of this package's that would
  * notice.
  */
@@ -90,13 +90,13 @@ describe('writing a linked index from an entity field', () => {
         const bucket = cardsByDeckService.getSlotByKey(cardsByDeck, 'd1');
         expect(bucket).toBeDefined();
         let runCount = 0;
-        const watcher = OIMEffectService.INSTANCE.createEffect(db, [bucket!], [], () => { runCount++; });
+        const watcher = OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [bucket!]);
 
         // The reducer re-derives the slots for every entity it saw change, and
         // an entity changes for reasons that have nothing to do with its linked
         // field — a rename, a flag. Every one of those re-sends this same list.
         // The updater does no diffing of its own precisely because
-        // `OIMBucketService.writeBucketMemberSlots` asks the service whether the bucket
+        // `OIMSlotContentBucketService.writeSlotContent` asks the service whether the bucket
         // already holds exactly these slots; without that question each of
         // them would evict and rejoin every row and wake every screen showing
         // the deck.

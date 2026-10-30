@@ -25,7 +25,7 @@ const entityStoreSlot = entityService.createStoreSlot(db);
 const ace = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
 db.flush();
 
-held.push(effectService.createEffect(db, [ace], [], () => { held.push(ace.entity); }));
+held.push(effectService.createEffect(db, () => { held.push(ace.entity); }, [ace]));
 
 entityService.slotContentService.updateEntity(ace, { title: 'ACE' });
 db.flush();
@@ -42,10 +42,10 @@ bucketService.holdSlotByKey(bucketStoreSlot, 'spades');
 const spadesSlot = bucketService.getSlotByKey(bucketStoreSlot, 'spades');
 bucketService.slotContentService.writeSlotContent(spadesSlot, [ace]);
 
-held.push(effectService.createEffect(db, [spadesSlot], [], () => {
+held.push(effectService.createEffect(db, () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);
     held.push(bucketService.slotContentService.getBucketMemberSlotCount(spadesSlot));
-}));
+}, [spadesSlot]));
 
 held.push(bucketService, bucketStoreSlot, spadesSlot);
 

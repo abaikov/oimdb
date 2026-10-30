@@ -25,7 +25,7 @@ const tasksByColumn = byColumnService.createIndexStoreSlot(tasks);
 
 const byPriorityService = createOIMSortedComputedService({
     indexService: byColumnService,
-    sortColumns: [{ column: 'priority', direction: 'asc' }],
+    sortColumns: [{ columnName: 'priority', direction: 'asc' }],
 });
 const tasksByPriority = byPriorityService.createSortedStoreSlot(tasksByColumn);
 

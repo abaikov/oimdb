@@ -24,7 +24,7 @@ migrates across schema versions.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistBucketRecordSource,
@@ -41,7 +41,7 @@ type TSettings = { theme: string };
 const db = new OIMDB();
 
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
-  entityWriter: createOIMEntityWriterInPlace(),
+  entityWriter: createOIMInPlaceEntityWriter(),
 });
 const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);

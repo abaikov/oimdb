@@ -1,6 +1,6 @@
-import { OIMContentChangeListenerService } from '@oimdb/core';
+import { OIMSlotContentChangeListenerService } from '@oimdb/core';
 import type {
-    IOIMContentChangeListener, TOIMDefaultSlotStore, TOIMDisposer, TOIMEntitySlot, TOIMStoreKey,
+    IOIMSlotContentChangeListener, TOIMDefaultSlotStore, TOIMDisposer, TOIMEntitySlot, TOIMStoreKey,
 } from '@oimdb/core';
 import { OIMPersistCollectionWriteRecordSource } from './OIMPersistCollectionWriteRecordSource';
 
@@ -11,15 +11,15 @@ export class OIMPersistCollectionChangeWriteRecordSource<
         onEntitySlotChanged: (entitySlot: TOIMEntitySlot<TEntity, TKey>) => void,
     ): TOIMDisposer {
         const entityStoreSlot = this.entityStoreSlot;
-        const contentChangeListener: IOIMContentChangeListener<TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>> = {
+        const contentChangeListener: IOIMSlotContentChangeListener<TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>> = {
             onContentChanged: entitySlot => { onEntitySlotChanged(entitySlot); },
-            onContentChangedMany: entitySlotQueue => {
+            onManyContentsChanged: entitySlotQueue => {
                 const entitySlotCount = entitySlotQueue.getEntryCount();
                 for (let i = 0; i < entitySlotCount; i++) onEntitySlotChanged(entitySlotQueue.getEntryAt(i));
             },
         };
         const writtenDisposer = super.subscribeEntitySlotChanged(onEntitySlotChanged);
-        const contentChangeListenerService = OIMContentChangeListenerService.INSTANCE;
+        const contentChangeListenerService = OIMSlotContentChangeListenerService.INSTANCE;
         contentChangeListenerService.addContentChangeListener(entityStoreSlot, contentChangeListener, undefined);
         return () => {
             writtenDisposer();

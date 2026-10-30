@@ -1,19 +1,18 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-import { OIMDB } from '../src/factories/OIMDB';
-import { OIMThrowAtOnceErrorPolicy } from '../src/engine/error/OIMThrowAtOnceErrorPolicy';
-import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
-import { createOIMSlotCollectionIndexService } from '../src/factories/createOIMSlotCollectionIndexService';
-import type { TOIMBucketSlot } from '../src/engine/bucket/types/TOIMBucketSlot';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayStore';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
-import { createOIMSingleSlotService } from '../src/factories/createOIMSingleSlotService';
-import type { TOIMEntityContentSlot } from '../src/engine/entity/types/TOIMEntityContentSlot';
-import type { TOIMBucketSlotOwnerService } from '../src/engine/bucket/types/TOIMBucketSlotOwnerService';
+import { OIMDB } from '../src/db/OIMDB';
+import { OIMThrowAtOnceErrorPolicy } from '../src/error/OIMThrowAtOnceErrorPolicy';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/bucket/OIMSlotContentPositionalArrayBucketService';
+import { createOIMSlotCollectionIndexService } from '../src/index/createOIMSlotCollectionIndexService';
+import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMBucketSlotsArrayStore } from '../src/bucket/array/types/TOIMBucketSlotsArrayStore';
+import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
+import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
+import type { TOIMEntityContentSlot } from '../src/entity/types/TOIMEntityContentSlot';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -76,23 +75,23 @@ const publicDoorsOf = (composition: TComposition): string[] => {
     return doors.sort();
 };
 
-const SLOT_OWNER = ['engine/slot/OIMSlotOwner.ts'] as const;
+const SLOT_OWNER = ['slot/OIMSlotOwner.ts'] as const;
 
-const COLUMN_SLOT_SERVICE = ['facade/column/OIMColumnSlotService.ts'] as const;
+const COLUMN_SLOT_SERVICE = ['column/OIMColumnSlotService.ts'] as const;
 
 const ENTITY_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMWritableSlotCollectionService.ts', 'facade/slot/OIMSlotCollectionService.ts'],
-    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
+    service: ['slot/OIMWritableSlotCollectionService.ts', 'slot/OIMSlotCollectionService.ts'],
+    parts: { slotContentService: ['entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
 const BUCKET_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMSlotCollectionService.ts'],
+    service: ['slot/OIMSlotCollectionService.ts'],
     parts: {
         slotContentService: [
-            'facade/bucket/OIMSlotContentBucketService.ts',
-            'facade/bucket/OIMSlotContentArrayBucketService.ts',
-            'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            'bucket/OIMSlotContentBucketService.ts',
+            'bucket/OIMSlotContentArrayBucketService.ts',
+            'bucket/OIMSlotContentPositionalArrayBucketService.ts',
         ],
         columnSlotService: COLUMN_SLOT_SERVICE,
     },
@@ -100,8 +99,8 @@ const BUCKET_COMPOSITION: TComposition = {
 };
 
 const SINGLE_ENTITY_COMPOSITION: TComposition = {
-    service: ['facade/slot/OIMSingleSlotService.ts'],
-    parts: { slotContentService: ['engine/entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
+    service: ['slot/OIMSingleSlotService.ts'],
+    parts: { slotContentService: ['entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
@@ -227,7 +226,6 @@ const ENTITY_WRITE_DOORS: Record<string, (subject: TEntitySubject) => void> = {
     'slotContentService.insertSlotContent': s => {
         s.cardEntityService.slotContentService.insertSlotContent(s.card, { id: 'a', title: 'B' });
     },
-    'slotContentService.releaseSlotContent': s => { s.cardEntityService.slotContentService.releaseSlotContent(s.card); },
     ...entitySlotWriteDoors<TEntitySubject, TCardSlot>(s => s.cardEntityService.slotContentService, s => s.card),
 };
 
@@ -277,9 +275,6 @@ const BUCKET_WRITE_DOORS: Record<string, (subject: TBucketSubject) => void> = {
     'slotContentService.writeSlotContent': s => { s.membersService.writeSlotContent(s.bucket, []); },
     'slotContentService.insertSlotContent': s => { s.membersService.insertSlotContent(s.bucket, [s.card]); },
     'slotContentService.clearSlotContent': s => { s.membersService.clearSlotContent(s.bucket); },
-    'slotContentService.releaseSlotContent': s => {
-        s.membersService.releaseSlotContent(s.bucket, s.bucket.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TCardSlot>>);
-    },
     'slotContentService.insertBucketMemberSlotAt': s => { s.membersService.insertBucketMemberSlotAt(s.bucket, 0, s.card); },
     'slotContentService.removeBucketMemberSlotAt': s => { s.membersService.removeBucketMemberSlotAt(s.bucket, 0); },
     'slotContentService.removeBucketMemberSlotRange': s => { s.membersService.removeBucketMemberSlotRange(s.bucket, 0, 1); },
@@ -335,6 +330,8 @@ const SINGLE_ENTITY_WRITE_DOORS: Record<string, (subject: TSingleEntitySubject) 
     ...entitySlotWriteDoors<TSingleEntitySubject, TSingleCardSlot>(s => s.singleCardEntityService.slotContentService, s => s.singleCard),
 };
 
+const DOORS_THE_SLOT_OWNER_CALLS_ON_AN_UNHELD_SLOT = ['slotContentService.releaseSlotContent'] as const;
+
 const everyDoorOf = (
     writeDoorLists: readonly Record<string, unknown>[], writeNothing: readonly string[],
 ): string[] => [...new Set([...writeDoorLists.flatMap(writeDoors => Object.keys(writeDoors)), ...writeNothing])].sort();
@@ -344,19 +341,18 @@ const everyFieldOf = (composition: TComposition): string[] => Object.keys(compos
 describe('who may say a write is refused', () => {
     it('names the flush only in the channel that owns the answer, in the one assertWritable body, and in the index', () => {
         expect(filesNaming('assertNotFlushing')).toEqual([
-            'engine/channel/OIMChannelService.ts 2',
-            'engine/slot/OIMSlotOwnerService.ts 1',
-            'facade/index/OIMSlotCollectionIndexService.ts 1',
+            'channel/OIMChannelService.ts 2',
+            'index/OIMSlotCollectionIndexService.ts 1',
+            'slot/OIMSlotOwnerService.ts 1',
         ]);
     });
 
     it('builds the refusal in the channel alone, and lets two readers consult it', () => {
         expect(filesNaming('isRefusingWrites')).toEqual([
-            'engine/channel/OIMChannelService.ts 2',
-            'engine/slot/OIMSlotOwnerService.ts 1',
-            'facade/index/OIMSlotCollectionIndexService.ts 3',
+            'channel/OIMChannelService.ts 2',
+            'index/OIMSlotCollectionIndexService.ts 3',
         ]);
-        expect(codeOf('engine/channel/OIMChannelService.ts').replace(/\s+/g, ' '))
+        expect(codeOf('channel/OIMChannelService.ts').replace(/\s+/g, ' '))
             .toContain('public isRefusingWrites(channelSlot: TOIMChannelSlot): boolean { return channelSlot.isFlushing; }');
     });
 
@@ -373,7 +369,7 @@ describe('who may say a write is refused', () => {
         }
 
         expect(declarations.sort()).toEqual([
-            'engine/slot/OIMSlotOwnerService.ts slot: TOIMSlot',
+            'slot/OIMSlotOwnerService.ts slot: TOIMSlot',
         ]);
         for (const declaration of declarations) {
             expect(declaration.split(' ').slice(1).join(' ')).not.toContain(',');
@@ -382,11 +378,10 @@ describe('who may say a write is refused', () => {
 
     it('asks assertWritable from these files and no others', () => {
         expect(SOURCE_FILES.filter(path => /\.assertWritable\(/.test(codeOf(path)))).toEqual([
-            'engine/entity/OIMSlotContentEntityService.ts',
-            'engine/slot/OIMSlotOwnerService.ts',
-            'facade/bucket/OIMSlotContentBucketService.ts',
-            'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
-            'facade/bucket/OIMSlotContentSortedArrayBucketService.ts',
+            'bucket/OIMSlotContentBucketService.ts',
+            'bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            'bucket/OIMSlotContentSortedArrayBucketService.ts',
+            'entity/OIMSlotContentEntityService.ts',
         ]);
     });
 
@@ -398,12 +393,12 @@ describe('who may say a write is refused', () => {
 
     it('classifies every public door of an entity collection and of its parts', () => {
         expect(publicDoorsOf(ENTITY_COMPOSITION))
-            .toEqual(everyDoorOf([ENTITY_WRITE_DOORS], ENTITY_DOORS_THAT_WRITE_NOTHING));
+            .toEqual(everyDoorOf([ENTITY_WRITE_DOORS], [...ENTITY_DOORS_THAT_WRITE_NOTHING, ...DOORS_THE_SLOT_OWNER_CALLS_ON_AN_UNHELD_SLOT]));
     });
 
     it('classifies every public door of a bucket collection and of its parts', () => {
         expect(publicDoorsOf(BUCKET_COMPOSITION))
-            .toEqual(everyDoorOf([BUCKET_WRITE_DOORS], BUCKET_DOORS_THAT_WRITE_NOTHING));
+            .toEqual(everyDoorOf([BUCKET_WRITE_DOORS], [...BUCKET_DOORS_THAT_WRITE_NOTHING, ...DOORS_THE_SLOT_OWNER_CALLS_ON_AN_UNHELD_SLOT]));
     });
 
     it('refuses every write door of an entity collection inside a flush', () => {
@@ -412,6 +407,15 @@ describe('who may say a write is refused', () => {
 
     it('refuses every write door of a bucket collection inside a flush', () => {
         expect(doorsThatDoNotRefuse(bucketWorld, BUCKET_WRITE_DOORS)).toEqual([]);
+    });
+
+    it('refuses releaseSlotContent of a slot somebody still holds', () => {
+        const entity = entityWorld().subject;
+        entity.card.owner.holdSlot(entity.card);
+        expect(() => entity.cardEntityService.slotContentService.releaseSlotContent(entity.card)).toThrow(/still held/);
+        const bucket = bucketWorld().subject;
+        bucket.bucket.owner.holdSlot(bucket.bucket);
+        expect(() => bucket.membersService.releaseSlotContent(bucket.bucket)).toThrow(/still held/);
     });
 
     it('hands a caller no write door on the owner of a bucket slot', () => {

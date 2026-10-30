@@ -25,11 +25,11 @@ export function useOIMSingleSlot<TSlot extends TOIMSlot>(
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => {
                 const holdingSlot = singleSlotService.holdSingleSlot(singleSlotStoreSlot);
-                const disposeEffect = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
+                const effectDisposer = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
                 subscribedSlot = holdingSlot;
                 return () => {
                     subscribedSlot = undefined;
-                    disposeEffect();
+                    effectDisposer();
                 };
             },
             getSlot: (): TSlot => subscribedSlot ?? singleSlotService.getSingleSlot(singleSlotStoreSlot),

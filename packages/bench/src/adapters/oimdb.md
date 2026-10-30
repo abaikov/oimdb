@@ -57,7 +57,7 @@ body runs again and `settle` paints nothing: the tearDown proof frame's write re
 ## Frames
 
 The window and read bindings run a frame inside `entityService.writeInBatch(entityStoreSlot, run)` (`bindRowWrites`,
-oimdb.ts:266-268). The index hears every write of the frame in one `onContentChangedMany` when the batch closes; each
+oimdb.ts:266-268). The index hears every write of the frame in one `onManyContentsChanged` when the batch closes; each
 bucket join or leave still pays its channel write, emptiness and release check per call. A frame of label patches
 moves no bucket and pays two calls for the batch.
 

@@ -34,7 +34,7 @@ Both are snapshot strategies, so every resource here is an `OIMPersistSnapshotRe
 A collection stored as one entry, and a single entity stored at a path of a shared key.
 
 ```ts
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistKeyValueEntrySnapshotService, OIMPersistKeyValuePathSnapshotService,
@@ -51,7 +51,7 @@ type TSettings = { theme: 'light' | 'dark' };
 
 const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TTodo, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const todoCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTodo>(db, { entityWriter: persistEntityWriter }) });
 const todoEntityStoreSlot = todoCollectionService.createStoreSlot(db);

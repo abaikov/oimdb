@@ -29,10 +29,10 @@ const ace = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1
 db.flush();
 bucketService.slotContentService.writeSlotContent(spadesSlot, [ace]);
 
-held.push(effectService.createEffect(db, [spadesSlot], [], () => {
+held.push(effectService.createEffect(db, () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);
     held.push(bucketService.slotContentService.getBucketMemberSlotCount(spadesSlot));
-}));
+}, [spadesSlot]));
 
 entityService.slotContentService.updateEntity(ace, { title: 'ACE' });
 db.flush();
@@ -43,9 +43,9 @@ held.push(db, entityService, entityStoreSlot, bucketService, bucketStoreSlot, sp
 /* ── and the ordered-list diff, which is the whole of this arm ────────── */
 
 const shown: TOIMEntitySlot[] = [];
-held.push(effectService.createEffect(db, [spadesSlot], [], () => {
+held.push(effectService.createEffect(db, () => {
     const next = [...bucketService.slotContentService.getBucketMemberSlots(spadesSlot)];
     held.push(oimOrderedListCommandsOfTransition(shown, next));
     shown.length = 0;
     for (let i = 0; i < next.length; i++) shown.push(next[i]);
-}));
+}, [spadesSlot]));

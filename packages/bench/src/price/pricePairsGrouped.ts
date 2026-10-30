@@ -39,7 +39,7 @@ const ORDER_CAVEAT =
     `and band \`m + ${BANDS_SWAPPED}\` in every one of the sixty-four groups for ${SWAPS_PER_FRAME} ` +
     `values of \`m\`, so each group of ${BUCKET_SIZE} sees ${MOVERS_PER_FRAME} movers. ` +
     'OURS IS THE SHIPPED ORDER: an index store slot over `group` (`createOIMSlotCollectionIndexService` with `OIMSlotContentSetBucketService`) and a ' +
-    '`createOIMSortedComputedService` and its `createSortedStoreSlot` over it with `sortColumns: [{ column: \'rank\', direction: \'asc\' }]`, ' +
+    '`createOIMSortedComputedService` and its `createSortedStoreSlot` over it with `sortColumns: [{ columnName: \'rank\', direction: \'asc\' }]`, ' +
     'one sorted computed held per group. NOTHING IS REPORTED BY HAND: `updateEntity` hands the ' +
     'index the changed columns, the index writes the group\'s `rank` bucket column slot, and that ' +
     'slot is a source of the group\'s sorted computed. THE READ IS INSIDE THE TIMED BODY: the ' +
@@ -79,7 +79,7 @@ const orderPair: TPricePair = {
         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
         const sortedComputedService = createOIMSortedComputedService({
             indexService,
-            sortColumns: [{ column: 'rank', direction: 'asc' }],
+            sortColumns: [{ columnName: 'rank', direction: 'asc' }],
         });
         const sortedComputedStoreSlot = sortedComputedService.createSortedStoreSlot(indexStoreSlot);
         const names = priceDataset.groupNames();

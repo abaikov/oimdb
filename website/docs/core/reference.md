@@ -6,7 +6,7 @@ description: An index of every name exported by @oimdb/core, grouped by domain, 
 
 # API reference
 
-This page indexes every export of `@oimdb/core`: all 218 names that the package entry point exports, and nothing else. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
+This page indexes every export of `@oimdb/core`: all 229 names that the package entry point exports, and nothing else. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
 
 ## Root and defaults
 
@@ -43,8 +43,8 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `TOIMSlotContentServiceSingleSlot` | type | The single slot type `createOIMSingleSlotService` reads off a content service. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
 | `TOIMSlotContentServiceContent` | type | The content type a content service writes. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
 | `TOIMSlotContentServicePatch` | type | The patch type of a content service: the content itself for an array, `Partial` of it otherwise. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
-| `OIMContentChangeListenerService` | class | `INSTANCE`: files and unfiles a content-change listener on a store slot (`addContentChangeListener`, `removeContentChangeListener`) and declares reads without one (`addReadColumn`, `removeReadColumn`, `addReadAnyColumn`, `removeReadAnyColumn`). | [The content-change hook](./oimindex.md#the-content-change-hook-and-indexkeys) |
-| `IOIMContentChangeListener` | interface | `onContentChanged(slot, patch, changedColumns)` and `onContentChangedMany(slots, patches, changedColumns)`, told of every write that changed a store slot's content. | [The content-change hook](./oimindex.md#the-content-change-hook-and-indexkeys) |
+| `OIMSlotContentChangeListenerService` | class | `INSTANCE`: files and unfiles a content-change listener on a store slot (`addContentChangeListener`, `removeContentChangeListener`) and declares reads without one (`addReadColumn`, `removeReadColumn`, `addReadAnyColumn`, `removeReadAnyColumn`). | [The content-change hook](./oimindex.md#the-content-change-hook-and-indexkeys) |
+| `IOIMSlotContentChangeListener` | interface | `onContentChanged(slot, patch, changedColumns)` and `onManyContentsChanged(slots, patches, changedColumns)`, told of every write that changed a store slot's content. | [The content-change hook](./oimindex.md#the-content-change-hook-and-indexkeys) |
 
 ## Entities and writers
 
@@ -59,19 +59,19 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `TOIMEntityColumnName` | type | The string column names of an entity type, or any string when the entity type is a bare object. | [Writing a standalone record](./writing.md#writing-a-standalone-record) |
 | `TOIMEntityColumnValue` | type | The value type of one column of an entity type, or unknown when the entity type is a bare object. | [useOIMField — one field of one identity](../packages/react.md#useoimfield--one-field-of-one-identity) |
 | `IOIMEntityWriter` | interface | The six functions that write an entity slot: fill, put, patch, patch one column, delete columns, clear. | [The two writers](./writing.md#the-two-writers) |
-| `createOIMEntityWriterInPlace` | function | Builds an `IOIMEntityWriter` that applies puts, patches and column deletes onto the stored entity object itself. | [The two writers](./writing.md#the-two-writers) |
-| `createOIMEntityWriterReplacing` | function | Builds an `IOIMEntityWriter` that applies every change to a fresh copy and stores the copy in the slot. | [The two writers](./writing.md#the-two-writers) |
+| `createOIMInPlaceEntityWriter` | function | Builds an `IOIMEntityWriter` that applies puts, patches and column deletes onto the stored entity object itself. | [The two writers](./writing.md#the-two-writers) |
+| `createOIMReplacingEntityWriter` | function | Builds an `IOIMEntityWriter` that applies every change to a fresh copy and stores the copy in the slot. | [The two writers](./writing.md#the-two-writers) |
 | `TOIMEntityWriterOptions` | type | Options of both writer factories: `sameValueGuard`, `entityInserter`, and the walks `putEntityColumns`, `patchEntityColumns`, `patchEntityColumn`. | [Writing your own writer](./writing.md#writing-your-own-writer) |
 | `TOIMEntityInserter` | type | The function that stores a handed entity into an entity slot on fill. | [The store keeps the object you insert](./writing.md#the-store-keeps-the-object-you-insert) |
 | `oimInsertEntityWithoutCopy` | function | Insert strategy that stores the handed entity object itself. The default. | [The store keeps the object you insert](./writing.md#the-store-keeps-the-object-you-insert) |
 | `oimInsertEntityWithCopy` | function | Insert strategy that stores a copy (`{ ...entity }`). | [The store keeps the object you insert](./writing.md#the-store-keeps-the-object-you-insert) |
 | `oimInsertEntityWithSanitizedCopy` | function | Insert strategy that stores a copy with an own `__proto__` key removed; for untrusted JSON. | [The store keeps the object you insert](./writing.md#the-store-keeps-the-object-you-insert) |
 | `oimPatchEntityColumns` | function | The PATCH walk, the writers' default `patchEntityColumns`: writes the moved columns into the object `targetOf` hands back and returns it, or `undefined` when nothing moved. | [Writing your own writer](./writing.md#writing-your-own-writer) |
-| `oimPatchEntityColumnsGuarded` | function | The PATCH walk that skips a `__proto__` key and a key the patch does not own. | [Writing your own writer](./writing.md#writing-your-own-writer) |
+| `oimGuardedPatchEntityColumns` | function | The PATCH walk that skips a `__proto__` key and a key the patch does not own. | [Writing your own writer](./writing.md#writing-your-own-writer) |
 | `oimPatchEntityColumn` | function | The one-column walk, the writers' default `patchEntityColumn`. | [Writing your own writer](./writing.md#writing-your-own-writer) |
-| `oimPatchEntityColumnGuarded` | function | The one-column walk that refuses the column name `__proto__`. | [Writing your own writer](./writing.md#writing-your-own-writer) |
+| `oimGuardedPatchEntityColumn` | function | The one-column walk that refuses the column name `__proto__`. | [Writing your own writer](./writing.md#writing-your-own-writer) |
 | `oimPutEntityColumns` | function | The PUT walk, the writers' default `putEntityColumns`: the patch walk plus `undefined` over every column the new value lacks. | [Writing your own writer](./writing.md#writing-your-own-writer) |
-| `oimPutEntityColumnsGuarded` | function | The PUT walk that skips `__proto__` keys and inherited stored columns. | [Writing your own writer](./writing.md#writing-your-own-writer) |
+| `oimGuardedPutEntityColumns` | function | The PUT walk that skips `__proto__` keys and inherited stored columns. | [Writing your own writer](./writing.md#writing-your-own-writer) |
 
 ## Buckets and bucket commands
 
@@ -137,9 +137,20 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `createOIMBucketMemoComputedService` | function | Builds an `OIMBucketMemoComputedService` over a bucket collection service; takes no db. | [The order of a bucket is a derivation](./computed-effects.md#the-order-of-a-bucket-is-a-derivation) |
 | `OIMSingleComputedService` | class | One derivation under no key: `createComputedStoreSlot(db, derive?, createSources?)`, read through `computedSingleSlotService`. | [The compute graph](./computed-effects.md) |
 | `createOIMSingleComputedService` | function | Builds an `OIMSingleComputedService`. | [The compute graph](./computed-effects.md) |
+| `OIMSourceTrackingComputedService` | class | Keyed derivations whose `derive` reads through an `OIMSourceTracker`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `OIMSingleSourceTrackingComputedService` | class | One derivation whose `derive` reads through an `OIMSourceTracker`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `createOIMSourceTrackingComputedService` | function | Builds an `OIMSourceTrackingComputedService`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `createOIMSingleSourceTrackingComputedService` | function | Builds an `OIMSingleSourceTrackingComputedService`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `TOIMSourceTrackingComputedSlot` | type | A keyed source-tracking derivation slot; read only through a source tracker. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `TOIMSourceTrackingComputedContentSlot` | type | The slot of one source-tracking derivation; read only through a source tracker. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `OIMSlotContentSourceTrackingComputedService` | type only | The content service of a source-tracking derivation collection. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `TOIMSourceTrackingComputedDerivationOptions` | type | The derivation options a source-tracking computed service takes: `derive`, `sameValueGuard`, `releaseValue`, `initialValue`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `TOIMComputedServiceFactoryOptions` | type | The options every computed factory shares: `sameValueGuard`, `releaseValue`, `initialValue`, `slotReleasePolicy`, `columnSlotStoreService`, `columnNames`. | [The compute graph](./computed-effects.md) |
+| `TOIMSourceTrackingComputedDerive` | type | `(computedSlot, sourceTracker) => value`, the `derive` of a source-tracking derivation. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMComputedDerivationOptions` | type | The derivation options a computed service takes: `createSources`, `derive`, `sameValueGuard`, `initialValue`. | [The compute graph](./computed-effects.md) |
 | `TOIMComputedSlot` | type | A slot whose value is derived, with its value service, sources and stamps. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `TOIMComputedSources` | type | `{ sourceSlots, sourceComputeds }`, what `createSources` returns. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
+| `TOIMComputedValueReleaser` | type | `(value) => void`, the `releaseValue` option: gives back what a derived value holds. | [Releasing a computed value](./computed-effects.md#releasing-a-computed-value) |
 | `IOIMComputedValueService` | interface | `getValueForSlot(computedSlot)`, the one read that settles a computed. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `OIMComputedValueService` | class | The value service of a computed collection: holds the `sameValueGuard` and serves the value. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `TOIMComputedContentSlot` | type | A computed slot without a key: what a single computed holds. | [The compute graph](./computed-effects.md) |
@@ -147,8 +158,8 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `TOIMSlotContentComputedServiceOptions` | type | Its options. | [The compute graph](./computed-effects.md) |
 | `TOIMComputedValueServiceOptions` | type | Constructor options of `OIMComputedValueService`. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `oimRefreshSourceComputeds` | function | Brings every computed of a list current; a binding read outside an effect calls it before its derive. | [Reading a computed from an effect](./reading-subscribing.md#reading-a-computed-from-an-effect) |
-| `TOIMDerivation` | type | What a computed slot and an effect share: their sources and the stamp of their last run. | [Why a computed is pulled](./computed-effects.md#why-a-computed-is-pulled) |
-| `TOIMSortColumn` | type | `{ column, direction }`, one sort column. | [Ordering](./oimindex.md#ordering) |
+| `TOIMComputedDerivation` | type | What a computed slot and an effect share: their sources and the stamp of their last run. | [Why a computed is pulled](./computed-effects.md#why-a-computed-is-pulled) |
+| `TOIMSortColumn` | type | `{ columnName, direction }`, one sort column. | [Ordering](./oimindex.md#ordering) |
 | `TOIMSortableColumnName` | type | A column whose values are strings, numbers or bigints. | [Ordering](./oimindex.md#ordering) |
 | `oimColumnsComparator` | function | The comparator over sort columns: each in turn, by its direction, an undefined or null value last. | [Ordering](./oimindex.md#ordering) |
 
@@ -183,12 +194,12 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `OIMLogAndContinueErrorPolicy` | class | Logs the throw, hands it to `onError`, and goes on. The default. | [After the flush has ended](./channel.md#after-the-flush-has-ended) |
 | `TOIMLogAndContinueErrorPolicyOptions` | type | `{ onError }`. | [After the flush has ended](./channel.md#after-the-flush-has-ended) |
 | `OIMThrowAtOnceErrorPolicy` | class | Throws the first throw out of `flush()`. | [After the flush has ended](./channel.md#after-the-flush-has-ended) |
-| `OIMEffectService` | class | `INSTANCE`: `createEffect`, `createEffectImmediate`, `subscribeEffect`, `createEffectWithSourceTracking`, `disposeEffect`, each taking the channel map first. | [Effects](./computed-effects.md#effects) |
+| `OIMEffectService` | class | `INSTANCE`: `createEffect`, `createAndRunEffect`, `subscribeEffect`, `createSourceTrackingEffect`, `disposeEffect`, each taking the channel map first. | [Effects](./computed-effects.md#effects) |
 | `IOIMEffectService` | interface | What an effect carries as its service. | [Effects](./computed-effects.md#effects) |
 | `TOIMEffect` | type | A plain effect object; built only by the effect service. | [Subscribing is building an effect](./reading-subscribing.md#subscribing-is-building-an-effect) |
 | `TOIMEffectBody` | type | `() => (() => void) \| void`; a returned function is the undo. | [A body may hand back its own undo](./reading-subscribing.md#a-body-may-hand-back-its-own-undo) |
-| `TOIMEffectBodyWithSourceTracking` | type | The body of a tracked effect, handed an `OIMEffectSourceTracker`. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
-| `OIMEffectSourceTracker` | type only | `readSourceSlot`, `readSourceComputedValue`: what a tracked body reads through. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
+| `TOIMSourceTrackingEffectBody` | type | The body of a tracked effect, handed an `OIMSourceTracker`. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
+| `OIMSourceTracker` | type only | `readSourceSlot`, `readSourceComputedValue`: what a tracked body reads through. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
 | `OIMFlushSchedulerService` | abstract class | The base of what a timer fires: the schedule and cancel of one standing callback on a `TOIMFlushSchedulerSlot`. | [Source layout](./architecture.md#source-layout) |
 | `TOIMFlushSchedulerSlot` | type | `{ timer, scheduledCallback, timerDisposer }`. | [Source layout](./architecture.md#source-layout) |
 | `IOIMFlushSchedulerListener` | interface | What a flush scheduler calls when its timer fires. | [The channel](./channel.md) |
@@ -257,7 +268,7 @@ This page indexes every export of `@oimdb/core`: all 218 names that the package 
 | `TOIMSlot` | type | The base slot: effects and their edges, change stamps, hold count, three release-due times, `slotFlags`, column slot store, `storeSlot`, owner. | [The three kinds of slot](./model.md#the-three-kinds-of-slot) |
 | `TOIMKeyedSlot` | type | `TOIMSlot` with a key. | [A slot](./architecture.md#a-slot) |
 | `TOIMIndexableSlot` | type | `TOIMKeyedSlot` with index-key cells. | [The content-change hook and indexKeys](./oimindex.md#the-content-change-hook-and-indexkeys) |
-| `TOIMSlotEditable` | type | The same type with every field writable. | [A slot](./architecture.md#a-slot) |
+| `TOIMEditable` | type | The same type with every field writable. | [A slot](./architecture.md#a-slot) |
 | `TOIMStoreSlot` | type | A store slot: one collection's state — `store`, `channelSlot`, listeners, column state. Not a slot. | [A slot](./architecture.md#a-slot) |
 | `TOIMSingleSlotStoreSlot` | type | The store slot of a single. | [The three kinds of slot](./model.md#the-three-kinds-of-slot) |
 | `IOIMStoreSlotListener` | interface | Told of every store slot created; set as `OIMDefaults.STORE_SLOT_LISTENER` before the first collection is built. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |

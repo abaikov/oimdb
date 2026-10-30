@@ -1,11 +1,11 @@
-import { OIMChannelService, OIMDB, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
-import { createOIMEntitySlot } from '../../../core/src/engine/entity/utils/createOIMEntitySlot';
-import type { TOIMEntitySlotOwnerService } from '../../../core/src/engine/entity/types/TOIMEntitySlotOwnerService';
-import { OIMSlotAtEmptyReleasePolicy } from '../../../core/src/engine/collector/OIMSlotAtEmptyReleasePolicy';
-import { OIMSlotEntityPresenceEmptinessPolicy } from '../../../core/src/engine/entity/OIMSlotEntityPresenceEmptinessPolicy';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
+import type { TOIMEntitySlotOwnerService } from '../../../core/src/entity/types/TOIMEntitySlotOwnerService';
+import { OIMSlotAtEmptyReleasePolicy } from '../../../core/src/collector/OIMSlotAtEmptyReleasePolicy';
+import { OIMSlotEntityPresenceEmptinessPolicy } from '../../../core/src/entity/OIMSlotEntityPresenceEmptinessPolicy';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import type { TPriceEntityService } from './priceFixture';
@@ -19,7 +19,7 @@ import { createOIMSlotCollectionService } from '../../../core/src/index';
 type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TRowStoreSlot = TOIMStoreSlot<Map<TOIMStoreKey, TRowSlot>, TRowSlot, Partial<TPriceDataRow>>;
 
-const entityWriter = createOIMEntityWriterInPlace();
+const entityWriter = createOIMInPlaceEntityWriter();
 const slotReleasePolicy = OIMSlotAtEmptyReleasePolicy.INSTANCE;
 const storeService = new OIMSlotMapStoreService<TRowSlot>();
 

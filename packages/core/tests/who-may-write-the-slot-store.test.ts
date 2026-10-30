@@ -82,17 +82,17 @@ const callsIn = (pattern: RegExp): string[] => {
     return found.sort();
 };
 
-const SLOT_OWNER_SERVICE = 'engine/slot/OIMSlotOwnerService.ts';
+const SLOT_OWNER_SERVICE = 'slot/OIMSlotOwnerService.ts';
 
 const PINNED_WRITERS: readonly string[] = [
-    'engine/column/OIMColumnSlotOwner.ts remove×1 set×1',
+    'column/OIMColumnSlotOwner.ts remove×1 set×1',
     `${SLOT_OWNER_SERVICE} fileSlot×1 unfileSlot×1`,
 ];
 
 const READING_SERVICES: readonly string[] = [
-    'facade/slot/OIMSingleSlotService.ts',
-    'facade/slot/OIMSlotCollectionService.ts',
-    'facade/slot/OIMWritableSlotCollectionService.ts',
+    'slot/OIMSingleSlotService.ts',
+    'slot/OIMSlotCollectionService.ts',
+    'slot/OIMWritableSlotCollectionService.ts',
 ];
 
 describe('who may write the slot store', () => {

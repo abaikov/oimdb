@@ -14,7 +14,7 @@ export function oimDeliverPersistErrors(
     }
     const firstError = persistErrors[0].error;
     throw new AggregateError(
-        persistErrors.map(persistError => persistError.error),
+        persistErrors.map(persistErrorReport => persistErrorReport.error),
         `OIMPersistor: ${persistErrors.length} resource${persistErrors.length === 1 ? '' : 's'} failed in one `
         + `${persistErrors[0].persistErrorContext.persistOperation}. First of them: `
         + `${firstError instanceof Error ? firstError.message : String(firstError)}. `

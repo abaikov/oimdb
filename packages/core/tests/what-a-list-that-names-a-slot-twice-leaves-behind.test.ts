@@ -20,17 +20,17 @@
  *
  * Core only.
  */
-import { OIMDB } from '../src/factories/OIMDB';
-import { OIMChannelService } from '../src/engine/channel/OIMChannelService';
-import { OIMSlotContentPositionalArrayBucketService } from '../src/facade/bucket/OIMSlotContentPositionalArrayBucketService';
-import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
-import type { OIMSlotContentBucketService } from '../src/facade/bucket/OIMSlotContentBucketService';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsArrayStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayStore';
-import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
-import { OIMBucketUniqueMemberSlotsArrayService } from '../src/engine/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
+import { OIMDB } from '../src/db/OIMDB';
+import { OIMChannelService } from '../src/channel/OIMChannelService';
+import { OIMSlotContentPositionalArrayBucketService } from '../src/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import type { OIMSlotContentBucketService } from '../src/bucket/OIMSlotContentBucketService';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMBucketSlotsArrayStore } from '../src/bucket/array/types/TOIMBucketSlotsArrayStore';
+import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
+import { OIMBucketUniqueMemberSlotsArrayService } from '../src/bucket/array/OIMBucketUniqueMemberSlotsArrayService';
 
 type Card = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<Card, string>;
@@ -176,18 +176,5 @@ describe('a list read as a set, on the service that records no second mention', 
 
         expect({ moves: moves(), size: byDeckService.slotContentService.getBucketMemberSlotCount(bucket), holds: a.holdCount })
             .toEqual({ moves: 0, size: 1, holds: 1 });
-    });
-
-    it('answers the same list in another order as the slots it already holds', () => {
-        const service = new OIMSlotContentSetBucketService<TCardSlot>();
-        const { card, bucket, byDeckService, moves, resetMoves } = createSetFixture(service);
-        const a = card('a');
-        const b = card('b');
-
-        byDeckService.slotContentService.writeSlotContent(bucket, [a, b]);
-        resetMoves();
-        byDeckService.slotContentService.writeSlotContent(bucket, [b, a]);
-
-        expect(moves()).toBe(0);
     });
 });

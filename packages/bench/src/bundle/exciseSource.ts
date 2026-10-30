@@ -90,7 +90,7 @@ const throughNewline = (source: string, at: number): number => {
  * Where a class field called `name` is declared, ANCHORED at a class body's own
  * four-space indentation so a local, a call site or an object property of the
  * same name inside another field cannot be mistaken for the declaration —
- * `columnSlotOwner` appears at both, declared in `engine/slot/OIMSlotOwnerService.ts`
+ * `columnSlotOwner` appears at both, declared in `slot/OIMSlotOwnerService.ts`
  * and read through `slotOwnerService.columnSlotOwner` in the content services.
  */
 const declarationOf = (name: string): RegExp =>

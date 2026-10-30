@@ -5,16 +5,46 @@ before it were not changelogged.
 
 ## 4.2.0
 
+### Added
+
+- `releaseValue` option on `createOIMComputedService` and `createOIMSingleComputedService`; `TOIMComputedValueReleaser`.
+- `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `TOIMSourceTrackingComputedDerivationOptions`, `OIMSlotContentSourceTrackingComputedService` (type), `TOIMComputedServiceFactoryOptions`.
+
 ### Changed
 
+- `createEffect`, `createAndRunEffect`, `subscribeEffect`: `(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
 - `closeBatch` throws when no batch is open.
 - A slot written inside a batch is released only after the batch is delivered.
 - Slot flag bit `32` is taken by the engine; a library's own bits start at `64`.
 - `TOIMSlot.storeSlot` is required; a column slot carries its carrier's store slot.
+- A last unhold inside a flush releases the slot at once, for every slot kind.
+- `IOIMSlotContentService.releaseSlotContent(slot)` takes the slot only and throws on a held slot.
 
 ### Removed
 
 - `OIMDefaults.STANDALONE_SLOT_OWNER`. Use `new OIMSlotOwner()`.
+
+### Renamed
+
+- `TOIMSlotEditable` → `TOIMEditable`
+- `OIMEffectService.createEffectImmediate` → `createAndRunEffect`
+- `OIMEffectService.createEffectWithSourceTracking` → `createSourceTrackingEffect`
+- `TOIMEffectBodyWithSourceTracking` → `TOIMSourceTrackingEffectBody`
+- `OIMEffectSourceTracker` → `OIMSourceTracker`
+- `IOIMContentChangeListener.onContentChangedMany` → `onManyContentsChanged`
+- `createOIMEntityWriterInPlace` → `createOIMInPlaceEntityWriter`
+- `createOIMEntityWriterReplacing` → `createOIMReplacingEntityWriter`
+- `OIMDefaults.KEY_TREE_WALK_SCALAR` → `SCALAR_KEY_TREE_WALK`
+- `OIMDefaults.KEY_TREE_WALK_COMPOSITE` → `COMPOSITE_KEY_TREE_WALK`
+- `OIMDefaults.ENTITY_SLOT_EMPTINESS` → `ENTITY_SLOT_EMPTINESS_POLICY`
+- `oimPatchEntityColumnsGuarded` → `oimGuardedPatchEntityColumns`
+- `oimPatchEntityColumnGuarded` → `oimGuardedPatchEntityColumn`
+- `oimPutEntityColumnsGuarded` → `oimGuardedPutEntityColumns`
+- `TOIMSortColumn.column` → `columnName`
+- `TOIMSlotStoreTree.root` → `rootCompositeKeyNode`
+- `TOIMDerivation` → `TOIMComputedDerivation`
+- `OIMContentChangeListenerService` → `OIMSlotContentChangeListenerService`
+- `IOIMContentChangeListener` → `IOIMSlotContentChangeListener`
 
 ## 4.1.0
 

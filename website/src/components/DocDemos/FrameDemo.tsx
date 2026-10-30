@@ -43,11 +43,11 @@ class FrameModel {
     public constructor(private readonly onChange: (view: TView) => void) {
         this.slots = IDS.map((id) => this.cardService.writeSlotContentByKey(this.cards, id, { id, title: id.toUpperCase() }));
         for (const slot of this.slots) {
-            const effect = this.effectService.createEffect(this.db, [slot], [], () => {
+            const effect = this.effectService.createEffect(this.db, () => {
                 const id = slot.entity?.id ?? '';
                 this.runs.set(id, (this.runs.get(id) ?? 0) + 1);
                 this.ranThisFrame.add(id);
-            });
+            }, [slot]);
             this.disposers.push(() => { this.effectService.disposeEffect(effect); });
         }
         this.db.flush();

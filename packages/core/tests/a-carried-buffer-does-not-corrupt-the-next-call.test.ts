@@ -30,21 +30,21 @@
  * slot's `effectChannelQueue`. What that case measured is not measured elsewhere and
  * does not need to be: the sharing it depended on is a type error.
  */
-import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
-import { OIMDB } from '../src/factories/OIMDB';
-import { createOIMSlotCollectionIndexService } from '../src/factories/createOIMSlotCollectionIndexService';
-import { createOIMSortedComputedService } from '../src/factories/createOIMSortedComputedService';
-import type { TOIMComputedSlot } from '../src/engine/computed/types/TOIMComputedSlot';
-import { oimOrderedListCommandsOfTransition } from '../src/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition';
-import type { TOIMBucketSlot } from '../src/engine/bucket/types/TOIMBucketSlot';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
-import { oimIsSlotReleased } from '../src/engine/slot/utils/oimIsSlotReleased';
+import { OIMEffectService } from '../src/effect/OIMEffectService';
+import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import { OIMDB } from '../src/db/OIMDB';
+import { createOIMSlotCollectionIndexService } from '../src/index/createOIMSlotCollectionIndexService';
+import { createOIMSortedComputedService } from '../src/computed/createOIMSortedComputedService';
+import type { TOIMComputedSlot } from '../src/computed/types/TOIMComputedSlot';
+import { oimOrderedListCommandsOfTransition } from '../src/bucket/commands/utils/oimOrderedListCommandsOfTransition';
+import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
+import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
+import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
 import { applyOrderedListCommands, sameEntitySlotSequence } from './support/orderedListConsumer';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
@@ -89,7 +89,7 @@ describe('a frame far larger than the ones around it', () => {
 
         let runCount = 0;
         for (let i = 0; i < many; i++) {
-            effectService.createEffect(db, [rowsService.getSlotByKey(rows, `r${i}`)], [], () => { runCount++; });
+            effectService.createEffect(db, () => { runCount++; }, [rowsService.getSlotByKey(rows, `r${i}`)]);
         }
         for (let i = 0; i < many; i++) updateEntityByKey(`r${i}`, { n: 1 });
         db.flush();
@@ -178,7 +178,7 @@ describe('an index order whose comparator reads another order', () => {
         const cardIndex = cardIndexService.createIndexStoreSlot(cards);
         const cardIndexOrdersService = createOIMSortedComputedService({
             indexService: cardIndexService,
-            sortColumns: [{ column: 'rank', direction: 'asc' }],
+            sortColumns: [{ columnName: 'rank', direction: 'asc' }],
         });
         const cardIndexOrders = cardIndexOrdersService.createSortedStoreSlot(cardIndex);
         const cardOrders = new Map<string, TOIMComputedSlot<readonly TOIMEntitySlot<TCard>[], string>>();

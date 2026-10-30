@@ -34,7 +34,7 @@ export function useOIMField<
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer =>
                 holdWhileSubscribed(holds, (): TOIMDisposer => snapshotVersion.subscribeEffect(
-                    db, [entityCollectionService.columnSlotService.getColumn(slot, name)], [], onStoreChange,
+                    db, onStoreChange, [entityCollectionService.columnSlotService.getColumn(slot, name)],
                 )),
         };
     }, [db, entityCollectionService, slot, name]);

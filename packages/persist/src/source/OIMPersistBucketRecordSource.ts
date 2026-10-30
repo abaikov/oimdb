@@ -48,10 +48,10 @@ export class OIMPersistBucketRecordSource<
                 bucketMemberSlotEffect.seenInSyncPass = syncPass;
                 continue;
             }
-            const effect = OIMEffectService.INSTANCE.createEffect(this.channelMap, [entitySlot], [], () => {
+            const effect = OIMEffectService.INSTANCE.createEffect(this.channelMap, () => {
                 if (this.persistRestoredEntities.isRestoredEntity(entitySlot.key, entitySlot.entity)) return;
                 this.notifyEntitySlotChangedListeners(entitySlot);
-            });
+            }, [entitySlot]);
             bucketMemberSlotEffectByEntitySlot.set(entitySlot, { effect, seenInSyncPass: syncPass });
             if (this.persistRestoredEntities.isRestoredEntity(entitySlot.key, entitySlot.entity)) continue;
             this.notifyEntitySlotChangedListeners(entitySlot);
@@ -105,7 +105,7 @@ export class OIMPersistBucketRecordSource<
             try {
                 this.syncBucketMemberSlotEffects();
                 this.bucketEffect = OIMEffectService.INSTANCE.createEffect(
-                    this.channelMap, [this.bucketSlot], [], this.syncBucketMemberSlotEffects,
+                    this.channelMap, this.syncBucketMemberSlotEffects, [this.bucketSlot],
                 );
             } catch (error) {
                 entitySlotChangedListeners.delete(onEntitySlotChanged);

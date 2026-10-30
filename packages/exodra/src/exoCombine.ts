@@ -3,8 +3,8 @@ import type { TExoBindable } from '@exodra/reactivity-types';
 import type { TOIMExoReadable } from './types/TOIMExoReadable';
 
 export function exoCombine<T>(
+    fn: () => T,
     sources: readonly TOIMExoReadable<unknown>[],
-    fn: () => T
 ): TExoBindable<T> {
     let last: T;
     let hasLast = false;

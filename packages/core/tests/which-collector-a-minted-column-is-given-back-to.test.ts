@@ -1,16 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { OIMDB } from '../src/factories/OIMDB';
-import { OIMDefaults } from '../src/factories/OIMDefaults';
-import { OIMUnusedSlotCollectorService } from '../src/engine/collector/OIMUnusedSlotCollectorService';
-import { createOIMUnusedSlotCollectorSlot } from '../src/engine/collector/utils/createOIMUnusedSlotCollectorSlot';
-import { OIMPushColumnSlotOwner } from '../src/engine/column/OIMPushColumnSlotOwner';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import { oimIsSlotReleased } from '../src/engine/slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { OIMDB } from '../src/db/OIMDB';
+import { OIMDefaults } from '../src/db/OIMDefaults';
+import { OIMUnusedSlotCollectorService } from '../src/collector/OIMUnusedSlotCollectorService';
+import { createOIMUnusedSlotCollectorSlot } from '../src/collector/utils/createOIMUnusedSlotCollectorSlot';
+import { OIMPushColumnSlotOwner } from '../src/column/OIMPushColumnSlotOwner';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
+import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
@@ -28,7 +28,7 @@ const filedCard = (
 };
 
 const sourceOf = (...segments: string[]): string =>
-    readFileSync(join(__dirname, '..', 'src', 'engine', 'column', ...segments), 'utf8')
+    readFileSync(join(__dirname, '..', 'src', 'column', ...segments), 'utf8')
         .replace(/\/\*[\s\S]*?\*\//g, ' ')
         .replace(/\/\/[^\n]*/g, ' ');
 

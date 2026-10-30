@@ -54,8 +54,8 @@ const reportingDb = new OIMDB({
 
 ```typescript
 const slot = cardService.getSlotByKey(cards, 'c1');
-effectService.createEffect(db, [slot], [], () => { throw new Error('bad effect'); });
-effectService.createEffect(db, [slot], [], () => { console.log('still runs'); });
+effectService.createEffect(db, () => { throw new Error('bad effect'); }, [slot]);
+effectService.createEffect(db, () => { console.log('still runs'); }, [slot]);
 
 cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'x' });
 db.flush();   // logs the error, logs "still runs", returns

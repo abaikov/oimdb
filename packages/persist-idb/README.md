@@ -28,7 +28,7 @@ npm install @oimdb/persist-idb @oimdb/persist @oimdb/core
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
@@ -40,7 +40,7 @@ type TUser = { id: string; name: string };
 
 const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const userCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);

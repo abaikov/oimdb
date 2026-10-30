@@ -15,7 +15,7 @@ import type {
     TOIMStoreSlot,
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
-import { OIMDB, OIMEffectService, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMEntityWriterInPlace, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter } from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSlotContentEntityService } from '@oimdb/core';
@@ -31,7 +31,7 @@ type TEnrollmentSlot = TOIMEntitySlot<TEnrollment, readonly TOIMEntitySlot[]>;
 
 /** The write stack that makes a collection deliver — every fixture uses it. */
 const delivering = (): IOIMEntityWriter =>
-    createOIMEntityWriterInPlace();
+    createOIMInPlaceEntityWriter();
 
 /**
  * A database with no scheduler: every frame in this file is asked for by hand.
@@ -114,7 +114,7 @@ function buildEnrollments() {
     const roomsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRoom>(db, { entityWriter: delivering() }) });
     const rooms = roomsService.createStoreSlot(db);
     const enrollmentsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEnrollment, readonly TOIMEntitySlot[]>(db, { entityWriter: delivering() }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TEnrollmentSlot>(
-            OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
+            OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue(),
         ) });
     const enrollments = enrollmentsService.createStoreSlot(db);
     return { db, usersService, users, roomsService, rooms, enrollmentsService, enrollments };
@@ -391,7 +391,7 @@ describe('OIMDevRegistry — frames and errors', () => {
 
         const heldSlot = usersService.holdSlotByKey(users, 'u1');
         const effectService = OIMEffectService.INSTANCE;
-        const effect = effectService.createEffect(db, [heldSlot], [], () => { throw new Error('boom'); });
+        const effect = effectService.createEffect(db, () => { throw new Error('boom'); }, [heldSlot]);
         usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Alice', role: 'admin' });
         db.flush();
 

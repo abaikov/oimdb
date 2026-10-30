@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb';
 import type { TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter } from '@oimdb/core';
 import {
     OIMPersistEntityWriter,
     OIMPersistCollectionChangeWriteRecordSource,
@@ -45,7 +45,7 @@ describe('an upgrade blocked by another open connection', () => {
         blockingDatabases.push(blockingDatabase);
 
         const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
-            entityWriter: createOIMEntityWriterInPlace(),
+            entityWriter: createOIMInPlaceEntityWriter(),
         });
         const db = new OIMDB();
         const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });

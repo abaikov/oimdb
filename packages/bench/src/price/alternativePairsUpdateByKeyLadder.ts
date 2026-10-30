@@ -1,5 +1,5 @@
-import { OIMChannelService, createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceFixture } from './priceFixture';
@@ -12,7 +12,7 @@ import type { TPriceSide } from './TPriceSide';
 type TByKeyFixture = ReturnType<typeof priceFixture>;
 type TByKeyRung = (fixture: TByKeyFixture, trackedFrame: TPriceTrackedFrame, title: string, upTo: number) => void;
 
-const shippedWriter = createOIMEntityWriterInPlace();
+const shippedWriter = createOIMInPlaceEntityWriter();
 const channelService = OIMChannelService.INSTANCE;
 
 const bareMapStore: TByKeyRung = (fixture, _trackedFrame, title, upTo) => {

@@ -55,4 +55,4 @@ Keeps the previous key on the slot. `OIMIndex.updateIndexKeyForSlot` reads it th
 
 - `packages/core/src/facade/entity/OIMIndex.ts` — `updateIndexKeyForSlot` and `updateIndexKeysForSlots`.
 - `packages/core/src/engine/slot/OIMSlotAggregate.ts` — `getIndexKeyForSlot` / `setIndexKeyForSlot`.
-- `packages/core/src/engine/index/OIMIndexKeysService.ts` — the cell on the slot; `OIMAppendingIndexKeysService` and `OIMReclaimingIndexKeysService` hand out positions.
+- `packages/core/src/index/OIMIndexKeysService.ts` — the cell on the slot; `OIMAppendingIndexKeysService` and `OIMReclaimingIndexKeysService` hand out positions.

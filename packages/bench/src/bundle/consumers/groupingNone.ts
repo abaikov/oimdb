@@ -19,7 +19,7 @@ const entityStoreSlot = entityService.createStoreSlot(db);
 const ace = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'spades', rank: 1, title: 'ace' });
 db.flush();
 
-held.push(effectService.createEffect(db, [ace], [], () => { held.push(ace.entity); }));
+held.push(effectService.createEffect(db, () => { held.push(ace.entity); }, [ace]));
 
 entityService.slotContentService.updateEntity(ace, { title: 'ACE' });
 db.flush();

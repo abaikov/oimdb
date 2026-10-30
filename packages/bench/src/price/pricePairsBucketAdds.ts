@@ -1,6 +1,6 @@
-import { OIMContentChangeListenerService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
+import { OIMSlotContentChangeListenerService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
 import type {
-    IOIMContentChangeListener,
+    IOIMSlotContentChangeListener,
     OIMDB,
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
@@ -47,9 +47,9 @@ type TBucketAddsScenario = {
     readonly isHeld: boolean;
 };
 
-const countingContentChangeListener: IOIMContentChangeListener<TMemberBucketSlot, readonly TMemberEntitySlot[]> = {
+const countingContentChangeListener: IOIMSlotContentChangeListener<TMemberBucketSlot, readonly TMemberEntitySlot[]> = {
     onContentChanged: () => { priceSink.number++; },
-    onContentChangedMany: bucketSlotChannelQueue => { priceSink.number += bucketSlotChannelQueue.getEntryCount(); },
+    onManyContentsChanged: bucketSlotChannelQueue => { priceSink.number += bucketSlotChannelQueue.getEntryCount(); },
 };
 
 const floorCountingContentChangeListener: TFloorContentChangeListener = {
@@ -91,7 +91,7 @@ const oursSide = (
         for (let b = 0; b < bucketSlots.length; b++) bucketSlots[b].owner.unholdSlot(bucketSlots[b]);
     }
     if (bucketAddsScenario.hasListener) {
-        OIMContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, countingContentChangeListener, undefined);
+        OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, countingContentChangeListener, undefined);
     }
     db.flush();
     const addPass = (adds: number): void => {
@@ -201,7 +201,7 @@ const IMMEDIATE_CAVEAT =
 
 const LISTENER_CAVEAT =
     'With a content-change listener every add writes the bucket to the channel and settles it, and its announce is '
-    + 'queued on the store slot\'s batch: the listener hears every add of the pass in one onContentChangedMany at '
+    + 'queued on the store slot\'s batch: the listener hears every add of the pass in one onManyContentsChanged at '
     + 'closeBatch, one entry per add. The release check after each add returns early while the bucket is the last '
     + 'queued slot. The floor stamps, settles and announces on every add.';
 
@@ -275,7 +275,7 @@ const listenerScenario = (adds: number): Omit<TBucketAddsScenario, 'isHeld'> => 
     name: `one-bucket-${adds}-adds-with-a-listener`,
     what: `${adds} adds to one bucket in one batch, one content-change listener`,
     caveat: 'Every add of a pass goes to ONE bucket inside one batch opened on the bucket store slot, with one '
-        + 'content-change listener added through OIMContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, …); the id names how many '
+        + 'content-change listener added through OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(bucketStoreSlot, …); the id names how many '
         + 'adds a pass makes.',
     addsPerBatch: adds,
     bucketCount: 1,

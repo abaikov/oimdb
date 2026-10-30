@@ -4,7 +4,7 @@
 
 ### Changed
 
-- Requires `@oimdb/core` 4.1.0.
+- Requires `@oimdb/core` 4.2.0.
 - `useOIMSingleComputedValue` takes an `OIMSingleComputedService`; `derive` and `createSources` take the computed slot.
 - `useOIMComputedCollection`: `createSources` takes the computed slot, not the key.
 - `useOIMField` reads `getColumn` from the service's `columnSlotService`.

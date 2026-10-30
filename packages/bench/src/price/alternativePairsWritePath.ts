@@ -1,5 +1,5 @@
 // Prose: ./README.md#alternativepairswritepath
-import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     IOIMSlotOwner,
@@ -7,17 +7,17 @@ import type {
     TOIMEntityContentSlot,
     TOIMEntitySlot,
     TOIMSameValueGuard,
-    TOIMSlotEditable,
+    TOIMEditable,
     TOIMStoreKey,
     TOIMStoreSlot,
 } from '../../../core/src/index';
 // Deep on purpose: a floor must share the shipped walk's helpers and frozen empty list.
-import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../../../core/src/engine/entity/constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from '../../../core/src/entity/constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { changedColumns } from './changedColumns';
-import { oimIsPlain } from '../../../core/src/engine/entity/utils/oimIsPlain';
-import { oimIsProtoKey } from '../../../core/src/engine/entity/utils/oimIsProtoKey';
-import { oimOwnedColumnNames } from '../../../core/src/engine/entity/utils/oimOwnedColumnNames';
+import { oimIsPlainObject } from '../../../core/src/entity/utils/oimIsPlainObject';
+import { oimIsProtoKey } from '../../../core/src/entity/utils/oimIsProtoKey';
+import { oimOwnedColumnNames } from '../../../core/src/entity/utils/oimOwnedColumnNames';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceFixture } from './priceFixture';
@@ -179,8 +179,8 @@ const primedUpdateSide = (
 
 /* ══ the strategies that were refused ════════════════════════════════════ */
 
-const shippedInPlace = createOIMEntityWriterInPlace();
-const shippedReplacing = createOIMEntityWriterReplacing();
+const shippedInPlace = createOIMInPlaceEntityWriter();
+const shippedReplacing = createOIMReplacingEntityWriter();
 
 type TColumnWalk = (slot: TOIMEntityContentSlot, patch: object) => string[] | undefined;
 
@@ -237,7 +237,7 @@ const askingASet: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlain(source);
+    const inherited = !oimIsPlainObject(source);
     for (const name in source) {
         if (FORBIDDEN_NAMES.has(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
@@ -252,7 +252,7 @@ const comparingTheNameInline: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlain(source);
+    const inherited = !oimIsPlainObject(source);
     for (const name in source) {
         if (name === '__proto__') continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
@@ -267,7 +267,7 @@ const withEqualityInlined: TColumnWalk = (slot, patch) => {
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlain(source);
+    const inherited = !oimIsPlainObject(source);
     for (const name in source) {
         if (oimIsProtoKey(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
@@ -286,7 +286,7 @@ const withAComparatorPerColumn = (
     if (entity === undefined) return undefined;
     const source = patch as Record<string, unknown>;
     let changed: string[] | undefined;
-    const inherited = !oimIsPlain(source);
+    const inherited = !oimIsPlainObject(source);
     for (const name in source) {
         if (oimIsProtoKey(name)) continue;
         if (inherited && !Object.prototype.hasOwnProperty.call(source, name)) continue;
@@ -308,7 +308,7 @@ const caseInsensitiveEquality: TOIMSameValueGuard = (a, b) => {
 };
 
 const storeEntity = (slot: TOIMEntityContentSlot, entity: Record<string, unknown>): void => {
-    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = entity;
+    (slot as TOIMEditable<TOIMEntityContentSlot>).entity = entity;
 };
 
 const writeReplacingBuildingAsItWalks = (): IOIMEntityWriter => ({
@@ -322,7 +322,7 @@ const writeReplacingBuildingAsItWalks = (): IOIMEntityWriter => ({
         if (entity === undefined) return false;
         let changed = false;
         const source = patch as Record<string, unknown>;
-        const inherited = !oimIsPlain(source);
+        const inherited = !oimIsPlainObject(source);
         const next: Record<string, unknown> = { ...entity };
         for (const name in source) {
             if (oimIsProtoKey(name)) continue;
@@ -596,7 +596,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'write enumerates sixteen columns, compares sixteen times, moves nothing, and returns ' +
             'having marked nothing. OPERATION COUNT, both arms: 16 `oimIsProtoKey` compares, 16 ' +
             '`oimSameValueZeroGuard` calls, 16 pairs of property loads, and no changed-names array. ' +
-            'Ours additionally pays ONE `oimIsPlain` — one `getPrototypeOf` and two reference compares, ' +
+            'Ours additionally pays ONE `oimIsPlainObject` — one `getPrototypeOf` and two reference compares, ' +
             'per write. The floor pays ONE `Object.keys` — a sixteen-element array allocated, filled ' +
             'and abandoned per write. THE DIFFERENCE IS ONE PROTOTYPE PROBE AGAINST ONE ' +
             'SIXTEEN-ELEMENT ARRAY, plus whatever the two enumerations cost each other. ' +
@@ -643,8 +643,8 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
     {
         id: 'alt.column-walk.probe-once-vs-hasownproperty-per-column.unchanged-resend',
         path: EPricePath.PerWrite,
-        ours: 'updateEntity(slot, patch) — one oimIsPlain per write, and a bare for…in after it',
-        floor: 'REJECTED: hasOwnProperty.call per column, with no oimIsPlain probe at all',
+        ours: 'updateEntity(slot, patch) — one oimIsPlainObject per write, and a bare for…in after it',
+        floor: 'REJECTED: hasOwnProperty.call per column, with no oimIsPlainObject probe at all',
         caveat:
             'THE SECOND DESIGN THE SAME DECISION REFUSED. The writer\'s old source put the ' +
             'per-column probe at "a quarter of" an unchanged re-send — a share of a scenario, not a ' +
@@ -738,7 +738,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'ONE OPERATION IS ONE UNCHANGED `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the ' +
             'clock. Ours: 16 calls to `oimSameValueZeroGuard` through the shipped default writer\'s ' +
             'captured parameter. Floor: the same comparison — `a === b || (a !== a && b !== b)` — ' +
-            '16 times inline. Both: 16 `oimIsProtoKey` calls, one `oimIsPlain`, no allocation, and the ' +
+            '16 times inline. Both: 16 `oimIsProtoKey` calls, one `oimIsPlainObject`, no allocation, and the ' +
             'early return. THE UNCHANGED WRITE IS WHERE THE PREDICATE IS THE WHOLE COLUMN; read this ' +
             'as the predicate\'s largest share of a write and not as its typical one. ' +
             `${THE_WRITE_AROUND_THE_WALK} ${ONE_COMPILED_WALK}`,
@@ -757,13 +757,13 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         ours: 'the same write, in a process where one other population has its own comparator',
         floor: 'REJECTED: SameValueZero written into the walk — nothing can spoil it',
         caveat:
-            'THE HALF OF THE ALTERNATIVE THE ROW ABOVE CANNOT SEE. `createOIMEntityWriterInPlace` ' +
+            'THE HALF OF THE ALTERNATIVE THE ROW ABOVE CANNOT SEE. `createOIMInPlaceEntityWriter` ' +
             'returns a closure over ONE compiled `patchEntityInPlace` and ONE `changedColumns`, so the ' +
             '`sameValueGuard(entity[name], source[name])` inside it is one call site for the whole ' +
             'process — and one population built with its own comparator makes it polymorphic for ' +
             'every population that did not. A design with no parameter cannot be spoiled that way. ' +
             'HOW THE SPOILER IS APPLIED, outside the clock: a second population of 64 rows is built ' +
-            'with `createOIMEntityWriterInPlace({ sameValueGuard: caseInsensitiveEquality })` and ' +
+            'with `createOIMInPlaceEntityWriter({ sameValueGuard: caseInsensitiveEquality })` and ' +
             'written to in this side\'s `reset`, which is never timed. The timed body touches only ' +
             'the measured population, so the WORK on the two arms is identical and the difference ' +
             'from the row above is the state of one inline cache. THE FLOOR IS THE SAME FLOOR AS THE ' +
@@ -776,7 +776,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         build: wanted => {
             const spoiledSide = (): TPriceSide => {
                 const spoiler = wideWorld(
-                    withWriter(createOIMEntityWriterInPlace({ sameValueGuard: caseInsensitiveEquality })),
+                    withWriter(createOIMInPlaceEntityWriter({ sameValueGuard: caseInsensitiveEquality })),
                     64,
                 );
                 const spoilerPatch = makeWidePatch();
@@ -824,7 +824,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
                 ours: wanted === 'floor'
                     ? inertSide
                     : primedUpdateSide(
-                        withWriter(createOIMEntityWriterInPlace({ sameValueGuard: caseInsensitiveEquality })),
+                        withWriter(createOIMInPlaceEntityWriter({ sameValueGuard: caseInsensitiveEquality })),
                         resendUnchanged,
                     ),
                 floor: wanted === 'ours'
@@ -922,7 +922,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             const side = (makeEntityService: TMakeWideEntityService): TPriceSide => {
                 const world = wideWorld(makeEntityService);
                 for (let i = 0; i < world.slots.length; i += 8) {
-                    world.effectService.createEffect(world.db, [world.slots[i]], [], onChange);
+                    world.effectService.createEffect(world.db, onChange, [world.slots[i]]);
                 }
                 world.db.flush();
                 let round = 1;
@@ -963,7 +963,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'ours returns false having allocated neither a row nor a names ' +
             'array, and the floor has already spread the row before it could know. ' +
             'ONE OPERATION IS ONE UNCHANGED `updateEntity` OF A SIXTEEN-COLUMN ROW, primed outside the ' +
-            'clock. Both arms: 16 `oimIsProtoKey` calls, 16 equality calls, one `oimIsPlain`, no mark. The ' +
+            'clock. Both arms: 16 `oimIsProtoKey` calls, 16 equality calls, one `oimIsPlainObject`, no mark. The ' +
             'floor allocates one seventeen-property record, copies seventeen values into it and ' +
             'stores it on the slot — per write, abandoned. THE COPY IS STORED, so it escapes and V8 ' +
             'cannot elide it; storing it is also the faithful reading of the rejected design, which ' +
@@ -975,7 +975,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         build: wanted => ({
             ours: wanted === 'floor'
                 ? inertSide
-                : primedUpdateSide(withWriter(createOIMEntityWriterReplacing()), resendUnchanged),
+                : primedUpdateSide(withWriter(createOIMReplacingEntityWriter()), resendUnchanged),
             floor: wanted === 'ours'
                 ? inertSide
                 : primedUpdateSide(withWriter(writeReplacingBuildingAsItWalks()), resendUnchanged),
@@ -1002,7 +1002,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         build: wanted => ({
             ours: wanted === 'floor'
                 ? inertSide
-                : primedUpdateSide(withWriter(createOIMEntityWriterReplacing()), moveEveryColumn),
+                : primedUpdateSide(withWriter(createOIMReplacingEntityWriter()), moveEveryColumn),
             floor: wanted === 'ours'
                 ? inertSide
                 : primedUpdateSide(withWriter(writeReplacingBuildingAsItWalks()), moveEveryColumn),
@@ -1016,7 +1016,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         floor: 'REJECTED: { ...entity, ...source } — the whole patch spread over the copy',
         caveat:
             'THE ARMS OF THIS QUESTION SWAPPED SIDES. The shipped replacing writer used to spread ' +
-            'the whole patch over the copy; `createOIMEntityWriterReplacing` now assigns only the ' +
+            'the whole patch over the copy; `createOIMReplacingEntityWriter` now assigns only the ' +
             'names `changedColumns` recorded, so the spread is the rejected arm. ONE OPERATION IS ONE ' +
             '`updateEntity` CARRYING SIXTEEN COLUMNS OF WHICH EXACTLY ONE HAS MOVED — the shape a socket ' +
             're-sending a whole row produces, and the shape that makes the two designs differ most. ' +
@@ -1035,7 +1035,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         build: wanted => ({
             ours: wanted === 'floor'
                 ? inertSide
-                : primedUpdateSide(withWriter(createOIMEntityWriterReplacing()), moveOneColumn),
+                : primedUpdateSide(withWriter(createOIMReplacingEntityWriter()), moveOneColumn),
             floor: wanted === 'ours'
                 ? inertSide
                 : primedUpdateSide(withWriter(writeReplacingSpreadingThePatch()), moveOneColumn),
@@ -1104,7 +1104,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
                 };
             };
             return {
-                ours: wanted === 'floor' ? inertSide : side(createOIMEntityWriterReplacing()),
+                ours: wanted === 'floor' ? inertSide : side(createOIMReplacingEntityWriter()),
                 floor: wanted === 'ours' ? inertSide : side(writeReplacingSpreadingAndDeleting()),
             };
         },
@@ -1129,7 +1129,7 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             'LOST THE COLUMN, so each arm sees exactly one shape — the conservative form. ' +
             `${READ_ARMS_ARE_SEPARATE_BODIES}`,
         build: () => readSides(
-            populationThatLostAColumn(createOIMEntityWriterReplacing(), 1),
+            populationThatLostAColumn(createOIMReplacingEntityWriter(), 1),
             populationThatLostAColumn(writeReplacingSpreadingAndDeleting(), 1),
         ),
     },

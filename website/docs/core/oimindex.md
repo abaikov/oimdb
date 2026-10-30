@@ -149,7 +149,7 @@ type handed to them by hand must be assignable to the one `TOIMIndexKey` compute
 ### A key of several columns
 
 An array key needs a bucket store that compares arrays part by part: pass `bucketSlotStoreService`, an
-`OIMSlotTreeStoreService` over `OIMDefaults.KEY_TREE_WALK_SCALAR`. Name two or more columns and the key
+`OIMSlotTreeStoreService` over `OIMDefaults.SCALAR_KEY_TREE_WALK`. Name two or more columns and the key
 is the array of their values, in that order:
 
 ```ts
@@ -162,7 +162,7 @@ const byDeckAndSuitService = createOIMSlotCollectionIndexService(db, {
     entityService: playingCardService,
     columns: ['deck', 'suit'],
     keyOf: (card: PlayingCard): readonly [string, string] => [card.deck, card.suit],
-    bucketSlotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TDeckAndSuitBucket>(OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()),
+    bucketSlotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TDeckAndSuitBucket>(OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()),
 });
 const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(playingCards);
 byDeckAndSuitService.getEntitiesByKey(byDeckAndSuit, ['red', 'hearts']);
@@ -195,7 +195,7 @@ The usual way to consume one is an effect on the bucket:
 ```ts
 const red = deckIndexService.holdSlotByKey(deckIndex, 'red');
 
-effectService.createEffectImmediate(db, [red], [], () => render(Array.from(deckBucketReads.getBucketMemberSlots(red))));
+effectService.createAndRunEffect(db, () => render(Array.from(deckBucketReads.getBucketMemberSlots(red))), [red]);
 ```
 
 The bucket wakes on **membership only** — an entity joining or leaving it. A write to an
@@ -257,7 +257,7 @@ as long as the composed order is filed.
 ### Disposing an index
 
 `createIndexStoreSlot(entityStoreSlot)` is the whole wiring of one index: it registers a
-content-change listener on that store slot (`OIMContentChangeListenerService.INSTANCE`), and the entity
+content-change listener on that store slot (`OIMSlotContentChangeListenerService.INSTANCE`), and the entity
 collection knows nothing about indexes. `disposeIndexStoreSlot(indexStoreSlot)` unsubscribes that index
 from its source, empties its buckets and gives back every entity slot it held. The minting doors on that
 index store slot (`getSlotByKey`, `holdSlotByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `getEntitiesByKey`,
@@ -283,9 +283,9 @@ both.
 ```ts
 const redBucket = deckIndexService.holdSlotByKey(deckIndex, 'red');
 const redAnyColumn = deckIndexService.holdAnyBucketColumnByKey(deckIndex, 'red');
-const redEffect = effectService.createEffect(db, [redBucket, redAnyColumn], [], () => {
+const redEffect = effectService.createEffect(db, () => {
     render(deckIndexService.getEntitiesByKey(deckIndex, 'red'));
-});
+}, [redBucket, redAnyColumn]);
 effectService.disposeEffect(redEffect);
 deckIndexService.columnSlotService.unholdColumn(redAnyColumn);
 redBucket.owner.unholdSlot(redBucket);
@@ -304,9 +304,9 @@ first `getAnyBucketColumnByKey` / `holdAnyBucketColumnByKey`. A
 
 An index is a content-change listener on its source store slot. To push a derivation per
 write the way an index does, add your own with
-`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)`
-and remove it with `removeContentChangeListener(storeSlot, listener)`. An `IOIMContentChangeListener`
-has `onContentChanged(slot, patch, changedColumns)` and `onContentChangedMany(...)`, which a batch
+`OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)`
+and remove it with `removeContentChangeListener(storeSlot, listener)`. An `IOIMSlotContentChangeListener`
+has `onContentChanged(slot, patch, changedColumns)` and `onManyContentsChanged(...)`, which a batch
 write calls once. `readColumnNames` `undefined` means every column. Listeners on one store slot share
 one column filter, so a listener still checks `changedColumns` itself. Anything that can be pulled
 belongs in a computed instead.
@@ -345,19 +345,19 @@ const cardsInDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsInDeck = cardsInDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({
     indexService: cardsInDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsInDeck);
 
 const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
-effectService.createEffectImmediate(db, [], [red], () => { render(red.computedValueService.getValueForSlot(red)); });
+effectService.createAndRunEffect(db, () => { render(red.computedValueService.getValueForSlot(red)); }, [], [red]);
 red.owner.unholdSlot(red);
 ```
 
 - `indexService` is the `OIMSlotCollectionIndexService` whose buckets the sorted list reads, and the
   index store slot handed to `createSortedStoreSlot` is the index it reads them from. The sorted service
   takes no db: its store slots run on the index store slot's channel slot.
-- `sortColumns` — `TOIMSortColumn<TEntity>[]`, each `{ column, direction: 'asc' | 'desc' }`,
+- `sortColumns` — `TOIMSortColumn<TEntity>[]`, each `{ columnName, direction: 'asc' | 'desc' }`,
   `column` a `TOIMSortableColumnName<TEntity>` (string, number or bigint values) —
   **decide which writes re-sort.**
 - `comparator: (left: TEntity, right: TEntity) => number` **decides the order**.
@@ -385,7 +385,7 @@ red.owner.unholdSlot(red);
   const titledCardsInDeck = titledCardsInDeckService.createIndexStoreSlot(titledCards);
   const byTitleInGermanService = createOIMSortedComputedService({
       indexService: titledCardsInDeckService,
-      sortColumns: [{ column: 'title', direction: 'asc' }, { column: 'rank', direction: 'asc' }],
+      sortColumns: [{ columnName: 'title', direction: 'asc' }, { columnName: 'rank', direction: 'asc' }],
       comparator: (left, right) => left.title.localeCompare(right.title, 'de') || left.rank - right.rank,
   });
   const byTitleInGerman = byTitleInGermanService.createSortedStoreSlot(titledCardsInDeck);
@@ -412,7 +412,7 @@ Subscribe to one when you need "some member's `rank` moved" without "some member
 
 ```ts
 const rankInRed = deckIndexService.holdBucketColumnByKey(deckIndex, 'red', 'rank');
-const onRankInRed = effectService.createEffect(db, [rankInRed], [], () => { render(); });
+const onRankInRed = effectService.createEffect(db, () => { render(); }, [rankInRed]);
 effectService.disposeEffect(onRankInRed);
 deckIndexService.columnSlotService.unholdColumn(rankInRed);
 ```
@@ -436,7 +436,7 @@ that `createOIMSortedComputedService` takes, and it is required.
 const cardsByDeckService = createOIMSlotCollectionSortedArrayIndexService(db, {
     entityService: cardService,
     columns: ['deck'],
-    sortColumns: [{ column: 'rank', direction: 'asc' }, { column: 'id', direction: 'desc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }, { columnName: 'id', direction: 'desc' }],
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');

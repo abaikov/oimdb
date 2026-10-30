@@ -5,7 +5,7 @@
  * assert. An ordered service decides the order itself, which would be a fact
  * about the sorter rather than about the adapter.
  */
-import { OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, type IOIMEntityWriter, type OIMDB } from '@oimdb/core';
+import { OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type IOIMEntityWriter, type OIMDB } from '@oimdb/core';
 import type {
     TOIMBucketSlot,
     TOIMColumnSlot,
@@ -34,7 +34,7 @@ export type TBucketStoreSlot<TEntity extends object> = ReturnType<TBucketService
 
 /** The write stack that makes a collection deliver. One per collection. */
 export const delivering = (): IOIMEntityWriter =>
-    createOIMEntityWriterInPlace();
+    createOIMInPlaceEntityWriter();
 
 /** A scalar-keyed population that reports into `db`. */
 export function entityServiceOf<TEntity extends object>(
@@ -53,7 +53,7 @@ export function replacingEntityServiceOf<TEntity extends object>(
     db: OIMDB,
     keyOf: (entity: TEntity) => TOIMStoreKey
 ): TEntityService<TEntity> {
-    return createEntityService<TEntity>(db, keyOf, createOIMEntityWriterReplacing());
+    return createEntityService<TEntity>(db, keyOf, createOIMReplacingEntityWriter());
 }
 
 /** A scalar-keyed bucket collection whose slots the caller writes. */

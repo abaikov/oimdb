@@ -55,9 +55,9 @@ const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 
 const red = cardsByDeckService.holdSlotByKey(cardsByDeck, 'red');
-const onRed = effectService.createEffectImmediate(db, [red], [], () => {
+const onRed = effectService.createAndRunEffect(db, () => {
     for (const cardSlot of cardsByDeckService.slotContentService.getBucketMemberSlots(red)) render(cardSlot.entity);
-});
+}, [red]);
 
 const ace = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'red', title: 'Ace', rank: 1, points: 11, archived: false });
 cardContentService.updateEntity(ace, { deck: 'blue' });
@@ -98,19 +98,19 @@ const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 
 const byRankService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const byRank = byRankService.createSortedStoreSlot(cardsByDeck);
 
 const byTitleService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'title', direction: 'asc' }],
+    sortColumns: [{ columnName: 'title', direction: 'asc' }],
     comparator: (left: Card, right: Card) => left.title.localeCompare(right.title),
 });
 const byTitle = byTitleService.createSortedStoreSlot(cardsByDeck);
 
 const redByRank = byRankService.computedCollectionService.holdSlotByKey(byRank, 'red');
-effectService.createEffectImmediate(db, [], [redByRank], () => render(redByRank.computedValueService.getValueForSlot(redByRank)));
+effectService.createAndRunEffect(db, () => render(redByRank.computedValueService.getValueForSlot(redByRank)), [], [redByRank]);
 
 const redByTitle = byTitleService.computedCollectionService.getSlotByKey(byTitle, 'red');
 redByTitle.computedValueService.getValueForSlot(redByTitle);
@@ -146,11 +146,11 @@ const everyCardService = createOIMSlotCollectionIndexService(db, {
 const everyCard = everyCardService.createIndexStoreSlot(cards);
 
 const all = everyCardService.holdSlotByKey(everyCard, 'all');
-effectService.createEffectImmediate(db, [all], [], () => render(everyCardService.slotContentService.getBucketMemberSlotCount(all)));
+effectService.createAndRunEffect(db, () => render(everyCardService.slotContentService.getBucketMemberSlotCount(all)), [all]);
 
 const allByRankService = createOIMSortedComputedService({
     indexService: everyCardService,
-    sortColumns: [{ column: 'rank', direction: 'desc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'desc' }],
 });
 const allByRank = allByRankService.createSortedStoreSlot(everyCard);
 const allByRankSlot = allByRankService.computedCollectionService.getSlotByKey(allByRank, 'all');
@@ -180,7 +180,7 @@ const cardsByStatusService = createOIMSlotCollectionIndexService(db, {
 });
 const cardsByStatus = cardsByStatusService.createIndexStoreSlot(cards);
 const active = cardsByStatusService.holdSlotByKey(cardsByStatus, 'active');
-effectService.createEffectImmediate(db, [active], [], () => render(cardsByStatusService.getEntitiesByKey(cardsByStatus, 'active')));
+effectService.createAndRunEffect(db, () => render(cardsByStatusService.getEntitiesByKey(cardsByStatus, 'active')), [active]);
 
 const cardsByDeckAndStatusService = createOIMSlotCollectionIndexService(db, {
     entityService: cardService,
@@ -189,7 +189,7 @@ const cardsByDeckAndStatusService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeckAndStatus = cardsByDeckAndStatusService.createIndexStoreSlot(cards);
 const activeRedByRankService = createOIMSortedComputedService({
     indexService: cardsByDeckAndStatusService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const activeRedByRank = activeRedByRankService.createSortedStoreSlot(cardsByDeckAndStatus);
 const activeRed = activeRedByRankService.computedCollectionService.getSlotByKey(activeRedByRank, 'red:active');
@@ -241,7 +241,7 @@ const feedOrderService = createOIMBucketMemoComputedService({
 });
 const feedOrder = feedOrderService.createBucketMemoStoreSlot(feed);
 const inboxOrder = feedOrderService.computedCollectionService.holdSlotByKey(feedOrder, 'inbox');
-effectService.createEffectImmediate(db, [], [inboxOrder], () => render(inboxOrder.computedValueService.getValueForSlot(inboxOrder)));
+effectService.createAndRunEffect(db, () => render(inboxOrder.computedValueService.getValueForSlot(inboxOrder)), [], [inboxOrder]);
 ```
 
 Why this way: the `writeSlotContentByKey` loop hands back the slots it wrote, in the order of the
@@ -290,7 +290,7 @@ function closeSearch(): void {
     results.owner.unholdSlot(results);
 }
 
-effectService.createEffectImmediate(db, [results], [], () => rebuildFrom(searchService.slotContentService.getBucketMemberSlots(results)));
+effectService.createAndRunEffect(db, () => rebuildFrom(searchService.slotContentService.getBucketMemberSlots(results)), [results]);
 ```
 
 Why this way: a search result is a fact about the response, not about the
@@ -324,7 +324,7 @@ function toggleSelected(cardId: string): void {
     else selection.addBucketMemberSlot(selected, cardSlot);
 }
 
-effectService.createEffectImmediate(db, [selected], [], () => render(selection.getBucketMemberSlotCount(selected)));
+effectService.createAndRunEffect(db, () => render(selection.getBucketMemberSlotCount(selected)), [selected]);
 
 toggleSelected('c1');
 toggleSelected('c2');
@@ -364,10 +364,10 @@ boardContentService.writeSlotContent(todo, cardService.writeInBatch(cards, () =>
 ]).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
 
 rebuildFrom(boardContentService.getBucketMemberSlots(todo));
-const onTodo = effectService.createEffect(db, [todo], [], () => {
+const onTodo = effectService.createEffect(db, () => {
     if (todo.isWholeListRecorded) rebuildFrom(boardContentService.getBucketMemberSlots(todo));
     else applyToTheRenderedList(todo.commands ?? []);
-});
+}, [todo]);
 
 boardContentService.moveBucketMemberSlotToPosition(todo, 1, 0);
 
@@ -440,7 +440,7 @@ const pointsByDeckService = createOIMComputedService<string, number>({
 const pointsByDeck = pointsByDeckService.createComputedStoreSlot(db);
 
 const redPoints = pointsByDeckService.computedCollectionService.holdSlotByKey(pointsByDeck, 'red');
-effectService.createEffectImmediate(db, [], [redPoints], () => render(redPoints.computedValueService.getValueForSlot(redPoints)));
+effectService.createAndRunEffect(db, () => render(redPoints.computedValueService.getValueForSlot(redPoints)), [], [redPoints]);
 const redCount = cardCountByDeckService.computedCollectionService.getSlotByKey(cardCountByDeck, 'red');
 redCount.computedValueService.getValueForSlot(redCount);
 ```
@@ -476,9 +476,9 @@ const cardsByColumnService = createOIMSlotCollectionIndexService(db, {
 const cardsByColumn = cardsByColumnService.createIndexStoreSlot(cards);
 
 const columns = cardsByColumnService.holdSlotsByKeys(cardsByColumn, ['todo', 'doing', 'done']);
-const onColumns = effectService.createEffectImmediate(db, columns, [], () => {
+const onColumns = effectService.createAndRunEffect(db, () => {
     for (const column of columns) render(cardsByColumnService.slotContentService.getBucketMemberSlotCount(column));
-});
+}, columns);
 
 effectService.disposeEffect(onColumns);
 for (const column of columns) column.owner.unholdSlot(column);

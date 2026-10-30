@@ -42,10 +42,10 @@ export class OIMPersistSingleEntitySnapshotSource<TEntity extends object> implem
     public subscribeSnapshotChanged(onSnapshotChanged: () => void): TOIMDisposer {
         const entitySlot = this.singleSlotService.getSingleSlot(this.entityStoreSlot);
         const persistRestoredEntities = this.persistRestoredEntities;
-        const disposer = OIMEffectService.INSTANCE.subscribeEffect(this.channelMap, [entitySlot], [], () => {
+        const disposer = OIMEffectService.INSTANCE.subscribeEffect(this.channelMap, () => {
             if (persistRestoredEntities.isRestoredEntity(undefined, entitySlot.entity)) return;
             onSnapshotChanged();
-        });
+        }, [entitySlot]);
         try {
             if (!persistRestoredEntities.isRestoredEntity(undefined, entitySlot.entity)) onSnapshotChanged();
         } catch (failure) {

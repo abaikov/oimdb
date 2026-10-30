@@ -1,8 +1,8 @@
-import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
-import { oimGetChannelSlot } from '../../../core/src/engine/slot/utils/oimGetChannelSlot';
-import type { TOIMEntitySlotOwnerService } from '../../../core/src/engine/entity/types/TOIMEntitySlotOwnerService';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { oimGetChannelSlot } from '../../../core/src/slot/utils/oimGetChannelSlot';
+import type { TOIMEntitySlotOwnerService } from '../../../core/src/entity/types/TOIMEntitySlotOwnerService';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceLoadedCollection } from './priceFixture';
@@ -17,7 +17,7 @@ import { createOIMSlotCollectionService } from '../../../core/src/index';
 type TDoorSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TDoorSlotContentService = TPriceEntityService<TPriceDataRow>['slotContentService'];
 
-const probeWriter = createOIMEntityWriterInPlace();
+const probeWriter = createOIMInPlaceEntityWriter();
 
 type TDoorSlotOwnerService = TOIMEntitySlotOwnerService<TPriceDataRow, TDoorSlot, unknown, string>;
 

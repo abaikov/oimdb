@@ -269,15 +269,15 @@ const columnSubscriptionSide = (byColumn: boolean): TPriceSide => {
     for (let i = 0; i < slots.length; i++) {
         const slot = slots[i];
         if (byColumn) {
-            effectService.createEffect(db, [entityService.columnSlotService.holdColumn(slot, 'title')], [], () => { woke[0]++; });
+            effectService.createEffect(db, () => { woke[0]++; }, [entityService.columnSlotService.holdColumn(slot, 'title')]);
             continue;
         }
-        effectService.createEffect(db, [slot], [], () => {
+        effectService.createEffect(db, () => {
             const title = slot.entity?.title;
             if (title === lastSeen[i]) return;
             lastSeen[i] = title;
             woke[0]++;
-        });
+        }, [slot]);
     }
     const notePatches = [{ note: 'note-a' }, { note: 'note-b' }];
     const titlePatches = [{ title: 'title-a' }, { title: 'title-b' }];

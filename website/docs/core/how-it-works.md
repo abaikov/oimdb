@@ -39,7 +39,7 @@ updates. How far it is paid back, task by task, is in the [results](/docs/benchm
 A slot is a plain object built by one function per kind, with every field it will
 ever carry present at birth. Every field is `readonly` in its type; only the
 service that owns the slot (reached as `slot.owner`) writes it, through
-`TOIMSlotEditable`. Callers ask the owner — `holdSlot`, `unholdSlot`, a write door —
+`TOIMEditable`. Callers ask the owner — `holdSlot`, `unholdSlot`, a write door —
 and never set a field.
 
 Two reasons, one about correctness and one about speed:

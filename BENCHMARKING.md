@@ -94,7 +94,7 @@ There is one place, and it is named here because a contributor cannot follow a
 rule that does not exist. **A rejected design that is also a shipped strategy has
 two homes.** Where a trade-off has two arms that are each right for some
 consumer, this project ships both behind one abstraction and lets the consumer
-pick at construction — `createOIMEntityWriterInPlace` / `createOIMEntityWriterReplacing` is the shape — and each
+pick at construction — `createOIMInPlaceEntityWriter` / `createOIMReplacingEntityWriter` is the shape — and each
 arm's cost belongs in that strategy's own documentation. But a fork that was
 *considered and not shipped* is an `alternatives` pair. The two look identical
 from inside the pair: two bodies, one ratio.

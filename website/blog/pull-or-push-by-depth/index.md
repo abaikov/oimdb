@@ -58,4 +58,4 @@ Push stays unshipped. The rows show where it would win — deep chains where eve
 - `packages/core/src/engine/computed/utils/refreshComputedSlot.ts` — the settle at the read, and the stamps it writes.
 - `packages/core/src/engine/computed/utils/hasSourceChangedSinceLastRun.ts` — the per-source revision comparison.
 - `packages/core/src/engine/computed/utils/refreshSourceComputeds.ts` — bringing source computeds current first.
-- `packages/core/src/engine/computed/types/TOIMComputedSlot.ts` — `ranAt*`, `checkedAt*`, and `changedAt*` from the slot.
+- `packages/core/src/computed/types/TOIMComputedSlot.ts` — `ranAt*`, `checkedAt*`, and `changedAt*` from the slot.

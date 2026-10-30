@@ -137,7 +137,7 @@ The revision wraps into the next epoch after 2^30 revisions
 ```ts
 let runs = 0;
 const king = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', title: 'King', rank: 13 });
-const kingEffect = effectService.createEffect(db, [king], [], () => { runs++; });
+const kingEffect = effectService.createEffect(db, () => { runs++; }, [king]);
 cardContentService.updateEntity(king, { title: 'Queen' });
 cardContentService.updateEntity(king, { title: 'Jack' });
 db.flush();
@@ -221,7 +221,7 @@ A write is filed and delivered as it lands, and several writes are one
 delivery anyway: the frame runs each effect once, at the next `flush()`, however many writes touched its
 sources. What a batch changes is who hears the writes: `cardService.writeInBatch(cards, () => { … })` on a
 collection queues the writes on the store slot and hands an index on the collection the whole batch in one
-`onContentChangedMany` when the outermost batch closes.
+`onManyContentsChanged` when the outermost batch closes.
 
 ```ts
 const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', title: 'Jack', rank: 11 });
@@ -243,10 +243,10 @@ index catches up when the batch closes.
 the call, and is then gone. Where you call it decides which frame that is:
 
 ```typescript
-effectService.createEffect(db, [slot], [], () => {
+effectService.createEffect(db, () => {
     paint(slot.entity);
     channelService.subscribeOnceAfterFrame(channelSlot, () => { measureAndScroll(); });
-});
+}, [slot]);
 ```
 
 Registered from inside an effect body, it runs in the tail of that very frame,

@@ -1,5 +1,5 @@
-import type { TOIMEntityContentSlot } from '../../src/engine/entity/types/TOIMEntityContentSlot';
-import type { TOIMColumnSlot } from '../../src/engine/column/types/TOIMColumnSlot';
+import type { TOIMEntityContentSlot } from '../../src/entity/types/TOIMEntityContentSlot';
+import type { TOIMColumnSlot } from '../../src/column/types/TOIMColumnSlot';
 import type { TOIMBucketSlot, TOIMBucketContentSlot, TOIMEntitySlot } from '../../src/index';
 
 /**

@@ -20,7 +20,7 @@ and what a backend of your own owes.
 </InShort>
 
 ```ts setup
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource,
@@ -37,7 +37,7 @@ type TSettings = { theme: string };
 const db = new OIMDB();
 
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
-  entityWriter: createOIMEntityWriterInPlace(),
+  entityWriter: createOIMInPlaceEntityWriter(),
 });
 const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);

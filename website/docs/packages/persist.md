@@ -32,7 +32,7 @@ built over an `OIMPersistEntityWriter`, which is what lets a collection source
 learn what changed:
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistBucketRecordSource,
@@ -51,7 +51,7 @@ type TSettings = { theme: string };
 const db = new OIMDB();
 
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
-  entityWriter: createOIMEntityWriterInPlace(),
+  entityWriter: createOIMInPlaceEntityWriter(),
 });
 const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
@@ -231,7 +231,7 @@ Both take the same options object, `TOIMPersistRecordSourceCollectionOptions`
 | collection source | what it hears | an in-place edit announced with `markEntityChanged` | cost on the store slot while a resource listens | pick it when |
 |---|---|---|---|---|
 | `OIMPersistCollectionWriteRecordSource` | the `OIMPersistEntityWriter` only | **not persisted** | none: every write stays on the core fast path; the writer adds one listener loop per write that changed the entity | every change goes through the upsert, update and delete doors |
-| `OIMPersistCollectionChangeWriteRecordSource` | the writer, plus a content-change listener (`OIMContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, …)`, of every column) while subscribed | persisted like a write through the writer | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: the changed-column bookkeeping and the content-change listener loop per write | the application edits entities in place |
+| `OIMPersistCollectionChangeWriteRecordSource` | the writer, plus a content-change listener (`OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(entityStoreSlot, …)`, of every column) while subscribed | persisted like a write through the writer | **every** write to that store slot leaves the core fast path, not only `markEntityChanged`: the changed-column bookkeeping and the content-change listener loop per write | the application edits entities in place |
 
 The change-driven source gives the listener back when its subscription ends, so
 the store slot returns to the fast path when no resource listens.

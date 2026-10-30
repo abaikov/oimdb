@@ -87,7 +87,7 @@ const deckIds: TExoBindable<readonly string[]> = exoSource(() => ['spades'], () 
 ## One door from the engine: `exoBinding`
 
 A subscription in this core is **one call**, `OIMEffectService.INSTANCE.createEffect(db,
-sourceSlots, sourceComputeds, body)`, and the value it produces is read off the slots afterwards
+body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`, and the value it produces is read off the slots afterwards
 instead of being carried by the subscription. The effect service is stateless: the `db` passed
 first is the channel map, and its `defaultChannelSlot` is the channel the effect runs on. So
 there is one adapter, it takes that same `db` first, and one entity, one column, a bucket's
@@ -194,8 +194,8 @@ the key moves off it or the last subscriber leaves.
 ## `exoCombine` — fan-in across anything
 
 ```typescript
-const label = exoCombine([entity, highlighted], () =>
-    `${entity.getValue()?.title ?? ''}${highlighted.getValue() ? '*' : ''}`);
+const label = exoCombine(() =>
+    `${entity.getValue()?.title ?? ''}${highlighted.getValue() ? '*' : ''}`, [entity, highlighted]);
 ```
 
 Exodra's `derive` is single-source. A computed combines too, but only for

@@ -49,7 +49,7 @@ export const bundleFieldMachineryFindings = (
             + 'NOT A PREDICTION FOR THIS ONE. It priced `slot.movedFields`, `recordMovedFields` '
             + 'and the `dependsOn` column routing — a module, a recording function, a '
             + 'declared-column check and a routing loop — all deleted on 2026-08-23. What is '
-            + 'excised now is the `createColumnSlotOwner` option of oimSlotOwnerOptionsWithDefault, '
+            + 'excised now is the `createColumnSlotOwner` option of oimResolveSlotOwnerServiceOptions, '
             + 'three `columnSlotOwner.markColumnsChanged` calls in the write '
             + 'layers, one property of the '
             + 'slot literal, and the column owner those keep alive. '
@@ -67,7 +67,7 @@ export const bundleFieldMachineryFindings = (
             + '@oimdb/core builds it, and what was taken out is listed under the arm below and in '
             + 'records.json. THE PROOF THE LIST IS COMPLETE is in the module table — the imports '
             + 'were left in, so if any link to the column owner had been missed the bundler would have '
-            + 'kept engine/column/OIMPushColumnSlotOwner.ts in the lifted arm too, which is what the '
+            + 'kept column/OIMPushColumnSlotOwner.ts in the lifted arm too, which is what the '
             + '"columns?" column reports. THE DENOMINATOR is every name the '
             + 'package exports with nothing droppable, the largest available and therefore the '
             + 'least flattering to the percentage.',

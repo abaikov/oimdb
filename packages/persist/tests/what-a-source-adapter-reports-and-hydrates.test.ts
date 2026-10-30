@@ -322,10 +322,10 @@ describe('OIMPersistSingleEntitySnapshotSource', () => {
         let themeWakeCount = 0;
         let impersonatingWakeCount = 0;
         const effectService = OIMEffectService.INSTANCE;
-        effectService.createEffect(db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'userId')], [], () => { userWakeCount++; });
-        effectService.createEffect(db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')], [], () => { themeWakeCount++; });
+        effectService.createEffect(db, () => { userWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'userId')]);
+        effectService.createEffect(db, () => { themeWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')]);
         effectService.createEffect(
-            db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'impersonating')], [], () => { impersonatingWakeCount++; },
+            db, () => { impersonatingWakeCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'impersonating')],
         );
 
         persistSingleEntitySnapshotSource.writeSnapshot({ userId: 'u1', theme: 'light' });
@@ -341,7 +341,7 @@ describe('OIMPersistSingleEntitySnapshotSource', () => {
         const { db, singleEntityService, singleEntitySlot } = buildSession({ userId: 'u1', theme: 'dark' });
         let runCount = 0;
         OIMEffectService.INSTANCE.createEffect(
-            db, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')], [], () => { runCount++; },
+            db, () => { runCount++; }, [singleEntityService.columnSlotService.getColumn(singleEntitySlot, 'theme')],
         );
 
         singleEntityService.slotContentService.deleteEntityColumns(singleEntitySlot, ['theme']);
@@ -393,7 +393,7 @@ describe('hydrating a bucket', () => {
         const persistRecords = persistBucketRecordSource.readSnapshot();
 
         let runCount = 0;
-        OIMEffectService.INSTANCE.createEffect(db, [filing.bucketSlot], [], () => { runCount++; });
+        OIMEffectService.INSTANCE.createEffect(db, () => { runCount++; }, [filing.bucketSlot]);
 
         persistBucketRecordSource.writeSnapshot(persistRecords);
         db.flush();

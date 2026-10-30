@@ -24,7 +24,7 @@ synchronous or returning promises, and calls them once per key.
 ## Example
 
 ```ts
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistKeyValueBackend, OIMPersistKeyValueEntrySnapshotService,
@@ -42,7 +42,7 @@ type TNotePersistRecords = TOIMPersistRecords<TOIMStoreKey, TNote>;
 
 const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TNote, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const noteCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNote>(db, { entityWriter: persistEntityWriter }) });
 const noteEntityStoreSlot = noteCollectionService.createStoreSlot(db);

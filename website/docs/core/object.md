@@ -29,7 +29,7 @@ is a [single computed](/docs/core/computed-effects#one-derivation-no-key), not a
 writing.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, oimInsertEntityWithCopy, createOIMComputedService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMSlotContentEntityService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, oimInsertEntityWithCopy, createOIMComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMSlotContentEntityService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
 
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
@@ -72,10 +72,10 @@ Everything that reads an entity slot reads this one — an effect over it, or ov
 of its columns, or a computed that names it as a source.
 
 ```typescript
-effectService.createEffect(db, [settingsSlot], [], () => { console.log(settingsSlot.entity?.theme); });
-effectService.createEffect(db, [settingsService.columnSlotService.holdColumn(settingsSlot, 'fontSize')], [], () => {
+effectService.createEffect(db, () => { console.log(settingsSlot.entity?.theme); }, [settingsSlot]);
+effectService.createEffect(db, () => {
     console.log(settingsSlot.entity?.fontSize);
-});
+}, [settingsService.columnSlotService.holdColumn(settingsSlot, 'fontSize')]);
 
 const fontLabelService = createOIMSingleComputedService<string>();
 const fontLabel = fontLabelService.createComputedStoreSlot(
@@ -138,17 +138,17 @@ so every record of one service shares it:
 ```typescript
 const initial: Settings = { theme: 'dark', fontSize: 14 };
 
-const inPlaceSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMEntityWriterInPlace() }) });
+const inPlaceSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter() }) });
 inPlaceSettingsService.writeSingleSlotContent(inPlaceSettingsService.createStoreSlot(db), initial);
 
-const replacingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMEntityWriterReplacing() }) });
+const replacingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
 replacingSettingsService.writeSingleSlotContent(replacingSettingsService.createStoreSlot(db), initial);
 ```
 
 Use the in-place writer when readers are effects; use the replacing one when a
 reader decides "did it change?" by comparing the slot's `entity` to the last one it
 saw. Name no writer and the db's answers, then `OIMDefaults.ENTITY_WRITER.getValue()`, which is
-`createOIMEntityWriterInPlace()` unless it was set at startup.
+`createOIMInPlaceEntityWriter()` unless it was set at startup.
 
 ## The object you hand it is stored as handed — by default
 
@@ -163,14 +163,14 @@ shallow copy (`{ ...entity }`), one level deep: a nested object is shared with
 the value you handed in.
 
 ```typescript
-const copyingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
 copyingSettingsService.writeSingleSlotContent(copyingSettingsService.createStoreSlot(db), { theme: 'dark', fontSize: 14 });
 ```
 
 For untrusted JSON, `oimInsertEntityWithSanitizedCopy` also removes an own `__proto__`
 key from the copy; for later writes take the guarded walk arms
-(`patchEntityColumns: oimPatchEntityColumnsGuarded`, `patchEntityColumn: oimPatchEntityColumnGuarded`,
-`putEntityColumns: oimPutEntityColumnsGuarded`), which skip that name.
+(`patchEntityColumns: oimGuardedPatchEntityColumns`, `patchEntityColumn: oimGuardedPatchEntityColumn`,
+`putEntityColumns: oimGuardedPutEntityColumns`), which skip that name.
 
 ## The frame guard
 

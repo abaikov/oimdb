@@ -38,8 +38,8 @@ shared with the other strategies of its kind:
 
 - slot release policies, the `IOIMSlotReleasePolicy` strategies;
 - set-driven and array-driven buckets and indexes;
-- entity writers, `createOIMEntityWriterInPlace` and
-  `createOIMEntityWriterReplacing`, and entity insert strategies,
+- entity writers, `createOIMInPlaceEntityWriter` and
+  `createOIMReplacingEntityWriter`, and entity insert strategies,
   `TOIMEntityInserter`;
 - the `sameValueGuard` of a computed (`TOIMSameValueGuard`);
 - slot emptiness checks, `IOIMSlotEmptinessPolicy`;

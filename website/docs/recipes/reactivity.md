@@ -14,7 +14,7 @@ delivery of every write made since the previous one (see the
 [glossary](/docs/core/model#glossary)).
 
 ```ts setup
-import { OIMChannelService, OIMDB, OIMEffectService, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService, createOIMSlotCollectionIndexService, createOIMComputedService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMContentChangeListenerService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMEffectService, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService, createOIMSlotCollectionIndexService, createOIMComputedService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotContentChangeListenerService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; deckId: string; title: string; rank: number };
 
@@ -31,7 +31,7 @@ const cardContentService = cardService.slotContentService;
 
 ## Run code when one entity changes
 
-Take: `effectService.createEffectImmediate(db, sourceSlots, sourceComputeds, body)` for "now, then
+Take: `effectService.createAndRunEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)` for "now, then
 on every change", or `effectService.createEffect` for "on every change from now on"; keep the
 `TOIMEffect` and call `effectService.disposeEffect(effect)` when you are done (or take `subscribeEffect`, which
 hands back the disposer). A polling loop or a re-read on a timer has nothing to add, because the slot already
@@ -40,9 +40,9 @@ knows when it moved.
 ```ts
 const aceSlot = cardService.getSlotByKey(cards, 'c1');
 
-const aceEffect = effectService.createEffectImmediate(db, [aceSlot], [], () => {
+const aceEffect = effectService.createAndRunEffect(db, () => {
     render(aceSlot.entity?.title);
-});
+}, [aceSlot]);
 
 cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'Ace', rank: 1 });
 db.flush();
@@ -54,7 +54,7 @@ Why this way: an effect is filed on the slot's own `effects` list, so a
 write finds the body without a lookup, and the effect holds every slot it reads
 until `disposeEffect` — the slot read with `getSlotByKey` stays filed past the next
 flush because the effect holds it. `createEffect` is told only about writes made after
-it was built; `createEffectImmediate` runs the body once at construction, and if that
+it was built; `createAndRunEffect` runs the body once at construction, and if that
 run throws it disposes the effect and rethrows. The sources are the slots the two
 lists name: a slot the body reads but the lists do not name does not wake it.
 
@@ -73,9 +73,9 @@ runs its body on every column.
 const kingSlot = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', deckId: 'hearts', title: 'King', rank: 13 });
 
 const rankColumn = cardService.columnSlotService.holdColumn(kingSlot, 'rank');
-const rankEffect = effectService.createEffect(db, [rankColumn], [], () => {
+const rankEffect = effectService.createEffect(db, () => {
     render(kingSlot.entity?.rank);
-});
+}, [rankColumn]);
 
 cardContentService.updateEntity(kingSlot, { title: 'King of hearts' });
 cardContentService.updateEntity(kingSlot, { rank: 12 });
@@ -121,9 +121,9 @@ const spadesCount = spadesCountService.createComputedStoreSlot(
 );
 
 const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
-const countEffect = effectService.createEffectImmediate(db, [], [spadesCountSlot], () => {
+const countEffect = effectService.createAndRunEffect(db, () => {
     render(spadesCountSlot.computedValueService.getValueForSlot(spadesCountSlot));
-});
+}, [], [spadesCountSlot]);
 
 const cardLabelService = createOIMComputedService<TOIMStoreKey, string>({
     createSources: ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
@@ -166,7 +166,7 @@ the whole loop in one call.
 ```ts
 let runs = 0;
 const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', deckId: 'clubs', title: 'Jack', rank: 11 });
-const jackEffect = effectService.createEffect(db, [jack], [], () => { runs++; });
+const jackEffect = effectService.createEffect(db, () => { runs++; }, [jack]);
 
 cardContentService.updateEntity(jack, { title: 'Jack of clubs' });
 cardContentService.updateEntity(jack, { rank: 10 });
@@ -229,9 +229,9 @@ handler throws: writes are refused for the whole of a flush.
 const toArchive = new Set<TOIMStoreKey>();
 const queen = cardService.getSlotByKey(cards, 'q');
 
-const queenEffect = effectService.createEffect(db, [queen], [], () => {
+const queenEffect = effectService.createEffect(db, () => {
     if (queen.entity?.rank === 0) toArchive.add(queen.key);
-});
+}, [queen]);
 
 const stopArchiving = channelService.subscribeAfterEachFlush(channelSlot, () => {
     const archived = [...toArchive].flatMap((key) => cardService.findSlotByKey(cards, key) ?? []);
@@ -268,12 +268,12 @@ declare function pollPrices(deckId: string): void;
 
 const deckCard = cardService.getSlotByKey(cards, 'c1');
 
-const pollEffect = effectService.createEffectImmediate(db, [deckCard], [], () => {
+const pollEffect = effectService.createAndRunEffect(db, () => {
     const deckId = deckCard.entity?.deckId;
     if (deckId === undefined) return;
     const timer = setInterval(() => { pollPrices(deckId); }, 5_000);
     return () => { clearInterval(timer); };
-});
+}, [deckCard]);
 
 effectService.disposeEffect(pollEffect);
 ```
@@ -307,7 +307,7 @@ const strictDb = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
 Why this way: during a flush, every effect run (the body and the cleanup the
 previous run returned), `onBeforeFlush`, and every after-each-frame and
 after-each-flush handler runs inside a try/catch that hands the throw to the
-policy. The first run of `createEffectImmediate` is not inside a flush: its throw
+policy. The first run of `createAndRunEffect` is not inside a flush: its throw
 reaches the caller. `OIMLogAndContinueErrorPolicy` calls `console.error`, then `onError`,
 and the frame goes on. `OIMThrowAtOnceErrorPolicy` throws the first error out of
 `flush()`, and the effects not yet reached wait for the next flush. In either mode an
@@ -319,20 +319,20 @@ Reference: [Error handling](/docs/guides/error-handling).
 
 ## Know which entities changed in a frame
 
-Take: `OIMContentChangeListenerService.INSTANCE.addContentChangeListener(cards, listener, undefined)` to collect
+Take: `OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(cards, listener, undefined)` to collect
 keys, and `subscribeAfterEachFrame(channelSlot, handler)` to read them at the frame boundary. One effect per
 entity cannot do this, because an entity written for the first time has no effect on it yet.
 
 ```ts
 
 const changedInFrame = new Set<TOIMStoreKey>();
-const changedListener: IOIMContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
+const changedListener: IOIMSlotContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
     onContentChanged: (slot) => { changedInFrame.add(slot.key); },
-    onContentChangedMany: (slotChannelQueue) => {
+    onManyContentsChanged: (slotChannelQueue) => {
         for (let i = 0; i < slotChannelQueue.getEntryCount(); i++) changedInFrame.add(slotChannelQueue.getEntryAt(i).key);
     },
 };
-OIMContentChangeListenerService.INSTANCE.addContentChangeListener(cards, changedListener, undefined);
+OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(cards, changedListener, undefined);
 const stopReporting = channelService.subscribeAfterEachFrame(channelSlot, () => {
     render([...changedInFrame]);
     changedInFrame.clear();
@@ -345,13 +345,13 @@ cardService.writeInBatch(cards, () => ([
 db.flush();
 
 stopReporting();
-OIMContentChangeListenerService.INSTANCE.removeContentChangeListener(cards, changedListener);
+OIMSlotContentChangeListenerService.INSTANCE.removeContentChangeListener(cards, changedListener);
 ```
 
 Why this way: the listener is per store slot and is told synchronously at the
 write. With `readColumnNames` `undefined` it hears a write to any column; a list of column names narrows it, and
 the filter is the union over every listener on that store slot. It is told once per write through
-`onContentChanged`, and once per batch write through `onContentChangedMany`. The after-each-frame handler runs
+`onContentChanged`, and once per batch write through `onManyContentsChanged`. The after-each-frame handler runs
 once the frame's effects have run, so it reads settled state; a write from it is refused, so act on the
 set after `flush()` returns. The set is yours, so clearing it consumes nothing
 anyone else reads. While an after-each-frame handler is registered, every write

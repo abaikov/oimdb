@@ -34,8 +34,8 @@ describe('exoCombine', () => {
         });
         const highlighted = makeLocalBindable(false);
 
-        const combined = exoCombine([row, highlighted], () =>
-            `${row.getValue()?.title ?? ''}${highlighted.getValue() ? '*' : ''}`);
+        const combined = exoCombine(() =>
+            `${row.getValue()?.title ?? ''}${highlighted.getValue() ? '*' : ''}`, [row, highlighted]);
 
         expect(combined.getValue()).toBe('alpha');
 
@@ -67,7 +67,7 @@ describe('exoCombine', () => {
         };
 
         let runCount = 0;
-        const combined = exoCombine([healthy, refusing], () => healthy.getValue() + refusing.getValue());
+        const combined = exoCombine(() => healthy.getValue() + refusing.getValue(), [healthy, refusing]);
         expect(combined.getValue()).toBe(3);
 
         expect(() => combined.subscribe(() => { runCount++; })).toThrow('source refused');

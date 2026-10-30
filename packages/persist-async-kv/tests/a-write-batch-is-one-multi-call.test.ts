@@ -1,5 +1,5 @@
 import type { TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter } from '@oimdb/core';
 import type { IOIMPersistSnapshotService, OIMPersistKeyValueWriteBatch, TOIMPersistRecords } from '@oimdb/persist';
 import {
     OIMPersistIdentityCodec,
@@ -56,7 +56,7 @@ function createAsyncKVStorage() {
 
 function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
-        entityWriter: createOIMEntityWriterInPlace(),
+        entityWriter: createOIMInPlaceEntityWriter(),
     });
     const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);

@@ -1,4 +1,4 @@
-import { OIMChannelService, OIMDB, OIMDefaults, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard } from '../../../core/dist/index.js';
+import { OIMChannelService, OIMDB, OIMDefaults, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard } from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
@@ -97,8 +97,8 @@ const NO_ROOT_SLOTS: readonly TOIMSlot[] = Object.freeze([]);
 const NO_SOURCE_COMPUTEDS: readonly TOIMComputedSlot[] = Object.freeze([]);
 
 const BY_RANK_THEN_ID: readonly TOIMSortColumn<TRow>[] = [
-    { column: 'rank', direction: 'asc' },
-    { column: 'id', direction: 'asc' },
+    { columnName: 'rank', direction: 'asc' },
+    { columnName: 'id', direction: 'asc' },
 ];
 
 // In place, so the stored object keeps its identity for its whole life and
@@ -137,7 +137,7 @@ const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, r
             getOrderedSlotCount: orderedSlots => orderedSlots.length,
             getOrderedSlotAt: (orderedSlots, at) => orderedSlots[at] as TRowSlot,
             watchGroupOrder: (db, groupOrder, body) =>
-                OIMEffectService.INSTANCE.createEffect(db, NO_ROOT_SLOTS, [groupOrder], body),
+                OIMEffectService.INSTANCE.createEffect(db, body, NO_ROOT_SLOTS, [groupOrder]),
         };
     },
 };
@@ -169,7 +169,7 @@ const createGroupOrdersSortedAtWrite = (
         getOrderedSlotCount: bucketSlot => bucketContentService.getBucketMemberSlotCount(bucketSlot),
         getOrderedSlotAt: (bucketSlot, at) => bucketContentService.getBucketMemberSlotAt(bucketSlot, at) as TRowSlot,
         watchGroupOrder: (db, bucketSlot, body) =>
-            OIMEffectService.INSTANCE.createEffect(db, [bucketSlot], NO_SOURCE_COMPUTEDS, body),
+            OIMEffectService.INSTANCE.createEffect(db, body, [bucketSlot], NO_SOURCE_COMPUTEDS),
     };
     return groupOrders;
 };
@@ -372,7 +372,7 @@ const createWindowViews = <TGroupOrder, TOrderedSlots>(
             watchedRows.delete(slot);
         }
         state.watchedSlots = nextWatchedSlots;
-        state.watching = effectService.createEffect(db, watchedColumnGroupSlots, NO_SOURCE_COMPUTEDS, state.markPending);
+        state.watching = effectService.createEffect(db, state.markPending, watchedColumnGroupSlots, NO_SOURCE_COMPUTEDS);
     };
 
     const refresh = (state: TView): void => {
@@ -497,14 +497,14 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
                 const noteColumnSlot = entityService.columnSlotService.holdColumn(slot, 'note');
                 cellColumnSlots.push(labelColumnSlot, noteColumnSlot);
                 cellEffects.push(
-                    effectService.createEffect(db, [labelColumnSlot], [], () => {
+                    effectService.createEffect(db, () => {
                         labelPending = true;
-                    })
+                    }, [labelColumnSlot])
                 );
                 cellEffects.push(
-                    effectService.createEffect(db, [noteColumnSlot], [], () => {
+                    effectService.createEffect(db, () => {
                         notePending = true;
-                    })
+                    }, [noteColumnSlot])
                 );
             }
             cellsWired = true;
@@ -631,9 +631,9 @@ const createChurnMounts = (
         for (let key = firstKey; key < headKey; key++) computedCollectionService.holdSlotByKey(computedStoreSlot, key);
         const head = computedCollectionService.holdSlotByKey(computedStoreSlot, headKey);
         const computedValueService = head.computedValueService;
-        effects[at] = OIMEffectService.INSTANCE.createEffect(db, NO_ROOT_SLOTS, [head], () => {
+        effects[at] = OIMEffectService.INSTANCE.createEffect(db, () => {
             readHead(at, computedValueService.getValueForSlot(head));
-        });
+        }, NO_ROOT_SLOTS, [head]);
         for (let key = firstKey; key <= headKey; key++) {
             const derivationSlot = computedCollectionService.getSlotByKey(computedStoreSlot, key);
             derivationSlot.owner.unholdSlot(derivationSlot);
@@ -721,17 +721,14 @@ const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
         // costs rather than an artefact of the harness.
         mountOnRows: (at, from, count) => {
             churnEffects[at] = effectService.createEffect(
-                db,
-                sourcesOf(from, count),
-                NO_SOURCE_COMPUTEDS,
-                churnBody(at, churnSlots[from])
+                db, churnBody(at, churnSlots[from]), sourcesOf(from, count), NO_SOURCE_COMPUTEDS
             );
             churnRead[at] = labelOf(churnSlots[from]);
         },
         mountOnColumn: at => {
             const slot = churnSlots[0];
             const columnSlot = entityService.columnSlotService.holdColumn(slot, 'label');
-            churnEffects[at] = effectService.createEffect(db, [columnSlot], [], churnBody(at, slot));
+            churnEffects[at] = effectService.createEffect(db, churnBody(at, slot), [columnSlot]);
             entityService.columnSlotService.unholdColumn(columnSlot);
             churnRead[at] = labelOf(slot);
         },
@@ -866,11 +863,11 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
     const rowEntityStoreSlot = rowEntityService.createStoreSlot(db);
     // The SECOND ENTITY TYPE, and into the SAME channel, so a frame that wrote both
     // types is one frame and one flush.
-    const ownerEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TOwner>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const ownerEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TOwner>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
     const ownerEntityStoreSlot = ownerEntityService.createStoreSlot(db);
     // The records keyed by a COMBINATION OF IDENTITIES. The descent compares nothing:
     // rebuilding `[a, b]` from the same two slots arrives at the same node.
-    const pairEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPairEntity, TPairKey>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue()), columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() });
+    const pairEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPairEntity, TPairKey>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()), columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() });
     const pairEntityStoreSlot = pairEntityService.createStoreSlot(db);
 
     /** The addresses `holdRelation` was given. Both views render these rows. */
@@ -963,14 +960,14 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
                 );
             }
             for (let at = 0; at < touchedSlots.length; at++) {
-                effectService.createEffect(db, [touchedSlots[at]], NO_SOURCE_COMPUTEDS, () => {
+                effectService.createEffect(db, () => {
                     namesPending = true;
-                });
+                }, [touchedSlots[at]], NO_SOURCE_COMPUTEDS);
             }
             for (let i = 0; i < pairSlots.length; i++) {
-                effectService.createEffect(db, [pairSlots[i]], NO_SOURCE_COMPUTEDS, () => {
+                effectService.createEffect(db, () => {
                     marksPending = true;
-                });
+                }, [pairSlots[i]], NO_SOURCE_COMPUTEDS);
             }
             // Untimed: the state every sample starts from.
             renderNames();
@@ -1058,18 +1055,18 @@ const bindSingleStore = (participantName: string, consumers: TConsumers): TSingl
             read = config.seeds[0];
             readBystander = config.seeds[1];
             effects.push(
-                effectService.createEffect(db, [valueEntitySlot], NO_SOURCE_COMPUTEDS, () => {
+                effectService.createEffect(db, () => {
                     const item = valueEntitySlot.entity;
                     read = item === undefined ? '' : item.value;
                     woke = true;
-                })
+                }, [valueEntitySlot], NO_SOURCE_COMPUTEDS)
             );
             effects.push(
-                effectService.createEffect(db, [bystanderEntitySlot], NO_SOURCE_COMPUTEDS, () => {
+                effectService.createEffect(db, () => {
                     const item = bystanderEntitySlot.entity;
                     readBystander = item === undefined ? '' : item.value;
                     wokeBystander = true;
-                })
+                }, [bystanderEntitySlot], NO_SOURCE_COMPUTEDS)
             );
             woke = false;
             wokeBystander = false;
@@ -1171,7 +1168,7 @@ export const oimdbAdapter: TAdapter = oimdbAdapterWith({
     name: 'oimdb',
     docs:
         'packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) }) on one ' +
-        'OIMDB with the default entity writer, createOIMEntityWriterInPlace(), and one createStoreSlot(db) as the instance; every load goes in through ' +
+        'OIMDB with the default entity writer, createOIMInPlaceEntityWriter(), and one createStoreSlot(db) as the instance; every load goes in through ' +
         'entityService.writeSlotContentByKey(entityStoreSlot, id, row) for each row inside entityService.writeInBatch; a label or note patch assigns slot.entity in ' +
         'place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; ' +
         'a createOIMSlotCollectionIndexService with an OIMSlotContentSetBucketService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a ' +

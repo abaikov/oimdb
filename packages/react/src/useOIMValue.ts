@@ -20,7 +20,7 @@ export function useOIMValue<TValue>(binding: TOIMBinding<TValue>): TValue {
         return {
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => snapshotVersion.subscribeEffect(
-                db, binding.sourceSlots ?? OIM_FROZEN_EMPTY_SLOTS, sourceComputeds, onStoreChange,
+                db, onStoreChange, binding.sourceSlots ?? OIM_FROZEN_EMPTY_SLOTS, sourceComputeds,
             ),
         };
     }, [db, binding, sourceComputeds]);

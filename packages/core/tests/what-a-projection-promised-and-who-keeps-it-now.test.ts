@@ -4,7 +4,7 @@ import { OIMDB } from '../src/index';
 import type { TOIMStoreKey } from '../src/index';
 import { createOIMSlotContentEntityService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
-import type { OIMSlotContentEntityService } from '../src/engine/entity/OIMSlotContentEntityService';
+import type { OIMSlotContentEntityService } from '../src/entity/OIMSlotContentEntityService';
 
 const SRC = join(__dirname, '..', 'src');
 

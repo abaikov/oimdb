@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
-import { createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
+import { createOIMInPlaceEntityWriter, OIMDB } from '@oimdb/core';
 import type { TOIMPersistHydrateReconcile, TOIMPersistRecords } from '@oimdb/persist';
 import {
     oimReconcileByKey,
@@ -45,7 +45,7 @@ const reconcileAnswerOntoQuestion: TOIMPersistHydrateReconcile<TOIMPersistRecord
 
 function createQuestionCollection(db: OIMDB): TQuestionCollection {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, string>({
-        entityWriter: createOIMEntityWriterInPlace(),
+        entityWriter: createOIMInPlaceEntityWriter(),
     });
     const entityCollectionService = createQuestionCollectionService(db, persistEntityWriter);
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);

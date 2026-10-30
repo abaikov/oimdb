@@ -430,7 +430,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
                     run: times => {
                         const mask = sourcesBySlot.length - 1;
                         for (let i = 0; i < times; i++) {
-                            const effect = effectService.createEffect(db, sourcesBySlot[i & mask], noComputeds, body);
+                            const effect = effectService.createEffect(db, body, sourcesBySlot[i & mask], noComputeds);
                             effectService.disposeEffect(effect);
                         }
                     },

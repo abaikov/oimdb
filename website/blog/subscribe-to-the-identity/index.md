@@ -62,6 +62,6 @@ Subscribes to the slot, and detaches by position with a swap from the tail. Each
 
 ## Where it lives
 
-- `packages/core/src/engine/slot/OIMSlotOwner.ts` — `subscribeToSlot` and the swap-with-tail `unsubscribeFromSlot`.
-- `packages/core/src/engine/computed/OIMEffectService.ts` — `setPositionInSubscribedSlot` and `disposeEffect`.
-- `packages/core/src/engine/computed/types/TOIMEffect.ts` — the two position fields.
+- `packages/core/src/slot/OIMSlotOwner.ts` — `subscribeToSlot` and the swap-with-tail `unsubscribeFromSlot`.
+- `packages/core/src/effect/OIMEffectService.ts` — `setPositionInSubscribedSlot` and `disposeEffect`.
+- `packages/core/src/effect/types/TOIMEffect.ts` — the two position fields.

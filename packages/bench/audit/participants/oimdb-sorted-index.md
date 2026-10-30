@@ -9,7 +9,7 @@ summary: "The oimdb row with one strategy swapped: group order is a createOIMSlo
 wirings:
   bind:
     verdict: "idiomatic"
-    note: "bindViews (oimdb.ts:417-545) is called with GROUP_ORDER_SORTED_AT_WRITE (oimdb.ts:177, 1212). It builds the OIMDB, an OIMEffectService, the entity service from createRowEntityService (106-107) with its createStoreSlot() and the group orders from createGroupOrdersSortedAtWrite (145-175): createOIMSlotCollectionSortedArrayIndexService on group with sortColumns BY_RANK_THEN_ID (152-158). A view holds one bucket slot through indexService.holdSlotByKey (164, makeView 315-339) and watches it with effectService.createEffect([bucketSlot], NO_SOURCE_COMPUTEDS, …) (172); resync (340-377) and refresh (378-) walk the page from the view's offset with getBucketMemberSlotCount and getBucketMemberSlotAt (169-170) and hold the rank+label column group of each visible row. The index wakes that bucket slot when membership changes or a member's sort column changes: OIMSlotCollectionSortedArrayIndexService.onBucketColumnsChanged repositions only when a sort column is among the changed ones (packages/core/src/facade/index/OIMSlotCollectionSortedArrayIndexService.ts:42-48), and repositionBucketMemberSlot marks the bucket changed when the member was removed and re-added (facade/bucket/OIMSlotContentSortedArrayBucketService.ts:49-58), which is every rank or id write of a member, whether or not its position moves. A label or note write does not touch the bucket. The writes are bindRowWrites (221-276), the oimdb row's: writeSlotContentByKey per row inside writeInBatch, label and note patches assign slot.entity and call markEntityChanged with the one column, setGroup and setRank are updateEntityColumn; frame is entityService.writeInBatch(entityStoreSlot, run) (266-268), settle is db.flush then paint (269-272). dispose (531-544) is OIMChannelService.dropChannelSlot and the adapter's arrays cleared. Not measured."
+    note: "bindViews (oimdb.ts:417-545) is called with GROUP_ORDER_SORTED_AT_WRITE (oimdb.ts:177, 1212). It builds the OIMDB, an OIMEffectService, the entity service from createRowEntityService (106-107) with its createStoreSlot() and the group orders from createGroupOrdersSortedAtWrite (145-175): createOIMSlotCollectionSortedArrayIndexService on group with sortColumns BY_RANK_THEN_ID (152-158). A view holds one bucket slot through indexService.holdSlotByKey (164, makeView 315-339) and watches it with effectService.createEffect([bucketSlot], NO_SOURCE_COMPUTEDS, …) (172); resync (340-377) and refresh (378-) walk the page from the view's offset with getBucketMemberSlotCount and getBucketMemberSlotAt (169-170) and hold the rank+label column group of each visible row. The index wakes that bucket slot when membership changes or a member's sort column changes: OIMSlotCollectionSortedArrayIndexService.onBucketColumnsChanged repositions only when a sort column is among the changed ones (packages/core/src/index/OIMSlotCollectionSortedArrayIndexService.ts:42-48), and repositionBucketMemberSlot marks the bucket changed when the member was removed and re-added (bucket/OIMSlotContentSortedArrayBucketService.ts:49-58), which is every rank or id write of a member, whether or not its position moves. A label or note write does not touch the bucket. The writes are bindRowWrites (221-276), the oimdb row's: writeSlotContentByKey per row inside writeInBatch, label and note patches assign slot.entity and call markEntityChanged with the one column, setGroup and setRank are updateEntityColumn; frame is entityService.writeInBatch(entityStoreSlot, run) (266-268), settle is db.flush then paint (269-272). dispose (531-544) is OIMChannelService.dropChannelSlot and the adapter's arrays cleared. Not measured."
   bindPerGroup:
     verdict: "idiomatic"
     note: "The same body with fifty held buckets (oimdb.ts:1153-1154), so every write files into one of fifty sorted-array buckets and a rank write repositions the row in its own bucket; no sorted computed is maintained beside them."
@@ -33,7 +33,7 @@ wirings:
     note: "entityService.findSlotByKey(entityStoreSlot, key)?.entity per key inside readKeys, nothing resolved before the call (oimdb.ts:818-826). Every key the plan names is a stored row's id."
   reads.byWindow:
     verdict: "idiomatic"
-    note: "bindReadViews (oimdb.ts:773-856) is called with the sorted-at-write strategy (1139-1141) and builds two sorted-array indexes through it (790-795): the group one with OIMSlotNeverReleasePolicy, the axis one with the default policy. scrollTo (830-835) only moves the offset and marks the view; the next settle's resync re-reads the page from the bucket with getBucketMemberSlotAt from the new offset. The ordering of rows appended since the last read is settled on that read: the bucket keeps an unsorted tail and getBucketMemberSlotAt orders it through sortBucketMemberSlots, by binary insertion for at most eight appended members and by a full sort above that (packages/core/src/engine/bucket/array/OIMBucketMemberSlotsArrayService.ts:8, 114-141; facade/bucket/OIMSlotContentSortedArrayBucketService.ts:26-31)."
+    note: "bindReadViews (oimdb.ts:773-856) is called with the sorted-at-write strategy (1139-1141) and builds two sorted-array indexes through it (790-795): the group one with OIMSlotNeverReleasePolicy, the axis one with the default policy. scrollTo (830-835) only moves the offset and marks the view; the next settle's resync re-reads the page from the bucket with getBucketMemberSlotAt from the new offset. The ordering of rows appended since the last read is settled on that read: the bucket keeps an unsorted tail and getBucketMemberSlotAt orders it through sortBucketMemberSlots, by binary insertion for at most eight appended members and by a full sort above that (packages/core/src/bucket/array/OIMBucketMemberSlotsArrayService.ts:8, 114-141; bucket/OIMSlotContentSortedArrayBucketService.ts:26-31)."
   reads.byTwoAxes:
     verdict: "idiomatic"
     note: "A second sorted-array index whose keyOf answers OFF_THE_SECOND_AXIS for rows off the axis (oimdb.ts:767, 791-795), the composite-predicate form; view B holds group A's bucket in it (804). The library files and orders both indexes on a write."
@@ -79,20 +79,20 @@ and differ only in what a group order is:
 `createOIMSlotCollectionSortedArrayIndexService` is imported from the package root (`oimdb.ts:1`);
 `holdSlotByKey`, `getBucketMemberSlotCount`, `getBucketMemberSlotAt` and
 `owner.unholdSlot` are public members of the returned `OIMSlotCollectionSortedArrayIndexService`
-(`packages/core/src/facade/index/OIMSlotCollectionSortedArrayIndexService.ts`,
-`facade/bucket/OIMSlotContentArrayBucketService.ts:75-88`, `facade/slot/OIMSlotCollectionService.ts:93`). No adapter code reports a sort move: the
+(`packages/core/src/index/OIMSlotCollectionSortedArrayIndexService.ts`,
+`bucket/OIMSlotContentArrayBucketService.ts:75-88`, `slot/OIMSlotCollectionService.ts:93`). No adapter code reports a sort move: the
 index repositions the row when a write changes `rank` or `id`.
 
 ## What the index does on a write
 
 - **Filing.** The index reads `keyOf` on a write that changes `group` and moves
   the row between buckets; a new member is appended to the bucket's array
-  (`OIMSlotContentArrayBucketService.addSlot`, `facade/bucket/OIMSlotContentArrayBucketService.ts:26`,
-  `OIMBucketMemberSlotsArrayService.appendBucketMemberSlot`, `engine/bucket/array/OIMBucketMemberSlotsArrayService.ts:22-25`).
+  (`OIMSlotContentArrayBucketService.addSlot`, `bucket/OIMSlotContentArrayBucketService.ts:26`,
+  `OIMBucketMemberSlotsArrayService.appendBucketMemberSlot`, `bucket/array/OIMBucketMemberSlotsArrayService.ts:22-25`).
 - **Reposition.** A write that changes a sort column removes the member
   (`indexOf` plus `splice`, `OIMBucketMemberSlotsArrayService.ts:36-43`) and appends it again
   (`OIMSlotContentSortedArrayBucketService.repositionBucketMemberSlot`,
-  `facade/bucket/OIMSlotContentSortedArrayBucketService.ts:40-48`), then marks the bucket slot changed.
+  `bucket/OIMSlotContentSortedArrayBucketService.ts:40-48`), then marks the bucket slot changed.
 - **Order on read.** The appended tail is ordered on the next read of that bucket
   (`sortBucketMemberSlots`, `OIMBucketMemberSlotsArrayService.ts:114-141`), by binary insertion and two `splice`s per member up to eight
   members, by `Array.prototype.sort` over the whole bucket above eight. In this suite

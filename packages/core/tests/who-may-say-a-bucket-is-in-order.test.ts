@@ -156,7 +156,7 @@ describe('who may say a bucket is in order', () => {
     /** The reader is checking a real tree, not an empty one. */
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts')).toBe(true);
+        expect(files.some(file => file.path === 'bucket/OIMSlotContentPositionalArrayBucketService.ts')).toBe(true);
     });
 
     /**

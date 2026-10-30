@@ -8,9 +8,9 @@
  * value one call earlier — "did this column move?" — which three write-path
  * defaults answered by hand with `(a, b) => a === b`:
  *
- *   - `createOIMEntityWriterInPlace`, which every collection takes through
- *     `createOIMEntityWriterInPlace()`;
- *   - `createOIMEntityWriterReplacing`;
+ *   - `createOIMInPlaceEntityWriter`, which every collection takes through
+ *     `createOIMInPlaceEntityWriter()`;
+ *   - `createOIMReplacingEntityWriter`;
  *   - the equality gate of a derivation, which is a computed slot's `sameValueGuard`.
  *
  * So one write held two answers about one value. The strategy said the `NaN`
@@ -18,7 +18,7 @@
  * collection, and drove the reindex — and the index it drove asked
  * `isAddressedBy`, which is `oimSameValueZeroGuard`, which said the slot had not moved at all.
  * A poll re-sending unchanged entities therefore woke every subscriber of every
- * such slot for ever, and under `createOIMEntityWriterReplacing` allocated a fresh entity and
+ * such slot for ever, and under `createOIMReplacingEntityWriter` allocated a fresh entity and
  * handed a new reference to every reader that compares by reference. Nothing
  * threw.
  *
@@ -36,26 +36,26 @@
  * is the container's, asked below by resolving the same `NaN` key twice, beside
  * `oimSameValueZeroGuard` asked directly.
  */
-import { OIMDB } from '../src/factories/OIMDB';
-import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
-import { oimSameValueZeroGuard } from '../src/engine/slot/utils/oimSameValueZeroGuard';
-import { createOIMEntityWriterInPlace } from '../src/factories/createOIMEntityWriterInPlace';
-import { createOIMEntityWriterReplacing } from '../src/factories/createOIMEntityWriterReplacing';
-import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
-import type { IOIMEntityWriter } from '../src/engine/entity/interfaces/IOIMEntityWriter';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
-import { createOIMSingleComputedService } from '../src/factories/createOIMSingleComputedService';
+import { OIMDB } from '../src/db/OIMDB';
+import { OIMEffectService } from '../src/effect/OIMEffectService';
+import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
+import { createOIMInPlaceEntityWriter } from '../src/entity/createOIMInPlaceEntityWriter';
+import { createOIMReplacingEntityWriter } from '../src/entity/createOIMReplacingEntityWriter';
+import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import type { IOIMEntityWriter } from '../src/entity/interfaces/IOIMEntityWriter';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
+import { createOIMSingleComputedService } from '../src/computed/createOIMSingleComputedService';
 
 type TReading = { id: string; score: number; label: string };
 
 /**
  * A channel and a collection reporting into it. The write strategy is a
  * parameter because two of the cases below are about which strategy answers:
- * the default in-place one, and `createOIMEntityWriterReplacing`.
+ * the default in-place one, and `createOIMReplacingEntityWriter`.
  */
-const createFixture =(strategy: IOIMEntityWriter = createOIMEntityWriterInPlace()) => {
+const createFixture =(strategy: IOIMEntityWriter = createOIMInPlaceEntityWriter()) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     const readingsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TReading>(db, { entityWriter: strategy }) });
@@ -84,8 +84,8 @@ describe('a column that is not equal to itself', () => {
         // The two things a write reports — the slot and the columns it moved.
         // `OIMSlotContentEntityStrategy` writes both, so a column
         // wrongly called displaced is heard on either of them.
-        effectService.createEffect(db, [slot], [], () => { slotWoke++; });
-        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, () => { slotWoke++; }, [slot]);
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
         db.flush();
         slotWoke = 0;
         columnWoke = 0;
@@ -118,7 +118,7 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
 
         updateReading('r1',{ score: 2 });
         db.flush();
@@ -169,7 +169,7 @@ describe('a column that is not equal to itself', () => {
         expect(oimSameValueZeroGuard(Number.NaN, Number.NaN)).toBe(true);
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
 
         updateReading('r1',{ score: Number.NaN });
         db.flush();
@@ -194,8 +194,8 @@ describe('a column that is not equal to itself', () => {
      * against saw a different object on every re-send of an entity that never
      * changed.
      */
-    it('does not allocate a new entity when a NaN entity is re-sent under createOIMEntityWriterReplacing', () => {
-        const { db, readingsService, readings, updateReading } = createFixture(createOIMEntityWriterReplacing());
+    it('does not allocate a new entity when a NaN entity is re-sent under createOIMReplacingEntityWriter', () => {
+        const { db, readingsService, readings, updateReading } = createFixture(createOIMReplacingEntityWriter());
 
         readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number('not a number'), label: 'x' });
         db.flush();
@@ -259,8 +259,8 @@ describe('a column that is not equal to itself', () => {
         );
 
         let runCount = 0;
-        const reader = effectService.createEffect(db, [], [scoreCollectionService.getSingleSlot(score)], () => { runCount++; });
-        const readerBelow = effectService.createEffect(db, [], [belowService.computedSingleSlotService.getSingleSlot(below)], () => { /* keeps the lower level asked */ });
+        const reader = effectService.createEffect(db, () => { runCount++; }, [], [scoreCollectionService.getSingleSlot(score)]);
+        const readerBelow = effectService.createEffect(db, () => { /* keeps the lower level asked */ }, [], [belowService.computedSingleSlotService.getSingleSlot(below)]);
         readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: 1, label: 'x' });
         db.flush();
         expect(Number.isNaN(scoreValue())).toBe(true);
@@ -309,7 +309,7 @@ describe('a column that is not equal to itself', () => {
         const slot = readingsService.getSlotByKey(readings, 'r1');
 
         let columnWoke = 0;
-        effectService.createEffect(db, [readingsService.columnSlotService.holdColumn(slot, 'score')], [], () => { columnWoke++; });
+        effectService.createEffect(db, () => { columnWoke++; }, [readingsService.columnSlotService.holdColumn(slot, 'score')]);
 
         updateReading('r1',{ score: -0 });
         db.flush();

@@ -26,7 +26,7 @@ npm install @oimdb/react @oimdb/core
 ```
 
 There is no observable wrapper. A subscription is an effect,
-`OIMEffectService.INSTANCE.subscribeEffect(db, sourceSlots, sourceComputeds, body)`, and the value is read
+`OIMEffectService.INSTANCE.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`, and the value is read
 off the slots afterwards.
 
 ## Minimal usage
@@ -90,7 +90,7 @@ store slot fit it as well as a bucket collection. The hold is given back through
 ## Why one binding is enough
 
 Every hook here is built on one primitive, `useOIMValue`, because the core has one
-way to subscribe: `subscribeEffect(db, sourceSlots, sourceComputeds, body)`.
+way to subscribe: `subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
 The other hooks write the `useMemo` for common shapes. A binding has three parts:
 the roots a write can reach, the derivations to ask before reading, and the derive
 function.
@@ -153,7 +153,7 @@ const deckIndexService = createOIMSlotCollectionIndexService(db, {
 const deckIndex = deckIndexService.createIndexStoreSlot(cards);
 const byRankService = createOIMSortedComputedService({
   indexService: deckIndexService,
-  sortColumns: [{ column: 'rank', direction: 'asc' }],
+  sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const byRank = byRankService.createSortedStoreSlot(deckIndex);
 ```

@@ -35,11 +35,11 @@ export function useOIMSlotByKey<TKey extends NonNullable<unknown>, TSlot extends
             snapshotVersion,
             subscribe: (onStoreChange: () => void): TOIMDisposer => {
                 const holdingSlot = slotCollectionService.holdSlotByKey(storeSlot, settledKey);
-                const disposeEffect = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
+                const effectDisposer = oimSubscribeHeldSlot(db, hookName, snapshotVersion, holdingSlot, sourcesOfSlot, onStoreChange);
                 subscribedSlot = holdingSlot;
                 return () => {
                     subscribedSlot = undefined;
-                    disposeEffect();
+                    effectDisposer();
                 };
             },
             getSlot: (): TSlot => subscribedSlot ?? slotCollectionService.getSlotByKey(storeSlot, settledKey),

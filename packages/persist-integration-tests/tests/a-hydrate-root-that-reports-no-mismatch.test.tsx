@@ -2,7 +2,7 @@ import { act } from 'react';
 import { renderToString } from 'react-dom/server';
 import { hydrateRoot } from 'react-dom/client';
 import type { TOIMEntitySlot, TOIMStoreSlot } from '@oimdb/core';
-import { createOIMEntityWriterInPlace, OIMDB } from '@oimdb/core';
+import { createOIMInPlaceEntityWriter, OIMDB } from '@oimdb/core';
 import type { TOIMPersistHydrateReconcile, TOIMPersistRecords } from '@oimdb/persist';
 import {
     oimReconcileByKey,
@@ -45,7 +45,7 @@ const reconcileAnswerOntoQuestion: TOIMPersistHydrateReconcile<TOIMPersistRecord
 
 function createQuestionCollection(): TQuestionCollection {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, string>({
-        entityWriter: createOIMEntityWriterInPlace(),
+        entityWriter: createOIMInPlaceEntityWriter(),
     });
     const db = new OIMDB();
     const entityCollectionService = createQuestionCollectionService(db, persistEntityWriter);

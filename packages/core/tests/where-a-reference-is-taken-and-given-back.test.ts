@@ -1,21 +1,21 @@
-import type { TOIMColumnSlot } from '../src/engine/column/types/TOIMColumnSlot';
+import type { TOIMColumnSlot } from '../src/column/types/TOIMColumnSlot';
 /**
  * WHAT KEEPS AN IDENTITY THAT NOBODY HOLDS AND NOTHING VALUES: a column of it
  * that something refers to.
  */
-import { OIMEffectService } from '../src/engine/computed/OIMEffectService';
-import type { TOIMEffect } from '../src/engine/computed/types/TOIMEffect';
-import { OIMUnusedSlotCollectorService } from '../src/engine/collector/OIMUnusedSlotCollectorService';
-import { OIMDB } from '../src/factories/OIMDB';
-import type { IOIMSlotStamp } from '../src/engine/slot/interfaces/IOIMSlotStamp';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import type { TOIMStoreSlot } from '../src/engine/slot/types/TOIMStoreSlot';
-import type { TOIMSlot } from '../src/engine/slot/types/TOIMSlot';
-import { oimIsSlotEmpty } from '../src/engine/slot/utils/oimIsSlotEmpty';
-import { oimIsSlotReleased } from '../src/engine/slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../src/factories/createOIMSlotContentEntityService';
-import { createOIMSlotCollectionService } from '../src/factories/createOIMSlotCollectionService';
+import { OIMEffectService } from '../src/effect/OIMEffectService';
+import type { TOIMEffect } from '../src/effect/types/TOIMEffect';
+import { OIMUnusedSlotCollectorService } from '../src/collector/OIMUnusedSlotCollectorService';
+import { OIMDB } from '../src/db/OIMDB';
+import type { IOIMSlotStamp } from '../src/slot/interfaces/IOIMSlotStamp';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
+import type { TOIMStoreSlot } from '../src/slot/types/TOIMStoreSlot';
+import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
+import { oimIsSlotEmpty } from '../src/slot/utils/oimIsSlotEmpty';
+import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
+import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 describe('a subscribed column keeps its slot', () => {
     type TCard = { status?: string; title?: string; assignee?: string };
@@ -49,7 +49,7 @@ describe('a subscribed column keeps its slot', () => {
      * all four private to the channel.
      */
     const aDependentOn = (db: OIMDB, effectService: OIMEffectService, source: TOIMSlot): TOIMEffect =>
-        effectService.createEffect(db, [source], [], () => undefined);
+        effectService.createEffect(db, () => undefined, [source]);
 
     /** A slot of a collection, with a value, referred to by nothing. */
     const aCardIn = (

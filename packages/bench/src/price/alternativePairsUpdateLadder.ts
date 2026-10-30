@@ -1,5 +1,5 @@
-import { OIMChannelService, createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceFixture } from './priceFixture';
@@ -56,7 +56,7 @@ const guardedForIn: TRung = (fixture, trackedFrame, patch, upTo) => {
     }
 };
 
-const shippedWriter = createOIMEntityWriterInPlace();
+const shippedWriter = createOIMInPlaceEntityWriter();
 const channelService = OIMChannelService.INSTANCE;
 
 const writerObject: TRung = (fixture, trackedFrame, patch, upTo) => {
@@ -165,7 +165,7 @@ export const alternativePairsUpdateLadder: readonly TPricePair[] = [
     ladderPair('2-guards-and-same-value', guardedForIn, 'the same walk with the `__proto__` check, hasOwnProperty and oimSameValueZeroGuard',
         bareForIn, 'for…in over the patch, ===, queue once per frame',
         'the two key guards and the SameValueZero comparison the shipped walk runs.'),
-    ladderPair('3-writer-object', writerObject, 'createOIMEntityWriterInPlace().patchEntity(slot, patch), queue once per frame',
+    ladderPair('3-writer-object', writerObject, 'createOIMInPlaceEntityWriter().patchEntity(slot, patch), queue once per frame',
         guardedForIn, 'the same walk written inline',
         'the call through the shipped writer object instead of the walk inlined.'),
     ladderPair('4-channel', writerAndChannel, 'the shipped writer, then OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, slot); db.flush() per round',

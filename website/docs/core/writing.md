@@ -6,7 +6,7 @@ description: Which write door of an entity content service to call, what each wr
 # Writing
 
 ```ts setup
-import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMSlotEditable, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot } from '@oimdb/core';
+import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMEditable, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -114,7 +114,7 @@ of the store slot it is filed in, which is how an index re-files the entity — 
 const slot = cardService.writeSlotContentByKey(cards, 'c3', { id: 'c3', title: 'Three', rank: 3 });
 let rankRuns = 0;
 const rankColumn = cardService.columnSlotService.holdColumn(slot, 'rank');
-const rankEffect = effectService.createEffect(db, [rankColumn], [], () => { rankRuns++; });
+const rankEffect = effectService.createEffect(db, () => { rankRuns++; }, [rankColumn]);
 db.flush();
 rankRuns = 0;
 
@@ -170,7 +170,7 @@ cardService.writeInBatch(freshCards, () => ([
 
 Each `writeSlotContentByKey` looks its key up once: a new key gets a new identity, a key named twice is
 written twice into the same identity. The batch only changes who hears the writes: an index on the
-collection gets them in one `onContentChangedMany` when the batch closes. If an index throws, the writes
+collection gets them in one `onManyContentsChanged` when the batch closes. If an index throws, the writes
 that landed stay.
 
 ### The store keeps the object you insert
@@ -189,7 +189,7 @@ stores a copy with an own `__proto__` key removed: pick it when you insert untru
 as `entityInserter`, and it decides only the first value a slot gets (`fillEntity`):
 
 ```ts
-const copyingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
 const copiedCards = copyingCardService.createStoreSlot(db);
 
 const mine = { id: 'c9', title: 'Nine', rank: 9 };
@@ -235,7 +235,7 @@ No cast is needed. `TOIMEntitySlot` declares
 `readonly entity: TEntity | undefined`. `readonly` forbids *replacing* the
 object, not writing its columns, so `entity.title = 'two'` type-checks. You
 still have to narrow the `| undefined`. The type that removes `readonly` from
-the field itself is `TOIMSlotEditable<TSlot>`, and assigning
+the field itself is `TOIMEditable<TSlot>`, and assigning
 `slot.entity` is what needs it.
 
 Pass the list. With a list, only those columns
@@ -303,8 +303,8 @@ interface IOIMEntityWriter {
     readonly clearEntity: (slot: TOIMEntityContentSlot) => void;
 }
 
-createOIMEntityWriterInPlace(options?)   // the stored object keeps its identity
-createOIMEntityWriterReplacing(options?) // every write that changed something produces a new object
+createOIMInPlaceEntityWriter(options?)   // the stored object keeps its identity
+createOIMReplacingEntityWriter(options?) // every write that changed something produces a new object
 // TOIMEntityWriterOptions = { sameValueGuard?; entityInserter?; putEntityColumns?; patchEntityColumns?; patchEntityColumn? }
 ```
 
@@ -326,7 +326,7 @@ The writer is chosen once, at construction: the `entityWriter` option of the ent
 or of `OIMDB` for every collection of that db. Every store slot of one collection type shares it:
 
 ```ts
-const replacingDb = new OIMDB({ entityWriter: createOIMEntityWriterReplacing() });
+const replacingDb = new OIMDB({ entityWriter: createOIMReplacingEntityWriter() });
 const deckService = createOIMSlotCollectionService(replacingDb, { slotContentService: createOIMSlotContentEntityService<Card>(replacingDb) });
 const decks = deckService.createStoreSlot(replacingDb);
 
@@ -335,11 +335,11 @@ const before = aceSlot.entity;
 deckService.slotContentService.updateEntity(aceSlot, { rank: 2 });
 aceSlot.entity !== before;   // true
 
-const oneReplacingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMEntityWriterReplacing() }) });
+const oneReplacingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
 ```
 
 Left out everywhere, the writer is `OIMDefaults.ENTITY_WRITER.getValue()`, which is
-`createOIMEntityWriterInPlace()` unless replaced at startup. Replacing it after
+`createOIMInPlaceEntityWriter()` unless replaced at startup. Replacing it after
 anything has read it throws (`OIMDefaults.ENTITY_WRITER has already been handed
 out`), because every object built before would keep the old one.
 
@@ -352,7 +352,7 @@ oimPatchEntityColumn(slot, columnName: string, value: unknown, sameValueGuard, c
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
 oimPutEntityColumns(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
-oimPutEntityColumnsGuarded(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
+oimGuardedPutEntityColumns(slot, entity: object, sameValueGuard, changedColumnNames: string[] | undefined,
     targetOf: (entity: Record<string, unknown>) => Record<string, unknown>): Record<string, unknown> | undefined
 ```
 
@@ -368,12 +368,12 @@ with two arms:
 
 | Option | Default | Guarded arm |
 |---|---|---|
-| `putEntityColumns` | `oimPutEntityColumns` — skips neither `__proto__` keys nor inherited stored columns | `oimPutEntityColumnsGuarded` — skips both |
-| `patchEntityColumns` | `oimPatchEntityColumns` — every enumerable key of the patch | `oimPatchEntityColumnsGuarded` — skips a `__proto__` key and a key the patch does not own |
-| `patchEntityColumn` | `oimPatchEntityColumn` | `oimPatchEntityColumnGuarded` — refuses the column name `__proto__` |
+| `putEntityColumns` | `oimPutEntityColumns` — skips neither `__proto__` keys nor inherited stored columns | `oimGuardedPutEntityColumns` — skips both |
+| `patchEntityColumns` | `oimPatchEntityColumns` — every enumerable key of the patch | `oimGuardedPatchEntityColumns` — skips a `__proto__` key and a key the patch does not own |
+| `patchEntityColumn` | `oimPatchEntityColumn` | `oimGuardedPatchEntityColumn` — refuses the column name `__proto__` |
 
 Take the guarded arms, at a cost on every write, for values that can carry a `__proto__` key or are class
-instances, on `createOIMEntityWriterInPlace` or `createOIMEntityWriterReplacing`.
+instances, on `createOIMInPlaceEntityWriter` or `createOIMReplacingEntityWriter`.
 A writer of your own reuses the walks and decides only where the result goes.
 This one stores every value frozen:
 
@@ -382,11 +382,11 @@ const copyColumns = (entity: Record<string, unknown>): Record<string, unknown> =
 
 function storeFrozen(slot: TOIMEntityContentSlot, next: Record<string, unknown> | undefined): boolean {
     if (next === undefined) return false;
-    (slot as TOIMSlotEditable<TOIMEntityContentSlot>).entity = Object.freeze(next);
+    (slot as TOIMEditable<TOIMEntityContentSlot>).entity = Object.freeze(next);
     return true;
 }
 
-const replacingWriter = createOIMEntityWriterReplacing();
+const replacingWriter = createOIMReplacingEntityWriter();
 
 const freezingWriter: IOIMEntityWriter = {
     fillEntity: (slot, entity) => { storeFrozen(slot, copyColumns(entity as Record<string, unknown>)); },
@@ -410,7 +410,7 @@ const frozenCards = frozenCardService.createStoreSlot(db);
 
 ### Which strategy to pick
 
-`createOIMEntityWriterInPlace` keeps the stored object's reference stable across writes.
+`createOIMInPlaceEntityWriter` keeps the stored object's reference stable across writes.
 Readers must be subscription-driven: `slot.entity` before and after an update is
 `===`, so a binding that decides "did it change?" by comparing values will never
 fire. Your effect running is what tells you something happened.
@@ -422,7 +422,7 @@ column reads `undefined`, and a column holding `undefined` counts as absent: a P
 does not count it as leaving and a removal does not count it as removed, so neither
 wakes anyone for it.
 
-`createOIMEntityWriterReplacing` produces a new object per changed write, so a consumer that compares
+`createOIMReplacingEntityWriter` produces a new object per changed write, so a consumer that compares
 by reference (a memoised render, a shallow-equality selector, a library that
 diffs props) sees the change without being told. The new object is a spread copy
 (`oimCopyEntity`), and a column it takes away is
@@ -435,7 +435,7 @@ Both writers take it as `sameValueGuard` in their options, defaulting to `oimSam
 move" is not identity:
 
 ```ts
-createOIMEntityWriterInPlace({ sameValueGuard: (prev, next) => JSON.stringify(prev) === JSON.stringify(next) });
+createOIMInPlaceEntityWriter({ sameValueGuard: (prev, next) => JSON.stringify(prev) === JSON.stringify(next) });
 ```
 
 It decides *only* whether a column counts as moved, and therefore whether anyone
@@ -447,7 +447,7 @@ PUT and PATCH, so its cost is paid per column per write.
 ```ts
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMEntityWriterInPlace() }) });
+const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter() }) });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, sidebar: true });

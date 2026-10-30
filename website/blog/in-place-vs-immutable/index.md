@@ -43,4 +43,4 @@ Two updaters with different reference semantics. In-place skips an allocation bu
 - `packages/core-legacy/src/core/createMergeEntityUpdater.ts`
 - `packages/core-legacy/src/core/OIMCollection.ts`
 
-This is the legacy engine, kept at `packages/core-legacy`. The fork is still shipped as two strategies in the engine shipped today, under `createOIMEntityWriterInPlace` and `createOIMEntityWriterReplacing` in `packages/core/src/factories/`, and it is still chosen once at the collection's constructor rather than per call.
+This is the legacy engine, kept at `packages/core-legacy`. The fork is still shipped as two strategies in the engine shipped today, under `createOIMInPlaceEntityWriter` and `createOIMReplacingEntityWriter` in `packages/core/src/factories/`, and it is still chosen once at the collection's constructor rather than per call.

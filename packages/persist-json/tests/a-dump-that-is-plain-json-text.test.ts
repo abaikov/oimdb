@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '@oimdb/core';
-import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter } from '@oimdb/core';
 import type { TOIMPersistRecords, TOIMPersistVersionedShape } from '@oimdb/persist';
 import {
     OIMPersistIdentityCodec,
@@ -30,7 +30,7 @@ const secondQuestion: TQuestion = { id: 'q2', text: 'Grace' };
 
 function buildQuestions(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
-        entityWriter: createOIMEntityWriterInPlace(),
+        entityWriter: createOIMInPlaceEntityWriter(),
     });
     const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);

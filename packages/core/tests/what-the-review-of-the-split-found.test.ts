@@ -2,14 +2,14 @@ import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotC
 import type { TOIMEntitySlot } from '../src/index';
 import { createOIMSlotContentEntityService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
-import { OIMSlotTreeStoreService } from '../src/engine/store/OIMSlotTreeStoreService';
-import { OIMDefaults } from '../src/factories/OIMDefaults';
-import type { TOIMStoreKey } from '../src/engine/store/types/TOIMStoreKey';
-import type { TOIMBucketSlot } from '../src/engine/bucket/types/TOIMBucketSlot';
-import type { TOIMBucketSlotsArrayStore } from '../src/engine/bucket/array/types/TOIMBucketSlotsArrayStore';
-import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
-import type { IOIMSlotStoreService } from '../src/engine/store/interfaces/IOIMSlotStoreService';
-import type { TOIMSlotStoreTree } from '../src/engine/store/types/TOIMSlotStoreTree';
+import { OIMSlotTreeStoreService } from '../src/store/OIMSlotTreeStoreService';
+import { OIMDefaults } from '../src/db/OIMDefaults';
+import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
+import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
+import type { TOIMBucketSlotsArrayStore } from '../src/bucket/array/types/TOIMBucketSlotsArrayStore';
+import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
+import type { IOIMSlotStoreService } from '../src/store/interfaces/IOIMSlotStoreService';
+import type { TOIMSlotStoreTree } from '../src/store/types/TOIMSlotStoreTree';
 
 type TCard = { id: string; deck: string; title: string };
 
@@ -19,7 +19,7 @@ type TSuitedCard = { id: string; deck: string; suit: string; title: string };
 
 const byDeckAndSuitBucketStoreService = <TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TSuitedCard>>>() => new OIMSlotTreeStoreService<
     TOIMStoreKey, TOIMBucketSlot<TSlots, readonly [string, string]>
->(OIMDefaults.KEY_TREE_WALK_SCALAR.getValue()) as unknown as IOIMSlotStoreService<
+>(OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()) as unknown as IOIMSlotStoreService<
     readonly [string, string], TOIMBucketSlot<TSlots, readonly [string, string]>,
     TOIMSlotStoreTree<TOIMBucketSlot<TSlots, readonly [string, string]>, TOIMStoreKey>
 >;
@@ -61,12 +61,12 @@ describe('what a dispose called inside a flush leaves behind', () => {
         });
         const byDeckToo = byDeckTooService.createIndexStoreSlot(cards);
         const run = { isArmed: false, runCount: 0, refusal: undefined as unknown };
-        effectService.createEffect(db, [cardsService.getSlotByKey(cards, 'a')], [], () => {
+        effectService.createEffect(db, () => {
             if (!run.isArmed) return;
             run.isArmed = false;
             run.runCount++;
             run.refusal = refusalOf(() => { byDeckService.disposeIndexStoreSlot(byDeck); });
-        });
+        }, [cardsService.getSlotByKey(cards, 'a')]);
         db.flush();
         const updateCard = (key: string, patch: Partial<TCard>): void => {
             const cardSlot = cardsService.findSlotByKey(cards, key);

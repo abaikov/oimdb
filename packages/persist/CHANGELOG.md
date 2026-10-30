@@ -5,7 +5,7 @@ before it were not changelogged.
 
 ## 4.1.0
 
-Breaking: exports renamed, source options changed. Requires `@oimdb/core` 4.1.0.
+Breaking: exports renamed, source options changed. Requires `@oimdb/core` 4.2.0.
 
 ### Changed
 

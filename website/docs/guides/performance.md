@@ -56,7 +56,7 @@ is a slot with its own dependent list:
 
 ```typescript
 const deckColumn = cardService.columnSlotService.getColumn(slot, 'deck');
-effectService.createEffect(db, [deckColumn], [], handler);
+effectService.createEffect(db, handler, [deckColumn]);
 entityService.updateEntity(slot, { title: 'ACE' });   // never reaches handler
 entityService.updateEntity(slot, { deck: 'hearts' }); // reaches handler
 ```
@@ -156,7 +156,7 @@ price on this engine.** The guidance below rests on architecture, not measuremen
 
 | Fork | Pick the first strategy when | Pick the second when |
 |---|---|---|
-| `createOIMEntityWriterInPlace` / `createOIMEntityWriterReplacing` | consumers are subscription-driven | something downstream compares by reference |
+| `createOIMInPlaceEntityWriter` / `createOIMReplacingEntityWriter` | consumers are subscription-driven | something downstream compares by reference |
 | `OIMSlotContentSetBucketService` / `OIMSlotContentPositionalArrayBucketService` | you never render this bucket in the caller's order | you do, and you want the reorder commands |
 | `OIMSlotContentPositionalArrayBucketService` / `OIMBucketUniqueMemberSlotsArrayService` | duplicates in a bucket are meaningful | a slot must appear once |
 | `createOIMSortedComputedService` with `sortColumns` / with only a `comparator` | the order is a function of named columns | the comparator reads what no column list can name, so any member write re-sorts |

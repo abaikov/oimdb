@@ -8,14 +8,14 @@ export class OIMSnapshotVersion {
 
     public subscribeEffect(
         channelMap: IOIMChannelMap,
-        sourceSlots: readonly TOIMSlot[],
-        sourceComputeds: readonly TOIMComputedContentSlot[],
         onStoreChange: () => void,
+        sourceSlots?: readonly TOIMSlot[],
+        sourceComputeds?: readonly TOIMComputedContentSlot[],
     ): TOIMDisposer {
         this.version++;
-        return OIMEffectService.INSTANCE.subscribeEffect(channelMap, sourceSlots, sourceComputeds, () => {
+        return OIMEffectService.INSTANCE.subscribeEffect(channelMap, () => {
             this.version++;
             onStoreChange();
-        });
+        }, sourceSlots, sourceComputeds);
     }
 }

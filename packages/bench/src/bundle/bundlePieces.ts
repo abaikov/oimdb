@@ -42,9 +42,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
         armIds: [ARM_EVERYTHING, ARM_DATABASE_ONLY, ARM_WITHOUT, ARM_WITH],
         findings: bundleOrderedListFindings,
         spotlight: {
-            module: 'engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+            module: 'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
             label: 'diff?',
-            name: 'engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
+            name: 'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
         },
         decompose: [{ findingId: 'ordered-list-diff', from: ARM_WITHOUT, to: ARM_WITH }],
         closing: {
@@ -101,9 +101,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
          * arithmetic in between.
          */
         spotlight: {
-            module: 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            module: 'bucket/OIMSlotContentPositionalArrayBucketService.ts',
             label: 'array?',
-            name: 'facade/bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            name: 'bucket/OIMSlotContentPositionalArrayBucketService.ts',
         },
         decompose: [
             {
@@ -174,7 +174,7 @@ export const bundlePieces: readonly TBundlePiece[] = [
             + 'application the cost is one field test per write. THE BYTES ARE THE OPEN QUESTION. THE '
             + 'TWO ARMS DIFFER IN THE ENGINE, NOT IN THE CONSUMER, and they have to: the code of '
             + 'the column owner is LINKED into the bundle by the `createColumnSlotOwner` option that '
-            + '`oimSlotOwnerOptionsWithDefault` hands to `OIMSlotOwnerService`, and by the '
+            + '`oimResolveSlotOwnerServiceOptions` hands to `OIMSlotOwnerService`, and by the '
             + '`columnSlotOwner.markColumnsChanged` calls on the write paths, so '
             + 'nothing a consumer writes can decline it and two arms over today\'s engine would '
             + 'differ by exactly zero. The second arm is therefore a COUNTERFACTUAL BUILD: the '
@@ -193,9 +193,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
          * lifted arm is the artifact's own proof that no link to it was missed.
          */
         spotlight: {
-            module: 'engine/column/OIMPushColumnSlotOwner.ts',
+            module: 'column/OIMPushColumnSlotOwner.ts',
             label: 'columns?',
-            name: 'engine/column/OIMPushColumnSlotOwner.ts',
+            name: 'column/OIMPushColumnSlotOwner.ts',
         },
         decompose: [
             { findingId: 'field-machinery-diff', from: ARM_FIELD_LIFTED, to: ARM_FIELD_FLOOR },
@@ -204,7 +204,7 @@ export const bundlePieces: readonly TBundlePiece[] = [
             heading: 'IF THIS COMES OUT SMALL — AND IT VERY PROBABLY WILL',
             paragraphs: [
                 'THEN THE QUESTION IS CLOSED, AND THAT IS THE RESULT. '
-                + '`engine/column/OIMPushColumnSlotOwner.ts` and the base it extends are the only code '
+                + '`column/OIMPushColumnSlotOwner.ts` and the base it extends are the only code '
                 + 'the removed links keep alive, and the write path\'s share is three calls. '
                 + 'A measured "this is not worth splitting" is worth more than a '
                 + 'split nobody needed, and it is the entry that the column layer\'s omission from '
@@ -232,8 +232,8 @@ export const bundlePieces: readonly TBundlePiece[] = [
                 + 'has not been.',
 
                 'WHAT DESERVES ATTENTION EITHER WAY IS THE SHAPE OF THE BREAKDOWN. If the '
-                + 'difference is mostly `engine/column/OIMPushColumnSlotOwner.ts` and '
-                + '`engine/column/OIMColumnSlotOwner.ts`, the weight is in the owner itself and the service '
+                + 'difference is mostly `column/OIMPushColumnSlotOwner.ts` and '
+                + '`column/OIMColumnSlotOwner.ts`, the weight is in the owner itself and the service '
                 + 'option is what a split would have to move. If it is mostly `engine/entity/OIMEntityContentInternalService.ts` and '
                 + '`engine/bucket/OIMBucketContentInternalService.ts`, the weight is on the write '
                 + 'path, and the nanosecond cost in the paragraph above is the one that decides '

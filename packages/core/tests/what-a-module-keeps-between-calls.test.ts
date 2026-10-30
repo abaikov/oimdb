@@ -103,35 +103,35 @@ const DEFAULT_VALUE = 'one OIMDefaultValue: a name, a factory, a lazily built pr
     + 'handed-out boolean; every class behind a default declares no instance field, which is the case below';
 
 const PINNED: readonly (readonly [string, string])[] = [
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:anchors', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:anchors', DIFF_SCRATCH],
     [
-        'core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:indexInNext',
+        'core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:indexInNext',
         'THE ONLY SCRATCH IN THIS FILE KEYED BY A SLOT. One diff leaves next.length slot references '
         + 'reachable until the next call, which replaces the Map above OIM_MAX_DIFF_SCRATCH_SLOTS '
         + 'and clears it at or under — so the count is bounded by the next caller and never by this one',
     ],
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:occurrenceAfter', DIFF_SCRATCH],
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:predecessor', DIFF_SCRATCH],
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:removedPrevIndices', DIFF_SCRATCH],
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:tails', DIFF_SCRATCH],
-    ['core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:futureBucketIndices', DIFF_SCRATCH],
-    ['core/factories/defaults/OIM_DEFAULT_STORE_SLOT_LISTENER.ts:OIM_DEFAULT_STORE_SLOT_LISTENER', DEFAULT_VALUE],
-    ['core/factories/defaults/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
-    ['core/factories/defaults/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
-    ['core/factories/defaults/OIM_DEFAULT_KEY_TREE_WALK_COMPOSITE.ts:OIM_DEFAULT_KEY_TREE_WALK_COMPOSITE', DEFAULT_VALUE],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:occurrenceAfter', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:predecessor', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:removedPrevIndices', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:tails', DIFF_SCRATCH],
+    ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:futureBucketIndices', DIFF_SCRATCH],
+    ['core/db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER.ts:OIM_DEFAULT_STORE_SLOT_LISTENER', DEFAULT_VALUE],
+    ['core/db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
+    ['core/db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
+    ['core/db/constants/OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK.ts:OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK', DEFAULT_VALUE],
     [
-        'core/factories/defaults/OIM_DEFAULT_ENTITY_SLOT_EMPTINESS.ts:OIM_DEFAULT_ENTITY_SLOT_EMPTINESS',
+        'core/db/constants/OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY.ts:OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY',
         'one OIMDefaultValue whose value is an object literal with one method reading slot.entity; it closes over nothing',
     ],
     [
-        'core/factories/defaults/OIM_DEFAULT_ENTITY_WRITER.ts:OIM_DEFAULT_ENTITY_WRITER',
+        'core/db/constants/OIM_DEFAULT_ENTITY_WRITER.ts:OIM_DEFAULT_ENTITY_WRITER',
         'one OIMDefaultValue whose value is the in-place writer, free functions behind one object that close over nothing',
     ],
     [
-        'core/factories/defaults/OIM_DEFAULT_INDEX_KEYS_SERVICE.ts:OIM_DEFAULT_INDEX_KEYS_SERVICE',
+        'core/db/constants/OIM_DEFAULT_INDEX_KEYS_SERVICE.ts:OIM_DEFAULT_INDEX_KEYS_SERVICE',
         'one OIMDefaultValue whose value is the appending index-keys service, which holds no state and closes over nothing',
     ],
-    ['core/factories/defaults/OIM_DEFAULT_KEY_TREE_WALK_SCALAR.ts:OIM_DEFAULT_KEY_TREE_WALK_SCALAR', DEFAULT_VALUE],
+    ['core/db/constants/OIM_DEFAULT_SCALAR_KEY_TREE_WALK.ts:OIM_DEFAULT_SCALAR_KEY_TREE_WALK', DEFAULT_VALUE],
     [
         'devtools/oimDevRegistry.ts:oimDevRegistry',
         'THE ONE UNBOUNDED HOLDER OF A SLOT GRAPH IN THIS REPOSITORY, and the only one on this list that '
@@ -255,11 +255,11 @@ const stateHeldBySingletonsIn = (file: TFile): string[] => {
 };
 
 const EVERY_CLASS_A_DEFAULT_HANDS_BACK: readonly string[] = [
-    'core/engine/slot/OIMSlotOwner.ts',
-    'core/engine/store/OIMSlotMapStoreService.ts',
-    'core/engine/key/OIMKeyTreeWalk.ts',
-    'core/engine/key/OIMScalarKeyTreeWalk.ts',
-    'core/engine/key/OIMCompositeKeyTreeWalk.ts',
+    'core/slot/OIMSlotOwner.ts',
+    'core/store/OIMSlotMapStoreService.ts',
+    'core/key/OIMKeyTreeWalk.ts',
+    'core/key/OIMScalarKeyTreeWalk.ts',
+    'core/key/OIMCompositeKeyTreeWalk.ts',
 ];
 
 describe('what a module keeps between calls', () => {
@@ -270,7 +270,7 @@ describe('what a module keeps between calls', () => {
         expect(packageNames()).not.toContain('bench');
         expect(packageNames()).not.toContain('core-legacy');
         expect(OUTSIDE_THIS_CENSUS.map(([, reason]) => reason === '')).toEqual([false, false]);
-        expect(holdersIn(fileAt('core/engine/channel/OIMChannelService.ts'))).toEqual([]);
+        expect(holdersIn(fileAt('core/channel/OIMChannelService.ts'))).toEqual([]);
     });
 
     it('every module-level holder under src is one this file pins, with a reason beside it', () => {
@@ -295,12 +295,12 @@ describe('what a module keeps between calls', () => {
 
     it('every class behind a static INSTANCE holds only config: readonly fields no method assigns', () => {
         const singletonFiles = files.filter(file => file.lines.some(line => /^\s+public static readonly INSTANCE = new /.test(line)));
-        expect(singletonFiles.map(file => file.site)).toContain('core/engine/channel/OIMChannelService.ts');
+        expect(singletonFiles.map(file => file.site)).toContain('core/channel/OIMChannelService.ts');
         expect(singletonFiles.flatMap(file => stateHeldBySingletonsIn(file))).toEqual([]);
     });
 
     it('the diff keeps one slot-keyed scratch and drops the slots on both of its branches', () => {
-        const lines = fileAt('core/engine/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts').lines;
+        const lines = fileAt('core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts').lines;
         expect(lines.filter(line => /^let .*Map<TOIMSlot/.test(line))).toHaveLength(1);
         expect(lines.filter(line => /^let .*Int32Array/.test(line))).toHaveLength(6);
 

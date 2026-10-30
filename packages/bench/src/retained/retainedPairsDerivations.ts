@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotMapStoreService, oimSameValueZeroGuard, createOIMComputedService, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMDB, OIMSlotMapStoreService, oimSameValueZeroGuard, createOIMComputedService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { OIMComputedService, TOIMColumnSlot, TOIMComputedColumnSlot, TOIMComputedSlot, TOIMComputedStoreSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import type { TPriceEntityService } from '../price/priceFixture';
 import { ERetainedPath } from './ERetainedPath';
@@ -58,7 +58,7 @@ const populatedEntityService = (): {
     slots: TRowSlot[];
 } => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDerivationRow>(db, { entityWriter: createOIMEntityWriterInPlace() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDerivationRow>(db, { entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const groups = groupNames();
     const slots: TRowSlot[] = new Array<TRowSlot>(ROWS);

@@ -97,7 +97,7 @@ const NAME_NET = /\b([A-Za-z_$][\w$]*(?:InFrame|Through|ThisFrame))\b/g;
  * net reporting nothing rather than zero findings.
  */
 const COLLECTION_NET = /([A-Za-z_$][\w$]*)\s*:\s*new\s+(?:Set|Map)\b/g;
-const COLLECTION_NET_FILE = 'engine/channel/utils/createOIMChannelSlot.ts';
+const COLLECTION_NET_FILE = 'channel/utils/createOIMChannelSlot.ts';
 
 const NOT_A_STAMP = new Set(['frameNumber', 'number']);
 
@@ -249,7 +249,7 @@ const dualPurpose = stamps.filter(stamp => {
 describe('what every frame stamp answers', () => {
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'engine/channel/OIMChannelService.ts')).toBe(true);
+        expect(files.some(file => file.path === 'channel/OIMChannelService.ts')).toBe(true);
         // Net C's scope is a path, so a rebuild can move it without a word and
         // leave the net finding nothing in a file that is not there.
         expect(files.some(file => file.path === COLLECTION_NET_FILE)).toBe(true);

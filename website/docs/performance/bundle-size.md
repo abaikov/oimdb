@@ -12,9 +12,9 @@ ESM). `npm run size` measures it and fails when this table no longer matches;
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 98595 B | 24021 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35378 B | 9265 B |
-| The same, plus one effect and `db.flush()` | 44019 B | 11377 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 64397 B | 16056 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48514 B | 12234 B |
+| Everything `@oimdb/core` exports | 102815 B | 24890 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35518 B | 9352 B |
+| The same, plus one effect and `db.flush()` | 45681 B | 11769 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 65917 B | 16408 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48571 B | 12301 B |
 {/* bundle-size:end */}

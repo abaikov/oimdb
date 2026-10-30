@@ -6,7 +6,7 @@
  * `OIMSubscriberStore` and `OIMSlotContentSetBucketService` were written apart and
  * arrived at the same object: a `Set` living on a field of somebody else's
  * struct, private to its owner, with entry, exit and a count offered publicly.
- * `src/engine/bucket/array/interfaces/IOIMBucketMemberSlotsArrayService.ts` names that, and naming
+ * `src/bucket/array/interfaces/IOIMBucketMemberSlotsArrayService.ts` names that, and naming
  * it is the entire change — the shape is shared and NOTHING ELSE IS.
  *
  * A slot's dependents are a plain `TOIMEffect[]` on `TOIMSlot.effects`, written
@@ -33,10 +33,10 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { OIMSlotContentSetBucketService } from '../src/facade/bucket/OIMSlotContentSetBucketService';
-import type { TOIMBucketSlot } from '../src/engine/bucket/types/TOIMBucketSlot';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
-import type { TOIMBucketSlotsSetStore } from '../src/engine/bucket/types/TOIMBucketSlotsSetStore';
+import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
+import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
 
 class OIMBucketSlotsServiceSetDriven extends OIMSlotContentSetBucketService<TOIMEntitySlot> {
     public createStore(): TOIMBucketSlotsSetStore<TOIMEntitySlot> { return this.createBucketMemberSlotsStore(); }
@@ -162,7 +162,7 @@ describe('a shared shape is not a shared domain', () => {
      * and `storage`, `getStore`, `init` and `mint` are kept OFF on purpose.
      */
     it('the interface declares the member slots and no way to reach a field', () => {
-        const declared = [...sourceOf('engine/bucket/array/interfaces/IOIMBucketMemberSlotsArrayService.ts')
+        const declared = [...sourceOf('bucket/array/interfaces/IOIMBucketMemberSlotsArrayService.ts')
             .matchAll(/^ {4}([a-z]\w*)\(/gm)].map(match => match[1]);
         expect(declared).toEqual([
             'createBucketSlotsArrayStore', 'hasBucketMemberSlot', 'appendBucketMemberSlot', 'insertBucketMemberSlotAt',
@@ -191,7 +191,7 @@ describe('what naming the shape was not allowed to cost', () => {
      * accessor, and nothing in the file routes through an `ensure`.
      */
     it('the unordered add reaches its own field directly, with no ensure between', () => {
-        const source = sourceOf('facade/bucket/OIMSlotContentSetBucketService.ts');
+        const source = sourceOf('bucket/OIMSlotContentSetBucketService.ts');
         expect(source).toContain('const bucketMemberSlotsSetStore = bucketSlot.bucketSlotsStore;');
         expect(source).toContain('bucketMemberSlotsSetStore.add(bucketMemberSlot);');
         expect(source).not.toContain('ensure(');
@@ -204,7 +204,7 @@ describe('what naming the shape was not allowed to cost', () => {
      * because nothing else in the suite would notice it changing.
      */
     it('the array member service names the interface as a type', () => {
-        expect(sourceOf('engine/bucket/array/OIMBucketMemberSlotsArrayService.ts'))
+        expect(sourceOf('bucket/array/OIMBucketMemberSlotsArrayService.ts'))
             .toContain("import type { IOIMBucketMemberSlotsArrayService } from './interfaces/IOIMBucketMemberSlotsArrayService';");
     });
 });

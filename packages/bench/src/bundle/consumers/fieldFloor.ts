@@ -31,17 +31,17 @@ bucketService.holdSlotByKey(bucketStoreSlot, 'spades');
 const spadesSlot = bucketService.getSlotByKey(bucketStoreSlot, 'spades');
 bucketService.slotContentService.writeSlotContent(spadesSlot, [c1, c2]);
 
-held.push(effectService.createEffect(db, [spadesSlot], [], () => {
+held.push(effectService.createEffect(db, () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);
     held.push(bucketService.slotContentService.getBucketMemberSlotCount(spadesSlot));
-}));
+}, [spadesSlot]));
 
 /* ── one row, watched whole — never by column ───────────────────────────── */
 
 // `effectService.createEffect` over the SLOT — the whole-row signal, never
 // over a column slot, which is the narrower door this arm exists to
 // decline. No column identity is ever minted for any row here.
-held.push(effectService.createEffect(db, [c1], [], () => { held.push(c1.entity); }));
+held.push(effectService.createEffect(db, () => { held.push(c1.entity); }, [c1]));
 
 entityService.slotContentService.updateEntity(c1, { title: 'ACE' });
 db.flush();

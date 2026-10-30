@@ -12,7 +12,7 @@ the client, an optimistic update that rolls back on failure, applying a patch
 pushed by the server, and keeping a Redux store in step with an entity store slot.
 
 ```ts setup
-import { OIMChannelService, OIMDB, OIMSlotContentSetBucketService, createOIMEntityWriterInPlace, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistCollectionChangeWriteRecordSource,
@@ -57,7 +57,7 @@ import { OIMPersistLocalStorageKeyValueBackend } from '@oimdb/persist-localstora
 type TCardRecords = TOIMPersistRecords<TOIMStoreKey, Card>;
 
 const savedCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
-  entityWriter: createOIMEntityWriterInPlace(),
+  entityWriter: createOIMInPlaceEntityWriter(),
 });
 const savedCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: savedCardPersistEntityWriter }) });
 const savedCardEntityStoreSlot = savedCardCollectionService.createStoreSlot(db);
@@ -117,7 +117,7 @@ it on every write batch.
 import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '@oimdb/persist-idb';
 
 const offlineCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
-  entityWriter: createOIMEntityWriterInPlace(),
+  entityWriter: createOIMInPlaceEntityWriter(),
 });
 const offlineCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: offlineCardPersistEntityWriter }) });
 const offlineCardEntityStoreSlot = offlineCardCollectionService.createStoreSlot(db);

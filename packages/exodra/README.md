@@ -14,7 +14,7 @@ runtime. Your app already provides `@exodra/reactivity` for `bindable`, `derive`
 ## One door from the engine
 
 A subscription in this core is **one call**,
-`OIMEffectService.INSTANCE.createEffect(db, sourceSlots, sourceComputeds, body)`. The effect
+`OIMEffectService.INSTANCE.createEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`. The effect
 service is stateless; the `db` you pass is the channel map, and its `defaultChannelSlot` is the
 channel the effect runs on. The value is read off the slots afterwards instead of being carried
 by the subscription. So there is one adapter, and one entity, one column, a bucket's slots and a
@@ -41,7 +41,7 @@ const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const orderService = createOIMSortedComputedService({
     indexService: cardsByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const order = orderService.createSortedStoreSlot(cardsByDeck);
 const renderCard = (slot: TOIMEntitySlot): string => JSON.stringify(slot.entity);
@@ -118,7 +118,7 @@ Four things, because they do work that no core primitive does on its own:
 - **`exoFollowKey(key, makeBindable)`**: repoints a live subscription as a *selection*
   moves. `makeBindable` must hand back a `TOIMExoDisposable`, because repointing has to
   give the previous key's handle back. Otherwise every key transition strands one.
-- **`exoCombine(sources, fn)`**: fans in across *any* `TOIMExoReadable`, including local
+- **`exoCombine(fn, sources)`**: fans in across *any* `TOIMExoReadable`, including local
   UI state or two different channels. A computed also combines, but only inside one
   channel's graph, and unlike this function it is glitch-free.
 - **`exoRows(keys, render)`**: identity-stable children from a sequence of primary keys.

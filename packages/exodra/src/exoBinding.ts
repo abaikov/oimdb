@@ -15,6 +15,6 @@ export function exoBinding<TValue>(
             oimRefreshSourceComputeds(sourceComputeds);
             return derive();
         },
-        onChange => OIMEffectService.INSTANCE.subscribeEffect(channelMap, sourceSlots, sourceComputeds, onChange),
+        onChange => OIMEffectService.INSTANCE.subscribeEffect(channelMap, onChange, sourceSlots, sourceComputeds),
     );
 }

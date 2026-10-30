@@ -61,7 +61,7 @@ half of the same decision is `alternativePairsClock` in `src/price/`.
 ### What the global arm costs, for the reader taking the difference
 
 Nothing beyond the object in the first row. `ranAtRevision` and `ranAtEpoch` are
-two SMI fields declared on `TOIMDerivation`
-(`packages/core/src/engine/computed/types/TOIMDerivation.ts`), which `TOIMComputedSlot`
+two SMI fields declared on `TOIMComputedDerivation`
+(`packages/core/src/computed/types/TOIMComputedDerivation.ts`), which `TOIMComputedSlot`
 includes, so they are inside the first row's per-derivation figure and allocate
 nothing of their own. That asymmetry IS the comparison.

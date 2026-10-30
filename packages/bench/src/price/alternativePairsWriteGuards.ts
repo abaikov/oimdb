@@ -1,4 +1,4 @@
-import { createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '../../../core/src/index';
+import { createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
@@ -57,12 +57,12 @@ const putByBareWalks = (slot: TOIMEntityContentSlot, next: object, changedColumn
     return isWritten;
 };
 
-const shippedInPlace = (): IOIMEntityWriter => createOIMEntityWriterInPlace();
+const shippedInPlace = (): IOIMEntityWriter => createOIMInPlaceEntityWriter();
 
-const unguardedPatch = (patchEntity: TPatchWalk): IOIMEntityWriter => ({ ...createOIMEntityWriterInPlace(), patchEntity });
+const unguardedPatch = (patchEntity: TPatchWalk): IOIMEntityWriter => ({ ...createOIMInPlaceEntityWriter(), patchEntity });
 
 const unguardedPut = (): IOIMEntityWriter => ({
-    ...createOIMEntityWriterInPlace(),
+    ...createOIMInPlaceEntityWriter(),
     patchEntity: patchByBareForIn,
     putEntity: putByBareWalks,
 });

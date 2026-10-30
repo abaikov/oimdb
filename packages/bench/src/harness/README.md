@@ -412,9 +412,9 @@ no column that tells them apart.
 
 WHAT IS UNWIRED IS THE CURRENT ENGINE'S OWN SCALAR ARM, and unwired is not
 unshipped. It is `OIMSlotTreeStoreService` constructed with
-`KEY_TREE_WALK_SCALAR` rather than a class of its own — it keys on `readonly
+`SCALAR_KEY_TREE_WALK` rather than a class of its own — it keys on `readonly
 TOIMStoreKey[]`, takes no hold per segment and writes no `holdCount`
-(`packages/core/src/engine/key/OIMScalarKeyTreeWalk.ts`). No adapter in
+(`packages/core/src/key/OIMScalarKeyTreeWalk.ts`). No adapter in
 `src/adapters/` constructs it, so the two arms of that fork are not compared
 against each other — a gap in the report and not a property of the engine.
 

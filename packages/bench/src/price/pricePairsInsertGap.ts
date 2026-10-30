@@ -1,14 +1,14 @@
 import type { TOIMStoreSlot } from '../../../core/src/index';
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
     TOIMBucketContentSlot,
     TOIMBucketSlotsSetStore,
     TOIMColumnSlot,
     TOIMEntitySlot,
-    TOIMSlotEditable,
+    TOIMEditable,
     TOIMStoreKey,
 } from '../../../core/src/index';
-import { createOIMEntitySlot } from '../../../core/src/engine/entity/utils/createOIMEntitySlot';
+import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import { priceSink } from './priceSink';
@@ -55,11 +55,11 @@ const ROWS = 10_000;
 const rowsOf = (): TPriceDataRow[] => priceDataset.makeRows(ROWS);
 
 type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
-type TRowSlotEditable = TOIMSlotEditable<TRowSlot>;
+type TRowSlotEditable = TOIMEditable<TRowSlot>;
 
 const reportingEntityFixture = () => {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: createOIMEntityWriterInPlace() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
 

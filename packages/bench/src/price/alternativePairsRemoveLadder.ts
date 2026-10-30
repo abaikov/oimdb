@@ -1,7 +1,7 @@
-import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
-import type { TOIMEntitySlot, TOIMSlotEditable, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
+import type { TOIMEntitySlot, TOIMEditable, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
 import { priceDataset } from './priceDataset';
 import type { TPriceEntityService } from './priceFixture';
@@ -23,7 +23,7 @@ type TRemoveFixture = {
 };
 type TRemoveRung = (fixture: TRemoveFixture, rows: readonly TPriceDataRow[], times: number) => void;
 
-const shippedWriter = createOIMEntityWriterInPlace();
+const shippedWriter = createOIMInPlaceEntityWriter();
 const channelService = OIMChannelService.INSTANCE;
 const slotStoreService = new OIMSlotMapStoreService<TRemoveSlot>();
 
@@ -46,10 +46,10 @@ const storeServiceRemove: TRemoveRung = (fixture, _rows, times) => {
 
 const clearAndUnfile = (fixture: TRemoveFixture, slot: TRemoveSlot): void => {
     shippedWriter.clearEntity(slot);
-    const slotEditable = slot as TOIMSlotEditable<TRemoveSlot>;
-    slotEditable.slotFlags |= OIM_SLOT_FLAG_EMPTY;
+    const editableSlot = slot as TOIMEditable<TRemoveSlot>;
+    editableSlot.slotFlags |= OIM_SLOT_FLAG_EMPTY;
     slotStoreService.remove(fixture.handStore, slot.key);
-    slotEditable.slotFlags |= OIM_SLOT_FLAG_RELEASED;
+    editableSlot.slotFlags |= OIM_SLOT_FLAG_RELEASED;
 };
 
 const writerClear: TRemoveRung = (fixture, _rows, times) => {
@@ -89,7 +89,7 @@ const flatDoorCandidate: TRemoveRung = (fixture, _rows, times) => {
         if (slot.entity === undefined) continue;
         channelService.writeWithoutFlushCheck(channelSlot, slot);
         shippedWriter.clearEntity(slot);
-        (slot as TOIMSlotEditable<TRemoveSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
+        (slot as TOIMEditable<TRemoveSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
         slot.owner.releaseSlotIfUnheld(slot);
     }
 };

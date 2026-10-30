@@ -1,6 +1,6 @@
 import { IDBFactory } from 'fake-indexeddb';
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '@oimdb/core';
-import { OIMDB, createOIMEntityWriterInPlace } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter } from '@oimdb/core';
 import type { TOIMPersistRecords, TOIMPersistVersionedShape } from '@oimdb/persist';
 import {
     OIMPersistIdentityCodec,
@@ -30,7 +30,7 @@ const grace: TUser = { id: 'u2', name: 'Grace' };
 
 function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
-        entityWriter: createOIMEntityWriterInPlace(),
+        entityWriter: createOIMInPlaceEntityWriter(),
     });
     const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);

@@ -1,13 +1,13 @@
 // Prose: ./README.md#alternativepairssubscription
 import { OIMChannelService, OIMDB, OIMEffectService } from '../../../core/src/index';
 import type { TOIMEffect, TOIMSlot } from '../../../core/src/index';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { OIMEventQueue, createOIMCollectionKit } from '../../../core-legacy/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import { OIMSlotOwner } from '../../../core/src/index';
-import { createOIMStoreSlot } from '../../../core/src/engine/slot/utils/createOIMStoreSlot';
+import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
 
 const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -102,7 +102,7 @@ export const alternativePairsSubscription: readonly TPricePair[] = [
                         let done = 0;
                         while (done < times) {
                             const upTo = Math.min(SUBSCRIBERS, times - done);
-                            for (let i = 0; i < upTo; i++) effects[i] = effectService.createEffect(db, [slot], noSources, bodies[i]);
+                            for (let i = 0; i < upTo; i++) effects[i] = effectService.createEffect(db, bodies[i], [slot], noSources);
                             for (let i = 0; i < upTo; i++) effectService.disposeEffect(effects[i]);
                             done += upTo;
                         }
@@ -145,7 +145,7 @@ export const alternativePairsSubscription: readonly TPricePair[] = [
             const shipped = shippedWorld();
             const legacy = legacyWorld();
             const noSources: readonly never[] = [];
-            for (let i = 0; i < SUBSCRIBERS; i++) shipped.effectService.createEffect(shipped.db, [shipped.slot], noSources, shipped.bodies[i]);
+            for (let i = 0; i < SUBSCRIBERS; i++) shipped.effectService.createEffect(shipped.db, shipped.bodies[i], [shipped.slot], noSources);
             for (let i = 0; i < SUBSCRIBERS; i++) legacy.emitter.subscribeOnKey(WATCHED_KEY, legacy.bodies[i]);
             OIMChannelService.INSTANCE.write(shipped.db.defaultChannelSlot, shipped.slot);
             shipped.db.flush();

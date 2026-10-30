@@ -2,8 +2,8 @@ import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_EMPTY';
-import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/engine/slot/constants/OIM_SLOT_FLAG_RELEASED';
+import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 
 const REVISIONS_PER_EPOCH = 2 ** 30;
 
@@ -23,7 +23,7 @@ type TBucketSlot = {
 
 type TContentChangeListener = {
     onContentChanged(slot: TBucketSlot): void;
-    onContentChangedMany(slots: readonly TBucketSlot[]): void;
+    onManyContentsChanged(slots: readonly TBucketSlot[]): void;
 };
 
 type TChannel = {
@@ -77,7 +77,7 @@ const createChannel = (): TChannel => ({
 
 const countingListener: TContentChangeListener = {
     onContentChanged: () => { priceSink.number++; },
-    onContentChangedMany: slots => { priceSink.number += slots.length; },
+    onManyContentsChanged: slots => { priceSink.number += slots.length; },
 };
 
 const requestFlush = (channel: TChannel): void => {
@@ -151,7 +151,7 @@ const deliverSubframeContentChanges = (bucketOwner: TBucketOwner): void => {
     }
     const slots = subframeChangedSlots.slice();
     subframeChangedSlots.length = 0;
-    for (let i = 0; i < listeners.length; i++) listeners[i].onContentChangedMany(slots);
+    for (let i = 0; i < listeners.length; i++) listeners[i].onManyContentsChanged(slots);
     for (let i = 0; i < slots.length; i++) releaseSlotIfUnheld(slots[i]);
 };
 
@@ -480,7 +480,7 @@ const listenerScenario = (adds: number): TBucketScenario => ({
     what: `${adds} adds to one bucket in one subframe, one content-change listener`,
     caveat: `${adds} adds to ONE bucket inside one subframe, one content-change listener on the bucket owner. `
         + 'Without coalescing each add is still buffered by the owner\'s own subframe and delivered at the close as '
-        + `onContentChangedMany with one entry per add, so the listener hears ${adds} changes of one bucket.`,
+        + `onManyContentsChanged with one entry per add, so the listener hears ${adds} changes of one bucket.`,
     addsPerSubframe: adds,
     bucketCount: 1,
     listenerCount: 1,

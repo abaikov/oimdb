@@ -3,7 +3,7 @@ import { oimAssertOneChannel } from './oimAssertOneChannel';
 import type { OIMSnapshotVersion } from './OIMSnapshotVersion';
 
 export function oimSubscribeHeldSlot<TSlot extends TOIMSlot>(
-    db: IOIMChannelMap,
+    channelMap: IOIMChannelMap,
     hookName: string,
     snapshotVersion: OIMSnapshotVersion,
     holdingSlot: TSlot,
@@ -11,9 +11,9 @@ export function oimSubscribeHeldSlot<TSlot extends TOIMSlot>(
     onStoreChange: () => void,
 ): TOIMDisposer {
     try {
-        oimAssertOneChannel(db, holdingSlot, hookName);
+        oimAssertOneChannel(channelMap, holdingSlot, hookName);
         const [sourceSlots, sourceComputeds] = sourcesOfSlot(holdingSlot);
-        return snapshotVersion.subscribeEffect(db, sourceSlots, sourceComputeds, onStoreChange);
+        return snapshotVersion.subscribeEffect(channelMap, onStoreChange, sourceSlots, sourceComputeds);
     } finally {
         holdingSlot.owner.unholdSlot(holdingSlot);
     }

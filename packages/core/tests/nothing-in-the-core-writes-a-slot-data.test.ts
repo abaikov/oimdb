@@ -121,7 +121,7 @@ describe('nothing in the core writes a slot data', () => {
 
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'engine/entity/OIMSlotContentEntityService.ts')).toBe(true);
+        expect(files.some(file => file.path === 'entity/OIMSlotContentEntityService.ts')).toBe(true);
     });
 
     it('no non-test file under src assigns to or mutates .data', () => {
@@ -137,7 +137,7 @@ describe('nothing in the core writes a slot data', () => {
         'slot.data[0] ??= key;',
         'slot.data.length = 0;',
         'slot.data.push(key);',
-        '(slot as TOIMSlotEditable<TOIMEntitySlot>).data = cells;',
+        '(slot as TOIMEditable<TOIMEntitySlot>).data = cells;',
         'const cells = slot.data;\ncells[0] = key;',
         'const cells = (slot.data ??= []);\ncells.push(key);',
     ])('is red for %j', (source: string) => {

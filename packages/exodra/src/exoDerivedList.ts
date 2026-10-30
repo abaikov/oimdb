@@ -19,7 +19,7 @@ export function exoDerivedList<TEntity extends object, TSchema>(
 
     let applied: readonly TOIMEntitySlot<TEntity>[] = computedValueService.getValueForSlot(computedSlot);
 
-    const effect = OIMEffectService.INSTANCE.createEffect(channelMap, [], [computedSlot], () => {
+    const effect = OIMEffectService.INSTANCE.createEffect(channelMap, () => {
         const next = computedValueService.getValueForSlot(computedSlot);
         // `prev === next` is the one reading `oimOrderedListCommandsOfTransition` cannot be asked about.
         if (next === applied) return;
@@ -30,7 +30,7 @@ export function exoDerivedList<TEntity extends object, TSchema>(
         // Mapped ONCE for the round: every subscriber gets the same schema objects.
         for (let i = 0; i < script.length; i++) ops[i] = schemas.opFor(script[i]);
         subscribers.emit(ops);
-    });
+    }, [], [computedSlot]);
 
     return exoList<TSchema>({
         readSnapshot: () => schemas.snapshotOf(applied),

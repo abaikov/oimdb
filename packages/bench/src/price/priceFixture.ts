@@ -1,5 +1,5 @@
 // Prose: ./README.md#pricefixture
-import { OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
     OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMSlotContentEntityService,
     TOIMColumnSlot, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey, IOIMEntityWriter,
@@ -9,7 +9,7 @@ import type { TPriceDataRow } from './TPriceDataRow';
 import { createOIMSlotContentEntityService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
-const inPlaceShared: IOIMEntityWriter = createOIMEntityWriterInPlace();
+const inPlaceShared: IOIMEntityWriter = createOIMInPlaceEntityWriter();
 
 export type TPriceEntityService<TEntity extends object> = OIMWritableSlotCollectionService<
     TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TEntity,

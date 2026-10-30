@@ -26,10 +26,10 @@ const ace = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1
 db.flush();
 bucketService.slotContentService.writeSlotContent(spadesSlot, [ace]);
 
-held.push(effectService.createEffect(db, [spadesSlot], [], () => {
+held.push(effectService.createEffect(db, () => {
     for (const slot of bucketService.slotContentService.getBucketMemberSlots(spadesSlot)) held.push(slot.entity);
     held.push(bucketService.slotContentService.getBucketMemberSlotCount(spadesSlot));
-}));
+}, [spadesSlot]));
 
 entityService.slotContentService.updateEntity(ace, { title: 'ACE' });
 db.flush();

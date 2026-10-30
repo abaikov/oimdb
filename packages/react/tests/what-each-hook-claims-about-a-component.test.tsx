@@ -8,7 +8,7 @@ import type {
     TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey,
     TOIMBucketSlotsSetStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import { OIMDB, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMEntityWriterInPlace, oimSameValueZeroGuard } from '@oimdb/core';
+import { OIMDB, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '@oimdb/core';
 import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
 import type { TOIMBinding } from '../src/index';
 import {
@@ -416,7 +416,7 @@ describe('a composite key, rebuilt inline on every render', () => {
 
     const setup = () => {
         const db = new OIMDB();
-        const write = createOIMEntityWriterInPlace();
+        const write = createOIMInPlaceEntityWriter();
         const decksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDeck>(db) });
         const decks = decksService.createStoreSlot(db);
         const daysService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDay>(db) });
@@ -424,7 +424,7 @@ describe('a composite key, rebuilt inline on every render', () => {
         const datedService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDated>(db, { entityWriter: write }) });
         const dated = datedService.createStoreSlot(db);
         const byDeckAndDayService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
-                OIMDefaults.KEY_TREE_WALK_COMPOSITE.getValue(),
+                OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue(),
             ) });
         const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
         decksService.writeInBatch(decks, () => ([{ id: 'spades' }, { id: 'hearts' }, { id: 'clubs' }]).map(entity => decksService.writeSlotContentByKey(decks, entity.id, entity)));

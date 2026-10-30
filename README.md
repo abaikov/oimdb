@@ -31,9 +31,9 @@ const users = userService.createStoreSlot(db);
 userService.writeInBatch(users, () => ([{ id: 'u1', name: 'Ann' }]).map(entity => userService.writeSlotContentByKey(users, entity.id, entity)));
 
 const ann = userService.getSlotByKey(users, 'u1');
-const watching = OIMEffectService.INSTANCE.createEffect(db, [ann], [], () => {
+const watching = OIMEffectService.INSTANCE.createEffect(db, () => {
     console.log('Ann changed');
-});
+}, [ann]);
 
 userService.slotContentService.updateEntity(ann, { name: 'Ann B.' });
 db.flush();   // → Ann changed

@@ -1,8 +1,8 @@
 import { setFlagsFromString } from 'node:v8';
 
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterUnholdReleasePolicy, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, createOIMSlotCollectionIndexService } from '../src/index';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterUnholdReleasePolicy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../src/index';
 import type { IOIMEntityWriter, TOIMDBOptions } from '../src/index';
-import type { TOIMEntitySlot } from '../src/engine/entity/types/TOIMEntitySlot';
+import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import { createOIMSlotContentEntityService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 import { createOIMSingleSlotService } from '../src/index';
@@ -42,9 +42,7 @@ const exercise = (dbOptions: TOIMDBOptions) => {
         () => ({ sourceSlots: [cardsService.getSlotByKey(cards, 'c2')], sourceComputeds: [] }),
     );
     const effect = effectService.createEffect(
-        db,
-        [cardsService.getSlotByKey(cards, 'c3'), byDeckService.getSlotByKey(byDeck, 'd0')],
-        [topService.computedSingleSlotService.getSingleSlot(top)], () => undefined,
+        db, () => undefined, [cardsService.getSlotByKey(cards, 'c3'), byDeckService.getSlotByKey(byDeck, 'd0')], [topService.computedSingleSlotService.getSingleSlot(top)],
     );
     db.flush();
     cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deck: 'd1', rank: 1.5 });
@@ -106,8 +104,8 @@ describe.each(dbOptionsByPolicy)('what V8 keeps on fast properties, under %s', (
 });
 
 const writers: [string, () => IOIMEntityWriter][] = [
-    ['in place', createOIMEntityWriterInPlace],
-    ['replacing', createOIMEntityWriterReplacing],
+    ['in place', createOIMInPlaceEntityWriter],
+    ['replacing', createOIMReplacingEntityWriter],
 ];
 
 describe.each(writers)('what V8 keeps on fast properties, an entity written %s', (_, createWriter) => {

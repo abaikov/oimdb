@@ -30,7 +30,7 @@ Each job such a list is taken for has a door that exists for that job,
 and each of those doors belongs to the consumer that opens it.
 
 ```ts setup
-import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMContentChangeListenerService, OIMChannelService, type IOIMContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotContentChangeListenerService, OIMChannelService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
@@ -53,20 +53,20 @@ const cards = cardService.createStoreSlot(db);
 A content-change listener is told synchronously, at the write, about every slot
 whose content moved. It hears once per write through `onContentChanged`, or once
 per batch (`writeInBatch`, `openBatch` / `closeBatch`) through
-`onContentChangedMany`. `OIMChannelService.INSTANCE.subscribeAfterEachFrame(channelSlot, handler)` gives you the
+`onManyContentsChanged`. `OIMChannelService.INSTANCE.subscribeAfterEachFrame(channelSlot, handler)` gives you the
 boundary. The set below is yours, so clearing it after reading takes nothing
 away from anybody else:
 
 ```typescript
 
 const movedInFrame = new Set<TOIMStoreKey>();
-const movedListener: IOIMContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
+const movedListener: IOIMSlotContentChangeListener<TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>> = {
     onContentChanged: slot => { movedInFrame.add(slot.key); },
-    onContentChangedMany: slotChannelQueue => {
+    onManyContentsChanged: slotChannelQueue => {
         for (let i = 0; i < slotChannelQueue.getEntryCount(); i++) movedInFrame.add(slotChannelQueue.getEntryAt(i).key);
     },
 };
-OIMContentChangeListenerService.INSTANCE.addContentChangeListener(cards, movedListener, undefined);
+OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(cards, movedListener, undefined);
 const stopReporting = OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => {
     console.log([...movedInFrame]);
     movedInFrame.clear();
@@ -76,7 +76,7 @@ cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace' });
 db.flush();   // logs ['c1']
 
 stopReporting();
-OIMContentChangeListenerService.INSTANCE.removeContentChangeListener(cards, movedListener);
+OIMSlotContentChangeListenerService.INSTANCE.removeContentChangeListener(cards, movedListener);
 ```
 
 **Why a listener rather than an effect here.** An effect is per slot: watching a

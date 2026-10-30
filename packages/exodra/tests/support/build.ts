@@ -34,7 +34,7 @@ type TRankedByDeckService = ReturnType<ReturnType<typeof createRankedByDeckServi
 
 const createRankedOrdersService = (rankedByDeckService: TRankedByDeckService) => createOIMSortedComputedService({
     indexService: rankedByDeckService,
-    sortColumns: [{ column: 'rank', direction: 'asc' }],
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 
 const createOrderService = (rankedService: TRankedService) => createOIMBucketMemoComputedService({

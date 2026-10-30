@@ -211,7 +211,7 @@ Subscribing to a bucket is an ordinary effect:
 ```ts
 const bucket = byDeckService.holdSlotByKey(byDeck, 'red');
 
-effectService.createEffectImmediate(db, [bucket], [], () => { render(deckContentService.getBucketMemberSlots(bucket)); });
+effectService.createAndRunEffect(db, () => { render(deckContentService.getBucketMemberSlots(bucket)); }, [bucket]);
 ```
 
 The bucket slot is written when its membership or its order changes, and only then.
@@ -363,10 +363,10 @@ command. Nothing has to be disposed.
 ```ts
 const bucket = pageService.holdSlotByKey(page, 'results');
 
-effectService.createEffect(db, [bucket], [], () => {
+effectService.createEffect(db, () => {
     if (bucket.isWholeListRecorded) rebuildFrom(pageContentService.getBucketMemberSlots(bucket));
     else applyToTheRenderedList(bucket.commands ?? []);
-});
+}, [bucket]);
 ```
 
 The content service already writes the bucket slot on every mutation, so a consumer
@@ -417,9 +417,9 @@ const searchResult = searchResultService.createStoreSlot(db);
 const searchResultSlot = searchResultService.holdSingleSlot(searchResult);
 
 searchResultService.slotContentService.writeSlotContent(searchResultSlot, [cardService.getSlotByKey(cards, 'c1')]);
-effectService.createEffect(db, [searchResultSlot], [], () => {
+effectService.createEffect(db, () => {
     render(Array.from(searchResultService.slotContentService.getBucketMemberSlots(searchResultSlot)));
-});
+}, [searchResultSlot]);
 ```
 
 Every door of the content service takes the single bucket slot as it takes a keyed one, including

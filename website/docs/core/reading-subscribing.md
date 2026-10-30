@@ -11,7 +11,7 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 | to know whether a key has a value, without minting it | `hasSlotContentByKey(storeSlot, key)` | `getSlotByKey(storeSlot, key).entity !== undefined`, which mints |
 | an identity that must outlive this turn | `holdSlotByKey(storeSlot, key)` … `unholdSlot(slot)` | keeping a `getSlotByKey` result across a `flush()` |
 | to be told when a slot moves | `effectService.createEffect` | polling |
-| a first value now, then every change | `effectService.createEffectImmediate` | `createEffect` plus a read before it |
+| a first value now, then every change | `effectService.createAndRunEffect` | `createEffect` plus a read before it |
 | to be told when one column moves | `effectService.createEffect(db, [column], [], body)` | an effect over the whole entity |
 | work after every effect of a frame has run | [`subscribeOnceAfterFrame` / `subscribeAfterEachFrame`](/docs/core/channel#work-that-needs-the-whole-settled-frame) | a write from an effect body |
 | work once the flush has fully ended | [`subscribeAfterEachFlush`](/docs/core/channel#after-the-flush-has-ended) | a microtask you queue yourself from a tail handler |
@@ -146,22 +146,19 @@ for (const entry of Array.from(bucketContentService.getBucketMemberSlots(bucket)
 
 ## Subscribing is building an effect
 
-`OIMEffectService.INSTANCE.createEffect` and `createEffectImmediate` are how an effect is built, and
+`OIMEffectService.INSTANCE.createEffect` and `createAndRunEffect` are how an effect is built, and
 subscribing is one of the four minting doors: what it leaves behind is a
 reference to what it minted — the
 effect itself — so nothing can unfile the identity under the subscriber. An
 effect is a plain `TOIMEffect` object with no methods; the stateless `OIMEffectService.INSTANCE` does all
 the work on it. Each takes the channel map (`db`) first.
 
-`subscribeEffect(db, sourceSlots, sourceComputeds, body)` is `createEffect` that hands back a disposer
+`subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)` is `createEffect` that hands back a disposer
 instead of the effect; it is what a binding library's `subscribe` wants.
 
 ```typescript
 const effect = effectService.createEffect(
-    db,
-    [slot, bucket],                // root slots it reads
-    [],                            // derivations it reads
-    () => { render(slot.entity); },
+    db, () => { render(slot.entity); }, [slot, bucket],
 );
 
 effectService.disposeEffect(effect);
@@ -169,8 +166,8 @@ effectService.disposeEffect(effect);
 
 The body runs when something it reads has moved, and only then. Both source
 lists are fixed at construction — a cycle therefore cannot be built, and a
-derivation's sources cannot include itself. `createEffectWithSourceTracking(db, body)` is the other arm:
-its body is handed an `OIMEffectSourceTracker` and names its sources as it reads.
+derivation's sources cannot include itself. `createSourceTrackingEffect(db, body)` is the other arm:
+its body is handed an `OIMSourceTracker` and names its sources as it reads.
 
 With the fixed lists, the lists you hand in are the whole dependency set: a run costs no
 tracking, and a slot read in the body but not named in a list does not wake it. `createEffect`
@@ -188,9 +185,9 @@ const rankOf = rankService.createComputedStoreSlot(
 );
 const rankSlot = rankService.computedSingleSlotService.holdSingleSlot(rankOf);
 
-const rankEffect = effectService.createEffect(db, [], [rankSlot], () => {
+const rankEffect = effectService.createEffect(db, () => {
     show(rankSlot.computedValueService.getValueForSlot(rankSlot));
-});
+}, [], [rankSlot]);
 ```
 
 Before deciding whether to run, the effect refreshes each computed it names and
@@ -211,15 +208,15 @@ of the still-open batch is subscribing *after* that write, and it stays silent.
 cardService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
 const cardSlot = cardService.getSlotByKey(cards, 'a');
 
-effectService.createEffect(db, [cardSlot], [], () => { /* never runs for the upsert above */ });
+effectService.createEffect(db, () => { /* never runs for the upsert above */ }, [cardSlot]);
 db.flush();
 
-effectService.createEffectImmediate(db, [cardSlot], [], () => { render(cardSlot.entity); });  // runs now
+effectService.createAndRunEffect(db, () => { render(cardSlot.entity); }, [cardSlot]);  // runs now
 ```
 
-A first value is `createEffectImmediate`'s job. `createEffect` answers "tell me when this
-changes"; `createEffectImmediate` answers "give me it now, and then tell me". If the immediate run
-throws, `createEffectImmediate` disposes the effect it built and rethrows, so a failed
+A first value is `createAndRunEffect`'s job. `createEffect` answers "tell me when this
+changes"; `createAndRunEffect` answers "give me it now, and then tell me". If the immediate run
+throws, `createAndRunEffect` disposes the effect it built and rethrows, so a failed
 subscription leaves no hold behind.
 
 A write made *later in that same batch* is delivered.
@@ -239,10 +236,10 @@ A body that opens something per run has somewhere to close it: return a function
 and it is called before the next run and by `disposeEffect`.
 
 ```typescript
-const effect = effectService.createEffect(db, [slot], [], () => {
+const effect = effectService.createEffect(db, () => {
     const timer = setInterval(poll, 1000);
     return () => clearInterval(timer);
-});
+}, [slot]);
 ```
 
 Returning nothing is the ordinary case. Anything returned that is not a function is
@@ -251,7 +248,7 @@ ignored, so an expression-bodied arrow such as `() => set.add(key)` is safe.
 ### Subscribing to one column
 
 ```typescript
-const onRank = effectService.createEffect(db, [cardService.columnSlotService.holdColumn(slot, 'rank')], [], () => { render(slot.entity); });
+const onRank = effectService.createEffect(db, () => { render(slot.entity); }, [cardService.columnSlotService.holdColumn(slot, 'rank')]);
 ```
 
 It wakes only when that named column moves. A write that changes
@@ -315,7 +312,7 @@ Keep your own array. There is no scope object for effects in this package:
 ```typescript
 const disposers: TOIMDisposer[] = [];
 
-disposers.push(effectService.subscribeEffect(db, [slot], [], body));
+disposers.push(effectService.subscribeEffect(db, body, [slot]));
 
 const held = cardService.holdSlotByKey(cards, pk);
 disposers.push(() => { held.owner.unholdSlot(held); });
@@ -377,16 +374,16 @@ To hand a slot to a binding library, build the pair yourself over what you have:
 
 ```typescript
 const subscribe = (onStoreChange: () => void): TOIMDisposer =>
-    effectService.subscribeEffect(db, [slot], [], onStoreChange);
+    effectService.subscribeEffect(db, onStoreChange, [slot]);
 const getSnapshot = () => slot.entity;
 ```
 
-Under `createOIMEntityWriterInPlace`
+Under `createOIMInPlaceEntityWriter`
 — the default — `slot.entity` before and after an update is `===`, and a
 bucket's slots are handed back as the same live object, so a binding that
 decides "did it change?" by comparing values will never fire. What tells you
 something happened is your effect running, so such a binding needs a counter
-bumped *inside* the handler. Under `createOIMEntityWriterReplacing`, the entity
+bumped *inside* the handler. Under `createOIMReplacingEntityWriter`, the entity
 reference does move on every write, which is the whole reason that strategy ships.
 
 ## Where to next

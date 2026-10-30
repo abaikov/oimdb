@@ -29,7 +29,7 @@ persistor involved.
 The server and the client register the same resources under the same `storageKey`s.
 
 ```ts setup
-import { OIMDB, createOIMEntityWriterInPlace, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
@@ -43,7 +43,7 @@ type TQuestion = { id: string; text: string; answer?: string };
 
 const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
-    entityWriter: createOIMEntityWriterInPlace(),
+    entityWriter: createOIMInPlaceEntityWriter(),
 });
 const questionCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
 const questionEntityStoreSlot = questionCollectionService.createStoreSlot(db);

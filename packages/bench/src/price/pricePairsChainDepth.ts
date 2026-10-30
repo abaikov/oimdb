@@ -1,4 +1,4 @@
-import { createOIMEntityWriterInPlace } from '../../../core/src/index';
+import { createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceFixture } from './priceFixture';
@@ -62,7 +62,7 @@ const inertSide: TPriceSide = { reset: () => undefined, run: () => undefined };
  * BELOW `OIMSlotContentEntityService`, so 1 is what ships today.
  */
 const chainOf = (depth: number): IOIMEntityWriter => {
-    let service: IOIMEntityWriter = createOIMEntityWriterInPlace();
+    let service: IOIMEntityWriter = createOIMInPlaceEntityWriter();
     for (let i = 1; i < depth; i++) service = new PassThroughLink(service);
     return service;
 };
@@ -109,7 +109,7 @@ const sideOfDepth = (depth: number): TPriceSide => {
  *
  * ONE STAGE, so the row is comparable to `chain.three-links-vs-the-shipped-two`
  * operation for operation: both put exactly one forwarding step between
- * `OIMSlotContentEntityService` and `createOIMEntityWriterInPlace`.
+ * `OIMSlotContentEntityService` and `createOIMInPlaceEntityWriter`.
  */
 type TStage = {
     readonly fill: (slot: TOIMEntityContentSlot, item: object, next: TFillNext) => void;
@@ -296,7 +296,7 @@ const sideOfService = (write: IOIMEntityWriter): TPriceSide => {
  * by; see the dated note on the row.
  */
 const sideOfThreeWorlds = (makeLink: readonly ((inner: IOIMEntityWriter) => IOIMEntityWriter)[]): TPriceSide => {
-    const worlds = makeLink.map(wrap => priceFixture(ROWS, wrap(createOIMEntityWriterInPlace())));
+    const worlds = makeLink.map(wrap => priceFixture(ROWS, wrap(createOIMInPlaceEntityWriter())));
     const patch: { title: string } = { title: '' };
     let flip = false;
     return {
@@ -341,8 +341,8 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
     {
         id: 'chain.three-links-vs-the-shipped-two',
         path: EPricePath.PerWrite,
-        ours: 'entityService.updateEntity → the entity content internal service → a forwarding link → createOIMEntityWriterInPlace',
-        floor: 'the same updateEntity through the shipped chain: entityService → the entity content internal service → createOIMEntityWriterInPlace',
+        ours: 'entityService.updateEntity → the entity content internal service → a forwarding link → createOIMInPlaceEntityWriter',
+        floor: 'the same updateEntity through the shipped chain: entityService → the entity content internal service → createOIMInPlaceEntityWriter',
         caveat:
             'WHAT ONE LINK COSTS, AND THE ROW A TTL LAYER WOULD BE BUILT ON. The added link ' +
             'forwards `patchEntity` and returns what came back, so the difference between the two ' +
@@ -366,8 +366,8 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
     {
         id: 'chain.four-links-vs-the-shipped-two',
         path: EPricePath.PerWrite,
-        ours: 'entityService.updateEntity → the entity content internal service → two forwarding links → createOIMEntityWriterInPlace',
-        floor: 'the same updateEntity through the shipped chain: entityService → the entity content internal service → createOIMEntityWriterInPlace',
+        ours: 'entityService.updateEntity → the entity content internal service → two forwarding links → createOIMInPlaceEntityWriter',
+        floor: 'the same updateEntity through the shipped chain: entityService → the entity content internal service → createOIMInPlaceEntityWriter',
         caveat:
             'THE SECOND POINT OF THE CURVE, AND THE ONLY THING THAT SAYS WHETHER A LINK HAS A ' +
             'FLAT PRICE. Read against the row above it: if two links cost twice what one link ' +
@@ -391,7 +391,7 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
         caveat:
             'THE TWO WAYS TO SPELL A CHAIN, WITH EXACTLY ONE STAGE IN EACH so the comparison is ' +
             'about the SPELLING and not about depth. Both arms put one forwarding step between ' +
-            '`OIMSlotContentEntityService` and `createOIMEntityWriterInPlace`, and that step does nothing but pass ' +
+            '`OIMSlotContentEntityService` and `createOIMInPlaceEntityWriter`, and that step does nothing but pass ' +
             'the call on. THE DIFFERENCE, and it is the whole row: the field-bound arm reads ' +
             '`this.inner` and calls a method on it; the parameter arm ALLOCATES THE CONTINUATION ' +
             '— a closure over the stage index and the receiver — and hands it in, on every write. ' +
@@ -407,8 +407,8 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
             ours:
                 wanted === 'floor'
                     ? inertSide
-                    : sideOfService(new NextParameterChain([forwardingStage], createOIMEntityWriterInPlace())),
-            floor: wanted === 'ours' ? inertSide : sideOfService(new PassThroughLink(createOIMEntityWriterInPlace())),
+                    : sideOfService(new NextParameterChain([forwardingStage], createOIMInPlaceEntityWriter())),
+            floor: wanted === 'ours' ? inertSide : sideOfService(new PassThroughLink(createOIMInPlaceEntityWriter())),
         }),
     },
 
@@ -471,8 +471,8 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
             'mixing link classes may be quoted from this row until that is answered. ' +
             'A SECOND DIFFERENCE BETWEEN THE ARMS, WHICH THE DIRECTION STATED ABOVE DOES NOT ' +
             'COVER. The many-classes arm has THREE forwarding bodies, each holding one ' +
-            '`createOIMEntityWriterInPlace` and therefore seeing one receiver at its own `this.inner.patchEntity`; ' +
-            'the one-class arm has ONE forwarding body seeing the three `createOIMEntityWriterInPlace` objects of ' +
+            '`createOIMInPlaceEntityWriter` and therefore seeing one receiver at its own `this.inner.patchEntity`; ' +
+            'the one-class arm has ONE forwarding body seeing the three `createOIMInPlaceEntityWriter` objects of ' +
             'the three worlds. The arms therefore differ at the link\'s own delegating site as ' +
             'well as at the content internal service\'s, and in the opposite order. "Only that way" is stated of ' +
             'the site this row names and is not established for the row as a whole; what the ' +

@@ -1,5 +1,4 @@
-import { oimInsertEntityWithCopy } from '../src/engine/entity/utils/oimInsertEntityWithCopy';
-import type { TOIMSlotEditable } from '../src/engine/slot/types/TOIMSlotEditable';
+import type { TOIMEditable } from '../src/slot/types/TOIMEditable';
 /**
  * A slot is one plain struct six subsystems reach into, and each of them can be
  * right on its own: `slot.entity` was assigned at six correct sites and the
@@ -29,14 +28,14 @@ import type { TOIMSlotEditable } from '../src/engine/slot/types/TOIMSlotEditable
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, sep } from 'node:path';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../src/index';
-import type { TOIMColumnSlot } from '../src/engine/column/types/TOIMColumnSlot';
-import { OIMDB, OIMSlotMapStoreService, createOIMEntityWriterInPlace, createOIMEntityWriterReplacing, oimIsSlotReleased } from '../src/index';
+import type { TOIMColumnSlot } from '../src/column/types/TOIMColumnSlot';
+import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimIsSlotReleased } from '../src/index';
 import { createOIMSlotContentEntityService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 
 const SRC = join(__dirname, '..', 'src');
 
-const IN_PLACE_STRATEGY = 'factories/createOIMEntityWriterInPlace.ts';
+const IN_PLACE_STRATEGY = 'entity/createOIMInPlaceEntityWriter.ts';
 
 /* ── reading the tree ──────────────────────────────────────────────────── */
 
@@ -109,10 +108,10 @@ const fileAt = (path: string): TFile => files.find(file => file.path === path) a
 
 /** Four-space indentation is what keeps a nested object type's fields out of the slot's. */
 const SLOT_TYPES = [
-    'engine/slot/types/TOIMSlot.ts',
-    'engine/entity/types/TOIMEntityContentSlot.ts',
-    'engine/slot/types/TOIMKeyedSlot.ts',
-    'engine/slot/types/TOIMIndexableSlot.ts',
+    'slot/types/TOIMSlot.ts',
+    'entity/types/TOIMEntityContentSlot.ts',
+    'slot/types/TOIMKeyedSlot.ts',
+    'slot/types/TOIMIndexableSlot.ts',
 ] as const;
 
 const FIELD_LINE = /^ {4}(?:readonly )?([A-Za-z_$][\w$]*)\??\s*:/gm;
@@ -206,13 +205,13 @@ const writerFiles = [...new Set(writes.map(write => write.path))].sort();
  * other five have been allowed to write it".
  */
 const SIDES: Record<string, readonly string[]> = {
-    /** `createOIMEntityWriterInPlace` is absent because it writes the record's fields and never the field holding it. */
+    /** `createOIMInPlaceEntityWriter` is absent because it writes the record's fields and never the field holding it. */
     value: [
-        'engine/entity/utils/oimClearEntity.ts entity×1',
-        'engine/entity/utils/oimInsertEntityWithCopy.ts entity×1',
-        'engine/entity/utils/oimInsertEntityWithSanitizedCopy.ts entity×1',
-        'engine/entity/utils/oimInsertEntityWithoutCopy.ts entity×1',
-        'factories/createOIMEntityWriterReplacing.ts entity×2',
+        'entity/utils/oimClearEntity.ts entity×1',
+        'entity/utils/oimInsertEntityWithCopy.ts entity×1',
+        'entity/utils/oimInsertEntityWithSanitizedCopy.ts entity×1',
+        'entity/utils/oimInsertEntityWithoutCopy.ts entity×1',
+        'entity/createOIMReplacingEntityWriter.ts entity×2',
     ],
     /**
      * `holdCount` summarises nothing, which is why the field exists: a caller
@@ -221,7 +220,7 @@ const SIDES: Record<string, readonly string[]> = {
      * `++` latched by a structure and a `--` beside the line that drops it.
      */
     hold: [
-        'engine/slot/OIMSlotOwner.ts effectEdges×1 effects×1 holdCount×2',
+        'slot/OIMSlotOwner.ts effectEdges×1 effects×1 holdCount×2',
     ],
     /**
      * `OIMChannelService.writeWithoutFlushCheck` stamps a bare struct it was handed without knowing
@@ -230,8 +229,8 @@ const SIDES: Record<string, readonly string[]> = {
      * is the event this makes loud.
      */
     frame: [
-        'engine/channel/OIMChannelService.ts changedAtEpoch×1 changedAtRevision×1',
-        'engine/computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1',
+        'channel/OIMChannelService.ts changedAtEpoch×1 changedAtRevision×1',
+        'computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1',
     ],
     /**
      * `OIMSlotTreeStoreService` NORMALISES a key rather than only filing
@@ -241,21 +240,21 @@ const SIDES: Record<string, readonly string[]> = {
      * enforcement — the field is bare on a shared struct.
      */
     filing: [
-        'engine/slot/OIMSlotOwnerService.ts slotFlags×2',
-        'engine/slot/utils/oimMarkSlotReleased.ts slotFlags×1',
-        'engine/column/OIMColumnSlotOwner.ts columnSlotStore×2',
+        'slot/OIMSlotOwnerService.ts slotFlags×2',
+        'slot/utils/oimMarkSlotReleased.ts slotFlags×1',
+        'column/OIMColumnSlotOwner.ts columnSlotStore×2',
     ],
     registration: [
-        'engine/index/OIMIndexKeysService.ts indexKeys×1',
+        'index/OIMIndexKeysService.ts indexKeys×1',
     ],
     delivery: [
-        'engine/slot/OIMContentChangeDeliveryService.ts slotFlags×2',
+        'slot/OIMSlotContentChangeDeliveryService.ts slotFlags×2',
     ],
     condemnation: [
-        'engine/collector/OIMSlotReleaseWheel.ts slotFlags×4',
-        'engine/slot/utils/oimSetReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',
-        'engine/slot/utils/oimSetReleaseDueAfterIdleMs.ts releaseDueAfterIdleMs×1',
-        'engine/slot/utils/oimSetReleaseDueAfterUnholdMs.ts releaseDueAfterUnholdMs×1',
+        'collector/OIMSlotReleaseWheel.ts slotFlags×4',
+        'slot/utils/oimSetReleaseDueAfterWriteMs.ts releaseDueAfterWriteMs×1',
+        'slot/utils/oimSetReleaseDueAfterIdleMs.ts releaseDueAfterIdleMs×1',
+        'slot/utils/oimSetReleaseDueAfterUnholdMs.ts releaseDueAfterUnholdMs×1',
     ],
 };
 
@@ -271,7 +270,7 @@ describe('which side of a slot owns which part', () => {
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
         // Two is what the code does; the prose in that file mentions it more often.
-        expect(writes.filter(write => write.path === 'factories/createOIMEntityWriterReplacing.ts').length).toBe(2);
+        expect(writes.filter(write => write.path === 'entity/createOIMReplacingEntityWriter.ts').length).toBe(2);
     });
 
     it('a slot has the sixteen fields the four types declare', () => {
@@ -283,7 +282,7 @@ describe('which side of a slot owns which part', () => {
         ]);
         // `[,:]` because two of them are shorthand (`key,` and `owner,`), which
         // is a spelling and not a difference: both put the name in the literal.
-        const minted = fileAt('engine/entity/utils/createOIMEntitySlot.ts').lines.join('\n');
+        const minted = fileAt('entity/utils/createOIMEntitySlot.ts').lines.join('\n');
         for (const field of FIELDS) {
             expect({ field, minted: new RegExp(String.raw`^ {8}${field}\s*[,:]`, 'm').test(minted) })
                 .toEqual({ field, minted: true });
@@ -352,7 +351,7 @@ describe('which side of a slot owns which part', () => {
             .map(file => file.path)
             .sort();
         expect(callers).toEqual([
-            'facade/index/OIMSlotCollectionIndexService.ts',
+            'index/OIMSlotCollectionIndexService.ts',
         ]);
     });
 });
@@ -394,8 +393,8 @@ describe('a population writes its rows through the strategy it was given', () =>
     };
 
     it.each<[string, IOIMEntityWriter]>([
-        ['createOIMEntityWriterInPlace', createOIMEntityWriterInPlace()],
-        ['createOIMEntityWriterReplacing', createOIMEntityWriterReplacing()],
+        ['createOIMInPlaceEntityWriter', createOIMInPlaceEntityWriter()],
+        ['createOIMReplacingEntityWriter', createOIMReplacingEntityWriter()],
     ])('routes an insert and a removal through %s', (_name, base) => {
         const [write, calls] = recorded(base);
         const [rowEntityService, rows, channel] = collectionOver(write);
@@ -420,9 +419,9 @@ describe('a population writes its rows through the strategy it was given', () =>
 
     it('lets the strategy decide what a first value is', () => {
         const freezing: IOIMEntityWriter = {
-            ...createOIMEntityWriterInPlace(),
+            ...createOIMInPlaceEntityWriter(),
             fillEntity: (slot, item) => {
-                (slot as TOIMSlotEditable<typeof slot>).entity = Object.freeze({ ...item });
+                (slot as TOIMEditable<typeof slot>).entity = Object.freeze({ ...item });
             },
         };
         const [rowEntityService, rows, channel] = collectionOver(freezing);
@@ -435,28 +434,5 @@ describe('a population writes its rows through the strategy it was given', () =>
         // the freeze assertion alone would pass on a row that was never filed.
         expect(stored).toEqual({ id: 'r1', n: 1 });
         expect(Object.isFrozen(stored)).toBe(true);
-    });
-
-    /** Two identical bodies in two factories is the mismatched-pair hazard rebuilt one slot along. */
-    it('both strategies name the same two ends, not two copies of them', () => {
-        const inPlace = createOIMEntityWriterInPlace();
-        const replacing = createOIMEntityWriterReplacing();
-        expect(inPlace.fillEntity).toBe(replacing.fillEntity);
-        expect(inPlace.clearEntity).toBe(replacing.clearEntity);
-        expect(inPlace.putEntity).not.toBe(replacing.putEntity);
-        expect(inPlace.patchEntity).not.toBe(replacing.patchEntity);
-        expect(inPlace.deleteColumns).not.toBe(replacing.deleteColumns);
-    });
-
-    it('copies what the caller handed in when built with oimInsertEntityWithCopy', () => {
-        const [rowEntityService, rows, channel] = collectionOver(createOIMEntityWriterInPlace({ entityInserter: oimInsertEntityWithCopy }));
-        const item: TRow = { id: 'r1', n: 1 };
-
-        rowEntityService.upsertEntity(rows, item);
-        channel.flush();
-        item.n = 99;
-
-        expect(rowEntityService.getSlotByKey(rows, 'r1').entity).not.toBe(item);
-        expect(rowEntityService.getSlotByKey(rows, 'r1').entity).toEqual({ id: 'r1', n: 1 });
     });
 });

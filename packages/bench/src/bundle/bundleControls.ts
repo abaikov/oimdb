@@ -61,7 +61,7 @@ export const ARM_WITH = 'with-ordered-list';
  *
  * The other pairs in this harness are two consumers over one engine, and which
  * of the two an arm is comes down to a line of source. This one cannot be built
- * that way: `oimSlotOwnerOptionsWithDefault` passes `createColumnSlotOwner`
+ * that way: `oimResolveSlotOwnerServiceOptions` passes `createColumnSlotOwner`
  * to the slot owner and the write paths call `columnSlotOwner.markColumnsChanged`,
  * so nothing a consumer writes can decline the column owner's code and both
  * arms would be the same bundle.

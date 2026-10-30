@@ -6,7 +6,7 @@ const PACKAGES = join(__dirname, '..', '..');
 const SKIPPED_PACKAGES = new Set(['bench', 'core-legacy']);
 
 const THROWING_IS_THE_STRATEGY = [
-    'core/src/engine/error/OIMThrowAtOnceErrorPolicy.ts OIMThrowAtOnceErrorPolicy.onErrorCaught',
+    'core/src/error/OIMThrowAtOnceErrorPolicy.ts OIMThrowAtOnceErrorPolicy.onErrorCaught',
 ];
 
 const sourceFilesOf = (dir: string): string[] => {

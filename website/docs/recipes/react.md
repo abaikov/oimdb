@@ -39,7 +39,7 @@ const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({
   indexService: cardsByDeckService,
-  sortColumns: [{ column: 'rank', direction: 'asc' }],
+  sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 ```
