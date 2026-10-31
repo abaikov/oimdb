@@ -94,14 +94,12 @@ function useUser(id: string) {
   return useSelector((state) => state.users.entities[id]);
 }`;
 
-const CODE_OIMDB = `const userService = createOIMSlotCollectionService({
-  slotContentService: createOIMEntityContentService<User>(),
+const CODE_OIMDB = `const users = oim.entities<User>({
   slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
-const users = userService.createStoreSlot(db);
 
 function useUser(id: string) {
-  return useOIMEntity(users, id);
+  return useOIMSourceTrackingValue(() => users.getEntityByKey(id), [id]);
 }`;
 
 const statusLine = (openScreens: readonly TScreen[]): string => {

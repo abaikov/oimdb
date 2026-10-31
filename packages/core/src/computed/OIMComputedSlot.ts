@@ -1,10 +1,11 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from './constants/OIM_ACTIVE_SOURCE_TRACKER';
 import { OIMSlot } from '../slot/OIMSlot';
 import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { IOIMComputedValueService } from './interfaces/IOIMComputedValueService';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
-import { OIMSourceTracker } from './OIMSourceTracker';
+import type { OIMSourceTracker } from './OIMSourceTracker';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 
 export class OIMComputedSlot<TValue = unknown, TKey extends NonNullable<unknown> = NonNullable<unknown>, TSourceTracker extends OIMSourceTracker | undefined = OIMSourceTracker | undefined> extends OIMSlot {
@@ -56,7 +57,7 @@ export class OIMComputedSlot<TValue = unknown, TKey extends NonNullable<unknown>
 
     public get value(): TValue {
         const value = this.computedValueService.getValueForSlot(this);
-        OIMSourceTracker.activeSourceTracker?.trackSourceComputed(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceComputed(this);
         return value;
     }
 }

@@ -1,10 +1,11 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from './constants/OIM_ACTIVE_SOURCE_TRACKER';
 import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { TOIMSourceTrackingComputedContentSlot } from './types/TOIMSourceTrackingComputedContentSlot';
 import type { TOIMSourceTrackingComputedDerive } from './types/TOIMSourceTrackingComputedDerive';
 import type { TOIMSameValueGuard } from '../slot/types/TOIMSameValueGuard';
 import type { TOIMComputedValueReleaser } from './types/TOIMComputedValueReleaser';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
-import { OIMSourceTracker } from './OIMSourceTracker';
+import type { OIMSourceTracker } from './OIMSourceTracker';
 import { OIMComputedValueService } from './OIMComputedValueService';
 import { OIMComputedSourcesService } from './OIMComputedSourcesService';
 import { oimRefreshComputedSlot } from './utils/oimRefreshComputedSlot';
@@ -40,12 +41,12 @@ export class OIMSourceTrackingComputedValueService<
     private readonly deriveTrackingSources = (computedSlot: TComputedSlot): TValue => {
         const sourceTracker = computedSlot.sourceTracker;
         sourceTracker.openSourceTracking();
-        OIMSourceTracker.activeSourceTracker = sourceTracker;
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = sourceTracker;
         let value: TValue;
         try {
             value = this.sourceTrackingDerive(computedSlot);
         } finally {
-            OIMSourceTracker.activeSourceTracker = undefined;
+            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = undefined;
         }
         if (sourceTracker.closeSourceTracking() && !oimIsSlotReleased(computedSlot)) this.replaceSources(computedSlot, sourceTracker);
         return value;

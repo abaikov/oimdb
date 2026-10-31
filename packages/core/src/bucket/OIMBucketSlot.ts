@@ -1,6 +1,6 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
 import { OIMSlot } from '../slot/OIMSlot';
 import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
-import { OIMSourceTracker } from '../computed/OIMSourceTracker';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMOrderedListCommand } from './commands/types/TOIMOrderedListCommand';
@@ -41,22 +41,22 @@ export class OIMBucketSlot<
     }
 
     public getBucketMemberSlots(): Iterable<TBucketMemberSlot> {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this);
         return this.bucketContentService().getBucketMemberSlots(this.bucketContentSlot());
     }
 
     public getBucketMemberSlotCount(): number {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this);
         return this.bucketContentService().getBucketMemberSlotCount(this.bucketContentSlot());
     }
 
     public hasBucketMemberSlot(bucketMemberSlot: TBucketMemberSlot): boolean {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this);
         return this.bucketContentService().hasBucketMemberSlot(this.bucketContentSlot(), bucketMemberSlot);
     }
 
     public getBucketMemberSlotsMissingFrom(bucketMemberSlots: readonly TBucketMemberSlot[]): TBucketMemberSlot[] {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this);
         return this.bucketContentService().getBucketMemberSlotsMissingFrom(this.bucketContentSlot(), bucketMemberSlots);
     }
 

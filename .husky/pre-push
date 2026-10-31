@@ -1,1 +1,2 @@
 node scripts/check-version-bumped.mjs --pushed
+npm test --workspace website

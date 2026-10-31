@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/react",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "React bindings for @oimdb/core: hooks that subscribe through OIMChannel and read the slots it wakes.",
   "type": "module",
   "main": "./dist/index.cjs",

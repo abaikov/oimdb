@@ -3,6 +3,19 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.6.0
+
+### Added
+
+- `@oimdb/core/oim`: `db`, `entities`, `entity`, `index`, `sorted`, `computed`, `effect`, `OIMEntityCollection`, `OIMSingleEntity`, `OIMEntityIndex`, `OIMSortedEntityIndex`.
+- `@oimdb/core/oimdb`: the same names, db first.
+- `IOIMSourceTracker` (type-only export).
+- `createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName?>(db, options?)`.
+
+### Changed
+
+- `OIMSourceTracker.activeSourceTracker` → internal `OIM_ACTIVE_SOURCE_TRACKER`.
+
 ## 4.5.0
 
 ### Added

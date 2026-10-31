@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.1
+
+### Changed
+
+- README: examples use `@oimdb/core/oim` and `useOIMSourceTrackingValue`.
+
 ## 3.3.0
 
 ### Added

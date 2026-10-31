@@ -6,7 +6,7 @@ description: An index of every name exported by @oimdb/core, grouped by domain, 
 
 # API reference
 
-This page indexes every export of `@oimdb/core`: all 239 names that the package entry point exports, and nothing else, plus the 14 deprecated aliases listed at the end. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
+This page indexes every export of `@oimdb/core`: all 240 names that the package entry point exports, and nothing else, plus the 14 deprecated aliases listed at the end. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
 
 ## Root and defaults
 
@@ -39,6 +39,7 @@ This page indexes every export of `@oimdb/core`: all 239 names that the package 
 | `OIMSlotCollectionIndexStoreAggregate` | class | An index store slot with the collection reads, the index reads and `disposeIndexStoreSlot()`. | [A store aggregate](./collections.md#a-store-aggregate) |
 | `createOIMSlotCollectionStoreAggregate` | function | `(db, options of createOIMSlotCollectionService)`: the service, its store slot and an `OIMWritableSlotCollectionStoreAggregate` in one call. | [A store aggregate](./collections.md#a-store-aggregate) |
 | `createOIMSlotCollectionIndexStoreAggregate` | function | `(collection store aggregate, options of createOIMSlotCollectionIndexService minus entityService)`: the index service, its index store slot over the aggregate's store slot and an `OIMSlotCollectionIndexStoreAggregate` in one call; default bucket store. | [A store aggregate](./collections.md#a-store-aggregate) |
+| `createOIMEntitySlotCollectionStoreAggregate` | function | `<TEntity, TColumnName?>(db, options?)`: `createOIMSlotCollectionStoreAggregate` over `createOIMEntityContentService<TEntity>()` in one call; takes the options of both, keys by `TOIMStoreKey`, `columnNames` checked against the entity's columns. | [A store aggregate](./collections.md#a-store-aggregate) |
 | `createOIMSingleSlotStoreAggregate` | function | `(db, options of createOIMSingleSlotService)`: the service, its store slot and an `OIMWritableSingleSlotStoreAggregate` in one call. | [A store aggregate](./collections.md#a-store-aggregate) |
 | `OIMSlotOwnerService` | type only | The slot owner of one collection type: holds, subscriptions, columns and release, over its content service, store service, release policy and column owner. Built by the factories. | [When a slot goes](./architecture.md#when-a-slot-goes) |
 | `TOIMSlotOwnerServiceOptions` | type | Constructor options of `OIMSlotOwnerService`. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
@@ -211,6 +212,7 @@ This page indexes every export of `@oimdb/core`: all 239 names that the package 
 | `TOIMEffectBody` | type | `() => (() => void) \| void`; a returned function is the undo. | [A body may hand back its own undo](./reading-subscribing.md#a-body-may-hand-back-its-own-undo) |
 | `TOIMSourceTrackingEffectBody` | type | The body of a tracked effect, handed an `OIMSourceTracker`. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
 | `OIMSourceTracker` | type only | The tracker of a running tracked body; it appears in the computed slot types' generics. A read of `slot.entity`, `slot.readEntity(columnGroup)`, `computed.value` or a bucket slot's membership is filed into it. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
+| `IOIMSourceTracker` | interface | What a slot calls on the tracker of the running tracked body: `trackSourceSlot(slot, columnGroup?)`, `trackSourceComputed(computedSlot)`. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
 | `OIMFlushSchedulerService` | abstract class | The base of what a timer fires: the schedule and cancel of one standing callback on a `TOIMFlushSchedulerSlot`. | [Source layout](./architecture.md#source-layout) |
 | `TOIMFlushSchedulerSlot` | type | `{ timer, scheduledCallback, timerDisposer }`. | [Source layout](./architecture.md#source-layout) |
 | `IOIMFlushSchedulerListener` | interface | What a flush scheduler calls when its timer fires. | [The channel](./channel.md) |

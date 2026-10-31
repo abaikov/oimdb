@@ -92,7 +92,7 @@ const specifiersOf = (source: string): TSpecifier[] => {
 
 /** `index.d.ts` → `index.js`, `index.d.cts` → `index.cjs`, and so on. */
 const artifacts = (existsSync(DIST) ? readdirSync(DIST) : [])
-    .filter(name => /\.d\.[cm]?ts$/.test(name))
+    .filter(name => /^index\.d\.[cm]?ts$/.test(name))
     .sort()
     .map(declaration => ({
         declaration,

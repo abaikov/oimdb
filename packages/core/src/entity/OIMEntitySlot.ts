@@ -1,6 +1,6 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
 import { OIMSlot } from '../slot/OIMSlot';
 import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
-import { OIMSourceTracker } from '../computed/OIMSourceTracker';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
@@ -27,12 +27,12 @@ export class OIMEntitySlot<TEntity extends object = object, TKey extends NonNull
     }
 
     public get entity(): TEntity | undefined {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this);
         return this.content;
     }
 
     public readEntity(columnGroup: TOIMColumnGroup): TEntity | undefined {
-        OIMSourceTracker.activeSourceTracker?.trackSourceSlot(this, columnGroup);
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker?.trackSourceSlot(this, columnGroup);
         return this.content;
     }
 

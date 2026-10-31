@@ -43,7 +43,7 @@ export const HEADLINE_OPERATIONS: TOperation[] = [
     {
         pairId: 'update.entity-column-vs-tracked-store',
         title: 'to update',
-        ours: "entityService.slotContentService.updateEntityColumn(slot, 'title', value)",
+        ours: "slot.updateEntityColumn('title', value)",
         handWritten: 'if (entity.title !== value) { entity.title = value; if (frameOf[i] !== frame) { frameOf[i] = frame; changed.push(i) } }',
         buys: 'Both compare the column with its old value, write it and add the entity to the frame’s list of changed entities once, guarded by a per-entity frame stamp. The extra time is what lets db.flush() reach every list and component watching that entity.',
     },
@@ -60,21 +60,21 @@ export const OPERATIONS: TOperation[] = [
     {
         pairId: 'remove.vs-map-delete',
         title: 'to delete',
-        ours: 'entityService.slotContentService.clearSlotContent(slot)',
+        ours: 'slot.clearSlotContent()',
         handWritten: 'map.delete(id)',
         buys: 'With a plain Map nothing tells the component, so it keeps showing the deleted object. Here it gets undefined at the next db.flush().',
     },
     {
         pairId: 'memberCount.vs-set-size',
         title: 'to count a list',
-        ours: 'index.getBucketMemberSlotCount(bucket)',
+        ours: 'bucket.getBucketMemberSlotCount()',
         handWritten: 'set.size',
         buys: 'The same Set read. A list here is an index, like tasks grouped by columnId.',
     },
     {
         pairId: 'subscribe.by-key.deliver-vs-changed-ids-at-flush',
         title: 'to update by id and notify the watching component',
-        ours: 'entityService.slotContentService.updateEntity(slot, patch); db.flush()',
+        ours: 'slot.updateEntity(patch); db.flush()',
         handWritten: 'a Set of changed ids and a Map of handlers per id, called at flush',
     },
 ];

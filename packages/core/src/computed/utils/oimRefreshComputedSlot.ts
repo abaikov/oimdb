@@ -1,3 +1,4 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../constants/OIM_ACTIVE_SOURCE_TRACKER';
 import type { OIMComputedSlot } from '../OIMComputedSlot';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMChannelClock } from '../../channel/types/TOIMChannelClock';
@@ -9,7 +10,7 @@ import { oimHasSourceChangedSinceLastRun } from './oimHasSourceChangedSinceLastR
 import { oimIsRevisionAfter } from '../../channel/utils/oimIsRevisionAfter';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_RELEASED } from '../../slot/constants/OIM_SLOT_FLAG_RELEASED';
-import { OIMSourceTracker } from '../OIMSourceTracker';
+import type { OIMSourceTracker } from '../OIMSourceTracker';
 
 export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined>>(
     computedSlot: TComputedSlot,
@@ -21,8 +22,8 @@ export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMCompute
     if (computedSlot.isDeriving) return;
     if (computedSlot.checkedAtRevision === channelClock.revision && computedSlot.checkedAtEpoch === channelClock.epoch) return;
     const editableComputedSlot = computedSlot as TOIMEditable<TOIMComputedContentSlot<TValue>>;
-    const outerSourceTracker = OIMSourceTracker.activeSourceTracker;
-    OIMSourceTracker.activeSourceTracker = undefined;
+    const outerSourceTracker = OIM_ACTIVE_SOURCE_TRACKER.sourceTracker;
+    OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = undefined;
     let next: TValue;
     try {
         oimRefreshSourceComputeds(computedSlot.sourceComputeds);
@@ -38,7 +39,7 @@ export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMCompute
             editableComputedSlot.isDeriving = false;
         }
     } finally {
-        OIMSourceTracker.activeSourceTracker = outerSourceTracker;
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = outerSourceTracker;
     }
     const hasDerived = computedSlot.ranAtRevision !== -1;
     if ((computedSlot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) {

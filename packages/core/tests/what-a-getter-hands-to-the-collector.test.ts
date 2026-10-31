@@ -191,6 +191,13 @@ describe('what a getter hands to the collector', () => {
             'index/OIMSlotCollectionIndexService.ts getEntitiesByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotsByKeys',
+            'oim/OIMEntityCollection.ts getEntityByKey',
+            'oim/OIMEntityCollection.ts getSlotByKey',
+            'oim/OIMEntityIndex.ts getEntitiesByKey',
+            'oim/OIMEntityIndex.ts getEntityCountByKey',
+            'oim/OIMEntityIndex.ts getSlotByKey',
+            'oim/OIMSortedEntityIndex.ts getEntitiesByKey',
+            'oim/OIMSortedEntityIndex.ts getSlotByKey',
             'slot/OIMSlotCollectionStoreAggregate.ts getSlotByKey',
         ]);
     });

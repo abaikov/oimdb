@@ -417,10 +417,10 @@ export const pricePairsRead: readonly TPricePair[] = [
     {
         id: 'memberCount.vs-set-size',
         path: EPricePath.PerRead,
-        ours: 'slotContentService.getBucketMemberSlotCount(bucket)',
+        ours: 'bucket.getBucketMemberSlotCount()',
         floor: 'set.size',
         caveat:
-            'Ours is one call — `slotContentService.getBucketMemberSlotCount` reads the same `Set.size` off ' +
+            'Ours is one call — `bucket.getBucketMemberSlotCount()` reads the same `Set.size` off ' +
             'the bucket slot\'s store — and that call is the whole ' +
             'difference. The floor reads a field of a container whose correctness is ' +
             'somebody else\'s problem. Both sides cycle through all sixty-four buckets rather than ' +
@@ -435,7 +435,7 @@ export const pricePairsRead: readonly TPricePair[] = [
             'service hop. This suite\'s standing rule is that a floor doing less ' +
             'is a lie in our favour; that rule was pointed at us here, and the reading it ' +
             'produced is withdrawn rather than qualified. ' +
-            'THE CALL WAS `db.memberCount(bucket)` AND IS `slotContentService.getBucketMemberSlotCount(bucket)`, on the ' +
+            'THE CALL WAS `db.memberCount(bucket)` AND IS `bucket.getBucketMemberSlotCount()`, on the ' +
             'bucket content service rather than on the database — the same question through a different ' +
             'object. Nothing recorded before 2026-08-29 is re-attributed to it, and the prediction ' +
             'the old caveat carried (roughly 3.5 to 4.4, from figures in ' +
@@ -447,11 +447,10 @@ export const pricePairsRead: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        const slotContentService = grouped.bucketService.slotContentService;
                         const buckets = grouped.buckets;
                         const mask = buckets.length - 1;
                         for (let i = 0; i < times; i++) {
-                            priceSink.number = slotContentService.getBucketMemberSlotCount(buckets[i & mask]);
+                            priceSink.number = buckets[i & mask].getBucketMemberSlotCount();
                         }
                     },
                 },

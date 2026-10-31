@@ -1,4 +1,5 @@
-import { OIMSourceTracker } from '../../computed/OIMSourceTracker';
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
+import type { OIMSourceTracker } from '../../computed/OIMSourceTracker';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
@@ -97,7 +98,7 @@ describe('what a column group slot hears', () => {
         db.flush();
         const seen: string[] = [];
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-            (OIMSourceTracker.activeSourceTracker as OIMSourceTracker).readSourceSlot(cardsService.columnSlotService.getColumnGroupSlot(other, shownColumns));
+            (OIM_ACTIVE_SOURCE_TRACKER.sourceTracker as OIMSourceTracker).readSourceSlot(cardsService.columnSlotService.getColumnGroupSlot(other, shownColumns));
             seen.push(entitySlotOf(other).content?.label ?? '');
         });
         db.flush();

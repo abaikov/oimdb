@@ -1,3 +1,4 @@
+import type { IOIMSourceTracker } from './interfaces/IOIMSourceTracker';
 import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
@@ -6,8 +7,7 @@ import { OIMSourceList } from './OIMSourceList';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 import { oimGetAllRootSlots } from './utils/oimGetAllRootSlots';
 
-export class OIMSourceTracker {
-    public static activeSourceTracker: OIMSourceTracker | undefined = undefined;
+export class OIMSourceTracker implements IOIMSourceTracker {
 
     private readonly slotSourceList = new OIMSourceList<TOIMSlot>();
 

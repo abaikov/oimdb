@@ -13,31 +13,21 @@ import landingStyles from '@site/src/components/Landing/styles.module.css';
 
 import styles from './index.module.css';
 
-const HERO_CODE = `const tasks = createOIMSlotCollectionStoreAggregate(db, {
-    slotContentService: createOIMEntityContentService<Task>(),
+const HERO_CODE = `import * as oim from '@oimdb/core/oim';
+
+type Task = { id: string; column: string; title: string; priority: number };
+
+const tasks = oim.entities<Task>();
+const byColumn = oim.index(tasks, { columns: ['column'] });
+const byPriority = oim.sorted(byColumn, [{ columnName: 'priority', direction: 'asc' }]);
+
+oim.effect(() => {
+    render(byPriority.getEntitiesByKey('todo').map((task) => task.title));
 });
 
-const byColumnService = createOIMSlotCollectionIndexService({
-    entityService: tasks.slotService,
-    columns: ['column'],
-});
-const tasksByColumn = byColumnService.createIndexStoreSlot(tasks.storeSlot);
-
-const byPriorityService = createOIMSortedComputedService({
-    indexService: byColumnService,
-    sortColumns: [{ columnName: 'priority', direction: 'asc' }],
-});
-const tasksByPriority = byPriorityService.createSortedStoreSlot(tasksByColumn);
-
-const fix = tasks.writeSlotContentByKey('t1', { id: 't1', column: 'todo', title: 'Fix login redirect', priority: 1 });
-const todo = byPriorityService.computedCollectionService.holdSlotByKey(tasksByPriority, 'todo');
-
-OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
-    render(todo.value.map((task) => task.entity?.title));
-});
-
-fix.updateEntity({ title: 'Fix the login redirect' });
-db.flush();`;
+tasks.upsertEntityByKey('t1', { id: 't1', column: 'todo', title: 'Fix login redirect', priority: 2 });
+tasks.upsertEntityByKey('t2', { id: 't2', column: 'todo', title: 'Ship the release', priority: 1 });
+tasks.updateEntityByKey('t1', { priority: 0 });`;
 
 function HomepageHeader(): ReactNode {
     return (

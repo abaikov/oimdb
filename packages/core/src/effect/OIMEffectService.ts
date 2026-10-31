@@ -1,3 +1,4 @@
+import { OIM_ACTIVE_SOURCE_TRACKER } from '../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMEffectService } from './interfaces/IOIMEffectService';
 import type { TOIMComputedContentSlot } from '../computed/types/TOIMComputedContentSlot';
@@ -261,11 +262,11 @@ export class OIMEffectService implements IOIMEffectService {
         sourceTrackingEffectBody: TOIMSourceTrackingEffectBody,
     ): (() => void) | void {
         sourceTracker.openSourceTracking();
-        const outerSourceTracker = OIMSourceTracker.activeSourceTracker;
-        OIMSourceTracker.activeSourceTracker = sourceTracker;
+        const outerSourceTracker = OIM_ACTIVE_SOURCE_TRACKER.sourceTracker;
+        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = sourceTracker;
         try {
             const undo = sourceTrackingEffectBody();
-            OIMSourceTracker.activeSourceTracker = outerSourceTracker;
+            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = outerSourceTracker;
             try {
                 if (sourceTracker.closeSourceTracking()) this.resubscribeToTrackedSources(effect, sourceTracker);
             } catch (failure) {
@@ -275,7 +276,7 @@ export class OIMEffectService implements IOIMEffectService {
             }
             return undo;
         } finally {
-            OIMSourceTracker.activeSourceTracker = outerSourceTracker;
+            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = outerSourceTracker;
         }
     }
 

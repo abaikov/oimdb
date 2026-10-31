@@ -370,11 +370,11 @@ export const pricePairsFrame: readonly TPricePair[] = [
     {
         id: 'subscribe.by-key.deliver-vs-changed-ids-at-flush',
         path: EPricePath.PerFrame,
-        ours: 'entityService.getSlotByKey(entityStoreSlot, id) then slotContentService.updateEntity(slot, patch), flush, and the subscription fires — per key delivered',
+        ours: 'entityService.getSlotByKey(entityStoreSlot, id).updateEntity(patch), flush, and the subscription fires — per key delivered',
         floor: 'map.get(id) and store the field, add the id to a Set of changed ids, and at flush call every handler a Map of id → handlers holds for each changed id',
         caveat:
             'Both sides address the entity by its string key on every write and deliver once per ' +
-            'flush. Ours has no update-by-key door: each write is `getSlotByKey` and then `slotContentService.updateEntity`. Ours resolves the key to the slot and then reaches the subscribers through ' +
+            'flush. Ours has no update-by-key door: each write is `getSlotByKey` and then `slot.updateEntity(patch)`. Ours resolves the key to the slot and then reaches the subscribers through ' +
             '`slot.effects`; the floor resolves the key twice, once to the row and once at flush to ' +
             'its handlers. One write per key per frame, a thousand keys, one subscriber each. The ' +
             'floor holds only for a one-column write that nothing but the subscriber listens to.',
@@ -401,7 +401,6 @@ export const pricePairsFrame: readonly TPricePair[] = [
                     reset: () => undefined,
                     run: times => {
                         const entityService = fixture.entityService;
-                        const slotContentService = entityService.slotContentService;
                         const entityStoreSlot = fixture.entityStoreSlot;
                         const db = fixture.db;
                         let done = 0;
@@ -409,7 +408,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
                             const upTo = Math.min(ids.length, times - done);
                             patch.title = priceDataset.titles[round++ & 7];
                             for (let i = 0; i < upTo; i++) {
-                                slotContentService.updateEntity(entityService.getSlotByKey(entityStoreSlot, ids[i]), patch);
+                                entityService.getSlotByKey(entityStoreSlot, ids[i]).updateEntity(patch);
                             }
                             db.flush();
                             done += upTo;

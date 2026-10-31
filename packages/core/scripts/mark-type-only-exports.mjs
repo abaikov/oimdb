@@ -73,7 +73,7 @@ const die = message => { console.error(`mark-type-only-exports: ${message}`); pr
 
 /** `.d.ts`, `.d.cts`, `.d.mts` — whatever formats the build was asked for. */
 const declarations = existsSync(dist)
-    ? readdirSync(dist).filter(name => /\.d\.[cm]?ts$/.test(name)).sort()
+    ? readdirSync(dist).filter(name => /^index\.d\.[cm]?ts$/.test(name)).sort()
     : [];
 if (declarations.length === 0) die(`${dist} holds no declaration file — run the build first.`);
 

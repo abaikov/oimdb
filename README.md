@@ -20,51 +20,51 @@ npm install @oimdb/core @oimdb/react
 ## Example
 
 ```tsx file=todos.tsx
-import { OIMDB, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
-import { OIMDBProvider, useOIMEntity } from '@oimdb/react';
+import * as oim from '@oimdb/core/oim';
+import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
-const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TTodo>() });
+const todos = oim.entities<TTodo>();
 
-todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
+todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
 
 function Todo({ id }: { id: string }) {
-    const todo = useOIMEntity(todos.storeSlot, id);
+    const todo = useOIMSourceTrackingValue(() => todos.getEntityByKey(id), [todos, id]);
     if (todo === undefined) return null;
-    return <li onClick={() => todos.writeSlotContentByKey(id, { ...todo, done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+    return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={oim.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. The `channelScheduler` delivers every write of a
-turn in one flush on a microtask, so nothing calls `db.flush()` by hand.
+Clicking a todo re-renders that one `Todo` and nothing else. `oim.db()` delivers every write of a turn in one
+flush on a microtask, so nothing calls `db.flush()` by hand.
 
-Indexes, sorted views, computed values and persistence build on the same collection: see the
-[Quick Start](https://oimdb.org/docs/getting-started/quick-start).
+`@oimdb/core/oim` is the short API: collections, single entities, indexes, sorted indexes, computed values and
+effects over one default database ([The short API](https://oimdb.org/docs/getting-started/oim)). Release policies
+and persistence are on the full API under it: see the [Quick Start](https://oimdb.org/docs/getting-started/quick-start).
 
 ### Without React
 
 ```typescript
-import { OIMDB, OIMEffectService, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
+import * as oim from '@oimdb/core/oim';
 
 type TUser = { id: string; name: string };
 
-const db = new OIMDB();
-const users = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TUser>() });
+const users = oim.entities<TUser>();
+users.upsertEntityByKey('u1', { id: 'u1', name: 'Ann' });
 
-const ann = users.writeSlotContentByKey('u1', { id: 'u1', name: 'Ann' });
-const watching = OIMEffectService.INSTANCE.createEffect(db, () => {
-    console.log('Ann changed');
-}, [ann]);
+const stop = oim.effect(() => {
+    console.log('Ann is', users.getEntityByKey('u1')?.name);
+});
+// → Ann is Ann
 
-ann.updateEntity({ name: 'Ann B.' });
-db.flush();   // → Ann changed
+users.updateEntityByKey('u1', { name: 'Ann B.' });
+// → Ann is Ann B., on the next microtask
 
-OIMEffectService.INSTANCE.disposeEffect(watching);
+stop();
 ```
 
 ## Packages

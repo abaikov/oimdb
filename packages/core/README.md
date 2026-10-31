@@ -51,47 +51,49 @@ both versions of the same task side by side, is in [Why OIMDB](https://oimdb.org
 ## Quick start
 
 ```typescript file=quick-start.ts
-import { OIMDB, OIMEffectService, createOIMSlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
+import * as oim from '@oimdb/core/oim';
 
-type TCard = { id: string; deck: string; title: string };
+type TCard = { id: string; deck: string; title: string; rank: number };
 
-const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
-const cards = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TCard>() });
+const cards = oim.entities<TCard>();
+const byDeck = oim.index(cards, { keyOf: (card) => card.deck });
 
-const ace = cards.writeSlotContentByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace' });
+cards.upsertEntityByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 1 });
+cards.upsertEntityByKey('c2', { id: 'c2', deck: 'spades', title: 'Two', rank: 2 });
 
-const cardsByDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });
-const spades = cardsByDeck.holdSlotByKey('spades');
-console.log(spades.getBucketMemberSlotCount());   // 1
+const spadeCount = oim.computed(() => byDeck.getEntityCountByKey('spades'));
 
-const watching = OIMEffectService.INSTANCE.subscribeEffect(db, () => {
-    console.log('title:', ace.entity?.title);
-}, [ace]);
+const stop = oim.effect(() => {
+    console.log('ace:', cards.getEntityByKey('c1')?.title, 'spades:', spadeCount.value);
+});
+// -> ace: Ace spades: 2
 
-ace.updateEntity({ title: 'Ace of Spades' });
-ace.updateEntity({ title: 'Ace of Spades!' });
+cards.updateEntityByKey('c1', { title: 'Ace of Spades' });
+cards.updateEntityByKey('c2', { deck: 'hearts' });
+// -> ace: Ace of Spades spades: 1, once, on the next microtask
 
-watching();
-spades.unholdSlot();
+stop();
 ```
 
-Five things to take from it:
-
-- **`cards` is the collection.** `writeSlotContentByKey` stores an entity and returns its
-  **slot**, the entity's identity. Keep the slot: every later read, write and subscription
-  goes through it with no lookup.
-- **A write goes through the slot**: `ace.updateEntity(patch)`, `ace.clearSlotContent()`.
-- **An effect runs once per frame.** Both writes above land before the microtask, so the
-  effect logs once, with the last title. Without `channelScheduler` nothing is delivered
-  until you call `db.flush()`, which is what tests do.
-- **`cardsByDeck` is an index**: it files every card under `keyOf` and moves it when `deck` changes.
-  `holdSlotByKey` keeps the bucket alive until `unholdSlot()`.
+- **`oim.entities<T>()` is a collection** of entities by key: `upsertEntityByKey`, `updateEntityByKey`,
+  `getEntityByKey`, `deleteEntityByKey`, `getSlotByKey`. `oim.entity<T>()` is one entity with no key.
+- **`oim.index` files every entity under `keyOf`** and moves it when the key changes:
+  `getEntitiesByKey`, `getEntityCountByKey`. `oim.sorted(byDeck, [{ columnName: 'rank', direction: 'asc' }])`
+  keeps each group in order and re-sorts only when a sort column or the membership changes.
+- **`oim.computed` and `oim.effect` find their sources by reading**, or take a list of slots as the
+  second argument. A computed is read through `.value`; an effect returns its `stop`.
+- **Every write of a turn is delivered once.** The default database (`oim.db()`) flushes on a
+  microtask. For a database of your own (tests, servers, libraries), `@oimdb/core/oimdb` has the same names
+  with the database first: `oimdb.entities<TCard>(db)`, `oimdb.effect(db, body)`.
 - **Only what moved wakes up.** An effect on another card, or on another column of this one,
   does not run.
 
-Indexes, sorted views, computed values and React hooks build on the same collection: the
-[Quick Start](https://oimdb.org/docs/getting-started/quick-start) walks through them step by step.
-The rest of this README is the reference.
+`@oimdb/core/oim` is a separate entry of this package over the same engine; the whole short API is on
+[The short API](https://oimdb.org/docs/getting-started/oim). Without it, the same collection and index are
+`createOIMEntitySlotCollectionStoreAggregate<TCard>(db)` and
+`createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf })`, described under
+[A store aggregate](#a-store-aggregate-the-store-slot-with-its-store-methods); that is where release policies,
+bucket orders and composite keys are picked. The rest of this README is the reference.
 
 ---
 
@@ -102,11 +104,11 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 112364 B | 26590 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 44316 B | 10915 B |
-| The same, plus one effect and `db.flush()` | 52068 B | 12996 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 74009 B | 17843 B |
-| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 58333 B | 14066 B |
+| Everything `@oimdb/core` exports | 112566 B | 26616 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 38904 B | 9825 B |
+| The same, plus one effect and `db.flush()` | 52037 B | 12984 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 73952 B | 17851 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 52897 B | 12952 B |
 <!-- bundle-size:end -->
 
 ---
@@ -2110,7 +2112,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 
 ## Export reference
 
-**254 names. This list is `src/index.ts`; nothing else is exported.**
+**256 names. This list is `src/index.ts`; nothing else is exported.**
 
 **Deprecated, removed in 5.0** — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
 
@@ -2156,7 +2158,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `OIMColumnSlotOwner`, `OIMPushColumnSlotOwner` (**type only**), `OIMPullColumnSlotOwner`, `TOIMColumnSlotOwnerOptions`.
 
 **Entities** — `OIMEntityContentService`, `TOIMEntityContentServiceOptions`, `TOIMEntitySlotOwnerService`,
-`TOIMEntitySlot`, `TOIMEntityContentSlot`, `OIMEntitySlot`, `OIMSlot`, `createOIMEntityContentService`; `IOIMEntityWriter`, `createOIMInPlaceEntityWriter`,
+`TOIMEntitySlot`, `TOIMEntityContentSlot`, `OIMEntitySlot`, `OIMSlot`, `createOIMEntityContentService`, `createOIMEntitySlotCollectionStoreAggregate`; `IOIMEntityWriter`, `createOIMInPlaceEntityWriter`,
 `createOIMReplacingEntityWriter`, `TOIMEntityWriterOptions`, `TOIMEntityInserter`,
 `oimInsertEntityWithCopy`, `oimInsertEntityWithoutCopy`, `oimInsertEntityWithSanitizedCopy`, `oimPatchEntityColumns`,
 `oimPatchEntityColumn`, `oimGuardedPatchEntityColumns`, `oimGuardedPatchEntityColumn`, `oimPutEntityColumns`,
@@ -2178,7 +2180,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `OIMReclaimingIndexKeysService`.
 
 **The graph** — `OIMEffectService`, `IOIMEffectService`, `TOIMEffect`, `TOIMEffectBody`, `TOIMSourceTrackingEffectBody`,
-`OIMSourceTracker` (**type only**), `TOIMComputedSlot`, `TOIMComputedSources`, `TOIMComputedValueReleaser`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `OIMSourceTrackingComputedContentService` (**type only**), `TOIMSourceTrackingComputedDerivationOptions`, `TOIMComputedServiceFactoryOptions`, `TOIMComputedDerivation`, `TOIMComputedStoreSlot`,
+`OIMSourceTracker` (**type only**), `IOIMSourceTracker`, `TOIMComputedSlot`, `TOIMComputedSources`, `TOIMComputedValueReleaser`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `OIMSourceTrackingComputedContentService` (**type only**), `TOIMSourceTrackingComputedDerivationOptions`, `TOIMComputedServiceFactoryOptions`, `TOIMComputedDerivation`, `TOIMComputedStoreSlot`,
 `OIMComputedValueService`, `IOIMComputedValueService`, `TOIMComputedValueServiceOptions`, `TOIMComputedContentSlot`,
 `OIMComputedContentService` (**type only**), `TOIMComputedContentServiceOptions`, `oimRefreshSourceComputeds` (brings every computed in a `sourceComputeds` list current; call it before a `derive` that runs outside an effect, as `useOIMValue` does).
 

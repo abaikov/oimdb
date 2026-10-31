@@ -6,6 +6,7 @@ module.exports = {
     testMatch: ['**/*.test.ts'],
     collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/*.test.ts', '!src/**/*.type-test.ts'],
     moduleFileExtensions: ['ts', 'js', 'json'],
+    moduleNameMapper: { '^@oimdb/core$': '<rootDir>/src' },
     // A GREEN RUN OF THIS CONFIG SAYS NOTHING ABOUT TYPES, and that is not a
     // hedge — it is the literal contract of the line below. `isolatedModules`
     // makes ts-jest TRANSPILE each file on its own: no program, no language

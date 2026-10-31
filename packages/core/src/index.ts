@@ -61,6 +61,7 @@ export type { TOIMEffect } from './effect/types/TOIMEffect';
 export type { TOIMEffectBody } from './effect/types/TOIMEffectBody';
 export type { TOIMSourceTrackingEffectBody } from './effect/types/TOIMSourceTrackingEffectBody';
 export type { OIMSourceTracker } from './computed/OIMSourceTracker';
+export type { IOIMSourceTracker } from './computed/interfaces/IOIMSourceTracker';
 export type { TOIMComputedSlot } from './computed/types/TOIMComputedSlot';
 export type { TOIMComputedContentSlot } from './computed/types/TOIMComputedContentSlot';
 export type { TOIMComputedSources } from './computed/types/TOIMComputedSources';
@@ -110,6 +111,7 @@ export { createOIMSingleSlotService } from './slot/createOIMSingleSlotService';
 export { createOIMSlotCollectionStoreAggregate } from './slot/createOIMSlotCollectionStoreAggregate';
 export { createOIMSingleSlotStoreAggregate } from './slot/createOIMSingleSlotStoreAggregate';
 export { createOIMEntityContentService } from './entity/createOIMEntityContentService';
+export { createOIMEntitySlotCollectionStoreAggregate } from './entity/createOIMEntitySlotCollectionStoreAggregate';
 
 export { OIMBucketContentService } from './bucket/OIMBucketContentService';
 export { OIMSetBucketContentService } from './bucket/OIMSetBucketContentService';

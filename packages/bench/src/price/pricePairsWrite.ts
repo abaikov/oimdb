@@ -133,8 +133,7 @@ const patchDoorTrackedRound: TTrackedStoreRound = (state, upTo, title) => {
 
 const columnDoorTrackedRound: TTrackedStoreRound = (state, upTo, title) => {
     const slots = state.fixture.slots;
-    const slotContentService = state.fixture.entityService.slotContentService;
-    for (let i = 0; i < upTo; i++) slotContentService.updateEntityColumn(slots[i], 'title', title);
+    for (let i = 0; i < upTo; i++) slots[i].updateEntityColumn('title', title);
 };
 
 const trackedStoreSides = (oursRound: TTrackedStoreRound): { ours: TPriceSide; floor: TPriceSide } => {
@@ -648,7 +647,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'update.entity-column-vs-tracked-store',
         path: EPricePath.PerWrite,
-        ours: "slotContentService.updateEntityColumn(slot,'title', value) — one column, no index reads it",
+        ours: "slot.updateEntityColumn('title', value) — one column, no index reads it",
         floor: 'gate on !==, store, then queue the entity once per frame by a stamp kept per position',
         caveat:
             'The same floor as update.column-vs-tracked-store, against the column door: no patch object and no walk over it. '
@@ -1131,7 +1130,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'remove.vs-map-delete',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.clearSlotContent(slot) — through the identity, no index registered',
+        ours: 'slot.clearSlotContent() — through the identity, no index registered',
         floor: 'map.delete(id)',
         caveat:
             'THE HASH IS ON THE FLOOR\'S SIDE ONLY: ours is handed the identity and the floor ' +
@@ -1146,7 +1145,6 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
             const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
-            const slotContentService = entityService.slotContentService;
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
             let map = new Map<string, TPriceDataRow>();
             return {
@@ -1158,7 +1156,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         db.flush();
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.clearSlotContent(slots[i]);
+                        for (let i = 0; i < times; i++) slots[i].clearSlotContent();
                         db.flush();
                     },
                 },
@@ -1180,7 +1178,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
     {
         id: 'remove.indexed-vs-hand-index',
         path: EPricePath.PerWrite,
-        ours: 'slotContentService.clearSlotContent(slot) with one OIMSlotCollectionIndexService store slot over `group`',
+        ours: 'slot.clearSlotContent() with one OIMSlotCollectionIndexService store slot over `group`',
         floor: 'map.delete(id) and Set.delete(row) from the group it was in',
         caveat:
             'Ours finds the bucket to leave through the key the row\'s own `indexKeys` cell ' +
@@ -1196,7 +1194,6 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const names = priceDataset.groupNames();
             const db = new OIMDB();
             const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
-            const slotContentService = entityService.slotContentService;
             const indexService = createOIMSlotCollectionIndexService({
                 entityService,
                 slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
@@ -1219,7 +1216,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
                         db.flush();
                     },
                     run: times => {
-                        for (let i = 0; i < times; i++) slotContentService.clearSlotContent(slots[i]);
+                        for (let i = 0; i < times; i++) slots[i].clearSlotContent();
                         db.flush();
                     },
                 },

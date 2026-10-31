@@ -21,9 +21,9 @@
 > (`cardService.getSlotByKey(cards, key)`, `holdSlotByKey`, `findSlotByKey`, `getSlots`, `getSlotCount`, the
 > column doors). One WRITE is on the collection and takes a key:
 > `cardService.writeSlotContentByKey(cards, key, entity)`, which mints the slot on a miss and writes the whole
-> value on a hit. Every other write is on `service.slotContentService` and takes a slot
-> (`slot.updateEntity(patch)`, `writeSlotContent(slot, entity)`,
-> `clearSlotContent(slot)`). There are NO bulk writes and no `keyOf`: the key is always the caller's. A load is a
+> value on a hit. Every other write is a method of the slot
+> (`slot.updateEntity(patch)`, `slot.writeSlotContent(entity)`,
+> `slot.clearSlotContent()`). There are NO bulk writes and no `keyOf`: the key is always the caller's. A load is a
 > loop of `writeSlotContentByKey` inside `cardService.writeInBatch(cards, () => { … })`, so an index on the
 > collection hears the whole loop in one call.
 > A single — one slot under no key — is an `OIMSingleSlotService`: `writeSingleSlotContent(storeSlot, value)`,
@@ -51,10 +51,78 @@
 >
 > Install: `npm install @oimdb/core` (4.x). The 3.x line is the previous engine with a different API.
 >
-> `packages/core/src/index.ts` is the entire public surface.
+> `packages/core/src/index.ts` is the entire public surface of `@oimdb/core`; `@oimdb/core/oim` is a second entry
+> of the same package, the short API over it (see [The short API](#the-short-api-oimdbcoreoim-and-oimdbcoreoimdb)); `@oimdb/core/oimdb` is the same with the db first.
+
+## The short API: `@oimdb/core/oim` and `@oimdb/core/oimdb`
+
+The shortest way in, and the one to write first for an application that needs nothing the full API picks.
+Exports over one default database, `oim.db()`, made on first use, which delivers every write of a turn in
+one flush on a microtask. It imports `@oimdb/core`, so one copy of the engine is loaded.
+
+```ts file=oim-short-api.ts
+import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
+import { OIMDB } from '@oimdb/core';
+
+type TCard = { id: string; deck: string; title: string; rank: number };
+
+const cards = oim.entities<TCard>();                                  // OIMEntityCollection<TCard>
+const ace = cards.upsertEntityByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 1 });   // the slot
+cards.updateEntityByKey('c1', { rank: 14 });      // boolean: false when the key has no entity
+cards.getEntityByKey('c1');                        // TCard | undefined; tracked inside computed / effect
+cards.deleteEntityByKey('c1');                     // boolean; a slot nothing holds goes with its entity
+cards.getSlotByKey('c2');                          // the slot, for writes without a lookup: slot.updateEntity(patch)
+
+const settings = oim.entity<{ theme: string }>(); // OIMSingleEntity: upsertEntity, updateEntity, getEntity, deleteEntity, getSlot
+settings.upsertEntity({ theme: 'dark' });
+
+const byDeck = oim.index(cards, { keyOf: (card) => card.deck });     // OIMEntityIndex; or { columns: ['deck'] }
+byDeck.getEntitiesByKey('spades');                                     // TCard[], tracked: membership and member edits
+byDeck.getEntityCountByKey('spades');                                  // number, tracked
+const byRank = oim.sorted(byDeck, [{ columnName: 'rank', direction: 'asc' }]);   // OIMSortedEntityIndex
+byRank.getEntitiesByKey('spades');                                     // TCard[] in rank order, tracked
+
+const spadeCount = oim.computed(() => byDeck.getEntityCountByKey('spades'));     // sources found by reading
+const doubledAce = oim.computed(() => (ace.entity?.rank ?? 0) * 2, [ace]);        // only the slots named
+const stop = oim.effect(() => console.log(spadeCount.value, doubledAce.value)); // runs at once; returns stop
+const stopNamed = oim.effect(() => () => console.log('cleanup'), [ace], { lazy: true });   // waits for a change
+
+const testDb = new OIMDB();                                            // @oimdb/core/oimdb: same names, db first
+const testCards = oimdb.entities<TCard>(testDb);
+const stopTest = oimdb.effect(testDb, () => { testCards.getEntityByKey('c1'); });
+testDb.flush();                                                        // no scheduler: flush by hand
+stopTest();
+stop(); stopNamed();
+```
+
+| Export | Signature | Underneath |
+|---|---|---|
+| `db` | `(): OIMDB` | `new OIMDB({ channelScheduler: queueMicrotask(flush) })`, once |
+| `entities` | `<TEntity, TColumnName?>(options?: options of createOIMEntitySlotCollectionStoreAggregate): OIMEntityCollection` | `createOIMEntitySlotCollectionStoreAggregate`; `.slotCollectionStoreAggregate` |
+| `OIMEntityCollection` | `upsertEntityByKey(key, entity): TOIMEntitySlot`, `updateEntityByKey(key, patch): boolean`, `getEntityByKey(key): TEntity \| undefined`, `deleteEntityByKey(key): boolean`, `getSlotByKey(key): TOIMEntitySlot` | key is `TOIMStoreKey` |
+| `entity` | `<TEntity>(): OIMSingleEntity` | a single slot store aggregate; `.singleSlotStoreAggregate` |
+| `OIMSingleEntity` | `upsertEntity(entity)`, `updateEntity(patch): boolean`, `getEntity()`, `deleteEntity(): boolean`, `getSlot()` | |
+| `index` | `(collection, { keyOf } \| { columns }, plus the other options of createOIMSlotCollectionIndexStoreAggregate): OIMEntityIndex` | `createOIMSlotCollectionIndexStoreAggregate`, on the collection's db; `.indexStoreAggregate` |
+| `OIMEntityIndex` | `getEntitiesByKey(key): TEntity[]` and `getEntityCountByKey(key): number`, both tracked (membership and member edits); `getSlotByKey(key)`: the bucket slot | |
+| `sorted` | `(entityIndex, sortColumns: { columnName, direction: 'asc' \| 'desc' }[]): OIMSortedEntityIndex` | `createOIMSortedComputedService`; `.sortedComputedService`, `.sortedStoreSlot` |
+| `OIMSortedEntityIndex` | `getEntitiesByKey(key): TEntity[]` in sort order, tracked; re-sorts on membership or a sort column; `getSlotByKey(key)`: the sorted computed slot | |
+| `computed` | `<TValue>(derive, sourceSlots?): TOIMComputedContentSlot` — read `.value` | no list: `createOIMSingleSourceTrackingComputedService`; a list: `createOIMSingleComputedService`. Held until `computedSlot.unholdSlot()`: make it once at module scope, or give it back |
+| `effect` | `(body: () => void \| (() => void), sourceSlots?, options?: { lazy? }): TOIMDisposer` | no list: `createSourceTrackingEffect`, runs at once; a list: `createAndRunEffect`, or `createEffect` with `lazy`; `[]`: runs once, its cleanup on stop |
+
+A body's returned cleanup runs before its next run and on `stop()`. Computed slots cannot be passed in `sourceSlots`
+(excluded by type); read them through `.value` in a body without a list. Everything in `@oimdb/core/oim` runs on `oim.db()`; it takes no `db`. `@oimdb/core/oimdb` is the same API with
+the database as the first argument, for tests, servers and libraries: `oimdb.entities<T>(db, options?)`,
+`oimdb.entity<T>(db)`, `oimdb.computed(db, derive, sourceSlots?)`, `oimdb.effect(db, body, sourceSlots?, { lazy? })`;
+`oimdb.index` and `oimdb.sorted` take no `db` and run on their collection's. Both entries import `@oimdb/core`.
+
+In React:
+`useOIMSourceTrackingValue(() => cards.getEntityByKey(key), [cards, key])` re-renders on what the function read,
+under `<OIMDBProvider db={oim.db()}>`.
 
 ## Contents
 
+- [The short API: `@oimdb/core/oim` and `@oimdb/core/oimdb`](#the-short-api-oimdbcoreoim-and-oimdbcoreoimdb)
 - [The domains](#the-domains)
 - [The doctrine](#the-doctrine) — the four doors, the injected seams, the idle windows, the collectors, forks
 - [The runtime: the channel slot](#the-runtime-the-channel-slot)
@@ -1213,14 +1281,18 @@ services each return their own aggregate); `createOIMSlotCollectionStoreAggregat
 `createOIMSingleSlotStoreAggregate(db, options)` build service + store slot + aggregate in one call, with the
 options of `createOIMSlotCollectionService` / `createOIMSingleSlotService` (a new service per call: for many
 store slots of one type, build the service once).
+`createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName?>(db, options?)` is the same for a collection of
+entities: it builds the entity content service itself, takes its options (`entityWriter`, `slotEmptinessPolicy`) beside
+the collection's, keys by `TOIMStoreKey`, and checks `columnNames` against the entity's columns. A composite key needs
+`slotStoreService` and goes through `createOIMSlotCollectionStoreAggregate`.
 `createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, options)` does the same for an index over a collection
 aggregate, with the options of `createOIMSlotCollectionIndexService` minus `entityService` and with the default bucket
 store; a sorted-array index or a custom bucket store goes through its service's `createStoreAggregate(createIndexStoreSlot(…))`.
 
 ```ts
-import { createOIMSlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate } from '@oimdb/core';
+import { createOIMEntitySlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate } from '@oimdb/core';
 
-const deckStoreAggregate = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<Card>() });
+const deckStoreAggregate = createOIMEntitySlotCollectionStoreAggregate<Card>(db);
 const aceSlot = deckStoreAggregate.writeSlotContentByKey('c1', { id: 'c1', title: 'Ace', rank: 1, deck: 'spades' });   // = service.writeSlotContentByKey(storeSlot, 'c1', …)
 aceSlot.updateEntity({ rank: 14 });
 deckStoreAggregate.storeSlot;      // for hooks, indexes and computeds
@@ -3143,7 +3215,7 @@ that matches what you are comparing; they are not interchangeable.
 
 ## Full export list
 
-**254 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+**256 names, every export of `packages/core/src/index.ts`, grouped by topic.**
 
 *Deprecated, removed in 5.0* — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
 
@@ -3169,7 +3241,7 @@ that matches what you are comparing; they are not interchangeable.
 `TOIMSlotContentServicePatch` · `OIMSlotContentChangeListenerService`
 
 *Content services* — `OIMEntityContentService` · `TOIMEntityContentServiceOptions` ·
-`createOIMEntityContentService` · `TOIMEntitySlotOwnerService` · `TOIMEntityContentSlot` · `OIMEntitySlot` · `OIMSlot` · `OIMBucketContentService` ·
+`createOIMEntityContentService` · `createOIMEntitySlotCollectionStoreAggregate` · `TOIMEntitySlotOwnerService` · `TOIMEntityContentSlot` · `OIMEntitySlot` · `OIMSlot` · `OIMBucketContentService` ·
 `OIMArrayBucketContentService` · `OIMPositionalArrayBucketContentService` · `OIMSetBucketContentService` ·
 `OIMSortedArrayBucketContentService` · `TOIMBucketContentServiceOptions` ·
 `TOIMArrayBucketContentServiceOptions` · `TOIMSortedArrayBucketContentServiceOptions` · `TOIMBucketSlotOwnerService` ·
@@ -3189,7 +3261,7 @@ written after that clock reading — `channelSlot.clock` read earlier.
 
 *Derivations* — `OIMEffectService` · `IOIMEffectService` · `TOIMEffect` (**type only** —
 `OIMEffectService.createEffect` is the constructor) · `TOIMEffectBody` · `TOIMSourceTrackingEffectBody` ·
-`OIMSourceTracker` (**type only** — the service builds it) · `TOIMComputedSlot` · `TOIMComputedSources` · `TOIMComputedValueReleaser` · `OIMSourceTrackingComputedService` · `OIMSingleSourceTrackingComputedService` · `createOIMSourceTrackingComputedService` · `createOIMSingleSourceTrackingComputedService` · `TOIMSourceTrackingComputedSlot` · `TOIMSourceTrackingComputedContentSlot` · `TOIMSourceTrackingComputedDerive` · `OIMSourceTrackingComputedContentService` (**type only**) · `TOIMSourceTrackingComputedDerivationOptions` · `TOIMComputedServiceFactoryOptions` ·
+`OIMSourceTracker` (**type only** — the service builds it) · `IOIMSourceTracker` · `TOIMComputedSlot` · `TOIMComputedSources` · `TOIMComputedValueReleaser` · `OIMSourceTrackingComputedService` · `OIMSingleSourceTrackingComputedService` · `createOIMSourceTrackingComputedService` · `createOIMSingleSourceTrackingComputedService` · `TOIMSourceTrackingComputedSlot` · `TOIMSourceTrackingComputedContentSlot` · `TOIMSourceTrackingComputedDerive` · `OIMSourceTrackingComputedContentService` (**type only**) · `TOIMSourceTrackingComputedDerivationOptions` · `TOIMComputedServiceFactoryOptions` ·
 `OIMComputedValueService` · `IOIMComputedValueService` · `TOIMComputedValueServiceOptions` · `oimRefreshSourceComputeds` · `TOIMComputedDerivation`
 
 `oimRefreshSourceComputeds(sourceComputeds)` brings every computed in the list current. A binding

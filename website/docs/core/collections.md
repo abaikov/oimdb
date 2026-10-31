@@ -101,7 +101,9 @@ A store aggregate is a store slot together with the methods of its service that 
 first, so a call no longer passes it. Build one over a store slot you have with
 `service.createStoreAggregate(storeSlot)`, or build the service, the store slot and the aggregate in one
 call with `createOIMSlotCollectionStoreAggregate(db, options)` or `createOIMSingleSlotStoreAggregate(db, options)`,
-which take the options of `createOIMSlotCollectionService` / `createOIMSingleSlotService`:
+which take the options of `createOIMSlotCollectionService` / `createOIMSingleSlotService`. For a collection of entities,
+`createOIMEntitySlotCollectionStoreAggregate<Card>(db, options?)` builds the entity content service too and takes its
+options beside the collection's; a composite key goes through the general factory:
 
 ```typescript
 import { createOIMSlotCollectionStoreAggregate } from '@oimdb/core';

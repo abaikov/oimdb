@@ -79,6 +79,10 @@ for (const name of packageNames) {
     const index = join(PACKAGES, name, 'src', 'index.ts');
     if (existsSync(index)) paths[`@oimdb/${name}`] = [index];
 }
+const oimEntry = join(PACKAGES, 'core', 'src', 'oim', 'oim.ts');
+if (existsSync(oimEntry)) paths['@oimdb/core/oim'] = [oimEntry];
+const oimdbEntry = join(PACKAGES, 'core', 'src', 'oimdb', 'oimdb.ts');
+if (existsSync(oimdbEntry)) paths['@oimdb/core/oimdb'] = [oimdbEntry];
 const reactTypesOfTheReactPackage = join(PACKAGES, 'react', 'node_modules', '@types', 'react');
 if (existsSync(reactTypesOfTheReactPackage)) {
     paths.react = [reactTypesOfTheReactPackage];
