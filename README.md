@@ -20,12 +20,12 @@ npm install @oimdb/core @oimdb/react
 ## Example
 
 ```tsx file=todos.tsx
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oim.entities<TTodo>();
+const todos = oimdb.entities<TTodo>();
 
 todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
 todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
@@ -36,27 +36,27 @@ function Todo({ id }: { id: string }) {
     return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oim.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oim.db()` delivers every write of a turn in one
+Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
 flush on a microtask, so nothing calls `db.flush()` by hand.
 
-`@oimdb/core/oim` is the short API: collections, single entities, indexes, sorted indexes, computed values and
-effects over one default database ([The short API](https://oimdb.org/docs/getting-started/oim)). Release policies
+`@oimdb/core/oimdb` is the short API: collections, single entities, indexes, sorted indexes, computed values and
+effects over one default database ([The short API](https://oimdb.org/docs/getting-started/oimdb)). Release policies
 and persistence are on the full API under it: see the [Quick Start](https://oimdb.org/docs/getting-started/quick-start).
 
 ### Without React
 
 ```typescript
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 
 type TUser = { id: string; name: string };
 
-const users = oim.entities<TUser>();
+const users = oimdb.entities<TUser>();
 users.upsertEntityByKey('u1', { id: 'u1', name: 'Ann' });
 
-const stop = oim.effect(() => {
+const stop = oimdb.effect(() => {
     console.log('Ann is', users.getEntityByKey('u1')?.name);
 });
 // → Ann is Ann

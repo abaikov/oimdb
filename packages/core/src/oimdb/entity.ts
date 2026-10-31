@@ -1,7 +1,7 @@
-import type { OIMDB } from '@oimdb/core';
-import { createOIMEntityContentService, createOIMSingleSlotStoreAggregate } from '@oimdb/core';
-import { OIMSingleEntity } from '../oim/OIMSingleEntity';
+import type { OIMSingleEntity } from './OIMSingleEntity';
+import { entity as entityIn } from '../soimdb/entity';
+import { getInstance } from './getInstance';
 
-export function entity<TEntity extends object>(db: OIMDB): OIMSingleEntity<TEntity> {
-    return new OIMSingleEntity(createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<TEntity>() }));
+export function entity<TEntity extends object>(): OIMSingleEntity<TEntity> {
+    return entityIn<TEntity>(getInstance());
 }

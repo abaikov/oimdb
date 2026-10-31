@@ -15,15 +15,15 @@ The comment after a call shows what it logs.
 
 ## The short version
 
-With React and the short API, [`@oimdb/core/oim`](./oim.md), a collection and a component that renders one of its entities:
+With React and the short API, [`@oimdb/core/oimdb`](./oimdb.md), a collection and a component that renders one of its entities:
 
 ```tsx file=todos.tsx
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oim.entities<TTodo>();
+const todos = oimdb.entities<TTodo>();
 
 todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
 todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
@@ -34,13 +34,13 @@ function Todo({ id }: { id: string }) {
     return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oim.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oim.db()` delivers every write of a turn in one
+Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
 flush on a microtask, so nothing calls `db.flush()` by hand.
 
-The steps below take the same engine apart without `oim`: the runtime, the collection service under the
+The steps below take the same engine apart without `oimdb`: the runtime, the collection service under the
 aggregate, subscriptions, indexes and sorted views.
 
 ## 1. The runtime

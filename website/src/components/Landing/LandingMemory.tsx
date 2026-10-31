@@ -94,7 +94,7 @@ function useUser(id: string) {
   return useSelector((state) => state.users.entities[id]);
 }`;
 
-const CODE_OIMDB = `const users = oim.entities<User>({
+const CODE_OIMDB = `const users = oimdb.entities<User>({
   slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 

@@ -13,15 +13,15 @@ import landingStyles from '@site/src/components/Landing/styles.module.css';
 
 import styles from './index.module.css';
 
-const HERO_CODE = `import * as oim from '@oimdb/core/oim';
+const HERO_CODE = `import * as oimdb from '@oimdb/core/oimdb';
 
 type Task = { id: string; column: string; title: string; priority: number };
 
-const tasks = oim.entities<Task>();
-const byColumn = oim.index(tasks, { columns: ['column'] });
-const byPriority = oim.sorted(byColumn, [{ columnName: 'priority', direction: 'asc' }]);
+const tasks = oimdb.entities<Task>();
+const byColumn = oimdb.index(tasks, { columns: ['column'] });
+const byPriority = oimdb.sorted(byColumn, [{ columnName: 'priority', direction: 'asc' }]);
 
-oim.effect(() => {
+oimdb.effect(() => {
     render(byPriority.getEntitiesByKey('todo').map((task) => task.title));
 });
 

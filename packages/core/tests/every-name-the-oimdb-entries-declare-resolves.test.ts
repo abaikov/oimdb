@@ -2,9 +2,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const DIST = join(__dirname, '..', 'dist');
-const declarations = ['oim.d.ts', 'oim.d.cts', 'oimdb.d.ts', 'oimdb.d.cts'].filter(name => existsSync(join(DIST, name)));
+const declarations = ['oimdb.d.ts', 'oimdb.d.cts', 'soimdb.d.ts', 'soimdb.d.cts'].filter(name => existsSync(join(DIST, name)));
 
-describe('every name the oim entry declares resolves', () => {
+describe('every name the oimdb entries declare resolves', () => {
     if (declarations.length === 0) {
         it.skip('over dist/oim.d.ts — not built', () => undefined);
         return;

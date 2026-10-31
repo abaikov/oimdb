@@ -121,7 +121,7 @@ const PINNED: readonly (readonly [string, string])[] = [
         + 'finally, so it is undefined outside a tracked run and never outlives one',
     ],
     ['core/db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER.ts:OIM_DEFAULT_STORE_SLOT_LISTENER', DEFAULT_VALUE],
-    ['core/oim/db.ts:defaultDB', 'the one OIMDB the oim layer builds on first use and hands to every call that names no db; built once, never replaced'],
+    ['core/oimdb/getInstance.ts:defaultDB', 'the one OIMDB the oimdb layer builds on first use and hands to every call that names no db; built once, never replaced'],
     ['core/db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
     ['core/db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
     [

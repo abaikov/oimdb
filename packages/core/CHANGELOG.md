@@ -3,12 +3,23 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.7.0
+
+### Added
+
+- `oimdb.getInstance()`: the default database; `oimdb.db()` is the same function.
+
+### Renamed
+
+- `@oimdb/core/oim` → `@oimdb/core/oimdb` (the default-db layer).
+- `@oimdb/core/oimdb` (db first) → `@oimdb/core/soimdb`. `@oimdb/core/oimdb` is now the default-db layer.
+
 ## 4.6.0
 
 ### Added
 
-- `@oimdb/core/oim`: `db`, `entities`, `entity`, `index`, `sorted`, `computed`, `effect`, `OIMEntityCollection`, `OIMSingleEntity`, `OIMEntityIndex`, `OIMSortedEntityIndex`.
-- `@oimdb/core/oimdb`: the same names, db first.
+- `@oimdb/core/oimdb`: `db`, `entities`, `entity`, `index`, `sorted`, `computed`, `effect`, `OIMEntityCollection`, `OIMSingleEntity`, `OIMEntityIndex`, `OIMSortedEntityIndex`.
+- `@oimdb/core/soimdb`: the same names, db first.
 - `IOIMSourceTracker` (type-only export).
 - `createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName?>(db, options?)`.
 

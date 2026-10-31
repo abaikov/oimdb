@@ -1,10 +1,11 @@
+export { getInstance, getInstance as db } from './getInstance';
 export { entities } from './entities';
 export { entity } from './entity';
-export { index } from '../oim/index';
-export { sorted } from '../oim/sorted';
+export { index } from './index';
+export { sorted } from './sorted';
+export { OIMEntityIndex } from './OIMEntityIndex';
+export { OIMSortedEntityIndex } from './OIMSortedEntityIndex';
+export { OIMEntityCollection } from './OIMEntityCollection';
+export { OIMSingleEntity } from './OIMSingleEntity';
 export { computed } from './computed';
 export { effect } from './effect';
-export { OIMEntityCollection } from '../oim/OIMEntityCollection';
-export { OIMSingleEntity } from '../oim/OIMSingleEntity';
-export { OIMEntityIndex } from '../oim/OIMEntityIndex';
-export { OIMSortedEntityIndex } from '../oim/OIMSortedEntityIndex';

@@ -1,6 +1,6 @@
 {
     "name": "@oimdb/core",
-    "version": "4.6.0",
+    "version": "4.7.0",
     "description": "Identity-addressed reactive in-memory store: entities, indexes, computed values and effects batched into frames.",
     "type": "module",
     "main": "./dist/index.cjs",
@@ -16,14 +16,6 @@
                 "default": "./dist/index.cjs"
             }
         },
-        "./oim": {
-            "types": "./dist/oim.d.ts",
-            "import": "./dist/oim.js",
-            "require": {
-                "types": "./dist/oim.d.cts",
-                "default": "./dist/oim.cjs"
-            }
-        },
         "./oimdb": {
             "types": "./dist/oimdb.d.ts",
             "import": "./dist/oimdb.js",
@@ -31,13 +23,21 @@
                 "types": "./dist/oimdb.d.cts",
                 "default": "./dist/oimdb.cjs"
             }
+        },
+        "./soimdb": {
+            "types": "./dist/soimdb.d.ts",
+            "import": "./dist/soimdb.js",
+            "require": {
+                "types": "./dist/soimdb.d.cts",
+                "default": "./dist/soimdb.cjs"
+            }
         }
     },
     "oimdbRelease": {
         "publish": true
     },
     "scripts": {
-        "build": "tsup src/index.ts --dts --format esm,cjs --clean && tsup src/oim/oim.ts --dts --format esm,cjs --external @oimdb/core && tsup src/oimdb/oimdb.ts --dts --format esm,cjs --external @oimdb/core && node scripts/mark-type-only-exports.mjs",
+        "build": "tsup src/index.ts --dts --format esm,cjs --clean && tsup src/oimdb/oimdb.ts --dts --format esm,cjs --external @oimdb/core && tsup src/soimdb/soimdb.ts --dts --format esm,cjs --external @oimdb/core && node scripts/mark-type-only-exports.mjs",
         "test": "jest",
         "type-check": "tsc --noEmit -p tsconfig.all.json",
         "check-structure": "node scripts/check-structure.mjs",

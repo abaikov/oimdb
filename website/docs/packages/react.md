@@ -32,12 +32,12 @@ off the slots afterwards.
 ## Minimal usage
 
 ```tsx file=minimal.tsx
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oim.entities<TTodo>();
+const todos = oimdb.entities<TTodo>();
 
 todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
 todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
@@ -48,12 +48,12 @@ function Todo({ id }: { id: string }) {
     return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oim.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oim.db()` delivers every
+Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every
 write of a turn in one flush on a microtask, so nothing calls `db.flush()` by hand. `todos` is an
-`oim` collection ([The short API](../getting-started/oim.md)); `useOIMSourceTrackingValue` re-renders on
+`oimdb` collection ([The short API](../getting-started/oimdb.md)); `useOIMSourceTrackingValue` re-renders on
 whatever its function read, here the one entity.
 
 ## Which hook to take

@@ -1,10 +1,10 @@
-import type { OIMDB, TOIMEntityColumnName } from '@oimdb/core';
-import { createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
-import { OIMEntityCollection } from '../oim/OIMEntityCollection';
+import type { TOIMEntityColumnName } from '@oimdb/core';
+import type { OIMEntityCollection } from './OIMEntityCollection';
+import { entities as entitiesIn } from '../soimdb/entities';
+import { getInstance } from './getInstance';
 
 export function entities<TEntity extends object, TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>>(
-    db: OIMDB,
-    options: Parameters<typeof createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName>>[1] = {},
+    options: Parameters<typeof entitiesIn<TEntity, TColumnName>>[1] = {},
 ): OIMEntityCollection<TEntity, TColumnName> {
-    return new OIMEntityCollection(createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName>(db, options));
+    return entitiesIn<TEntity, TColumnName>(getInstance(), options);
 }

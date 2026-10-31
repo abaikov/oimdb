@@ -48,22 +48,37 @@ both versions of the same task side by side, is in [Why OIMDB](https://oimdb.org
 
 ---
 
+
+## Which API to write
+
+Three levels over one engine. Pick by who owns the database:
+
+| you are writing | import | the database |
+|---|---|---|
+| an app with one store (the common case) | `import * as oimdb from '@oimdb/core/oimdb'` | `oimdb.db()` (same as `oimdb.getInstance()`): made on first use, flushes itself in a microtask. Never pass a db, never call `flush()`. |
+| a library, SSR (a db per request), tests that need isolated dbs | `import * as soimdb from '@oimdb/core/soimdb'` | yours: `new OIMDB()`, the first argument of `entities`, `entity`, `computed`, `effect`; `index` and `sorted` take it from the collection. Call `db.flush()` yourself unless the `OIMDB` was given a `channelScheduler`. |
+| what neither layer covers: set, sorted-at-write or custom bucket stores, composite or tree keys, positional bucket writes, column slots and column-group reads (`readEntity(group)`), custom writers, persist or devtools wiring | `@oimdb/core` services (`createOIMSlotCollectionService` and the rest) | yours |
+
+Both short layers have the same names and return the same objects. Each object carries the full-API aggregate it wraps (`slotCollectionStoreAggregate`, `singleSlotStoreAggregate`, `indexStoreAggregate`) for the one call the layer lacks. Do not mix `oimdb` with a db of your own in one app: `oimdb` always uses `oimdb.db()`, and two dbs never share a flush.
+
+Write `oimdb.entities(...)` or `import { entities } from '@oimdb/core/oimdb'`: both keep tree-shaking. Passing `oimdb` itself as a value, indexing it by a computed key or listing its keys keeps the whole layer in the bundle (about 7 KB gzip more).
+
 ## Quick start
 
 ```typescript file=quick-start.ts
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
 
-const cards = oim.entities<TCard>();
-const byDeck = oim.index(cards, { keyOf: (card) => card.deck });
+const cards = oimdb.entities<TCard>();
+const byDeck = oimdb.index(cards, { keyOf: (card) => card.deck });
 
 cards.upsertEntityByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 1 });
 cards.upsertEntityByKey('c2', { id: 'c2', deck: 'spades', title: 'Two', rank: 2 });
 
-const spadeCount = oim.computed(() => byDeck.getEntityCountByKey('spades'));
+const spadeCount = oimdb.computed(() => byDeck.getEntityCountByKey('spades'));
 
-const stop = oim.effect(() => {
+const stop = oimdb.effect(() => {
     console.log('ace:', cards.getEntityByKey('c1')?.title, 'spades:', spadeCount.value);
 });
 // -> ace: Ace spades: 2
@@ -75,21 +90,21 @@ cards.updateEntityByKey('c2', { deck: 'hearts' });
 stop();
 ```
 
-- **`oim.entities<T>()` is a collection** of entities by key: `upsertEntityByKey`, `updateEntityByKey`,
-  `getEntityByKey`, `deleteEntityByKey`, `getSlotByKey`. `oim.entity<T>()` is one entity with no key.
-- **`oim.index` files every entity under `keyOf`** and moves it when the key changes:
-  `getEntitiesByKey`, `getEntityCountByKey`. `oim.sorted(byDeck, [{ columnName: 'rank', direction: 'asc' }])`
+- **`oimdb.entities<T>()` is a collection** of entities by key: `upsertEntityByKey`, `updateEntityByKey`,
+  `getEntityByKey`, `deleteEntityByKey`, `getSlotByKey`. `oimdb.entity<T>()` is one entity with no key.
+- **`oimdb.index` files every entity under `keyOf`** and moves it when the key changes:
+  `getEntitiesByKey`, `getEntityCountByKey`. `oimdb.sorted(byDeck, [{ columnName: 'rank', direction: 'asc' }])`
   keeps each group in order and re-sorts only when a sort column or the membership changes.
-- **`oim.computed` and `oim.effect` find their sources by reading**, or take a list of slots as the
+- **`oimdb.computed` and `oimdb.effect` find their sources by reading**, or take a list of slots as the
   second argument. A computed is read through `.value`; an effect returns its `stop`.
-- **Every write of a turn is delivered once.** The default database (`oim.db()`) flushes on a
-  microtask. For a database of your own (tests, servers, libraries), `@oimdb/core/oimdb` has the same names
-  with the database first: `oimdb.entities<TCard>(db)`, `oimdb.effect(db, body)`.
+- **Every write of a turn is delivered once.** The default database (`oimdb.db()`) flushes on a
+  microtask. For a database of your own (tests, servers, libraries), `@oimdb/core/soimdb` has the same names
+  with the database first: `soimdb.entities<TCard>(db)`, `soimdb.effect(db, body)`.
 - **Only what moved wakes up.** An effect on another card, or on another column of this one,
   does not run.
 
-`@oimdb/core/oim` is a separate entry of this package over the same engine; the whole short API is on
-[The short API](https://oimdb.org/docs/getting-started/oim). Without it, the same collection and index are
+`@oimdb/core/oimdb` is a separate entry of this package over the same engine; the whole short API is on
+[The short API](https://oimdb.org/docs/getting-started/oimdb). Without it, the same collection and index are
 `createOIMEntitySlotCollectionStoreAggregate<TCard>(db)` and
 `createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf })`, described under
 [A store aggregate](#a-store-aggregate-the-store-slot-with-its-store-methods); that is where release policies,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.2
+
+### Changed
+
+- README: examples use `@oimdb/core/oimdb`.
+
 ## 3.3.1
 
 ### Changed

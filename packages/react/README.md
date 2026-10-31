@@ -12,12 +12,12 @@ npm install @oimdb/react @oimdb/core
 ## In one minute
 
 ```tsx file=todos.tsx
-import * as oim from '@oimdb/core/oim';
+import * as oimdb from '@oimdb/core/oimdb';
 import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oim.entities<TTodo>();
+const todos = oimdb.entities<TTodo>();
 
 todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
 todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
@@ -28,13 +28,13 @@ function Todo({ id }: { id: string }) {
     return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oim.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oim.db()` delivers every write of a turn in one
-flush on a microtask, so nothing calls `db.flush()` by hand. `@oimdb/core/oim` is the short API of the core
-([The short API](https://oimdb.org/docs/getting-started/oim)). `useOIMSourceTrackingValue` re-renders on
-whatever its function read, here the one entity. Without `oim`, the same collection is
+Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
+flush on a microtask, so nothing calls `db.flush()` by hand. `@oimdb/core/oimdb` is the short API of the core
+([The short API](https://oimdb.org/docs/getting-started/oimdb)). `useOIMSourceTrackingValue` re-renders on
+whatever its function read, here the one entity. Without `oimdb`, the same collection is
 `createOIMEntitySlotCollectionStoreAggregate<TTodo>(db)`, and `useOIMEntity(todos.storeSlot, id)` reads it by key.
 
 The rest of this page is what the hooks do and what else they take.
