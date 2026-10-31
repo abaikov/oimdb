@@ -1213,15 +1213,21 @@ services each return their own aggregate); `createOIMSlotCollectionStoreAggregat
 `createOIMSingleSlotStoreAggregate(db, options)` build service + store slot + aggregate in one call, with the
 options of `createOIMSlotCollectionService` / `createOIMSingleSlotService` (a new service per call: for many
 store slots of one type, build the service once).
+`createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, options)` does the same for an index over a collection
+aggregate, with the options of `createOIMSlotCollectionIndexService` minus `entityService` and with the default bucket
+store; a sorted-array index or a custom bucket store goes through its service's `createStoreAggregate(createIndexStoreSlot(…))`.
 
 ```ts
-import { createOIMSlotCollectionStoreAggregate } from '@oimdb/core';
+import { createOIMSlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate } from '@oimdb/core';
 
 const deckStoreAggregate = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<Card>() });
 const aceSlot = deckStoreAggregate.writeSlotContentByKey('c1', { id: 'c1', title: 'Ace', rank: 1, deck: 'spades' });   // = service.writeSlotContentByKey(storeSlot, 'c1', …)
 aceSlot.updateEntity({ rank: 14 });
 deckStoreAggregate.storeSlot;      // for hooks, indexes and computeds
 deckStoreAggregate.slotService;    // the service itself
+
+const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(deckStoreAggregate, { keyOf: (card) => card.deck });
+byDeckStoreAggregate.getEntitiesByKey('spades');   // [Ace]
 ```
 
 | Aggregate | Methods (the service's, minus the store slot argument) |
@@ -3137,7 +3143,7 @@ that matches what you are comparing; they are not interchangeable.
 
 ## Full export list
 
-**253 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+**254 names, every export of `packages/core/src/index.ts`, grouped by topic.**
 
 *Deprecated, removed in 5.0* — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
 
@@ -3170,7 +3176,7 @@ that matches what you are comparing; they are not interchangeable.
 `TOIMBucketContentSlot` · `OIMComputedContentService` (**type only**) · `TOIMComputedContentServiceOptions` ·
 `TOIMComputedContentSlot`
 
-*Index and computed store slots* — `createOIMSlotCollectionIndexService` · `TOIMSlotCollectionIndexServiceFactoryOptions` ·
+*Index and computed store slots* — `createOIMSlotCollectionIndexService` · `createOIMSlotCollectionIndexStoreAggregate` · `TOIMSlotCollectionIndexServiceFactoryOptions` ·
 `TOIMSlotCollectionIndexServiceStoreSlot` · `TOIMSortedComputedSlot` · `TOIMBucketMemoComputedSlot`
 
 *Runtime* — `TOIMChannelFrame` · `TOIMChannelClock` ·

@@ -119,7 +119,10 @@ The aggregate carries `storeSlot`, `slotService`, `slotContentService` and the s
 service: `OIMWritableSlotCollectionStoreAggregate` the read, batch and `writeSlotContentByKey` methods,
 `OIMWritableSingleSlotStoreAggregate` the single's read methods, `writeSingleSlotContent` and
 `clearSingleSlotContent`, and `OIMSlotCollectionIndexStoreAggregate` (from an index service's
-`createStoreAggregate(indexStoreSlot)`) the index reads as well. A method that takes a slot, such as
+`createStoreAggregate(indexStoreSlot)`, or in one call from
+`createOIMSlotCollectionIndexStoreAggregate(handStoreAggregate, { keyOf })`) the index reads as well. That factory takes the
+options of `createOIMSlotCollectionIndexService` minus `entityService`, with the default bucket store; a sorted-array
+index or a custom bucket store goes through its service. A method that takes a slot, such as
 `updateEntity`, stays on its service. The one-call factories build a new service each time; for many
 store slots of one type, build the service once and call `createStoreAggregate` on it.
 

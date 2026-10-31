@@ -569,7 +569,7 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 112156 B | 26533 B |
+| Everything `@oimdb/core` exports | 112364 B | 26590 B |
 | One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 44316 B | 10915 B |
 | The same, plus one effect and `db.flush()` | 52068 B | 12996 B |
 | The same, plus one index: `createOIMSlotCollectionIndexService` | 74009 B | 17843 B |

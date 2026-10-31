@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.5.0
+
+### Added
+
+- `createOIMSlotCollectionIndexStoreAggregate(slotCollectionStoreAggregate, options)`.
+
 ## 4.4.0
 
 4.x collects feedback; 5.0 freezes the interface.

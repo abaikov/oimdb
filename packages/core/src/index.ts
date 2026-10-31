@@ -177,6 +177,7 @@ export type { TOIMSlotContentServicePatch } from './slot/types/TOIMSlotContentSe
 export type { TOIMSlotCollectionIndexServiceStoreSlot } from './index/types/TOIMSlotCollectionIndexServiceStoreSlot';
 export type { TOIMIndexStoreSlot } from './index/types/TOIMIndexStoreSlot';
 export { createOIMSlotCollectionIndexService } from './index/createOIMSlotCollectionIndexService';
+export { createOIMSlotCollectionIndexStoreAggregate } from './index/createOIMSlotCollectionIndexStoreAggregate';
 export { createOIMSlotCollectionSortedArrayIndexService } from './index/createOIMSlotCollectionSortedArrayIndexService';
 export type { TOIMIndexKeyOptions } from './index/types/TOIMIndexKeyOptions';
 export type { TOIMIndexKey } from './index/types/TOIMIndexKey';

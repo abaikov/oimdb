@@ -1,7 +1,10 @@
+import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionStoreAggregate } from '../../slot/createOIMSlotCollectionStoreAggregate';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
+import { createOIMSlotCollectionIndexStoreAggregate } from '../createOIMSlotCollectionIndexStoreAggregate';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotCollectionIndexStoreAggregate } from '../OIMSlotCollectionIndexStoreAggregate';
 
 type TCard = { id: string; deck: string };
@@ -66,5 +69,30 @@ describe('what an index store aggregate reads', () => {
         expect(byDeckStoreAggregate.getAnyBucketColumnByKey('spades')).toBe(anyColumn);
         expect(byDeckStoreAggregate.getBucketColumnByKey('spades', 'id')).toBe(idColumn);
     });
-});
 
+    it('is built over a collection store aggregate in one call, with keyOf typed from the collection', () => {
+        const { db, cardStoreAggregate } = createFixture();
+
+        const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, { keyOf: (card) => card.deck });
+        cardStoreAggregate.writeSlotContentByKey('c4', { id: 'c4', deck: 'clubs' });
+        db.flush();
+
+        expect(byDeckStoreAggregate).toBeInstanceOf(OIMSlotCollectionIndexStoreAggregate);
+        expect(byDeckStoreAggregate.storeSlot.sourceStoreSlot).toBe(cardStoreAggregate.storeSlot);
+        expect(byDeckStoreAggregate.getEntitiesByKey('spades').map(card => card?.id).sort()).toEqual(['c1', 'c2']);
+        expect(byDeckStoreAggregate.getEntitiesByKey('clubs').map(card => card?.id).sort()).toEqual(['c3', 'c4']);
+    });
+
+    it('takes the bucket content service it is given', () => {
+        const { cardStoreAggregate } = createFixture();
+        const setBucketContentService = new OIMSetBucketContentService<TOIMEntitySlot<TCard>, string>();
+
+        const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, {
+            columns: ['deck'],
+            slotContentService: setBucketContentService,
+        });
+
+        expect(byDeckStoreAggregate.slotContentService).toBe(setBucketContentService);
+        expect(byDeckStoreAggregate.getSlotByKey('spades').getBucketMemberSlotCount()).toBe(2);
+    });
+});

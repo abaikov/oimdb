@@ -38,8 +38,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: Build the cores the bench imports from dist
-        run: npm run build --workspace @oimdb/core --workspace @oimdb/core-legacy
+      - name: Build the packages the bench and the site import from dist
+        run: npm run build --workspace @oimdb/core --workspace @oimdb/core-legacy --workspace @oimdb/react
       - name: Copy llms.txt to static
         run: cp llms.txt website/static/llms.txt
       - name: Type-check

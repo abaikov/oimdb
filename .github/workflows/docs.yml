@@ -30,8 +30,8 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: Build the core the site imports from dist
-        run: npm run build --workspace @oimdb/core
+      - name: Build the packages the site imports from dist
+        run: npm run build --workspace @oimdb/core --workspace @oimdb/react
       - name: Copy llms.txt to static
         run: cp llms.txt website/static/llms.txt
       - name: Measure the bundle size tables

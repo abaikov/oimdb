@@ -51,7 +51,7 @@ both versions of the same task side by side, is in [Why OIMDB](https://oimdb.org
 ## Quick start
 
 ```typescript file=quick-start.ts
-import { OIMDB, OIMEffectService, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
 
 type TCard = { id: string; deck: string; title: string };
 
@@ -59,6 +59,10 @@ const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
 const cards = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TCard>() });
 
 const ace = cards.writeSlotContentByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace' });
+
+const cardsByDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });
+const spades = cardsByDeck.holdSlotByKey('spades');
+console.log(spades.getBucketMemberSlotCount());   // 1
 
 const watching = OIMEffectService.INSTANCE.subscribeEffect(db, () => {
     console.log('title:', ace.entity?.title);
@@ -68,9 +72,10 @@ ace.updateEntity({ title: 'Ace of Spades' });
 ace.updateEntity({ title: 'Ace of Spades!' });
 
 watching();
+spades.unholdSlot();
 ```
 
-Four things to take from it:
+Five things to take from it:
 
 - **`cards` is the collection.** `writeSlotContentByKey` stores an entity and returns its
   **slot**, the entity's identity. Keep the slot: every later read, write and subscription
@@ -79,6 +84,8 @@ Four things to take from it:
 - **An effect runs once per frame.** Both writes above land before the microtask, so the
   effect logs once, with the last title. Without `channelScheduler` nothing is delivered
   until you call `db.flush()`, which is what tests do.
+- **`cardsByDeck` is an index**: it files every card under `keyOf` and moves it when `deck` changes.
+  `holdSlotByKey` keeps the bucket alive until `unholdSlot()`.
 - **Only what moved wakes up.** An effect on another card, or on another column of this one,
   does not run.
 
@@ -95,7 +102,7 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 112156 B | 26533 B |
+| Everything `@oimdb/core` exports | 112364 B | 26590 B |
 | One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 44316 B | 10915 B |
 | The same, plus one effect and `db.flush()` | 52068 B | 12996 B |
 | The same, plus one index: `createOIMSlotCollectionIndexService` | 74009 B | 17843 B |
@@ -244,6 +251,9 @@ store slot first, so a call no longer passes it. `service.createStoreAggregate(s
 store slot you already have; `createOIMSlotCollectionStoreAggregate(db, options)` and
 `createOIMSingleSlotStoreAggregate(db, options)` build the service, the store slot and the aggregate
 in one call, with the options of `createOIMSlotCollectionService` / `createOIMSingleSlotService`.
+`createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, options)` does the same for an index over a collection
+aggregate, with the options of `createOIMSlotCollectionIndexService` minus `entityService` and with the default bucket
+store; a sorted-array index or a custom bucket store goes through its service's `createStoreAggregate(createIndexStoreSlot(…))`.
 
 ```typescript
 import { createOIMSlotCollectionStoreAggregate, createOIMSingleSlotStoreAggregate } from '@oimdb/core';
@@ -2100,7 +2110,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 
 ## Export reference
 
-**253 names. This list is `src/index.ts`; nothing else is exported.**
+**254 names. This list is `src/index.ts`; nothing else is exported.**
 
 **Deprecated, removed in 5.0** — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
 
@@ -2162,7 +2172,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `OIM_NOTHING_WAS_INSERTED`, `OIM_NOTHING_WAS_REMOVED`, `OIM_REMOVED_WITHOUT_A_POSITION`.
 
 **Indexes** — `OIMSlotCollectionIndexService`, `OIMSlotCollectionSortedArrayIndexService`, `TOIMSlotCollectionIndexServiceOptions`, `TOIMIndexStoreSlot`,
-`TOIMSlotCollectionIndexServiceStoreSlot`, `TOIMSlotCollectionIndexServiceFactoryOptions`, `createOIMSlotCollectionIndexService`, `createOIMSlotCollectionIndexService`,
+`TOIMSlotCollectionIndexServiceStoreSlot`, `TOIMSlotCollectionIndexServiceFactoryOptions`, `createOIMSlotCollectionIndexService`, `createOIMSlotCollectionIndexStoreAggregate`,
 `createOIMSlotCollectionSortedArrayIndexService`, `TOIMIndexKeyOptions`, `TOIMIndexKey`,
 `IOIMIndexKeysService`, `TOIMIndexKeysPositions`, `OIMIndexKeysService`, `OIMAppendingIndexKeysService`,
 `OIMReclaimingIndexKeysService`.
