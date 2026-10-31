@@ -77,7 +77,7 @@ function App() {
 
 // One entity, by key.
 function Card({ pk }: { pk: string }) {
-    const card = useOIMEntity(cardService, cards, pk);
+    const card = useOIMEntity(cards, pk);
     return <span>{card?.title}</span>;
 }
 
@@ -85,7 +85,7 @@ function Card({ pk }: { pk: string }) {
 // mounted, and gives the hold back when it unmounts or when `deckId` moves —
 // there is no release to remember here.
 function DeckList({ deckId }: { deckId: string }) {
-    const deckCards = useOIMBucketSlotsByKey(byDeckService, byDeck, deckId);
+    const deckCards = useOIMBucketSlotsByKey(byDeck, deckId);
     return <ul>{deckCards.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
 }
 ```
@@ -101,8 +101,9 @@ throw when it does not.
 
 ## The hooks
 
-Every hook that reads a collection takes the collection service first and the store slot second.
-The parameter is typed as a `Pick` of `OIMSlotCollectionService` with only the members the hook calls.
+Every hook that reads a collection by key takes the store slot alone and calls the service it carries,
+`storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only the members the hook calls.
+A store aggregate passes its `storeSlot`.
 
 - **`useOIMValue(binding)`**: the binding. It subscribes one effect over the binding's roots and
   derivations (the effect holds each of them for as long as it lives), settles the derivations before
@@ -112,7 +113,7 @@ The parameter is typed as a `Pick` of `OIMSlotCollectionService` with only the m
 - **`useOIMComputedValue(computedSlot)`**: the value of ONE computed slot, re-rendering
   when it changes. It is `useOIMValue` over `sourceComputeds: [computedSlot]`, with the
   value read off `computedSlot.value` after `useOIMValue` settles it.
-- **`useOIMEntity(entityCollectionService, entityStoreSlot, key)`**: one entity, by key. The key is resolved
+- **`useOIMEntity(entityStoreSlot, key)`**: one entity, by key. The key is resolved
   to an identity ON COMMIT, not on render, through `holdSlotByKey(entityStoreSlot, key)`: a render is not a
   lifetime, and an identity a discarded render minted would have no hold to give back. The render path reads
   `getSlotByKey(entityStoreSlot, key)`, so the first paint shows current state. That read mints when the key
@@ -127,32 +128,32 @@ The parameter is typed as a `Pick` of `OIMSlotCollectionService` with only the m
   bucket's order, read through `bucketCollectionService.slotContentService.getBucketMemberSlots`. The array is
   copied only when the bucket slot's change stamp (`changedAtRevision`, `changedAtEpoch`) moved. That stamp is
   reliable here because the caller holds the bucket: a write to a slot nothing holds is not stamped.
-- **`useOIMBucketSlotsByKey(bucketCollectionService, bucketStoreSlot, key)`**: one bucket by key, as an array of
+- **`useOIMBucketSlotsByKey(bucketStoreSlot, key)`**: one bucket by key, as an array of
   entity slots. It resolves the bucket on commit, holds it for as long as the component is mounted, and gives the
   hold back on unmount or when the key changes. It copies the members on every render: the bucket it reads during a
   render may be held by nothing yet, and an unheld bucket's stamp does not move. **The key may be built inline**,
   including the array that keys an `OIMSlotTreeStoreService`; the hook settles it by asking the store which
   bucket each key names.
-- **`useOIMSlotsByKeys(slotCollectionService, storeSlot, keys)`**: several identities of one store slot,
+- **`useOIMSlotsByKeys(storeSlot, keys)`**: several identities of one store slot,
   resolved by key and held for as long as the component is mounted. It returns the slots and takes no subscription,
   so use it when a component reads **derivations**: a computed slot exists only while something holds it, and a bare
   read mints one that the next `flush()` takes straight back. See [Holds per component](#holds-per-component).
-- **`useOIMComputedValueByKey(computedCollectionService, computedStoreSlot, key)`**: the value of one key of a
-  computed store slot. Pass `computedService.computedCollectionService`. It has the same body as `useOIMEntity`:
+- **`useOIMComputedValueByKey(computedStoreSlot, key)`**: the value of one key of a
+  computed store slot. It has the same body as `useOIMEntity`:
   it resolves with `holdSlotByKey` on commit, subscribes over that computed slot, gives the resolve-hold straight
   back, and reads the value through `computedSlot.computedValueService.getValueForSlot`.
 - **`useOIMComputedCollection(computedService, derive, createSources, deps)`**: a keyed computed store slot the
   component owns. The SERVICE is yours, built once at module scope with `createOIMComputedService(options)`; the hook
   only calls `computedService.createComputedStoreSlot(db, derive, createSources)` in a `useMemo` keyed on `deps`, and
   returns that store slot. `derive` and `createSources` may be `undefined` when the service already has them.
-  Read it by key with `useOIMComputedValueByKey(computedService.computedCollectionService, computedStoreSlot, key)`.
+  Read it by key with `useOIMComputedValueByKey(computedStoreSlot, key)`.
 - **`useOIMSingleComputedValue(computedService, derive, createSources, deps)`**: a single computed the
   component owns. The service is `createOIMSingleComputedService<V>()`, built once at module scope; `derive` and
   `createSources` receive the computed slot. Per mount the hook builds one store slot and reads its slot through
   `computedSingleSlotService`, so a flush between render and subscribe, which releases the slot the render minted,
   is safe.
-- **`useOIMSingleEntity(singleSlotService, singleSlotStoreSlot)`** and
-  **`useOIMSingleBucketSlots(singleSlotService, singleSlotStoreSlot)`**: the single entity and the single bucket.
+- **`useOIMSingleEntity(singleSlotStoreSlot)`** and
+  **`useOIMSingleBucketSlots(singleSlotStoreSlot)`**: the single entity and the single bucket.
   See [Singles](#singles).
 - **`useOIMDB()`**: the `OIMDB` from `OIMDBContext`. It throws if used outside `<OIMDBProvider>`.
 
@@ -178,8 +179,8 @@ function TotalRank({ ids }: { ids: readonly string[] }) {
 
 A single is a store slot that holds ONE identity and has no key: `createOIMSingleSlotService()` and
 `createOIMSingleSlotService()` hand back an `OIMSingleSlotService`, read through `getSingleSlot(storeSlot)` and
-`holdSingleSlot(storeSlot)`. The two single hooks take that service (typed as a `Pick` of `OIMSingleSlotService`)
-and its store slot, and have the by-key hooks' mechanics without the key: the render reads `getSingleSlot`, whose
+`holdSingleSlot(storeSlot)`. The two single hooks take the store slot and call its `slotService` (typed as a
+`Pick` of `OIMSingleSlotService`), and have the by-key hooks' mechanics without the key: the render reads `getSingleSlot`, whose
 mint the next `flush()` takes back if no commit follows; the commit resolves with `holdSingleSlot`, subscribes over
 that slot and gives the resolve-hold straight back, so a single released while nothing watched it is minted afresh.
 
@@ -195,8 +196,8 @@ const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSl
 const picked = pickedService.createStoreSlot(db);
 
 function Toolbar() {
-    const theme = useOIMSingleEntity(settingsService, settings)?.theme;
-    const pickedCards = useOIMSingleBucketSlots(pickedService, picked);
+    const theme = useOIMSingleEntity(settings)?.theme;
+    const pickedCards = useOIMSingleBucketSlots(picked);
     return <span>{theme}: {pickedCards.length} picked</span>;
 }
 ```
@@ -236,7 +237,7 @@ const rankService = createOIMComputedService<string, number>({
 const ranks = rankService.createComputedStoreSlot(db);
 
 function Hand({ ids }: { ids: readonly string[] }) {
-    const slots = useOIMSlotsByKeys(rankService.computedCollectionService, ranks, ids);
+    const slots = useOIMSlotsByKeys(ranks, ids);
     return <ul>{slots.map((s) => <li key={String(s.key)}>{s.computedValueService.getValueForSlot(s)}</li>)}</ul>;
 }
 ```

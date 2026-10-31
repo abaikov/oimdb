@@ -36,7 +36,7 @@ OIMEffectService.INSTANCE.createEffect(db, () => {
 }, [onlineSlot]);
 ```
 
-In React, `useOIMSingleEntity(onlineService, online)` from `@oimdb/react` reads the same entity.
+In React, `useOIMSingleEntity(online)` from `@oimdb/react` reads the same entity.
 
 | Factory | Entity | Listens to |
 |---|---|---|

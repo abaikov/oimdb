@@ -67,7 +67,7 @@ export class OIMSortedComputedService<
 
     public createSortedStoreSlot(
         indexStoreSlot: TOIMSlotCollectionIndexServiceStoreSlot<TKey, TEntity, TSlots, TSourceKey, TSourceStore>,
-    ): TOIMStoreSlot<TComputedStore, TOIMSortedComputedSlot<TEntity, TKey>> {
+    ): TOIMStoreSlot<TComputedStore, TOIMSortedComputedSlot<TEntity, TKey>, unknown, this['computedCollectionService']> {
         return this.computedCollectionService.createStoreSlotFrom(indexStoreSlot);
     }
 }

@@ -41,7 +41,9 @@ export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>,
         });
     }
 
-    public createComputedStoreSlot(channelMap: IOIMChannelMap): TOIMStoreSlot<TComputedStore, TOIMSourceTrackingComputedSlot<TValue, TKey>> {
+    public createComputedStoreSlot(
+        channelMap: IOIMChannelMap,
+    ): TOIMStoreSlot<TComputedStore, TOIMSourceTrackingComputedSlot<TValue, TKey>, unknown, this['computedCollectionService']> {
         return this.computedCollectionService.createStoreSlot(channelMap);
     }
 }

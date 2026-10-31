@@ -50,7 +50,7 @@ describe('what the single and by-key hooks render', () => {
         });
         const ranks = ranksService.createComputedStoreSlot(db);
         function Rank(): React.ReactElement {
-            return <span data-testid="rank">{useOIMComputedValueByKey(ranksService.computedCollectionService, ranks, 'c1')}</span>;
+            return <span data-testid="rank">{useOIMComputedValueByKey(ranks, 'c1')}</span>;
         }
         render(<Rank />, { wrapper: Wrapper });
         expect(screen.getByTestId('rank').textContent).toBe('1');
@@ -93,7 +93,7 @@ describe('what the single and by-key hooks render', () => {
                 [],
             );
             seen.add(doubled);
-            return <span data-testid="doubled">{useOIMComputedValueByKey(doubledService.computedCollectionService, doubled, id)}</span>;
+            return <span data-testid="doubled">{useOIMComputedValueByKey(doubled, id)}</span>;
         }
         const { rerender } = render(<Doubled id="c1" />, { wrapper: Wrapper });
         expect(screen.getByTestId('doubled').textContent).toBe('2');
@@ -109,7 +109,7 @@ describe('what the single and by-key hooks render', () => {
         settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
         db.flush();
         function Theme(): React.ReactElement {
-            return <span data-testid="theme">{useOIMSingleEntity(settingsService, settings)?.theme}</span>;
+            return <span data-testid="theme">{useOIMSingleEntity(settings)?.theme}</span>;
         }
         render(<Theme />, { wrapper: Wrapper });
         expect(screen.getByTestId('theme').textContent).toBe('dark');
@@ -129,7 +129,7 @@ describe('what the single and by-key hooks render', () => {
         );
         db.flush();
         function Picked(): React.ReactElement {
-            return <span data-testid="picked">{useOIMSingleBucketSlots(pickedService, picked).map(slot => slot.entity?.id).join(',')}</span>;
+            return <span data-testid="picked">{useOIMSingleBucketSlots(picked).map(slot => slot.entity?.id).join(',')}</span>;
         }
         render(<Picked />, { wrapper: Wrapper });
         expect(screen.getByTestId('picked').textContent).toBe('c1');
@@ -171,7 +171,7 @@ describe('what the single and by-key hooks render', () => {
         const otherCardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const otherCards = otherCardsService.createStoreSlot(otherDb);
         function Title(): React.ReactElement {
-            return <span>{useOIMEntity(otherCardsService, otherCards, 'c1')?.id}</span>;
+            return <span>{useOIMEntity(otherCards, 'c1')?.id}</span>;
         }
         const silence = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         expect(() => render(<Title />, { wrapper: Wrapper })).toThrow(/useOIMEntity: the slot was filed on another OIMDB/);
@@ -204,7 +204,7 @@ describe('what the single and by-key hooks render', () => {
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         function Deck(): React.ReactElement {
-            const [red] = useOIMSlotsByKeys(byDeckService, byDeck, ['red']);
+            const [red] = useOIMSlotsByKeys(byDeck, ['red']);
             const ids = useOIMValue(React.useMemo(() => ({
                 sourceSlots: [red],
                 derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(red), slot => slot.entity?.id).sort(),

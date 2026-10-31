@@ -23,11 +23,10 @@ const effectService = OIMEffectService.INSTANCE;
 ```
 
 `OIMDB` holds what every collection on a page has to share: the clock, the default channel slot
-(`db.defaultChannelSlot`) and the unused-slot collector slot (`db.collectorSlot`). It
-also carries the optional strategies you give it (`entityWriter`,
-`slotReleasePolicy`, `slotStamp`, `indexKeysService`), and every factory that
-takes `db` (`createOIMSlotCollectionService`, `createOIMSlotCollectionIndexService`, …) passes them
-on to what it builds. Every service is stateless: the state lives on the store slots and the
+(`db.defaultChannelSlot`) and the unused-slot collector slot (`db.collectorSlot`). The
+optional strategies (`entityWriter`, `slotReleasePolicy`, `slotStamp`, `indexKeysService`) are an
+`OIMDefaults` passed as `defaults` to each factory (`createOIMSlotCollectionService`,
+`createOIMSlotCollectionIndexService`, …). Every service is stateless: the state lives on the store slots and the
 slots, so `OIMEffectService.INSTANCE` is the one effect service there is.
 
 Collections that are meant to wake each other's subscribers have to share a channel slot.

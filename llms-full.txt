@@ -702,7 +702,7 @@ derivation survives a settle, is the SAME instance on the next read (built once)
 is rebuilt only after the arena is flushed, and `open`/`close` nest so an inner
 scope ending drops nothing an outer one stands on.
 
-`@oimdb/react`'s `useOIMSlotsByKeys(slotCollectionService, storeSlot, keys)` does not use an arena: it takes a
+`@oimdb/react`'s `useOIMSlotsByKeys(storeSlot, keys)` does not use an arena: it takes a
 plain `holdSlotByKey` per key on commit and gives the same holds back on unmount or when the key list moves.
 
 ```ts signature
@@ -795,10 +795,6 @@ type TOIMDBOptions = {
     onBeforeFlush?: () => void;                 // start of the flush, before the frame; READ ONLY, a write is refused
     getNowMs?: () => number;                    // the release collectors' clock; absent = Date.now
     releaseTimer?: TOIMTimer;                   // the release collectors' timer; absent = an unref'd setTimeout
-    entityWriter?: IOIMEntityWriter;            // default entity writer for every entity factory
-    indexKeysService?: IOIMIndexKeysService;
-    slotStamp?: IOIMSlotStamp<TOIMSlot>;
-    slotReleasePolicy?: IOIMSlotReleasePolicy;  // default release policy for every factory
 };
 
 db.clock               // TOIMChannelClock, the same object as db.defaultChannelSlot.clock
@@ -1181,9 +1177,8 @@ frame, with no further code. Every mutation goes through a domain neuron — a w
 from outside the orchestrator is the mistake, not a case to cover with a fallback.
 Full page: `website/docs/guides/with-cnstra.md`.
 
-The doors are free functions, one module each, so a consumer ships only the one they import. The collection,
-single and index factories take `db` first and ONE options object second; the computed factories take only
-the options object. Each builds a SERVICE,
+The doors are free functions, one module each, so a consumer ships only the one they import. Every factory
+takes ONE options object and no `db`; the `db` goes to `createStoreSlot(db)`. Each builds a SERVICE,
 once per collection type; the store slot is made separately:
 
 | Door | Builds | Store slot |
@@ -1197,8 +1192,36 @@ once per collection type; the store slot is made separately:
 | `createOIMSortedComputedService({ indexService, sortColumns?, comparator?, slotReleasePolicy?, columnSlotStoreService?, computedSlotStoreService? })` | `OIMSortedComputedService` — per key, the entity slots of the index bucket under that key, sorted; see [Sorted lists](#sorted-lists) | `createSortedStoreSlot(indexStoreSlot)` |
 | `createOIMBucketMemoComputedService({ bucketCollectionService, slotReleasePolicy?, columnSlotStoreService?, computedSlotStoreService? })` | `OIMBucketMemoComputedService` — per key, the bucket's slots as one array; see [The order of a bucket](#the-order-of-a-bucket-as-one-derivation-per-key) | `createBucketMemoStoreSlot(bucketStoreSlot)` |
 
-`entityWriter` and `slotReleasePolicy` on these doors default to the
-db's, so naming one overrides it for that service alone.
+`entityWriter` and `slotReleasePolicy` on these doors default to those of the
+`defaults` option, so naming one overrides it for that service alone.
+
+**A store aggregate is the store slot with its store methods, so a call does not pass the store slot.**
+`service.createStoreAggregate(storeSlot)` wraps a store slot you have (the collection, single and index
+services each return their own aggregate); `createOIMSlotCollectionStoreAggregate(db, options)` and
+`createOIMSingleSlotStoreAggregate(db, options)` build service + store slot + aggregate in one call, with the
+options of `createOIMSlotCollectionService` / `createOIMSingleSlotService` (a new service per call: for many
+store slots of one type, build the service once).
+
+```ts
+import { createOIMSlotCollectionStoreAggregate } from '@oimdb/core';
+
+const deckStoreAggregate = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMSlotContentEntityService<Card>() });
+const aceSlot = deckStoreAggregate.writeSlotContentByKey('c1', { id: 'c1', title: 'Ace', rank: 1, deck: 'spades' });   // = service.writeSlotContentByKey(storeSlot, 'c1', …)
+deckStoreAggregate.slotContentService.updateEntity(aceSlot, { rank: 14 });
+deckStoreAggregate.storeSlot;      // for hooks, indexes and computeds
+deckStoreAggregate.slotService;    // the service itself
+```
+
+| Aggregate | Methods (the service's, minus the store slot argument) |
+|---|---|
+| `OIMSlotCollectionStoreAggregate` | `findSlotByKey`, `hasSlotContentByKey`, `getSlotByKey`, `holdSlotByKey`, `getSlots`, `getSlotCount`, `openBatch`, `closeBatch`, `writeInBatch` |
+| `OIMWritableSlotCollectionStoreAggregate` | + `writeSlotContentByKey` |
+| `OIMSingleSlotStoreAggregate` | `findSingleSlot`, `hasSingleSlotContent`, `getSingleSlot`, `holdSingleSlot` |
+| `OIMWritableSingleSlotStoreAggregate` | + `writeSingleSlotContent`, `clearSingleSlotContent` |
+| `OIMSlotCollectionIndexStoreAggregate` | the collection methods + `getEntitiesByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `get/holdBucketColumnByKey`, `get/holdAnyBucketColumnByKey`, `disposeIndexStoreSlot` |
+
+Every aggregate carries `storeSlot`, `slotService` (typed as the service it came from), `slotContentService`.
+Methods that take a slot stay on their service.
 
 **A DOOR ALWAYS PASSES; IT NEVER LETS A CLASS REACH FOR A GLOBAL.** Every option
 a service would otherwise answer with `?? OIMDefaults.x` is in the object its
@@ -3090,7 +3113,11 @@ that matches what you are comparing; they are not interchangeable.
 
 ## Full export list
 
-**230 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+**237 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+
+*Store aggregates* — `OIMSlotCollectionStoreAggregate` · `OIMWritableSlotCollectionStoreAggregate` ·
+`OIMSingleSlotStoreAggregate` · `OIMWritableSingleSlotStoreAggregate` · `OIMSlotCollectionIndexStoreAggregate` ·
+`createOIMSlotCollectionStoreAggregate` · `createOIMSingleSlotStoreAggregate`
 
 *Channel and database slots* — `OIMChannelService` · `TOIMChannelSlot` · `TOIMChannelSlotOptions` · `createOIMChannelSlot` ·
 `IOIMChannelMap` · `TOIMDBOptions` · `OIMFlushSchedulerService` · `TOIMFlushSchedulerSlot` · `IOIMFlushSchedulerListener`
@@ -3246,18 +3273,19 @@ source before generating code against it.
 `@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` (`useOIMDB()`) and nothing else: the effect
 service is stateless (`OIMEffectService.INSTANCE`) and every hook subscribes with
 `OIMEffectService.INSTANCE.subscribeEffect(db, …)`. A hook that resolves or takes a slot filed on another `OIMDB`
-throws, since nothing below would wake. Every hook that reads a collection takes the collection service, typed as a
-`Pick` of `OIMSlotCollectionService` with only the members it calls, and then the store slot:
-`useOIMEntity(entityCollectionService, entityStoreSlot, key)`,
-`useOIMField(entityCollectionService, slot, name)` (calls `getColumn(slot, name)`; no store slot, the slot carries it),
-`useOIMBucketSlots(bucketCollectionService, bucketSlot)` and
-`useOIMBucketSlotsByKey(bucketCollectionService, bucketStoreSlot, key)` (both read
-`bucketCollectionService.slotContentService.getBucketMemberSlots`; an index service and its index store slot fit too), and
+throws, since nothing below would wake. Every hook that reads a collection by key takes the store slot alone and
+calls the service it carries, `storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only
+the members it calls (a store aggregate passes its `storeSlot`):
+`useOIMEntity(entityStoreSlot, key)` and
+`useOIMBucketSlotsByKey(bucketStoreSlot, key)` (reads `bucketStoreSlot.slotService.slotContentService.getBucketMemberSlots`;
+an index store slot fits too). The hooks over a slot you already hold take the service and the slot:
+`useOIMField(entityCollectionService, slot, name)` (calls `getColumn(slot, name)`),
+`useOIMBucketSlots(bucketCollectionService, bucketSlot)`, and
 `useOIMValue(binding)`, where a binding is `{ sourceSlots?, sourceComputeds?, derive }` (a missing list means none)
 and must keep its identity across renders.
 `useOIMComputedValue(computedSlot: TOIMComputedSlot<TValue>): TValue` is the one-computed case: it subscribes to
 the slot, settles it and reads `computedSlot.value`, with no binding to memoise.
-`useOIMComputedValueByKey(computedService.computedCollectionService, computedStoreSlot, key)` reads one key of a
+`useOIMComputedValueByKey(computedStoreSlot, key)` reads one key of a
 computed store slot (plain, sorted, bucket memo) with the same by-key body as `useOIMEntity` /
 `useOIMBucketSlotsByKey`: resolve on commit with `holdSlotByKey`, effect over that slot, resolve-hold given back,
 a key built inline settled by meaning.
@@ -3266,16 +3294,15 @@ The computed SERVICE is the caller's, built once at module scope with `createOIM
 slot per mount — `computedService.createComputedStoreSlot(db, derive, createSources)` in a `useMemo` on `deps`;
 `derive` / `createSources` may be `undefined` when the service has them.
 `useOIMSingleComputedValue(computedService, derive, createSources, deps): TValue` is the same for a void-keyed
-service whose `computedSlotStoreService` is `OIMSingleSlotStoreService.INSTANCE`, read through
-`useOIMComputedValueByKey(computedService.computedCollectionService, computedStoreSlot, undefined)`, so a flush
-between render and subscribe is safe.
-`useOIMSlotsByKeys(slotCollectionService, storeSlot, keys)` holds the identities its keys name for as long as the
+service built with `createOIMSingleComputedService`, its slot read through the store slot's single slot service,
+so a flush between render and subscribe is safe.
+`useOIMSlotsByKeys(storeSlot, keys)` holds the identities its keys name for as long as the
 component is mounted (a `holdSlotByKey` per key on commit, the same holds given back on unmount or when the list
 moves) and subscribes to nothing; it needs no provider.
 Singles are not keyed collections: `createOIMSingleSlotService({ slotContentService })` returns an
 `OIMWritableSingleSlotService` (`getSingleSlot(storeSlot)`, `holdSingleSlot(storeSlot)`), read by
-`useOIMSingleEntity(singleSlotService, singleSlotStoreSlot): TEntity | undefined` and
-`useOIMSingleBucketSlots(singleSlotService, singleSlotStoreSlot): readonly TOIMEntitySlot<TEntity>[]` — the by-key
+`useOIMSingleEntity(singleSlotStoreSlot): TEntity | undefined` and
+`useOIMSingleBucketSlots(singleSlotStoreSlot): readonly TOIMEntitySlot<TEntity>[]` — the by-key
 mechanics without a key (getSingleSlot on render, holdSingleSlot on commit, resolve-hold given back once the
 effect exists; the bucket members are copied per render). See `packages/react/README.md`.
 
@@ -4018,7 +4045,7 @@ createOIMBrowserLocationSingleSlotService(options?): TOIMBrowserSingleSlotServic
 ```
 
 Read it like any single: `const onlineSlot = onlineService.getSingleSlot(onlineService.createStoreSlot(db))`, then
-an effect over `[onlineSlot]`, or `useOIMSingleEntity(onlineService, online)` in React. `isOnline` is
+an effect over `[onlineSlot]`, or `useOIMSingleEntity(online)` in React. `isOnline` is
 `navigator.onLine` (a network interface exists, not a reachable internet); the location follows the
 Navigation API's `currententrychange` where it exists and `popstate` + `hashchange` otherwise, so without it a
 `history.pushState` is not seen until the next of those events. Without the API a sensor needs, the slot holds

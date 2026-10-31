@@ -10,7 +10,7 @@ export function useOIMComputedCollection<TKey extends NonNullable<unknown>, TVal
     derive: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined,
     createSources: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined,
     dependencyList: DependencyList,
-): TOIMComputedStoreSlot<TStore, TValue, TOIMComputedSlot<TValue, TKey>> {
+): TOIMComputedStoreSlot<TStore, TValue, TOIMComputedSlot<TValue, TKey>, OIMComputedService<TKey, TValue, TStore>['computedCollectionService']> {
     const db = useOIMDB();
     return useMemo(
         () => computedService.createComputedStoreSlot(db, derive, createSources),

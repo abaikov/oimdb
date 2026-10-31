@@ -5,7 +5,8 @@ import type { OIMSourceTracker } from '../OIMSourceTracker';
 
 export type TOIMComputedStoreSlot<
     TStore = unknown, TValue = unknown, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined> = TOIMComputedContentSlot<TValue>,
-> = TOIMStoreSlot<TStore, TComputedSlot> & {
+    TSlotService = unknown,
+> = TOIMStoreSlot<TStore, TComputedSlot, unknown, TSlotService> & {
     readonly derive: ((computedSlot: TComputedSlot) => TValue) | undefined;
     readonly createSources: ((computedSlot: TComputedSlot) => Partial<TOIMComputedSources>) | undefined;
 };

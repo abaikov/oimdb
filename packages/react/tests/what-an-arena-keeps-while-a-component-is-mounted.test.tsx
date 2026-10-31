@@ -37,13 +37,12 @@ function build() {
 type TWorld = ReturnType<typeof build>;
 
 function Ranks(
-    { ranksService, ranks, ids }: {
-        ranksService: TWorld['ranksService'];
+    { ranks, ids }: {
         ranks: TWorld['ranks'];
         ids: readonly string[];
     },
 ): React.ReactElement {
-    const slots = useOIMSlotsByKeys(ranksService.computedCollectionService, ranks, ids);
+    const slots = useOIMSlotsByKeys(ranks, ids);
     return <span>{slots.map(slot => slot.computedValueService.getValueForSlot(slot)).join(',')}</span>;
 }
 
@@ -53,7 +52,7 @@ describe('a component wrapped in an arena', () => {
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
 
-        const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        const view = render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
 
         expect(view.container.textContent).toBe('1,2,3');
         expect(w.builtCount()).toBe(3);
@@ -63,7 +62,7 @@ describe('a component wrapped in an arena', () => {
         const w = build();
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
-        render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
 
         act(() => { w.settle(); });
 
@@ -75,7 +74,7 @@ describe('a component wrapped in an arena', () => {
         const w = build();
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
-        const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        const view = render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
 
         view.unmount();
@@ -91,12 +90,12 @@ describe('a component wrapped in an arena', () => {
         const w = build();
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
-        const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        const view = render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
         view.unmount();
         w.settle();
 
-        render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
 
         expect(w.builtCount()).toBe(6);
     });
@@ -106,7 +105,7 @@ describe('a component wrapped in an arena', () => {
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
         const view = render(
-            <React.StrictMode><Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} /></React.StrictMode>);
+            <React.StrictMode><Ranks ranks={w.ranks} ids={['a', 'b', 'c']} /></React.StrictMode>);
         act(() => { w.settle(); });
         expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(3);
 
@@ -120,11 +119,11 @@ describe('a component wrapped in an arena', () => {
         const w = build();
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
-        const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        const view = render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
 
-        act(() => { view.rerender(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />); });
-        act(() => { view.rerender(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />); });
+        act(() => { view.rerender(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />); });
+        act(() => { view.rerender(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />); });
         act(() => { w.settle(); });
 
         expect(w.builtCount()).toBe(3);
@@ -136,10 +135,10 @@ describe('a component wrapped in an arena', () => {
         const w = build();
         w.cardsService.writeInBatch(w.cards, () => ([{ id: 'a', rank: 1 }, { id: 'b', rank: 2 }, { id: 'c', rank: 3 }]).map(entity => w.cardsService.writeSlotContentByKey(w.cards, entity.id, entity)));
         w.settle();
-        const view = render(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b', 'c']} />);
+        const view = render(<Ranks ranks={w.ranks} ids={['a', 'b', 'c']} />);
         act(() => { w.settle(); });
 
-        act(() => { view.rerender(<Ranks ranksService={w.ranksService} ranks={w.ranks} ids={['a', 'b']} />); });
+        act(() => { view.rerender(<Ranks ranks={w.ranks} ids={['a', 'b']} />); });
         act(() => { w.settle(); });
 
         expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(2);

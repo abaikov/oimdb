@@ -51,10 +51,11 @@ export class OIMSingleComputedService<TValue> {
         channelMap: IOIMChannelMap,
         derive?: ((computedSlot: TOIMComputedContentSlot<TValue>) => TValue) | undefined,
         createSources?: ((computedSlot: TOIMComputedContentSlot<TValue>) => Partial<TOIMComputedSources>) | undefined,
-    ): TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue> {
+    ): TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this['computedSingleSlotService']> {
         return oimAttachComputedDerivation(
-            this.computedSingleSlotService.createStoreSlot(channelMap) as
-                TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue>,
+            this.computedSingleSlotService.createStoreSlot(channelMap) as TOIMComputedStoreSlot<
+                TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this['computedSingleSlotService']
+            >,
             this.hasDerive, this.hasCreateSources, derive, createSources,
         );
     }

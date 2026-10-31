@@ -18,9 +18,7 @@
  */
 import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import type {
-    TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey, TOIMBucketSlotsArrayStore, TOIMStoreSlot,
-} from '@oimdb/core';
+import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import { OIMDB, OIMUnusedSlotCollectorService, oimIsSlotReleased } from '@oimdb/core';
 import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
 import { OIMDBProvider, useOIMBucketSlotsByKey } from '../src/index';
@@ -30,19 +28,17 @@ import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TByDeckSlot = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, TOIMStoreKey>;
-type TByDeck = TOIMStoreSlot<Map<TOIMStoreKey, TByDeckSlot>, TByDeckSlot, readonly TCardSlot[]>;
-
 const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
 
 const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 type TByDeckService = ReturnType<typeof createByDeckService>;
+type TByDeck = ReturnType<TByDeckService['createStoreSlot']>;
 
 function build(): {
     db: OIMDB;
     cardsService: TCardsService;
-    cards: TOIMStoreSlot<Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMEntitySlot<TCard, TOIMStoreKey>, Partial<TCard>>;
+    cards: ReturnType<TCardsService['createStoreSlot']>;
     byDeckService: TByDeckService;
     byDeck: TByDeck;
     put: (...rows: readonly TCard[]) => void;
@@ -107,12 +103,12 @@ const seed = (put: (...rows: readonly TCard[]) => void, db: OIMDB): void => {
 
 describe('binding a group by key', () => {
     it('renders the slots it has on first paint, with no change to wait for', () => {
-        const { db, cardsService, cards, byDeckService, byDeck, put } = build();
+        const { db, cardsService, cards, byDeck, put } = build();
         seed(put, db);
 
         let renders = 0;
         function List({ deck }: { deck: string }): React.ReactElement {
-            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeckService, byDeck, deck);
+            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeck, deck);
             renders++;
             return <span data-testid="list">{inDeck.map(s => s.entity?.id).join(',')}</span>;
         }
@@ -139,7 +135,7 @@ describe('binding a group by key', () => {
         seed(put, db);
 
         function List(): React.ReactElement {
-            return <span>{useOIMBucketSlotsByKey(byDeckService, byDeck, 'd1').length}</span>;
+            return <span>{useOIMBucketSlotsByKey(byDeck, 'd1').length}</span>;
         }
         const view = render(<List />, { wrapper: wrap(db) });
         expect(byDeckService.getSlotByKey(byDeck, 'd1')?.holdCount).toBe(1);
@@ -157,7 +153,7 @@ describe('binding a group by key', () => {
         expect(byDeckService.getSlotCount(byDeck)).toBe(2);
 
         function List(): React.ReactElement {
-            return <span data-testid="n">{useOIMBucketSlotsByKey(byDeckService, byDeck, 'searched').length}</span>;
+            return <span data-testid="n">{useOIMBucketSlotsByKey(byDeck, 'searched').length}</span>;
         }
         const view = render(<List />, { wrapper: wrap(db) });
         expect(screen.getByTestId('n').textContent).toBe('0');
@@ -179,7 +175,7 @@ describe('binding a group by key', () => {
         seed(put, db);
 
         function List(): React.ReactElement {
-            return <span>{useOIMBucketSlotsByKey(byDeckService, byDeck, 'discarded').length}</span>;
+            return <span>{useOIMBucketSlotsByKey(byDeck, 'discarded').length}</span>;
         }
         function Bomb(): React.ReactElement {
             throw new Error('this render never commits');
@@ -213,7 +209,7 @@ describe('a group under StrictMode, which mounts every effect twice', () => {
         seed(put, db);
 
         function List(): React.ReactElement {
-            return <span>{useOIMBucketSlotsByKey(byDeckService, byDeck, 'd1').length}</span>;
+            return <span>{useOIMBucketSlotsByKey(byDeck, 'd1').length}</span>;
         }
         const view = render(<List />, { wrapper: wrapStrict(db) });
 
@@ -233,7 +229,7 @@ describe('a group under StrictMode, which mounts every effect twice', () => {
         seed(put, db);
 
         function List(): React.ReactElement {
-            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeckService, byDeck, 'later');
+            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeck, 'later');
             return <span data-testid="list">{inDeck.map(s => s.entity?.id).join(',')}</span>;
         }
         render(<List />, { wrapper: wrapStrict(db) });
@@ -255,7 +251,7 @@ describe('a key that moves between renders', () => {
 
         let renders = 0;
         function List({ deck }: { deck: string }): React.ReactElement {
-            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeckService, byDeck, deck);
+            const inDeck: readonly TOIMEntitySlot<TCard>[] = useOIMBucketSlotsByKey(byDeck, deck);
             renders++;
             return <span data-testid="list">{inDeck.map(s => s.entity?.id).join(',')}</span>;
         }
@@ -293,7 +289,7 @@ describe('a key that moves between renders', () => {
         seed(put, db);
 
         function List({ deck }: { deck: string }): React.ReactElement {
-            return <span data-testid="n">{useOIMBucketSlotsByKey(byDeckService, byDeck, deck).length}</span>;
+            return <span data-testid="n">{useOIMBucketSlotsByKey(byDeck, deck).length}</span>;
         }
         const view = render(<List deck="typed" />, { wrapper: wrap(db) });
         const typed = byDeckService.getSlotByKey(byDeck, 'typed');

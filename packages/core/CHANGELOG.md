@@ -3,6 +3,18 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.3.0
+
+### Added
+
+- `OIMSlotCollectionStoreAggregate`, `OIMWritableSlotCollectionStoreAggregate`, `OIMSingleSlotStoreAggregate`, `OIMWritableSingleSlotStoreAggregate`, `OIMSlotCollectionIndexStoreAggregate`.
+- `createStoreAggregate(storeSlot)` on `OIMSlotCollectionService`, `OIMWritableSlotCollectionService`, `OIMSingleSlotService`, `OIMWritableSingleSlotService`, `OIMSlotCollectionIndexService`.
+- `createOIMSlotCollectionStoreAggregate(db, options)`, `createOIMSingleSlotStoreAggregate(db, options)`.
+
+### Changed
+
+- `TOIMComputedStoreSlot` has a fourth type parameter, the slot service. The store slots of the computed services carry their service's type in `slotService`.
+
 ## 4.2.0
 
 ### Added

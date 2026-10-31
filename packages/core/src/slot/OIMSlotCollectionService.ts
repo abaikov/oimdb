@@ -14,6 +14,7 @@ import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSlotCollectionServiceOptions } from './types/TOIMSlotCollectionServiceOptions';
 import { createOIMStoreSlot } from './utils/createOIMStoreSlot';
 import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
+import { OIMSlotCollectionStoreAggregate } from './OIMSlotCollectionStoreAggregate';
 
 export class OIMSlotCollectionService<
     TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>, TStore, TSlotContentService,
@@ -57,6 +58,12 @@ export class OIMSlotCollectionService<
         return this.createStoreSlotOverNewStore(store => createOIMStoreSlot<TStore, TSlot, TPatch, this>(
             store, sourceStoreSlot.channelSlot, this, sourceStoreSlot,
         ));
+    }
+
+    public createStoreAggregate(
+        storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch, this>,
+    ): OIMSlotCollectionStoreAggregate<TKey, TSlot, TStore, TPatch, this> {
+        return new OIMSlotCollectionStoreAggregate(this, storeSlot);
     }
 
     protected createStoreSlotOverNewStore<TStoreSlot extends TOIMStoreSlot<TStore, TSlot, TPatch>>(

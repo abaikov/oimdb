@@ -13,11 +13,13 @@ const sourcesOfRootSlot = (rootSlot: TOIMSlot): readonly [readonly TOIMSlot[], r
 
 export function useOIMSingleSlot<TSlot extends TOIMSlot>(
     hookName: string,
-    singleSlotService: Pick<OIMSingleSlotService<TSlot, unknown>, 'getSingleSlot' | 'holdSingleSlot'>,
-    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot>,
+    singleSlotStoreSlot: TOIMStoreSlot<
+        TOIMSingleSlotStore<TSlot>, TSlot, unknown, Pick<OIMSingleSlotService<TSlot, unknown>, 'getSingleSlot' | 'holdSingleSlot'>
+    >,
     sourcesOfSlot: (slot: NoInfer<TSlot>) => readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] = sourcesOfRootSlot,
 ): TSlot {
     const db = useOIMDB();
+    const singleSlotService = singleSlotStoreSlot.slotService;
     const store = useMemo(() => {
         const snapshotVersion = new OIMSnapshotVersion();
         let subscribedSlot: TSlot | undefined = undefined;

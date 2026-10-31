@@ -73,13 +73,13 @@ identities nothing else writes.
 
 ## Render one entity by its key
 
-**Take:** `useOIMEntity(entityCollectionService, entityStoreSlot, key)`. Not `useOIMValue` with a binding of
+**Take:** `useOIMEntity(entityStoreSlot, key)`. Not `useOIMValue` with a binding of
 your own over `getSlotByKey`: that resolves the key during the render, and the
 hook already resolves it at the one moment when that is safe.
 
 ```tsx
 function CardTitle({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   if (card === undefined) return <span>Loading…</span>;
   return <h2>{card.title}</h2>;
 }
@@ -130,19 +130,19 @@ that shows several columns, one `useOIMEntity` is one subscription and several
 
 ## Render a list where each item re-renders alone
 
-**Take:** `useOIMBucketSlotsByKey(bucketCollectionService, bucketStoreSlot, key)` in the list, and a
+**Take:** `useOIMBucketSlotsByKey(bucketStoreSlot, key)` in the list, and a
 memoised item component that subscribes to its own entity with `useOIMEntity`.
 Not a list component that reads every title itself: it would re-render only when
 the membership moves, and a title write would never reach it.
 
 ```tsx
 const CardItem = memo(function CardItem({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   return <li>{card?.title}</li>;
 });
 
 function SearchResults({ query }: { query: string }) {
-  const slots = useOIMBucketSlotsByKey(searchResultService, searchResults, query);
+  const slots = useOIMBucketSlotsByKey(searchResults, query);
   return <ul>{slots.map((slot) => <CardItem key={String(slot.key)} cardId={String(slot.key)} />)}</ul>;
 }
 
@@ -167,17 +167,17 @@ and never fills itself.
 
 ## Render the group an index keeps
 
-**Take:** `useOIMBucketSlotsByKey(cardsByDeckService, cardsByDeck, deckId)`: an index service and its index
-store slot fit the hook as a bucket collection does.
+**Take:** `useOIMBucketSlotsByKey(cardsByDeck, deckId)`: an index store slot fits the hook as a bucket
+collection's store slot does.
 
 ```tsx
 const CardItem = memo(function CardItem({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   return <li>{card?.title}</li>;
 });
 
 function Deck({ deckId }: { deckId: string }) {
-  const slots = useOIMBucketSlotsByKey(cardsByDeckService, cardsByDeck, deckId);
+  const slots = useOIMBucketSlotsByKey(cardsByDeck, deckId);
   return <ul>{slots.map((slot) => <CardItem key={String(slot.key)} cardId={String(slot.key)} />)}</ul>;
 }
 ```
@@ -194,19 +194,19 @@ derivation over the index instead, as in the next recipe.
 
 **Take:** `createOIMSortedComputedService({ indexService, sortColumns })` and its
 `createSortedStoreSlot(indexStoreSlot)` in a module; in the component,
-`useOIMSlotsByKeys(cardsByRankService.computedCollectionService, cardsByRank, [key])` to own the
+`useOIMSlotsByKeys(cardsByRank, [key])` to own the
 derivation and `useOIMComputedValue(ranked)` to re-render.
 Not a sort inside the render: it would re-sort on every render and still not
 re-render when a rank changes.
 
 ```tsx
 const CardItem = memo(function CardItem({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   return <li>{card?.title}</li>;
 });
 
 function RankedDeck({ deckId }: { deckId: string }) {
-  const [ranked] = useOIMSlotsByKeys(cardsByRankService.computedCollectionService, cardsByRank, [deckId]);
+  const [ranked] = useOIMSlotsByKeys(cardsByRank, [deckId]);
   const slots = useOIMComputedValue(ranked);
   return <ol>{slots.map((slot) => <CardItem key={String(slot.key)} cardId={String(slot.key)} />)}</ol>;
 }

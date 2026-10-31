@@ -190,6 +190,7 @@ describe('what a getter hands to the collector', () => {
             'index/OIMSlotCollectionIndexService.ts getEntitiesByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotsByKeys',
+            'slot/OIMSlotCollectionStoreAggregate.ts getSlotByKey',
         ]);
     });
 });

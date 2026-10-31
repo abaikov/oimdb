@@ -2,8 +2,10 @@ import type { OIMSingleSlotService, TOIMEntityContentSlot, TOIMSingleSlotStore, 
 import { useOIMSingleSlot } from './useOIMSingleSlot';
 
 export function useOIMSingleEntity<TEntity extends object>(
-    singleSlotService: Pick<OIMSingleSlotService<TOIMEntityContentSlot<TEntity>, unknown>, 'getSingleSlot' | 'holdSingleSlot'>,
-    singleSlotStoreSlot: TOIMStoreSlot<TOIMSingleSlotStore<TOIMEntityContentSlot<TEntity>>, TOIMEntityContentSlot<TEntity>>,
+    singleSlotStoreSlot: TOIMStoreSlot<
+        TOIMSingleSlotStore<TOIMEntityContentSlot<TEntity>>, TOIMEntityContentSlot<TEntity>, unknown,
+        Pick<OIMSingleSlotService<TOIMEntityContentSlot<TEntity>, unknown>, 'getSingleSlot' | 'holdSingleSlot'>
+    >,
 ): TEntity | undefined {
-    return useOIMSingleSlot('useOIMSingleEntity', singleSlotService, singleSlotStoreSlot).entity;
+    return useOIMSingleSlot('useOIMSingleEntity', singleSlotStoreSlot).entity;
 }

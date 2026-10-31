@@ -166,7 +166,7 @@ const COLUMN_DOORS = [
 const BATCH_DOORS = ['openBatch', 'closeBatch', 'writeInBatch'] as const;
 
 const STORE_SLOT_DOORS_THAT_WRITE_NOTHING = [
-    'createStoreSlot', 'createStoreSlotFrom',
+    'createStoreSlot', 'createStoreSlotFrom', 'createStoreAggregate',
     'isSameKey', 'getSlotCount', 'getSlots', 'findSlotByKey', 'hasSlotContentByKey', 'getSlotByKey', 'holdSlotByKey',
     ...namedInPart('columnSlotService', COLUMN_DOORS),
 ] as const;

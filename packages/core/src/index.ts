@@ -97,10 +97,16 @@ export type { TOIMSlotCollectionServiceOptions } from './slot/types/TOIMSlotColl
 export { OIMSingleSlotService } from './slot/OIMSingleSlotService';
 export { OIMWritableSingleSlotService } from './slot/OIMWritableSingleSlotService';
 export type { TOIMSingleSlotServiceOptions } from './slot/types/TOIMSingleSlotServiceOptions';
+export { OIMSlotCollectionStoreAggregate } from './slot/OIMSlotCollectionStoreAggregate';
+export { OIMWritableSlotCollectionStoreAggregate } from './slot/OIMWritableSlotCollectionStoreAggregate';
+export { OIMSingleSlotStoreAggregate } from './slot/OIMSingleSlotStoreAggregate';
+export { OIMWritableSingleSlotStoreAggregate } from './slot/OIMWritableSingleSlotStoreAggregate';
 
 export { OIMSlotContentEntityService } from './entity/OIMSlotContentEntityService';
 export { createOIMSlotCollectionService } from './slot/createOIMSlotCollectionService';
 export { createOIMSingleSlotService } from './slot/createOIMSingleSlotService';
+export { createOIMSlotCollectionStoreAggregate } from './slot/createOIMSlotCollectionStoreAggregate';
+export { createOIMSingleSlotStoreAggregate } from './slot/createOIMSingleSlotStoreAggregate';
 export { createOIMSlotContentEntityService } from './entity/createOIMSlotContentEntityService';
 
 export { OIMSlotContentBucketService } from './bucket/OIMSlotContentBucketService';
@@ -158,6 +164,7 @@ export type { IOIMBucketCommands } from './bucket/commands/interfaces/IOIMBucket
 
 export { OIMSlotCollectionIndexService } from './index/OIMSlotCollectionIndexService';
 export { OIMSlotCollectionSortedArrayIndexService } from './index/OIMSlotCollectionSortedArrayIndexService';
+export { OIMSlotCollectionIndexStoreAggregate } from './index/OIMSlotCollectionIndexStoreAggregate';
 export type { TOIMSlotCollectionIndexServiceOptions } from './index/types/TOIMSlotCollectionIndexServiceOptions';
 export type { TOIMSlotCollectionIndexServiceFactoryOptions } from './index/types/TOIMSlotCollectionIndexServiceFactoryOptions';
 export type { TOIMSlotContentServiceKey } from './slot/types/TOIMSlotContentServiceKey';

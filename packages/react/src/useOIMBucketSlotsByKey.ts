@@ -4,16 +4,18 @@ import type {
 import { useOIMSlotByKey } from './useOIMSlotByKey';
 
 export function useOIMBucketSlotsByKey<TEntity extends object, TSlots = unknown, TKey extends NonNullable<unknown> = TOIMStoreKey, TStore = unknown>(
-    bucketCollectionService: Pick<
-        OIMSlotCollectionService<
-            TKey, TOIMBucketSlot<TSlots, TKey>, TStore,
-            Pick<OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>
-        >,
-        'getSlotByKey' | 'holdSlotByKey' | 'slotContentService'
+    bucketStoreSlot: TOIMStoreSlot<
+        TStore, TOIMBucketSlot<TSlots, TKey>, unknown,
+        Pick<
+            OIMSlotCollectionService<
+                TKey, TOIMBucketSlot<TSlots, TKey>, TStore,
+                Pick<OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>
+            >,
+            'getSlotByKey' | 'holdSlotByKey' | 'slotContentService'
+        >
     >,
-    bucketStoreSlot: TOIMStoreSlot<TStore, TOIMBucketSlot<TSlots, TKey>>,
     key: TKey,
 ): readonly TOIMEntitySlot<TEntity>[] {
-    const bucketSlot = useOIMSlotByKey('useOIMBucketSlotsByKey', bucketCollectionService, bucketStoreSlot, key);
-    return Array.from(bucketCollectionService.slotContentService.getBucketMemberSlots(bucketSlot));
+    const bucketSlot = useOIMSlotByKey('useOIMBucketSlotsByKey', bucketStoreSlot, key);
+    return Array.from(bucketStoreSlot.slotService.slotContentService.getBucketMemberSlots(bucketSlot));
 }

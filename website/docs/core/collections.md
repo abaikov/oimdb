@@ -54,10 +54,10 @@ same key always resolves to the same object for as long as anything refers to it
 
 ## Building one
 
-`createOIMSlotCollectionService(options)` is the convenience door. Its options are `keyOf` (required),
-`slotStoreService` (a Map store when left out; a tree store for a composite key),
-`entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`, and `columnSlotStoreService` or `columnNames`. Each
-optional one falls back to the `OIMDB`'s value, then to the `OIMDefaults` entry.
+`createOIMSlotCollectionService(options)` is the convenience door. Its options are `slotContentService`
+(required), `slotStoreService` (a Map store when left out; a tree store for a composite key),
+`slotReleasePolicy`, `slotSubscriptionListener`, `defaults`, and `columnSlotStoreService` or `columnNames`. Each
+optional one falls back to `defaults`, then to the built-in default.
 
 ```typescript
 const archiveService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
@@ -94,6 +94,34 @@ emptiness is settled), `indexKeysService` (how per-index keys are kept on each s
 [the content-change hook](/docs/core/oimindex#the-content-change-hook-and-indexkeys)) and
 `storeSlotListener`. A factory's own option wins over `defaults`, and a field `defaults` leaves out falls
 back to the built-in default. Without `defaults` a factory uses `OIMDefaults.INSTANCE`, which is empty.
+
+## A store aggregate
+
+A store aggregate is a store slot together with the methods of its service that take that store slot
+first, so a call no longer passes it. Build one over a store slot you have with
+`service.createStoreAggregate(storeSlot)`, or build the service, the store slot and the aggregate in one
+call with `createOIMSlotCollectionStoreAggregate(db, options)` or `createOIMSingleSlotStoreAggregate(db, options)`,
+which take the options of `createOIMSlotCollectionService` / `createOIMSingleSlotService`:
+
+```typescript
+import { createOIMSlotCollectionStoreAggregate } from '@oimdb/core';
+
+const handStoreAggregate = createOIMSlotCollectionStoreAggregate(db, {
+    slotContentService: createOIMSlotContentEntityService<Card>(),
+});
+const handSlot = handStoreAggregate.writeSlotContentByKey('h1', { id: 'h1', title: 'Queen', rank: 12 });
+handStoreAggregate.slotContentService.updateEntity(handSlot, { rank: 13 });
+handStoreAggregate.getSlotByKey('h1') === handSlot;   // true
+handStoreAggregate.storeSlot;                         // what hooks, indexes and computeds take
+```
+
+The aggregate carries `storeSlot`, `slotService`, `slotContentService` and the store methods of its
+service: `OIMWritableSlotCollectionStoreAggregate` the read, batch and `writeSlotContentByKey` methods,
+`OIMWritableSingleSlotStoreAggregate` the single's read methods, `writeSingleSlotContent` and
+`clearSingleSlotContent`, and `OIMSlotCollectionIndexStoreAggregate` (from an index service's
+`createStoreAggregate(indexStoreSlot)`) the index reads as well. A method that takes a slot, such as
+`updateEntity`, stays on its service. The one-call factories build a new service each time; for many
+store slots of one type, build the service once and call `createStoreAggregate` on it.
 
 ## Name the entity
 

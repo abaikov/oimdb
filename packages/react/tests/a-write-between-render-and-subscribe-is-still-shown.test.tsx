@@ -97,7 +97,7 @@ describe('a write from a sibling layout effect, which lands between render and s
         });
 
         function Row(): React.ReactElement {
-            return <span data-testid="t">{useOIMEntity(cardsService, cards, 'c1')?.title}</span>;
+            return <span data-testid="t">{useOIMEntity(cards, 'c1')?.title}</span>;
         }
         render(<><Row /><Writer /></>, { wrapper: wrap(db) });
 
@@ -153,7 +153,7 @@ describe('a write from a sibling layout effect, which lands between render and s
         // The layout effect files the group,
         // `subscribe` then resolves it, and without the bump nothing tells React
         // that the two reads disagree.
-        const { db, byDeckService, byDeck, put } = build();
+        const { db, byDeck, put } = build();
         put({ id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         db.flush();
         const Writer = makeWriter(() => {
@@ -164,7 +164,7 @@ describe('a write from a sibling layout effect, which lands between render and s
         function List(): React.ReactElement {
             return (
                 <span data-testid="list">
-                    {useOIMBucketSlotsByKey(byDeckService, byDeck, 'later').map(slot => slot.entity?.id).join(',')}
+                    {useOIMBucketSlotsByKey(byDeck, 'later').map(slot => slot.entity?.id).join(',')}
                 </span>
             );
         }
@@ -186,7 +186,7 @@ describe('what the bump costs', () => {
         let renders = 0;
         function Row({ pk }: { pk: string }): React.ReactElement {
             renders++;
-            return <span data-testid="t">{useOIMEntity(cardsService, cards, pk)?.title}</span>;
+            return <span data-testid="t">{useOIMEntity(cards, pk)?.title}</span>;
         }
         const view = render(<Row pk="c1" />, { wrapper: wrap(db) });
         expect(renders).toBe(2);

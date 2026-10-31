@@ -7,6 +7,7 @@ import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import { OIMSingleSlotService } from './OIMSingleSlotService';
+import { OIMWritableSingleSlotStoreAggregate } from './OIMWritableSingleSlotStoreAggregate';
 
 export class OIMWritableSingleSlotService<
     TSlot extends TOIMSlot, TContent,
@@ -14,6 +15,12 @@ export class OIMWritableSingleSlotService<
     TColumnName extends string = string, TColumnSlot extends TOIMKeyedSlot<string> = TOIMKeyedSlot<string>,
     TColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TColumnSlot> = OIMColumnSlotOwner<TOIMSlot, TColumnSlot>, TPatch = unknown,
 > extends OIMSingleSlotService<TSlot, TSlotContentService, TColumnName, TColumnSlot, TColumnSlotOwner, TPatch> {
+    public override createStoreAggregate(
+        storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch, this>,
+    ): OIMWritableSingleSlotStoreAggregate<TSlot, TContent, TPatch, this> {
+        return new OIMWritableSingleSlotStoreAggregate(this, storeSlot);
+    }
+
     public writeSingleSlotContent(
         storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>, content: TContent, changedSlots?: TSlot[],
     ): TSlot {

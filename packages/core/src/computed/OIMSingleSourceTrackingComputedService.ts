@@ -40,7 +40,10 @@ export class OIMSingleSourceTrackingComputedService<TValue> {
 
     public createComputedStoreSlot(
         channelMap: IOIMChannelMap,
-    ): TOIMStoreSlot<TOIMSingleSlotStore<TOIMSourceTrackingComputedContentSlot<TValue>>, TOIMSourceTrackingComputedContentSlot<TValue>> {
+    ): TOIMStoreSlot<
+        TOIMSingleSlotStore<TOIMSourceTrackingComputedContentSlot<TValue>>, TOIMSourceTrackingComputedContentSlot<TValue>, unknown,
+        this['computedSingleSlotService']
+    > {
         return this.computedSingleSlotService.createStoreSlot(channelMap);
     }
 }

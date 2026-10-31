@@ -47,9 +47,10 @@ export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComp
         channelMap: IOIMChannelMap,
         derive?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined,
         createSources?: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined,
-    ): TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>> {
+    ): TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>, this['computedCollectionService']> {
         return oimAttachComputedDerivation(
-            this.computedCollectionService.createStoreSlot(channelMap) as TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>>,
+            this.computedCollectionService.createStoreSlot(channelMap) as
+                TOIMComputedStoreSlot<TComputedStore, TValue, TOIMComputedSlot<TValue, TKey>, this['computedCollectionService']>,
             this.hasDerive, this.hasCreateSources, derive, createSources,
         );
     }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Changed
+
+- README: `useOIMSingleEntity(online)` from `@oimdb/react` 3.2.0.
+
 ## 1.0.0
 
 ### Added

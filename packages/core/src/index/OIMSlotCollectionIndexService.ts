@@ -15,6 +15,7 @@ import { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
 import { createOIMIndexStoreSlot } from './utils/createOIMIndexStoreSlot';
 import { OIMSlotContentChangeListenerService } from '../slot/OIMSlotContentChangeListenerService';
 import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
+import { OIMSlotCollectionIndexStoreAggregate } from './OIMSlotCollectionIndexStoreAggregate';
 
 export class OIMSlotCollectionIndexService<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots,
@@ -70,6 +71,14 @@ export class OIMSlotCollectionIndexService<
         (indexStoreSlot as TOIMEditable<typeof indexStoreSlot>).indexKeysPosition = indexKeysService.allocatePosition(indexKeysPositions);
         OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(sourceStoreSlot, contentChangeListener, this.keyColumns);
         return indexStoreSlot;
+    }
+
+    public override createStoreAggregate(
+        indexStoreSlot: TOIMIndexStoreSlot<
+            TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this
+        >,
+    ): OIMSlotCollectionIndexStoreAggregate<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketSlot, TStore, this> {
+        return new OIMSlotCollectionIndexStoreAggregate(this, indexStoreSlot);
     }
 
     public disposeIndexStoreSlot(

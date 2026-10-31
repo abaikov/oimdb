@@ -6,7 +6,7 @@ import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import type {
     TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey,
-    TOIMBucketSlotsSetStore, TOIMStoreSlot,
+    TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
 import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
 import { OIMDB, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard} from '@oimdb/core';
@@ -22,10 +22,9 @@ import { OIMBucketCommands } from '@oimdb/core';
 type TDeck = { id: string };
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TCards = TOIMStoreSlot<Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMEntitySlot<TCard, TOIMStoreKey>, Partial<TCard>>;
-
 const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
+type TCards = ReturnType<TCardsService['createStoreSlot']>;
 
 const createByDeckArrayService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 
@@ -63,7 +62,7 @@ describe('binding one row', () => {
 
         const renders: Record<string, number> = { c1: 0, c2: 0 };
         function Row({ pk }: { pk: string }): React.ReactElement {
-            const card = useOIMEntity(cardsService, cards, pk);
+            const card = useOIMEntity(cards, pk);
             renders[pk]++;
             return <span data-testid={pk}>{card?.title}</span>;
         }
@@ -88,7 +87,7 @@ describe('binding one row', () => {
         const stored = slotOf(cardsService, cards, 'c1').entity;
 
         function Row(): React.ReactElement {
-            const card = useOIMEntity(cardsService, cards, 'c1');
+            const card = useOIMEntity(cards, 'c1');
             return <span data-testid="t">{card?.title}</span>;
         }
         render(<Row />, { wrapper: wrap(db) });
@@ -105,7 +104,7 @@ describe('binding one row', () => {
         db.flush();
         let renders = 0;
         function Row(): React.ReactElement {
-            const card = useOIMEntity(cardsService, cards, 'c1');
+            const card = useOIMEntity(cards, 'c1');
             renders++;
             return <span data-testid="t">{card?.title}</span>;
         }
@@ -128,7 +127,7 @@ describe('binding one row', () => {
         let renders = 0;
         function Row(): React.ReactElement {
             renders++;
-            return <span>{useOIMEntity(cardsService, cards, 'c1')?.title}</span>;
+            return <span>{useOIMEntity(cards, 'c1')?.title}</span>;
         }
         render(<Row />, { wrapper: wrap(db) });
         const before = renders;
@@ -141,7 +140,7 @@ describe('binding one row', () => {
     it('lets the identity go when the last component unmounts', () => {
         const { db, cardsService, cards } = build();
         function Ghost(): React.ReactElement {
-            return <span>{useOIMEntity(cardsService, cards, 'never-written')?.title ?? '-'}</span>;
+            return <span>{useOIMEntity(cards, 'never-written')?.title ?? '-'}</span>;
         }
         const view = render(<Ghost />, { wrapper: wrap(db) });
         // Minted by the RENDER, which asks `getSlotByKey`; `subscribe` resolves the same
@@ -262,7 +261,7 @@ describe('what a hook needs above it', () => {
         const slot = slotOf(cardsService, cards, 'c1');
 
         function Row(): React.ReactElement {
-            return <span>{useOIMEntity(cardsService, cards, 'c1')?.title}</span>;
+            return <span>{useOIMEntity(cards, 'c1')?.title}</span>;
         }
         function Field(): React.ReactElement {
             return <span>{String(useOIMField(cardsService, slot, 'title') ?? '')}</span>;
@@ -357,11 +356,11 @@ describe('one key, one identity', () => {
         let fixed = 0;
         function Moving({ pk }: { pk: string }): React.ReactElement {
             moving++;
-            return <span data-testid="moving">{useOIMEntity(cardsService, cards, pk)?.title}</span>;
+            return <span data-testid="moving">{useOIMEntity(cards, pk)?.title}</span>;
         }
         function Fixed(): React.ReactElement {
             fixed++;
-            return <span data-testid="fixed">{useOIMEntity(cardsService, cards, 'c1')?.title}</span>;
+            return <span data-testid="fixed">{useOIMEntity(cards, 'c1')?.title}</span>;
         }
         const view = render(<><Moving pk="c1" /><Fixed /></>, { wrapper: wrap(db) });
 
@@ -469,7 +468,7 @@ describe('a composite key, rebuilt inline on every render', () => {
     };
 
     it('resolves one group and settles, instead of rendering without bound', () => {
-        const { db, put, byDeckAndDayService, byDeckAndDay, chain } = setup();
+        const { db, put, byDeckAndDay, chain } = setup();
 
         let renders = 0;
         function Combo({ deckId, day }: { deckId: string; day: string }): React.ReactElement {
@@ -477,7 +476,7 @@ describe('a composite key, rebuilt inline on every render', () => {
             // The assertion, placed where it can still be reached. A binding
             // that does not converge never returns from `render()`.
             if (renders > 12) throw new Error(`rendered ${renders} times for one key`);
-            const inGroup: readonly TDatedSlot[] = useOIMBucketSlotsByKey(byDeckAndDayService, byDeckAndDay, chain(deckId, day));
+            const inGroup: readonly TDatedSlot[] = useOIMBucketSlotsByKey(byDeckAndDay, chain(deckId, day));
             return <span data-testid="n">{inGroup.map(s => s.entity?.id).sort().join(',')}</span>;
         }
         render(<Combo deckId="spades" day="mon" />, { wrapper: wrap(db) });
@@ -502,10 +501,10 @@ describe('a composite key, rebuilt inline on every render', () => {
     it('still repoints when the segments actually change', () => {
         // The guard on the fix rather than on the defect: settling the key must
         // not out-cache a real move.
-        const { db, byDeckAndDayService, byDeckAndDay, chain } = setup();
+        const { db, byDeckAndDay, chain } = setup();
 
         function Combo({ day }: { day: string }): React.ReactElement {
-            const inGroup: readonly TDatedSlot[] = useOIMBucketSlotsByKey(byDeckAndDayService, byDeckAndDay, chain('spades', day));
+            const inGroup: readonly TDatedSlot[] = useOIMBucketSlotsByKey(byDeckAndDay, chain('spades', day));
             return <span data-testid="n">{inGroup.map(s => s.entity?.id).sort().join(',')}</span>;
         }
         const view = render(<Combo day="mon" />, { wrapper: wrap(db) });
@@ -527,7 +526,7 @@ describe('a composite key, rebuilt inline on every render', () => {
         const before = byDeckAndDayService.getSlotCount(byDeckAndDay);
 
         function Combo(): React.ReactElement {
-            return <span>{useOIMBucketSlotsByKey(byDeckAndDayService, byDeckAndDay, chain('clubs', 'sat')).length}</span>;
+            return <span>{useOIMBucketSlotsByKey(byDeckAndDay, chain('clubs', 'sat')).length}</span>;
         }
         const view = render(<Combo />, { wrapper: wrap(db) });
         expect(byDeckAndDayService.getSlotCount(byDeckAndDay)).toBe(before + 1);

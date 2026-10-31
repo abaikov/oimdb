@@ -22,8 +22,6 @@ export function useOIMSingleComputedValue<TValue>(
         // eslint-disable-next-line react-hooks/exhaustive-deps -- the caller's list is checked at the call site
         [db, computedService, ...dependencyList],
     );
-    const computedSlot = useOIMSingleSlot(
-        'useOIMSingleComputedValue', computedService.computedSingleSlotService, computedStoreSlot, sourcesOfComputedSlot,
-    );
+    const computedSlot = useOIMSingleSlot('useOIMSingleComputedValue', computedStoreSlot, sourcesOfComputedSlot);
     return computedSlot.computedValueService.getValueForSlot(computedSlot);
 }

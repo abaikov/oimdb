@@ -13,12 +13,12 @@ const sourcesOfRootSlot = (rootSlot: TOIMSlot): readonly [readonly TOIMSlot[], r
 
 export function useOIMSlotByKey<TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>, TStore>(
     hookName: string,
-    slotCollectionService: Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>,
-    storeSlot: TOIMStoreSlot<TStore, TSlot>,
+    storeSlot: TOIMStoreSlot<TStore, TSlot, unknown, Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>>,
     key: TKey,
     sourcesOfSlot: (slot: NoInfer<TSlot>) => readonly [readonly TOIMSlot[], readonly TOIMComputedContentSlot[]] = sourcesOfRootSlot,
 ): TSlot {
     const db = useOIMDB();
+    const slotCollectionService = storeSlot.slotService;
     const lastSeenKeyRef = useRef(key);
     const settledKeyRef = useRef(key);
     if (key !== lastSeenKeyRef.current) {

@@ -57,7 +57,7 @@ export class OIMBucketMemoComputedService<
 
     public createBucketMemoStoreSlot(
         bucketStoreSlot: TOIMStoreSlot<TBucketStore, TOIMBucketSlot<TSlots, TKey>, readonly TBucketMemberSlot[]>,
-    ): TOIMStoreSlot<TComputedStore, TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>> {
+    ): TOIMStoreSlot<TComputedStore, TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>, unknown, this['computedCollectionService']> {
         return this.computedCollectionService.createStoreSlotFrom(bucketStoreSlot);
     }
 }

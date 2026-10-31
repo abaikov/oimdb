@@ -90,11 +90,11 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 102669 B | 24555 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35413 B | 9161 B |
-| The same, plus one effect and `db.flush()` | 45582 B | 11543 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 65835 B | 16192 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48469 B | 12117 B |
+| Everything `@oimdb/core` exports | 105563 B | 25051 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 36382 B | 9314 B |
+| The same, plus one effect and `db.flush()` | 46546 B | 11711 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 67554 B | 16458 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 49435 B | 12310 B |
 <!-- bundle-size:end -->
 
 ---
@@ -106,7 +106,7 @@ the domain of what it builds. Where a file goes is in `packages/core/src/README.
 
 | Domain | Contents |
 |---|---|
-| `slot/` | `OIMSlotOwner`, `OIMSlotOwnerService` (type-only export), `OIMSlotCollectionService`, `OIMWritableSlotCollectionService`, `OIMSingleSlotService`, `OIMWritableSingleSlotService`, `OIMSlotContentChangeListenerService`, `createOIMSlotCollectionService`, `createOIMSingleSlotService`, `TOIMSlot`, `TOIMEditable` |
+| `slot/` | `OIMSlotOwner`, `OIMSlotOwnerService` (type-only export), `OIMSlotCollectionService`, `OIMWritableSlotCollectionService`, `OIMSingleSlotService`, `OIMWritableSingleSlotService`, `OIMSlotContentChangeListenerService`, `createOIMSlotCollectionService`, `createOIMSingleSlotService`, the store aggregates and their factories, `TOIMSlot`, `TOIMEditable` |
 | `store/` | `TOIMStoreSlot`, the slot store services |
 | `channel/` | `OIMChannelService`, `TOIMChannelSlot` |
 | `effect/` | `OIMEffectService`, `TOIMEffect` |
@@ -114,7 +114,7 @@ the domain of what it builds. Where a file goes is in `packages/core/src/README.
 | `entity/` | `OIMSlotContentEntityService`, `createOIMSlotContentEntityService`, `createOIMInPlaceEntityWriter`, `createOIMReplacingEntityWriter` |
 | `column/` | abstract `OIMColumnSlotOwner` with `OIMPushColumnSlotOwner` and `OIMPullColumnSlotOwner`, `OIMColumnSlotService` |
 | `bucket/` | `OIMSlotContentBucketService` (abstract), `OIMSlotContentSetBucketService`, `OIMSlotContentArrayBucketService` (abstract), `OIMSlotContentPositionalArrayBucketService`, `OIMSlotContentSortedArrayBucketService`, `OIMBucketCommands` |
-| `index/` | `OIMSlotCollectionIndexService`, `OIMSlotCollectionSortedArrayIndexService`, their factories, the index keys services |
+| `index/` | `OIMSlotCollectionIndexService`, `OIMSlotCollectionSortedArrayIndexService`, their factories, `OIMSlotCollectionIndexStoreAggregate`, the index keys services |
 | `key/` | the key tree walks |
 | `collector/` | the release policies, `OIMSlotReleaseWheel`, `OIMSlotRefetchWheel`, `OIMUnusedSlotCollectorService` |
 | `schedule/` | `OIMFlushSchedulerService` |
@@ -169,9 +169,8 @@ effectService.disposeEffect(effect);
 
 `OIMDB` is the shared state and nothing else: one `clock` (`{ revision, epoch }`), one
 `defaultChannelSlot` (a `TOIMChannelSlot`, the struct a channel's state lives in), one
-`collectorSlot` (the unused-slot collector's slot and the release wheels, made on first use), and the
-`entityWriter`, `slotStamp`, `slotReleasePolicy` and `indexKeysService` its constructor is handed,
-which it keeps as the default that every door below reads. It is an `IOIMChannelMap`, so
+`collectorSlot` (the unused-slot collector's slot and the release wheels, made on first use). It holds
+no defaults: those are an `OIMDefaults` passed to each door as `defaults`. It is an `IOIMChannelMap`, so
 anything that takes a `channelMap` takes the `db`. `flush()` is
 `OIMChannelService.INSTANCE.flush(db.defaultChannelSlot)`: it runs the pending frame, then the
 unused-slot collector, then the after-each-flush handlers, in that order. It builds nothing.
@@ -195,8 +194,8 @@ Every mutation goes through a domain neuron. See
 [With cnstra](https://oimdb.org/docs/guides/with-cnstra).
 
 The doors are free functions, one module each, and each builds a **service**, once per
-type; an instance is the store slot that service creates. A collection, a single and an index take
-`db` first and ONE options object second. Every collection is `createOIMSlotCollectionService` over a content
+type; an instance is the store slot that service creates. Every door takes ONE options object and no
+`db`; the `db` goes to `createStoreSlot(db)`. Every collection is `createOIMSlotCollectionService` over a content
 service, and every single is `createOIMSingleSlotService`; an array key needs a tree store
 (`slotStoreService: new OIMSlotTreeStoreService(…)`, or `bucketSlotStoreService` on an index), because a
 map-driven store compares arrays by reference. See [The six shapes](#the-six-shapes). The computed doors
@@ -233,14 +232,55 @@ const sameShapeCardService = createOIMSlotCollectionService({ slotContentService
 const sameShapeCards = sameShapeCardService.createStoreSlot(db);
 ```
 
+### A store aggregate: the store slot with its store methods
+
+A **store aggregate** is a store slot together with the methods of its service that take that
+store slot first, so a call no longer passes it. `service.createStoreAggregate(storeSlot)` wraps a
+store slot you already have; `createOIMSlotCollectionStoreAggregate(db, options)` and
+`createOIMSingleSlotStoreAggregate(db, options)` build the service, the store slot and the aggregate
+in one call, with the options of `createOIMSlotCollectionService` / `createOIMSingleSlotService`.
+
+```typescript
+import { createOIMSlotCollectionStoreAggregate, createOIMSingleSlotStoreAggregate } from '@oimdb/core';
+
+const deckStoreAggregate = createOIMSlotCollectionStoreAggregate(db, {
+    slotContentService: createOIMSlotContentEntityService<Card>(),
+});
+const aceSlot = deckStoreAggregate.writeSlotContentByKey('c9', { id: 'c9', deck: 'hearts', title: 'Ace', rank: 1 });
+deckStoreAggregate.slotContentService.updateEntity(aceSlot, { rank: 14 });
+deckStoreAggregate.getSlotByKey('c9') === aceSlot;   // true
+
+const cardStoreAggregate = cardService.createStoreAggregate(cards);
+cardStoreAggregate.storeSlot === cards;              // true: hooks, indexes and computeds still take the store slot
+
+const focusStoreAggregate = createOIMSingleSlotStoreAggregate(db, {
+    slotContentService: createOIMSlotContentEntityService<{ isFocused: boolean }>(),
+});
+focusStoreAggregate.writeSingleSlotContent({ isFocused: true });
+```
+
+| Aggregate | Over | Methods |
+|---|---|---|
+| `OIMSlotCollectionStoreAggregate` | `OIMSlotCollectionService` | `findSlotByKey`, `hasSlotContentByKey`, `getSlotByKey`, `holdSlotByKey`, `getSlots`, `getSlotCount`, `openBatch`, `closeBatch`, `writeInBatch` |
+| `OIMWritableSlotCollectionStoreAggregate` | `OIMWritableSlotCollectionService` | the above and `writeSlotContentByKey` |
+| `OIMSingleSlotStoreAggregate` | `OIMSingleSlotService` | `findSingleSlot`, `hasSingleSlotContent`, `getSingleSlot`, `holdSingleSlot` |
+| `OIMWritableSingleSlotStoreAggregate` | `OIMWritableSingleSlotService` | the above, `writeSingleSlotContent` and `clearSingleSlotContent` |
+| `OIMSlotCollectionIndexStoreAggregate` | `OIMSlotCollectionIndexService` | the collection methods, `getEntitiesByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `getBucketColumnByKey`, `holdBucketColumnByKey`, `getAnyBucketColumnByKey`, `holdAnyBucketColumnByKey`, `disposeIndexStoreSlot` |
+
+Every aggregate also carries `storeSlot`, `slotService` (typed as the service it came from) and
+`slotContentService`. A method that takes a slot rather than the store slot stays on its service.
+Each aggregate method calls the service with the store slot; the service and the store slot stay
+usable directly. `createOIMSlotCollectionStoreAggregate` builds a new service per call, so for
+many store slots of one type build the service once and call `createStoreAggregate` on it.
+
 The bucket doors take the type of the bucket member slots, `TBucketMemberSlot extends TOIMSlot`
 (default `TOIMEntitySlot`). A bucket holds bucket member slots of any slot type (entity slots,
 bucket slots, computeds), and an index's `getEntitiesByKey` is there because its members are
 entity slots.
 
-Each door reads the globals that the class it builds would otherwise fall back to and
-**always passes them**, so there is one answer to each question and no class
-reaches for a default of its own.
+Each door resolves every optional dependency as its own option, then `defaults` (or
+`OIMDefaults.INSTANCE`), then the built-in `OIMDefaultValue`, and **always passes the result**, so
+there is one answer to each question and no class reaches for a default of its own.
 
 The doors are free functions, not methods on `OIMDB`, so a consumer who wires
 nothing does not import the bucket machinery. This is pinned by
@@ -267,8 +307,8 @@ live** (`slotStoreService`, the strategy every store slot of the service files i
 with), **how a key comes out of an entity** (`keyOf`), **how a write lands** (`entityWriter`),
 **what counts as empty** (`slotEmptinessPolicy`), **when a slot goes** (`slotReleasePolicy`), and
 **where column slots live** (`columnSlotStoreService`, or `columnNames` for the ordinal store; the
-slot owner makes its own column owner over it). Everything but `keyOf` falls back to the `db` or
-to a lazy `OIMDefaultValue` on [`OIMDefaults`](#every-optional-dependency-has-a-default).
+slot owner makes its own column owner over it). Everything but `keyOf` falls back to `defaults`, then
+to a lazy `OIMDefaultValue` (see [`OIMDefaults`](#every-optional-dependency-has-a-default)).
 
 ---
 
@@ -2053,7 +2093,7 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 
 ## Export reference
 
-**230 names. This list is `src/index.ts`; nothing else is exported.**
+**237 names. This list is `src/index.ts`; nothing else is exported.**
 
 **The channel slot** — `OIMChannelService`, `TOIMChannelSlot`, `TOIMChannelSlotOptions`, `createOIMChannelSlot`,
 `IOIMChannelMap`, `TOIMChannelFrame`, `TOIMChannelClock`, `TOIMChannelScheduler`, `OIMChannelQueue` (**type only**),
@@ -2083,6 +2123,10 @@ a throwing disposer does not stop the rest. The engine ships no scope to do that
 `TOIMSlotContentServiceContent`, `TOIMSlotContentServicePatch`,
 `OIMSlotContentChangeListenerService`, `IOIMSlotContentChangeListener`, `IOIMStoreSlotListener`, `OIMNoStoreSlotListener`,
 `IOIMSlotSubscriptionListener`, `OIMNoSlotSubscriptionListener`.
+
+**Store aggregates** — `OIMSlotCollectionStoreAggregate`, `OIMWritableSlotCollectionStoreAggregate`,
+`OIMSingleSlotStoreAggregate`, `OIMWritableSingleSlotStoreAggregate`, `createOIMSlotCollectionStoreAggregate`,
+`createOIMSingleSlotStoreAggregate`, `OIMSlotCollectionIndexStoreAggregate`.
 
 **Slots and their owners** — `TOIMSlot`, `TOIMStoreSlot`, `TOIMSingleSlotStoreSlot`, `TOIMEditable`, `TOIMKeyedSlot`,
 `TOIMIndexableSlot`, `OIMSlotOwner`, `IOIMSlotOwner`, `IOIMSlotEmptinessPolicy`, `IOIMSlotStamp`, `TOIMSameValueGuard`,

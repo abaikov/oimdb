@@ -3,8 +3,7 @@ import { oimSameKeySequence } from '@oimdb/core';
 import type { OIMSlotCollectionService, TOIMIndexableSlot, TOIMStoreSlot } from '@oimdb/core';
 
 export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot extends TOIMIndexableSlot<TKey>, TStore = unknown>(
-    slotCollectionService: Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>,
-    storeSlot: TOIMStoreSlot<TStore, TSlot>,
+    storeSlot: TOIMStoreSlot<TStore, TSlot, unknown, Pick<OIMSlotCollectionService<TKey, TSlot, TStore, unknown>, 'getSlotByKey' | 'holdSlotByKey'>>,
     keys: readonly TKey[],
 ): readonly TSlot[] {
     const settledKeys = useRef(keys);
@@ -15,19 +14,16 @@ export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot exten
     const [, resolveAgain] = useState(0);
     const resolvedSlots = useRef<readonly TSlot[] | undefined>(undefined);
     const resolvedKeys = useRef(keysToHold);
-    const resolvedSlotCollectionService = useRef(slotCollectionService);
     const resolvedStoreSlot = useRef(storeSlot);
     if (resolvedSlots.current === undefined
         || resolvedKeys.current !== keysToHold
-        || resolvedSlotCollectionService.current !== slotCollectionService
         || resolvedStoreSlot.current !== storeSlot) {
         const slots: TSlot[] = [];
         for (let i = 0; i < keysToHold.length; i++) {
-            slots.push(slotCollectionService.getSlotByKey(storeSlot, keysToHold[i]));
+            slots.push(storeSlot.slotService.getSlotByKey(storeSlot, keysToHold[i]));
         }
         resolvedSlots.current = slots;
         resolvedKeys.current = keysToHold;
-        resolvedSlotCollectionService.current = slotCollectionService;
         resolvedStoreSlot.current = storeSlot;
     }
     const slots = resolvedSlots.current;
@@ -37,7 +33,7 @@ export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot exten
         const heldSlots: TSlot[] = [];
         let someKeyNamesAnotherIdentityNow = false;
         for (let i = 0; i < keysToHold.length; i++) {
-            const slot = slotCollectionService.holdSlotByKey(storeSlot, keysToHold[i]);
+            const slot = storeSlot.slotService.holdSlotByKey(storeSlot, keysToHold[i]);
             heldSlots.push(slot);
             if (slot !== renderedSlots?.[i]) someKeyNamesAnotherIdentityNow = true;
         }
@@ -51,7 +47,7 @@ export function useOIMSlotsByKeys<TKey extends NonNullable<unknown>, TSlot exten
                 heldSlot.owner.unholdSlot(heldSlot);
             }
         };
-    }, [slotCollectionService, storeSlot, keysToHold]);
+    }, [storeSlot, keysToHold]);
 
     return slots;
 }

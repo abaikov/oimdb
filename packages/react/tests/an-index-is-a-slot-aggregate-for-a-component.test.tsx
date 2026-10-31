@@ -18,7 +18,7 @@ describe('an index passed to useOIMSlotsByKeys', () => {
         db.flush();
 
         function Spades(): React.ReactElement {
-            const [spades] = useOIMSlotsByKeys(deckIndexService, deckIndex, ['spades']);
+            const [spades] = useOIMSlotsByKeys(deckIndex, ['spades']);
             const ids = useOIMValue(React.useMemo(() => ({
                 sourceSlots: [spades],
                 derive: () => Array.from(deckIndexService.slotContentService.getBucketMemberSlots(spades), slot => slot.entity?.id).join(','),

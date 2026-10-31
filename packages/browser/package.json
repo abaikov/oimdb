@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/browser",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Browser state as OIMDB single slots: online, window focus, document visibility, location.",
   "type": "module",
   "main": "./dist/index.cjs",

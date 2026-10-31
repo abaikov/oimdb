@@ -101,7 +101,7 @@ const CODE_OIMDB = `const userService = createOIMSlotCollectionService({
 const users = userService.createStoreSlot(db);
 
 function useUser(id: string) {
-  return useOIMEntity(userService, users, id);
+  return useOIMEntity(users, id);
 }`;
 
 const statusLine = (openScreens: readonly TScreen[]): string => {

@@ -17,7 +17,7 @@ slots for a component without subscribing to them, and the provider hands every 
 - A subscription is an effect from the core's stateless `OIMEffectService.INSTANCE`, and the value is read off the slots.
 - The provider hands the hooks the `OIMDB`, and nothing else.
 - There is a wrapper for each core participant: entity, field, bucket and computed.
-- A hook that reads a collection takes the collection service first and the store slot second.
+- A hook that reads a collection by key takes the store slot; the service comes from `storeSlot.slotService`.
 
 </InShort>
 
@@ -42,7 +42,7 @@ const cardService = createOIMSlotCollectionService({ slotContentService: createO
 const cards = cardService.createStoreSlot(db);
 
 function CardTitle({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   return <h1>{card?.title}</h1>;
 }
 
@@ -66,25 +66,26 @@ no data; `cards`, the store slot, is the one instance they read and write.
 
 | You have | You want | Take |
 |---|---|---|
-| an entity collection service, its store slot and a key | the entity, re-rendered when it is written | `useOIMEntity(entityCollectionService, entityStoreSlot, key)` |
+| an entity store slot and a key | the entity, re-rendered when it is written | `useOIMEntity(entityStoreSlot, key)` |
 | an entity slot | one column of it, re-rendered only when that column is written | `useOIMField(entityCollectionService, slot, name)` |
 | a bucket somebody else resolved and holds | its member slots as an array | `useOIMBucketSlots(bucketCollectionService, bucketSlot)` |
-| a bucket collection (or index) service, its store slot and a key | that bucket, owned by the component | `useOIMBucketSlotsByKey(bucketCollectionService, bucketStoreSlot, key)` |
-| a collection service (computed, entity, bucket or index), its store slot and keys | the slots held while mounted, with no re-render | `useOIMSlotsByKeys(slotCollectionService, storeSlot, keys)` |
+| a bucket (or index) store slot and a key | that bucket, owned by the component | `useOIMBucketSlotsByKey(bucketStoreSlot, key)` |
+| a store slot (computed, entity, bucket or index) and keys | the slots held while mounted, with no re-render | `useOIMSlotsByKeys(storeSlot, keys)` |
 | one computed slot | its value, re-rendered when it changes | `useOIMComputedValue(computedSlot)` |
-| a computed collection service, its store slot and a key | that key's value, owned by the component | `useOIMComputedValueByKey(computedService.computedCollectionService, computedStoreSlot, key)` |
+| a computed store slot and a key | that key's value, owned by the component | `useOIMComputedValueByKey(computedStoreSlot, key)` |
 | a module-scope computed service and a derive | a keyed computed store slot the component owns, rebuilt when `deps` change | `useOIMComputedCollection(computedService, derive, createSources, deps)` |
 | a module-scope void-keyed computed service and a derive | the value of a single computed the component owns | `useOIMSingleComputedValue(computedService, derive, createSources, deps)` |
-| a single entity service and its store slot | its entity, re-rendered when it is written | `useOIMSingleEntity(singleSlotService, singleSlotStoreSlot)` |
-| a single bucket service and its store slot | its member slots as an array | `useOIMSingleBucketSlots(singleSlotService, singleSlotStoreSlot)` |
+| a single entity store slot | its entity, re-rendered when it is written | `useOIMSingleEntity(singleSlotStoreSlot)` |
+| a single bucket store slot | its member slots as an array | `useOIMSingleBucketSlots(singleSlotStoreSlot)` |
 | any slots and derivations | any value read off them | `useOIMValue(binding)` |
 | nothing | the `OIMDB` the provider was given | `useOIMDB()` |
 
-Every hook that reads a collection takes the collection service, typed as a `Pick` of
-`OIMSlotCollectionService` with only the members it calls, and then the store slot.
-`useOIMBucketSlotsByKey` resolves through `holdSlotByKey(bucketStoreSlot, key)` and reads members through
-`bucketCollectionService.slotContentService.getBucketMemberSlots(bucketSlot)`, so an index service and its index
-store slot fit it as well as a bucket collection. The hold is given back through the slot's own owner,
+Every hook that reads a collection by key takes the store slot alone and calls the service the store slot
+carries, `storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only the members it
+calls. A store aggregate passes its `storeSlot`. `useOIMBucketSlotsByKey` resolves through
+`holdSlotByKey(bucketStoreSlot, key)` and reads members through
+`bucketStoreSlot.slotService.slotContentService.getBucketMemberSlots(bucketSlot)`, so an index store slot fits
+it as well as a bucket collection's. The hold is given back through the slot's own owner,
 `slot.owner.unholdSlot(slot)`. `useOIMBucketSlots` takes a bucket collection service and a bucket somebody else holds.
 
 ## Why one binding is enough
@@ -168,8 +169,7 @@ function App({ children }: { children: ReactNode }) {
 
 `OIMDBProvider` puts one value in context: the `OIMDB` (`OIMDBContext`, read with `useOIMDB()`). The effect
 service is stateless (`OIMEffectService.INSTANCE`) and takes the database as its channel map, so there is
-nothing else to provide. You pass collection services and their store slots to each hook as arguments, and you
-keep them in a module.
+nothing else to provide. You pass store slots to each hook as arguments, and you keep them in a module.
 
 A slot filed on another `OIMDB` than the provider's would never wake the component, and the screen would stay as
 first painted with no sign why. So the hooks that resolve or take a slot check that its store slot runs on
@@ -235,7 +235,7 @@ Writing that `useMemo` once, so no call site has to, is the whole job of
 
 ```tsx
 function CardTitle({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cardService, cards, cardId);
+  const card = useOIMEntity(cards, cardId);
   return <h1>{card?.title}</h1>;
 }
 ```
@@ -304,17 +304,17 @@ the bucket did not cause gets the same array back and a `memo` child below skips
 
 ```tsx
 function Deck({ deckId }: { deckId: string }) {
-  const deckCards = useOIMBucketSlotsByKey(byDeckService, byDeck, deckId);
+  const deckCards = useOIMBucketSlotsByKey(byDeck, deckId);
   return <ul>{deckCards.map((slot) => <li key={String(slot.key)}>{slot.entity?.title}</li>)}</ul>;
 }
 
 function IndexedDeck({ deckId }: { deckId: string }) {
-  const deckCards = useOIMBucketSlotsByKey(deckIndexService, deckIndex, deckId);
+  const deckCards = useOIMBucketSlotsByKey(deckIndex, deckId);
   return <ul>{deckCards.map((slot) => <li key={String(slot.key)}>{slot.entity?.title}</li>)}</ul>;
 }
 ```
 
-It takes a bucket collection service and its store slot; an index service and its index store slot fit too.
+It takes a bucket collection's store slot; an index store slot fits too.
 
 **What for:** a bucket chosen by a prop, such as a search box, a route param or a
 virtualised cell. The component owns the bucket's lifetime, and nobody else has to.
@@ -349,7 +349,7 @@ const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
 
 ```tsx
 function Slot({ deckId, day }: { deckId: string; day: string }) {
-  const slotCards = useOIMBucketSlotsByKey(byDeckAndDayService, byDeckAndDay, [
+  const slotCards = useOIMBucketSlotsByKey(byDeckAndDay, [
     deckService.getSlotByKey(decks, deckId), dayService.getSlotByKey(days, day),
   ]);
   return <ul>{slotCards.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
@@ -381,13 +381,13 @@ root slots or post-processing of the derivation's result. Use `useOIMValue` for 
 
 ```tsx
 function TopOfDeck({ deckId }: { deckId: string }) {
-  const ranked = useOIMComputedValueByKey(byRankService.computedCollectionService, byRank, deckId);
+  const ranked = useOIMComputedValueByKey(byRank, deckId);
   return <span>{ranked[0]?.entity?.title}</span>;
 }
 ```
 
 **What for:** a computed store slot (of `createOIMComputedService`, a sorted computed, a bucket memo) read by a
-key the component chooses. Pass the computed service's `computedCollectionService`. It holds the key
+key the component chooses. It holds the key
 the way `useOIMEntity` does, and a key built inline is compared by meaning, as for a bucket.
 
 ## `useOIMComputedCollection` — a keyed computed store slot the component owns
@@ -402,7 +402,7 @@ function DoubledRank({ cardId }: { cardId: string }) {
     ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
     [],
   );
-  return <span>{useOIMComputedValueByKey(doubledRankService.computedCollectionService, doubledRanks, cardId)}</span>;
+  return <span>{useOIMComputedValueByKey(doubledRanks, cardId)}</span>;
 }
 ```
 
@@ -452,12 +452,12 @@ const settings = settingsService.createStoreSlot(db);
 settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
 
 function Theme() {
-  return <span>{useOIMSingleEntity(settingsService, settings)?.theme}</span>;
+  return <span>{useOIMSingleEntity(settings)?.theme}</span>;
 }
 ```
 
 **What for:** a record with no key, whose store slot mints nothing until the first `writeSlotContentByKey`, an
-ordinary announced write. `useOIMSingleEntity(singleSlotService, singleSlotStoreSlot)` returns
+ordinary announced write. `useOIMSingleEntity(singleSlotStoreSlot)` returns
 `TEntity | undefined`; on each subscribe it resolves the slot, minting a fresh one if it was released, holds it
 while subscribed, and re-renders when the entity is written.
 
@@ -466,11 +466,11 @@ const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSl
 const picked = pickedService.createStoreSlot(db);
 
 function Picked() {
-  return <ul>{useOIMSingleBucketSlots(pickedService, picked).map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
+  return <ul>{useOIMSingleBucketSlots(picked).map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
 }
 ```
 
-**What for:** a bucket with no key. `useOIMSingleBucketSlots(singleSlotService, singleSlotStoreSlot)` subscribes
+**What for:** a bucket with no key. `useOIMSingleBucketSlots(singleSlotStoreSlot)` subscribes
 over the single bucket slot and copies the members into a readonly array on every render, as
 `useOIMBucketSlotsByKey` does.
 
@@ -478,7 +478,7 @@ over the single bucket slot and copies the members into a readonly array on ever
 
 ```tsx
 function DeckTopCard({ deckId }: { deckId: string }) {
-  const [ranked] = useOIMSlotsByKeys(byRankService.computedCollectionService, byRank, [deckId]);
+  const [ranked] = useOIMSlotsByKeys(byRank, [deckId]);
   const top = useOIMValue(useMemo(() => ({
     sourceComputeds: [ranked],
     derive: () => ranked.computedValueService.getValueForSlot(ranked)[0]?.entity?.title,
@@ -492,7 +492,7 @@ unless its service was given another `slotReleasePolicy`. A bare `getSlotByKey(c
 into the unused-slot collector, and the next `flush()` takes it straight back, so each frame would rebuild it.
 **When not:** the derivation must outlive every component that reads it. Hold it in a module.
 
-It takes a collection service, a store slot and a list of keys. The service is anything with
+It takes a store slot and a list of keys. The store slot's `slotService` is anything with
 `getSlotByKey(storeSlot, key)` and `holdSlotByKey(storeSlot, key)`: a computed collection service, an entity
 collection, a bucket collection or an index. It returns the slots.
 
@@ -543,7 +543,7 @@ column. It re-sorts only when membership changes or a write changes one of its
 columns on a member. Without `sortColumns` and `comparator` it compares nothing,
 so the array keeps the members it already had in place and appends the ones that arrived.
 
-An unsorted index bucket by key is `useOIMBucketSlotsByKey(deckIndexService, deckIndex, key)`. One held outside
+An unsorted index bucket by key is `useOIMBucketSlotsByKey(deckIndex, key)`. One held outside
 React binds as a root:
 
 ```tsx
@@ -580,7 +580,7 @@ by its object, so the provider of one copy is invisible to the hooks of the othe
   identity under the default release policy (`OIMSlotAtEmptyReleasePolicy`, which
   releases an empty slot at its last unhold), so nothing leaks from watching a key
   that never arrives. A collection built with `OIMSlotNeverReleasePolicy` keeps it.
-- Every hook memoises its store on the inputs you pass: the collection service, the store slot, the settled key
+- Every hook memoises its store on the inputs you pass: the store slot, the settled key
   (or key list), the slot and the column name. Each input is either a scalar or an identity the
   collection interned. The inputs that could not be stable are a by-key hook's key
   and `useOIMSlotsByKeys`'s key list, which is why those hooks settle them. The one you have to keep stable is the

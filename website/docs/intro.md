@@ -89,9 +89,8 @@ deckOne.owner.unholdSlot(deckOne);
 ```
 
 `OIMDB` holds the clock, the default channel slot and the unused-slot collector slot that every
-collection in the example shares. It also holds the optional strategies you give it
-(`entityWriter`, `slotReleasePolicy`, `slotStamp`, `indexKeysService`), and the
-factories that take `db` pass them to what they build. A service holds no
+collection in the example shares. The optional strategies (`entityWriter`, `slotReleasePolicy`,
+`slotStamp`, `indexKeysService`) are an `OIMDefaults` given to each factory as `defaults`. A service holds no
 data: `cardService` is made once for the `Card` type, and `cards` is one store slot
 of it, an instance carrying its own store. The collection service reads; its
 `slotContentService` writes. A door that works on the store takes the
