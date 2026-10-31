@@ -18,11 +18,11 @@ const compareCards = (left: TCard, right: TCard): number => (left.rank - right.r
 
 const createFixture = (initialCards: readonly TCard[]) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => (initialCards.map(card => ({ ...card }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
-    const byDeckService = createOIMSlotCollectionSortedArrayIndexService(db, {
+    const byDeckService = createOIMSlotCollectionSortedArrayIndexService({
         entityService: cardsService,
         columns: ['deck'],
         sortColumns: [{ columnName: 'rank', direction: 'asc' }, { columnName: 'score', direction: 'desc' }],

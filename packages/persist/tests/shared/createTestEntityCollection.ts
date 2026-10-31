@@ -12,7 +12,7 @@ export function createTestEntityCollection<TEntity extends { readonly id: string
 ) {
     const db = testEntityCollectionOptions.db ?? new OIMDB();
     const persistEntityWriter = new OIMPersistEntityWriter<TEntity, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter() });
-    const entityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db, { entityWriter: persistEntityWriter }), slotReleasePolicy: testEntityCollectionOptions.slotReleasePolicy });
+    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity>({ entityWriter: persistEntityWriter }), slotReleasePolicy: testEntityCollectionOptions.slotReleasePolicy });
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
     return { db, persistEntityWriter, entityCollectionService, entityStoreSlot };
 }

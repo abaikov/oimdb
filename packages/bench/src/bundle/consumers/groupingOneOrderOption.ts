@@ -18,7 +18,7 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
 
 // `writeSlotContentByKey` mints and hands the slot back; a getter never mints.
@@ -34,7 +34,7 @@ held.push(db, entityService, entityStoreSlot);
 
 /* ── one index, addressed by key, filled, subscribed and read ──────────── */
 
-const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const bucketStoreSlot = bucketService.createStoreSlot(db);
 // `holdSlotByKey` is the door and the hold is KEPT: a bucket nothing holds is unfiled
 // the moment it empties, and this program is subscribed to the object.

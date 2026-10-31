@@ -13,6 +13,7 @@ import { OIMSlotAtUnholdReleasePolicy } from '../collector/OIMSlotAtUnholdReleas
 import { OIMBucketMemoComputedService } from './OIMBucketMemoComputedService';
 import { OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE } from '../db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
+import { OIMDefaults } from '../db/OIMDefaults';
 import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
 
 export function createOIMBucketMemoComputedService<
@@ -20,6 +21,7 @@ export function createOIMBucketMemoComputedService<
     TComputedStore = TOIMDefaultSlotStore<TKey, TOIMComputedSlot<readonly TBucketMemberSlot[], TKey>>,
 >(
     options: {
+        defaults?: OIMDefaults | undefined;
         bucketCollectionService: OIMSlotCollectionService<
             TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMSlotContentBucketService<TBucketMemberSlot, TSlots>,
             string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TBucketMemberSlot[]
@@ -29,11 +31,12 @@ export function createOIMBucketMemoComputedService<
         computedSlotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TBucketMemberSlot[], TKey>, TComputedStore> | undefined;
     },
 ): OIMBucketMemoComputedService<TKey, TBucketMemberSlot, TSlots, TBucketStore, TComputedStore> {
+    const defaults = options.defaults ?? OIMDefaults.INSTANCE;
     return new OIMBucketMemoComputedService<TKey, TBucketMemberSlot, TSlots, TBucketStore, TComputedStore>({
         bucketCollectionService: options.bucketCollectionService,
         computedSlotStoreService: oimResolveSlotStoreService(options.computedSlotStoreService),
-        columnSlotStoreService: options.columnSlotStoreService ?? OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue(),
+        columnSlotStoreService: options.columnSlotStoreService ?? defaults.computedColumnSlotStoreService ?? OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue(),
         slotReleasePolicy: options.slotReleasePolicy ?? OIMSlotAtUnholdReleasePolicy.INSTANCE,
-        storeSlotListener: OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
+        storeSlotListener: defaults.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
     });
 }

@@ -55,24 +55,22 @@ if (typeof window !== 'undefined') {
 ### A model module, no browser
 
 The module builds the model in Node and exports an `oimDevRegistry` (or a default export, or a zero-arg factory
-that returns one). It calls `oimInitDevtools()` before it builds the first service:
+that returns one). Its services are built with `defaults: oimDevDefaults`:
 
 ```ts
 // oimdb-model.js  (built JS, or run the server under a TS loader)
 import { OIMDB, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
-import { OIMDevRegistry, oimInitDevtools } from '@oimdb/devtools';
-
-oimInitDevtools();
+import { OIMDevRegistry, oimDevDefaults } from '@oimdb/devtools';
 
 type TUser = { id: string; name: string; role: string };
 
 const db = new OIMDB();
-const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMSlotContentEntityService<TUser>() });
 const users = usersService.createStoreSlot(db);
 // A bucket's slots are the caller's — a write to a user moves the value and
 // files nothing, so whoever writes the user also calls
 // `usersByRoleService.slotContentService.writeSlotContent(bucketSlot, entitySlots)`.
-const usersByRoleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const usersByRoleService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const usersByRole = usersByRoleService.createStoreSlot(db);
 
 export const oimDevRegistry = new OIMDevRegistry();

@@ -35,7 +35,7 @@ const flushAfterWrite = (db: OIMDB): void => {
 const inactiveWorld = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };
@@ -44,7 +44,7 @@ const inactiveWorld = (after: number) => {
 const createAgingFixture = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };

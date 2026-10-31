@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.0
+
+### Changed
+
+- README: a model module builds its services with `defaults: oimDevDefaults` instead of calling `oimInitDevtools()`.
+
 ## 1.0.0
 
 ### Added

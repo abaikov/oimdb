@@ -1,4 +1,3 @@
-import type { OIMDB } from '../db/OIMDB';
 import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreService';
 import type { TOIMSlotCollectionIndexServiceFactoryOptions } from './types/TOIMSlotCollectionIndexServiceFactoryOptions';
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
@@ -14,6 +13,7 @@ import { OIMSlotContentSortedArrayBucketService } from '../bucket/OIMSlotContent
 import { oimColumnsComparator } from '../computed/utils/oimColumnsComparator';
 import { oimEntitySlotsComparator } from '../computed/utils/oimEntitySlotsComparator';
 import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
+import { OIMDefaults } from '../db/OIMDefaults';
 import { oimResolveSlotCollectionIndexServiceOptions } from './utils/oimResolveSlotCollectionIndexServiceOptions';
 
 export function createOIMSlotCollectionSortedArrayIndexService<
@@ -24,7 +24,6 @@ export function createOIMSlotCollectionSortedArrayIndexService<
     TSourceStore = unknown,
     TStore = Map<TKey, TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TKey>>,
 >(
-    db: OIMDB,
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
         sortColumns: readonly TOIMSortColumn<TEntity>[];
         bucketSlotStoreService?: IOIMSlotStoreService<
@@ -40,7 +39,7 @@ export function createOIMSlotCollectionSortedArrayIndexService<
     });
     return new OIMSlotCollectionSortedArrayIndexService({
         ...oimResolveSlotCollectionIndexServiceOptions(
-            db, options, oimResolveSlotStoreService(options.bucketSlotStoreService), slotContentService,
+        options.defaults ?? OIMDefaults.INSTANCE, options, oimResolveSlotStoreService(options.bucketSlotStoreService), slotContentService,
         ),
         sortColumns: options.sortColumns,
     });

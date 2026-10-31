@@ -40,8 +40,8 @@ is the instance.
 
 A debug registry: name your store slots and indexes and inspect them at run time. Keep the
 registrations in `*.debug.ts` files next to the collections they describe, import them all from one
-`debug.ts` that only your debug entry point imports, and call `oimInitDevtools()` at startup; a
-production build then contains none of it. Its
+`debug.ts` that only your debug entry point imports, and build the services it should hear with
+`defaults: oimDevDefaults`; a production build then contains none of it. Its
 [README](https://github.com/abaikov/oimdb/blob/master/packages/devtools/README.md) has the full
 API. `@oimdb/cli` and `@oimdb/mcp` read the same registry.
 

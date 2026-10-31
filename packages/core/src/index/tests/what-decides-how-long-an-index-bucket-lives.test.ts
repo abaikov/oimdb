@@ -24,10 +24,10 @@ const createFixture = (
     dbOptions?: TOIMDBOptions,
 ) => {
     const db = new OIMDB(dbOptions);
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     let keysRead = 0;
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => { keysRead++; return card.deck; },
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),

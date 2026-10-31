@@ -1,4 +1,5 @@
-import { OIMDefaults } from '../../db/OIMDefaults';
+import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
+
 import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
 import { OIMDB, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../index';
@@ -13,15 +14,15 @@ type TMessageSlot = TOIMEntitySlot<TMessage>;
 type TChain = readonly TOIMEntitySlot[];
 type TPinned = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TMessageSlot>, TChain>;
 
-const createPinnedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPinned>(OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()) });
+const createPinnedService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPinned>(OIMCompositeKeyTreeWalk.INSTANCE) });
 
 function createFixture() {
     const db = new OIMDB();
-    const roomsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed, string>(db) });
+    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed, string>() });
     const rooms = roomsService.createStoreSlot(db);
-    const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed, string>(db) });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed, string>() });
     const users = usersService.createStoreSlot(db);
-    const messagesService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TMessage>(db) });
+    const messagesService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TMessage>() });
     const messages = messagesService.createStoreSlot(db);
     // The segments a chain is built out of are ORDINARY identities, so they are
     // written rather than resolved.
@@ -40,7 +41,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
     /** Pinned messages, per user, per room — nothing selects them, and the key is a pair. */
     function pin() {
         const { db, roomsService, rooms, usersService, users, messagesService, messages } = createFixture();
-        const pinnedService = createPinnedService(db);
+        const pinnedService = createPinnedService();
         const pinned = pinnedService.createStoreSlot(db);
         const chainFor = (userId: string): TChain =>
             [roomsService.getSlotByKey(rooms, 'general')!, usersService.getSlotByKey(users, userId)!];
@@ -154,7 +155,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 describe('Hand-set slots, one bucket under no key at all', () => {
     function hand() {
         const { db, messagesService, messages } = createFixture();
-        const shortlistService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const shortlistService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const shortlist = shortlistService.createStoreSlot(db);
         const heldShortlistSlot = shortlistService.holdSingleSlot(shortlist);
         return { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot };
@@ -216,7 +217,7 @@ describe('a chain-keyed bucket carries the whole chain as its key', () => {
      */
     it('does not borrow the last segment, because two chains can end on the same identity', () => {
         const { db, roomsService, rooms, usersService, users } = createFixture();
-        const pinnedService = createPinnedService(db);
+        const pinnedService = createPinnedService();
         const pinned = pinnedService.createStoreSlot(db);
         const general = roomsService.getSlotByKey(rooms, 'general')!;
         const ann = usersService.getSlotByKey(users, 'ann')!;

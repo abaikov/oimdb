@@ -17,12 +17,12 @@ const expectSlotsToBe = (
 describe('what a whole-bucket write does', () => {
     function setupManual() {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         // The caller's list, in the caller's order, IS what the
         // bucket holds here, which is what a page of ids from a server is.
         const cards = cardsService.createStoreSlot(db);
         const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
-        const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+        const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
         // MINTED THROUGH THE ONE DOOR, AND THE REFERENCE IS KEPT for the life of
         // the fixture. A give-back on the next line runs before any case has put
         // anything in the bucket, and `OIMSlotOwner.unholdSlot` asks

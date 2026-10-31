@@ -20,7 +20,7 @@ const createFixture =(): {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     asked.columns = 0;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { entityWriter: createOIMInPlaceEntityWriter({
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({
             sameValueGuard: (prev, next) => {
                 asked.columns++;
                 return prev === next;

@@ -15,9 +15,9 @@ const ROWS = 100;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const decksService = createOIMSlotCollectionIndexService(db, {
+    const decksService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),

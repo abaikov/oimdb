@@ -15,7 +15,8 @@ import type {
     TOIMStoreSlot,
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
-import { OIMDB, OIMEffectService, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter } from '@oimdb/core';
+import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter} from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSlotContentEntityService } from '@oimdb/core';
@@ -43,17 +44,17 @@ const delivering = (): IOIMEntityWriter =>
  * hand and its hold given back, which is what lets the bucket collection unfile
  * the bucket.
  */
-const createRoleBucketService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+const createRoleBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
 
 function buildUsers() {
     const db = new OIMDB();
-    const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: delivering() }) });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
     const users = usersService.createStoreSlot(db);
 
-    const byRoleService = createRoleBucketService(db);
+    const byRoleService = createRoleBucketService();
     const byRole = byRoleService.createStoreSlot(db);
 
-    const everyRoleService = createRoleBucketService(db);
+    const everyRoleService = createRoleBucketService();
     const everyRole = everyRoleService.createStoreSlot(db);
     const everyUserBucket = everyRoleService.holdSlotByKey(everyRole, 'every');
     const byRoleIndex = { bucketCollectionService: byRoleService, bucketStoreSlot: byRole };
@@ -109,12 +110,12 @@ function buildUsers() {
 
 function buildEnrollments() {
     const db = new OIMDB();
-    const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: delivering() }) });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
     const users = usersService.createStoreSlot(db);
-    const roomsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRoom>(db, { entityWriter: delivering() }) });
+    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRoom>({ entityWriter: delivering() }) });
     const rooms = roomsService.createStoreSlot(db);
-    const enrollmentsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEnrollment, readonly TOIMEntitySlot[]>(db, { entityWriter: delivering() }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TEnrollmentSlot>(
-            OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue(),
+    const enrollmentsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEnrollment, readonly TOIMEntitySlot[]>({ entityWriter: delivering() }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TEnrollmentSlot>(
+            OIMCompositeKeyTreeWalk.INSTANCE,
         ) });
     const enrollments = enrollmentsService.createStoreSlot(db);
     return { db, usersService, users, roomsService, rooms, enrollmentsService, enrollments };
@@ -306,7 +307,7 @@ describe('OIMDevRegistry — populations', () => {
 
     test('collection() is chainable and keeps registration order', () => {
         const { db, usersService, users } = buildUsers();
-        const roomsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRoom>(db, { entityWriter: delivering() }) });
+        const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRoom>({ entityWriter: delivering() }) });
         const rooms = roomsService.createStoreSlot(db);
         const reg = new OIMDevRegistry();
 
@@ -386,7 +387,7 @@ describe('OIMDevRegistry — frames and errors', () => {
     test('recordError() surfaces what a subscriber threw during a frame', () => {
         const reg = new OIMDevRegistry();
         const db = new OIMDB({ errorPolicy: { onErrorCaught: (error: unknown) => { reg.recordError(error); } } });
-        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: delivering() }) });
+        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
         const users = usersService.createStoreSlot(db);
 
         const heldSlot = usersService.holdSlotByKey(users, 'u1');

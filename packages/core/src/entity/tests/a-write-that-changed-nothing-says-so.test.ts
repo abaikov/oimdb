@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<Card, TOIMStoreKey>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     /** Allocated once and reused — the whole of the shape. */
     const changed: TCardSlot[] = [];
@@ -126,7 +126,7 @@ describe('a write that changed nothing says so', () => {
      */
     it('hands back a bucket it minted even when the slots it wrote changed nothing', () => {
         const db = new OIMDB();
-        const decksService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
         const decks = decksService.createStoreSlot(db);
 
         const bucket = decksService.getSlotByKey(decks, 'd1');

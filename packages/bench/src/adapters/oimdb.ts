@@ -1,4 +1,5 @@
-import { OIMChannelService, OIMDB, OIMDefaults, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard } from '../../../core/dist/index.js';
+import { OIMCompositeKeyTreeWalk } from '../../../core/dist/index.js';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
@@ -76,7 +77,6 @@ type TGroupOrders<TGroupOrder, TOrderedSlots> = {
 
 type TGroupOrderStrategy<TGroupOrder, TOrderedSlots> = {
     createGroupOrders: (
-        db: OIMDB,
         entityService: TRowEntityService,
         entityStoreSlot: TRowStoreSlot,
         indexKeyOptions: TOIMIndexKeyOptions<TOIMStoreKey, TRow>,
@@ -103,18 +103,18 @@ const BY_RANK_THEN_ID: readonly TOIMSortColumn<TRow>[] = [
 
 // In place, so the stored object keeps its identity for its whole life and
 // `slot.entity` IS that object — what `readAll` and the pinned reads depend on.
-const createRowEntityService = (db: OIMDB): TRowEntityService =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db), columnNames: ROW_COLUMNS });
+const createRowEntityService = (): TRowEntityService =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>(), columnNames: ROW_COLUMNS });
 
 // THE GROUP FILING IS THE LIBRARY'S: on a write that changed one of the index's
 // columns the collection reads the key again, compares it with the key the row was
 // last filed under, and moves the row between buckets itself.
 const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, readonly TOIMEntitySlot<TRow>[]> = {
-    createGroupOrders: (db, entityService, entityStoreSlot, indexKeyOptions, slotReleasePolicy) => {
+    createGroupOrders: (entityService, entityStoreSlot, indexKeyOptions, slotReleasePolicy) => {
         const indexService = createOIMSlotCollectionIndexService<
             TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TGroupSlots,
             OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>
-        >(db, {
+        >({
             ...indexKeyOptions,
             entityService,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>(),
@@ -143,7 +143,6 @@ const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, r
 };
 
 const createGroupOrdersSortedAtWrite = (
-    db: OIMDB,
     entityService: TRowEntityService,
     entityStoreSlot: TRowStoreSlot,
     indexKeyOptions: TOIMIndexKeyOptions<TOIMStoreKey, TRow>,
@@ -151,7 +150,7 @@ const createGroupOrdersSortedAtWrite = (
 ) => {
     const indexService = createOIMSlotCollectionSortedArrayIndexService<
         TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TSortedGroupIndexStore
-    >(db, {
+    >({
         ...indexKeyOptions,
         entityService,
         sortColumns: BY_RANK_THEN_ID,
@@ -421,9 +420,9 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
 ): TBinding => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const entityService = createRowEntityService(db);
+    const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const orderByGroup = groupOrderStrategy.createGroupOrders(db, entityService, entityStoreSlot, GROUP_COLUMN);
+    const orderByGroup = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, GROUP_COLUMN);
     const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, entityService, view.window, (consumer, visible) => {
         deliver(consumer, visible, view.window);
     });
@@ -656,7 +655,7 @@ const createChurnMounts = (
 const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const entityService = createRowEntityService(db);
+    const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
 
     // What a mount and an unmount cost here: `oimdb.md`.
@@ -775,7 +774,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
 ): TReadBinding => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const entityService = createRowEntityService(db);
+    const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
     /**
      * ONE GROUP, TWO INDEXES: everything filed under the group, and the subset on the
@@ -784,8 +783,8 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
      * The price of the second index is one `keyOf` call and one key comparison per
      * write that changes `id` or `group`, paid inside this binding's writes.
      */
-    const orderByGroup = groupOrderStrategy.createGroupOrders(db, entityService, entityStoreSlot, GROUP_COLUMN, OIMSlotNeverReleasePolicy.INSTANCE);
-    const orderByGroupOnAxis = groupOrderStrategy.createGroupOrders(db, entityService, entityStoreSlot, {
+    const orderByGroup = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, GROUP_COLUMN, OIMSlotNeverReleasePolicy.INSTANCE);
+    const orderByGroupOnAxis = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, {
         columns: ['id', 'group'],
         keyOf: row => (onSecondAxis(row.id) ? row.group : OFF_THE_SECOND_AXIS),
     });
@@ -859,15 +858,15 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
 const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowEntityService = createRowEntityService(db);
+    const rowEntityService = createRowEntityService();
     const rowEntityStoreSlot = rowEntityService.createStoreSlot(db);
     // The SECOND ENTITY TYPE, and into the SAME channel, so a frame that wrote both
     // types is one frame and one flush.
-    const ownerEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TOwner>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const ownerEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TOwner>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
     const ownerEntityStoreSlot = ownerEntityService.createStoreSlot(db);
     // The records keyed by a COMBINATION OF IDENTITIES. The descent compares nothing:
     // rebuilding `[a, b]` from the same two slots arrives at the same node.
-    const pairEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPairEntity, TPairKey>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()), columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() });
+    const pairEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPairEntity, TPairKey>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMCompositeKeyTreeWalk.INSTANCE) });
     const pairEntityStoreSlot = pairEntityService.createStoreSlot(db);
 
     /** The addresses `holdRelation` was given. Both views render these rows. */
@@ -1028,7 +1027,7 @@ const bindSingleStore = (participantName: string, consumers: TConsumers): TSingl
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     /** The value the scripts write, and the one no step of either writes. */
-    const entityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ value: string }>(db), columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() });
+    const entityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ value: string }>() });
     const slotContentService = entityService.slotContentService;
     const valueEntitySlot = entityService.holdSingleSlot(entityService.createStoreSlot(db));
     slotContentService.writeSlotContent(valueEntitySlot, { value: '' });
@@ -1167,7 +1166,7 @@ const OIMDB_DEPARTURE =
 export const oimdbAdapter: TAdapter = oimdbAdapterWith({
     name: 'oimdb',
     docs:
-        'packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) }) on one ' +
+        'packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() }) on one ' +
         'OIMDB with the default entity writer, createOIMInPlaceEntityWriter(), and one createStoreSlot(db) as the instance; every load goes in through ' +
         'entityService.writeSlotContentByKey(entityStoreSlot, id, row) for each row inside entityService.writeInBatch; a label or note patch assigns slot.entity in ' +
         'place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; ' +

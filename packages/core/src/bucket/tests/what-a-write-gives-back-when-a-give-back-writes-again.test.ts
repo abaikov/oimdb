@@ -41,7 +41,7 @@ const scratchLengths = (byDeck: TOIMStoreSlot): number[] => {
 const createFixture =(rows: number) => {
     const db = new OIMDB();
     const rowOwner = new RowOwnerThatCanWriteWhileGivingBack();
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const byDeck = byDeckService.createStoreSlot(db);
     const rowsOf = (deckId: string): TCardSlot[] => Array.from(
         { length: rows }, (_unused, at) => createOIMEntitySlot<TCard, string>(`${deckId}r${at}`, rowOwner, testStoreSlot),

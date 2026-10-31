@@ -85,10 +85,10 @@ const run = (seed: number, steps: number): void => {
     const random = makeRandom(seed);
 
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
-    const singleBucketService = createOIMSingleSlotService(db, { slotContentService: membersService });
+    const singleBucketService = createOIMSingleSlotService({ slotContentService: membersService });
     const singleBucket = singleBucketService.createStoreSlot(db);
     const bucket = singleBucketService.getSingleSlot(singleBucket);
 

@@ -117,6 +117,7 @@ export type { TOIMSlotContentSortedArrayBucketServiceOptions } from './bucket/ty
 export type { TOIMBucketSlotOwnerService } from './bucket/types/TOIMBucketSlotOwnerService';
 export { OIMDB } from './db/OIMDB';
 export { OIMDefaults } from './db/OIMDefaults';
+export type { TOIMDefaultsOptions } from './db/types/TOIMDefaultsOptions';
 export { OIMDefaultValue } from './db/OIMDefaultValue';
 export type { IOIMSlotEmptinessPolicy } from './slot/interfaces/IOIMSlotEmptinessPolicy';
 export { OIMFlushSchedulerService } from './schedule/OIMFlushSchedulerService';

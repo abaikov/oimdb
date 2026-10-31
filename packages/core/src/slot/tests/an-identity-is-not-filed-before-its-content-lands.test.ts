@@ -10,7 +10,7 @@ import { createOIMSlotCollectionService } from '../createOIMSlotCollectionServic
 type TRow = { id: string; n: number };
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -228,7 +228,7 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
 
     it('keeps the rows before a key that cannot be read and files nothing from that row on', () => {
         const db = new OIMDB();
-        const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
         const rows = rowsService.createStoreSlot(db);
 
         expect(() => rowsService.writeInBatch(rows, () => ([

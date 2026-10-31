@@ -7,4 +7,4 @@ export type { TOIMDevFlushRecord } from './types/TOIMDevFlushRecord';
 export type { TOIMDevIndexInfo } from './types/TOIMDevIndexInfo';
 export type { TOIMDevInspectResult } from './types/TOIMDevInspectResult';
 export { oimDevRegistry } from './oimDevRegistry';
-export { oimInitDevtools } from './oimInitDevtools';
+export { oimDevDefaults } from './oimDevDefaults';

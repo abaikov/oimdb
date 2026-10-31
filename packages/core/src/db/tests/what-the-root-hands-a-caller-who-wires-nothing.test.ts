@@ -10,13 +10,13 @@ import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotCon
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const decksOn = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const decksOn = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 describe('the root a caller gets with no wiring of their own', () => {
     it('hands every collection it mints the same channel and the same collector', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
-        const decksService = decksOn(db);
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const decksService = decksOn();
         const cards = cardsService.createStoreSlot(db);
         const decks = decksService.createStoreSlot(db);
 
@@ -28,7 +28,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('wakes an effect on a collection it minted, with nothing else wired', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -44,9 +44,9 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('settles the frame and sweeps what nobody took, in one call', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const decksService = decksOn(db);
+        const decksService = decksOn();
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.getSlotByKey(decks, 'spades');
         const card = cardsService.getSlotByKey(cards, 'c1');
@@ -60,7 +60,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('sweeps what a body read while the frame was running', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const held = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -76,7 +76,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('runs one frame and no more, because nothing may write another one into being', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 

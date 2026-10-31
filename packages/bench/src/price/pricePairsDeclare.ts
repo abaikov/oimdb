@@ -200,7 +200,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'our ratio; paid once per population.',
         build: () => {
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
             return {
                 ours: {
                     reset: () => undefined,
@@ -225,7 +225,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-entity-service.vs-new-map',
         path: EPricePath.PerDeclaration,
-        ours: 'createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) })',
+        ours: 'createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() })',
         floor: 'new Map()',
         caveat:
             'THE TYPE AGAINST THE CONTAINER THAT WOULD HAVE HELD ITS INSTANCES, and it does not ' +
@@ -236,13 +236,12 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'at all: everything here is charged to us. Direction: inflates our ratio; paid once ' +
             'per entity type, however many populations are then made from it.',
         build: () => {
-            const db = new OIMDB();
             return {
                 ours: {
                     reset: () => undefined,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+                            priceSink.ours = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
                         }
                     },
                 },
@@ -288,13 +287,13 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(DECLARED_OVER);
             const names = priceDataset.groupNames();
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
             const entityStoreSlot = entityService.createStoreSlot(db);
             entityService.writeInBatch(entityStoreSlot, () => (rows).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
             db.flush();
             const held: TPriceDataRow[] = [];
             for (let i = 0; i < rows.length; i++) held.push({ ...rows[i] });
-            const indexService = createOIMSlotCollectionIndexService(db, {
+            const indexService = createOIMSlotCollectionIndexService({
                 entityService,
                 slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
@@ -359,7 +358,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-index-service.vs-new-map-of-sets',
         path: EPricePath.PerDeclaration,
-        ours: 'createOIMSlotCollectionIndexService(db, { entityService, slotContentService: new OIMSlotContentSetBucketService(), keyOf: row => row.group })',
+        ours: 'createOIMSlotCollectionIndexService({ entityService, slotContentService: new OIMSlotContentSetBucketService(), keyOf: row => row.group })',
         floor: 'new Map() of Sets, empty',
         caveat:
             'THE INDEX TYPE ALONE: no store slot is made, so no listener is installed and no row is ' +
@@ -371,14 +370,13 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'starts from; it has no per-type object, so everything here is charged to us. ' +
             'Direction: inflates our ratio; paid once per index type.',
         build: () => {
-            const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
             return {
                 ours: {
                     reset: () => undefined,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            priceSink.ours = createOIMSlotCollectionIndexService(db, {
+                            priceSink.ours = createOIMSlotCollectionIndexService({
                                 entityService,
                                 slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
                                 keyOf: (row: TPriceDataRow) => row.group,

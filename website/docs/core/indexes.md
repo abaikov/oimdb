@@ -17,10 +17,10 @@ declare function applyToTheRenderedList(commands: readonly TOIMOrderedListComman
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const orderedDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const orderedDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const orderedDecks = orderedDeckService.createStoreSlot(db);
 ```
 
@@ -40,12 +40,12 @@ store of each bucket store slot. Together they answer "which entities belong to 
 
 | Your situation | Take | Section |
 |---|---|---|
-| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
+| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
 | Membership is a function of the entity (`card.deck`) | an index, `createOIMSlotCollectionIndexService` | [Indexes](/docs/core/oimindex) |
 | A list sorted by columns | `createOIMSortedComputedService` over an index service | [Ordering](/docs/core/oimindex#ordering) |
-| A list whose order the user decides (drag, reorder) | `createOIMSlotCollectionService(db)` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
+| A list whose order the user decides (drag, reorder) | `createOIMSlotCollectionService()` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
 | ...and a renderer that patches instead of rebuilding | the same: its default content service records `OIMBucketCommands` | [The commands, on the bucket slot](#the-commands-on-the-bucket-slot) |
-| One list under no key | `createOIMSingleSlotService(db)` | [A single bucket](#a-single-bucket) |
+| One list under no key | `createOIMSingleSlotService()` | [A single bucket](#a-single-bucket) |
 | A diff between two lists you hold yourself | `oimOrderedListCommandsOfTransition` | [Rendering an ordered bucket](#rendering-an-ordered-bucket) |
 
 ## A bucket's slots are the caller's
@@ -64,7 +64,7 @@ factory you call.
 ## Building one
 
 ```ts setup
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 const byDeck = byDeckService.createStoreSlot(db);
 const deckContentService = byDeckService.slotContentService;
 ```
@@ -84,15 +84,15 @@ A bucket collection is two stateless objects, like an entity collection:
 
 The bucket store slot carries the channel slot, so who is told is decided at `createStoreSlot(db)`.
 
-The options of `createOIMSlotCollectionService(db, options?)`:
+The options of `createOIMSlotCollectionService(options?)`:
 
 | Option | Default | What it decides |
 |---|---|---|
 | `slotContentService` | `new OIMSlotContentPositionalArrayBucketService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }) })` | how a bucket holds its slots |
 | `maxCommandsPerSlot` | `OIM_MAX_COMMANDS_PER_SLOT` | the recorder of the default content service — see [the commands](#the-commands-on-the-bucket-slot) |
 | `bucketSlotStoreService` | a Map store; required when `TKey` is an array (an `OIMSlotTreeStoreService`), because a Map store compares arrays by reference | where buckets are filed |
-| `slotReleasePolicy` | the db's, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` — an unheld bucket stays while it has members and goes once it is empty | whether and when an unheld bucket goes |
-| `columnSlotStoreService` / `columnNames` | `OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue()` | where bucket column slots live |
+| `slotReleasePolicy` | `defaults.slotReleasePolicy`, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` — an unheld bucket stays while it has members and goes once it is empty | whether and when an unheld bucket goes |
+| `columnSlotStoreService` / `columnNames` | a shared map-driven store | where bucket column slots live |
 
 `createStoreSlot(db)` creates one bucket store slot: one keyed store of buckets.
 A door that works by key or over the whole store takes that store slot first and is the collection
@@ -259,11 +259,11 @@ service you do not import stays out of your bundle.
 ## Positions the caller decides
 
 Take this when the order is the user's: a kanban column, a playlist, a priority
-queue someone reorders by hand. `createOIMSlotCollectionService(db)` builds an array-driven bucket collection with
+queue someone reorders by hand. `createOIMSlotCollectionService()` builds an array-driven bucket collection with
 a recorder, and you decide the positions:
 
 ```ts setup
-const pageService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pageService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const page = pageService.createStoreSlot(db);
 const pageContentService = pageService.slotContentService;
 ```
@@ -404,7 +404,7 @@ One bucket under no address: the current search result, the visible window, a
 selection. Take it for a hand-curated list that nothing looks up by key; take a keyed
 bucket collection as soon as there is more than one such list and a key tells them apart.
 
-A single bucket is a store slot of `createOIMSingleSlotService(db, options?)`, an `OIMSingleSlotService` over
+A single bucket is a store slot of `createOIMSingleSlotService(options?)`, an `OIMSingleSlotService` over
 a bucket content service with `OIMSingleSlotStoreService.INSTANCE` as its store. Its options are
 those of `createOIMSlotCollectionService` without a store. `createStoreSlot(db)` mints nothing; its one bucket slot is
 read through the single doors: `getSingleSlot(storeSlot)` hands it out (minting it on the first read, or a
@@ -412,7 +412,7 @@ fresh one if the last was released, and the unused-slot collector holds that min
 `holdSingleSlot(storeSlot)` hands it out held, and `findSingleSlot(storeSlot)` answers it without minting.
 
 ```ts
-const searchResultService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const searchResultService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const searchResult = searchResultService.createStoreSlot(db);
 const searchResultSlot = searchResultService.holdSingleSlot(searchResult);
 

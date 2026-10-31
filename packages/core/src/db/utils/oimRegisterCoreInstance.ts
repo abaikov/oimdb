@@ -10,8 +10,8 @@ export function oimRegisterCoreInstance(coreInstance: object): void {
     if (registeredCoreInstance === coreInstance) return;
     throw new Error(
         '@oimdb/core is loaded twice in this process — usually `import` in one place and `require` '
-        + 'in another, or two installed copies. Each copy keeps its own OIMDefaults, so a default '
-        + 'set through one never reaches collections built by the other. Load @oimdb/core one way '
+        + 'in another, or two installed copies. Each copy keeps its own built-in defaults and '
+        + 'its own classes, so services built by the two copies share nothing. Load @oimdb/core one way '
         + 'everywhere, including inside every @oimdb package.',
     );
 }

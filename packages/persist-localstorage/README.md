@@ -53,9 +53,9 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TTodo, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const todoCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTodo>(db, { entityWriter: persistEntityWriter }) });
+const todoCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTodo>({ entityWriter: persistEntityWriter }) });
 const todoEntityStoreSlot = todoCollectionService.createStoreSlot(db);
-const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'light' });
 

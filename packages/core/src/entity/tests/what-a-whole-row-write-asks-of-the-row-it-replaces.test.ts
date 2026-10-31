@@ -47,7 +47,7 @@ const asked = <T extends object>(target: T, tally: TAsked): T => new Proxy(targe
 
 const createFixture =() => {
     const db = new OIMDB();
-    const collectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const collection = collectionService.createStoreSlot(db);
     return { db, collectionService, collection };
 };

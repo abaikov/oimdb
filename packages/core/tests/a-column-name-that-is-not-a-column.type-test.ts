@@ -6,7 +6,7 @@ import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollect
 type TCard = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 const cards = cardsService.createStoreSlot(db);
 const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
 

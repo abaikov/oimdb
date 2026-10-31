@@ -138,7 +138,7 @@ type TListWorld = {
 
 const listWorld = (slotContentService: OIMSlotContentPositionalArrayBucketService<TRowSlot>): TListWorld => {
     const fixture = priceFixture(LIST_SIZE + 1);
-    const bucketService = createOIMSlotCollectionService(fixture.db, { slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(fixture.db);
     const bucket = bucketService.holdSlotByKey(bucketStoreSlot, 'list');
     for (let i = 0; i < LIST_SIZE; i++) slotContentService.insertBucketMemberSlotAt(bucket, i, fixture.slots[i]);

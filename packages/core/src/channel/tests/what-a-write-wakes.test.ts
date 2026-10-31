@@ -25,7 +25,7 @@ const valueOf = (service: TRankService, storeSlot: ReturnType<TRankService['crea
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

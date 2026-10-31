@@ -7,7 +7,7 @@ type TCard = { id: string; title: string };
 
 const releasedCard = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
     db.flush();

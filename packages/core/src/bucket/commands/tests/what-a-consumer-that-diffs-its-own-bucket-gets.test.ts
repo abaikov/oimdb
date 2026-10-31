@@ -17,10 +17,10 @@ const byRank = (a: TCardSlot, b: TCardSlot): number => (a.entity?.rank ?? 0) - (
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
-    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => ([
         { id: 'c1', rank: 1, label: 'one' },

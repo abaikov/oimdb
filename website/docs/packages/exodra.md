@@ -60,10 +60,10 @@ import type { TExoBindable } from '@exodra/reactivity-types';
 type Card = { id: string; title: string; deck: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const bucket = byDeckService.getSlotByKey(byDeck, 'spades');
 const orderService = createOIMBucketMemoComputedService({
@@ -71,7 +71,7 @@ const orderService = createOIMBucketMemoComputedService({
 });
 const order = orderService.createBucketMemoStoreSlot(byDeck);
 const orders = orderService.computedCollectionService;
-const boardService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const boardService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
 
 const renderCard = (cardSlot: TOIMEntitySlot): string => String(cardSlot.key);
@@ -265,7 +265,7 @@ optimum. A quiet frame costs nothing, because the effect does not run.
 nothing at all. It takes the bucket collection's **content service**
 (`boardService.slotContentService`), which holds the bucket's slots and its reads. That
 content service must be built with an `OIMBucketCommands` as its `bucketCommands`, which is
-what `createOIMSlotCollectionService(db)` gives when you pass no `slotContentService`: its default
+what `createOIMSlotCollectionService()` gives when you pass no `slotContentService`: its default
 is the array-driven content service with commands.
 `OIMBucketCommands` recorded `insertBucketMemberSlotAt`,
 `moveBucketMemberSlotToPosition`, `removeBucketMemberSlotRange` and the rest on the bucket slot

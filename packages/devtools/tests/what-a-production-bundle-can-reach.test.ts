@@ -311,7 +311,7 @@ describe('what a production bundle can reach', () => {
             .filter(([, specifiers]) => specifiers.includes(DEVTOOLS))
             .map(([module]) => module);
 
-        expect(reachesRegistry).toEqual(['src/store/db.ts']);
+        expect(reachesRegistry).toEqual(['src/store/db.ts', 'src/store/users.ts', 'src/store/tasks.ts']);
 
         // And it is not one stray module: every production module in the recipe
         // reaches it, because the one that constructs the database is the one

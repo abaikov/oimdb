@@ -1,0 +1,71 @@
+{
+  "name": "@oimdb/browser",
+  "version": "1.0.0",
+  "description": "Browser state as OIMDB single slots: online, window focus, document visibility, location.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "oimdbRelease": {
+    "publish": true
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --dts --format esm,cjs --clean",
+    "test": "jest",
+    "type-check": "tsc --noEmit -p tsconfig.all.json",
+    "clean": "rimraf dist",
+    "prepack": "node -e \"const {copyFileSync,existsSync}=require('fs');if(existsSync('../../llms.txt'))copyFileSync('../../llms.txt','llms.txt')\"",
+    "prepublishOnly": "npm run type-check && npm test && npm run build"
+  },
+  "license": "MIT",
+  "author": "Andrei Baikov",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abaikov/oimdb.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abaikov/oimdb/issues"
+  },
+  "homepage": "https://github.com/abaikov/oimdb#readme",
+  "keywords": [
+    "oimdb",
+    "browser",
+    "online",
+    "focus",
+    "visibility",
+    "location",
+    "reactive",
+    "typescript"
+  ],
+  "peerDependencies": {
+    "@oimdb/core": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.8",
+    "jest": "^29.7.0",
+    "rimraf": "^5.0.5",
+    "ts-jest": "^29.1.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.2.2",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "llms.txt",
+    "README.md"
+  ]
+}

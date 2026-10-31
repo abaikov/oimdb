@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import type { IOIMSlotStamp } from '../../slot/interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
@@ -22,8 +23,9 @@ const onlyTheKeyIsLeft = {
 };
 
 const createFixture = () => {
-    const db = new OIMDB({ slotStamp: plantTheKey as unknown as IOIMSlotStamp<TOIMSlot> });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { slotEmptinessPolicy: onlyTheKeyIsLeft }) });
+    const defaults = new OIMDefaults({ slotStamp: plantTheKey as unknown as IOIMSlotStamp<TOIMSlot> });
+    const db = new OIMDB();
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ defaults, slotEmptinessPolicy: onlyTheKeyIsLeft }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

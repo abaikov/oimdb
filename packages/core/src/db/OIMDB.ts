@@ -1,12 +1,7 @@
-import type { IOIMEntityWriter } from '../entity/interfaces/IOIMEntityWriter';
-import type { IOIMIndexKeysService } from '../index/interfaces/IOIMIndexKeysService';
-import type { IOIMSlotStamp } from '../slot/interfaces/IOIMSlotStamp';
-import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { TOIMChannelClock } from '../channel/types/TOIMChannelClock';
 import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import type { TOIMCollectorSlot } from '../collector/types/TOIMCollectorSlot';
-import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMDBOptions } from './types/TOIMDBOptions';
 import { OIMChannelService } from '../channel/OIMChannelService';
 import { createOIMChannelSlot } from '../channel/utils/createOIMChannelSlot';
@@ -19,12 +14,6 @@ export class OIMDB implements IOIMChannelMap {
     public readonly clock: TOIMChannelClock = { revision: 0, epoch: 0 };
     public readonly collectorSlot: TOIMCollectorSlot;
     public readonly defaultChannelSlot: TOIMChannelSlot;
-
-    public readonly entityWriter: IOIMEntityWriter | undefined;
-    public readonly slotStamp: IOIMSlotStamp<TOIMSlot> | undefined;
-
-    public readonly slotReleasePolicy: IOIMSlotReleasePolicy | undefined;
-    public readonly indexKeysService: IOIMIndexKeysService | undefined;
 
     public constructor(options?: TOIMDBOptions) {
         const errorPolicy = options?.errorPolicy ?? OIMLogAndContinueErrorPolicy.INSTANCE;
@@ -41,10 +30,6 @@ export class OIMDB implements IOIMChannelMap {
             timer: channelScheduler === undefined ? undefined : oimTimerOfChannelScheduler(channelScheduler),
             onBeforeFlush: options?.onBeforeFlush,
         });
-        this.entityWriter = options?.entityWriter;
-        this.slotStamp = options?.slotStamp;
-        this.slotReleasePolicy = options?.slotReleasePolicy;
-        this.indexKeysService = options?.indexKeysService;
     }
 
     public flush(): void {

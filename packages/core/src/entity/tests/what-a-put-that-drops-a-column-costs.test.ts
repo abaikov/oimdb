@@ -52,7 +52,7 @@ const writers: [string, () => IOIMEntityWriter, number, string[]][] = [
 
 const createRow = (entityWriter: IOIMEntityWriter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter }) });
     const rows = rowsService.createStoreSlot(db);
     rowsService.writeSlotContentByKey(rows, 'r', { id: 'r', a: 1, b: 2, c: 3, d: 4 });
     const slot = rowsService.holdSlotByKey(rows, 'r');
@@ -111,7 +111,7 @@ describe('what an upsert that drops columns costs', () => {
 
     it.each(writers)('%s: a single entity replaced with a column gone writes once', (_, createWriter) => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume?: number }>(db, { entityWriter: createWriter() }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; volume?: number }>({ entityWriter: createWriter() }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         const channelWrites = countChannelWritesOf(settingsService.getSingleSlot(settings));

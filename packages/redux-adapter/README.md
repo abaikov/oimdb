@@ -38,10 +38,10 @@ type TUser = { id: string; name: string; teamId: string };
 type TUserSlot = TOIMEntitySlot<TUser>;
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
 const users = userService.createStoreSlot(db);
 
-const createTeamBucketService = () => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+const createTeamBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
 
 const adapter = new OIMReduxAdapter({ channelMap: db });
 ```
@@ -145,7 +145,7 @@ const everyUserReducer = adapter.createGlobalIndexReducer<
 >(globalIndex);
 ```
 
-A bucket collection is **built by the caller**, with `createOIMSlotCollectionService(db, options)`.
+A bucket collection is **built by the caller**, with `createOIMSlotCollectionService(options)`.
 Its `slotContentService` decides how the slots are held: `OIMSlotContentSetBucketService`
 in a set, `OIMSlotContentPositionalArrayBucketService` (the default) at positions the caller places,
 `OIMSlotContentSortedArrayBucketService` in a sorter's order. A `bucketSlotStoreService`
@@ -239,7 +239,7 @@ nothing, and one flush spends exactly one frame however many handlers ask for an
 ## Composite primary keys
 
 `@oimdb/core` also supports populations addressed by a **chain** of identities
-(`OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()`) or of values (`OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()`), so
+(`OIMCompositeKeyTreeWalk.INSTANCE`) or of values (`OIMScalarKeyTreeWalk.INSTANCE`), so
 the collection's key is `readonly TOIMEntitySlot[]` instead of `TOIMStoreKey`. This adapter
 cannot mirror such a population directly, and that is deliberate: every reducer factory here is typed
 `TPk extends TOIMStoreKey`, and `TOIMStoreKey` is `string | number`. A chain of identities is a
@@ -268,7 +268,7 @@ declare const progressService: OIMWritableSlotCollectionService<
 declare function progressKeyOf(item: TProgress): TProgressKey;
 declare const progress: TOIMStoreSlot<TProgressStore, TProgressSlot, Partial<TProgress>>;
 
-const flatService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TFlatProgress>(db) });
+const flatService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TFlatProgress>() });
 const flat = flatService.createStoreSlot(db);
 
 function saveProgress(item: TProgress): void {

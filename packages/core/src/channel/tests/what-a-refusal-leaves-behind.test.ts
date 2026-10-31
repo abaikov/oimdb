@@ -17,7 +17,7 @@ type TRow = { id: string; n: number };
 const effectService = OIMEffectService.INSTANCE;
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 

@@ -10,7 +10,7 @@ const HISTORY_LIMIT = 50;
 describe('a history keeps only the newest fifty', () => {
     test('a flush past the fiftieth drops the oldest record and keeps the newest first', () => {
         const db = new OIMDB();
-        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
         const users = usersService.createStoreSlot(db);
         const registry = new OIMDevRegistry();
         registry.collection('users', usersService, users);

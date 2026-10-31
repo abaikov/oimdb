@@ -36,7 +36,7 @@ function createPersistKeyValueItemStorage(): TOIMPersistKeyValueItemStorage & { 
 
 function createSettingsPersistor(persistLocalStorageKeyValueBackend: OIMPersistLocalStorageKeyValueBackend, settings: TSettings) {
     const db = new OIMDB();
-    const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
     const entityStoreSlot = singleEntityService.createStoreSlot(db);
     singleEntityService.writeSingleSlotContent(entityStoreSlot, settings);
     db.flush();

@@ -8,7 +8,7 @@ type TCard = { id: string; n: number };
 const runsOfAnEffectBornAfterTheChange = (writeSomethingElseFirst: boolean): number => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const source = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
     cardsService.writeSlotContentByKey(cards, 'o', { id: 'o', n: 0 });

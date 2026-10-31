@@ -21,7 +21,7 @@ function buildPersistedUsers(databaseName: string) {
         entityWriter: createOIMInPlaceEntityWriter(),
     });
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName, indexedDb: new IDBFactory() });
     const persistOperations: TOIMPersistOperation[] = [];

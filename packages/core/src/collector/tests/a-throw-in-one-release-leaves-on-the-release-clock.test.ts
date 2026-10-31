@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMSlotAfterWriteReleasePolicy, createOIMInPlaceEntityWriter, oimIsSlotReleased, oimMintAfterWriteSlotReleaseWheel } from '../../index';
 import type { IOIMEntityWriter } from '../../index';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
@@ -18,14 +19,10 @@ describe('a throw in one release, in the middle of a slice of the release clock'
                 inPlace.clearEntity(slot);
             },
         };
-        const db = new OIMDB({
-            entityWriter,
-            getNowMs: () => nowMs,
-            releaseTimer: (_run, inMs) => { armedFor.push(inMs); return () => undefined; },
-            slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }),
-        });
+        const defaults = new OIMDefaults({ entityWriter, slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }) });
+        const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: (_run, inMs) => { armedFor.push(inMs); return () => undefined; } });
         const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         const b = cardsService.writeSlotContentByKey(cards, 'b', { id: 'b' });

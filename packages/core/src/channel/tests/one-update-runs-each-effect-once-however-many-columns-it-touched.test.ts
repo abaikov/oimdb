@@ -13,7 +13,7 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB({ channelScheduler: rightNow });
-    const profileService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Profile>(db) });
+    const profileService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Profile>() });
     const profile = profileService.createStoreSlot(db);
     profileService.writeSingleSlotContent(profile, { name: 'ann', city: 'lisbon', age: 30 });
     return { db, profileService, profile };

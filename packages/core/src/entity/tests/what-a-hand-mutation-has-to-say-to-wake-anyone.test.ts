@@ -15,7 +15,7 @@ const KEEP_AFTER_WRITE_MS = 60_000;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
     db.flush();
@@ -109,7 +109,7 @@ describe('what a hand mutation has to say to wake anyone', () => {
     it('defers the after-write deadline, so the clock does not evict a row somebody just edited', () => {
         let nowMs = 1_000;
         const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: () => () => undefined });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
         db.flush();

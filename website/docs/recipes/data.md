@@ -12,16 +12,16 @@ many-to-many relations, composite keys, a single settings record, soft delete, a
 choosing between the in-place and the replacing writer.
 
 ```ts setup
-import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMSlotContentEntityService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMSlotContentEntityService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService, OIMScalarKeyTreeWalk } from '@oimdb/core';
 
 type User = { id: string; name: string };
 type Message = { id: string; chatId: string; text: string; pinned?: boolean };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
 const users = userService.createStoreSlot(db);
-const messageService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Message>(db) });
+const messageService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Message>() });
 const messages = messageService.createStoreSlot(db);
 const messageContentService = messageService.slotContentService;
 
@@ -132,13 +132,13 @@ Reference: [Lifecycle](/docs/core/lifecycle),
 
 ## One-to-many: messages by chat
 
-Take: an index on the foreign key — `createOIMSlotCollectionIndexService(db, { entityService, keyOf })`,
+Take: an index on the foreign key — `createOIMSlotCollectionIndexService({ entityService, keyOf })`,
 then `createIndexStoreSlot(entityStoreSlot)` for the store slot it files.
 Do not keep an array of message ids on the chat entity: nothing would keep it in
 step with writes to messages.
 
 ```ts
-const messagesByChatService = createOIMSlotCollectionIndexService(db, {
+const messagesByChatService = createOIMSlotCollectionIndexService({
     entityService: messageService,
     keyOf: (message: Message) => message.chatId,
 });
@@ -179,16 +179,16 @@ stay in step, and nothing ties the two writes together.
 type Group = { id: string; title: string };
 type Membership = { id: string; userId: string; groupId: string };
 
-const groupService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Group>(db) });
+const groupService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Group>() });
 const groups = groupService.createStoreSlot(db);
-const membershipService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Membership>(db) });
+const membershipService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Membership>() });
 const memberships = membershipService.createStoreSlot(db);
-const membershipsByUserService = createOIMSlotCollectionIndexService(db, {
+const membershipsByUserService = createOIMSlotCollectionIndexService({
     entityService: membershipService,
     keyOf: (membership: Membership) => membership.userId,
 });
 const membershipsByUser = membershipsByUserService.createIndexStoreSlot(memberships);
-const membershipsByGroupService = createOIMSlotCollectionIndexService(db, {
+const membershipsByGroupService = createOIMSlotCollectionIndexService({
     entityService: membershipService,
     keyOf: (membership: Membership) => membership.groupId,
 });
@@ -227,7 +227,7 @@ Reference: [Indexes](/docs/core/oimindex).
 ## Key an entity by more than one field
 
 Take: an entity collection over `OIMSlotTreeStoreService`,
-handed `OIMDefaults.SCALAR_KEY_TREE_WALK.getValue()`, with `keyOf` returning the parts in
+handed `OIMScalarKeyTreeWalk.INSTANCE`, with `keyOf` returning the parts in
 order. Do not join the parts into one string: an encoding has to be injective, and
 a join on a separator is not.
 
@@ -236,10 +236,10 @@ type TScalarChain = readonly TOIMStoreKey[];
 type ReadMark = { userId: string; chatId: string; lastReadAt: number };
 type TReadMarkStore = TOIMSlotStoreTree<TOIMEntitySlot<ReadMark, TScalarChain>, TOIMStoreKey>;
 
-const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<ReadMark, TScalarChain>>, TReadMarkStore>(db, {
-    slotContentService: createOIMSlotContentEntityService<ReadMark, TScalarChain>(db),
+const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<ReadMark, TScalarChain>>, TReadMarkStore>({
+    slotContentService: createOIMSlotContentEntityService<ReadMark, TScalarChain>(),
     slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<ReadMark, TScalarChain>>(
-        OIMDefaults.SCALAR_KEY_TREE_WALK.getValue(),
+        OIMScalarKeyTreeWalk.INSTANCE,
     ),
 });
 const readMarks = readMarkService.createStoreSlot(db);
@@ -254,14 +254,14 @@ order matters, and `[a]` and `[a, b]` are different keys. The walk is picked onc
 construction. The scalar walk holds nothing: deleting user `u1` does not touch keys
 that start with `'u1'`. When a key part is itself an entity whose identity the key
 must keep, key by slots instead and hand the store
-`OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()` — each edge then holds the entity slot it is
+`OIMCompositeKeyTreeWalk.INSTANCE` — each edge then holds the entity slot it is
 keyed by.
 
 Reference: [Composite keys come in two strategies](/docs/core/collections#composite-keys-come-in-two-strategies-and-you-pick-one).
 
 ## A single record: settings or the session
 
-Take: `createOIMSingleSlotService(db, { slotReleasePolicy })`, here with `OIMSlotNeverReleasePolicy`; make
+Take: `createOIMSingleSlotService({ slotReleasePolicy })`, here with `OIMSlotNeverReleasePolicy`; make
 its store slot with `createStoreSlot(db)`, give it its first value with
 `writeSlotContentByKey(settings, entity)`, and read its one slot through the single doors:
 `holdSingleSlot(settings)` (or `getSingleSlot`, or `findSingleSlot` when nothing should be minted). Do not use a
@@ -270,7 +270,7 @@ Map-backed collection with one invented key: a Map store files identities per ke
 ```ts
 type Settings = { theme: 'light' | 'dark'; fontSize: number; token?: string };
 
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, token: 'abc' });
@@ -315,7 +315,7 @@ const archivedIsEmpty: IOIMSlotEmptinessPolicy<PostSlot> = {
     isEmpty: (slot) => slot.entity === undefined || slot.entity.archived,
 };
 
-const postService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Post>(db, { slotEmptinessPolicy: archivedIsEmpty }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const postService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Post>({ slotEmptinessPolicy: archivedIsEmpty }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const posts = postService.createStoreSlot(db);
 
 const oldPost = postService.writeSlotContentByKey(posts, 'p1', { id: 'p1', title: 'Old', archived: true });
@@ -345,16 +345,16 @@ shallow-equality selector. Keep the default, `createOIMInPlaceEntityWriter()`, w
 every reader is an effect.
 
 ```ts
-const replacingDb = new OIMDB({ entityWriter: createOIMReplacingEntityWriter() });
-const contactService = createOIMSlotCollectionService(replacingDb, { slotContentService: createOIMSlotContentEntityService<User>(replacingDb) });
-const contacts = contactService.createStoreSlot(replacingDb);
+const replacingDefaults = new OIMDefaults({ entityWriter: createOIMReplacingEntityWriter() });
+const contactService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>({ defaults: replacingDefaults }) });
+const contacts = contactService.createStoreSlot(db);
 
 const alice = contactService.writeSlotContentByKey(contacts, 'u1', { id: 'u1', name: 'Alice' });
 const before = alice.entity;
 contactService.slotContentService.updateEntity(alice, { name: 'Alicia' });
 alice.entity !== before;   // true: a new object per write that changed something
 
-const draftService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Message>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
+const draftService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Message>({ entityWriter: createOIMReplacingEntityWriter() }) });
 ```
 
 Why this way: under the in-place writer the stored object keeps its reference

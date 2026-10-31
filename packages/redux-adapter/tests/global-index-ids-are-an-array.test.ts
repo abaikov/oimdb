@@ -47,7 +47,7 @@ type TState = TOIMReduxDefaultGlobalIndexState<TOIMStoreKey>;
  */
 function buildGlobalIndex() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     const { singleBucket, bucketService, bucket } = singleBucketOf<TUser>(db);
     const globalIndex: TOIMReduxGlobalIndex<TOIMStoreKey, TUser> = {

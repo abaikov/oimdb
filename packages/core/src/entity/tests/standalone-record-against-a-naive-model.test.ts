@@ -41,7 +41,7 @@ const run = (seed: number, steps: number): void => {
     const model: TSettings = { alpha: 1, beta: 2 };
     // A copy: the record holds what it is given and writes THROUGH it, so
     // handing it the model object would make the two agree by aliasing.
-    const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+    const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
     const record = recordService.createStoreSlot(db);
     recordService.writeSingleSlotContent(record, { ...model });
 
@@ -162,7 +162,7 @@ describe('a standalone record against a plain object', () => {
 describe('replace', () => {
     it('leaves the record equal to what it was given — nothing resurrected, nothing left behind', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { alpha: 1, beta: 2, gamma: 3 });
 
@@ -176,7 +176,7 @@ describe('replace', () => {
     it('wakes nobody when it is handed exactly what the record already holds', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { alpha: 1, beta: 2 });
         let runCount = 0;

@@ -7,9 +7,9 @@ type TCard = { id: string; deck: string; title: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byTitleService = createOIMSlotCollectionIndexService(db, {
+    const byTitleService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => {
             if (card.title === 'bad') throw new Error('keyOf refused this row');

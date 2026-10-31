@@ -17,9 +17,9 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
-    const byGroupService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
+    const byGroupService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
     const byGroup = byGroupService.createStoreSlot(db);
     return { db, rowsService, rows, byGroupService, byGroup };
 };

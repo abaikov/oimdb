@@ -33,7 +33,7 @@ const WRITERS: readonly [string, () => IOIMEntityWriter][] = [
 const openPosts = (entityWriter: IOIMEntityWriter, emptiness = softDeleted) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const postsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPost, TOIMStoreKey>(db, { entityWriter, slotEmptinessPolicy: emptiness }) });
+    const postsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPost, TOIMStoreKey>({ entityWriter, slotEmptinessPolicy: emptiness }) });
     const posts = postsService.createStoreSlot(db);
     const upsertHeld = (post: TPost): TPostSlot => {
         postsService.writeSlotContentByKey(posts, post.id, post);
@@ -157,7 +157,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
             TPost, TOIMStoreKey, readonly TOIMEntityColumnName<TPost>[], string,
             Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TOIMEntitySlot<TPost>>,
             OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>
-        >(db, {
+        >({
             entityService: postsService,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>(),
             keyOf: (post: TPost) => post.deck ?? 'none',

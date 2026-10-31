@@ -1,26 +1,43 @@
-import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from './constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE';
-import { OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE } from './constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE';
-import { OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY } from './constants/OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY';
-import { OIM_DEFAULT_ENTITY_WRITER } from './constants/OIM_DEFAULT_ENTITY_WRITER';
-import { OIM_DEFAULT_INDEX_KEYS_SERVICE } from './constants/OIM_DEFAULT_INDEX_KEYS_SERVICE';
-import { OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK } from './constants/OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK';
-import { OIM_DEFAULT_SCALAR_KEY_TREE_WALK } from './constants/OIM_DEFAULT_SCALAR_KEY_TREE_WALK';
-import { OIM_DEFAULT_STORE_SLOT_LISTENER } from './constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
+import type { IOIMEntityWriter } from '../entity/interfaces/IOIMEntityWriter';
+import type { IOIMIndexKeysService } from '../index/interfaces/IOIMIndexKeysService';
+import type { IOIMSlotStamp } from '../slot/interfaces/IOIMSlotStamp';
+import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
+import type { IOIMSlotEmptinessPolicy } from '../slot/interfaces/IOIMSlotEmptinessPolicy';
+import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreService';
+import type { IOIMStoreSlotListener } from '../slot/interfaces/IOIMStoreSlotListener';
+import type { TOIMEntityContentSlot } from '../entity/types/TOIMEntityContentSlot';
+import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
+import type { TOIMComputedColumnSlot } from '../column/types/TOIMComputedColumnSlot';
+import type { TOIMSlot } from '../slot/types/TOIMSlot';
+import type { TOIMDefaultsOptions } from './types/TOIMDefaultsOptions';
 
 export class OIMDefaults {
-    public static readonly COLUMN_SLOT_STORE_SERVICE = OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE;
+    public static readonly INSTANCE = new OIMDefaults();
 
-    public static readonly COMPUTED_COLUMN_SLOT_STORE_SERVICE = OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE;
+    public readonly slotStamp: IOIMSlotStamp<TOIMSlot> | undefined;
 
-    public static readonly SCALAR_KEY_TREE_WALK = OIM_DEFAULT_SCALAR_KEY_TREE_WALK;
+    public readonly slotReleasePolicy: IOIMSlotReleasePolicy | undefined;
 
-    public static readonly COMPOSITE_KEY_TREE_WALK = OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK;
+    public readonly entityWriter: IOIMEntityWriter | undefined;
 
-    public static readonly ENTITY_WRITER = OIM_DEFAULT_ENTITY_WRITER;
+    public readonly entitySlotEmptinessPolicy: IOIMSlotEmptinessPolicy<TOIMEntityContentSlot> | undefined;
 
-    public static readonly ENTITY_SLOT_EMPTINESS_POLICY = OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY;
+    public readonly indexKeysService: IOIMIndexKeysService | undefined;
 
-    public static readonly INDEX_KEYS_SERVICE = OIM_DEFAULT_INDEX_KEYS_SERVICE;
+    public readonly columnSlotStoreService: IOIMSlotStoreService<string, TOIMColumnSlot> | undefined;
 
-    public static readonly STORE_SLOT_LISTENER = OIM_DEFAULT_STORE_SLOT_LISTENER;
+    public readonly computedColumnSlotStoreService: IOIMSlotStoreService<string, TOIMComputedColumnSlot> | undefined;
+
+    public readonly storeSlotListener: IOIMStoreSlotListener | undefined;
+
+    public constructor(options: TOIMDefaultsOptions = {}) {
+        this.slotStamp = options.slotStamp;
+        this.slotReleasePolicy = options.slotReleasePolicy;
+        this.entityWriter = options.entityWriter;
+        this.entitySlotEmptinessPolicy = options.entitySlotEmptinessPolicy;
+        this.indexKeysService = options.indexKeysService;
+        this.columnSlotStoreService = options.columnSlotStoreService;
+        this.computedColumnSlotStoreService = options.computedColumnSlotStoreService;
+        this.storeSlotListener = options.storeSlotListener;
+    }
 }

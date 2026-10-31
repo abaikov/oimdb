@@ -37,9 +37,9 @@ type TCardSlot = TOIMEntitySlot<Card, string>;
 
 const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketService<TCardSlot, TSlots>) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService });
     const byDeck = byDeckService.createStoreSlot(db);
     const card = (id: string): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });
     const bucket = byDeckService.holdSlotByKey(byDeck, 'page-1');

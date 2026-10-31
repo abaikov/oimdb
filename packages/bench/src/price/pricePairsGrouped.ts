@@ -67,11 +67,11 @@ const orderPair: TPricePair = {
         const rows = priceDataset.makeRows(priceDataset.batch);
         const held: TPriceDataRow[] = rows.map(row => ({ ...row }));
         const db = new OIMDB();
-        const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+        const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
         const entityStoreSlot = entityService.createStoreSlot(db);
         const slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
         for (let i = 0; i < rows.length; i++) slots.push(entityService.writeSlotContentByKey(entityStoreSlot, rows[i].id, rows[i]));
-        const indexService = createOIMSlotCollectionIndexService(db, {
+        const indexService = createOIMSlotCollectionIndexService({
             entityService,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
             keyOf: (row: TPriceDataRow) => row.group,
@@ -193,7 +193,7 @@ const chainPair: TPricePair = {
         const fixture = priceFixture(SEGMENTS_PER_LEVEL);
         const db = fixture.db;
         const segmentEntityService = () =>
-            createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TSegmentRow>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+            createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TSegmentRow>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const deckEntityService = segmentEntityService();
         const deckEntityStoreSlot = deckEntityService.createStoreSlot(db);
         const shelfEntityService = segmentEntityService();
@@ -201,7 +201,7 @@ const chainPair: TPricePair = {
         const bucketSlotStoreService = new OIMSlotTreeStoreService<TOIMEntitySlot, TChainBucket>(
             OIMCompositeKeyTreeWalk.INSTANCE,
         );
-        const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>, TChainKey>(), slotStoreService: bucketSlotStoreService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+        const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>, TChainKey>(), slotStoreService: bucketSlotStoreService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const bucketStoreSlot = bucketService.createStoreSlot(db);
         const chainKeys: TChainKey[] = [];
         const heldBuckets: TChainBucket[] = [];

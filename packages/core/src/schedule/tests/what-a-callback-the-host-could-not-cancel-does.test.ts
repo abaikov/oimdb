@@ -8,7 +8,7 @@ type TCard = { id: string; n: number };
 const createFixture = () => {
     const hostQueue: (() => void)[] = [];
     const db = new OIMDB({ channelScheduler: run => { hostQueue.push(run); } });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 0 });
     let runs = 0;

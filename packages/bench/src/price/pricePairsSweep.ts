@@ -193,7 +193,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
             ? createOIMReplacingEntityWriter()
             : createOIMInPlaceEntityWriter();
         const build = () =>
-            createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+            createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         let entityService = build();
         let entityStoreSlot = entityService.createStoreSlot(db);
         let map = new Map<string, TPriceDataRow>();
@@ -290,7 +290,7 @@ const groupedManualWorld = <TSlots>(
 };
 
 const groupIndexOf = (fixture: ReturnType<typeof priceFixture>, names: readonly string[]) => {
-    const indexService = createOIMSlotCollectionIndexService(fixture.db, {
+    const indexService = createOIMSlotCollectionIndexService({
         entityService: fixture.entityService,
         slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
         keyOf: (row: TPriceDataRow) => row.group,

@@ -15,7 +15,7 @@ type TRow = { id: string; title: string; n: number };
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -317,7 +317,7 @@ describe('when a node was born decides which frames it hears about', () => {
 describe('what a write reaches, and what only the caller reaches', () => {
     it('wakes the slot and the column a write moved, and never a bucket', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
 
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'gamma', n: 0 });
         db.flush();

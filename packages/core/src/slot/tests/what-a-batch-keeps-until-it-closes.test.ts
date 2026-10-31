@@ -8,12 +8,12 @@ type TCard = { id: string; deck: string; title: string };
 
 function setUp() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, {
-        slotContentService: createOIMSlotContentEntityService<TCard>(db),
+    const cardsService = createOIMSlotCollectionService({
+        slotContentService: createOIMSlotContentEntityService<TCard>(),
         slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
     });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: ['deck'] });
+    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, columns: ['deck'] });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
     return { db, cardsService, cards, byDeckService, byDeck, spades };

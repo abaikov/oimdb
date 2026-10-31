@@ -103,7 +103,7 @@ const entityServiceDoor: TRemoveRung = (fixture, _rows, times) => {
 const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     const rows = priceDataset.makeRows(priceDataset.batch);
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
     const fixture: TRemoveFixture = {
         db,
         entityService,
@@ -115,7 +115,7 @@ const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     return {
         operationsPerPass: rows.length,
         reset: () => {
-            fixture.entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db) });
+            fixture.entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
             fixture.entityStoreSlot = fixture.entityService.createStoreSlot(db);
             fixture.slots = fixture.entityService.writeInBatch(fixture.entityStoreSlot, () => (rows).map(entity => fixture.entityService.writeSlotContentByKey(fixture.entityStoreSlot, entity.id, entity)));
             db.flush();

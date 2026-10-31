@@ -4,7 +4,8 @@ import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService'
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import { createOIMPushColumnSlotOwner } from '../../column/utils/createOIMPushColumnSlotOwner';
 import { OIMDB } from '../../db/OIMDB';
-import { OIMDefaults } from '../../db/OIMDefaults';
+import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from '../../db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE';
+
 import type { IOIMSlotContentService } from '../../slot/interfaces/IOIMSlotContentService';
 import type { IOIMKeyedSlotCreator } from '../../slot/interfaces/IOIMKeyedSlotCreator';
 import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
@@ -52,7 +53,7 @@ class OIMTokenCollection {
         this.slotCollectionService = new OIMSlotCollectionService({
             slotStoreService: new OIMSlotMapStoreService<TTokenSlot>(),
             slotContentService: new OIMTokenContentService(whenReleased),
-            columnSlotOwnerOptions: { columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() },
+            columnSlotOwnerOptions: { columnSlotStoreService: OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue() },
             createColumnSlotOwner: createOIMPushColumnSlotOwner,
         });
         this.storeSlot = this.slotCollectionService.createStoreSlot(db);

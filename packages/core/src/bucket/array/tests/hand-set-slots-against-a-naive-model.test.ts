@@ -27,10 +27,10 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot, string>();
-    const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
     const search = searchService.createStoreSlot(db);
     const upsertEntity = (row: TRow): void => { rowsService.writeSlotContentByKey(rows, row.id, row); };
     const updateEntityByKey = (id: string, patch: Partial<TRow>): void => {

@@ -34,7 +34,7 @@ export const priceCollectionFixture = <TEntity extends { id: string }>(
     write: IOIMEntityWriter = inPlaceShared,
 ) => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TEntity> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db, { entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TEntity> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), entities);
 };
 

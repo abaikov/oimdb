@@ -28,7 +28,7 @@ const readsOf = (service: TSingleComputedService) => ({
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 0 });
     db.flush();

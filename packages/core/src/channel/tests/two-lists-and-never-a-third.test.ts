@@ -44,7 +44,7 @@ const leafCountOf = (channelSlot: TOIMChannelSlot): number => effectChannelQueue
 const subscribedCards = (size: number) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     for (let i = 0; i < size; i++) cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, n: 0 });
     db.flush();

@@ -21,7 +21,7 @@ const cards = (count: number): TCard[] => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const collectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const collection = collectionService.createStoreSlot(db);
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
         const slot = collectionService.findSlotByKey(collection, key);

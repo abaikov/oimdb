@@ -11,8 +11,8 @@ type TSettings = { theme: string };
 describe('the collection factory', () => {
     it('takes the key, the slot and the content from the content service it is handed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(db),
+        const cardsService = createOIMSlotCollectionService({
+            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
         });
         const cards = cardsService.createStoreSlot(db);
 
@@ -24,11 +24,11 @@ describe('the collection factory', () => {
 
     it('builds a collection of buckets from a bucket content service the same way', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(db),
+        const cardsService = createOIMSlotCollectionService({
+            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
         });
         const cards = cardsService.createStoreSlot(db);
-        const decksService = createOIMSlotCollectionService(db, {
+        const decksService = createOIMSlotCollectionService({
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, string>, string>(),
         });
         const decks = decksService.createStoreSlot(db);
@@ -43,8 +43,8 @@ describe('the collection factory', () => {
 describe('the single slot factory', () => {
     it('takes the slot and the content from the content service it is handed', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, {
-            slotContentService: createOIMSlotContentEntityService<TSettings>(db),
+        const settingsService = createOIMSingleSlotService({
+            slotContentService: createOIMSlotContentEntityService<TSettings>(),
         });
         const settings = settingsService.createStoreSlot(db);
 

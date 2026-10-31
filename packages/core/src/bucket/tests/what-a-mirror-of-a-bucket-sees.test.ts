@@ -73,9 +73,9 @@ function mirrorBucket(
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
-    const viewService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
+    const viewService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
     const view = viewService.createStoreSlot(db);
     const bucketAt =(key: TOIMStoreKey): TOIMBucketSlot<TSlots, TOIMStoreKey> => {
         return viewService.holdSlotByKey(view, key);

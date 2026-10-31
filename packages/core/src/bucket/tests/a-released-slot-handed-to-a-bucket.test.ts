@@ -8,11 +8,11 @@ import { OIMBucketCommands } from '../OIMBucketCommands';
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createDecksService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createDecksService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
     const cards = cardsService.createStoreSlot(db);
     const two = cardsService.holdSlotByKey(cards, 'two');
     cardsService.writeSlotContentByKey(cards, 'two', { id: 'two' });
@@ -25,7 +25,7 @@ const createFixture = () => {
 describe('a released slot handed to a bucket', () => {
     it('is refused by a list door before the bucket changes', () => {
         const { db, two, ace } = createFixture();
-        const decksService = createDecksService(db);
+        const decksService = createDecksService();
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd');
         const holdsBefore = two.holdCount;
@@ -38,7 +38,7 @@ describe('a released slot handed to a bucket', () => {
 
     it('is refused by a whole-list write, which leaves the members it had and their holds', () => {
         const { db, two, ace } = createFixture();
-        const decksService = createDecksService(db);
+        const decksService = createDecksService();
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd');
         decksService.slotContentService.addBucketMemberSlots(deck, [two]);
@@ -52,7 +52,7 @@ describe('a released slot handed to a bucket', () => {
 
     it('is refused by a door by key before the bucket changes', () => {
         const { db, ace } = createFixture();
-        const decksService = createDecksService(db);
+        const decksService = createDecksService();
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd');
 
@@ -66,7 +66,7 @@ describe('a released slot handed to a bucket', () => {
 
     it('is refused by a positional insert before the list changes', () => {
         const { db, two, ace } = createFixture();
-        const pageService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const pageService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const page = pageService.createStoreSlot(db);
         const bucket = pageService.holdSlotByKey(page, 'p');
         pageService.slotContentService.insertBucketMemberSlotAt(bucket, 0, two);

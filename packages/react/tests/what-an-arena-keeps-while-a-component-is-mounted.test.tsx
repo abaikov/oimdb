@@ -9,7 +9,7 @@ type TCard = { id: string; rank: number };
 
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     let builtCount = 0;
     const ranksService = createOIMComputedService<string, number>({

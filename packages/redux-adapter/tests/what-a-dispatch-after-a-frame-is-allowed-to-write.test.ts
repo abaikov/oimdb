@@ -49,11 +49,11 @@ const countFramesEnded = (db: OIMDB): (() => number) => {
 
 function buildWorld(withLinkedIndex: boolean) {
     const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
-    const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
+    const decksService = replacingEntityServiceOf<TDeck>(deck => deck.id);
     const decks = decksService.createStoreSlot(db);
-    const cardsService = entityServiceOf<TCard>(db,card => card.id);
+    const cardsService = entityServiceOf<TCard>(card => card.id);
     const cards = cardsService.createStoreSlot(db);
-    const cardsByDeckService = bucketServiceOf<TCard>(db);
+    const cardsByDeckService = bucketServiceOf<TCard>();
     const cardsByDeck = cardsByDeckService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
 
@@ -180,9 +180,9 @@ describe('what a dispatch made after a frame is allowed to write', () => {
 describe('what the channel refuses to the frame tail directly', () => {
     test('an after-each-frame handler writing to a collection', () => {
         const db = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
-        const cardsService = entityServiceOf<TCard>(db,card => card.id);
+        const cardsService = entityServiceOf<TCard>(card => card.id);
         const cards = cardsService.createStoreSlot(db);
-        const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
+        const decksService = replacingEntityServiceOf<TDeck>(deck => deck.id);
         const decks = decksService.createStoreSlot(db);
 
         decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: [] });
@@ -210,9 +210,9 @@ describe('what the channel refuses to the frame tail directly', () => {
             errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             onBeforeFlush: () => { writeFromBeforeFlush(); },
         });
-        const cardsService = entityServiceOf<TCard>(db,card => card.id);
+        const cardsService = entityServiceOf<TCard>(card => card.id);
         const cards = cardsService.createStoreSlot(db);
-        const decksService = replacingEntityServiceOf<TDeck>(db,deck => deck.id);
+        const decksService = replacingEntityServiceOf<TDeck>(deck => deck.id);
         const decks = decksService.createStoreSlot(db);
 
         decksService.writeSlotContentByKey(decks, 'd1', { id: 'd1', name: 'Starter', cardIds: [] });

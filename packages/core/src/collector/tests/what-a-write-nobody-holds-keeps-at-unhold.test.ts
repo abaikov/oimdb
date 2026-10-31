@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
@@ -11,10 +12,11 @@ type TCard = { id: string; deck: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 function setUp() {
-    const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+    const db = new OIMDB();
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({ defaults,
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
@@ -65,7 +67,7 @@ describe('a write into a row nobody holds, under the at-unhold policy', () => {
 
     it('still keeps every row when no policy is named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
 
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'one' });

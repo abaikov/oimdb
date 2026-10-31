@@ -64,7 +64,7 @@ rules for writing during a frame are under
 
 type Card = { id: string; deck: string; title: string; rank: number };
 
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 
@@ -173,7 +173,7 @@ Now `c1` has the title `alpha` and rank 5.
 ```typescript setup
 import { createOIMSlotCollectionIndexService } from '@oimdb/core';
 
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
@@ -287,7 +287,7 @@ because the order belongs to the read and membership belongs to the write. See
 ```typescript setup
 import { type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
 
-const searchResultService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const searchResultService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const searchResults = searchResultService.createStoreSlot(db);
 ```
 
@@ -327,13 +327,13 @@ with a store service of your choice:
 ```typescript
 import { type TOIMBucketSlotsSetStore } from '@oimdb/core';
 
-const baseCardService = createOIMSlotCollectionService(db, {
-    slotContentService: createOIMSlotContentEntityService<Card>(db),
+const baseCardService = createOIMSlotCollectionService({
+    slotContentService: createOIMSlotContentEntityService<Card>(),
     slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(),
 });
 const baseCards = baseCardService.createStoreSlot(db);
 
-const unorderedService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
+const unorderedService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 const unordered = unorderedService.createStoreSlot(db);
 
 const alpha = baseCardService.writeSlotContentByKey(baseCards, 'c1', { id: 'c1', deck: 'd1', title: 'alpha', rank: 1 });
@@ -349,8 +349,8 @@ all.owner.unholdSlot(all);
 
 The entity content service requires `keyOf` (absent only for a single entity); `slotStoreService`
 defaults to a Map store, and the optional ones (`entityWriter`, `slotEmptinessPolicy`,
-`slotReleasePolicy`, `columnSlotStoreService` or `columnNames`) fall back to the db's and then to
-the shared defaults in `OIMDefaults`. The bucket content service is the strategy: an
+`slotReleasePolicy`, `columnSlotStoreService` or `columnNames`) fall back to the `defaults` option
+(an `OIMDefaults`) and then to the built-in defaults. The bucket content service is the strategy: an
 `OIMSlotContentPositionalArrayBucketService` keeps the order you wrote and has the positional
 writes; an `OIMSlotContentSetBucketService` has no positions to write. See
 [Architecture](/docs/core/architecture#where-a-strategy-is-picked-at-construction)

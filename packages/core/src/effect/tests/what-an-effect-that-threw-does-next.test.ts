@@ -10,7 +10,7 @@ type TCard = { id: string; n: number };
 const createFixture = () => {
     const db = new OIMDB({ errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: () => undefined }) });
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const failing = cardsService.writeSlotContentByKey(cards, 'failing', { id: 'failing', n: 0 });
     const other = cardsService.writeSlotContentByKey(cards, 'other', { id: 'other', n: 0 });

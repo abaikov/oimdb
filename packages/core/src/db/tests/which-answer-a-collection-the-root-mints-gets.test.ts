@@ -1,7 +1,9 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { OIMDB } from '../OIMDB';
+import { OIMDefaults } from '../OIMDefaults';
+import { createOIMReplacingEntityWriter } from '../../entity/createOIMReplacingEntityWriter';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
@@ -45,7 +47,6 @@ const HELPERS_A_DOOR_CALLS: Readonly<Record<string, string>> = {
     'oimResolveSlotCollectionIndexServiceOptions(': 'index/utils/oimResolveSlotCollectionIndexServiceOptions.ts',
 };
 
-const GLOBAL_DEFAULTS_NOBODY_PASSES = ['COMPOSITE_KEY_TREE_WALK', 'SCALAR_KEY_TREE_WALK'] as const;
 
 const occurrencesOf = (pattern: RegExp, text: string): number => (text.match(pattern) ?? []).length;
 
@@ -167,8 +168,7 @@ describe('which answer a collection the root mints gets', () => {
 
     it('the root declares what it owns and not one door', () => {
         expect(namesAfter(/^ {4}public (?:readonly )?(\w+)/gm, codeOf(ROOT))).toEqual([
-            'clock', 'collectorSlot', 'constructor', 'defaultChannelSlot', 'entityWriter', 'flush', 'indexKeysService',
-            'slotReleasePolicy', 'slotStamp',
+            'clock', 'collectorSlot', 'constructor', 'defaultChannelSlot', 'flush',
         ]);
     });
 
@@ -184,8 +184,10 @@ describe('which answer a collection the root mints gets', () => {
         }
     });
 
-    it('places every global default either behind a door or on the list of nobody\'s option', () => {
-        const everyGlobalDefault = namesAfter(/^ {4}public static readonly (\w+) =/gm, codeOf(DEFAULTS));
+    it('places every global default behind a door', () => {
+        const everyGlobalDefault = readdirSync(join(SRC, 'db', 'constants'))
+            .map(file => file.replace(/^OIM_DEFAULT_/, '').replace(/\.ts$/, ''))
+            .sort();
         const readByTheDoors = new Set<string>();
         for (const door of DOORS) {
             for (const name of namesAfter(/OIM_DEFAULT_([A-Z_]+)\.getValue\(\)/g, codeOfDoor(door))) {
@@ -193,12 +195,36 @@ describe('which answer a collection the root mints gets', () => {
             }
         }
 
-        expect([...readByTheDoors, ...GLOBAL_DEFAULTS_NOBODY_PASSES].sort()).toEqual(everyGlobalDefault);
+        expect([...readByTheDoors].sort()).toEqual(everyGlobalDefault);
+    });
+
+    it('reads every field of a defaults instance in some door', () => {
+        const everyField = namesAfter(/^ {4}public readonly (\w+):/gm, codeOf(DEFAULTS));
+        const readByTheDoors = new Set<string>();
+        for (const door of DOORS) {
+            for (const name of namesAfter(/defaults\??\.(\w+)/g, codeOfDoor(door))) readByTheDoors.add(name);
+        }
+
+        expect(everyField.filter(field => !readByTheDoors.has(field))).toEqual([]);
+    });
+
+    it('hands a collection what its defaults instance holds, and the global answer for what it leaves out', () => {
+        const entityWriter = createOIMReplacingEntityWriter();
+        const defaults = new OIMDefaults({ entityWriter });
+        const injected = injectedInto(createOIMSlotCollectionService({
+            defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }),
+        }), new OIMDB());
+        const plain = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), new OIMDB());
+
+        expect(injected.entityWriter).toBe(entityWriter);
+        expect(plain.entityWriter).not.toBe(entityWriter);
+        expect(injected.slotEmptinessPolicy).toBe(plain.slotEmptinessPolicy);
+        expect(injected.columnSlotStoreService).toBe(plain.columnSlotStoreService);
     });
 
     it('hands a collection its own answer and never lets the class reach for one', () => {
         const db = new OIMDB();
-        const injected = injectedInto(createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) }), db);
+        const injected = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), db);
 
         expect(injected.entityWriter).toBeDefined();
         expect(injected.columnSlotStoreService).toBeDefined();
@@ -208,8 +234,8 @@ describe('which answer a collection the root mints gets', () => {
     it('reads each global once, so two roots in one process hand out the same answer', () => {
         const oneDb = new OIMDB();
         const otherDb = new OIMDB();
-        const one = injectedInto(createOIMSlotCollectionService(oneDb, { slotContentService: createOIMSlotContentEntityService<TCard, string>(oneDb) }), oneDb);
-        const other = injectedInto(createOIMSlotCollectionService(otherDb, { slotContentService: createOIMSlotContentEntityService<TCard, string>(otherDb) }), otherDb);
+        const one = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), oneDb);
+        const other = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), otherDb);
 
         expect(other.entityWriter).toBe(one.entityWriter);
         expect(other.columnSlotStoreService).toBe(one.columnSlotStoreService);

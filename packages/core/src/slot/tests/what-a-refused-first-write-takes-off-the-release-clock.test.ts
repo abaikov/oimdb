@@ -20,9 +20,9 @@ const createFixture =() => {
         releaseTimer: () => () => undefined,
     });
     const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-    const triggersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const triggersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const triggers = triggersService.createStoreSlot(db);
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: WINDOW }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: WINDOW }) });
     const rows = rowsService.createStoreSlot(db);
     triggersService.writeSlotContentByKey(triggers, 't', { id: 't', n: 0 });
     db.flush();

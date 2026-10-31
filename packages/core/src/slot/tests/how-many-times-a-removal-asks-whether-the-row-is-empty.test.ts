@@ -20,7 +20,7 @@ const createFixture = () => {
             return OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY.getValue().isEmpty(slot);
         },
     };
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: emptiness }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: emptiness }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, asked: () => asked };
 };

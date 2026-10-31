@@ -11,7 +11,7 @@ const sameCardWithoutRank = (): TCardWithoutRank => ({ id: 'c1', title: 'A', dec
 
 const makeCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cards, cardsService };
 };
@@ -68,10 +68,10 @@ describe('which write door pays for a vanished column', () => {
 
     it('answers the same on a single entity: replace drops it, update keeps it', () => {
         const db = new OIMDB();
-        const replacedService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const replacedService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const replaced = replacedService.createStoreSlot(db);
         replacedService.writeSingleSlotContent(replaced, aCard());
-        const patchedService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const patchedService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const patched = patchedService.createStoreSlot(db);
         patchedService.writeSingleSlotContent(patched, aCard());
         db.flush();

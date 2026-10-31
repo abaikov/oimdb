@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMChannelService, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter } from '../../index';
 import type { IOIMEntityWriter, IOIMErrorPolicy } from '../../index';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
@@ -21,14 +22,9 @@ describe('an error with no caller to throw to', () => {
             ...inPlace,
             clearEntity: () => { throw new Error('the clear threw'); },
         };
-        const db = new OIMDB({
-            entityWriter,
-            errorPolicy,
-            getNowMs: () => nowMs,
-            releaseTimer: run => { tick = run; return () => { tick = undefined; }; },
-            slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }),
-        });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const defaults = new OIMDefaults({ entityWriter, slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 100 }) });
+        const db = new OIMDB({ errorPolicy, getNowMs: () => nowMs, releaseTimer: run => { tick = run; return () => { tick = undefined; }; } });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         db.flush();
@@ -46,8 +42,9 @@ describe('an error with no caller to throw to', () => {
         jest.spyOn(slotReleasePolicy, 'onSlotUnheld').mockImplementation(() => {
             if (refuse) throw new Error('the unhold threw');
         });
-        const db = new OIMDB({ errorPolicy, slotReleasePolicy });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const defaults = new OIMDefaults({ slotReleasePolicy });
+        const db = new OIMDB({ errorPolicy });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });
         db.flush();

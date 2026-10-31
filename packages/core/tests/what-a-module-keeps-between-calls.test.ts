@@ -118,7 +118,6 @@ const PINNED: readonly (readonly [string, string])[] = [
     ['core/db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER.ts:OIM_DEFAULT_STORE_SLOT_LISTENER', DEFAULT_VALUE],
     ['core/db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
     ['core/db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
-    ['core/db/constants/OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK.ts:OIM_DEFAULT_COMPOSITE_KEY_TREE_WALK', DEFAULT_VALUE],
     [
         'core/db/constants/OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY.ts:OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY',
         'one OIMDefaultValue whose value is an object literal with one method reading slot.entity; it closes over nothing',
@@ -131,7 +130,7 @@ const PINNED: readonly (readonly [string, string])[] = [
         'core/db/constants/OIM_DEFAULT_INDEX_KEYS_SERVICE.ts:OIM_DEFAULT_INDEX_KEYS_SERVICE',
         'one OIMDefaultValue whose value is the appending index-keys service, which holds no state and closes over nothing',
     ],
-    ['core/db/constants/OIM_DEFAULT_SCALAR_KEY_TREE_WALK.ts:OIM_DEFAULT_SCALAR_KEY_TREE_WALK', DEFAULT_VALUE],
+    ['devtools/oimDevDefaults.ts:oimDevDefaults', 'an OIMDefaults whose only field is the dev registry as store slot listener; it holds the registry and nothing it hears'],
     [
         'devtools/oimDevRegistry.ts:oimDevRegistry',
         'THE ONE UNBOUNDED HOLDER OF A SLOT GRAPH IN THIS REPOSITORY, and the only one on this list that '

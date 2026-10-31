@@ -50,7 +50,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
+const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 const cardContentService = cardCollectionService.slotContentService;
 
@@ -184,7 +184,7 @@ value: the first different value the source sees ends it, so an edit and a later
 another frame are both written.
 
 ```ts
-const cardBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const cardBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 const cardBucketStoreSlot = cardBucketService.createStoreSlot(db);
 const inboxBucketSlot = cardBucketService.holdSlotByKey(cardBucketStoreSlot, 'inbox');
 const inboxPersistRecordSource = new OIMPersistBucketRecordSource({
@@ -204,7 +204,7 @@ exemption rule as the bucket source. `readSnapshot` throws while no entity has b
 or restored, so write the entity (or hydrate) before the persistor reads it.
 
 ```ts
-const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 const settingsContentService = settingsSingleEntityService.slotContentService;
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'light', density: 'compact' });

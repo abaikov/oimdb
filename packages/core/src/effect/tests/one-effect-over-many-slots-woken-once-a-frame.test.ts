@@ -11,7 +11,7 @@ type TCard = { id: string; rank: number; title: string };
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id, rank: 0, title: 't' });
     db.flush();

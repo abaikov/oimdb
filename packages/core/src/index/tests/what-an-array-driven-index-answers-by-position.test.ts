@@ -10,17 +10,17 @@ import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEnt
 type TCard = { id: string; deck: string };
 type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 
-const createByDeckService = (db: OIMDB, cardsService: TCardsService) => createOIMSlotCollectionIndexService<
+const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
->(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
+>({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
 
 describe('an array-driven index', () => {
     it('answers a member by its arrival position and a position by its member', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createByDeckService(db, cardsService);
+        const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades' });
@@ -36,9 +36,9 @@ describe('an array-driven index', () => {
 
     it('answers undefined for a position and -1 for a member once disposed, because dispose emptied its buckets', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createByDeckService(db, cardsService);
+        const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
         byDeckService.disposeIndexStoreSlot(byDeck);

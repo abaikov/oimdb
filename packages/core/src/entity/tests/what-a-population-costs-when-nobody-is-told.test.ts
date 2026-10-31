@@ -27,7 +27,7 @@ const countingDb = (): { db: OIMDB; armed: () => number; framesEnded: () => numb
 };
 
 const collectionOn = (db: OIMDB, write: IOIMEntityWriter) => {
-    const collectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db, { entityWriter: write }) });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter: write }) });
     return { collectionService, collection: collectionService.createStoreSlot(db) };
 };
 

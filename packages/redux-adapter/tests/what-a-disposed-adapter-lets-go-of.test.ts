@@ -32,9 +32,9 @@ type TAllState = TOIMReduxDefaultGlobalIndexState<string>;
 
 function buildDb() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
-    const byDepartmentService = bucketServiceOf<TUser>(db);
+    const byDepartmentService = bucketServiceOf<TUser>();
     const byDepartment = byDepartmentService.createStoreSlot(db);
     const { singleBucket, bucketService: allService, bucket: allBucket } = singleBucketOf<TUser>(db);
     const keyedIndex: TOIMReduxKeyedIndex<string, string, TUser> = {

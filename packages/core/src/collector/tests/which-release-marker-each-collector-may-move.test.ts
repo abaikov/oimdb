@@ -16,7 +16,7 @@ const START = 1_000_000;
 const createFixtureWith = (keepAfterIdleMs: number, keepAfterWriteMs: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
             new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs }),
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
         ]) });
@@ -178,7 +178,7 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
         const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();

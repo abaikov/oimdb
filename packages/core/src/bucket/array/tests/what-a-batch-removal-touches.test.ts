@@ -38,13 +38,13 @@ const watch = (bucket: TBucket): TListTally => {
 
 const createFixture = (isUnique = false) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
     const bucketCommands = new OIMBucketCommands({});
     const membersService = isUnique
         ? new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands, bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() }) as OIMSlotContentPositionalArrayBucketService<TCardSlot>
         : new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands });
-    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
     const slotOf = (id: string): TCardSlot => {

@@ -42,11 +42,11 @@ export class DemoEngine {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly taskService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TTask>(this.db) });
+    private readonly taskService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTask>() });
 
     private readonly tasks = this.taskService.createStoreSlot(this.db);
 
-    private readonly tasksByColumnService = createOIMSlotCollectionIndexService(this.db, {
+    private readonly tasksByColumnService = createOIMSlotCollectionIndexService({
         entityService: this.taskService,
         columns: ['column'],
     });

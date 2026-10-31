@@ -41,12 +41,12 @@ type TCard = { id: string; deckId: string; title: string; rank: number };
 
 export const db = new OIMDB();
 
-export const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+export const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 export const cards = cardService.createStoreSlot(db);
 
 // A bucket keeps the order the caller writes; a sorted list is
 // `createOIMSortedComputedService` over an index.
-export const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+export const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const byDeck = byDeckService.createStoreSlot(db);
 
 // A BUCKET'S SLOTS ARE YOURS. A write moves the card's value and files nothing, so the
@@ -176,8 +176,8 @@ function TotalRank({ ids }: { ids: readonly string[] }) {
 
 ## Singles
 
-A single is a store slot that holds ONE identity and has no key: `createOIMSingleSlotService(db)` and
-`createOIMSingleSlotService(db)` hand back an `OIMSingleSlotService`, read through `getSingleSlot(storeSlot)` and
+A single is a store slot that holds ONE identity and has no key: `createOIMSingleSlotService()` and
+`createOIMSingleSlotService()` hand back an `OIMSingleSlotService`, read through `getSingleSlot(storeSlot)` and
 `holdSingleSlot(storeSlot)`. The two single hooks take that service (typed as a `Pick` of `OIMSingleSlotService`)
 and its store slot, and have the by-key hooks' mechanics without the key: the render reads `getSingleSlot`, whose
 mint the next `flush()` takes back if no commit follows; the commit resolves with `holdSingleSlot`, subscribes over
@@ -188,10 +188,10 @@ import { useOIMSingleBucketSlots, useOIMSingleEntity } from '@oimdb/react';
 
 type TSettings = { theme: string };
 
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
 const settings = settingsService.createStoreSlot(db);
 
-const pickedService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const picked = pickedService.createStoreSlot(db);
 
 function Toolbar() {

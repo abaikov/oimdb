@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
@@ -11,11 +12,11 @@ type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
 
-const createByDeckService = (db: OIMDB, cardsService: TCardsService) => createOIMSlotCollectionIndexService<
+const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
     OIMSlotContentSetBucketService<TCardSlot, string>
->(db, {
+>({
     entityService: cardsService,
     slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
     keyOf: (card: TCard) => card.deck,
@@ -24,9 +25,9 @@ const createByDeckService = (db: OIMDB, cardsService: TCardsService) => createOI
 describe('a bucket filled by a scan of the source after a hand mutation', () => {
     it('takes the row out of the bucket its old key named, so it is in one bucket, not two', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createByDeckService(db, cardsService);
+        const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
@@ -40,10 +41,11 @@ describe('a bucket filled by a scan of the source after a hand mutation', () => 
     });
 
     it('keeps the row alive across the move even when its last hold is the one it leaves', () => {
-        const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createByDeckService(db, cardsService);
+        const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });

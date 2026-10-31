@@ -366,7 +366,7 @@ describe('hydrate issued before start()', () => {
 describe('hydrate against an effect-driven source written while the read is in flight, with no frame run', () => {
     it('refuses on a single entity source instead of clobbering the write', async () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: 'dark' });
         db.flush();
@@ -400,9 +400,9 @@ describe('hydrate against an effect-driven source written while the read is in f
 
     it('refuses on a bucket source when a member nothing else holds is written', async () => {
         const db = new OIMDB();
-        const userEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+        const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
         const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-        const userBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+        const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
         const userBucketStoreSlot = userBucketService.createStoreSlot(db);
         const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
         const userSlot = userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });

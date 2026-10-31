@@ -91,7 +91,7 @@ describe('what a bridge connection says and answers', () => {
 
     test('answers a request it failed to read the registry for with the error and no data', () => {
         const db = new OIMDB();
-        const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ id: string }>(db) });
+        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ id: string }>() });
         const users = usersService.createStoreSlot(db);
         const registry = new OIMDevRegistry();
         registry.collection('users', { getSlots: () => { throw new Error('the store is unreadable'); } }, users);

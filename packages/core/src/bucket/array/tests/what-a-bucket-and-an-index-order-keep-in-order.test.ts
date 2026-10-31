@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<Card>;
 
 const createContext = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -29,14 +29,14 @@ function cardSlot(id: string, rank: number): TCardSlot {
 
 function makePositional() {
     const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
-    const decksService = createOIMSlotCollectionService(context.db, { slotContentService: service });
+    const decksService = createOIMSlotCollectionService({ slotContentService: service });
     const decks = decksService.createStoreSlot(context.db);
     return { service, bucket: decksService.holdSlotByKey(decks, 'group') };
 }
 
 function makeUnique() {
     const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
-    const decksService = createOIMSlotCollectionService(context.db, { slotContentService: service });
+    const decksService = createOIMSlotCollectionService({ slotContentService: service });
     const decks = decksService.createStoreSlot(context.db);
     return { service, bucket: decksService.holdSlotByKey(decks, 'group') };
 }
@@ -71,9 +71,9 @@ function refusing(id: string): (left: Card, right: Card) => void {
 function makeIndexOrder() {
     const during: TDuringCompare = { current: passThrough, compared: 0 };
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
-    const byGroupService = createOIMSlotCollectionIndexService(db, {
+    const byGroupService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (_card: Card): string => 'group',
     });

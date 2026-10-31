@@ -16,9 +16,9 @@ type TCardSlotInBucket = TOIMEntitySlot<Card>;
 const createFixture = () => {
     const db = new OIMDB();
     let compared = 0;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: Card) => card.deck,
     });
@@ -188,9 +188,9 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 describe('what a derivation lets go of', () => {
     it('gives the bucket back when the last reader leaves', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
         const cards = cardsService.createStoreSlot(db);
-        const rankedService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlotInBucket, string>() });
+        const rankedService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlotInBucket, string>() });
         const ranked = rankedService.createStoreSlot(db);
         const orderService = createOIMBucketMemoComputedService({ bucketCollectionService: rankedService });
         const order = orderService.createBucketMemoStoreSlot(ranked);

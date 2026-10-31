@@ -16,9 +16,9 @@ type TCard = { id: string; deck: string };
 describe('an index factory', () => {
     it('records commands on an array-driven index when it is handed bucket commands', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>, string>({
@@ -39,13 +39,13 @@ describe('an index factory', () => {
 
     it('files its buckets in the bucket slot store service it is handed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const bucketSlotStoreService = new OIMSlotMapStoreService<
             TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>, string>, string
         >();
         const createStore = jest.spyOn(bucketSlotStoreService, 'createStore');
-        createOIMSlotCollectionIndexService(db, {
+        createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>, string>(),

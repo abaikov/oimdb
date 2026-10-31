@@ -20,19 +20,19 @@ type TCardStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMEntitySlot<Card, TOIMSt
 const effectService = OIMEffectService.INSTANCE;
 
 const makeCards = (db: OIMDB) => {
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 
 const makeIndex = (
-    db: OIMDB,
+    
     cardsService: ReturnType<typeof makeCards>['cardsService'],
     cards: TOIMStoreSlot<TCardStore, TOIMEntitySlot<Card, TOIMStoreKey>, Partial<Card>>,
 ) => {
     const byDeckService = createOIMSlotCollectionIndexService<
         Card, TOIMStoreKey, readonly ('id' | 'deck' | 'rank')[], string, TCardStore, TDeckSlots,
         OIMSlotContentSetBucketService<TCardRow, string>
-    >(db, {
+    >({
         entityService: cardsService,
         slotContentService: new OIMSlotContentSetBucketService<TCardRow, string>(),
         keyOf: card => card.deck,
@@ -49,7 +49,7 @@ type TByDeckService = ReturnType<typeof makeIndex>['byDeckService'];
 const createFixture =() => {
     const db = new OIMDB({ channelScheduler: (run): void => { run(); } });
     const { cardsService, cards } = makeCards(db);
-    const { byDeckService, byDeck } = makeIndex(db, cardsService, cards);
+    const { byDeckService, byDeck } = makeIndex(cardsService, cards);
     return { db, cardsService, cards, byDeckService, byDeck };
 };
 
@@ -121,7 +121,7 @@ describe('a frame does not open in the middle of one logical change', () => {
         const pending: (() => void)[] = [];
         const db = new OIMDB({ channelScheduler: (run): void => { pending.push(run); } });
         const { cardsService, cards } = makeCards(db);
-        const { byDeckService, byDeck } = makeIndex(db, cardsService, cards);
+        const { byDeckService, byDeck } = makeIndex(cardsService, cards);
         const redSlot = byDeckService.holdSlotByKey(byDeck, 'red');
         const watcher = watch(db, byDeckService, redSlot);
         pending.length = 0;

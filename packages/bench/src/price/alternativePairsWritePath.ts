@@ -52,7 +52,7 @@ type TWideEntityService = TPriceEntityService<TWideRow>;
 
 type TWideStoreSlot = TOIMStoreSlot<Map<TOIMStoreKey, TWideSlot>, TWideSlot, Partial<TWideRow>>;
 
-type TMakeWideEntityService = (db: OIMDB) => TWideEntityService;
+type TMakeWideEntityService = () => TWideEntityService;
 
 const selectWideKey = (row: TWideRow): string => row.id;
 
@@ -68,13 +68,13 @@ const makeWideRows = (count: number): TWideRow[] => {
     return rows;
 };
 
-const makeWideEntityService = (db: OIMDB, entityWriter?: IOIMEntityWriter): TWideEntityService =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TWideRow>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const makeWideEntityService = (entityWriter?: IOIMEntityWriter): TWideEntityService =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TWideRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const shippedDefault: TMakeWideEntityService = db => makeWideEntityService(db);
+const shippedDefault: TMakeWideEntityService = () => makeWideEntityService();
 
 const withWriter = (entityWriter: IOIMEntityWriter): TMakeWideEntityService =>
-    db => makeWideEntityService(db, entityWriter);
+    () => makeWideEntityService(entityWriter);
 
 type TWideWorld = {
     readonly db: OIMDB;
@@ -92,7 +92,7 @@ const wideWorld = (
     const rows = makeWideRows(count);
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const entityService = makeEntityService(db);
+    const entityService = makeEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
     entityService.writeInBatch(entityStoreSlot, () => (rows).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, (selectWideKey)(entity), entity)));
     db.flush();
@@ -423,8 +423,8 @@ const createGrowingSlot = (key: TOIMStoreKey, storeSlot: TOIMStoreSlot | undefin
     key,
 } as unknown as TWideSlot);
 
-const grownSlots: TMakeWideEntityService = db => {
-    const entityService = makeWideEntityService(db);
+const grownSlots: TMakeWideEntityService = () => {
+    const entityService = makeWideEntityService();
     (entityService.slotContentService as unknown as TGrowingKeyedSlotCreator).createSlot = createGrowingSlot;
     return entityService;
 };
@@ -474,7 +474,7 @@ const populationThatLostAColumn = (
     write: IOIMEntityWriter | undefined,
     takeEveryNth: number,
 ): readonly TWideRow[] => {
-    const world = wideWorld(db => makeWideEntityService(db, write));
+    const world = wideWorld(() => makeWideEntityService(write));
     for (let i = 0; i < world.rows.length; i++) {
         if (i % takeEveryNth !== 0) continue;
         const short: Record<string, unknown> = { ...world.rows[i] };
@@ -867,12 +867,12 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
             const rows = makeWideRows(priceDataset.batch);
             const side = (makeEntityService: TMakeWideEntityService): TPriceSide => {
                 let db = new OIMDB();
-                let entityService = makeEntityService(db);
+                let entityService = makeEntityService();
                 let entityStoreSlot = entityService.createStoreSlot(db);
                 return {
                     reset: () => {
                         db = new OIMDB();
-                        entityService = makeEntityService(db);
+                        entityService = makeEntityService();
                         entityStoreSlot = entityService.createStoreSlot(db);
                     },
                     operationsPerPass: rows.length,

@@ -16,7 +16,7 @@ type TCardsStore = Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>;
 
 const createCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'ace', rank: 1 });
     cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'spades', title: 'two', rank: 2 });
@@ -24,10 +24,10 @@ const createCards = () => {
     return { db, cards, cardsService };
 };
 
-const setDrivenByColumn = (db: OIMDB, cardsService: TCardsService) => createOIMSlotCollectionIndexService<
+const setDrivenByColumn = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly ['deck'], string, TCardsStore, TOIMBucketSlotsSetStore<TCardSlot>,
     OIMSlotContentSetBucketService<TCardSlot, string>
->(db, {
+>({
     entityService: cardsService,
     slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
     columns: ['deck'],
@@ -41,7 +41,7 @@ const updateByKey = (cardsService: TCardsService, cards: Parameters<TCardsServic
 describe('what an index reads its key from', () => {
     it('files by the column it was given, with no key function', () => {
         const { db, cards, cardsService } = createCards();
-        const byDeckService = setDrivenByColumn(db, cardsService);
+        const byDeckService = setDrivenByColumn(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
         const clubs = byDeckService.holdSlotByKey(byDeck, 'clubs');
@@ -56,7 +56,7 @@ describe('what an index reads its key from', () => {
         let keyOfCalls = 0;
         const byDeckService = createOIMSlotCollectionIndexService<
             TCard, TOIMStoreKey, readonly ['deck'], string, TCardsStore
-        >(db, {
+        >({
             entityService: cardsService,
             columns: ['deck'],
             keyOf: card => {
@@ -81,7 +81,7 @@ describe('what an index reads its key from', () => {
         const byDeckService = createOIMSlotCollectionIndexService<
             TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string, TCardsStore,
             TOIMBucketSlotsSetStore<TCardSlot>, OIMSlotContentSetBucketService<TCardSlot, string>
-        >(db, {
+        >({
             entityService: cardsService,
             slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
             keyOf: card => {
@@ -99,7 +99,7 @@ describe('what an index reads its key from', () => {
 
     it('still wakes a bucket column slot for a column outside its key', () => {
         const { db, cards, cardsService } = createCards();
-        const byDeckService = setDrivenByColumn(db, cardsService);
+        const byDeckService = setDrivenByColumn(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const rankOfSpades = byDeckService.holdBucketColumnByKey(byDeck, 'spades', 'rank');
         const revisionBefore = rankOfSpades.changedAtRevision;

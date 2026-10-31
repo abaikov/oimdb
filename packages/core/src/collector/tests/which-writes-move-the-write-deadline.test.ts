@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotReleaseManualDueFramePolicy } from '../OIMSlotReleaseManualDueFramePolicy';
@@ -15,8 +16,9 @@ const START_MS = 1_000_000;
 const createWorld = (slotReleasePolicy: IOIMSlotReleasePolicy) => {
     let nowMs = START_MS;
     const releaseTimer: TOIMTimer = () => () => undefined;
-    const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer, slotReleasePolicy });
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const defaults = new OIMDefaults({ slotReleasePolicy });
+    const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
     return {
         db,
@@ -65,7 +67,7 @@ describe('which writes move the write deadline', () => {
     it('one manual frame moves the deadline of every policy that shares it, each by its own window', () => {
         const slotReleaseDueFramePolicy = new OIMSlotReleaseManualDueFramePolicy();
         const world = createWorld(new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy }));
-        const cardsService = createOIMSlotCollectionService(world.db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(world.db), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy }) });
         const cards = cardsService.createStoreSlot(world.db);
         let deckSlot: TOIMSlot | undefined;
         let cardSlot: TOIMSlot | undefined;

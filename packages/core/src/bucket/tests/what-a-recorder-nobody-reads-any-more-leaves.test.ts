@@ -10,11 +10,11 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = (withCommands: boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const bucketCommands = withCommands ? new OIMBucketCommands({}) : undefined;
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands });
-    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
     return { cardsService, cards, membersService, decksService, decks, bucketCommands };
 };

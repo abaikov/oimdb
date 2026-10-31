@@ -22,9 +22,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-    const bucketCollectionService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const bucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const bucketStoreSlot = bucketCollectionService.createStoreSlot(db);
     const bucketSlot = bucketCollectionService.holdSlotByKey(bucketStoreSlot, 'all');
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
@@ -70,7 +70,7 @@ describe('autosave started behind an edit of the open batch', () => {
 describe('a single entity mirror subscribed behind a write of the open batch', () => {
     it('reports the write, which no wake is coming for', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TUserSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();

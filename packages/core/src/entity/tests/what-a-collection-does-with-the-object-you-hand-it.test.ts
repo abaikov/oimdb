@@ -25,7 +25,7 @@ type TCard = { id: string; deckId: string };
  * it holds for every slot written through it.
  */
 const rowsOn = (db: OIMDB, write: IOIMEntityWriter) => {
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>(db, { entityWriter: write }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>({ entityWriter: write }) });
     return { rowsService, rowsContentService: rowsService.slotContentService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -293,9 +293,9 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
      */
     it('under oimInsertEntityWithCopy, a caller mutating behind the engine changes neither the value nor the list', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
         const item: TCard = { id: 'c1', deckId: 'spades' };
         cardsService.writeSlotContentByKey(cards, item.id, item);

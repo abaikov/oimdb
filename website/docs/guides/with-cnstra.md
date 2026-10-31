@@ -28,11 +28,11 @@ declare function fetchDeck(deck: string): Promise<Card[]>;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deck });
+const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deck });
 const byDeck = byDeckService.createIndexStoreSlot(cards);
-const loadingService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ deck: string }>(db) });
+const loadingService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ deck: string }>() });
 const loading = loadingService.createStoreSlot(db);
 ```
 

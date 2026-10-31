@@ -91,13 +91,13 @@ const spyOnTheDoor = (defaultChannelSlot: TOIMChannelSlot) => {
 
 /** Every door of the engine driven once, so no arrival depends on which call the test happened to make. */
 const driveEveryDoor = (db: OIMDB) => {
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const deckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
+    const deckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
             bucketCommands: new OIMBucketCommands({}),
         }) });
     const deck = deckService.createStoreSlot(db);
-    const singleService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const singleService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const single = singleService.createStoreSlot(db);
     singleService.writeSingleSlotContent(single, { id: 'solo', title: 'solo', rank: 0 });
     const singleSlot = singleService.holdSingleSlot(single);

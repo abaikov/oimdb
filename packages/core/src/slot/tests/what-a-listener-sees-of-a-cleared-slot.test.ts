@@ -23,9 +23,9 @@ describe('what a listener sees of a cleared slot', () => {
     it('lets the release policy be asked only about an empty slot, once a clear has emptied it', () => {
         const slotReleasePolicy = new OIMSlotReleasePolicyAtEmptyAsked();
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

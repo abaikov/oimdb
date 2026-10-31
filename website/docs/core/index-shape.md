@@ -139,10 +139,10 @@ declare function render(value: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });

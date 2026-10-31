@@ -19,9 +19,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function buildUsers() {
     const db = new OIMDB();
-    const userEntityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+    const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
     const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-    const userBucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const userBucketStoreSlot = userBucketService.createStoreSlot(db);
     const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
     const fileEveryUser = (): void => {

@@ -73,7 +73,7 @@ const usersChildReducer = (state: TUserState | undefined, action: Action): TUser
 describe('a numerically keyed collection synced back from a child reducer', () => {
     test('a row removed in Redux leaves the collection', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db,item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, number, TUserState>(usersService, users, {
@@ -101,7 +101,7 @@ describe('a numerically keyed collection synced back from a child reducer', () =
 
     test('a row added in Redux still lands in the collection', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db,item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, number, TUserState>(usersService, users, {
@@ -128,11 +128,11 @@ function buildDecks() {
     const db = new OIMDB();
     // The linked-index diff keys off entity-reference equality, so the watched
     // collection needs a write strategy that allocates on change.
-    const decksService = replacingEntityServiceOf<TDeck>(db,item => item.id);
+    const decksService = replacingEntityServiceOf<TDeck>(item => item.id);
     const decks = decksService.createStoreSlot(db);
-    const cardsService = entityServiceOf<TCard>(db,item => item.id);
+    const cardsService = entityServiceOf<TCard>(item => item.id);
     const cards = cardsService.createStoreSlot(db);
-    const cardsByDeckService = bucketServiceOf<TCard>(db);
+    const cardsByDeckService = bucketServiceOf<TCard>();
     const cardsByDeck = cardsByDeckService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
     const linkedIndexes: ReadonlyArray<TOIMReduxLinkedIndex<TDeck, TCard>> = [
@@ -202,11 +202,11 @@ const groupsChildReducer = (state: TIndexState | undefined, action: Action): TIn
 describe('a keyed index with numeric keys, synced back from a child reducer', () => {
     test('the live bucket is written, not emptied, and no second one is minted', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db,item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         // What the bucket holds here is what Redux says it is: the sync-back writes it,
         // the same as every other index.
-        const byGroupService = bucketServiceOf<TUser>(db);
+        const byGroupService = bucketServiceOf<TUser>();
         const byGroup = byGroupService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const keyedIndex: TOIMReduxKeyedIndex<number, number, TUser> = {
@@ -242,9 +242,9 @@ describe('a keyed index with numeric keys, synced back from a child reducer', ()
 
     test('a key Redux stops listing still empties its bucket', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db,item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
-        const byGroupService = bucketServiceOf<TUser>(db);
+        const byGroupService = bucketServiceOf<TUser>();
         const byGroup = byGroupService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const keyedIndex: TOIMReduxKeyedIndex<number, number, TUser> = {
@@ -301,9 +301,9 @@ type TMixedIndexState = TOIMReduxDefaultIndexState<TOIMStoreKey, number>;
 
 function buildMixedKeyIndex() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db,item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
-    const byGroupService = bucketServiceOf<TUser>(db);
+    const byGroupService = bucketServiceOf<TUser>();
     const byGroup = byGroupService.createStoreSlot(db);
     const keyedIndex: TOIMReduxKeyedIndex<TOIMStoreKey, number, TUser> = {
         bucketService: byGroupService,
@@ -391,7 +391,7 @@ type TMixedUserState = TOIMReduxDefaultCollectionState<TMixedUser, TOIMStoreKey>
 
 function buildMixedKeyCollection() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TMixedUser>(db,item => item.id);
+    const usersService = entityServiceOf<TMixedUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     // Two addresses, written through the engine: rows are filed in a `Map`, so
     // these are two rows and stay two rows.
@@ -460,7 +460,7 @@ describe('a collection holding both scalar forms of one primary key', () => {
 
     test('an id listed under the other spelling of the ONLY row is not a collision', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TMixedUser>(db,item => item.id);
+        const usersService = entityServiceOf<TMixedUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         usersService.writeInBatch(users, () => ([{ id: 1, name: 'Alice' }]).map(entity => usersService.writeSlotContentByKey(users, entity.id, entity)));
         db.flush();

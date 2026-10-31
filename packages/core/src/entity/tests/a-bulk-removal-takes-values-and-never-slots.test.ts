@@ -23,11 +23,11 @@ type TDeck = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>;
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     // A bucket collection is a store of buckets plus a bucket service, built by
     // the caller. Those two ARE the collection; the channel is what it tells.
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const byDeck = byDeckService.createStoreSlot(db);
     const deck = (key: TOIMStoreKey): TDeck => byDeckService.getSlotByKey(byDeck, key) as TDeck;
     // The hold spans the write: once the bucket holds slots the emptiness

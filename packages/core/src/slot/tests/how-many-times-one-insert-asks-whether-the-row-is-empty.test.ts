@@ -22,7 +22,7 @@ const makeCountingEmptiness = (): IOIMSlotEmptinessPolicy<TCardSlot> & { asked: 
 const createFixture = () => {
     const db = new OIMDB();
     const emptiness = makeCountingEmptiness();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: emptiness }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: emptiness }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, emptiness };
 };

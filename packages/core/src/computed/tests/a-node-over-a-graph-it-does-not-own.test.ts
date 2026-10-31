@@ -8,7 +8,7 @@ import { createOIMSingleComputedService } from '../createOIMSingleComputedServic
 
 type TRow = { id: string; n: number };
 
-const rowsOn = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+const rowsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
 
 const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => Partial<TOIMComputedSources>) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
@@ -27,7 +27,7 @@ describe('a node over a graph it does not own', () => {
     it('runs in the frame that dirtied a dependency two derivations deep', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const rowsService = rowsOn(db);
+        const rowsService = rowsOn();
         const rows = rowsService.createStoreSlot(db);
         rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         db.flush();
@@ -73,9 +73,9 @@ describe('a node over a graph it does not own', () => {
     it('runs once over a source and a derivation, on the derivation\'s settled value', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const rowsService = rowsOn(db);
+        const rowsService = rowsOn();
         const rows = rowsService.createStoreSlot(db);
-        const ticksService = rowsOn(db);
+        const ticksService = rowsOn();
         const ticks = ticksService.createStoreSlot(db);
         rowsService.writeSlotContentByKey(rows, ((row: TRow) => row.id)({ id: 'r1', n: 1 }), { id: 'r1', n: 1 });
         ticksService.writeSlotContentByKey(ticks, ((row: TRow) => row.id)({ id: 't1', n: 0 }), { id: 't1', n: 0 });

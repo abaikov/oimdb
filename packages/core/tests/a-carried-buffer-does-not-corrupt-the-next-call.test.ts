@@ -52,7 +52,7 @@ type TRow = { id: string; n: number };
 const makeSlot = (id: number): TOIMEntitySlot => ({ key: id } as unknown as TOIMEntitySlot);
 
 const collectionOf = <TEntity extends object>(db: OIMDB) => {
-    const collectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity, TOIMStoreKey>(db) });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity, TOIMStoreKey>() });
     const collection = collectionService.createStoreSlot(db);
     const updateEntityByKey = (key: TOIMStoreKey, patch: Partial<TEntity>): void => {
         const entitySlot = collectionService.findSlotByKey(collection, key);
@@ -169,9 +169,9 @@ describe('an index order whose comparator reads another order', () => {
 
     const createFixture = () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const cardIndexService = createOIMSlotCollectionIndexService(db, {
+        const cardIndexService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deckId,
         });
@@ -190,9 +190,9 @@ describe('an index order whose comparator reads another order', () => {
             return cardOrder === undefined ? 0 : cardOrder.computedValueService.getValueForSlot(cardOrder).length;
         };
 
-        const decksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDeck, string>(db) });
+        const decksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDeck, string>() });
         const decks = decksService.createStoreSlot(db);
-        const deckIndexService = createOIMSlotCollectionIndexService(db, {
+        const deckIndexService = createOIMSlotCollectionIndexService({
             entityService: decksService,
             keyOf: () => 'all',
         });
@@ -287,7 +287,7 @@ describe('an unordered collection, as the control for all of the above', () => {
         type TCardSlot = TOIMEntitySlot<TCard>;
         const db = new OIMDB();
         const { collectionService: cardsService, collection: cards } = collectionOf<TCard>(db);
-        const indexService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+        const indexService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
         const index = indexService.createStoreSlot(db);
         const heldSlot = indexService.holdSlotByKey(index, 'spades');
         cardsService.writeInBatch(cards, () => ([{ id: 'c1', deckId: 'spades' }, { id: 'c2', deckId: 'spades' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
@@ -306,7 +306,7 @@ describe('what the index maintenance leaves in its bucket', () => {
     const indexedWorld = () => {
         const db = new OIMDB();
         const { collectionService: cardsService, collection: cards, updateEntityByKey } = collectionOf<TCard>(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

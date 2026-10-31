@@ -37,9 +37,9 @@ type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
 declare const slot: TOIMEntitySlot<Card, TOIMStoreKey>;
@@ -348,7 +348,7 @@ const loadWhileWatched: IOIMSlotSubscriptionListener = {
     onSlotLastUnsubscribed: watchedSlot => { stopLoading(watchedSlot); },
 };
 
-const loadedCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotSubscriptionListener: loadWhileWatched });
+const loadedCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotSubscriptionListener: loadWhileWatched });
 ```
 
 - Only subscribers count. A hold, a `getSlotByKey` and membership in a bucket do not tell the

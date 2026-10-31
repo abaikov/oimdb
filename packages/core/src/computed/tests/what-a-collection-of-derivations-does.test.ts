@@ -28,7 +28,7 @@ const createNumberService = () => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     let builds = 0;
     // The ordinary shape of a build: resolve through the hold door, derive over

@@ -7,11 +7,13 @@ before it were not changelogged.
 
 ### Added
 
+- `OIMDefaults` instance (`new OIMDefaults(options)`, `OIMDefaults.INSTANCE`), `TOIMDefaultsOptions`; option `defaults` on every factory.
 - `releaseValue` option on `createOIMComputedService` and `createOIMSingleComputedService`; `TOIMComputedValueReleaser`.
 - `createOIMSourceTrackingComputedService`, `createOIMSingleSourceTrackingComputedService`, `OIMSourceTrackingComputedService`, `OIMSingleSourceTrackingComputedService`, `TOIMSourceTrackingComputedSlot`, `TOIMSourceTrackingComputedContentSlot`, `TOIMSourceTrackingComputedDerive`, `TOIMSourceTrackingComputedDerivationOptions`, `OIMSlotContentSourceTrackingComputedService` (type), `TOIMComputedServiceFactoryOptions`.
 
 ### Changed
 
+- `createOIMSlotCollectionService`, `createOIMSingleSlotService`, `createOIMSlotContentEntityService`, `createOIMSlotCollectionIndexService`, `createOIMSlotCollectionSortedArrayIndexService`: no `db` argument.
 - `createEffect`, `createAndRunEffect`, `subscribeEffect`: `(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
 - `closeBatch` throws when no batch is open.
 - A slot written inside a batch is released only after the batch is delivered.
@@ -19,10 +21,15 @@ before it were not changelogged.
 - `TOIMSlot.storeSlot` is required; a column slot carries its carrier's store slot.
 - A last unhold inside a flush releases the slot at once, for every slot kind.
 - `IOIMSlotContentService.releaseSlotContent(slot)` takes the slot only and throws on a held slot.
+- `TOIMChannelClock.epoch` is an int32 that wraps; `oimIsRevisionAfter` compares epochs as `(epoch - sinceEpoch) | 0`.
 
 ### Removed
 
 - `OIMDefaults.STANDALONE_SLOT_OWNER`. Use `new OIMSlotOwner()`.
+- `OIMDefaults` static fields and `OIMDefaultValue.setValue`. Use `new OIMDefaults({ … })` passed as `defaults`.
+- `OIMDefaults.KEY_TREE_WALK_SCALAR`, `OIMDefaults.KEY_TREE_WALK_COMPOSITE`. Use `OIMScalarKeyTreeWalk.INSTANCE`, `OIMCompositeKeyTreeWalk.INSTANCE`.
+- `OIMDefaults.ENTITY_SLOT_EMPTINESS`. Use `new OIMDefaults({ entitySlotEmptinessPolicy })`.
+- `TOIMDBOptions.entityWriter`, `slotStamp`, `slotReleasePolicy`, `indexKeysService` and the same fields of `OIMDB`. Use `OIMDefaults`.
 
 ### Renamed
 
@@ -34,9 +41,6 @@ before it were not changelogged.
 - `IOIMContentChangeListener.onContentChangedMany` → `onManyContentsChanged`
 - `createOIMEntityWriterInPlace` → `createOIMInPlaceEntityWriter`
 - `createOIMEntityWriterReplacing` → `createOIMReplacingEntityWriter`
-- `OIMDefaults.KEY_TREE_WALK_SCALAR` → `SCALAR_KEY_TREE_WALK`
-- `OIMDefaults.KEY_TREE_WALK_COMPOSITE` → `COMPOSITE_KEY_TREE_WALK`
-- `OIMDefaults.ENTITY_SLOT_EMPTINESS` → `ENTITY_SLOT_EMPTINESS_POLICY`
 - `oimPatchEntityColumnsGuarded` → `oimGuardedPatchEntityColumns`
 - `oimPatchEntityColumnGuarded` → `oimGuardedPatchEntityColumn`
 - `oimPutEntityColumnsGuarded` → `oimGuardedPutEntityColumns`

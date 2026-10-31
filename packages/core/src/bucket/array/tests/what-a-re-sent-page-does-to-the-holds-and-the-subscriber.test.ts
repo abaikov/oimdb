@@ -16,7 +16,7 @@ const idsOf = (slots: Iterable<TCardSlot>): string[] => Array.from(slots, s => s
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const makeSlot = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
     const shuffledPage = (): TCardSlot[] => {
@@ -25,7 +25,7 @@ const createFixture =() => {
         return slots;
     };
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
-    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
     return { db, effectService, makeSlot, shuffledPage, membersService, decksService, decks };
 };

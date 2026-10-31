@@ -8,9 +8,9 @@ const MEMBER_COUNT = 200;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const sortedService = createOIMSortedComputedService({
         indexService: byDeckService,

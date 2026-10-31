@@ -21,9 +21,9 @@ type TUserPersistRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 
 function buildPersistor() {
     const db = new OIMDB();
-    const userEntityCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+    const userEntityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
     const userEntityStoreSlot = userEntityCollectionService.createStoreSlot(db);
-    const userBucketCollectionService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const userBucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const userBucketStoreSlot = userBucketCollectionService.createStoreSlot(db);
     const bucketSlot = userBucketCollectionService.holdSlotByKey(userBucketStoreSlot, 'all');
     const testKeyValueItemStorage = new OIMTestKeyValueItemStorage();

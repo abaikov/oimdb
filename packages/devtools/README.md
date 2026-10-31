@@ -36,16 +36,14 @@ Requires `@oimdb/core` 4.x as a peer.
 
 ## Setup
 
-**Call `oimInitDevtools()` once at startup, before the app builds its first service or store slot.** Importing the package runs nothing. `oimInitDevtools()` installs the registry as core's store slot listener (`OIMDefaults.STORE_SLOT_LISTENER.setValue(oimDevRegistry)`), and that listener can only be set before the first service is built: after that, core has handed the default out and the call throws. `src/store/db.ts` below calls it before it builds the database.
+**Pass `oimDevDefaults` as `defaults` to every factory whose store slots devtools should hear.** Importing the package runs nothing. `oimDevDefaults` is `new OIMDefaults({ storeSlotListener: oimDevRegistry })`: a service built with it tells the registry of every store slot it creates, and a service built without it is never heard. `src/store/users.ts` below passes it.
 
 The registry holds every store slot it hears, and every store slot you register, weakly. Devtools never keeps a store alive: a registered store that the app lets go drops out of the next report.
 
 ```ts file=src/store/db.ts
 // src/store/db.ts
 import { OIMDB, OIMLogAndContinueErrorPolicy } from '@oimdb/core';
-import { oimDevRegistry, oimInitDevtools } from '@oimdb/devtools';
-
-oimInitDevtools();
+import { oimDevRegistry } from '@oimdb/devtools';
 
 // The engine's error policy is a construction option, so the devtools sink is
 // wired where the database is built — see `recordError` below.
@@ -57,16 +55,17 @@ export const db = new OIMDB({
 ```ts file=src/store/users.ts
 // src/store/users.ts
 import { type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { oimDevDefaults } from '@oimdb/devtools';
 import { db } from './db';
 
 export type TUser = { id: string; name: string; role: string };
 
-export const usersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+export const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMSlotContentEntityService<TUser>() });
 export const users = usersService.createStoreSlot(db);
 
 // A bucket's slots are yours: a write to a user moves the value and files
 // nothing, so whoever writes the entity also calls `writeSlotContent(...)`.
-export const usersByRoleService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+export const usersByRoleService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const usersByRole = usersByRoleService.createStoreSlot(db);
 
 export function fileUser(user: TUser, everyoneInThatRole: readonly TUser[]): void {
@@ -82,13 +81,14 @@ export function fileUser(user: TUser, everyoneInThatRole: readonly TUser[]): voi
 ```ts file=src/store/tasks.ts
 // src/store/tasks.ts
 import { createOIMSingleComputedService, oimSameValueZeroGuard, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { oimDevDefaults } from '@oimdb/devtools';
 import { db } from './db';
 
 export type TTask = { id: string; title: string; assigneeId: string; done: boolean };
 
-export const tasksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTask>(db) });
+export const tasksService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMSlotContentEntityService<TTask>() });
 export const tasks = tasksService.createStoreSlot(db);
-export const tasksByAssigneeService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TTask>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+export const tasksByAssigneeService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TTask>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const tasksByAssignee = tasksByAssigneeService.createStoreSlot(db);
 
 const firstTask = tasksService.holdSlotByKey(tasks, 't1');
@@ -149,9 +149,7 @@ if (typeof window !== 'undefined') {
 
 ```ts setup
 import { OIMDB, OIMLogAndContinueErrorPolicy } from '@oimdb/core';
-import { oimDevRegistry, oimInitDevtools } from '@oimdb/devtools';
-
-oimInitDevtools();
+import { oimDevRegistry, oimDevDefaults } from '@oimdb/devtools';
 ```
 
 ```ts
@@ -210,7 +208,7 @@ Returns `this`.
 
 ### `oimDevRegistry.onStoreSlotCreated(storeSlot)`
 
-The `IOIMStoreSlotListener` hook core calls for every store slot it creates, once `oimDevRegistry` is installed as `OIMDefaults.STORE_SLOT_LISTENER`. It adds the store slot to a `WeakSet`. A store slot carries no name and no reader, so hearing one does not register it: it still has to be named with `collection(...)` or `computed(...)`.
+The `IOIMStoreSlotListener` hook core calls for every store slot a service built with `oimDevDefaults` creates. It adds the store slot to a `WeakSet`. A store slot carries no name and no reader, so hearing one does not register it: it still has to be named with `collection(...)` or `computed(...)`.
 
 ### `oimDevRegistry.trackFlushes(channelMap): TOIMDisposer`
 

@@ -14,10 +14,10 @@ const idsOf = (slots: Iterable<TOIMEntitySlot<TCard>>): string[] =>
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
-    const searchService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
     const search = searchService.createStoreSlot(db);
     const bucketAt = (key: string): TOIMBucketSlot<TSlots, string> => searchService.holdSlotByKey(search, key);
     return { db, cardsService, cards, membersService, bucketAt };

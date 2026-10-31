@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService } from '../../index';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
@@ -10,14 +11,15 @@ type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
-    const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+    const db = new OIMDB();
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
         OIMSlotContentSetBucketService<TCardSlot, string>
-    >(db, {
+    >({ defaults,
         entityService: cardsService,
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
         keyOf: (card: TCard) => card.deck,

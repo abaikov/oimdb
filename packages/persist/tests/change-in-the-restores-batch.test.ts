@@ -21,9 +21,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'all');
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
@@ -57,9 +57,9 @@ function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
 
 function buildNonUniqueArrayDriven(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketServiceArrayDriven = createOIMSlotCollectionService(db, {
+    const bucketServiceArrayDriven = createOIMSlotCollectionService({
         slotContentService: new OIMSlotContentPositionalArrayBucketService<TUserSlot>(),
     });
     const bucketStoreSlot = bucketServiceArrayDriven.createStoreSlot(db);
@@ -463,7 +463,7 @@ describe('an unload on a stopped persistor', () => {
 describe('the single entity source', () => {
     it('keeps a matched restore until a different value is seen, then forgets it', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TUserSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();
@@ -491,7 +491,7 @@ describe('the single entity source', () => {
 
     it('reports a change made in the batch its restore wrote in', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TUserSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();
@@ -514,7 +514,7 @@ describe('the single entity source', () => {
 
     it('and still says nothing when its restore lands on top of a change', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TUserSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();

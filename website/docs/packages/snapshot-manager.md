@@ -35,7 +35,7 @@ import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlot
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 

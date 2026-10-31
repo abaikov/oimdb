@@ -8,9 +8,9 @@ type TCard = { id: string; deck: string };
 describe('a bucket minted inside a frame after a hand mutation', () => {
     it('leaves the row in one bucket, and the announced change moves it', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

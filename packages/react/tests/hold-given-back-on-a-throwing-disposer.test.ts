@@ -26,7 +26,7 @@ import { holdWhileSubscribed } from '../src/holdWhileSubscribed';
 
 function countingOwnerSlot(): TOIMSlot {
     const db = new OIMDB();
-    const storeSlot = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<{ id: string }>(db) })
+    const storeSlot = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ id: string }>() })
         .createStoreSlot(db) as TOIMStoreSlot;
     const slot: TOIMSlot = {
         effects: undefined,

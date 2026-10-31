@@ -27,7 +27,7 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
     const clock: TClock = { now: () => ms, at: (value: number): void => { ms = value; } };
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: () => () => undefined });
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 1 });
     db.flush();

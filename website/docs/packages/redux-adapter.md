@@ -75,9 +75,9 @@ const uiReducer = (state: { open: boolean } = { open: false }): { open: boolean 
 
 const db = new OIMDB();
 
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
 const users = userService.createStoreSlot(db);
-const byTeamService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byTeamService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byTeam = byTeamService.createStoreSlot(db);
 
 const adapter = new OIMReduxAdapter({ channelMap: db });
@@ -102,13 +102,13 @@ const store = createStore(
 
 adapter.setStore(store); // bind so the adapter can dispatch OIMDB_UPDATE
 
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 const cards = cardService.createStoreSlot(db);
-const cardsByDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const cardsByDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const cardsByDeck = cardsByDeckService.createStoreSlot(db);
 type TProgressKey = readonly TOIMEntitySlot[];
 type TProgressSlot = TOIMEntitySlot<TProgress, TProgressKey>;
-const progressService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TProgress, TProgressKey>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(new OIMCompositeKeyTreeWalk()) });
+const progressService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TProgress, TProgressKey>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(new OIMCompositeKeyTreeWalk()) });
 const progress = progressService.createStoreSlot(db);
 ```
 
@@ -161,7 +161,7 @@ and looks nothing up. So the writer and the identity are named separately: one
 bucket held under a fixed key, in a bucket store slot of its own:
 
 ```ts setup
-const recentService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const recentService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const recentStoreSlot = recentService.createStoreSlot(db);
 const recent = recentService.holdSlotByKey(recentStoreSlot, 'recent');
 ```
@@ -462,7 +462,7 @@ behind:
 ```typescript
 // `progress` is addressed by
 // [userService.holdSlotByKey(users, userId), cardService.holdSlotByKey(cards, cardId)] — no scalar key of its own.
-const flatService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TFlatProgress>(db) });
+const flatService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TFlatProgress>() });
 const flat = flatService.createStoreSlot(db);
 
 function saveProgress(item: TProgress): void {

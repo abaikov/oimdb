@@ -12,9 +12,9 @@ const idsOf = (slots: readonly TOIMEntitySlot<TCard>[]): string[] => slots.map(s
 describe('a comparator that reads a different index order', () => {
     it('orders both, and refuses neither', () => {
         const db = new OIMDB();
-        const othersService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const othersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const others = othersService.createStoreSlot(db);
-        const otherByGroupService = createOIMSlotCollectionIndexService(db, {
+        const otherByGroupService = createOIMSlotCollectionIndexService({
             entityService: othersService,
             keyOf: (card: TCard) => card.group,
         });
@@ -29,9 +29,9 @@ describe('a comparator that reads a different index order', () => {
             otherOrder.computedValueService.getValueForSlot(otherOrder);
 
         const during = { armed: false, read: [] as string[] };
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byGroupService = createOIMSlotCollectionIndexService(db, {
+        const byGroupService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.group,
         });

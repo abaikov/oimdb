@@ -40,7 +40,7 @@ describe('a timer that runs its callback before it returns', () => {
     it('delivers every write through a channel scheduler that flushes at once', () => {
         type TCard = { id: string; title: string };
         const db = new OIMDB({ channelScheduler: (run) => { run(); } });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         let runs = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.getSlotByKey(cards, 'c1')]);

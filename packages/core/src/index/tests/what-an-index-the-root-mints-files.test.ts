@@ -11,10 +11,10 @@ type TCard = { id: string; deck: string };
 describe('an index the root mints with nothing but a source and a key', () => {
     it('files rows written before and after it by the key it is given', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: card => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
@@ -32,9 +32,9 @@ describe('an index the root mints with nothing but a source and a key', () => {
 
     it('wakes an effect on a held bucket through the root channel', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: card => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

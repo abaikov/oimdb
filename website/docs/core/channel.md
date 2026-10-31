@@ -32,7 +32,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
@@ -132,7 +132,9 @@ at which the last frame closed, meaning the slot was written since then. A frame
 no number.
 
 The revision wraps into the next epoch after 2^30 revisions
-(`OIM_REVISIONS_PER_EPOCH`), so the comparison never overflows.
+(`OIM_REVISIONS_PER_EPOCH`), and the epoch is an int32 that wraps past `2^31 − 1`;
+epochs are compared as `(epoch − sinceEpoch) | 0`, so neither counter overflows and the
+order holds across a wrap.
 
 ```ts
 let runs = 0;

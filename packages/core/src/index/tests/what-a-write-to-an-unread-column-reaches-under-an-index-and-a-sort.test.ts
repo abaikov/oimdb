@@ -9,13 +9,13 @@ type TRowSlot = TOIMEntitySlot<TRow>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     for (let i = 0; i < 10; i++) rowsService.writeSlotContentByKey(rows, `e${i}`, { id: `e${i}`, group: `g${i % 3}`, rank: i, label: `l${i}`, note: '' });
     const byGroupService = createOIMSlotCollectionIndexService<
         TRow, TOIMStoreKey, readonly ['group'], string, Map<TOIMStoreKey, TOIMEntitySlot<TRow, TOIMStoreKey>>,
         TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentSetBucketService<TRowSlot, string>
-    >(db, {
+    >({
         entityService: rowsService,
         slotContentService: new OIMSlotContentSetBucketService<TRowSlot, string>(),
         columns: ['group'],

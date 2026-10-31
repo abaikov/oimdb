@@ -20,7 +20,7 @@ const createDoubledService = () => createOIMSingleComputedService<number>({ same
 
 /** A collection over a db this test flushes by hand. */
 function collectionOver(db: OIMDB) {
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 }
 

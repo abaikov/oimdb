@@ -12,14 +12,14 @@ type TDeck = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
 
 const unorderedIndex = (db: OIMDB) => {
     const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
-    const indexService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const indexService = createOIMSlotCollectionService({ slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
     // See {@link reservations}: whatever the previous case is still holding is a
     // hold on a collection nothing can reach any more.

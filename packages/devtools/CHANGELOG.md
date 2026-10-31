@@ -6,6 +6,10 @@
 
 - Requires `@oimdb/core` 4.2.0.
 
+### Removed
+
+- `oimInitDevtools`. Use `oimDevDefaults` as `defaults` of a factory.
+
 ## 2.1.0
 
 ### Changed

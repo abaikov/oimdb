@@ -35,7 +35,7 @@ type TBatchEffect = {
     seenAt: number;
 };
 
-const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+const makeCollection = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 
@@ -59,7 +59,7 @@ const run = (seed: number, steps: number): void => {
 
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = makeCollection(db);
+    const rowsService = makeCollection();
     const rows = rowsService.createStoreSlot(db);
     const model = new Map<string, TRow | undefined>();
     const slots = new Map<string, TRowSlot>();
@@ -226,7 +226,7 @@ describe('what an effect over many slots owes, said plainly', () => {
     } => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const rowsService = makeCollection(db);
+        const rowsService = makeCollection();
         const rows = rowsService.createStoreSlot(db);
         const keys = ['a', 'b', 'c'];
         for (const id of keys) rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id, n: 0, label: 'l' }), { id, n: 0, label: 'l' });

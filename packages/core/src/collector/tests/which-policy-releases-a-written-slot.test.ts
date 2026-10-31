@@ -22,7 +22,7 @@ const POLICIES: [string, () => IOIMSlotReleasePolicy, boolean][] = [
 
 const cardsUnder = (slotReleasePolicy: IOIMSlotReleasePolicy) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 

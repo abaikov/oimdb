@@ -13,17 +13,17 @@ export type TCard = { id: string; deckId: string; rank: number; title: string };
 
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createByDeckService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
-const createRankedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+const createRankedService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
 
-const createBoardService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
+const createBoardService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
         bucketCommands: new OIMBucketCommands({}),
     }) });
 
-const createRankedByDeckService = (cardsService: TCardsService) => (db: OIMDB) => createOIMSlotCollectionIndexService(db, {
+const createRankedByDeckService = (cardsService: TCardsService) => () => createOIMSlotCollectionIndexService({
     entityService: cardsService,
     keyOf: (card: TCard) => card.deckId,
 });
@@ -76,19 +76,19 @@ export type TExoTestWorld = {
 
 export function build(): TExoTestWorld {
     const db = new OIMDB();
-    const cardsService = createCardsService(db);
+    const cardsService = createCardsService();
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createByDeckService(db);
+    const byDeckService = createByDeckService();
     const byDeck = byDeckService.createStoreSlot(db);
-    const rankedService = createRankedService(db);
+    const rankedService = createRankedService();
     const ranked = rankedService.createStoreSlot(db);
-    const rankedByDeckService = createRankedByDeckService(cardsService)(db);
+    const rankedByDeckService = createRankedByDeckService(cardsService)();
     const rankedByDeck = rankedByDeckService.createIndexStoreSlot(cards);
     const rankedOrdersService = createRankedOrdersService(rankedByDeckService);
     const rankedOrders = rankedOrdersService.createSortedStoreSlot(rankedByDeck);
     const orderService = createOrderService(rankedService);
     const order = orderService.createBucketMemoStoreSlot(ranked);
-    const boardService = createBoardService(db);
+    const boardService = createBoardService();
     const board = boardService.createStoreSlot(db);
     const find = (id: string): TOIMEntitySlot<TCard, TOIMStoreKey> => cardsService.getSlotByKey(cards, id);
     return {

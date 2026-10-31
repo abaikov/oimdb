@@ -365,10 +365,10 @@ import {
 type Card = { id: string; deck: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
 });
@@ -570,11 +570,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 102815 B | 24890 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35518 B | 9352 B |
-| The same, plus one effect and `db.flush()` | 45681 B | 11769 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 65917 B | 16408 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48571 B | 12301 B |
+| Everything `@oimdb/core` exports | 102669 B | 24555 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 35413 B | 9161 B |
+| The same, plus one effect and `db.flush()` | 45582 B | 11543 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 65835 B | 16192 B |
+| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 48469 B | 12117 B |
 {/* bundle-size:end */}
 
 ## Next steps

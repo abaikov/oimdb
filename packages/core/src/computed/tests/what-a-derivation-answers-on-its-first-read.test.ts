@@ -23,7 +23,7 @@ describe('what a derivation answers on its first read', () => {
 
     it('takes the new value again after a comparison that threw, instead of keeping the old one as fresh', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         let refuse = true;

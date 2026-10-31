@@ -6,7 +6,7 @@ import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotServic
 type Rec = { n: number };
 
 const recordOn = (db: OIMDB) => {
-    const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Rec>(db) });
+    const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Rec>() });
     const record = recordService.createStoreSlot(db);
     recordService.writeSingleSlotContent(record, { n: 0 });
     return { recordService, record };

@@ -44,7 +44,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TNote, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const noteCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNote>(db, { entityWriter: persistEntityWriter }) });
+const noteCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNote>({ entityWriter: persistEntityWriter }) });
 const noteEntityStoreSlot = noteCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor<OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch>({

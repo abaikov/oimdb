@@ -3,13 +3,14 @@ import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMDefaults } from '../../db/OIMDefaults';
+import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from '../../db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE';
+
 import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 
-const columnSlotStoreService = OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue();
+const columnSlotStoreService = OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue();
 
 const askingEveryColumnItself = (entitySlot: TOIMEntitySlot): boolean => {
     const columnSlotStore = entitySlot.columnSlotStore;
@@ -23,7 +24,7 @@ const askingEveryColumnItself = (entitySlot: TOIMEntitySlot): boolean => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), columnSlotStoreService });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), columnSlotStoreService });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

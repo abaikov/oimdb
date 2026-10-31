@@ -18,10 +18,10 @@ import { createOIMSlotContentEntityService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 const createEntityService = <TEntity extends object>(
-    db: OIMDB, _keyOf: (entity: TEntity) => TOIMStoreKey, entityWriter: IOIMEntityWriter,
-) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity>(db, { entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    _keyOf: (entity: TEntity) => TOIMStoreKey, entityWriter: IOIMEntityWriter,
+) => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createBucketService = <TEntity extends object>(db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TEntity>>() });
+const createBucketService = <TEntity extends object>() => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TEntity>>() });
 
 export type TEntityService<TEntity extends object> = ReturnType<typeof createEntityService<TEntity>>;
 
@@ -38,10 +38,9 @@ export const delivering = (): IOIMEntityWriter =>
 
 /** A scalar-keyed population that reports into `db`. */
 export function entityServiceOf<TEntity extends object>(
-    db: OIMDB,
     keyOf: (entity: TEntity) => TOIMStoreKey
 ): TEntityService<TEntity> {
-    return createEntityService<TEntity>(db, keyOf, delivering());
+    return createEntityService<TEntity>(keyOf, delivering());
 }
 
 /**
@@ -50,15 +49,14 @@ export function entityServiceOf<TEntity extends object>(
  * `oimDefaultCollectionMapper`'s state and the linked-index diff both do.
  */
 export function replacingEntityServiceOf<TEntity extends object>(
-    db: OIMDB,
     keyOf: (entity: TEntity) => TOIMStoreKey
 ): TEntityService<TEntity> {
-    return createEntityService<TEntity>(db, keyOf, createOIMReplacingEntityWriter());
+    return createEntityService<TEntity>(keyOf, createOIMReplacingEntityWriter());
 }
 
 /** A scalar-keyed bucket collection whose slots the caller writes. */
-export function bucketServiceOf<TEntity extends object>(db: OIMDB): TBucketService<TEntity> {
-    return createBucketService<TEntity>(db);
+export function bucketServiceOf<TEntity extends object>(): TBucketService<TEntity> {
+    return createBucketService<TEntity>();
 }
 
 export type TGlobalBucket<TEntity extends object> = {
@@ -74,7 +72,7 @@ export function singleBucketOf<TEntity extends object>(db: OIMDB): {
     bucketStoreSlot: TBucketStoreSlot<TEntity>;
     bucket: TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<TEntity>>, TOIMStoreKey>;
 } {
-    const bucketService = bucketServiceOf<TEntity>(db);
+    const bucketService = bucketServiceOf<TEntity>();
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucket = bucketService.holdSlotByKey(bucketStoreSlot, 'all');
     return { singleBucket: { bucketService, bucketStoreSlot, bucket }, bucketService, bucketStoreSlot, bucket };

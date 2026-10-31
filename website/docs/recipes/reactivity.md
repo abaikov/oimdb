@@ -24,7 +24,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -107,7 +107,7 @@ the slot — `slot.computedValueService.getValueForSlot(slot)`. Outside an effec
 ```ts
 import { OIMSingleSlotStoreService, type TOIMComputedSlot, type TOIMSingleSlotStore } from '@oimdb/core';
 
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: (card: Card) => card.deckId });
+const cardsByDeckService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deckId });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');
 

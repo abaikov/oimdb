@@ -8,7 +8,8 @@ import type {
     TOIMBucketSlot, TOIMEntitySlot, TOIMStoreKey,
     TOIMBucketSlotsSetStore, TOIMStoreSlot,
 } from '@oimdb/core';
-import { OIMDB, OIMDefaults, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '@oimdb/core';
+import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard} from '@oimdb/core';
 import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
 import type { TOIMBinding } from '../src/index';
 import {
@@ -23,16 +24,16 @@ type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 type TCards = TOIMStoreSlot<Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMEntitySlot<TCard, TOIMStoreKey>, Partial<TCard>>;
 
-const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
 
-const createByDeckArrayService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const createByDeckArrayService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 
-const createByDeckSetService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createByDeckSetService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 function build(): { db: OIMDB; cardsService: TCardsService; cards: TCards } {
     const db = new OIMDB();
-    const cardsService = createCardsService(db);
+    const cardsService = createCardsService();
     return { db, cardsService, cards: cardsService.createStoreSlot(db) };
 }
 
@@ -183,7 +184,7 @@ describe('binding a list', () => {
         // A bucket collection is a store of buckets by key plus a bucket
         // service: nothing reads a column to decide what a bucket holds.
         const { db, cardsService, cards } = build();
-        const byDeckService = createByDeckArrayService(db);
+        const byDeckService = createByDeckArrayService();
         const byDeck = byDeckService.createStoreSlot(db);
         cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', title: 'alpha', rank: 2 },
@@ -252,7 +253,7 @@ describe('what a hook needs above it', () => {
      */
     it('refuses a row, a field and a list with no provider', () => {
         const { db, cardsService, cards } = build();
-        const byDeckService = createByDeckSetService(db);
+        const byDeckService = createByDeckSetService();
         const byDeck = byDeckService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha', rank: 1 });
         const everyCardSlot = byDeckService.holdSlotByKey(byDeck, 'all');
@@ -294,7 +295,7 @@ describe('binding a group resolved outside React', () => {
      */
     it('renders a group by key, and ignores a write to another group', () => {
         const { db, cardsService, cards } = build();
-        const byDeckService = createByDeckSetService(db);
+        const byDeckService = createByDeckSetService();
         const byDeck = byDeckService.createStoreSlot(db);
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');
         const heartsSlot = byDeckService.holdSlotByKey(byDeck, 'hearts');
@@ -417,14 +418,14 @@ describe('a composite key, rebuilt inline on every render', () => {
     const setup = () => {
         const db = new OIMDB();
         const write = createOIMInPlaceEntityWriter();
-        const decksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDeck>(db) });
+        const decksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDeck>() });
         const decks = decksService.createStoreSlot(db);
-        const daysService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDay>(db) });
+        const daysService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDay>() });
         const days = daysService.createStoreSlot(db);
-        const datedService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDated>(db, { entityWriter: write }) });
+        const datedService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDated>({ entityWriter: write }) });
         const dated = datedService.createStoreSlot(db);
-        const byDeckAndDayService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
-                OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue(),
+        const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
+                OIMCompositeKeyTreeWalk.INSTANCE,
             ) });
         const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
         decksService.writeInBatch(decks, () => ([{ id: 'spades' }, { id: 'hearts' }, { id: 'clubs' }]).map(entity => decksService.writeSlotContentByKey(decks, entity.id, entity)));

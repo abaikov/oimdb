@@ -40,7 +40,7 @@ const oursSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[]
         getNowMs: () => idleClock.nowMs,
         releaseTimer: (): TOIMDisposer => () => undefined,
     });
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TIdleEntity>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TIdleEntity>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
     const runSweep = (entityCount: number): void => {

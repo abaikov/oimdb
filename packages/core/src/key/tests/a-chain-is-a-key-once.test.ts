@@ -1,7 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
-import { OIMDefaults } from '../../db/OIMDefaults';
+import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
+import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
@@ -21,15 +22,15 @@ type TChainBucket = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TChain>;
 type TScalarChain = readonly TOIMStoreKey[];
 type TTally = { deck: TOIMStoreKey; day: TOIMStoreKey; count: number };
 
-const createNamedService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed>(db) });
+const createNamedService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed>() });
 type TNamedService = ReturnType<typeof createNamedService>;
 type TNamedStoreSlot = ReturnType<TNamedService['createStoreSlot']>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const decksService = createNamedService(db);
+    const decksService = createNamedService();
     const decks = decksService.createStoreSlot(db);
-    const daysService = createNamedService(db);
+    const daysService = createNamedService();
     const days = daysService.createStoreSlot(db);
     // THE HOLD IS KEPT: a segment with no value and nothing keyed by it yet goes
     // the moment nothing points at it, and these cases compare chains by identity.
@@ -49,7 +50,7 @@ const createFixture =() => {
  * aggregate every keyed question is asked of.
  */
 const chainBucketsOver = (db: OIMDB) => {
-    const indexService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TChainBucket>(OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue()) });
+    const indexService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TChainBucket>(OIMCompositeKeyTreeWalk.INSTANCE) });
     const index = indexService.createStoreSlot(db);
     // Kept for the reason `segment` keeps its own: an empty bucket nothing holds
     // is unfiled the moment it is made.
@@ -189,8 +190,8 @@ describe('a chain of scalars is a key once', () => {
 
     const tallies = () => {
         const db = new OIMDB();
-        const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TTally, TScalarChain>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<TTally, TScalarChain>>(
-                    OIMDefaults.SCALAR_KEY_TREE_WALK.getValue(),
+        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTally, TScalarChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<TTally, TScalarChain>>(
+                    OIMScalarKeyTreeWalk.INSTANCE,
                 ) });
         return { rowsService, rows: rowsService.createStoreSlot(db) };
     };

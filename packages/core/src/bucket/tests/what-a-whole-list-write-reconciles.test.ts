@@ -15,9 +15,9 @@ const PAGE = 1000;
 
 const openDeck = <TSlots>(membersService: OIMSlotContentBucketService<TCardSlot, TSlots>) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const deckService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const deckService = createOIMSlotCollectionService({ slotContentService: membersService });
     const deck = deckService.createStoreSlot(db);
     const slots: TCardSlot[] = [];
     for (let i = 0; i <= PAGE; i++) slots.push(cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, rank: i }));

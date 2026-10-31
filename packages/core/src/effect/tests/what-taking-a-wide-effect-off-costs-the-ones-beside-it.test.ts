@@ -24,7 +24,7 @@ const countRootReads = (effect: TOIMEffect): (() => number) => {
 const wideWorld = (size: number) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     const slots = Array.from({ length: size }, (_, i) => rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}`, n: i }));
     db.flush();

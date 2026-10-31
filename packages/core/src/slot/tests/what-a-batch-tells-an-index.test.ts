@@ -16,12 +16,12 @@ type TIndexDeliveries = {
 
 function setUp(keyOf: (card: TCard) => string = card => card.deck) {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, {
-        slotContentService: createOIMSlotContentEntityService<TCard>(db),
+    const cardsService = createOIMSlotCollectionService({
+        slotContentService: createOIMSlotContentEntityService<TCard>(),
     });
     const cards = cardsService.createStoreSlot(db);
     const bucketService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
-    const byDeckService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, keyOf, slotContentService: bucketService });
+    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf, slotContentService: bucketService });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
     const indexDeliveries = OIMSlotCollectionIndexService.prototype as unknown as TIndexDeliveries;

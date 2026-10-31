@@ -58,7 +58,7 @@ type TReading = { id: string; score: number; label: string };
 const createFixture =(strategy: IOIMEntityWriter = createOIMInPlaceEntityWriter()) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const readingsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TReading>(db, { entityWriter: strategy }) });
+    const readingsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TReading>({ entityWriter: strategy }) });
     const readings = readingsService.createStoreSlot(db);
     const updateReading = (key: string, patch: Partial<TReading>): void => {
         const readingSlot = readingsService.findSlotByKey(readings, key);
@@ -153,7 +153,7 @@ describe('a column that is not equal to itself', () => {
      */
     it('gives the write path the answer the key store already gave', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
-        const byScoreService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TReading>>() });
+        const byScoreService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TReading>>() });
         const byScore = byScoreService.createStoreSlot(db);
 
         readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number.NaN, label: 'x' });

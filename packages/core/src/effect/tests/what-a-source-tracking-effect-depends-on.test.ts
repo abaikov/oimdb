@@ -13,13 +13,13 @@ type TLabelService = ReturnType<typeof createOIMSingleSlotService<OIMSlotContent
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const firstService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TLabel>(db) });
+    const firstService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TLabel>() });
     const first = firstService.createStoreSlot(db);
     firstService.writeSingleSlotContent(first, { text: 'dark' });
-    const secondService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TLabel>(db) });
+    const secondService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TLabel>() });
     const second = secondService.createStoreSlot(db);
     secondService.writeSingleSlotContent(second, { text: 'red' });
-    const toggleService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSwitch>(db) });
+    const toggleService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSwitch>() });
     const toggle = toggleService.createStoreSlot(db);
     toggleService.writeSingleSlotContent(toggle, { isOn: true });
     db.flush();

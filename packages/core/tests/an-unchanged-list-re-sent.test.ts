@@ -38,9 +38,9 @@ const SENT = ['k1', 'k2', 'k3'];
 const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketService<TRowSlot, TSlots>) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService });
+    const bucketService = createOIMSlotCollectionService({ slotContentService });
     const buckets = bucketService.createStoreSlot(db);
     rowsService.writeInBatch(rows, () => (ROWS.map(row => ({ ...row }))).map(entity => rowsService.writeSlotContentByKey(rows, entity.id, entity)));
     db.flush();

@@ -11,7 +11,7 @@ describe('an effect dispose handed on without its effect', () => {
     it('unsubscribes and gives back its holds when called bare', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 

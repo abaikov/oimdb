@@ -12,7 +12,7 @@ type TCard = { id: string; title: string };
 
 const collectionCalling = (isEmpty: (slot: TOIMEntitySlot<TCard, TOIMStoreKey>) => boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: { isEmpty } }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: { isEmpty } }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

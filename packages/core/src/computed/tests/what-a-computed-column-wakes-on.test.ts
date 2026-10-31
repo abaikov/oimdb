@@ -13,7 +13,7 @@ type TSummary = { topRank: number; titles: string };
 function setUp() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1, title: 'Ace' });
     const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', deck: 'spades', rank: 2, title: 'Two' });

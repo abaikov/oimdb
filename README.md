@@ -25,7 +25,7 @@ import { OIMDB, OIMEffectService, createOIMSlotContentEntityService, createOIMSl
 type TUser = { id: string; name: string };
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
 const users = userService.createStoreSlot(db);
 
 userService.writeInBatch(users, () => ([{ id: 'u1', name: 'Ann' }]).map(entity => userService.writeSlotContentByKey(users, entity.id, entity)));
@@ -50,6 +50,7 @@ OIMEffectService.INSTANCE.disposeEffect(watching);
 | [@oimdb/redux-adapter](packages/redux-adapter/README.md) | Redux side by side |
 | [@oimdb/persist](packages/persist/README.md) | Persistence, with memory, localStorage, IndexedDB, async KV and JSON backends |
 | [@oimdb/exodra](packages/exodra/README.md) | Exodra bridge |
+| [@oimdb/browser](packages/browser/README.md) | Browser state as single slots: online, focus, visibility, location |
 | [@oimdb/devtools](packages/devtools/README.md) | Debug registry |
 | [@oimdb/cli](packages/cli/README.md) | Command line: inspect a live page, a model module or Chrome over CDP; the DevTools UI |
 | [@oimdb/mcp](packages/mcp/README.md) | MCP server for assistants |

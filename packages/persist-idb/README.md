@@ -42,7 +42,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const userCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
+const userCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor<OIMPersistIndexedDbBackend, OIMPersistIndexedDbWriteBatch>({

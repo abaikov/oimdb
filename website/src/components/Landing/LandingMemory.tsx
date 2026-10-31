@@ -94,8 +94,8 @@ function useUser(id: string) {
   return useSelector((state) => state.users.entities[id]);
 }`;
 
-const CODE_OIMDB = `const userService = createOIMSlotCollectionService(db, {
-  slotContentService: createOIMSlotContentEntityService<User>(db),
+const CODE_OIMDB = `const userService = createOIMSlotCollectionService({
+  slotContentService: createOIMSlotContentEntityService<User>(),
   slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 const users = userService.createStoreSlot(db);

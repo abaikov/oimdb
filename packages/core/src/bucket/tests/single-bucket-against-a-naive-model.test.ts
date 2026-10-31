@@ -26,11 +26,11 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     // No sorter: the caller places the slots, so their order is part of
     // what the bucket holds and the model is simply the last list sent.
-    const singleService: TSingleBucketService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const singleService: TSingleBucketService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const single = singleService.createStoreSlot(db);
     return { db, effectService, rowsService, rows, singleService, single };
 };

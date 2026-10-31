@@ -37,7 +37,7 @@ const childOptions: TOIMReduxCollectionReducerChildOptions<TUser, string, TUsers
 
 function buildDb() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     return { db, usersService, users: usersService.createStoreSlot(db) };
 }
 
@@ -126,7 +126,7 @@ describe('a frame pending before a dispatch', () => {
 
     test("an index whose slots the dispatch's own sync-back writes reaches Redux", () => {
         const { db, usersService, users } = buildDb();
-        const byDepartmentService = bucketServiceOf<TUser>(db);
+        const byDepartmentService = bucketServiceOf<TUser>();
         const byDepartment = byDepartmentService.createStoreSlot(db);
 
         const adapter = new OIMReduxAdapter({ channelMap: db });

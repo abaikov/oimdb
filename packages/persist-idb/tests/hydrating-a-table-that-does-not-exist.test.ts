@@ -18,9 +18,9 @@ type TCard = { id: string; title: string };
 
 function buildSeededSearch() {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const cardSlots = entityService.writeInBatch(entityStoreSlot, () => ([{ id: 'c1', title: 'alpha' }, { id: 'c2', title: 'beta' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
     db.flush();

@@ -14,7 +14,7 @@ const fixture = (caught?: (error: unknown) => void) => {
     const channelService = OIMChannelService.INSTANCE;
     const channelSlot = db.defaultChannelSlot;
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const slot = rowsService.writeSlotContentByKey(rows, 'a', { id: 'a', n: 0 });
     db.flush();

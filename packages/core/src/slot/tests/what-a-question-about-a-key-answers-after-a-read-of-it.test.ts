@@ -8,7 +8,7 @@ type TCard = { id: string; title: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -60,7 +60,7 @@ describe('what a question about a key answers after a read of it', () => {
 
     it('says a bucket is not there while it carries no slot', () => {
         const { db, cardsService, cards } = createFixture();
-        const bucketsService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, string>>() });
+        const bucketsService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, string>>() });
         const buckets = bucketsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'A' });
 

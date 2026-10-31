@@ -38,7 +38,7 @@ declare function render(value?: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
 const other = cardService.getSlotByKey(cards, 'c2');
@@ -455,7 +455,7 @@ optional: `derive` and `createSources` (the defaults for every store slot that i
 none), `computedSlotStoreService` (the store the derivation slots are filed in; a Map store when left out,
 and required for any other store), `sameValueGuard` (default `Object.is`),
 `initialValue`, `slotReleasePolicy` and `columnSlotStoreService` or
-`columnNames` (left out, `OIMDefaults.COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue()`); left out, a
+`columnNames` (left out, a shared map-driven store); left out, a
 derivation goes at its last unhold (`OIMSlotAtUnholdReleasePolicy`). `createComputedStoreSlot(db, derive?, createSources?)`
 refuses by name when neither it nor the service has a `derive` and a `createSources`.
 A last unhold that lands while the channel is
@@ -530,7 +530,7 @@ over an array-driven bucket collection whose order the caller writes (a playlist
 hand-arranged board) when the consumer wants an array:
 
 ```ts setup
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 ```
 
@@ -559,7 +559,7 @@ bucket, and it never grows.
 A sorted list over an index: `createOIMSortedComputedService`.
 
 ```ts
-const everyCardService = createOIMSlotCollectionIndexService(db, { entityService: cardService, keyOf: () => 'all' });
+const everyCardService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: () => 'all' });
 const everyCard = everyCardService.createIndexStoreSlot(cards);
 const byRankService = createOIMSortedComputedService({
     indexService: everyCardService,

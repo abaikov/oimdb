@@ -9,7 +9,7 @@ type Blob = Record<string, unknown>;
 describe('a removal that names a name only the prototype has', () => {
     it('wakes nobody, because nothing was removed', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Blob>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Blob>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         let runCount = 0;
@@ -27,7 +27,7 @@ describe('a removal that names a name only the prototype has', () => {
 
     it('does not hand a reference-comparing reader a new record for a removal that removed nothing', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Blob>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Blob>({ entityWriter: createOIMReplacingEntityWriter() }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         const before = settingsService.getSingleSlot(settings).entity;

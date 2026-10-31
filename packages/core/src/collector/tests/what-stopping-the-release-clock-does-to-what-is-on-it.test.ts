@@ -18,7 +18,7 @@ const createFixtureAt = () => {
         getNowMs: () => ms,
         releaseTimer: (run): TOIMDisposer => { armed = run; return () => { armed = undefined; }; },
     });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,

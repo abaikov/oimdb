@@ -38,9 +38,9 @@ const updateEntityByKey = (
 
 function orderedByDeck(options?: TOIMDBOptions) {
     const db = new OIMDB(options);
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => card.deckId,
     });
@@ -56,9 +56,9 @@ function orderedByDeck(options?: TOIMDBOptions) {
 
 function filedByDeck(options?: TOIMDBOptions) {
     const db = new OIMDB(options);
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const byDeck = byDeckService.createStoreSlot(db);
 
     const heldDecks = new Map<string, TDeck>();
@@ -81,7 +81,7 @@ function filedByDeck(options?: TOIMDBOptions) {
 
 function setDrivenDecks() {
     const db = new OIMDB();
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     return { db, byDeckService, byDeck: byDeckService.createStoreSlot(db) };
 }
 

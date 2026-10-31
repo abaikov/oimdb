@@ -25,7 +25,7 @@ const updateEntityByKey = (
 const openCards = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', n: 0 });
     const held = cardsService.holdSlotByKey(cards, 'c1');
@@ -102,5 +102,19 @@ describe('what a revision reads at the end of an epoch', () => {
         expect(db.defaultChannelSlot.clock.revision).toBeLessThan(OIM_REVISIONS_PER_EPOCH);
         expect(runs).toBe(1);
         held.owner.unholdSlot(held);
+    });
+
+    it('wraps the epoch past the largest int32 and still orders a write after the one before it', () => {
+        const { db, card } = openCards();
+        const clock = db.defaultChannelSlot.clock;
+        clock.epoch = 2 ** 31 - 1;
+        clock.revision = OIM_REVISIONS_PER_EPOCH - 1;
+        const before = { revision: clock.revision, epoch: clock.epoch };
+
+        channelService.write(db.defaultChannelSlot, card);
+
+        expect([clock.revision, clock.epoch]).toEqual([0, -(2 ** 31)]);
+        expect(oimIsRevisionAfter(clock.revision, clock.epoch, before.revision, before.epoch)).toBe(true);
+        expect(oimIsRevisionAfter(before.revision, before.epoch, clock.revision, clock.epoch)).toBe(false);
     });
 });

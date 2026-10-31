@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotAfterIdleReleasePolicy } from '../OIMSlotAfterIdleReleasePolicy';
@@ -26,8 +27,9 @@ const createWorld = (withIdle = true) => {
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_MS }),
         ])
         : afterWritePolicy;
-    const db = new OIMDB({ getNowMs, releaseTimer, slotReleasePolicy });
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const defaults = new OIMDefaults({ slotReleasePolicy });
+    const db = new OIMDB({ getNowMs, releaseTimer });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
     const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
     const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);

@@ -31,11 +31,11 @@ const rowsOf = <TEntity extends object>(
     return found;
 };
 
-const sourceServiceOn = (db: OIMDB): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TSource>>> =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TSource>(db) });
+const sourceServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TSource>>> =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TSource>() });
 
-const middleServiceOn = (db: OIMDB): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TMiddle>>> =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TMiddle>(db) });
+const middleServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TMiddle>>> =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TMiddle>() });
 
 const everySourceFile = (dir: string): string[] => {
     const found: string[] = [];
@@ -72,8 +72,8 @@ describe('the projection layer, and that it is not here', () => {
 describe('a second population is the caller\'s, and a write reaches only the one it was made on', () => {
     it('leaves a second collection empty however much is written into the first', () => {
         const db = new OIMDB();
-        const sourceService = sourceServiceOn(db);
-        const middleService = middleServiceOn(db);
+        const sourceService = sourceServiceOn();
+        const middleService = middleServiceOn();
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const middleStoreSlot = middleService.createStoreSlot(db);
 
@@ -92,7 +92,7 @@ describe('a second population is the caller\'s, and a write reaches only the one
 
     it('leaves a second population of the same service empty however much is written into the first', () => {
         const db = new OIMDB();
-        const sourceService = sourceServiceOn(db);
+        const sourceService = sourceServiceOn();
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const otherSourceStoreSlot = sourceService.createStoreSlot(db);
 
@@ -108,8 +108,8 @@ describe('a second population is the caller\'s, and a write reaches only the one
 
     it('is the caller who writes the derived row, and it is an ordinary write', () => {
         const db = new OIMDB();
-        const sourceService = sourceServiceOn(db);
-        const middleService = middleServiceOn(db);
+        const sourceService = sourceServiceOn();
+        const middleService = middleServiceOn();
         const sourceStoreSlot = sourceService.createStoreSlot(db);
         const middleStoreSlot = middleService.createStoreSlot(db);
 

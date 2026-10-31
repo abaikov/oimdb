@@ -27,7 +27,7 @@ type TAllState = TOIMReduxDefaultGlobalIndexState<string>;
 describe('two reducers over one collection', () => {
     test('both follow the runtime', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db, item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
 
@@ -63,7 +63,7 @@ describe('two reducers over one collection', () => {
 describe('two reducers over one Global index', () => {
     test('a write still dispatches, and both slices see it', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db, item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const { singleBucket, bucketService, bucket } = singleBucketOf<TUser>(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });

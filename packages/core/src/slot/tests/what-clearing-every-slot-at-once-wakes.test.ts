@@ -8,7 +8,7 @@ type TCard = { id: string; deck: string };
 describe('what clearing every slot at once wakes', () => {
     it('runs an effect over every slot once per clear, on the half-cleared state, under a scheduler that runs at once', () => {
         const db = new OIMDB({ channelScheduler: run => { run(); } });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ids = ['a', 'b', 'c', 'd'];
         for (const id of ids) cardsService.writeSlotContentByKey(cards, id, { id, deck: 'x' });
@@ -26,7 +26,7 @@ describe('what clearing every slot at once wakes', () => {
 
     it('runs an effect over every slot once when the clears are flushed by hand', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ids = ['a', 'b', 'c', 'd'];
         for (const id of ids) cardsService.writeSlotContentByKey(cards, id, { id, deck: 'x' });
@@ -44,9 +44,9 @@ describe('what clearing every slot at once wakes', () => {
 
     it('shows an index bucket emptied in the one frame it wakes', () => {
         const db = new OIMDB({ channelScheduler: run => { run(); } });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

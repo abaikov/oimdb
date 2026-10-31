@@ -65,10 +65,10 @@ type Card = { id: string; deck: string; title: string };
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
 
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
 const first = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', title: 'alpha' });
@@ -104,7 +104,7 @@ builds that version, with a sorted view on top.
 
 Every write is reported to the channel slot of the store slot it lands in.
 `createOIMSlotCollectionService` is a convenience wrapper: the base layer is
-`createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService(db, { keyOf }) })`.
+`createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService({ keyOf }) })`.
 See [Writing](/docs/core/writing).
 
 ## Packages

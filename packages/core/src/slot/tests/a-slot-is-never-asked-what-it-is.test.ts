@@ -45,9 +45,9 @@ describe('subscribing to an identity the engine did not mint', () => {
 
     it('throws the sorter at the read that asks for the order, not at the subscribe', () => {
         const db = new OIMDB();
-        const entitiesService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TEntity, string>(db) });
+        const entitiesService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity, string>() });
         const entities = entitiesService.createStoreSlot(db);
-        const byQueueService = createOIMSlotCollectionIndexService(db, {
+        const byQueueService = createOIMSlotCollectionIndexService({
             entityService: entitiesService,
             keyOf: (entity: TEntity) => entity.queue,
         });

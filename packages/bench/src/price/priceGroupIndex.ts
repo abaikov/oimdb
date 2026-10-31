@@ -18,7 +18,7 @@ export const priceGroupIndex = <TSlots>(
     /** The address each row is filed under. `group` unless a pair says otherwise. */
     addressOf: (row: TPriceDataRow) => TOIMStoreKey = row => row.group,
 ) => {
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TSlots, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TSlots, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
 
     // Grouped first and written per bucket second, because `writeSlotContent` states the

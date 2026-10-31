@@ -26,7 +26,7 @@ const KEY = 'ace';
 class LifecycleModel {
     private readonly db = new OIMDB();
 
-    private readonly cardService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TCard>(this.db) });
+    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 

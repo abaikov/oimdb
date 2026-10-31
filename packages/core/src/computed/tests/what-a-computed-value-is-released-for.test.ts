@@ -10,7 +10,7 @@ type TQuery = { key: string; version: number };
 
 function setUp(sameValueGuard?: (prev: TQuery, next: TQuery) => boolean) {
     const db = new OIMDB();
-    const correctionsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCorrection>(db) });
+    const correctionsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCorrection>() });
     const corrections = correctionsService.createStoreSlot(db);
     const released: TQuery[] = [];
     let derived = 0;

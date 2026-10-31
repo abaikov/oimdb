@@ -32,7 +32,7 @@ No build step: import the ESM build from jsDelivr.
   import { OIMDB, createOIMSlotCollectionService, createOIMSlotContentEntityService } from 'https://cdn.jsdelivr.net/npm/@oimdb/core@4.1.0/+esm';
 
   const db = new OIMDB();
-  const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) });
+  const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() });
   const users = userService.createStoreSlot(db);
 </script>
 ```

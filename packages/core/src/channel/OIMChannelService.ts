@@ -69,7 +69,7 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
         const clock = channelSlot.clock;
         if (clock.revision >= OIM_REVISIONS_PER_EPOCH - 1) {
             clock.revision = 0;
-            clock.epoch++;
+            clock.epoch = (clock.epoch + 1) | 0;
         } else {
             clock.revision++;
         }

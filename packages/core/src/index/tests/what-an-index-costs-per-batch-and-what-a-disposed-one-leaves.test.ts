@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
@@ -37,13 +38,14 @@ class OIMSlotStoreServiceCountingWalks<TSlot extends TOIMEntitySlot<TCard, TOIMS
 }
 
 const createFixture = (indexKeysService: IOIMIndexKeysService) => {
-    const db = new OIMDB({ indexKeysService });
+    const defaults = new OIMDefaults({ indexKeysService });
+    const db = new OIMDB();
     const entitySlotStoreService = new OIMSlotStoreServiceCountingWalks<TOIMEntitySlot<TCard, TOIMStoreKey>>();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotStoreService: entitySlotStoreService });
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }), slotStoreService: entitySlotStoreService });
     const cards = cardsService.createStoreSlot(db);
     const bucketSlotStoreService = new OIMSlotStoreServiceCountingGets<TBucket>();
     const makeIndex = (keyOf: (card: TCard) => string) => {
-        const service = createOIMSlotCollectionIndexService(db, {
+        const service = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
             keyOf,
             slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),

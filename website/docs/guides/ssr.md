@@ -58,9 +58,9 @@ import { OIMChannelService, OIMDB, type TOIMEntitySlot, createOIMSlotContentEnti
 type Question = { id: string; text: string; answer?: string };
 
 const db = new OIMDB();
-const questionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Question>(db) });
+const questionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Question>() });
 const questions = questionService.createStoreSlot(db);
-const resultService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Question>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const resultService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Question>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const results = resultService.createStoreSlot(db);
 const resultContentService = resultService.slotContentService;
 ```

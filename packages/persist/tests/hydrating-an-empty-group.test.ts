@@ -19,9 +19,9 @@ type TCardSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 
 const buildManual = () => {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const firstEntitySlot = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha' });
     const secondEntitySlot = entityService.writeSlotContentByKey(entityStoreSlot, 'c2', { id: 'c2', deckId: 'd1', title: 'beta' });

@@ -31,7 +31,7 @@ const makeRandom = (seed: number): (() => number) => {
     };
 };
 
-const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+const makeCollection = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;
@@ -73,7 +73,7 @@ const run = (seed: number, steps: number): void => {
     const effectService = OIMEffectService.INSTANCE;
     let framesEnded = 0;
     channelService.subscribeAfterEachFlush(db.defaultChannelSlot, () => { framesEnded++; });
-    const rowsService = makeCollection(db);
+    const rowsService = makeCollection();
     const rows = rowsService.createStoreSlot(db);
     const model = new Map<string, TRow | undefined>();
     const slots = new Map<string, TRowSlot>();
@@ -248,7 +248,7 @@ type TFixture = { db: OIMDB; effectService: OIMEffectService; slot: TRowSlot; to
 const fixture = (): TFixture => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = makeCollection(db);
+    const rowsService = makeCollection();
     const rows = rowsService.createStoreSlot(db);
     rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id: 'r1', n: 0, label: 'l' }), { id: 'r1', n: 0, label: 'l' });
     db.flush();

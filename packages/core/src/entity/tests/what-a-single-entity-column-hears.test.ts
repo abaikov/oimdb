@@ -9,8 +9,8 @@ type TSession = { userId: string; theme: string; locale: string };
 const createFixture = (columns?: readonly ('theme' | 'locale')[]) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const sessionService = createOIMSingleSlotService(db, {
-        slotContentService: createOIMSlotContentEntityService<TSession>(db),
+    const sessionService = createOIMSingleSlotService({
+        slotContentService: createOIMSlotContentEntityService<TSession>(),
         ...(columns !== undefined ? { columnNames: columns } : {}),
     });
     const session = sessionService.createStoreSlot(db);

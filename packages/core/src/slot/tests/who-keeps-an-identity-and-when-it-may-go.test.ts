@@ -12,7 +12,7 @@ type TRow = { id: string; n: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     return { db, rowsService, rows };
 };
@@ -140,7 +140,7 @@ describe('who keeps an identity, and when it may go', () => {
         const { db, rowsService, rows } = createFixture();
         // The store and the bucket service are this bucket collection's own, so
         // they are constructed here beside it: those two are what it IS.
-        const searchService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
+        const searchService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
         const search = searchService.createStoreSlot(db);
 
         // A slot with no value at all, joined into a manual bucket by hand.

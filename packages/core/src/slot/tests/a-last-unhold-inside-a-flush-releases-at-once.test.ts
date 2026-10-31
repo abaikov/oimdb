@@ -15,7 +15,7 @@ function releaseInsideAFlush(db: OIMDB, slot: TOIMSlot): { isReleasedInsideTheFl
     const effectService = OIMEffectService.INSTANCE;
     const watching = effectService.createEffect(db, () => undefined, [slot]);
     slot.owner.unholdSlot(slot);
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const trigger = cardsService.holdSlotByKey(cards, 'trigger');
     const answer: { isReleasedInsideTheFlush: boolean | undefined } = { isReleasedInsideTheFlush: undefined };
@@ -41,8 +41,8 @@ describe('a last unhold inside a flush', () => {
 
     it('releases an entity slot with a value at once, under a policy that releases it at its last unhold', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
+        const cardsService = createOIMSlotCollectionService({
+            slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
         });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.holdSlotByKey(cards, 'ace');
@@ -54,10 +54,10 @@ describe('a last unhold inside a flush', () => {
 
     it('releases a bucket slot with members at once, under a policy that releases it at its last unhold, and gives its members back', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'Ace' });
-        const handsService = createOIMSlotCollectionService(db, {
+        const handsService = createOIMSlotCollectionService({
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
         });
         const hands = handsService.createStoreSlot(db);

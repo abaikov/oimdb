@@ -6,6 +6,7 @@ import type { TOIMColumnSlot } from '../src/column/types/TOIMColumnSlot';
 import { OIMEffectService } from '../src/effect/OIMEffectService';
 import type { TOIMEffect } from '../src/effect/types/TOIMEffect';
 import { OIMUnusedSlotCollectorService } from '../src/collector/OIMUnusedSlotCollectorService';
+import { OIMDefaults } from '../src/db/OIMDefaults';
 import { OIMDB } from '../src/db/OIMDB';
 import type { IOIMSlotStamp } from '../src/slot/interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
@@ -35,9 +36,10 @@ describe('a subscribed column keeps its slot', () => {
     };
 
     const createFixture = () => {
-        const db = new OIMDB({ slotStamp: plantAnEmptyRow });
+        const defaults = new OIMDefaults({ slotStamp: plantAnEmptyRow });
+        const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: carriesNoColumn }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults, slotEmptinessPolicy: carriesNoColumn }) });
         const cards = cardsService.createStoreSlot(db);
         return { db, cardsService, cards, effectService };
     };

@@ -32,7 +32,7 @@ function buildQuestions(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TQuestion>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TQuestion>({
         entityCollectionService: entityService,
@@ -191,7 +191,7 @@ describe('@oimdb/persist-json', () => {
 
     test('a single entity survives the JSON transport', async () => {
         const buildSettings = (db: OIMDB, settings: TSettings) => {
-            const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+            const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
             const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
             singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
             db.flush();

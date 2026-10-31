@@ -10,9 +10,9 @@ type TCard = { id: string; deck: string };
 describe('an index passed to useOIMSlotsByKeys', () => {
     it('holds the bucket while mounted and renders its members', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const deckIndexService = createOIMSlotCollectionIndexService(db, { entityService: cardsService, columns: ['deck'] });
+        const deckIndexService = createOIMSlotCollectionIndexService({ entityService: cardsService, columns: ['deck'] });
         const deckIndex = deckIndexService.createIndexStoreSlot(cards);
         cardsService.writeInBatch(cards, () => ([{ id: 'c1', deck: 'spades' }, { id: 'c2', deck: 'hearts' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();

@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import type { IOIMSlotEmptinessPolicy } from '../interfaces/IOIMSlotEmptinessPolicy';
 import type { IOIMSlotStamp } from '../interfaces/IOIMSlotStamp';
@@ -18,8 +19,9 @@ const createFixture = () => {
     const emptiness: IOIMSlotEmptinessPolicy<TSlot> = {
         isEmpty: slot => { asked++; return slot.entity === undefined; },
     };
-    const db = new OIMDB({ slotStamp });
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db, { slotEmptinessPolicy: emptiness }) });
+    const defaults = new OIMDefaults({ slotStamp });
+    const db = new OIMDB();
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow>({ defaults, slotEmptinessPolicy: emptiness }) });
     const rows = rowsService.createStoreSlot(db);
     return { rowsService, rows, stamps: () => stamped, emptinessAsks: () => asked };
 };

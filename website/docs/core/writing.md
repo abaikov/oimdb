@@ -6,13 +6,13 @@ description: Which write door of an entity content service to call, what each wr
 # Writing
 
 ```ts setup
-import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMEditable, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot } from '@oimdb/core';
+import { OIMDB, OIMEffectService, oimInsertEntityWithCopy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, type IOIMEntityWriter, type TOIMEntitySlot, type TOIMEditable, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, type TOIMEntityContentSlot, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -189,7 +189,7 @@ stores a copy with an own `__proto__` key removed: pick it when you insert untru
 as `entityInserter`, and it decides only the first value a slot gets (`fillEntity`):
 
 ```ts
-const copyingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
 const copiedCards = copyingCardService.createStoreSlot(db);
 
 const mine = { id: 'c9', title: 'Nine', rank: 9 };
@@ -323,25 +323,23 @@ writer builds one new object. `clearEntity` sets `slot.entity` to `undefined`
 under both writers.
 
 The writer is chosen once, at construction: the `entityWriter` option of the entity content service,
-or of `OIMDB` for every collection of that db. Every store slot of one collection type shares it:
+or of an `OIMDefaults` passed as `defaults` to every factory that should share it. Every store slot of one
+collection type shares it:
 
 ```ts
-const replacingDb = new OIMDB({ entityWriter: createOIMReplacingEntityWriter() });
-const deckService = createOIMSlotCollectionService(replacingDb, { slotContentService: createOIMSlotContentEntityService<Card>(replacingDb) });
-const decks = deckService.createStoreSlot(replacingDb);
+const replacingDefaults = new OIMDefaults({ entityWriter: createOIMReplacingEntityWriter() });
+const deckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ defaults: replacingDefaults }) });
+const decks = deckService.createStoreSlot(db);
 
 const aceSlot = deckService.writeSlotContentByKey(decks, 'c1', { id: 'c1', title: 'Ace', rank: 1 });
 const before = aceSlot.entity;
 deckService.slotContentService.updateEntity(aceSlot, { rank: 2 });
 aceSlot.entity !== before;   // true
 
-const oneReplacingCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
+const oneReplacingCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: createOIMReplacingEntityWriter() }) });
 ```
 
-Left out everywhere, the writer is `OIMDefaults.ENTITY_WRITER.getValue()`, which is
-`createOIMInPlaceEntityWriter()` unless replaced at startup. Replacing it after
-anything has read it throws (`OIMDefaults.ENTITY_WRITER has already been handed
-out`), because every object built before would keep the old one.
+Left out everywhere, the writer is the in-place writer, `createOIMInPlaceEntityWriter()`.
 
 ### Writing your own writer
 
@@ -404,7 +402,7 @@ const freezingWriter: IOIMEntityWriter = {
     },
 };
 
-const frozenCardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: freezingWriter }) });
+const frozenCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: freezingWriter }) });
 const frozenCards = frozenCardService.createStoreSlot(db);
 ```
 
@@ -447,7 +445,7 @@ PUT and PATCH, so its cost is paid per column per write.
 ```ts
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter() }) });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMInPlaceEntityWriter() }) });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, sidebar: true });
@@ -465,7 +463,7 @@ readers like any other, and the slot is read through `getSingleSlot(storeSlot)`.
 `writeSlotContent` is PUT, `deleteEntityColumns` is the writer's `deleteColumns`; `updateEntity` and
 `deleteEntityColumns` return the slot, and `writeSlotContent` answers whether the content landed.
 `entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`, `columnSlotStoreService` and `columnNames` are
-optional and come from the db and the defaults when left out; `columnNames` names the columns and files
+optional and come from `defaults` and the built-in defaults when left out; `columnNames` names the columns and files
 their slots in the ordinal store. The record owns one slot, with no key, filed in its store slot under
 its release policy: what it wakes is that slot and the column slots filed on it that moved, and nothing
 when no column moved.

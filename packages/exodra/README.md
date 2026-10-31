@@ -28,13 +28,13 @@ type TCard = { id: string; deckId: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 const byDeck = byDeckService.createStoreSlot(db);
-const boardService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const boardService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
     columns: ['deckId'],
 });
@@ -160,7 +160,7 @@ object that holds the bucket's slots and its reads. `OIMBucketCommands` records
 the rest on the bucket slot (`bucket.commands`, `bucket.isWholeListRecorded`) as this frame's
 script, and the bridge forwards it from inside the frame. The script is cleared once the flush
 that delivered it has ended. The content service must be built with an `OIMBucketCommands` as
-its `bucketCommands`, which is what `createOIMSlotCollectionService(db)` gives you when you pass no
+its `bucketCommands`, which is what `createOIMSlotCollectionService()` gives you when you pass no
 `slotContentService`: its default is the array-driven content service with commands.
 
 ### One baseline, in one place

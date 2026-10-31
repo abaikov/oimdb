@@ -30,7 +30,7 @@ const heldStore = (probe: UniqueSequenceProbe, held: readonly TCardSlot[]): TOIM
 
 const setReconcileFindsNothing = (db: OIMDB, held: readonly TCardSlot[], slots: readonly TCardSlot[]): boolean => {
     const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
-    const setsService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const setsService = createOIMSlotCollectionService({ slotContentService: membersService });
     const bucket = setsService.holdSlotByKey(setsService.createStoreSlot(db), 'held');
     membersService.addBucketMemberSlots(bucket, held);
     return !membersService.writeSlotContent(bucket, slots);
@@ -38,7 +38,7 @@ const setReconcileFindsNothing = (db: OIMDB, held: readonly TCardSlot[], slots: 
 
 const named = (): { db: OIMDB; slots: Record<string, TCardSlot> } => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
@@ -122,9 +122,9 @@ describe('two bodies for one question', () => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
-    const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const cards = cardsService.createStoreSlot(db);
     const decks = decksService.createStoreSlot(db);
     const put = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });

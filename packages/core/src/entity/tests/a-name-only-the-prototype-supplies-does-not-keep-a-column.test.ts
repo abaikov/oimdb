@@ -23,12 +23,12 @@ Object.defineProperty(Card.prototype, 'deckId', { value: 'unset', enumerable: tr
 const definedColumnNamesOf = (entity: object | undefined): string[] =>
     Object.entries(entity ?? {}).filter(([, value]) => value !== undefined).map(([name]) => name);
 
-const cardsOn = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const cardsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 
 describe('a name only the prototype supplies does not keep a column, on a collection row', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
         const db = new OIMDB();
-        const cardsService = cardsOn(db);
+        const cardsService = cardsOn();
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', deckId: 'd1' }), { id: 'c1', deckId: 'd1' });
         db.flush();
@@ -53,7 +53,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
 
     it('takes away a column named after an `Object.prototype` method', () => {
         const db = new OIMDB();
-        const cardsService = cardsOn(db);
+        const cardsService = cardsOn();
         const cards = cardsService.createStoreSlot(db);
         // A stored column called `toString`: `oimIsProtoKey` flags `__proto__`
         // and nothing else, so this is an ordinary column of the row.
@@ -74,7 +74,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
 
     it('wakes the readers of the row whose column it took away', () => {
         const db = new OIMDB();
-        const cardsService = cardsOn(db);
+        const cardsService = cardsOn();
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, ((card: TCard) => card.id)({ id: 'c1', deckId: 'd1' }), { id: 'c1', deckId: 'd1' });
         db.flush();
@@ -97,7 +97,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
 describe('a name only the prototype supplies does not keep a column, on a standalone record', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
 
@@ -109,7 +109,7 @@ describe('a name only the prototype supplies does not keep a column, on a standa
 
     it('takes away a column named after an `Object.prototype` method', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', toString: 'x' } as unknown as TCard);
         expect(Object.keys(recordService.getSingleSlot(record).entity ?? {}).sort()).toEqual(['id', 'toString']);
@@ -121,7 +121,7 @@ describe('a name only the prototype supplies does not keep a column, on a standa
 
     it('wakes the readers of the record whose column it took away', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
         let runCount = 0;

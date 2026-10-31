@@ -24,7 +24,7 @@ const replay = (rendered: TOIMSlot[], commands: readonly TOIMOrderedListCommand[
 describe('a script a renderer already read', () => {
     it('is not replayed when a write lands after the flush ahead of the recorder\'s own reset', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'ace' });
         const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', title: 'two' });
@@ -35,7 +35,7 @@ describe('a script a renderer already read', () => {
             insertTwo?.();
         });
         const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
-        const decksService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+        const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd1');
         db.flush();

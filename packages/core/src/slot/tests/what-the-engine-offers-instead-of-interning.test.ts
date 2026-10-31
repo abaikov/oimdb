@@ -15,7 +15,7 @@ type TCard = { id: string; deckId: string; title: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'ace' });
     db.flush();
@@ -113,7 +113,7 @@ describe('what a caller who memoises is promised', () => {
      */
     it('keeps a bucket memo true across an emptying, because the handle holds the bucket', () => {
         const { db, cardsService, cards } = createFixture();
-        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
 
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');

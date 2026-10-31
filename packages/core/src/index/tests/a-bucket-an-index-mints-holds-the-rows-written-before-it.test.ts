@@ -17,7 +17,7 @@ type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'spades' },
@@ -25,7 +25,7 @@ const createFixture = () => {
         { id: 'c3', deck: 'clubs' },
     ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),

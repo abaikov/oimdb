@@ -48,7 +48,7 @@ describe('an upgrade blocked by another open connection', () => {
             entityWriter: createOIMInPlaceEntityWriter(),
         });
         const db = new OIMDB();
-        const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TUser>(db, { entityWriter: persistEntityWriter }) });
+        const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
         const entityStoreSlot = entityService.createStoreSlot(db);
         const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName, indexedDb });
         const errors: unknown[] = [];

@@ -12,7 +12,7 @@ type TCard = { id: string; deckId: string; title: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cards, cardsService };
 };
@@ -82,7 +82,7 @@ describe('handing a slot to a foreign binding', () => {
         // reference that never changes, so a binding that decides "did it
         // change" by comparing snapshots would never fire.
         const { db, cards, cardsService } = createFixture();
-        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha' });
         db.flush();

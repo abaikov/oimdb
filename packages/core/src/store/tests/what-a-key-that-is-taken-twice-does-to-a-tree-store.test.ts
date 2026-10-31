@@ -12,7 +12,7 @@ type TRowSlot = TOIMEntitySlot<TRow, readonly TOIMStoreKey[]>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, readonly TOIMStoreKey[]>(db), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TRowSlot>(new OIMScalarKeyTreeWalk()) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, readonly TOIMStoreKey[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TRowSlot>(new OIMScalarKeyTreeWalk()) });
     const rows = rowsService.createStoreSlot(db);
     return { db, rowsService, rows };
 };

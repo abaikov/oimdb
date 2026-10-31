@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased } from '../../index';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -5,14 +6,10 @@ import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollecti
 type TCard = { id: string };
 
 const createFixture = () => {
-    const db = new OIMDB({
-        channelScheduler: run => { run(); },
-        getNowMs: () => 0,
-        releaseTimer: () => () => undefined,
-        slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 0 }),
-    });
+    const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 0 }) });
+    const db = new OIMDB({ channelScheduler: run => { run(); }, getNowMs: () => 0, releaseTimer: () => () => undefined });
     OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => undefined);
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

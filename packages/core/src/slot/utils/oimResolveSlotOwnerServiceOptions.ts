@@ -1,4 +1,4 @@
-import type { OIMDB } from '../../db/OIMDB';
+import type { OIMDefaults } from '../../db/OIMDefaults';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotSubscriptionListener } from '../interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
@@ -12,7 +12,7 @@ import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from '../../db/constants/OIM_DE
 import { oimResolveColumnSlotOwnerOptions } from '../../column/utils/oimResolveColumnSlotOwnerOptions';
 
 export function oimResolveSlotOwnerServiceOptions<TColumnName extends string>(
-    db: OIMDB,
+    defaults: OIMDefaults,
     options: {
         slotReleasePolicy?: IOIMSlotReleasePolicy | undefined;
         slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
@@ -27,11 +27,12 @@ export function oimResolveSlotOwnerServiceOptions<TColumnName extends string>(
     createColumnSlotOwner: (columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot, TColumnName>) => OIMPushColumnSlotOwner;
 } {
     return {
-        slotStamp: db.slotStamp,
-        slotReleasePolicy: options.slotReleasePolicy ?? db.slotReleasePolicy,
+        slotStamp: defaults.slotStamp,
+        slotReleasePolicy: options.slotReleasePolicy ?? defaults.slotReleasePolicy,
         slotSubscriptionListener: options.slotSubscriptionListener,
         columnSlotOwnerOptions: oimResolveColumnSlotOwnerOptions(
-            options.columnSlotStoreService, options.columnNames, OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue(),
+            options.columnSlotStoreService, options.columnNames,
+            defaults.columnSlotStoreService ?? OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue(),
         ),
         createColumnSlotOwner: createOIMPushColumnSlotOwner,
     };

@@ -38,7 +38,7 @@ import { OIMDBProvider, useOIMEntity } from '@oimdb/react';
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
 function CardTitle({ cardId }: { cardId: string }) {
@@ -140,13 +140,13 @@ type Card = { id: string; title: string; deckId: string; rank: number };
 type User = { id: string; avatarUrl: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
 const users = userService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
-const deckIndexService = createOIMSlotCollectionIndexService(db, {
+const deckIndexService = createOIMSlotCollectionIndexService({
   entityService: cardService,
   keyOf: (card: Card) => card.deckId,
 });
@@ -337,11 +337,11 @@ type Deck = { id: string };
 type Day = { id: string };
 type TDeckAndDayBucketSlot = TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>, readonly TOIMEntitySlot[]>;
 
-const deckService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Deck>(db) });
+const deckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Deck>() });
 const decks = deckService.createStoreSlot(db);
-const dayService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Day>(db) });
+const dayService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Day>() });
 const days = dayService.createStoreSlot(db);
-const byDeckAndDayService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>, readonly TOIMEntitySlot[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TDeckAndDayBucketSlot>(
+const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>, readonly TOIMEntitySlot[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TDeckAndDayBucketSlot>(
     new OIMCompositeKeyTreeWalk(),
   ) });
 const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
@@ -439,7 +439,7 @@ take `useOIMComputedValue`.
 
 ## `useOIMSingleEntity` and `useOIMSingleBucketSlots` — a single
 
-A single is not a keyed collection: `createOIMSingleSlotService(db)` and `createOIMSingleSlotService(db)` return
+A single is not a keyed collection: `createOIMSingleSlotService()` and `createOIMSingleSlotService()` return
 an `OIMSingleSlotService`, whose doors are `getSingleSlot(storeSlot)` and `holdSingleSlot(storeSlot)`. Its two hooks
 are the by-key mechanics without a key: `getSingleSlot` on render, `holdSingleSlot` on commit, the resolve-hold
 given back once the effect exists.
@@ -447,7 +447,7 @@ given back once the effect exists.
 ```tsx
 type Settings = { theme: string };
 
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db) });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
 const settings = settingsService.createStoreSlot(db);
 settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
 
@@ -462,7 +462,7 @@ ordinary announced write. `useOIMSingleEntity(singleSlotService, singleSlotStore
 while subscribed, and re-renders when the entity is written.
 
 ```tsx
-const pickedService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const picked = pickedService.createStoreSlot(db);
 
 function Picked() {

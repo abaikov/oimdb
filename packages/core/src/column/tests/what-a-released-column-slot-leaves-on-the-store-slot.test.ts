@@ -8,7 +8,7 @@ type TCard = { id: string; rank: number; label: string; note: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const firstCard = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', rank: 1, label: 'ace', note: '' });
     const secondCard = cardsService.writeSlotContentByKey(cards, 'c2', { id: 'c2', rank: 2, label: 'two', note: '' });

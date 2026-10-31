@@ -10,14 +10,14 @@ import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 type TCard = { id: string; title: string };
 
 const single = (db: OIMDB, entity: TCard) => {
-    const singleService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const singleService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const singleStore = singleService.createStoreSlot(db);
     singleService.writeSingleSlotContent(singleStore, entity);
     return { singleService, singleStore };
 };
 
 const filed = (db: OIMDB, entity: TCard): TOIMEntitySlot<TCard, TOIMStoreKey> => {
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, entity.id, entity);
     db.flush();
@@ -42,10 +42,10 @@ describe('a slot that is its own collection, asked whether it is empty', () => {
         const nothingIsEmpty = { isEmpty: (): boolean => false };
         const everythingIsEmpty = { isEmpty: (): boolean => true };
 
-        const openService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: nothingIsEmpty }) });
+        const openService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: nothingIsEmpty }) });
         const open = openService.createStoreSlot(db);
         openService.writeSingleSlotContent(open, { id: 'c1', title: 'Ace' });
-        const shutService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: everythingIsEmpty }) });
+        const shutService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: everythingIsEmpty }) });
         const shut = shutService.createStoreSlot(db);
         shutService.writeSingleSlotContent(shut, { id: 'c2', title: 'King' });
 
@@ -61,7 +61,7 @@ describe('a slot that is its own collection, asked whether it is empty', () => {
                 titleDecides && (slot as TOIMEntityContentSlot<TCard>).entity?.title === 'void',
         };
 
-        const cardService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { slotEmptinessPolicy: titleIsWhatCounts }) });
+        const cardService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: titleIsWhatCounts }) });
         const cardStore = cardService.createStoreSlot(db);
         cardService.writeSingleSlotContent(cardStore, { id: 'c1', title: 'Ace' });
         const cardSlot = cardService.holdSingleSlot(cardStore);

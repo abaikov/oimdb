@@ -1,4 +1,4 @@
-import { OIMChannelService, OIMDB, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMDefaults, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlotOwnerService } from '../../../core/src/entity/types/TOIMEntitySlotOwnerService';
@@ -40,7 +40,7 @@ const probeInternalsOf = (entityService: TPriceEntityService<TPriceDataRow>): TD
     };
 };
 
-const createEntityService = (db: OIMDB): TPriceEntityService<TPriceDataRow> => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter, slotEmptinessPolicy: OIMSlotEntityPresenceEmptinessPolicy.INSTANCE }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const createEntityService = (): TPriceEntityService<TPriceDataRow> => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter, slotEmptinessPolicy: OIMSlotEntityPresenceEmptinessPolicy.INSTANCE }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
 type TWorld = {
     readonly db: OIMDB;
@@ -76,7 +76,7 @@ const handUpdateEmptiness = (world: TWorld, slot: TRowSlot): void => {
     (slot as { slotFlags: number }).slotFlags = OIMSlotEntityPresenceEmptinessPolicy.INSTANCE.isEmpty(slot)
         ? slotFlags | OIM_SLOT_FLAG_EMPTY
         : slotFlags & ~OIM_SLOT_FLAG_EMPTY;
-    const slotStamp = world.db.slotStamp;
+    const slotStamp = OIMDefaults.INSTANCE.slotStamp;
     if (slotStamp !== undefined) slotStamp.stamp(slot);
     if ((slot.slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0) return;
     slotReleasePolicy.onSlotWritten();
@@ -156,7 +156,7 @@ const entityServiceDoor: TRung = (world, rows, times) => {
 
 const rungSide = (rung: TRung, rows: readonly TPriceDataRow[]): TPriceSide => {
     const db = new OIMDB();
-    const entityService = createEntityService(db);
+    const entityService = createEntityService();
     const world: TWorld = {
         db,
         entityService,
@@ -167,7 +167,7 @@ const rungSide = (rung: TRung, rows: readonly TPriceDataRow[]): TPriceSide => {
     return {
         operationsPerPass: rows.length,
         reset: () => {
-            world.entityService = createEntityService(db);
+            world.entityService = createEntityService();
             world.probeInternals = probeInternalsOf(world.entityService);
             world.entityStoreSlot = world.entityService.createStoreSlot(db);
             world.store = storeService.createStore();

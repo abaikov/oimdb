@@ -58,7 +58,7 @@ const populatedEntityService = (): {
     slots: TRowSlot[];
 } => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TDerivationRow>(db, { entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDerivationRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const groups = groupNames();
     const slots: TRowSlot[] = new Array<TRowSlot>(ROWS);

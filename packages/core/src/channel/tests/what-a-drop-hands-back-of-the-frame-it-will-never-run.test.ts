@@ -16,7 +16,7 @@ const channelService = OIMChannelService.INSTANCE;
 describe('what a drop hands back of the frame it will never run', () => {
     it('gives back the hold a getter took, so the identity is reclaimed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.getSlotByKey(cards, 'c1');
         expect(slot.holdCount).toBe(1);
@@ -30,7 +30,6 @@ describe('what a drop hands back of the frame it will never run', () => {
     });
 
     it('gives back the holds on a collector handed in from outside, which outlives the channel', () => {
-        const db = new OIMDB();
         const channelSlot = createOIMChannelSlot({
             clock: { revision: 0, epoch: 0 },
             collectorSlot: createOIMCollectorSlot({
@@ -38,7 +37,7 @@ describe('what a drop hands back of the frame it will never run', () => {
             }),
             errorPolicy: OIMLogAndContinueErrorPolicy.INSTANCE,
         });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot({ defaultChannelSlot: channelSlot });
         cardsService.getSlotByKey(cards, 'c1');
         expect(cardsService.getSlotCount(cards)).toBe(1);
@@ -51,7 +50,7 @@ describe('what a drop hands back of the frame it will never run', () => {
     it('leaves the flush already under way to be the one that hands it back', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const trigger = cardsService.holdSlotByKey(cards, 'trigger');
         effectService.createEffect(db, () => { channelService.dropChannelSlot(db.defaultChannelSlot); }, [trigger]);
@@ -66,7 +65,7 @@ describe('what a drop hands back of the frame it will never run', () => {
 
     it('hands back each hold once, so a second drop gives nothing back twice', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.getSlotByKey(cards, 'c1');
 

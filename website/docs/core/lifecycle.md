@@ -22,12 +22,12 @@ delivered (frames and batches) is the channel's business and is covered in
 </InShort>
 
 ```ts setup
-import { OIMDB, oimIsSlotReleased, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot } from '@oimdb/core';
+import { OIMDB, oimIsSlotReleased, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -93,8 +93,8 @@ end of `db.flush()`, or when a collector scope (`OIMUnusedSlotCollectorService.I
 then the caller can keep using what the write returned:
 
 ```ts
-const briefService = createOIMSlotCollectionService(db, {
-    slotContentService: createOIMSlotContentEntityService<Card>(db),
+const briefService = createOIMSlotCollectionService({
+    slotContentService: createOIMSlotContentEntityService<Card>(),
     slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 0 }),
 });
 const briefs = briefService.createStoreSlot(db);
@@ -198,24 +198,23 @@ releases it at once: the slot comes back released (`oimIsSlotReleased(slot)`) an
 its key is `false`. An entity filed into a held bucket is kept, because the bucket
 holds it.
 
-**Where the policy comes from.** `OIMDB` hands its `slotReleasePolicy` to what its factories build
-(`createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `createOIMSingleSlotService`,
-`createOIMSlotCollectionService`, `createOIMSingleSlotService` and the index factories). Each of them takes a
-`slotReleasePolicy` of its own to override it for one collection type, and so for every store slot of it. If
-neither names one, the collection is built with `OIMSlotAtEmptyReleasePolicy.INSTANCE`. The computed
-factories take no db and default to `OIMSlotAtUnholdReleasePolicy.INSTANCE` instead; pass one in their
+**Where the policy comes from.** The `slotReleasePolicy` of an `OIMDefaults` reaches every factory it is
+passed to as `defaults` (`createOIMSlotCollectionService`, `createOIMSingleSlotService` and the index
+factories). Each of them takes a `slotReleasePolicy` of its own to override it for one collection type, and
+so for every store slot of it. If neither names one, the collection is built with `OIMSlotAtEmptyReleasePolicy.INSTANCE`. The computed
+factories ignore a `defaults` release policy and default to `OIMSlotAtUnholdReleasePolicy.INSTANCE` instead; pass one in their
 options to change it.
 
 ```typescript
 
-const releasingDb = new OIMDB({
+const releasingDefaults = new OIMDefaults({
     slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
         new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000 }),
         new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
     ]),
 });
 
-const unholdingDb = new OIMDB({
+const unholdingDefaults = new OIMDefaults({
     slotReleasePolicy: new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 5_000 }),
 });
 ```
@@ -263,6 +262,8 @@ let nowMs = 0;
 const testDb = new OIMDB({
     getNowMs: () => nowMs,
     releaseTimer: () => () => undefined,
+});
+const testDefaults = new OIMDefaults({
     slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 
@@ -299,8 +300,8 @@ type Deck = { id: string; title: string };
 
 const serverDb = new OIMDB();
 const serverFrame = new OIMSlotReleaseManualDueFramePolicy();
-const serverDeckService = createOIMSlotCollectionService(serverDb, { slotContentService: createOIMSlotContentEntityService<Deck>(serverDb), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy: serverFrame }) });
-const serverCardService = createOIMSlotCollectionService(serverDb, { slotContentService: createOIMSlotContentEntityService<Card>(serverDb), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverDeckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Deck>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy: serverFrame }) });
 const serverDecks = serverDeckService.createStoreSlot(serverDb);
 const serverCards = serverCardService.createStoreSlot(serverDb);
 

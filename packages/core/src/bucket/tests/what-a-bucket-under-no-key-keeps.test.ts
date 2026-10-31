@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id });
     db.flush();
@@ -20,14 +20,14 @@ const createFixture = () => {
     return { db, effectService, slot };
 };
 
-const createSetDeckService = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createSetDeckService = () => createOIMSingleSlotService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 
 const idsOf = (slots: Iterable<TCardSlot>): string[] => Array.from(slots, cardSlot => cardSlot.key);
 
 describe('a set-driven bucket under no key', () => {
     it('holds what it is given, gives back what leaves, and wakes its subscriber once per write', () => {
         const { db, effectService, slot } = createFixture();
-        const deckService = createSetDeckService(db);
+        const deckService = createSetDeckService();
         const deckContentService = deckService.slotContentService;
         const deck = deckService.createStoreSlot(db);
         let woke = 0;
@@ -51,7 +51,7 @@ describe('a set-driven bucket under no key', () => {
 
     it('is released, emptied and unheld, and the next read through the service mints a fresh bucket', () => {
         const { db, effectService, slot } = createFixture();
-        const deckService = createSetDeckService(db);
+        const deckService = createSetDeckService();
         const deckContentService = deckService.slotContentService;
         const deck = deckService.createStoreSlot(db);
         const deckSlot = deckService.getSingleSlot(deck);
@@ -78,7 +78,7 @@ describe('a set-driven bucket under no key', () => {
 describe('an array-driven bucket under no key', () => {
     it('keeps the order its positional doors give it, and holds what they bring in', () => {
         const { db, slot } = createFixture();
-        const deckService = createOIMSingleSlotService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+        const deckService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
         const deckContentService = deckService.slotContentService;
         const deck = deckService.createStoreSlot(db);
         const deckSlot = deckService.getSingleSlot(deck);

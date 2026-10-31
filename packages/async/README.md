@@ -16,7 +16,7 @@ type User = { id: string; name: string };
 declare function fetchUsers(): Promise<User[]>;
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
 const users = userService.createStoreSlot(db);
 
 const fetchedUsers = await fetchUsers();

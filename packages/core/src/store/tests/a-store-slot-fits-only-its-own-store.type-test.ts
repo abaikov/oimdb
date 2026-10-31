@@ -5,8 +5,8 @@ type TCard = { id: string };
 
 export function aStoreSlotFitsOnlyItsOwnStore(): void {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
-    const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
     const cards = cardsService.createStoreSlot(db);
     const settings = settingsService.createStoreSlot(db);
 

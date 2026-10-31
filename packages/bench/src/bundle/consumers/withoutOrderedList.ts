@@ -16,9 +16,9 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
-const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const bucketStoreSlot = bucketService.createStoreSlot(db);
 bucketService.holdSlotByKey(bucketStoreSlot, 'spades');
 const spadesSlot = bucketService.getSlotByKey(bucketStoreSlot, 'spades');

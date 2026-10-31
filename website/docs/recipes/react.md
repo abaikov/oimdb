@@ -26,13 +26,13 @@ type Card = { id: string; deckId: string; title: string; rank: number };
 type User = { id: string; name: string; avatarUrl: string; bio: string };
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<User>(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
 const users = userService.createStoreSlot(db);
-const searchResultService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
+const searchResultService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
 const searchResults = searchResultService.createStoreSlot(db);
-const cardsByDeckService = createOIMSlotCollectionIndexService(db, {
+const cardsByDeckService = createOIMSlotCollectionIndexService({
   entityService: cardService,
   keyOf: (card: Card) => card.deckId,
 });
@@ -276,7 +276,7 @@ never reach a component.
 const paintedDb = new OIMDB({
   channelScheduler: (flush) => { requestAnimationFrame(() => { flush(); }); },
 });
-const paintedCardService = createOIMSlotCollectionService(paintedDb, { slotContentService: createOIMSlotContentEntityService<Card>(paintedDb) });
+const paintedCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const paintedCards = paintedCardService.createStoreSlot(paintedDb);
 
 function PaintedApp({ children }: { children: ReactNode }) {

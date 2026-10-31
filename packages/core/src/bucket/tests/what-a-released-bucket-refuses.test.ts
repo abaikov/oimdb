@@ -12,8 +12,8 @@ type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const releasedBucket = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
-    const listsService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const listsService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
     const cards = cardsService.createStoreSlot(db);
     const lists = listsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A' });

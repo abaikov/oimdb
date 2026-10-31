@@ -14,8 +14,8 @@ const createFixture =(after: number) => {
     let ms = 1_000_000;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
     const slotReleasePolicy = new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy });
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
     const cards = cardsService.createStoreSlot(db);
     const byDeck = byDeckService.createStoreSlot(db);
     return {

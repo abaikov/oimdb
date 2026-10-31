@@ -20,9 +20,9 @@ const createFixture = (
     sorter?: TSorter,
 ) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService(db, {
+    const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
         ...(slotContentService === undefined ? {} : { slotContentService }),

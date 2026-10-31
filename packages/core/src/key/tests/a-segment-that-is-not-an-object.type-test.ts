@@ -31,7 +31,7 @@ export function aKeyIsNotASegment(): void {
  */
 export function anIdentityIsASegment(): void {
     const db = new OIMDB();
-    const decksService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNamed>(db) });
+    const decksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed>() });
     const decks = decksService.createStoreSlot(db);
     // `hold` and not a read: a read never mints, so `find` answers
     // `TOIMEntitySlot | undefined` and the positive half below would be

@@ -25,8 +25,8 @@ type TQuestion = {
 
 type TQuestionStoreSlot = TOIMStoreSlot<Map<string, TOIMEntitySlot<TQuestion, string>>, TOIMEntitySlot<TQuestion, string>, Partial<TQuestion>>;
 
-const createQuestionCollectionService = (db: OIMDB, persistEntityWriter: OIMPersistEntityWriter<TQuestion, string>) =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion, string>(db, { entityWriter: persistEntityWriter }) });
+const createQuestionCollectionService = (persistEntityWriter: OIMPersistEntityWriter<TQuestion, string>) =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TQuestion, string>({ entityWriter: persistEntityWriter }) });
 
 type TQuestionCollectionService = ReturnType<typeof createQuestionCollectionService>;
 
@@ -47,7 +47,7 @@ function createQuestionCollection(db: OIMDB): TQuestionCollection {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, string>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityCollectionService = createQuestionCollectionService(db, persistEntityWriter);
+    const entityCollectionService = createQuestionCollectionService(persistEntityWriter);
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
     const persistCollectionChangeWriteRecordSource = new OIMPersistCollectionChangeWriteRecordSource<string, TQuestion>({
         entityCollectionService,

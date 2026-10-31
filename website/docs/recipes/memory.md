@@ -11,14 +11,14 @@ reading without keeping, caches that expire, store slots that never release,
 dropping everything on logout, and which handle to keep in long-lived code.
 
 ```ts setup
-import { OIMDB, oimIsSlotReleased, type TOIMStoreKey, createOIMSingleComputedService, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, OIMUnusedSlotCollectorService, createOIMUnusedSlotCollectorSlot, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMChannelService } from '@oimdb/core';
+import { OIMDB, oimIsSlotReleased, type TOIMStoreKey, createOIMSingleComputedService, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, OIMUnusedSlotCollectorService, createOIMUnusedSlotCollectorSlot, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMChannelService, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; deckId: string; title: string; rank: number };
 
 declare function render(value: unknown): void;
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 
@@ -36,10 +36,11 @@ cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', tit
 reserved.owner.unholdSlot(reserved);
 const keptByDefault = cardService.hasSlotContentByKey(cards, 'c1');
 
-const screenDb = new OIMDB({ slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE });
-const deckCardService = createOIMSlotCollectionService(screenDb, { slotContentService: createOIMSlotContentEntityService<Card>(screenDb) });
-const deckCards = deckCardService.createStoreSlot(screenDb);
-const deckCardsByDeckService = createOIMSlotCollectionIndexService(screenDb, {
+const screenDefaults = new OIMDefaults({ slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE });
+const deckCardService = createOIMSlotCollectionService({ defaults: screenDefaults, slotContentService: createOIMSlotContentEntityService<Card>() });
+const deckCards = deckCardService.createStoreSlot(db);
+const deckCardsByDeckService = createOIMSlotCollectionIndexService({
+    defaults: screenDefaults,
     entityService: deckCardService,
     keyOf: (card: Card) => card.deckId,
 });
@@ -117,21 +118,21 @@ release call, so a sweep of your own over the store slot has nothing to call.
 ```ts
 
 const cacheDb = new OIMDB();
-const searchResultService = createOIMSlotCollectionService(cacheDb, { slotContentService: createOIMSlotContentEntityService<Card>(cacheDb), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+const searchResultService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
         new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000 }),
         new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
     ]) });
 const searchResults = searchResultService.createStoreSlot(cacheDb);
 
-const backStackDb = new OIMDB({
+const backStackDefaults = new OIMDefaults({
     slotReleasePolicy: new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 5_000 }),
 });
-const recentCardService = createOIMSlotCollectionService(backStackDb, { slotContentService: createOIMSlotContentEntityService<Card>(backStackDb) });
-const recentCards = recentCardService.createStoreSlot(backStackDb);
+const recentCardService = createOIMSlotCollectionService({ defaults: backStackDefaults, slotContentService: createOIMSlotContentEntityService<Card>() });
+const recentCards = recentCardService.createStoreSlot(cacheDb);
 ```
 
 Why this way: how long data is worth keeping is a property of the
-collection type, so it is chosen once — per `OIMDB` through its `slotReleasePolicy`, or
+collection type, so it is chosen once — through the `slotReleasePolicy` of an `OIMDefaults` shared as `defaults`, or
 per collection through the option of the same name — and every store slot of that type shares it. Each timed
 policy keeps its own deadline on the slot and its own queue; the clock and the timer are the db's. Every write
 that leaves a value renews the write window, the last subscriber leaving opens an idle window,
@@ -156,7 +157,7 @@ import { OIMSingleSlotStoreService, createOIMComputedService, type TOIMComputedS
 
 type Deck = { id: 'spades' | 'hearts' | 'diamonds' | 'clubs'; name: string };
 
-const deckService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Deck>(db), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const deckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Deck>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const decks = deckService.createStoreSlot(db);
 
 const spadesSlot = deckService.getSlotByKey(decks, 'spades');
@@ -193,13 +194,13 @@ slot: it takes values away one by one and leaves every identity something keeps.
 ```ts
 
 let sessionDb = new OIMDB();
-let sessionCardService = createOIMSlotCollectionService(sessionDb, { slotContentService: createOIMSlotContentEntityService<Card>(sessionDb) });
+let sessionCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 let sessionCards = sessionCardService.createStoreSlot(sessionDb);
 
 function logOut(): void {
     OIMChannelService.INSTANCE.dropChannelSlot(sessionDb.defaultChannelSlot);
     sessionDb = new OIMDB();
-    sessionCardService = createOIMSlotCollectionService(sessionDb, { slotContentService: createOIMSlotContentEntityService<Card>(sessionDb) });
+    sessionCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     sessionCards = sessionCardService.createStoreSlot(sessionDb);
 }
 ```

@@ -34,14 +34,14 @@ const createFixture =() => {
     // real owner to be asked when the last bucket lets it go, and the two answers
     // to `hasContent` meet in one test.
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotStoreService: new MapStore<TOIMStoreKey, TCardSlot>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotStoreService: new MapStore<TOIMStoreKey, TCardSlot>() });
     const cards = cardsService.createStoreSlot(db);
 
     // And the decks: buckets of those cards, filed by the same aggregate. A
     // channel of its own with nothing subscribed to it and no flush, which is
     // the whole of "this collection has no effects": the buckets are filed, held
     // and released exactly as below, and nobody is woken.
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const decks = byDeckService.createStoreSlot(db);
     return { db, cardsService, cards, byDeckService, decks };
 };

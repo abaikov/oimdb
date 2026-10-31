@@ -47,7 +47,7 @@ implements IOIMSlotStoreService<string, TDeckBucket, Map<string, TDeckBucket>> {
 const createFixture =() => {
     const db = new OIMDB();
     const bucketSlotStoreService = new StoreServiceThatCountsEveryLookup();
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(), slotStoreService: bucketSlotStoreService });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(), slotStoreService: bucketSlotStoreService });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, byDeck, byDeckService, bucketSlotStoreService };
 };

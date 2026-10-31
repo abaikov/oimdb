@@ -13,7 +13,7 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
 
 // `writeSlotContentByKey` mints and hands the slot back; a getter never mints.

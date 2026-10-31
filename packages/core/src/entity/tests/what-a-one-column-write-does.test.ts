@@ -15,7 +15,7 @@ type TCard = { id: string; title: string; rank: number };
 const openCards = (entityWriter: IOIMEntityWriter) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db, { entityWriter }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter }) });
     const cards = cardsService.createStoreSlot(db);
     const slot = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
     db.flush();
@@ -114,7 +114,7 @@ describe('what a one-column write does to a single entity', () => {
     it('writes the column and wakes a reader of it once', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const sessionService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; locale: string }>(db) });
+        const sessionService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; locale: string }>() });
         const session = sessionService.createStoreSlot(db);
         sessionService.writeSingleSlotContent(session, { theme: 'dark', locale: 'en' });
         let themeRuns = 0;

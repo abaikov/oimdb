@@ -24,7 +24,7 @@ type TRow = { id: string; n: number; label?: string };
 const createFixture = (write?: () => IOIMEntityWriter) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>(db, { entityWriter: write === undefined
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>({ entityWriter: write === undefined
             ? createOIMInPlaceEntityWriter()
             : write() }) });
     const rows = rowsService.createStoreSlot(db);
@@ -201,7 +201,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
 
     it('a single entity is a standalone record written through update()', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
 
@@ -215,7 +215,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
     it('a single entity\'s columns are watchable one by one: an unrelated write wakes nobody', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
@@ -230,7 +230,7 @@ describe('a collection\'s writes: upsert, upsertMany, update, updateByKey, remov
     it('a single entity\'s columns are watchable one by one: the matching write does wake it', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; volume: number }>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         let volumeWoke = 0;
@@ -249,7 +249,7 @@ describe('upsert over a slot that already has a value routes like an update', ()
 
     const createFixture =() => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
         const cards = cardsService.createStoreSlot(db);
         return { db, cardsService, cards };
     };
@@ -273,7 +273,7 @@ describe('the replacing write strategy, when a column goes away', () => {
 
     const createFixture =() => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ entityWriter: createOIMReplacingEntityWriter() }) });
         const effectService = OIMEffectService.INSTANCE;
         const cards = cardsService.createStoreSlot(db);
         return { db, effectService, cardsService, cards };
@@ -333,7 +333,7 @@ describe('the replacing write strategy, when a column goes away', () => {
 describe('a collection\'s narrow identities: a column per slot, and a slot a bucket still holds', () => {
     it('reports a slot vanishing, while a bucket still holds it', () => {
         const { db,effectService, rowsService, rows } = createFixture();
-        const everythingService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
+        const everythingService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
         const everything = everythingService.createStoreSlot(db);
         let runCount = 0;
         const row = rowsService.holdSlotByKey(rows, 'r1');

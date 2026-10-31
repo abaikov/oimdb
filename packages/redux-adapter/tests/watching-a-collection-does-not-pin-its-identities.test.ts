@@ -12,7 +12,7 @@ type TUser = { id: string; name: string };
  */
 function buildAdapter() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, i => i.id);
+    const usersService = entityServiceOf<TUser>(i => i.id);
     const users = usersService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
     const reducer = adapter.createCollectionReducer<

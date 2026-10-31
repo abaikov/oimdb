@@ -22,7 +22,7 @@ const makeRandom = (seed: number): (() => number) => {
     };
 };
 
-const makeCollection = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+const makeCollection = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;
@@ -72,7 +72,7 @@ const run = (seed: number, steps: number): void => {
 
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = makeCollection(db);
+    const rowsService = makeCollection();
     const rows = rowsService.createStoreSlot(db);
 
     const model = new Map<string, TRow | undefined>();
@@ -253,7 +253,7 @@ describe('the two column effects built together', () => {
     } => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const rowsService = makeCollection(db);
+        const rowsService = makeCollection();
         const rows = rowsService.createStoreSlot(db);
         rowsService.writeSlotContentByKey(rows, ((row) => row.id)({ id: 'r1', a: 0, b: 0, c: 0, d: 0 }), { id: 'r1', a: 0, b: 0, c: 0, d: 0 });
         db.flush();

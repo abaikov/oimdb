@@ -191,12 +191,12 @@ const entitySlotWriteDoors = <TSubject, TSlot>(
     'slotContentService.clearSlotContent': s => { entitySlotWriterOf(s).clearSlotContent(slotOf(s)); },
 });
 
-const cardEntityService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+const cardEntityService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
 
 type TCardEntityService = ReturnType<typeof cardEntityService>;
 
-const cardIndexService = (db: OIMDB) => createOIMSlotCollectionIndexService(db, {
-    entityService: cardEntityService(db), keyOf: (card: TCard) => card.title,
+const cardIndexService = () => createOIMSlotCollectionIndexService({
+    entityService: cardEntityService(), keyOf: (card: TCard) => card.title,
 });
 type TCardIndexService = ReturnType<typeof cardIndexService>;
 type TCardStoreSlot = ReturnType<TCardEntityService['createStoreSlot']>;
@@ -209,7 +209,7 @@ type TEntitySubject = {
 };
 
 const entityWorld = (): TFixture<TEntitySubject> => madeInAFlush(db => {
-    const entityService = cardEntityService(db);
+    const entityService = cardEntityService();
     const cardStoreSlot = entityService.createStoreSlot(db);
     const spareCardStoreSlot = entityService.createStoreSlot(db);
     entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'a', title: 'A' }), { id: 'a', title: 'A' });
@@ -237,8 +237,8 @@ const ENTITY_DOORS_THAT_WRITE_NOTHING = [
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
 ] as const;
 
-const cardBucketService = (db: OIMDB) =>
-    createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+const cardBucketService = () =>
+    createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
 
 type TCardBucketService = ReturnType<typeof cardBucketService>;
 type TCardBucketStoreSlot = ReturnType<TCardBucketService['createStoreSlot']>;
@@ -252,12 +252,12 @@ type TBucketSubject = {
 };
 
 const bucketWorld = (): TFixture<TBucketSubject> => madeInAFlush(db => {
-    const entityService = cardEntityService(db);
+    const entityService = cardEntityService();
     const cardStoreSlot = entityService.createStoreSlot(db);
     entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'a', title: 'A' }), { id: 'a', title: 'A' });
     entityService.writeSlotContentByKey(cardStoreSlot, (card => card.id)({ id: 'b', title: 'B' }), { id: 'b', title: 'B' });
     const card = entityService.getSlotByKey(cardStoreSlot, 'a');
-    const bucketService = cardBucketService(db);
+    const bucketService = cardBucketService();
     const membersService = bucketService.slotContentService;
     const searchStoreSlot = bucketService.createStoreSlot(db);
     const bucket = bucketService.holdSlotByKey(searchStoreSlot, 'q');
@@ -308,7 +308,7 @@ const BUCKET_DOORS_THAT_WRITE_NOTHING = [
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
 ] as const;
 
-const singleCardEntityService = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const singleCardEntityService = () => createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 
 type TSingleCardSlot = TOIMEntityContentSlot<TCard>;
 type TSingleCardEntityService = ReturnType<typeof singleCardEntityService>;
@@ -319,7 +319,7 @@ type TSingleEntitySubject = {
 };
 
 const singleEntityWorld = (): TFixture<TSingleEntitySubject> => madeInAFlush(db => {
-    const entityService = singleCardEntityService(db);
+    const entityService = singleCardEntityService();
     const singleCardStoreSlot = entityService.createStoreSlot(db);
     const singleCard = entityService.holdSingleSlot(singleCardStoreSlot);
     entityService.slotContentService.writeSlotContent(singleCard, { id: 'a', title: 'A' });

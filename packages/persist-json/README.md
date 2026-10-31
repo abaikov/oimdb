@@ -45,7 +45,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const questionCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TQuestion>(db, { entityWriter: persistEntityWriter }) });
+const questionCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TQuestion>({ entityWriter: persistEntityWriter }) });
 const questionEntityStoreSlot = questionCollectionService.createStoreSlot(db);
 
 const createQuestionPersistor = (persistJsonMemoryBackend: OIMPersistJsonMemoryBackend) => {

@@ -13,7 +13,7 @@ type TUser = { id: string; name: string; age: number };
 
 function buildDb() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     return { db, usersService, users };
 }
@@ -129,7 +129,7 @@ describe('OIMReduxAdapter.createCollectionReducer', () => {
 
     test('nothing is dispatched for a frame this adapter does not watch', () => {
         const { db, usersService, users } = buildDb();
-        const otherService = entityServiceOf<TUser>(db, item => item.id);
+        const otherService = entityServiceOf<TUser>(item => item.id);
         const other = otherService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const reducer = adapter.createCollectionReducer<TUser, string, TOIMReduxDefaultCollectionState<TUser, string>>(usersService, users);

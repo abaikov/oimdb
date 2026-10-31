@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMEffectService, oimMintAfterIdleSlotReleaseWheel, oimMintAfterUnholdSlotReleaseWheel, oimMintAfterWriteSlotReleaseWheel, OIMSlotContentSetBucketService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAtEmptyReleasePolicy, OIMSlotAtUnholdReleasePolicy, OIMSlotEarliestReleasePolicy, OIMSlotNeverReleasePolicy, oimIsSlotReleased } from '../../index';
 import type { IOIMSlotReleasePolicy, TOIMEntitySlot } from '../../index';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
@@ -11,13 +12,14 @@ const NO_TIMER = (): (() => void) => () => undefined;
 
 const createFixture = (slotReleasePolicy: IOIMSlotReleasePolicy | undefined) => {
     let ms = START;
-    const db = new OIMDB({ slotReleasePolicy });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const defaults = new OIMDefaults({ slotReleasePolicy });
+    const db = new OIMDB();
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, at: (value: number): void => { ms = value; }, nowMs: (): number => ms };
 };
 
-const createDecksService = (db: OIMDB, slotReleasePolicy: IOIMSlotReleasePolicy) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
+const createDecksService = (slotReleasePolicy: IOIMSlotReleasePolicy) => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
 
 describe('one release policy decides when a slot goes', () => {
     it('with no policy, a row with a value stays for good', () => {
@@ -43,8 +45,9 @@ describe('one release policy decides when a slot goes', () => {
     });
 
     it('at empty: a collection keeps a filled slot through holds under a database that releases at unhold, and lets a deleted one go', () => {
-        const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy: new OIMSlotAtEmptyReleasePolicy() });
+        const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }), slotReleasePolicy: new OIMSlotAtEmptyReleasePolicy() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
@@ -59,8 +62,9 @@ describe('one release policy decides when a slot goes', () => {
     });
 
     it('never: a collection keeps a slot through holds and a delete under a database that releases at unhold', () => {
-        const db = new OIMDB({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db), slotReleasePolicy: new OIMSlotNeverReleasePolicy() });
+        const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }), slotReleasePolicy: new OIMSlotNeverReleasePolicy() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
@@ -77,9 +81,10 @@ describe('one release policy decides when a slot goes', () => {
     it('after write: a row goes once its write is older than the window', () => {
         let ms = START;
         const slotReleasePolicy = new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000 });
-        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER, slotReleasePolicy });
+        const defaults = new OIMDefaults({ slotReleasePolicy });
+        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
         const slotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();
@@ -94,9 +99,10 @@ describe('one release policy decides when a slot goes', () => {
     it('after idle: a row goes once nothing has watched it for the window', () => {
         let ms = START;
         const slotReleasePolicy = new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 5_000 });
-        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER, slotReleasePolicy });
+        const defaults = new OIMDefaults({ slotReleasePolicy });
+        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
         const slotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => undefined, [card]);
@@ -115,9 +121,9 @@ describe('one release policy decides when a slot goes', () => {
 
     it('at unhold: a bucket with slots goes at its last unhold', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const decksService = createDecksService(db, new OIMSlotAtUnholdReleasePolicy());
+        const decksService = createDecksService(new OIMSlotAtUnholdReleasePolicy());
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd1');
         decksService.slotContentService.writeSlotContent(
@@ -132,9 +138,9 @@ describe('one release policy decides when a slot goes', () => {
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
         const slotReleaseWheel = oimMintAfterUnholdSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const decksService = createDecksService(db, new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 10_000 }));
+        const decksService = createDecksService(new OIMSlotAfterUnholdReleasePolicy({ keepAfterUnholdMs: 10_000 }));
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd1');
         decksService.slotContentService.writeSlotContent(
@@ -157,13 +163,10 @@ describe('one release policy decides when a slot goes', () => {
     });
 
     it('a zero window never touches the release queue: the slot goes at the end of the frame', () => {
-        const db = new OIMDB({
-            getNowMs: () => START,
-            releaseTimer: NO_TIMER,
-            slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 0 }),
-        });
+        const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 0 }) });
+        const db = new OIMDB({ getNowMs: () => START, releaseTimer: NO_TIMER });
         const slotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         expect(slotReleaseWheel.getNextSliceNumber()).toBeUndefined();
@@ -178,8 +181,9 @@ describe('one release policy decides when a slot goes', () => {
             new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000 }),
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 5_000 }),
         ]);
-        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER, slotReleasePolicy });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ slotReleasePolicy });
+        const db = new OIMDB({ getNowMs: () => ms, releaseTimer: NO_TIMER });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();

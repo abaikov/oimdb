@@ -13,7 +13,7 @@ type Card = { id: string; rank: number };
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const sourceSlots: TOIMEntitySlot<Card, TOIMStoreKey>[] = [];
     const topRankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });

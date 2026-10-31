@@ -1,4 +1,3 @@
-import type { OIMDB } from '../db/OIMDB';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotContentWriter } from './interfaces/IOIMSlotContentWriter';
@@ -12,11 +11,12 @@ import type { TOIMSlotContentServiceContent } from './types/TOIMSlotContentServi
 import { OIMWritableSingleSlotService } from './OIMWritableSingleSlotService';
 import { OIMSingleSlotStoreService } from '../store/OIMSingleSlotStoreService';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
+import { OIMDefaults } from '../db/OIMDefaults';
 import { oimResolveSlotOwnerServiceOptions } from './utils/oimResolveSlotOwnerServiceOptions';
 
 export function createOIMSingleSlotService<TSlotContentService extends object, TColumnName extends string = string>(
-    db: OIMDB,
     options: {
+        defaults?: OIMDefaults | undefined;
         slotContentService: TSlotContentService
             & IOIMSingleSlotCreator<TOIMSlotContentServiceSingleSlot<TSlotContentService>>
             & IOIMSlotContentWriter<TOIMSlotContentServiceSingleSlot<TSlotContentService>, TOIMSlotContentServiceContent<TSlotContentService>>
@@ -42,11 +42,11 @@ export function createOIMSingleSlotService<TSlotContentService extends object, T
             & IOIMSlotContentService<TOIMSlotContentServiceSingleSlot<TSlotContentService>>,
         TColumnName, TOIMColumnSlot, OIMPushColumnSlotOwner
     >({
-        ...oimResolveSlotOwnerServiceOptions(db, options),
+        ...oimResolveSlotOwnerServiceOptions(options.defaults ?? OIMDefaults.INSTANCE, options),
         slotStoreService: OIMSingleSlotStoreService.INSTANCE as OIMSingleSlotStoreService<
             TOIMSlotContentServiceSingleSlot<TSlotContentService>
         >,
         slotContentService: options.slotContentService,
-        storeSlotListener: OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
+        storeSlotListener: options.defaults?.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
     });
 }

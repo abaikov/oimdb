@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMEffectService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
 import type { IOIMEntityWriter, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
 import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
@@ -8,12 +9,12 @@ type TCard = { id: string; deck: string; rank?: number | undefined; title: strin
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
-    >(db, { entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    >({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', rank: 1, title: 't' });
     const rank = byDeckService.holdBucketColumnByKey(byDeck, 'd', 'rank');
@@ -58,8 +59,9 @@ describe('what a whole write tells a bucket column', () => {
                 return inPlace.putEntity(slot, entity, changedColumnNames);
             },
         };
-        const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ entityWriter });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', rank: 1, title: 't' });
 

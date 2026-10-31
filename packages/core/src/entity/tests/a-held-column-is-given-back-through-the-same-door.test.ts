@@ -8,7 +8,7 @@ type TCard = { id: string; title: string };
 describe('a held column is given back through the same door that held it', () => {
     it('an entity collection hands back the column it held', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         const titleColumn = cardsService.columnSlotService.holdColumn(card, 'title');
@@ -19,7 +19,7 @@ describe('a held column is given back through the same door that held it', () =>
 
     it('a single entity hands back the column it held', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<{ theme: string }>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string }>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
         const themeColumn = settingsService.columnSlotService.holdColumn(settingsService.getSingleSlot(settings), 'theme');

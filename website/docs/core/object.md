@@ -7,7 +7,7 @@ description: How to keep a keyless record such as settings or a session as a sto
 
 A standalone record is one identity with no key and no collection —
 settings, a session, a view model. It is the single of the entity pair: a store
-slot of `createOIMSingleSlotService(db)` — an `OIMSingleSlotService` over an entity content service keyed
+slot of `createOIMSingleSlotService()` — an `OIMSingleSlotService` over an entity content service keyed
 by `void` over `OIMSingleSlotStoreService.INSTANCE` — made by `createStoreSlot(db)` and filled by
 `writeSlotContentByKey`. The other half of the pair is a [collection](/docs/core/collections), a store slot of a
 keyed entity collection.
@@ -35,7 +35,7 @@ type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db) });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14 });
@@ -47,12 +47,12 @@ record's first value arrives through `writeSlotContentByKey(storeSlot, entity)`,
 announced to the channel like any other, and until then `findSingleSlot(storeSlot)`
 answers `undefined`.
 
-`createOIMSingleSlotService(db, options?)` takes `entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`,
-`columnSlotStoreService` and `columnNames`, each optional and coming from the db and the defaults when you
+`createOIMSingleSlotService(options?)` takes `entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`,
+`columnSlotStoreService` and `columnNames`, each optional and coming from `defaults` and the built-in defaults when you
 leave them out. `columnNames` names the columns, files their slots in the ordinal store
 `OIMColumnSlotOrdinalStoreService` and types `getColumn`, `holdColumn` and `getColumnGroup` on those names.
 The base layer it assembles is
-`createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService(db, { slotStoreService: OIMSingleSlotStoreService.INSTANCE }) })`.
+`createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService({ slotStoreService: OIMSingleSlotStoreService.INSTANCE }) })`.
 The column doors are the single slot service's: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
 `getColumnGroup(names)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
 `unholdColumn(columnSlot)` — with the record's slot as the slot.
@@ -138,17 +138,17 @@ so every record of one service shares it:
 ```typescript
 const initial: Settings = { theme: 'dark', fontSize: 14 };
 
-const inPlaceSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter() }) });
+const inPlaceSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMInPlaceEntityWriter() }) });
 inPlaceSettingsService.writeSingleSlotContent(inPlaceSettingsService.createStoreSlot(db), initial);
 
-const replacingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMReplacingEntityWriter() }) });
+const replacingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMReplacingEntityWriter() }) });
 replacingSettingsService.writeSingleSlotContent(replacingSettingsService.createStoreSlot(db), initial);
 ```
 
 Use the in-place writer when readers are effects; use the replacing one when a
 reader decides "did it change?" by comparing the slot's `entity` to the last one it
-saw. Name no writer and the db's answers, then `OIMDefaults.ENTITY_WRITER.getValue()`, which is
-`createOIMInPlaceEntityWriter()` unless it was set at startup.
+saw. Name no writer and `defaults.entityWriter` answers, then the in-place writer,
+`createOIMInPlaceEntityWriter()`.
 
 ## The object you hand it is stored as handed — by default
 
@@ -163,7 +163,7 @@ shallow copy (`{ ...entity }`), one level deep: a nested object is shared with
 the value you handed in.
 
 ```typescript
-const copyingSettingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
 copyingSettingsService.writeSingleSlotContent(copyingSettingsService.createStoreSlot(db), { theme: 'dark', fontSize: 14 });
 ```
 

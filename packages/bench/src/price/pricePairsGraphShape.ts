@@ -33,8 +33,8 @@ type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMCom
 
 type TGraphComputedService = OIMSingleComputedService<number>;
 
-const createRootEntityService = <TRoot extends object = TGraphRoot>(db: OIMDB) =>
-    createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TRoot>(db) });
+const createRootEntityService = <TRoot extends object = TGraphRoot>() =>
+    createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TRoot>() });
 
 type TGraphRootEntityService<TRoot extends object> = ReturnType<typeof createRootEntityService<TRoot>>;
 
@@ -118,7 +118,7 @@ const readRootValue = (graphSourceReader: TGraphSourceReader, rootSlot: TGraphRo
 
 const oursStandingChain = (depth: number, writesPerFrame: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const computedService = createGraphComputedService();
@@ -180,7 +180,7 @@ const floorStandingChainSingleWrite = (depth: number): TPriceSide => {
 const oursBuildAndDispose = (depth: number): TPriceSide => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const rootSlot = createRootSlot(db, rootEntityService, { value: 1 });
     const computedService = createGraphComputedService();
     const computedSingleSlotService = computedService.computedSingleSlotService;
@@ -219,7 +219,7 @@ const floorBuildAndDispose = (depth: number): TPriceSide => {
 
 const oursReadsPerRun = (rootCount: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlots: TGraphRootSlot[] = [];
     for (let r = 0; r < rootCount; r++) rootSlots.push(createRootSlot(db, rootEntityService, { value: 0 }));
@@ -270,7 +270,7 @@ const floorReadsPerRun = (rootCount: number): TPriceSide => {
 
 const oursInactiveBranchWrite = (graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const flagSlot = createRootSlot(db, rootEntityService, { value: 1 });
     const activeSlot = createRootSlot(db, rootEntityService, { value: 0 });
@@ -319,7 +319,7 @@ const floorInactiveBranchWrite = (): TPriceSide => {
 
 const oursCoalescedWrites = (writesPerFrame: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const rootEffect = graphEffectStrategy.createRootsEffect(db, graphSourceReader => {
@@ -647,7 +647,7 @@ const firstVisibleIndexOf = (scrollTopPx: number): number => Math.floor(scrollTo
 const oursScrollWindow = (writesPerFrame: number): TPriceSide => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const indexComputedService = createGraphComputedService();
@@ -726,7 +726,7 @@ const scrollWindowPairs: readonly TPricePair[] = WRITES_PER_SCROLL_FRAME.map(wri
 
 const oursDeliveryWriteOnly = (): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     let written = 0;
@@ -741,7 +741,7 @@ const oursDeliveryWriteOnly = (): TPriceSide => {
 
 const oursDeliveryWriteAndFlushWithoutEffect = (): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     let written = 0;
@@ -760,7 +760,7 @@ const oursDeliveryWriteAndFlushWithoutEffect = (): TPriceSide => {
 const oursDeliveryWriteAndEffectRunWithoutFlush = (): TPriceSide => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rootEntityService = createRootEntityService(db);
+    const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const rootEffect = effectService.createAndRunEffect(db, () => {
@@ -782,7 +782,7 @@ const oursDeliveryWriteAndEffectRunWithoutFlush = (): TPriceSide => {
 
 const oursDeliveryWriteWithAnotherColumnHeld = (): TPriceSide => {
     const db = new OIMDB();
-    const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>(db);
+    const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0, note: 0 });
     const valueColumnSlot = rootEntityService.columnSlotService.holdColumn(rootSlot, 'value');
@@ -844,7 +844,7 @@ const DERIVED_COLLECTION_SIZE = 128;
 const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>(db);
+    const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>();
     const slotContentService = rootEntityService.slotContentService;
     const derivedComputedService = createGraphComputedService();
     const roots = Array.from({ length: DERIVED_COLLECTION_SIZE }, (_, i) => {

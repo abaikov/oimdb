@@ -6,7 +6,7 @@ type TCard = { id: string; deck: string; note: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const calls: string[] = [];
     OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(cards, {

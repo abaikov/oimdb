@@ -24,7 +24,7 @@ const SCENARIOS = [
         consumer: 'One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey`',
         code: `import { OIMDB, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() });
 const users = userService.createStoreSlot(db);
 userService.writeSlotContentByKey(users, 'u1', { id: 'u1' });
 export const read = userService.getSlotByKey(users, 'u1');`,
@@ -33,7 +33,7 @@ export const read = userService.getSlotByKey(users, 'u1');`,
         consumer: 'The same, plus one effect and `db.flush()`',
         code: `import { OIMDB, OIMEffectService, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() });
 const users = userService.createStoreSlot(db);
 const user = userService.writeSlotContentByKey(users, 'u1', { id: 'u1' });
 export const effect = OIMEffectService.INSTANCE.createEffect(db, [user], [], () => {});
@@ -43,9 +43,9 @@ db.flush();`,
         consumer: 'The same, plus one index: `createOIMSlotCollectionIndexService`',
         code: `import { OIMDB, OIMEffectService, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSlotCollectionIndexService } from '@oimdb/core';
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() });
 const users = userService.createStoreSlot(db);
-const byTeamService = createOIMSlotCollectionIndexService(db, { entityService: userService, keyOf: user => user.team });
+const byTeamService = createOIMSlotCollectionIndexService({ entityService: userService, keyOf: user => user.team });
 const byTeam = byTeamService.createIndexStoreSlot(users);
 userService.writeSlotContentByKey(users, 'u1', { id: 'u1', team: 't1' });
 export const effect = OIMEffectService.INSTANCE.createEffect(db, [byTeamService.getSlotByKey(byTeam, 't1')], [], () => {});
@@ -55,10 +55,10 @@ db.flush();`,
         consumer: 'An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands`',
         code: `import { OIMDB, OIMBucketCommands, OIMSlotContentPositionalArrayBucketService, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService(db) });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() });
 const users = userService.createStoreSlot(db);
 const membersService = new OIMSlotContentPositionalArrayBucketService({ bucketCommands: new OIMBucketCommands({}) });
-const orderedService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+const orderedService = createOIMSlotCollectionService({ slotContentService: membersService });
 const ordered = orderedService.createStoreSlot(db);
 const all = orderedService.holdSlotByKey(ordered, 'all');
 membersService.insertBucketMemberSlotAt(all, 0, userService.writeSlotContentByKey(users, 'u1', { id: 'u1' }));

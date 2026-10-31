@@ -64,8 +64,8 @@ slot of its type.
 A service holds no collection. A collection is a store slot:
 `collectionService.createStoreSlot(db)` returns a `TOIMStoreSlot` carrying the keyed `store`, the channel
 slot, that instance's content-change listeners and its column state, and every slot minted there carries it
-back as `slot.storeSlot`. Only the services read `store`. `OIMDefaults.STORE_SLOT_LISTENER` is told of every
-store slot created.
+back as `slot.storeSlot`. Only the services read `store`. The `storeSlotListener` of a service's `defaults` is told of every
+store slot it creates.
 
 A collection type is:
 
@@ -110,14 +110,12 @@ A single is the same content service with the key type `void`, built over
 
 | Export | File | What it builds |
 |---|---|---|
-| `OIMDB` | `db/OIMDB.ts` | the clock, the collector slot and the default channel slot over them, plus the `entityWriter`, `slotStamp`, `slotReleasePolicy` and `indexKeysService` it was handed, which the `create*` functions read; `flush()` flushes the default channel slot |
-| `OIMDefaults` | `db/OIMDefaults.ts` | the lazily built default of each optional dependency |
-| `OIMDefaultValue` | `db/OIMDefaultValue.ts` | one such default: `getValue()` builds it once, `setValue` refuses after that |
+| `OIMDB` | `db/OIMDB.ts` | the clock, the collector slot and the default channel slot over them; `flush()` flushes the default channel slot |
+| `OIMDefaults` | `db/OIMDefaults.ts` | the optional dependencies a factory takes as `defaults`; `OIMDefaults.INSTANCE` sets none |
+| `OIMDefaultValue` | `db/OIMDefaultValue.ts` | one built-in default, such as `OIM_DEFAULT_ENTITY_WRITER`: `getValue()` builds it once |
 | `createOIMSlotContentEntityService` | `entity/createOIMSlotContentEntityService.ts` | an entity content service and its slot owner; Map store unless you pass `slotStoreService` |
 | `createOIMSlotCollectionService` | `slot/createOIMSlotCollectionService.ts` | a collection service over a content service |
 | `createOIMSingleSlotService` | `slot/createOIMSingleSlotService.ts` | a single slot service over a content service |
-| `createOIMSlotCollectionService` / `createOIMSingleSlotService` | `slot/createOIMSlotCollectionService.ts` / `createOIMSingleSlotService.ts` | convenience wrappers: the two calls above for a keyed or single entity collection |
-| `createOIMSlotCollectionService` / `createOIMSingleSlotService` | `slot/createOIMSlotCollectionService.ts` / `createOIMSingleSlotService.ts` | a bucket collection over a bucket content service, array-driven with an `OIMBucketCommands` unless you pass `slotContentService` |
 | `createOIMSlotCollectionIndexService` | `index/createOIMSlotCollectionIndexService.ts` | an index over an entity collection service; array-driven buckets without commands unless you pass `slotContentService` |
 | `createOIMSlotCollectionIndexService` | `index/createOIMSlotCollectionIndexService.ts` | an index whose buckets are filed by a chain of values in a tree-driven store |
 | `createOIMSlotCollectionSortedArrayIndexService` | `index/createOIMSlotCollectionSortedArrayIndexService.ts` | an index whose buckets are kept sorted by `sortColumns` |
@@ -134,9 +132,9 @@ slots it moved at its own channel's flush, whichever channel those effects belon
 channel on the same clock isolates neither time nor state. A separate `new OIMDB()` has its own
 clock, collectors and channel.
 
-`OIMDefaults` is static and lazy. Once an entry's `getValue` has handed something
-out, its `setValue` throws rather than leave two implementations live in one
-process, so set defaults at startup or not at all.
+`OIMDefaults` is an instance: `new OIMDefaults({ entityWriter, slotReleasePolicy, … })`, passed as
+`defaults` to each factory that should use it. A field it leaves unset falls back to the built-in
+`OIMDefaultValue` of that field, built on first use.
 
 ## A slot
 
@@ -302,8 +300,9 @@ marker on the slot, handing its listener every watched slot that came due.
    computed reads, a slot nobody holds;
 2. advances `clock.revision`. An epoch holds `OIM_REVISIONS_PER_EPOCH` (2^30)
    revisions, `0` through `2^30 − 1`, so the counter stays a small integer under
-   V8 pointer compression; the write after the last one starts `clock.epoch + 1`
-   at `0`;
+   V8 pointer compression; the write after the last one starts the next epoch
+   at `0`. The epoch is an int32 that wraps past `2^31 − 1`, and two readings are
+   compared by `(epoch − sinceEpoch) | 0`, so the order holds across the wrap;
 3. if the slot was not already changed since the frame opened
    (`isChangedInCurrentFrame`), queues each effect in `slot.effects`, skipping one
    already queued. An effect is queued at most once per frame, and a second write to the same slot in the
@@ -443,7 +442,7 @@ Each fork ships every strategy, injected once; no flag is read on a hot path.
 | how a key is filed | `OIMSlotMapStoreService` / `OIMSlotTreeStoreService` / `OIMSingleSlotStoreService` (the `void` key of a single) | `slotStoreService`, `bucketSlotStoreService` or `computedSlotStoreService` on the factory's options |
 | how a key chain is walked | `OIMScalarKeyTreeWalk` / `OIMCompositeKeyTreeWalk` | `OIMSlotTreeStoreService`'s constructor |
 | how an index's cell positions are reused | `OIMAppendingIndexKeysService` / `OIMReclaimingIndexKeysService` | `indexKeysService` on `OIMDB`'s options |
-| what counts as empty | any `IOIMSlotEmptinessPolicy` | `slotEmptinessPolicy` on the entity factory's options, or `OIMDefaults.ENTITY_SLOT_EMPTINESS_POLICY` |
+| what counts as empty | any `IOIMSlotEmptinessPolicy` | `slotEmptinessPolicy` on the entity factory's options, or `defaults.entitySlotEmptinessPolicy` |
 | when a frame runs | manual `flush()` / a `channelScheduler` | `OIMDB`'s options |
 | what a throw in a flush does | `OIMLogAndContinueErrorPolicy` / `OIMThrowAtOnceErrorPolicy` | `errorPolicy` on `OIMDB`'s options |
 | how an effect finds its sources | declared lists / an `OIMSourceTracker` | `createEffect` / `createSourceTrackingEffect` |

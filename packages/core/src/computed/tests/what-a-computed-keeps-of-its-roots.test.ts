@@ -13,7 +13,7 @@ type TRow = { id: string; n: number };
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     for (let i = 0; i < 8; i++) rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}`, n: i });
     db.flush();

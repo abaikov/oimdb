@@ -10,8 +10,8 @@ type TSettings = { theme: string };
 describe('a store slot', () => {
     it('names the collection service that created it, so one constant reaches both', () => {
         const db = new OIMDB();
-        const cards = createOIMSlotCollectionService(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(db),
+        const cards = createOIMSlotCollectionService({
+            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
         }).createStoreSlot(db);
 
         cards.slotService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
@@ -21,8 +21,8 @@ describe('a store slot', () => {
 
     it('names the single slot service that created it', () => {
         const db = new OIMDB();
-        const settings = createOIMSingleSlotService(db, {
-            slotContentService: createOIMSlotContentEntityService<TSettings>(db),
+        const settings = createOIMSingleSlotService({
+            slotContentService: createOIMSlotContentEntityService<TSettings>(),
         }).createStoreSlot(db);
 
         settings.slotService.writeSingleSlotContent(settings, { theme: 'dark' });
@@ -32,10 +32,10 @@ describe('a store slot', () => {
 
     it('of an index names the index service', () => {
         const db = new OIMDB();
-        const cards = createOIMSlotCollectionService(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(db),
+        const cards = createOIMSlotCollectionService({
+            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
         }).createStoreSlot(db);
-        const byDeck = createOIMSlotCollectionIndexService(db, {
+        const byDeck = createOIMSlotCollectionIndexService({
             entityService: cards.slotService, keyOf: (card: TCard) => card.deck,
         }).createIndexStoreSlot(cards);
         cards.slotService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });

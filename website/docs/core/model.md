@@ -78,8 +78,8 @@ key. The store service decides which: a single is built over
 
 | kind | single | collection |
 |---|---|---|
-| entity | `createOIMSingleSlotService(db)`: `getSingleSlot`, `holdSingleSlot`, `findSingleSlot` | `createOIMSlotCollectionService(db, { keyOf })`: `getSlotByKey`, `holdSlotByKey`, `findSlotByKey` |
-| bucket | `createOIMSingleSlotService(db)` | `createOIMSlotCollectionService(db)`, or an index |
+| entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `findSingleSlot` | `createOIMSlotCollectionService({ keyOf })`: `getSlotByKey`, `holdSlotByKey`, `findSlotByKey` |
+| bucket | `createOIMSingleSlotService()` | `createOIMSlotCollectionService()`, or an index |
 | computed | `createOIMComputedService({ computedSlotStoreService: OIMSingleSlotStoreService.INSTANCE, … })`, read by the key `undefined` | `createOIMComputedService({ … })` |
 
 `createStoreSlot` mints nothing. A single's slot is minted on the first
@@ -103,7 +103,7 @@ it. See [The compute graph](/docs/core/computed-effects).
 A collection type is two stateless objects:
 
 - the **content service** — what one slot holds and how it is written:
-  `OIMSlotContentEntityService` (built by `createOIMSlotContentEntityService(db, { keyOf })`),
+  `OIMSlotContentEntityService` (built by `createOIMSlotContentEntityService({ keyOf })`),
   `OIMSlotContentPositionalArrayBucketService` / `OIMSlotContentSetBucketService` / `OIMSlotContentSortedArrayBucketService`, or a computed's
   `OIMComputedValueService`. It is the strategy, and it owns the slot owner (`slotOwner`) that holds,
   subscribes and releases the slots of every store slot of that type;
@@ -114,15 +114,15 @@ A store slot (`TOIMStoreSlot`) is one collection, the state the two services wor
 it has no owner, no hold count and no effects, so it is never held or subscribed.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSlotAtUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMUnusedSlotCollectorService, createOIMComputedService, createOIMReplacingEntityWriter, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotAtUnholdReleasePolicy, OIMSlotNeverReleasePolicy, OIMUnusedSlotCollectorService, createOIMComputedService, createOIMReplacingEntityWriter, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const rankService = createOIMComputedService<TOIMStoreKey, number>({});
 const ranks = rankService.createComputedStoreSlot(
@@ -161,31 +161,30 @@ The root holds what every collection in one program must share, and the defaults
 | `defaultChannelSlot` | the `TOIMChannelSlot` every store slot made with `createStoreSlot(db)` delivers through |
 | `clock` | the revision and epoch every write is stamped with |
 | `collectorSlot` | the collector slots: the unused-slot collector that holds what getters mint, and the three release collectors |
-| `entityWriter` | the writer an entity content service uses when its own options name none |
-| `slotReleasePolicy` | the release policy the entity, bucket and index factories use when their own options name none |
-| `slotStamp` | an `IOIMSlotStamp` written on a slot at every content change |
-| `indexKeysService` | how index key positions on a slot are allocated (`OIMAppendingIndexKeysService` when absent) |
 
 Its constructor takes the channel's options (`channelScheduler`, `errorPolicy`,
-`onBeforeFlush`), the clock and timer (`getNowMs`, `releaseTimer`) and those four defaults in one object.
+`onBeforeFlush`) and the clock and timer (`getNowMs`, `releaseTimer`) in one object. The strategies a
+factory falls back on are not the root's: they are an `OIMDefaults` passed as `defaults`.
 `db.flush()` flushes its default channel slot.
 
 ```typescript
 const appDb = new OIMDB({
     channelScheduler: (flush) => { void Promise.resolve().then(flush); },
+});
+const appDefaults = new OIMDefaults({
     entityWriter: createOIMReplacingEntityWriter(),
     slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
 });
 
-const noteService = createOIMSlotCollectionService(appDb, { slotContentService: createOIMSlotContentEntityService<Card>(appDb) });
+const noteService = createOIMSlotCollectionService({ defaults: appDefaults, slotContentService: createOIMSlotContentEntityService<Card>({ defaults: appDefaults }) });
 const notes = noteService.createStoreSlot(appDb);
-const archiveService = createOIMSlotCollectionService(appDb, { slotContentService: createOIMSlotContentEntityService<Card>(appDb), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const archiveService = createOIMSlotCollectionService({ defaults: appDefaults, slotContentService: createOIMSlotContentEntityService<Card>({ defaults: appDefaults }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const archive = archiveService.createStoreSlot(appDb);
 ```
 
-A factory option outranks the root's, and the root's outranks `OIMDefaults`.
-`createOIMComputedService` reads only its own `slotReleasePolicy`, so a root's
-policy does not reach a computed. The policy belongs to the collection type, so every store
+A factory option outranks `defaults`, and `defaults` outranks the built-in default.
+`createOIMComputedService` reads only its own `slotReleasePolicy`, so a `defaults`
+release policy does not reach a computed. The policy belongs to the collection type, so every store
 slot of one type shares it.
 
 An effect over slots of two collections runs in one frame only if both store slots
@@ -193,12 +192,9 @@ report to the same channel slot. The same holds for the collector: a mint
 is given back by the flush of the channel slot that owns that collector. `OIMDB` is
 the place where those are made once and shared.
 
-`OIMDefaults` is process-wide, and it is set once. Its static `OIMDefaultValue` entries
-(`ENTITY_WRITER`, `ENTITY_SLOT_EMPTINESS_POLICY`, `COLUMN_SLOT_STORE_SERVICE`, `COMPUTED_COLUMN_SLOT_STORE_SERVICE`,
-`INDEX_KEYS_SERVICE`, `STORE_SLOT_LISTENER`, …) answer for every option left out anywhere. Calling `setValue` on one
-after its `getValue` has run throws: the objects built before the call would keep the
-old one. For the same reason the package refuses to load twice in one process —
-two copies would each have their own `OIMDefaults`.
+`OIMDefaults` is an instance, not a process-wide setting: nothing is set once for everyone, and two
+parts of an app can build their services with different `defaults`. The package still refuses to load twice
+in one process — two copies would each have their own classes and built-in defaults.
 
 ## The four doors
 

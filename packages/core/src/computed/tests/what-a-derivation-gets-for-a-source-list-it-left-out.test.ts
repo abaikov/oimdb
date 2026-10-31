@@ -35,7 +35,7 @@ describe('what a derivation gets for a source list it left out', () => {
 
     it('derives again when a named source slot moves, with no source computeds named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();
@@ -49,7 +49,7 @@ describe('what a derivation gets for a source list it left out', () => {
 
     it('derives again when a named source computed moves, with no source slots named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();

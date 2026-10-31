@@ -81,7 +81,7 @@ const globalIndexChildReducer = (
 describe('a throw out of a child reducer sync-back', () => {
     test('reaches the dispatcher, and leaves the collection reducer able to see the next frame', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db, item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
 
@@ -118,9 +118,9 @@ describe('a throw out of a child reducer sync-back', () => {
 
     test('reaches the dispatcher, and leaves the keyed-index reducer able to see the next frame', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db, item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
-        const byDepartmentService = bucketServiceOf<TUser>(db);
+        const byDepartmentService = bucketServiceOf<TUser>();
         const byDepartment = byDepartmentService.createStoreSlot(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });
         const keyedIndex: TOIMReduxKeyedIndex<string, string, TUser> = {
@@ -154,7 +154,7 @@ describe('a throw out of a child reducer sync-back', () => {
 
     test('reaches the dispatcher, and leaves the Global-index reducer able to see the next frame', () => {
         const db = new OIMDB();
-        const usersService = entityServiceOf<TUser>(db, item => item.id);
+        const usersService = entityServiceOf<TUser>(item => item.id);
         const users = usersService.createStoreSlot(db);
         const { singleBucket, bucketService, bucket } = singleBucketOf<TUser>(db);
         const adapter = new OIMReduxAdapter({ channelMap: db });

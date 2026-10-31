@@ -1,7 +1,8 @@
 
 import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
-import { OIMDefaults } from '../../db/OIMDefaults';
+import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
+
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -24,7 +25,7 @@ const filed = (): TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]> =>
 const filedStore = () =>
     new OIMSlotTreeStoreService<
         TOIMEntitySlot, TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>
-    >(OIMDefaults.COMPOSITE_KEY_TREE_WALK.getValue());
+    >(OIMCompositeKeyTreeWalk.INSTANCE);
 
 describe('a list of identities is one key', () => {
     it('resolves a rebuilt list to the slot filed under the first one', () => {

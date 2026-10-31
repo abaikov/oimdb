@@ -12,7 +12,7 @@ describe('the object a caller hands a single entity, by default', () => {
     it('is the stored one, so mutating it afterwards changes what is stored', () => {
         const db = new OIMDB();
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -27,7 +27,7 @@ describe('the object a caller hands a single entity, by default', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -46,7 +46,7 @@ describe('the object a caller hands a single entity, by default', () => {
     it('is stored with its own __proto__ key, because no copy ran over it', () => {
         const db = new OIMDB();
         const payload = JSON.parse('{"theme":"dark","sidebar":true,"__proto__":{"polluted":true}}') as TSettings;
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, payload);
 
@@ -58,7 +58,7 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
     it('is copied, so mutating it afterwards changes nothing stored', () => {
         const db = new OIMDB();
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -73,7 +73,7 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
         const mine: TSettings = { theme: 'dark', sidebar: true };
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, mine);
 
@@ -94,7 +94,7 @@ describe('the object a caller hands a single entity built with oimInsertEntityWi
     it('is filed without its own __proto__ key, exactly as a collection files one', () => {
         const db = new OIMDB();
         const payload = JSON.parse('{"theme":"dark","sidebar":true,"__proto__":{"polluted":true}}') as TSettings;
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy }) }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy }) }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, payload);
 

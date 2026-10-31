@@ -8,7 +8,7 @@ type TCard = { id: string; title: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const byDeckService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, byDeck, byDeckService };
 };

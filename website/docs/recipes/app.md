@@ -28,11 +28,11 @@ declare function hydrateApp(): void;
 declare function report(error: unknown): void;
 
 function createDeckService(deckDb: OIMDB) {
-  return createOIMSlotCollectionService(deckDb, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+  return createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
 }
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 const deckService = createDeckService(db);
@@ -59,7 +59,7 @@ type TCardRecords = TOIMPersistRecords<TOIMStoreKey, Card>;
 const savedCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const savedCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: savedCardPersistEntityWriter }) });
+const savedCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: savedCardPersistEntityWriter }) });
 const savedCardEntityStoreSlot = savedCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
@@ -119,7 +119,7 @@ import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '@
 const offlineCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const offlineCardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db, { entityWriter: offlineCardPersistEntityWriter }) });
+const offlineCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: offlineCardPersistEntityWriter }) });
 const offlineCardEntityStoreSlot = offlineCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
@@ -171,7 +171,7 @@ with one: an SSR fill is two ordinary writes on each side.
 ```ts
 function renderDeckPage(deckCards: readonly Card[]): string {
   const requestDb = new OIMDB();
-  const requestCardService = createOIMSlotCollectionService(requestDb, { slotContentService: createOIMSlotContentEntityService<Card>(requestDb) });
+  const requestCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
   const requestCards = requestCardService.createStoreSlot(requestDb);
   const requestDeckService = createDeckService(requestDb);
   const requestDecks = requestDeckService.createStoreSlot(requestDb);

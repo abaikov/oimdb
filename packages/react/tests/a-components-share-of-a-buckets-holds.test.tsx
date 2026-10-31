@@ -33,10 +33,10 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 type TByDeckSlot = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, TOIMStoreKey>;
 type TByDeck = TOIMStoreSlot<Map<TOIMStoreKey, TByDeckSlot>, TByDeckSlot, readonly TCardSlot[]>;
 
-const createCardsService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
 
-const createByDeckService = (db: OIMDB) => createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 type TByDeckService = ReturnType<typeof createByDeckService>;
 
 function build(): {
@@ -48,9 +48,9 @@ function build(): {
     put: (...rows: readonly TCard[]) => void;
 } {
     const db = new OIMDB();
-    const cardsService = createCardsService(db);
+    const cardsService = createCardsService();
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createByDeckService(db);
+    const byDeckService = createByDeckService();
     const byDeck = byDeckService.createStoreSlot(db);
 
     const present = new Map<string, TCard>();

@@ -6,7 +6,7 @@ type TSettings = { theme: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
     const settings = settingsService.createStoreSlot(db);
     return { db, settingsService, settings };
 };

@@ -101,10 +101,10 @@ const watchPresence = <TBucketMemberSlot extends TOIMSlot>(
 /** No sorter, so the positions are the caller's; a distinct list, so its slots have a hash. */
 const handFilledBucket = (size: number) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
-    const indexService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const indexService = createOIMSlotCollectionService({ slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
 
     for (let i = 0; i < size; i++) rowsService.writeSlotContentByKey(rows, `r${i}`, { id: `r${i}` });

@@ -18,7 +18,7 @@ const createFixture =(keepAfterIdleMs?: number) => {
     const cooling = {
         flush: (): void => oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(),
     };
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ranksService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),

@@ -6,7 +6,7 @@ type TCard = { id: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const watched = cardsService.writeSlotContentByKey(cards, 'w', { id: 'w' });
     const other = cardsService.writeSlotContentByKey(cards, 'o', { id: 'o' });
@@ -36,7 +36,7 @@ describe('what a subscription holds', () => {
 
     it('an effect holds each root once, through its subscription', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c', { id: 'c' });
         const holdsBefore = card.holdCount;

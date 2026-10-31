@@ -16,12 +16,12 @@ type TUser = { id: string; name: string; department: string };
 
 function buildDb() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     // A bucket collection is a slot store plus a bucket service, built by the
     // caller. A bucket's slots are not derived from a column: department is a plain
     // field, and whoever writes it also states which bucket the row belongs to.
-    const byDepartmentService = bucketServiceOf<TUser>(db);
+    const byDepartmentService = bucketServiceOf<TUser>();
     const byDepartment = byDepartmentService.createStoreSlot(db);
     const keyedIndex: TOIMReduxKeyedIndex<string, string, TUser> = {
         bucketService: byDepartmentService,

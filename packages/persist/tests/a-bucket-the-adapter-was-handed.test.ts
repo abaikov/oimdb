@@ -19,9 +19,9 @@ type TSettings = { theme: string };
 const ignoreChange = (): void => undefined;
 
 function build(db = new OIMDB()) {
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'inbox');
     const persistBucketRecordSource = new OIMPersistBucketRecordSource({
@@ -166,7 +166,7 @@ describe('a bucket the source was handed, and a mirror that is torn down', () =>
 describe('the single entity source, which is not in that position', () => {
     it('risks nothing: a written single entity stays filed after its subscription is disposed', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: 'dark' });
         db.flush();

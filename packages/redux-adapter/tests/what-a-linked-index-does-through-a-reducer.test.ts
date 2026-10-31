@@ -26,11 +26,11 @@ function build() {
     const db = new OIMDB();
     // The linked-index diff keys off entity-reference equality, so the watched
     // collection needs a write strategy that allocates on change.
-    const decksService = replacingEntityServiceOf<TDeck>(db, item => item.id);
+    const decksService = replacingEntityServiceOf<TDeck>(item => item.id);
     const decks = decksService.createStoreSlot(db);
-    const cardsService = entityServiceOf<TCard>(db, item => item.id);
+    const cardsService = entityServiceOf<TCard>(item => item.id);
     const cards = cardsService.createStoreSlot(db);
-    const cardsByDeckService = bucketServiceOf<TCard>(db);
+    const cardsByDeckService = bucketServiceOf<TCard>();
     const cardsByDeck = cardsByDeckService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
     const linkedIndexes: ReadonlyArray<TOIMReduxLinkedIndex<TDeck, TCard>> = [

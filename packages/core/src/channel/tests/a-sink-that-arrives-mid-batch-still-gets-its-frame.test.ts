@@ -11,12 +11,12 @@ const withManualScheduler = () => {
     return { db, pending };
 };
 
-const recordServiceOn = (db: OIMDB) => createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+const recordServiceOn = () => createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
 
 describe('a sink that arrives mid-batch still gets its frame', () => {
     it('asks the host once a sink subscribes after the batch has begun', () => {
         const { db, pending } = withManualScheduler();
-        const recordService = recordServiceOn(db);
+        const recordService = recordServiceOn();
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { n: 0 });
         recordService.getSingleSlot(record).owner.holdSlot(recordService.getSingleSlot(record));
@@ -36,7 +36,7 @@ describe('a sink that arrives mid-batch still gets its frame', () => {
 
     it('asks the host once and not once per write of the batch', () => {
         const { db, pending } = withManualScheduler();
-        const recordService = recordServiceOn(db);
+        const recordService = recordServiceOn();
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { n: 0 });
         recordService.getSingleSlot(record).owner.holdSlot(recordService.getSingleSlot(record));
@@ -55,7 +55,7 @@ describe('a sink that arrives mid-batch still gets its frame', () => {
 
     it('asks for nothing when the channel has no sink either', () => {
         const { db, pending } = withManualScheduler();
-        const recordService = recordServiceOn(db);
+        const recordService = recordServiceOn();
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { n: 0 });
 

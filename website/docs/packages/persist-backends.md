@@ -39,10 +39,10 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const cardCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db, { entityWriter: persistEntityWriter }) });
+const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 
-const settingsSingleEntityService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db) });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'dark' });
 ```

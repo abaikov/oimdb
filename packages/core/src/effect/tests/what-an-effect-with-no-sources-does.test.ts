@@ -8,7 +8,7 @@ type TCard = { id: string; title: string };
 describe('what an effect with no sources does', () => {
     it('subscribes to nothing and holds nothing', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -24,7 +24,7 @@ describe('what an effect with no sources does', () => {
 
     it('never runs on its own, whatever is written, and runs once when asked to', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         let runs = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { runs++; });

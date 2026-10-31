@@ -1,4 +1,4 @@
-import { OIMChannelService, OIMDB, OIMSlotOwner, OIMSlotAtEmptyReleasePolicy, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter, oimInsertEntityWithSanitizedCopy } from '../../../core/src/index';
+import { OIMChannelService, OIMDB, OIMDefaults, OIMSlotOwner, OIMSlotAtEmptyReleasePolicy, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter, oimInsertEntityWithSanitizedCopy } from '../../../core/src/index';
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
 import { oimSanitizedCopyEntity } from '../../../core/src/entity/utils/oimSanitizedCopyEntity';
@@ -35,12 +35,12 @@ const slotOwner = new OIMSlotOwner();
 const channelService = OIMChannelService.INSTANCE;
 const contentChangeListeners: unknown[] = [];
 
-const createEntityService = (db: OIMDB): TPriceEntityService<TPriceDataRow> =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter }) });
+const createEntityService = (): TPriceEntityService<TPriceDataRow> =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter }) });
 
 const createWorld = (): TWorld => {
     const db = new OIMDB();
-    const entityService = createEntityService(db);
+    const entityService = createEntityService();
     return {
         db,
         plainMap: new Map(),
@@ -55,7 +55,7 @@ const emptyWorld = (world: TWorld): void => {
     world.plainMap = new Map();
     world.slotMap = new Map();
     world.store = storeService.createStore();
-    world.entityService = createEntityService(world.db);
+    world.entityService = createEntityService();
     world.entityStoreSlot = world.entityService.createStoreSlot(world.db);
 };
 
@@ -82,7 +82,7 @@ const updateEmptiness = (world: TWorld, slot: TRowSlot): void => {
     (slot as { slotFlags: number }).slotFlags = OIMSlotEntityPresenceEmptinessPolicy.INSTANCE.isEmpty(slot)
         ? slotFlags | OIM_SLOT_FLAG_EMPTY
         : slotFlags & ~OIM_SLOT_FLAG_EMPTY;
-    const slotStamp = world.db.slotStamp;
+    const slotStamp = OIMDefaults.INSTANCE.slotStamp;
     if (slotStamp !== undefined) slotStamp.stamp(slot);
     if ((slot.slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0) return;
     slotReleasePolicy.onSlotWritten();

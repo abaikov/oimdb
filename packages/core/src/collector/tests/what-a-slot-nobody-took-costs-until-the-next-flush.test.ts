@@ -20,9 +20,9 @@ const createFixture =() => {
         close: (): void => { OIMUnusedSlotCollectorService.INSTANCE.close(unusedSlotCollectorSlot); },
         run: <TAnswer>(body: () => TAnswer): TAnswer => OIMUnusedSlotCollectorService.INSTANCE.run(unusedSlotCollectorSlot, body),
     };
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const decksService = createOIMSlotCollectionService(db, { slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
     const decks = decksService.createStoreSlot(db);
     return { db, unusedSlotCollector, cardsService, cards, decksService, decks };
 };

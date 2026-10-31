@@ -74,7 +74,7 @@ type TDoorWrite = (updateDoorProbe: UpdateDoorProbe, slot: TDoorSlot, patch: Par
 
 const doorSide = (write: TDoorWrite): TPriceSide => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TPriceDataRow> = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: probeWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TPriceDataRow> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter: probeWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const updateDoorProbe = new UpdateDoorProbe(entityService.slotContentService);
     const fixture = priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), priceDataset.makeRows(priceDataset.batch));
     const patch: { title: string } = { title: '' };

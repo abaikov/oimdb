@@ -16,7 +16,7 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 function setUp() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'spades', title: 'Ace' },
@@ -27,7 +27,7 @@ function setUp() {
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
         OIMSlotContentSetBucketService<TCardSlot, string>
-    >(db, {
+    >({
         entityService: cardsService,
         slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
         keyOf: card => card.deck,

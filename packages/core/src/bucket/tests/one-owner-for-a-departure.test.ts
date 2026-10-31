@@ -19,12 +19,12 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
  */
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     // Positions are the caller's here, which is what these
     // writes are.
     const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
-    const listService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+    const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'kept', { id: 'kept', deckId: 'spades' });
     db.flush();
@@ -116,7 +116,7 @@ describe('one owner for a departure', () => {
 describe('what may be a column of a stored entity', () => {
     it('leaves the prototype alone when a standalone record is replaced from a payload under the guarded writer', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<TSettings>(db, { entityWriter: createOIMInPlaceEntityWriter({
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({
                 putEntityColumns: oimGuardedPutEntityColumns,
                 patchEntityColumns: oimGuardedPatchEntityColumns,
                 patchEntityColumn: oimGuardedPatchEntityColumn,
@@ -136,9 +136,9 @@ describe('what may be a column of a stored entity', () => {
 });
 
 describe('reaching a bucket\'s slots', () => {
-    const byDeckOver = (db: OIMDB) => {
+    const byDeckOver = () => {
         const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
-        const byDeckService = createOIMSlotCollectionService(db, { slotContentService: membersService });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: membersService });
         return { byDeckService, membersService };
     };
 
@@ -159,9 +159,9 @@ describe('reaching a bucket\'s slots', () => {
      */
     it('drops a bucket let go while empty, and keeps one that still holds a slot', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
-        const { byDeckService, membersService } = byDeckOver(db);
+        const { byDeckService, membersService } = byDeckOver();
         const byDeck = byDeckService.createStoreSlot(db);
 
         const emptySlot = byDeckService.holdSlotByKey(byDeck, 'spades');

@@ -16,7 +16,7 @@ const worldWithTwoWindows = (longMs: number, shortMs: number) => {
             return () => { armedFor.splice(armedFor.indexOf(delayMs), 1); };
         },
     });
-    const entityServiceWith = (keepAfterIdleMs: number) => createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }) });
+    const entityServiceWith = (keepAfterIdleMs: number) => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }) });
     const archiveService = entityServiceWith(longMs);
     const liveService = entityServiceWith(shortMs);
     return {

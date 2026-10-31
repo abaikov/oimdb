@@ -6,16 +6,17 @@ description: An index of every name exported by @oimdb/core, grouped by domain, 
 
 # API reference
 
-This page indexes every export of `@oimdb/core`: all 229 names that the package entry point exports, and nothing else. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
+This page indexes every export of `@oimdb/core`: all 230 names that the package entry point exports, and nothing else. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
 
 ## Root and defaults
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
 | `OIMDB` | class | The root: the clock, the collector slot and the default channel slot over them, plus the database-wide entity writer, slot stamp, release policy and index-keys service the factories read; `flush()` flushes the default channel slot. An `IOIMChannelMap`. | [The root: OIMDB](./model.md#the-root-oimdb) |
-| `TOIMDBOptions` | type | Options of `OIMDB`: `channelScheduler`, `errorPolicy`, `onBeforeFlush`, `getNowMs`, `releaseTimer`, `entityWriter`, `indexKeysService`, `slotStamp`, `slotReleasePolicy`. | [The root: OIMDB](./model.md#the-root-oimdb) |
-| `OIMDefaults` | class | Static `OIMDefaultValue` entries for the process-wide defaults: column slot store service, computed column slot store service, scalar and composite key tree walks, standalone slot owner, entity writer, entity emptiness, index-keys service, store slot listener. | [Building one](./collections.md#building-one) |
-| `OIMDefaultValue` | class | One process-wide default: `getValue()` builds it on first read and marks it handed out; `setValue()` replaces it and throws once it was handed out. | [Building one](./collections.md#building-one) |
+| `TOIMDBOptions` | type | Options of `OIMDB`: `channelScheduler`, `errorPolicy`, `onBeforeFlush`, `getNowMs`, `releaseTimer`. | [The root: OIMDB](./model.md#the-root-oimdb) |
+| `OIMDefaults` | class | The strategies factories fall back on, passed as `defaults`: slot stamp, release policy, entity writer, entity emptiness, index-keys service, column slot store services, store slot listener. `OIMDefaults.INSTANCE` is the empty one. | [Building one](./collections.md#building-one) |
+| `TOIMDefaultsOptions` | type | The options of `new OIMDefaults(...)`, every field optional. | [Building one](./collections.md#building-one) |
+| `OIMDefaultValue` | class | One built-in default: `getValue()` builds it on first read and hands the same instance back after. | [Building one](./collections.md#building-one) |
 | `TOIMFactoryOptions` | type | The options shape shared by the collection factories. | [Building one](./collections.md#building-one) |
 
 ## Collection services
@@ -271,7 +272,7 @@ This page indexes every export of `@oimdb/core`: all 229 names that the package 
 | `TOIMEditable` | type | The same type with every field writable. | [A slot](./architecture.md#a-slot) |
 | `TOIMStoreSlot` | type | A store slot: one collection's state — `store`, `channelSlot`, listeners, column state. Not a slot. | [A slot](./architecture.md#a-slot) |
 | `TOIMSingleSlotStoreSlot` | type | The store slot of a single. | [The three kinds of slot](./model.md#the-three-kinds-of-slot) |
-| `IOIMStoreSlotListener` | interface | Told of every store slot created; set as `OIMDefaults.STORE_SLOT_LISTENER` before the first collection is built. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
+| `IOIMStoreSlotListener` | interface | Told of every store slot a service creates; set as `storeSlotListener` of the `defaults` that service is built with. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `OIMNoStoreSlotListener` | class | The default store slot listener: hears nothing. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `IOIMSlotSubscriptionListener` | interface | `onSlotFirstSubscribed(slot)` and `onSlotLastUnsubscribed(slot)`: a slot of the collection got its first subscriber or lost its last; a column slot is handed over as itself. The `slotSubscriptionListener` option of the entity, bucket and index factories. | [Knowing when a slot is watched](./reading-subscribing.md#knowing-when-a-slot-is-watched) |
 | `OIMNoSlotSubscriptionListener` | class | `INSTANCE`: the default subscription listener, hears nothing. | [Knowing when a slot is watched](./reading-subscribing.md#knowing-when-a-slot-is-watched) |

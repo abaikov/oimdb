@@ -11,7 +11,7 @@ type TCard = { id: string; title: string };
 
 const collectionWith = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

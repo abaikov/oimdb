@@ -10,7 +10,7 @@ const START = 1_000_000;
 const createFixtureAt = (after: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: (_run): TOIMDisposer => (): void => undefined });
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard, string>(db), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, at: (value: number): void => { ms = value; } };
 };

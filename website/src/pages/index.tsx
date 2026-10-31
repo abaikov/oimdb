@@ -17,7 +17,7 @@ const HERO_CODE = `const taskService = createOIMEntityService<Task>(db, {
 });
 const tasks = taskService.createStoreSlot(db);
 
-const byColumnService = createOIMSlotCollectionIndexService(db, {
+const byColumnService = createOIMSlotCollectionIndexService({
     entityService: taskService,
     columns: ['column'],
 });

@@ -14,7 +14,7 @@ type TUser = { id: string; name: string };
 
 function buildDb() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     // A keyless index is ONE bucket with no address — no shipped store takes a
     // `void` key — plus the bucket collection that writes it.

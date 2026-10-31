@@ -49,7 +49,7 @@ const childReducer = (state: TState | undefined, action: Action): TState => {
  */
 function buildAdapter() {
     const db = new OIMDB();
-    const usersService = entityServiceOf<TUser>(db, item => item.id);
+    const usersService = entityServiceOf<TUser>(item => item.id);
     const users = usersService.createStoreSlot(db);
     const adapter = new OIMReduxAdapter({ channelMap: db });
     const childOptions: TOIMReduxCollectionReducerChildOptions<TUser, string, TState> = {

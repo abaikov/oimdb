@@ -14,7 +14,7 @@ type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db), slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

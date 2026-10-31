@@ -8,7 +8,7 @@ type TRow = { id: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow>(db) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const slot = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', rank: 1 });
     db.flush();

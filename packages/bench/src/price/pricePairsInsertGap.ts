@@ -59,7 +59,7 @@ type TRowSlotEditable = TOIMEditable<TRowSlot>;
 
 const reportingEntityFixture = () => {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TPriceDataRow>(db, { entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
 
@@ -73,7 +73,7 @@ type TRowBucketSlots = TOIMBucketSlotsSetStore<TRowSlot>;
 const holdSingleBucketSlot = (
     db: OIMDB, slotContentService: OIMSlotContentSetBucketService<TRowSlot>,
 ): TOIMBucketContentSlot<TRowBucketSlots> => {
-    const singleBucketService = createOIMSingleSlotService(db, { slotContentService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const singleBucketService = createOIMSingleSlotService({ slotContentService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return singleBucketService.holdSingleSlot(singleBucketService.createStoreSlot(db));
 };
 

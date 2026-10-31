@@ -21,11 +21,11 @@ type TCard = { id: string; title: string };
 
 function build() {
     const db = new OIMDB();
-    const cardsService = entityServiceOf<TCard>(db, item => item.id);
+    const cardsService = entityServiceOf<TCard>(item => item.id);
     const cards = cardsService.createStoreSlot(db);
     // What the bucket holds here is the deck's field, written by the updater below on
     // every call — there is nothing else that could undo it.
-    const cardsByDeckService = bucketServiceOf<TCard>(db);
+    const cardsByDeckService = bucketServiceOf<TCard>();
     const cardsByDeck = cardsByDeckService.createStoreSlot(db);
     return {
         db,

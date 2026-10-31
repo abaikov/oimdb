@@ -1,3 +1,4 @@
+import { OIMDefaults } from '../../index';
 import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../../index';
 import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
@@ -22,8 +23,9 @@ describe('a patch names its columns only for someone who reads them', () => {
         ['in place', createOIMInPlaceEntityWriter()],
         ['replacing', createOIMReplacingEntityWriter()],
     ])('the %s writer answers whether anything changed, and names nothing when handed no list', (_arm, writer) => {
-        const db = new OIMDB({ entityWriter: writer });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ entityWriter: writer });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 }) as TOIMEntitySlot;
 
@@ -37,8 +39,9 @@ describe('a patch names its columns only for someone who reads them', () => {
 
     it('hands the writer no list when nothing watches the slot by column and nothing listens to the collection', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
-        const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ entityWriter });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
@@ -49,8 +52,9 @@ describe('a patch names its columns only for someone who reads them', () => {
 
     it('hands it a list once a column of the slot is watched', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
-        const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ entityWriter });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
         const title = cardsService.columnSlotService.holdColumn(card, 'title');
@@ -68,10 +72,11 @@ describe('a patch names its columns only for someone who reads them', () => {
 
     it('hands it a list while an index listens to the collection', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
-        const db = new OIMDB({ entityWriter });
-        const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+        const defaults = new OIMDefaults({ entityWriter });
+        const db = new OIMDB();
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService(db, {
+        const byDeckService = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
             slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),

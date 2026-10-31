@@ -10,7 +10,7 @@ type Card = { id: string; title: string; rank: number };
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card, string>(db) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.holdSlotByKey(cards, 'a');
     const rowSlot = cardsService.getSlotByKey(cards, 'a');

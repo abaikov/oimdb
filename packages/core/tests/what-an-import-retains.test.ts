@@ -276,9 +276,10 @@ describe('what an import retains', () => {
      * whose value is built on first getValue(); `OIMDefaults` holds all of them and is
      * the one door that retains every arm.
      */
-    it('a default is one door to its own arm, and the defaults class to all of them', () => {
-        expect(retains(DEFAULTS, 'key/OIMCompositeKeyTreeWalk.ts')).toBe(true);
-        expect(retains(DEFAULTS, 'key/OIMScalarKeyTreeWalk.ts')).toBe(true);
+    it('a default is one door to its own arm, and the defaults class to none of them', () => {
+        expect(retains(DEFAULTS, 'key/OIMCompositeKeyTreeWalk.ts')).toBe(false);
+        expect(retains(DEFAULTS, 'key/OIMScalarKeyTreeWalk.ts')).toBe(false);
+        expect(retains(DEFAULTS, 'entity/createOIMInPlaceEntityWriter.ts')).toBe(false);
         expect(retains(COLLECTION, 'key/OIMCompositeKeyTreeWalk.ts')).toBe(false);
         expect(retains(COLLECTION, 'key/OIMScalarKeyTreeWalk.ts')).toBe(false);
     });

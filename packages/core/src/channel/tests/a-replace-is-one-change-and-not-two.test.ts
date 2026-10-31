@@ -15,7 +15,7 @@ const effectService = OIMEffectService.INSTANCE;
 describe('a replace is one change and not two', () => {
     it('tells a subscriber once, with the record the caller asked for', () => {
         const db = syncDb();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', sidebar: 'open', zoom: 1 });
         const seen: Partial<Settings>[] = [];
@@ -34,7 +34,7 @@ describe('a replace is one change and not two', () => {
 
     it('never shows a state the caller did not write', () => {
         const db = syncDb();
-        const settingsService = createOIMSingleSlotService(db, { slotContentService: createOIMSlotContentEntityService<Settings>(db) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', sidebar: 'open', zoom: 1 });
         const seen: Partial<Settings>[] = [];
@@ -56,7 +56,7 @@ describe('a replace is one change and not two', () => {
     /** THE CONTROL — the collection's own whole-row write, which does bracket its pair. */
     it('is what the collection already does with the same pair of writes', () => {
         const db = syncDb();
-        const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Row, string>(db) });
+        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Row, string>() });
         const rows = rowsService.createStoreSlot(db);
         const slot = rowsService.writeSlotContentByKey(rows, 's', { id: 's', theme: 'dark', sidebar: 'open', zoom: 1 });
         const seen: Partial<Row>[] = [];

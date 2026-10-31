@@ -70,13 +70,13 @@ const spreadWithoutDeletingTheKey: TOIMEntityInserter = <TEntity extends object>
 
 const rowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
 const replacingRowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: createOIMReplacingEntityWriter({ entityInserter }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMReplacingEntityWriter({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 

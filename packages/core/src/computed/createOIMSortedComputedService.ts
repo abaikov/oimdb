@@ -10,6 +10,7 @@ import { OIMSlotAtUnholdReleasePolicy } from '../collector/OIMSlotAtUnholdReleas
 import { OIMSortedComputedService } from './OIMSortedComputedService';
 import { OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE } from '../db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
+import { OIMDefaults } from '../db/OIMDefaults';
 import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
 
 export function createOIMSortedComputedService<
@@ -17,6 +18,7 @@ export function createOIMSortedComputedService<
     TComputedStore = TOIMDefaultSlotStore<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>>,
 >(
     options: {
+        defaults?: OIMDefaults | undefined;
         indexService: OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>;
         sortColumns?: readonly TOIMSortColumn<TEntity>[] | undefined;
         comparator?: ((left: TEntity, right: TEntity) => number) | undefined;
@@ -25,13 +27,14 @@ export function createOIMSortedComputedService<
         computedSlotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>, TComputedStore> | undefined;
     },
 ): OIMSortedComputedService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TComputedStore> {
+    const defaults = options.defaults ?? OIMDefaults.INSTANCE;
     return new OIMSortedComputedService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TComputedStore>({
         indexService: options.indexService,
         computedSlotStoreService: oimResolveSlotStoreService(options.computedSlotStoreService),
-        columnSlotStoreService: options.columnSlotStoreService ?? OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue(),
+        columnSlotStoreService: options.columnSlotStoreService ?? defaults.computedColumnSlotStoreService ?? OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue(),
         sortColumns: options.sortColumns,
         comparator: options.comparator,
         slotReleasePolicy: options.slotReleasePolicy ?? OIMSlotAtUnholdReleasePolicy.INSTANCE,
-        storeSlotListener: OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
+        storeSlotListener: defaults.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
     });
 }

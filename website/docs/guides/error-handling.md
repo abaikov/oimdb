@@ -18,7 +18,7 @@ frame errors at all but refusals thrown at the call.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotAfterIdleReleasePolicy, type IOIMErrorPolicy, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotAfterIdleReleasePolicy, type IOIMErrorPolicy, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
@@ -26,7 +26,7 @@ declare function reportToSentry(error: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<Card>(db) });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 
@@ -97,8 +97,8 @@ and the db is built with one. The flush loop then calls
 and to every release collector of that db, so every error lands in one place:
 
 ```typescript
-const oneSinkDb = new OIMDB({
-    errorPolicy: new OIMThrowAtOnceErrorPolicy(),
+const oneSinkDb = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
+const idleReleasingDefaults = new OIMDefaults({
     slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 ```

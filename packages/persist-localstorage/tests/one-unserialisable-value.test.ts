@@ -41,7 +41,7 @@ function buildNodes(db: OIMDB, storageKey: string) {
     const persistEntityWriter = new OIMPersistEntityWriter<TNode, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TNode>(db, { entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNode>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistSnapshotResource = new OIMPersistSnapshotResource<
         OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TNodeRecords, TNodeRecords

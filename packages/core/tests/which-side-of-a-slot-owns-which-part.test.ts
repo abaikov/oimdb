@@ -377,7 +377,7 @@ describe('a population writes its rows through the strategy it was given', () =>
 
     const collectionOver = (write: IOIMEntityWriter) => {
         const db = new OIMDB();
-        const rowCollectionService = createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TRow, string>(db, { entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+        const rowCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const rowEntityService = {
             upsertEntity: (storeSlot: TRowStoreSlot, row: TRow) => rowCollectionService.writeSlotContentByKey(storeSlot, row.id, row),
             updateEntityByKey: (storeSlot: TRowStoreSlot, key: string, patch: Partial<TRow>) => {

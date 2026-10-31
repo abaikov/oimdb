@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { OIMDB } from '../src/db/OIMDB';
-import { OIMDefaults } from '../src/db/OIMDefaults';
+import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from '../src/db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE';
+
 import { OIMUnusedSlotCollectorService } from '../src/collector/OIMUnusedSlotCollectorService';
 import { createOIMUnusedSlotCollectorSlot } from '../src/collector/utils/createOIMUnusedSlotCollectorSlot';
 import { OIMPushColumnSlotOwner } from '../src/column/OIMPushColumnSlotOwner';
@@ -15,8 +16,8 @@ import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollect
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
-const cardServiceOn = (db: OIMDB) =>
-    createOIMSlotCollectionService(db, { slotContentService: createOIMSlotContentEntityService<TCard>(db) });
+const cardServiceOn = () =>
+    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 
 const filedCard = (
     cardService: ReturnType<typeof cardServiceOn>, db: OIMDB,
@@ -46,7 +47,7 @@ describe('which collector a minted column is given back to', () => {
 
     it('is the collector the caller named, and the channel gives that one back', () => {
         const db = new OIMDB();
-        const cardService = cardServiceOn(db);
+        const cardService = cardServiceOn();
         const card = filedCard(cardService, db);
 
         const column = cardService.columnSlotService.getColumn(card, 'title');
@@ -59,10 +60,10 @@ describe('which collector a minted column is given back to', () => {
 
     it('is a collector nothing flushes when the caller names one, and the hold then never comes back', () => {
         const db = new OIMDB();
-        const cardService = cardServiceOn(db);
+        const cardService = cardServiceOn();
         const card = filedCard(cardService, db);
         const unusedSlotCollectorSlot = createOIMUnusedSlotCollectorSlot();
-        const columnSlotOwner = new OIMPushColumnSlotOwner({ columnSlotStoreService: OIMDefaults.COLUMN_SLOT_STORE_SERVICE.getValue() });
+        const columnSlotOwner = new OIMPushColumnSlotOwner({ columnSlotStoreService: OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue() });
 
         const column = columnSlotOwner.getColumn(card, 'title', unusedSlotCollectorSlot);
         expect(column.holdCount).toBe(1);

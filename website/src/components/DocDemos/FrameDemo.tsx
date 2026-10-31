@@ -24,7 +24,7 @@ class FrameModel {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly cardService = createOIMSlotCollectionService(this.db, { slotContentService: createOIMSlotContentEntityService<TCard>(this.db) });
+    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 
