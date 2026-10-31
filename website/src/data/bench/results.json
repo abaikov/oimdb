@@ -234,32 +234,32 @@
       "reads.bySwitch": 156
     },
     "oimdb": {
-      "bind": 286,
-      "bindPerGroup": 280,
+      "bind": 285,
+      "bindPerGroup": 279,
       "churn.row": 155,
       "churn.wide": 155,
       "churn.column": 157,
       "churn.chain": 229,
       "churn.diamond": 229,
-      "reads.byKey": 194,
-      "reads.byWindow": 190,
-      "reads.byTwoAxes": 184,
-      "reads.bySwitch": 195,
+      "reads.byKey": 193,
+      "reads.byWindow": 189,
+      "reads.byTwoAxes": 183,
+      "reads.bySwitch": 194,
       "relations": 214,
       "single": 92
     },
     "oimdb-sorted-index": {
-      "bind": 286,
-      "bindPerGroup": 280,
+      "bind": 285,
+      "bindPerGroup": 279,
       "churn.row": 155,
       "churn.wide": 155,
       "churn.column": 157,
       "churn.chain": 229,
       "churn.diamond": 229,
-      "reads.byKey": 194,
-      "reads.byWindow": 190,
-      "reads.byTwoAxes": 184,
-      "reads.bySwitch": 195,
+      "reads.byKey": 193,
+      "reads.byWindow": 189,
+      "reads.byTwoAxes": 183,
+      "reads.bySwitch": 194,
       "relations": 214,
       "single": 92
     },
@@ -590,7 +590,7 @@
     }
   },
   "format": 1,
-  "generatedAt": "2026-10-31T17:57:03.643Z",
+  "generatedAt": "2026-10-31T19:36:07.830Z",
   "environment": {
     "node": "v24.16.0",
     "machine": "arm64 8× Apple M1",
@@ -5456,41 +5456,6 @@
           "foreignLoad": 32.96240234375
         },
         {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 0.16718679310344828,
-          "ratio": 0.29170722069104477,
-          "drift": 0.27299281394319,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 29,
-          "runs": 435,
-          "batchSeconds": 87.554,
-          "deliveries": [
-            32,
-            0
-          ],
-          "distinct": [
-            32,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-31T16:59:07.677Z",
-          "stale": [
-            "adapter",
-            "subject"
-          ],
-          "issues": [
-            "unresolved",
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 32.96240234375
-        },
-        {
           "adapter": "oimdb-sorted-index",
           "place": null,
           "ms": 0.13351724137931034,
@@ -5524,6 +5489,38 @@
             "gate-raised"
           ],
           "foreignLoad": 1.3466796875
+        },
+        {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.15275286206896552,
+          "ratio": 0.41717085344320187,
+          "drift": 0.041696605718545235,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 29,
+          "runs": 435,
+          "batchSeconds": 60.616,
+          "deliveries": [
+            32,
+            0
+          ],
+          "distinct": [
+            32,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T19:35:01.363Z",
+          "stale": [],
+          "issues": [
+            "fine-unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 2.10498046875
         },
         {
           "adapter": "alien-signals",
@@ -5752,14 +5749,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 1.480280172413793,
+          "ms": 0.36616379310344827,
           "ratio": 1,
-          "drift": 0.08779111596418429,
+          "drift": 0.01273304296645093,
           "processes": 3,
           "samples": 5,
           "repeat": 29,
           "runs": 435,
-          "batchSeconds": 350.004,
+          "batchSeconds": 60.616,
           "deliveries": [
             32,
             0
@@ -5772,20 +5769,18 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-31T17:49:38.524Z",
-          "stale": [
-            "harness"
-          ],
+          "measuredAt": "2026-10-31T19:35:01.363Z",
+          "stale": [],
           "issues": [
-            "unresolved",
+            "fine-unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 80.68603515625
+          "foreignLoad": 2.10498046875
         },
         {
           "adapter": "nanostores",
-          "place": null,
+          "place": 12,
           "ms": 0.3772198275862069,
           "ratio": 1.0522297435404169,
           "drift": 0.019486213791921374,
@@ -23721,14 +23716,14 @@
         {
           "adapter": "oimdb",
           "place": null,
-          "ms": 0.01360377358490566,
-          "ratio": 0.5485960202820742,
-          "drift": 0.010595006934812773,
+          "ms": 0.013819182389937106,
+          "ratio": 0.5421013325490988,
+          "drift": 0.3372966207759702,
           "processes": 3,
           "samples": 5,
           "repeat": 159,
           "runs": 2385,
-          "batchSeconds": 6.02,
+          "batchSeconds": 9.962,
           "deliveries": [
             8,
             0
@@ -23741,20 +23736,17 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:14:15.841Z",
-          "stale": [
-            "adapter",
-            "subject"
-          ],
+          "measuredAt": "2026-10-31T19:35:11.328Z",
+          "stale": [],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 1.142578125
+          "foreignLoad": 2.78076171875
         },
         {
           "adapter": "tanstack-store",
-          "place": 3,
+          "place": null,
           "ms": 0.017515459119496854,
           "ratio": 0.6942580874185076,
           "drift": 0.07868161746065842,
@@ -23785,15 +23777,15 @@
         },
         {
           "adapter": "baseline-array",
-          "place": 4,
-          "ms": 0.02522903144654088,
+          "place": null,
+          "ms": 0.025491880503144652,
           "ratio": 1,
-          "drift": 0.04215070189678674,
+          "drift": 0.18956165349479895,
           "processes": 3,
           "samples": 5,
           "repeat": 159,
           "runs": 2385,
-          "batchSeconds": 1025.32,
+          "batchSeconds": 9.962,
           "deliveries": [
             8,
             0
@@ -23806,13 +23798,13 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-23T00:23:04.747Z",
+          "measuredAt": "2026-10-31T19:35:11.328Z",
           "stale": [],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 6.72265625
+          "foreignLoad": 2.78076171875
         },
         {
           "adapter": "lokijs",
@@ -27183,15 +27175,15 @@
       "rows": [
         {
           "adapter": "baseline-array",
-          "place": null,
-          "ms": 0.21104757142857142,
+          "place": 1,
+          "ms": 0.22126785714285716,
           "ratio": 1,
-          "drift": 0.3104696097629987,
+          "drift": 0.17547703978694199,
           "processes": 3,
           "samples": 5,
           "repeat": 7,
           "runs": 105,
-          "batchSeconds": 4.453,
+          "batchSeconds": 5.621,
           "deliveries": [
             20,
             0
@@ -27204,13 +27196,13 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:14:57.957Z",
+          "measuredAt": "2026-10-31T19:35:16.952Z",
           "stale": [],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 2.08984375
+          "foreignLoad": 3.3583984375
         },
         {
           "adapter": "oimdb-sorted-index",
@@ -27249,14 +27241,14 @@
         {
           "adapter": "oimdb",
           "place": null,
-          "ms": 0.33270228571428573,
-          "ratio": 1.5764326661626054,
-          "drift": 0.04139994744336,
+          "ms": 0.351619,
+          "ratio": 1.5891101606004359,
+          "drift": 0.023716823363600134,
           "processes": 3,
           "samples": 5,
           "repeat": 7,
           "runs": 105,
-          "batchSeconds": 4.453,
+          "batchSeconds": 5.621,
           "deliveries": [
             20,
             0
@@ -27269,16 +27261,13 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:14:57.957Z",
-          "stale": [
-            "adapter",
-            "subject"
-          ],
+          "measuredAt": "2026-10-31T19:35:16.952Z",
+          "stale": [],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 2.08984375
+          "foreignLoad": 3.3583984375
         },
         {
           "adapter": "oimdb-3.12.1",
@@ -29320,42 +29309,8 @@
       "scenario": "relationWrite",
       "rows": [
         {
-          "adapter": "oimdb",
-          "place": 1,
-          "ms": 0.007765380859375,
-          "ratio": 0.5106058060890372,
-          "drift": 0.006906152733674917,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 512,
-          "runs": 7680,
-          "batchSeconds": 23.115,
-          "deliveries": [
-            8,
-            0
-          ],
-          "distinct": [
-            8,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T20:17:54.126Z",
-          "stale": [
-            "adapter",
-            "subject"
-          ],
-          "issues": [
-            "fine-unresolved",
-            "gate-raised"
-          ],
-          "foreignLoad": 0.19384765625
-        },
-        {
           "adapter": "oimdb-sorted-index",
-          "place": null,
+          "place": 1,
           "ms": 0.00777734375,
           "ratio": 0.5125498777191402,
           "drift": 0.003170517327975863,
@@ -29387,6 +29342,38 @@
             "gate-raised"
           ],
           "foreignLoad": 0.83837890625
+        },
+        {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.007947998046875,
+          "ratio": 0.5199565571544936,
+          "drift": 0.04192904315773313,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 512,
+          "runs": 7680,
+          "batchSeconds": 24.697,
+          "deliveries": [
+            8,
+            0
+          ],
+          "distinct": [
+            8,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T19:35:41.652Z",
+          "stale": [],
+          "issues": [
+            "fine-unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 3.7578125
         },
         {
           "adapter": "mobx",
@@ -29551,14 +29538,14 @@
         {
           "adapter": "baseline-array",
           "place": 8,
-          "ms": 0.015208171875,
+          "ms": 0.015285888671875,
           "ratio": 1,
-          "drift": 0.002188507823199475,
+          "drift": 0.01881458529651346,
           "processes": 3,
           "samples": 5,
           "repeat": 512,
           "runs": 7680,
-          "batchSeconds": 23.115,
+          "batchSeconds": 24.697,
           "deliveries": [
             8,
             8
@@ -29571,13 +29558,14 @@
             0,
             8
           ],
-          "measuredAt": "2026-10-22T20:17:54.126Z",
+          "measuredAt": "2026-10-31T19:35:41.652Z",
           "stale": [],
           "issues": [
             "fine-unresolved",
+            "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0.19384765625
+          "foreignLoad": 3.7578125
         }
       ],
       "problems": [],
@@ -29614,14 +29602,14 @@
         {
           "adapter": "oimdb",
           "place": 1,
-          "ms": 0.008910400390625,
-          "ratio": 0.5402694594113854,
-          "drift": 0.011653998958818574,
+          "ms": 0.00910555078125,
+          "ratio": 0.5414421324126499,
+          "drift": 0.04021842789061103,
           "processes": 3,
           "samples": 5,
           "repeat": 512,
           "runs": 7680,
-          "batchSeconds": 21.422,
+          "batchSeconds": 25.119,
           "deliveries": [
             0,
             8
@@ -29634,16 +29622,14 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:18:15.549Z",
-          "stale": [
-            "adapter",
-            "subject"
-          ],
+          "measuredAt": "2026-10-31T19:36:06.772Z",
+          "stale": [],
           "issues": [
             "fine-unresolved",
+            "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0
+          "foreignLoad": 6.53564453125
         },
         {
           "adapter": "oimdb-sorted-index",
@@ -29807,14 +29793,14 @@
         {
           "adapter": "baseline-array",
           "place": null,
-          "ms": 0.01649251171875,
+          "ms": 0.01681721875,
           "ratio": 1,
-          "drift": 0.011408349859536229,
+          "drift": 0.030234776113023863,
           "processes": 3,
           "samples": 5,
           "repeat": 512,
           "runs": 7680,
-          "batchSeconds": 21.422,
+          "batchSeconds": 25.119,
           "deliveries": [
             8,
             8
@@ -29827,13 +29813,14 @@
             8,
             0
           ],
-          "measuredAt": "2026-10-22T20:18:15.549Z",
+          "measuredAt": "2026-10-31T19:36:06.772Z",
           "stale": [],
           "issues": [
             "fine-unresolved",
+            "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0
+          "foreignLoad": 6.53564453125
         },
         {
           "adapter": "solid-js",
