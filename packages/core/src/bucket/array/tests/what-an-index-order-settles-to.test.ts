@@ -2,11 +2,12 @@ import { OIMDB } from '../../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../../index/createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../../computed/createOIMSortedComputedService';
 import { OIMBucketUniqueMemberSlotsArrayService } from '../OIMBucketUniqueMemberSlotsArrayService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import { OIMEffectService } from '../../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deckId: string; rank: number };
 type TRanked = { id: string; rank: number; label?: string };
@@ -15,9 +16,9 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
 describe('a deduplicating bucket', () => {
     it('adding the same slot twice leaves one slot', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
-        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+        const membersService = new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
         const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
         const search = searchService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1', rank: 0 });
@@ -36,7 +37,7 @@ function ordered(entities: readonly TRanked[]) {
     const counter = { comparisons: 0 };
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRanked, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRanked, string>() });
     const cards = cardsService.createStoreSlot(db);
     const byAllService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -53,7 +54,7 @@ function ordered(entities: readonly TRanked[]) {
     });
     const orders = ordersService.createSortedStoreSlot(byAll);
     const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'all');
-    const ids = (): string[] => order.computedValueService.getValueForSlot(order)
+    const ids = (): string[] => readValueWithoutTracking(order)
         .map(slot => (slot.entity as TRanked).id);
     const upsertEntities = (batch: readonly TRanked[]): void => {
         cardsService.writeInBatch(cards, () => (batch).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));

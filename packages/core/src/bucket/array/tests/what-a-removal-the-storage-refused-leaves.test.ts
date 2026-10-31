@@ -1,23 +1,24 @@
 import { OIMDB } from '../../../db/OIMDB';
 import { OIMBucketUniqueMemberSlotsArrayService } from '../OIMBucketUniqueMemberSlotsArrayService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
+import { bucketSlotsStoreOf } from '../../../../tests/support/bucketSlotsStoreOf';
 
 type TCard = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const cardSlot = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
-    const service = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const service = new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
     const decksService = createOIMSlotCollectionService({ slotContentService: service });
     const decks = decksService.createStoreSlot(db);
     const bucket = decksService.holdSlotByKey(decks, 'deck');
-    return { cardSlot, service, bucket, slots: bucket.bucketSlotsStore };
+    return { cardSlot, service, bucket, slots: bucketSlotsStoreOf<TCardSlot>(bucket) };
 };
 
 describe('a removal the storage has nothing to give up for', () => {

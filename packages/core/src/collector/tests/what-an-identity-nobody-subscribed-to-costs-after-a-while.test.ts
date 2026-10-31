@@ -1,6 +1,6 @@
 import { OIMDB, OIMEffectService, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterWriteReleasePolicy, oimIsSlotReleased, oimMintAfterIdleSlotReleaseWheel, oimMintAfterWriteSlotReleaseWheel } from '../../index';
 import type { TOIMDisposer } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -12,7 +12,7 @@ const createFixtureAt = (after: number) => {
         getNowMs: () => ms,
         releaseTimer: (run): TOIMDisposer => { armed = run; return () => { armed = undefined; }; },
     });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
@@ -96,7 +96,7 @@ describe('the other window, which counts from the last write', () => {
     const createAgingFixture = (after: number) => {
         let ms = 1_000_000;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
         const cards = cardsService.createStoreSlot(db);
         return {
             db,
@@ -162,7 +162,7 @@ describe('the timer', () => {
 describe('a collection built without the layer', () => {
     it('holds what it held before the layer existed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();

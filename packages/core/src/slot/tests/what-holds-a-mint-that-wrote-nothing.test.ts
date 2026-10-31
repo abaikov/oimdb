@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleReleasePolicy';
 import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -12,7 +12,7 @@ const KEEP_AFTER_IDLE_MS = 1_000;
 function worldWithAReleaseClock() {
     let nowMs = 10_000;
     const db = new OIMDB({ getNowMs: () => nowMs });
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }) });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }) });
     const byDeck = byDeckService.createStoreSlot(db);
     const sweepTheReleaseClock = (): void => {
         nowMs += KEEP_AFTER_IDLE_MS * 4;

@@ -3,19 +3,19 @@ import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; title: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'ace' });
     db.flush();
@@ -113,7 +113,7 @@ describe('what a caller who memoises is promised', () => {
      */
     it('keeps a bucket memo true across an emptying, because the handle holds the bucket', () => {
         const { db, cardsService, cards } = createFixture();
-        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
 
         const spadesSlot = byDeckService.holdSlotByKey(byDeck, 'spades');

@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.0
+
+### Added
+
+- `useOIMSourceTrackingValue(read, deps)`.
+
+### Changed
+
+- Requires `@oimdb/core` 4.4.0.
+
 ## 3.2.0
 
 ### Changed

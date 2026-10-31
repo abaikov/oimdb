@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { oimInsertEntityWithCopy } from '../utils/oimInsertEntityWithCopy';
 // Not a public export — the rule about which names may be a column, imported by
 // path so this file reads the answer OFF the rule instead of restating it.
@@ -12,7 +12,7 @@ import { oimGuardedPatchEntityColumn } from '../utils/oimGuardedPatchEntityColum
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number; label?: string };
@@ -25,7 +25,7 @@ type TCard = { id: string; deckId: string };
  * it holds for every slot written through it.
  */
 const rowsOn = (db: OIMDB, write: IOIMEntityWriter) => {
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, TOIMStoreKey>({ entityWriter: write }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, TOIMStoreKey>({ entityWriter: write }) });
     return { rowsService, rowsContentService: rowsService.slotContentService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -293,9 +293,9 @@ describe('the collection built with oimInsertEntityWithCopy owns its entities', 
      */
     it('under oimInsertEntityWithCopy, a caller mutating behind the engine changes neither the value nor the list', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
         const byDeck = byDeckService.createStoreSlot(db);
         const item: TCard = { id: 'c1', deckId: 'spades' };
         cardsService.writeSlotContentByKey(cards, item.id, item);

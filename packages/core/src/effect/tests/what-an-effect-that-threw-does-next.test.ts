@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { OIMLogAndContinueErrorPolicy } from '../../error/OIMLogAndContinueErrorPolicy';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 
@@ -10,7 +10,7 @@ type TCard = { id: string; n: number };
 const createFixture = () => {
     const db = new OIMDB({ errorPolicy: new OIMLogAndContinueErrorPolicy({ onError: () => undefined }) });
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const failing = cardsService.writeSlotContentByKey(cards, 'failing', { id: 'failing', n: 0 });
     const other = cardsService.writeSlotContentByKey(cards, 'other', { id: 'other', n: 0 });

@@ -1,8 +1,8 @@
-import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
+import type { OIMEntitySlot } from '../OIMEntitySlot';
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 
 export function oimInsertEntityWithoutCopy<TEntity extends object>(
-    slot: TOIMEntityContentSlot<TEntity>, entity: TEntity,
+    slot: OIMEntitySlot<TEntity>, entity: TEntity,
 ): void {
-    (slot as TOIMEditable<TOIMEntityContentSlot<TEntity>>).entity = entity;
+    (slot as TOIMEditable<OIMEntitySlot<TEntity>>).content = entity;
 }

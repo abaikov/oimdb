@@ -1,5 +1,5 @@
 import type { TOIMDisposer, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService } from '@oimdb/core';
 import type {
     IOIMPersistSnapshotSource, IOIMPersistSourceChangeMark, TOIMPersistHydrateReconcile, TOIMPersistOperation,
 } from '../src';
@@ -14,7 +14,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
@@ -366,7 +366,7 @@ describe('hydrate issued before start()', () => {
 describe('hydrate against an effect-driven source written while the read is in flight, with no frame run', () => {
     it('refuses on a single entity source instead of clobbering the write', async () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: 'dark' });
         db.flush();
@@ -400,9 +400,9 @@ describe('hydrate against an effect-driven source written while the read is in f
 
     it('refuses on a bucket source when a member nothing else holds is written', async () => {
         const db = new OIMDB();
-        const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+        const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
         const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-        const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+        const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
         const userBucketStoreSlot = userBucketService.createStoreSlot(db);
         const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
         const userSlot = userEntityService.writeSlotContentByKey(userEntityStoreSlot, 'u1', { id: 'u1', name: 'Ada' });
@@ -422,7 +422,7 @@ describe('hydrate against an effect-driven source written while the read is in f
                 channelMap: db,
                 entityCollectionService: userEntityService,
                 entityStoreSlot: userEntityStoreSlot,
-                slotContentBucketService: userBucketService.slotContentService,
+                bucketContentService: userBucketService.slotContentService,
                 bucketSlot,
             }),
             persistRecordsService: testPersistBackend.createRecordsStrategy(),

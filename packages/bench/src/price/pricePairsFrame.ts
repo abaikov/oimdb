@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../../../core/src/computed/OIMComputedSlot';
 import { OIMEffectService, createOIMComputedService, oimSameValueZeroGuard } from '../../../core/src/index';
 import type { TOIMComputedSlot, TOIMEffect } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
@@ -585,7 +586,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
                         const slots = fixture.slots;
                         const slotContentService = fixture.entityService.slotContentService;
                         const db = fixture.db;
-                        const computedValueService = titleLengthSlots[0].computedValueService;
+                        const computedValueService = (titleLengthSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
                         let done = 0;
                         while (done < times) {
                             const upTo = Math.min(slots.length, times - done);

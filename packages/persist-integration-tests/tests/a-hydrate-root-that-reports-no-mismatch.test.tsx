@@ -14,7 +14,7 @@ import {
 } from '@oimdb/persist';
 import { OIMPersistMemoryRecordsService } from '@oimdb/persist-memory';
 import { OIMPersistJsonMemoryBackend } from '@oimdb/persist-json';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TQuestion = {
@@ -26,7 +26,7 @@ type TQuestion = {
 type TQuestionStoreSlot = TOIMStoreSlot<Map<string, TOIMEntitySlot<TQuestion, string>>, TOIMEntitySlot<TQuestion, string>, Partial<TQuestion>>;
 
 const createQuestionCollectionService = (persistEntityWriter: OIMPersistEntityWriter<TQuestion, string>) =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TQuestion, string>({ entityWriter: persistEntityWriter }) });
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TQuestion, string>({ entityWriter: persistEntityWriter }) });
 
 type TQuestionCollectionService = ReturnType<typeof createQuestionCollectionService>;
 

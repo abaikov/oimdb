@@ -1,9 +1,10 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { bucketSlotsStoreOf } from '../../../tests/support/bucketSlotsStoreOf';
 
 type TCard = { id: string; deckId: string; day: string; tags: string[]; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
@@ -14,9 +15,9 @@ const idsOf = (slots: Iterable<TOIMEntitySlot<TCard>>): string[] =>
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
     const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
     const search = searchService.createStoreSlot(db);
     const bucketAt = (key: string): TOIMBucketSlot<TSlots, string> => searchService.holdSlotByKey(search, key);
@@ -71,6 +72,6 @@ describe('what a deduplicating bucket keeps in step', () => {
         db.flush();
         expect(idsOf(membersService.getBucketMemberSlots(bucket))).toEqual(['c1', 'c2']);
         expect(membersService.getBucketMemberSlotCount(bucket)).toBe(2);
-        expect(bucket.bucketSlotsStore.uniqueBucketMemberSlots!.size).toBe(2);
+        expect(bucketSlotsStoreOf<TCardSlot>(bucket).uniqueBucketMemberSlots!.size).toBe(2);
     });
 });

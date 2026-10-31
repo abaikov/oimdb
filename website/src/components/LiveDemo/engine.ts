@@ -3,7 +3,7 @@ import {
     OIMEffectService,
     createOIMSortedComputedService,
     createOIMSlotCollectionService,
-    createOIMSlotContentEntityService,
+    createOIMEntityContentService,
     createOIMSlotCollectionIndexService,
     type TOIMEntitySlot,
     type TOIMStoreKey,
@@ -42,7 +42,7 @@ export class DemoEngine {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly taskService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTask>() });
+    private readonly taskService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TTask>() });
 
     private readonly tasks = this.taskService.createStoreSlot(this.db);
 
@@ -82,13 +82,13 @@ export class DemoEngine {
         for (const column of COLUMNS) {
             const sortedSlot = this.tasksByPriorityService.computedCollectionService.holdSlotByKey(this.tasksByPriority, column);
             const effect = this.effectService.createAndRunEffect(this.db, () => {
-                const ordered = sortedSlot.computedValueService.getValueForSlot(sortedSlot);
+                const ordered = sortedSlot.value;
                 this.columns[column] = ordered.flatMap((slot) => (slot.entity === undefined ? [] : [{ ...slot.entity }]));
                 this.frame.columnRuns.add(column);
             }, [], [sortedSlot]);
             this.disposers.push(() => {
                 this.effectService.disposeEffect(effect);
-                sortedSlot.owner.unholdSlot(sortedSlot);
+                sortedSlot.unholdSlot();
             });
         }
         for (const slot of this.taskSlots) {
@@ -105,20 +105,20 @@ export class DemoEngine {
     public rename(): void {
         const slot = pick(this.taskSlots);
         const title = slot.entity?.title ?? '';
-        this.taskService.slotContentService.updateEntity(slot, { title: title.endsWith(' (edited)') ? title.slice(0, -9) : `${title} (edited)` });
+        slot.updateEntity({ title: title.endsWith(' (edited)') ? title.slice(0, -9) : `${title} (edited)` });
         this.wrote(1);
     }
 
     public reprioritise(): void {
         const slot = pick(this.taskSlots);
-        this.taskService.slotContentService.updateEntity(slot, { priority: Math.floor(Math.random() * 20) + 1 });
+        slot.updateEntity({ priority: Math.floor(Math.random() * 20) + 1 });
         this.wrote(1);
     }
 
     public move(): void {
         const slot = pick(this.taskSlots);
         const current = slot.entity?.column;
-        this.taskService.slotContentService.updateEntity(slot, { column: pick(COLUMNS.filter((column) => column !== current)) });
+        slot.updateEntity({ column: pick(COLUMNS.filter((column) => column !== current)) });
         this.wrote(1);
     }
 
@@ -126,7 +126,7 @@ export class DemoEngine {
         for (let i = 0; i < 100; i++) {
             const slot = pick(this.taskSlots);
             const title = slot.entity?.title ?? '';
-            this.taskService.slotContentService.updateEntity(slot, { title: title.endsWith(' (edited)') ? title.slice(0, -9) : `${title} (edited)` });
+            slot.updateEntity({ title: title.endsWith(' (edited)') ? title.slice(0, -9) : `${title} (edited)` });
         }
         this.wrote(100);
     }

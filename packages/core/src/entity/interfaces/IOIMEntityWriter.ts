@@ -1,12 +1,12 @@
-import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
+import type { OIMEntitySlot } from '../OIMEntitySlot';
 
 export interface IOIMEntityWriter {
-    readonly fillEntity: (slot: TOIMEntityContentSlot, entity: object) => void;
-    readonly putEntity: (slot: TOIMEntityContentSlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
-    readonly patchEntity: (slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly fillEntity: (slot: OIMEntitySlot, entity: object) => void;
+    readonly putEntity: (slot: OIMEntitySlot, entity: object, changedColumnNames: string[] | undefined) => boolean;
+    readonly patchEntity: (slot: OIMEntitySlot, patch: object, changedColumnNames: string[] | undefined) => boolean;
     readonly patchColumn: (
-        slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        slot: OIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ) => boolean;
-    readonly deleteColumns: (slot: TOIMEntityContentSlot, names: readonly string[]) => readonly string[];
-    readonly clearEntity: (slot: TOIMEntityContentSlot) => void;
+    readonly deleteColumns: (slot: OIMEntitySlot, names: readonly string[]) => readonly string[];
+    readonly clearEntity: (slot: OIMEntitySlot) => void;
 }

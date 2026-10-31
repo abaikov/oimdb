@@ -15,7 +15,7 @@ import type { TOIMStoreSlot } from '../src/slot/types/TOIMStoreSlot';
 import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
 import { oimIsSlotEmpty } from '../src/slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 describe('a subscribed column keeps its slot', () => {
@@ -23,7 +23,7 @@ describe('a subscribed column keeps its slot', () => {
     type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
     const plantAnEmptyRow = {
-        stamp(slot: { entity: TCard | undefined }): void { slot.entity ??= {}; },
+        stamp(slot: { content: TCard | undefined }): void { slot.content ??= {}; },
     } as unknown as IOIMSlotStamp<TOIMSlot>;
 
     const carriesNoColumn = {
@@ -39,7 +39,7 @@ describe('a subscribed column keeps its slot', () => {
         const defaults = new OIMDefaults({ slotStamp: plantAnEmptyRow });
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults, slotEmptinessPolicy: carriesNoColumn }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults, slotEmptinessPolicy: carriesNoColumn }) });
         const cards = cardsService.createStoreSlot(db);
         return { db, cardsService, cards, effectService };
     };

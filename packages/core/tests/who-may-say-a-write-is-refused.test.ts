@@ -3,13 +3,13 @@ import { join, relative } from 'node:path';
 
 import { OIMDB } from '../src/db/OIMDB';
 import { OIMThrowAtOnceErrorPolicy } from '../src/error/OIMThrowAtOnceErrorPolicy';
-import { OIMSlotContentPositionalArrayBucketService } from '../src/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../src/bucket/OIMPositionalArrayBucketContentService';
 import { createOIMSlotCollectionIndexService } from '../src/index/createOIMSlotCollectionIndexService';
 import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../src/bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
 import type { TOIMEntityContentSlot } from '../src/entity/types/TOIMEntityContentSlot';
@@ -81,7 +81,7 @@ const COLUMN_SLOT_SERVICE = ['column/OIMColumnSlotService.ts'] as const;
 
 const ENTITY_COMPOSITION: TComposition = {
     service: ['slot/OIMWritableSlotCollectionService.ts', 'slot/OIMSlotCollectionService.ts'],
-    parts: { slotContentService: ['entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
+    parts: { slotContentService: ['entity/OIMEntityContentService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
@@ -89,9 +89,9 @@ const BUCKET_COMPOSITION: TComposition = {
     service: ['slot/OIMSlotCollectionService.ts'],
     parts: {
         slotContentService: [
-            'bucket/OIMSlotContentBucketService.ts',
-            'bucket/OIMSlotContentArrayBucketService.ts',
-            'bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            'bucket/OIMBucketContentService.ts',
+            'bucket/OIMArrayBucketContentService.ts',
+            'bucket/OIMPositionalArrayBucketContentService.ts',
         ],
         columnSlotService: COLUMN_SLOT_SERVICE,
     },
@@ -100,7 +100,7 @@ const BUCKET_COMPOSITION: TComposition = {
 
 const SINGLE_ENTITY_COMPOSITION: TComposition = {
     service: ['slot/OIMSingleSlotService.ts'],
-    parts: { slotContentService: ['entity/OIMSlotContentEntityService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
+    parts: { slotContentService: ['entity/OIMEntityContentService.ts'], columnSlotService: COLUMN_SLOT_SERVICE },
     slotParts: { owner: SLOT_OWNER },
 };
 
@@ -160,7 +160,7 @@ const SLOT_OWNER_DOORS_THAT_WRITE_NOTHING = namedInPart('owner', [
 ]);
 
 const COLUMN_DOORS = [
-    'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroup', 'holdColumnGroup', 'unholdColumn',
+    'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroup', 'getColumnGroupSlot', 'holdColumnGroup', 'unholdColumn',
 ] as const;
 
 const BATCH_DOORS = ['openBatch', 'closeBatch', 'writeInBatch'] as const;
@@ -191,7 +191,7 @@ const entitySlotWriteDoors = <TSubject, TSlot>(
     'slotContentService.clearSlotContent': s => { entitySlotWriterOf(s).clearSlotContent(slotOf(s)); },
 });
 
-const cardEntityService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+const cardEntityService = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
 
 type TCardEntityService = ReturnType<typeof cardEntityService>;
 
@@ -238,14 +238,14 @@ const ENTITY_DOORS_THAT_WRITE_NOTHING = [
 ] as const;
 
 const cardBucketService = () =>
-    createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+    createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>() });
 
 type TCardBucketService = ReturnType<typeof cardBucketService>;
 type TCardBucketStoreSlot = ReturnType<TCardBucketService['createStoreSlot']>;
 
 type TBucketSubject = {
     bucketService: TCardBucketService;
-    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>;
+    membersService: OIMPositionalArrayBucketContentService<TCardSlot>;
     searchStoreSlot: TCardBucketStoreSlot;
     bucket: TBucket;
     card: TCardSlot;
@@ -308,7 +308,7 @@ const BUCKET_DOORS_THAT_WRITE_NOTHING = [
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
 ] as const;
 
-const singleCardEntityService = () => createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const singleCardEntityService = () => createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>() });
 
 type TSingleCardSlot = TOIMEntityContentSlot<TCard>;
 type TSingleCardEntityService = ReturnType<typeof singleCardEntityService>;
@@ -378,10 +378,10 @@ describe('who may say a write is refused', () => {
 
     it('asks assertWritable from these files and no others', () => {
         expect(SOURCE_FILES.filter(path => /\.assertWritable\(/.test(codeOf(path)))).toEqual([
-            'bucket/OIMSlotContentBucketService.ts',
-            'bucket/OIMSlotContentPositionalArrayBucketService.ts',
-            'bucket/OIMSlotContentSortedArrayBucketService.ts',
-            'entity/OIMSlotContentEntityService.ts',
+            'bucket/OIMBucketContentService.ts',
+            'bucket/OIMPositionalArrayBucketContentService.ts',
+            'bucket/OIMSortedArrayBucketContentService.ts',
+            'entity/OIMEntityContentService.ts',
         ]);
     });
 

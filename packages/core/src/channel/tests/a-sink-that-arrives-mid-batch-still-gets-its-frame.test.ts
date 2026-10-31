@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type TRow = { n: number };
@@ -11,7 +11,7 @@ const withManualScheduler = () => {
     return { db, pending };
 };
 
-const recordServiceOn = () => createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+const recordServiceOn = () => createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TRow>() });
 
 describe('a sink that arrives mid-batch still gets its frame', () => {
     it('asks the host once a sink subscribes after the batch has begun', () => {

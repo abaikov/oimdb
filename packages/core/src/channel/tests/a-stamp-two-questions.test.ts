@@ -1,14 +1,15 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -17,9 +18,9 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
-    const byGroupService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
+    const byGroupService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TRowSlot>() });
     const byGroup = byGroupService.createStoreSlot(db);
     return { db, rowsService, rows, byGroupService, byGroup };
 };
@@ -200,7 +201,7 @@ describe('effectImmediate is the door onto a value the batch has already written
         const seen: number[] = [];
         const doubledSlot = doubledService.computedSingleSlotService.getSingleSlot(doubled);
         const effect = effectService.createAndRunEffect(db, () => {
-            seen.push(doubledSlot.computedValueService.getValueForSlot(doubledSlot));
+            seen.push(readValueWithoutTracking(doubledSlot));
         }, [], [doubledSlot]);
         db.flush();
 

@@ -15,7 +15,7 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(onPersistError?: TOIMPersistErrorHandler) {
     const { entityCollectionService, entityStoreSlot, persistEntityWriter } = createTestEntityCollection<TCard>();
-    const slotContentEntityService = entityCollectionService.slotContentService;
+    const entityContentService = entityCollectionService.slotContentService;
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TCard>();
     const persistor = new OIMPersistor({
         persistBackend: testPersistBackend,
@@ -49,11 +49,11 @@ function build(onPersistError?: TOIMPersistErrorHandler) {
             });
         },
         updateCardByKey: (key: TOIMStoreKey, patch: Partial<TCard>): void => {
-            slotContentEntityService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
+            entityContentService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
             const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
-            if (cardSlot !== undefined) slotContentEntityService.clearSlotContent(cardSlot);
+            if (cardSlot !== undefined) entityContentService.clearSlotContent(cardSlot);
         },
         readTitleInMemory: (key: TOIMStoreKey): string | undefined => findCardByKey(key)?.title,
     };

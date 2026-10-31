@@ -1,9 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -19,7 +19,7 @@ const somethingIsListening = (slot: TOIMSlot): boolean =>
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, effectService, cardsService, cards };
 };
@@ -80,7 +80,7 @@ describe('one answer to "is anything listening"', () => {
     // `OIMSlotOwnerService.releaseSlotIfUnheld` over the emptiness the bucket injects.
     it('lets a bucket go once its last effect leaves, with the empty list still on it', () => {
         const { db, effectService } = createFixture();
-        const byTitleService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
+        const byTitleService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>() });
         const byTitle = byTitleService.createStoreSlot(db);
         const spadesSlot = byTitleService.holdSlotByKey(byTitle, 'spades');
         const effect = effectService.createEffect(db, () => { /* held */ }, [spadesSlot]);

@@ -1,19 +1,19 @@
 // Prose: ./README.md#pricefixture
 import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
-    OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMSlotContentEntityService,
+    OIMPushColumnSlotOwner, OIMWritableSlotCollectionService, OIMEntityContentService,
     TOIMColumnSlot, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey, IOIMEntityWriter,
 } from '../../../core/src/index';
 import { priceDataset } from './priceDataset';
 import type { TPriceDataRow } from './TPriceDataRow';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const inPlaceShared: IOIMEntityWriter = createOIMInPlaceEntityWriter();
 
 export type TPriceEntityService<TEntity extends object> = OIMWritableSlotCollectionService<
     TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TEntity,
-    OIMSlotContentEntityService<TEntity, TOIMStoreKey, TOIMEntityColumnName<TEntity>>,
+    OIMEntityContentService<TEntity, TOIMStoreKey, TOIMEntityColumnName<TEntity>>,
     TOIMEntityColumnName<TEntity>, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
 >;
 
@@ -34,7 +34,7 @@ export const priceCollectionFixture = <TEntity extends { id: string }>(
     write: IOIMEntityWriter = inPlaceShared,
 ) => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TEntity> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TEntity> = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TEntity>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), entities);
 };
 

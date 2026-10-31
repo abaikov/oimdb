@@ -18,7 +18,7 @@ export const fieldMachineryExcision: readonly TBundleExcision[] = [
         ],
     },
     {
-        module: 'entity/OIMSlotContentEntityService.ts',
+        module: 'entity/OIMEntityContentService.ts',
         rules: [
             {
                 kind: 'statement',
@@ -29,7 +29,7 @@ export const fieldMachineryExcision: readonly TBundleExcision[] = [
         ],
     },
     {
-        module: 'bucket/OIMSlotContentBucketService.ts',
+        module: 'bucket/OIMBucketContentService.ts',
         rules: [
             {
                 kind: 'statement',

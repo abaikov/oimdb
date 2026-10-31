@@ -1,6 +1,6 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../src/index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMSlotCollectionIndexService } from '../src/index';
 import type { TOIMEntitySlot } from '../src/index';
-import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 import { OIMSlotTreeStoreService } from '../src/store/OIMSlotTreeStoreService';
 import { OIMScalarKeyTreeWalk } from '../src/key/OIMScalarKeyTreeWalk';
@@ -46,19 +46,19 @@ describe('what a dispose called inside a flush leaves behind', () => {
     const createFixture = () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace' });
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             columns: ['deck'],
-            slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
+            slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const byDeckTooService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             columns: ['deck'],
-            slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
+            slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
         });
         const byDeckToo = byDeckTooService.createIndexStoreSlot(cards);
         const run = { isArmed: false, runCount: 0, refusal: undefined as unknown };
@@ -142,7 +142,7 @@ describe('what a dispose called inside a flush leaves behind', () => {
 describe('what an index keyed by two columns files into buckets minted several at a time', () => {
     const createCards = () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TSuitedCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TSuitedCard>() });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'red', suit: 'hearts', title: 'ace' },
@@ -158,7 +158,7 @@ describe('what an index keyed by two columns files into buckets minted several a
         createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService<TOIMBucketSlotsSetStore<TOIMEntitySlot<TSuitedCard>>>(),
             entityService: fixture.cardsService,
             keyOf: (card: TSuitedCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TSuitedCard>, readonly [string, string]>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TSuitedCard>, readonly [string, string]>(),
         });
 
     it('fills the buckets getSlotsByKeys mints with the entities written before, as getSlotByKey does', () => {

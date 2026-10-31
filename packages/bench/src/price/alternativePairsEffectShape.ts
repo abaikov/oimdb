@@ -95,6 +95,7 @@ const createLiteralEffect = (channelSlot: TOIMChannelSlot, rootSlots: readonly T
         allRootSlots: rootSlots,
         positionInFirstSubscribedSlot: -1,
         positionsInOtherSubscribedSlots: undefined,
+        columnGroupsByEdge: undefined,
         ranAtRevision: channelSlot.clock.revision,
         ranAtEpoch: channelSlot.clock.epoch,
         effectFlags: 0,

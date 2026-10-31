@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type Profile = { name: string; city: string; age: number };
@@ -13,7 +13,7 @@ const effectService = OIMEffectService.INSTANCE;
 
 const createFixture =() => {
     const db = new OIMDB({ channelScheduler: rightNow });
-    const profileService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Profile>() });
+    const profileService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Profile>() });
     const profile = profileService.createStoreSlot(db);
     profileService.writeSingleSlotContent(profile, { name: 'ann', city: 'lisbon', age: 30 });
     return { db, profileService, profile };

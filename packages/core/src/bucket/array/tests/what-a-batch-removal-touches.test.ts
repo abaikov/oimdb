@@ -1,5 +1,5 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../../OIMBucketCommands';
 import { OIMBucketUniqueMemberSlotsArrayService } from '../OIMBucketUniqueMemberSlotsArrayService';
 import { OIMChannelService } from '../../../channel/OIMChannelService';
@@ -8,8 +8,9 @@ import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
+import { bucketSlotsStoreOf } from '../../../../tests/support/bucketSlotsStoreOf';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -23,7 +24,7 @@ const isIndexName = (property: string | symbol): boolean =>
 
 const watch = (bucket: TBucket): TListTally => {
     const tally: TListTally = { indexReads: 0, indexWrites: 0 };
-    bucket.bucketSlotsStore.bucketMemberSlots = new Proxy(bucket.bucketSlotsStore.bucketMemberSlots, {
+    bucketSlotsStoreOf<TCardSlot>(bucket).bucketMemberSlots = new Proxy(bucketSlotsStoreOf<TCardSlot>(bucket).bucketMemberSlots, {
         get(target, property) {
             if (isIndexName(property)) tally.indexReads++;
             return Reflect.get(target, property);
@@ -38,12 +39,12 @@ const watch = (bucket: TBucket): TListTally => {
 
 const createFixture = (isUnique = false) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
     const bucketCommands = new OIMBucketCommands({});
     const membersService = isUnique
-        ? new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands, bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() }) as OIMSlotContentPositionalArrayBucketService<TCardSlot>
-        : new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands });
+        ? new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands, bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() }) as OIMPositionalArrayBucketContentService<TCardSlot>
+        : new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands });
     const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');
@@ -133,6 +134,6 @@ describe('what taking many slots out of an ordered bucket at once touches', () =
         membersService.addBucketMemberSlots(bucket, [slots[0]]);
 
         expect(ids(membersService.getBucketMemberSlots(bucket))).toEqual(['r1', 'r3', 'r0']);
-        expect((bucket.bucketSlotsStore as TOIMBucketSlotsArrayStore<TCardSlot>).uniqueBucketMemberSlots!.has(slots[2])).toBe(false);
+        expect(bucketSlotsStoreOf<TCardSlot>(bucket).uniqueBucketMemberSlots!.has(slots[2])).toBe(false);
     });
 });

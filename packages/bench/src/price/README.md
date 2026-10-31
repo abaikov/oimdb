@@ -127,7 +127,7 @@ A LAZY variant is a third design and is NOT priced here: renumber on the first p
 
 ### What the rejected arm is built on
 
-The positions map is `OIMSlotContentPositionalArrayBucketService` with a member slots service whose store carries a `Map` to positions, renumbered on every structural edit, moves included, and a `getBucketMemberSlotPosition` that reads it. Ours is the same bucket with the shipped `OIMBucketUniqueMemberSlotsArrayService`. Nothing in the timed bodies subscribes to the bucket.
+The positions map is `OIMPositionalArrayBucketContentService` with a member slots service whose store carries a `Map` to positions, renumbered on every structural edit, moves included, and a `getBucketMemberSlotPosition` that reads it. Ours is the same bucket with the shipped `OIMBucketUniqueMemberSlotsArrayService`. Nothing in the timed bodies subscribes to the bucket.
 
 ## alternativePairsLegacyPosts
 

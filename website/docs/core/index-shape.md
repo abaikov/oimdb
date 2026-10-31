@@ -131,7 +131,7 @@ the next read. Move one: the index pushes it between two buckets.
 ## In code
 
 ```ts
-import { OIMDB, OIMEffectService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string; rank: number };
 
@@ -139,7 +139,7 @@ declare function render(value: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
 const cardsByDeckService = createOIMSlotCollectionIndexService({
@@ -154,7 +154,7 @@ const cardsByRankService = createOIMSortedComputedService({
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 
 const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
-effectService.createAndRunEffect(db, () => render(red.computedValueService.getValueForSlot(red)), [], [red]);
+effectService.createAndRunEffect(db, () => render(red.value), [], [red]);
 ```
 
 `cardsByDeck` is pushed to on every write to `cards`. `red` is derived when the effect

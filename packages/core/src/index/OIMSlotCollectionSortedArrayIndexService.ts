@@ -1,4 +1,4 @@
-import type { OIMSlotContentSortedArrayBucketService } from '../bucket/OIMSlotContentSortedArrayBucketService';
+import type { OIMSortedArrayBucketContentService } from '../bucket/OIMSortedArrayBucketContentService';
 import type { TOIMBucketSlotsArrayStore } from '../bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
@@ -16,13 +16,13 @@ export class OIMSlotCollectionSortedArrayIndexService<
     TStore = Map<TKey, TBucketSlot>,
 > extends OIMSlotCollectionIndexService<
     TKey, TEntity, TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TSourceKey, TSourceStore,
-    OIMSlotContentSortedArrayBucketService<TOIMEntitySlot<TEntity>, TKey>, TBucketSlot, TStore
+    OIMSortedArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>, TBucketSlot, TStore
 > {
     private readonly sortColumnNames: ReadonlySet<string>;
 
     public constructor(
         options: TOIMSlotCollectionIndexServiceOptions<
-            TKey, TEntity, TBucketSlot, TStore, OIMSlotContentSortedArrayBucketService<TOIMEntitySlot<TEntity>, TKey>, TSourceKey, TSourceStore
+            TKey, TEntity, TBucketSlot, TStore, OIMSortedArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>, TSourceKey, TSourceStore
         > & { sortColumns: readonly TOIMSortColumn<TEntity>[] },
     ) {
         super(options);
@@ -44,7 +44,7 @@ export class OIMSlotCollectionSortedArrayIndexService<
         bucketSlot: TBucketSlot, entitySlot: TOIMEntitySlot<TEntity, TSourceKey>, changedColumns: readonly string[] | undefined,
     ): void {
         if (!this.isSortColumnChanged(changedColumns)) return;
-        this.slotContentBucketService.repositionBucketMemberSlot(bucketSlot, entitySlot);
+        this.bucketContentService.repositionBucketMemberSlot(bucketSlot, entitySlot);
     }
 
     private isSortColumnChanged(changedColumns: readonly string[] | undefined): boolean {

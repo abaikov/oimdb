@@ -1,5 +1,5 @@
 import { OIMDB, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -16,7 +16,7 @@ const worldWithTwoWindows = (longMs: number, shortMs: number) => {
             return () => { armedFor.splice(armedFor.indexOf(delayMs), 1); };
         },
     });
-    const entityServiceWith = (keepAfterIdleMs: number) => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }) });
+    const entityServiceWith = (keepAfterIdleMs: number) => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }) });
     const archiveService = entityServiceWith(longMs);
     const liveService = entityServiceWith(shortMs);
     return {

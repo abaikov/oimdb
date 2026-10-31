@@ -1,14 +1,14 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
@@ -16,12 +16,12 @@ type TCard = { id: string; deck: string };
 describe('an index factory', () => {
     it('records commands on an array-driven index when it is handed bucket commands', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>, string>({
+            slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>, string>({
                 bucketCommands: new OIMBucketCommands({}),
             }),
         });
@@ -39,7 +39,7 @@ describe('an index factory', () => {
 
     it('files its buckets in the bucket slot store service it is handed', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const bucketSlotStoreService = new OIMSlotMapStoreService<
             TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>, string>, string
@@ -48,7 +48,7 @@ describe('an index factory', () => {
         createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>, string>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>, string>(),
             bucketSlotStoreService,
         }).createIndexStoreSlot(cards);
 

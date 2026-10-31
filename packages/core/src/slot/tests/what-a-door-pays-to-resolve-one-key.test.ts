@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
@@ -47,7 +47,7 @@ implements IOIMSlotStoreService<string, TDeckBucket, Map<string, TDeckBucket>> {
 const createFixture =() => {
     const db = new OIMDB();
     const bucketSlotStoreService = new StoreServiceThatCountsEveryLookup();
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(), slotStoreService: bucketSlotStoreService });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot, string>(), slotStoreService: bucketSlotStoreService });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, byDeck, byDeckService, bucketSlotStoreService };
 };

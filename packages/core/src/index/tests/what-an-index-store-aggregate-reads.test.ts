@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionStoreAggregate } from '../../slot/createOIMSlotCollectionStoreAggregate';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { OIMSlotCollectionIndexStoreAggregate } from '../OIMSlotCollectionIndexStoreAggregate';
@@ -9,7 +9,7 @@ type TCard = { id: string; deck: string };
 const createFixture = () => {
     const db = new OIMDB();
     const cardStoreAggregate = createOIMSlotCollectionStoreAggregate(db, {
-        slotContentService: createOIMSlotContentEntityService<TCard>(),
+        slotContentService: createOIMEntityContentService<TCard>(),
     });
     cardStoreAggregate.writeSlotContentByKey('c1', { id: 'c1', deck: 'spades' });
     cardStoreAggregate.writeSlotContentByKey('c2', { id: 'c2', deck: 'spades' });

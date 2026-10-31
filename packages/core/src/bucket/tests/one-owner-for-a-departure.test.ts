@@ -1,6 +1,6 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, oimGuardedPatchEntityColumns, oimGuardedPatchEntityColumn, oimGuardedPutEntityColumns, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, createOIMInPlaceEntityWriter, oimGuardedPatchEntityColumns, oimGuardedPatchEntityColumn, oimGuardedPutEntityColumns, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -19,11 +19,11 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
  */
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     // Positions are the caller's here, which is what these
     // writes are.
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot>();
     const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'kept', { id: 'kept', deckId: 'spades' });
@@ -116,7 +116,7 @@ describe('one owner for a departure', () => {
 describe('what may be a column of a stored entity', () => {
     it('leaves the prototype alone when a standalone record is replaced from a payload under the guarded writer', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>({ entityWriter: createOIMInPlaceEntityWriter({
                 putEntityColumns: oimGuardedPutEntityColumns,
                 patchEntityColumns: oimGuardedPatchEntityColumns,
                 patchEntityColumn: oimGuardedPatchEntityColumn,
@@ -137,7 +137,7 @@ describe('what may be a column of a stored entity', () => {
 
 describe('reaching a bucket\'s slots', () => {
     const byDeckOver = () => {
-        const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+        const membersService = new OIMSetBucketContentService<TCardSlot>();
         const byDeckService = createOIMSlotCollectionService({ slotContentService: membersService });
         return { byDeckService, membersService };
     };
@@ -159,7 +159,7 @@ describe('reaching a bucket\'s slots', () => {
      */
     it('drops a bucket let go while empty, and keeps one that still holds a slot', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const { byDeckService, membersService } = byDeckOver();
         const byDeck = byDeckService.createStoreSlot(db);

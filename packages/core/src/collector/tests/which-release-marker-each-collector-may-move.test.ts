@@ -4,7 +4,7 @@ import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlo
 import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolicy';
 import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
 import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 const DO_NOT_EDIT_TO_MAKE_IT_PASS = 'DO NOT EDIT TO MAKE IT PASS';
@@ -16,7 +16,7 @@ const START = 1_000_000;
 const createFixtureWith = (keepAfterIdleMs: number, keepAfterWriteMs: number) => {
     let ms = START;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotEarliestReleasePolicy([
             new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs }),
             new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
         ]) });
@@ -178,7 +178,7 @@ describe(`two collectors, two queues, nothing shared — ${DO_NOT_EDIT_TO_MAKE_I
         let ms = START;
         const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
         const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 60_000 }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one' });
         db.flush();

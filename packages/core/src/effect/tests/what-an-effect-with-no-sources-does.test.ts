@@ -1,14 +1,14 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 
 type TCard = { id: string; title: string };
 
 describe('what an effect with no sources does', () => {
     it('subscribes to nothing and holds nothing', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -24,7 +24,7 @@ describe('what an effect with no sources does', () => {
 
     it('never runs on its own, whatever is written, and runs once when asked to', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         let runs = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { runs++; });

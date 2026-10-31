@@ -81,6 +81,8 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
             const owed = effects.length;
             for (let i = 0; i < owed; i++) {
                 const effect = effects[i];
+                const columnGroupsByEdge = effect.columnGroupsByEdge;
+                if (columnGroupsByEdge !== undefined && columnGroupsByEdge[(slot.effectEdges as number[])[i]] !== undefined) continue;
                 if (effect.effectService.markEffectRunScheduled(effect, false)) effectChannelQueue.enqueueEntry(effect);
             }
             owesAFrame = true;
@@ -91,6 +93,20 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
             || (channelSlot.frame.afterEachFrame.size === 0 && effectChannelQueue.getEntryCount() === 0))) return;
         if (channelSlot.timer === undefined) return;
         this.requestFlush(channelSlot);
+    }
+
+    public wakeColumnFilteredSubscribers(channelSlot: TOIMChannelSlot, slot: TOIMSlot, changedColumns: readonly string[] | undefined): void {
+        const effects = slot.effects;
+        const effectEdges = slot.effectEdges;
+        if (effects === undefined || effectEdges === undefined) return;
+        const effectChannelQueue = channelSlot.effectChannelQueue;
+        for (let i = 0; i < effects.length; i++) {
+            const effect = effects[i];
+            const columnGroup = effect.columnGroupsByEdge?.[effectEdges[i]];
+            if (columnGroup === undefined) continue;
+            if (changedColumns !== undefined && !isAnyColumnChanged(columnGroup.columnNames, changedColumns)) continue;
+            if (effect.effectService.markEffectRunScheduled(effect, false)) effectChannelQueue.enqueueEntry(effect);
+        }
     }
 
     private requestFlush(channelSlot: TOIMChannelSlot): void {
@@ -205,4 +221,11 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
             try { handler(); } catch (error) { channelSlot.errorPolicy.onErrorCaught(error); }
         }
     }
+}
+
+function isAnyColumnChanged(columnNames: readonly string[], changedColumns: readonly string[]): boolean {
+    for (let i = 0; i < changedColumns.length; i++) {
+        if (columnNames.includes(changedColumns[i])) return true;
+    }
+    return false;
 }

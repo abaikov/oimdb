@@ -2,7 +2,7 @@ import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type Settings = { theme: string; zoom: number; label?: string };
@@ -10,7 +10,7 @@ type Settings = { theme: string; zoom: number; label?: string };
 describe('a singleton is written through the same strategy as an entity slot', () => {
     it('is read back under the undefined key after an upsert, through the same doors as a collection', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         expect(settingsService.getSingleSlot(settings).entity?.theme).toBe('dark');
@@ -19,7 +19,7 @@ describe('a singleton is written through the same strategy as an entity slot', (
     it('wakes a subscriber when a field it reads moves', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
 
@@ -34,7 +34,7 @@ describe('a singleton is written through the same strategy as an entity slot', (
     it('takes a column away, and the taking counts as a move', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1, label: 'mine' });
 
@@ -54,7 +54,7 @@ describe('a singleton has columns, and they are the same identities an entity sl
     it('files nothing until a column is watched, and gives the map back after', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         expect(settingsService.getSingleSlot(settings).columnSlotStore).toBeUndefined();
@@ -71,7 +71,7 @@ describe('a singleton has columns, and they are the same identities an entity sl
     it('wakes a column subscriber for its own field and for no other', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
 
@@ -99,7 +99,7 @@ describe('the write strategy is the caller\'s, here as everywhere', () => {
      */
     it('replaces the stored object when the replacing strategy is passed', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMReplacingEntityWriter() }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMReplacingEntityWriter() }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         const before = settingsService.getSingleSlot(settings).entity;
@@ -110,7 +110,7 @@ describe('the write strategy is the caller\'s, here as everywhere', () => {
 
     it('keeps the stored object under the default, in-place strategy', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         const before = settingsService.getSingleSlot(settings).entity;

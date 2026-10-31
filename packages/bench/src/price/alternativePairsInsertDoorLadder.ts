@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, OIMDB, OIMDefaults, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { createOIMEntitySlot } from '../../../core/src/entity/utils/createOIMEntitySlot';
@@ -13,7 +14,7 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
@@ -40,7 +41,7 @@ const probeInternalsOf = (entityService: TPriceEntityService<TPriceDataRow>): TD
     };
 };
 
-const createEntityService = (): TPriceEntityService<TPriceDataRow> => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter, slotEmptinessPolicy: OIMSlotEntityPresenceEmptinessPolicy.INSTANCE }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const createEntityService = (): TPriceEntityService<TPriceDataRow> => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter, slotEmptinessPolicy: OIMSlotEntityPresenceEmptinessPolicy.INSTANCE }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
 type TWorld = {
     readonly db: OIMDB;
@@ -66,7 +67,7 @@ const handAssertWritable = (world: TWorld, slot: TRowSlot): void => {
 };
 
 const handWrite = (world: TWorld, slot: TRowSlot, row: TPriceDataRow): void => {
-    entityWriter.fillEntity(slot, row);
+    entityWriter.fillEntity(slot as unknown as OIMEntitySlot, row);
     OIMChannelService.INSTANCE.writeWithoutFlushCheck(world.db.defaultChannelSlot, slot);
 };
 

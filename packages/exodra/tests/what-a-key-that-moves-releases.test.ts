@@ -32,7 +32,7 @@ function makeDeckFactory(world: TExoTestWorld) {
         const heldSlot = world.orderService.holdSlotByKey(world.order, key);
         return Object.assign(
             exoBinding(world.db, {
-                sourceComputeds: [heldSlot], derive: () => heldSlot.computedValueService.getValueForSlot(heldSlot),
+                sourceComputeds: [heldSlot], derive: () => heldSlot.value,
             }),
             { dispose: (): void => { heldSlot.owner.unholdSlot(heldSlot); } },
         );

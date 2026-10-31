@@ -1,9 +1,9 @@
-import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 /** Five columns, so a per-column count and a per-row count are different numbers. */
 type TCard = { id: string; deckId: string; title: string; rank: number; note?: string };
@@ -47,7 +47,7 @@ const asked = <T extends object>(target: T, tally: TAsked): T => new Proxy(targe
 
 const createFixture =() => {
     const db = new OIMDB();
-    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const collection = collectionService.createStoreSlot(db);
     return { db, collectionService, collection };
 };
@@ -65,7 +65,7 @@ const oneStoredRow = () => {
     db.flush();
     const slot = collectionService.getSlotByKey(collection,'a')!;
     const stored = nothingAsked();
-    (slot as TOIMEditable<typeof slot>).entity = asked(slot.entity as TCard, stored);
+    entitySlotOf(slot).content = asked(slot.entity as TCard, stored);
     return { db, collectionService, collection, slot, stored };
 };
 

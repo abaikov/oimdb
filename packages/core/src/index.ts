@@ -15,6 +15,8 @@ export { OIMNoSlotSubscriptionListener } from './slot/OIMNoSlotSubscriptionListe
 export { oimIsSlotEmpty } from './slot/utils/oimIsSlotEmpty';
 export { oimIsSlotReleased } from './slot/utils/oimIsSlotReleased';
 export type { TOIMEntitySlot } from './entity/types/TOIMEntitySlot';
+export type { OIMEntitySlot } from './entity/OIMEntitySlot';
+export type { OIMSlot } from './slot/OIMSlot';
 export type { TOIMEntityContentSlot } from './entity/types/TOIMEntityContentSlot';
 export type { TOIMColumnSlot } from './column/types/TOIMColumnSlot';
 export type { TOIMComputedColumnSlot } from './column/types/TOIMComputedColumnSlot';
@@ -65,8 +67,8 @@ export type { TOIMComputedSources } from './computed/types/TOIMComputedSources';
 export type { TOIMComputedValueReleaser } from './computed/types/TOIMComputedValueReleaser';
 export type { IOIMComputedValueService } from './computed/interfaces/IOIMComputedValueService';
 export { OIMComputedValueService } from './computed/OIMComputedValueService';
-export type { OIMSlotContentComputedService } from './computed/OIMSlotContentComputedService';
-export type { TOIMSlotContentComputedServiceOptions } from './computed/types/TOIMSlotContentComputedServiceOptions';
+export type { OIMComputedContentService } from './computed/OIMComputedContentService';
+export type { TOIMComputedContentServiceOptions } from './computed/types/TOIMComputedContentServiceOptions';
 export type { TOIMComputedValueServiceOptions } from './computed/types/TOIMComputedValueServiceOptions';
 export { oimRefreshSourceComputeds } from './computed/utils/oimRefreshSourceComputeds';
 
@@ -77,7 +79,7 @@ export type { IOIMSlotContentWriter } from './slot/interfaces/IOIMSlotContentWri
 export type { IOIMKeyedSlotCreator } from './slot/interfaces/IOIMKeyedSlotCreator';
 export type { IOIMSingleSlotCreator } from './slot/interfaces/IOIMSingleSlotCreator';
 export { OIMSlotContentChangeListenerService } from './slot/OIMSlotContentChangeListenerService';
-export type { TOIMSlotContentEntityServiceOptions } from './entity/types/TOIMSlotContentEntityServiceOptions';
+export type { TOIMEntityContentServiceOptions } from './entity/types/TOIMEntityContentServiceOptions';
 export type { TOIMEntitySlotOwnerService } from './entity/types/TOIMEntitySlotOwnerService';
 export { OIMSlotOwner } from './slot/OIMSlotOwner';
 export { OIMUnusedSlotCollectorService } from './collector/OIMUnusedSlotCollectorService';
@@ -102,24 +104,24 @@ export { OIMWritableSlotCollectionStoreAggregate } from './slot/OIMWritableSlotC
 export { OIMSingleSlotStoreAggregate } from './slot/OIMSingleSlotStoreAggregate';
 export { OIMWritableSingleSlotStoreAggregate } from './slot/OIMWritableSingleSlotStoreAggregate';
 
-export { OIMSlotContentEntityService } from './entity/OIMSlotContentEntityService';
+export { OIMEntityContentService } from './entity/OIMEntityContentService';
 export { createOIMSlotCollectionService } from './slot/createOIMSlotCollectionService';
 export { createOIMSingleSlotService } from './slot/createOIMSingleSlotService';
 export { createOIMSlotCollectionStoreAggregate } from './slot/createOIMSlotCollectionStoreAggregate';
 export { createOIMSingleSlotStoreAggregate } from './slot/createOIMSingleSlotStoreAggregate';
-export { createOIMSlotContentEntityService } from './entity/createOIMSlotContentEntityService';
+export { createOIMEntityContentService } from './entity/createOIMEntityContentService';
 
-export { OIMSlotContentBucketService } from './bucket/OIMSlotContentBucketService';
-export { OIMSlotContentSetBucketService } from './bucket/OIMSlotContentSetBucketService';
-export { OIMSlotContentArrayBucketService } from './bucket/OIMSlotContentArrayBucketService';
-export { OIMSlotContentPositionalArrayBucketService } from './bucket/OIMSlotContentPositionalArrayBucketService';
-export type { TOIMSlotContentArrayBucketServiceOptions } from './bucket/types/TOIMSlotContentArrayBucketServiceOptions';
+export { OIMBucketContentService } from './bucket/OIMBucketContentService';
+export { OIMSetBucketContentService } from './bucket/OIMSetBucketContentService';
+export { OIMArrayBucketContentService } from './bucket/OIMArrayBucketContentService';
+export { OIMPositionalArrayBucketContentService } from './bucket/OIMPositionalArrayBucketContentService';
+export type { TOIMArrayBucketContentServiceOptions } from './bucket/types/TOIMArrayBucketContentServiceOptions';
 export type { IOIMBucketMemberSlotsArrayService } from './bucket/array/interfaces/IOIMBucketMemberSlotsArrayService';
 export { OIMBucketMemberSlotsArrayService } from './bucket/array/OIMBucketMemberSlotsArrayService';
 export { OIMBucketUniqueMemberSlotsArrayService } from './bucket/array/OIMBucketUniqueMemberSlotsArrayService';
-export { OIMSlotContentSortedArrayBucketService } from './bucket/OIMSlotContentSortedArrayBucketService';
-export type { TOIMSlotContentBucketServiceOptions } from './bucket/types/TOIMSlotContentBucketServiceOptions';
-export type { TOIMSlotContentSortedArrayBucketServiceOptions } from './bucket/types/TOIMSlotContentSortedArrayBucketServiceOptions';
+export { OIMSortedArrayBucketContentService } from './bucket/OIMSortedArrayBucketContentService';
+export type { TOIMBucketContentServiceOptions } from './bucket/types/TOIMBucketContentServiceOptions';
+export type { TOIMSortedArrayBucketContentServiceOptions } from './bucket/types/TOIMSortedArrayBucketContentServiceOptions';
 export type { TOIMBucketSlotOwnerService } from './bucket/types/TOIMBucketSlotOwnerService';
 export { OIMDB } from './db/OIMDB';
 export { OIMDefaults } from './db/OIMDefaults';
@@ -146,7 +148,7 @@ export { createOIMSingleSourceTrackingComputedService } from './computed/createO
 export type { TOIMSourceTrackingComputedSlot } from './computed/types/TOIMSourceTrackingComputedSlot';
 export type { TOIMSourceTrackingComputedContentSlot } from './computed/types/TOIMSourceTrackingComputedContentSlot';
 export type { TOIMSourceTrackingComputedDerive } from './computed/types/TOIMSourceTrackingComputedDerive';
-export type { OIMSlotContentSourceTrackingComputedService } from './computed/OIMSlotContentSourceTrackingComputedService';
+export type { OIMSourceTrackingComputedContentService } from './computed/OIMSourceTrackingComputedContentService';
 export type { TOIMSourceTrackingComputedDerivationOptions } from './computed/types/TOIMSourceTrackingComputedDerivationOptions';
 export type { TOIMComputedServiceFactoryOptions } from './computed/types/TOIMComputedServiceFactoryOptions';
 export { OIMSortedComputedService } from './computed/OIMSortedComputedService';
@@ -256,3 +258,17 @@ export { OIM_REMOVED_WITHOUT_A_POSITION } from './bucket/constants/OIM_REMOVED_W
 
 export { oimOrderedListCommandsOfTransition } from './bucket/commands/utils/oimOrderedListCommandsOfTransition';
 export type { TOIMOrderedListCommand } from './bucket/commands/types/TOIMOrderedListCommand';
+export { OIMEntityContentService as OIMSlotContentEntityService } from './entity/OIMEntityContentService';
+export { createOIMEntityContentService as createOIMSlotContentEntityService } from './entity/createOIMEntityContentService';
+export type { TOIMEntityContentServiceOptions as TOIMSlotContentEntityServiceOptions } from './entity/types/TOIMEntityContentServiceOptions';
+export { OIMBucketContentService as OIMSlotContentBucketService } from './bucket/OIMBucketContentService';
+export type { TOIMBucketContentServiceOptions as TOIMSlotContentBucketServiceOptions } from './bucket/types/TOIMBucketContentServiceOptions';
+export { OIMSetBucketContentService as OIMSlotContentSetBucketService } from './bucket/OIMSetBucketContentService';
+export { OIMArrayBucketContentService as OIMSlotContentArrayBucketService } from './bucket/OIMArrayBucketContentService';
+export type { TOIMArrayBucketContentServiceOptions as TOIMSlotContentArrayBucketServiceOptions } from './bucket/types/TOIMArrayBucketContentServiceOptions';
+export { OIMPositionalArrayBucketContentService as OIMSlotContentPositionalArrayBucketService } from './bucket/OIMPositionalArrayBucketContentService';
+export { OIMSortedArrayBucketContentService as OIMSlotContentSortedArrayBucketService } from './bucket/OIMSortedArrayBucketContentService';
+export type { TOIMSortedArrayBucketContentServiceOptions as TOIMSlotContentSortedArrayBucketServiceOptions } from './bucket/types/TOIMSortedArrayBucketContentServiceOptions';
+export type { OIMComputedContentService as OIMSlotContentComputedService } from './computed/OIMComputedContentService';
+export type { TOIMComputedContentServiceOptions as TOIMSlotContentComputedServiceOptions } from './computed/types/TOIMComputedContentServiceOptions';
+export type { OIMSourceTrackingComputedContentService as OIMSlotContentSourceTrackingComputedService } from './computed/OIMSourceTrackingComputedContentService';

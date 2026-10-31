@@ -1,6 +1,7 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import path from 'node:path';
 const config: Config = {
   title: 'OIMDB',
   tagline: 'Powerful state. Native speed.',
@@ -51,6 +52,20 @@ const config: Config = {
         },
       } satisfies Preset.Options,
     ],
+  ],
+
+  plugins: [
+    () => ({
+      name: 'one-react',
+      configureWebpack: () => ({
+        resolve: {
+          alias: {
+            react: path.dirname(require.resolve('react/package.json')),
+            'react-dom': path.dirname(require.resolve('react-dom/package.json')),
+          },
+        },
+      }),
+    }),
   ],
 
   themes: [

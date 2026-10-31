@@ -24,7 +24,7 @@ migrates across schema versions.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistBucketRecordSource,
@@ -43,14 +43,14 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: persistEntityWriter }) });
+const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 
-const deckBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const deckBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 const deckBucketStoreSlot = deckBucketService.createStoreSlot(db);
 const keptBucketSlot = deckBucketService.holdSlotByKey(deckBucketStoreSlot, 'kept');
 
-const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'dark' });
 ```
@@ -209,7 +209,7 @@ await persistor.load(persistRecordsResource, ['c1']);
    reports switched off, so they are not written back. A collection source
    upserts them into its entity store slot. A bucket source upserts them into the entity
    store slot, adds the slots back to the bucket
-   (`slotContentBucketService.addBucketMemberSlots(bucketSlot, …)`) and remembers them as restored,
+   (`bucketContentService.addBucketMemberSlots(bucketSlot, …)`) and remembers them as restored,
    the same exemption a hydrate installs.
 5. The keys stop counting as unloaded. Once no key of the resource is unloaded,
    `persist()` replaces the stored table again.
@@ -276,7 +276,7 @@ persistor.addPersistResource(new OIMPersistRecordsResource({
     channelMap: db,
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
-    slotContentBucketService: deckBucketService.slotContentService,
+    bucketContentService: deckBucketService.slotContentService,
     bucketSlot: keptBucketSlot,
   }),
   persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'kept-cards' }),
@@ -284,7 +284,7 @@ persistor.addPersistResource(new OIMPersistRecordsResource({
 
 persistor.start();
 const cardSlot = cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c3', { id: 'c3', title: 'gamma' });
-deckBucketService.slotContentService.writeSlotContent(keptBucketSlot, [cardSlot]);
+keptBucketSlot.writeSlotContent([cardSlot]);
 db.flush();
 await persistor.whenIdle();
 ```

@@ -1,10 +1,10 @@
 import { setFlagsFromString } from 'node:v8';
 
 import { OIMDefaults } from '../src/index';
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterUnholdReleasePolicy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../src/index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotAfterUnholdReleasePolicy, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../src/index';
 import type { IOIMEntityWriter, TOIMDBOptions } from '../src/index';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 import { createOIMSingleSlotService } from '../src/index';
 import { createOIMSingleComputedService } from '../src/index';
@@ -23,12 +23,12 @@ const slotOwnerServiceOf = (collectionService: object): object =>
 const exercise = (dbOptions: TOIMDBOptions) => {
     const db = new OIMDB(dbOptions);
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
+        slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     for (let i = 0; i < CARDS; i++) {
@@ -113,7 +113,7 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
     it('stays fast after an upsert that drops a column', () => {
         const defaults = new OIMDefaults({ entityWriter: createWriter() });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
 
@@ -125,7 +125,7 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
     it('stays fast after a patch that adds a column', () => {
         const defaults = new OIMDefaults({ entityWriter: createWriter() });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', rank: 1 });
 
@@ -140,11 +140,11 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
         ]);
         const defaults = new OIMDefaults({ entityWriter: createWriter() });
         const db = new OIMDB();
-        const itemsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<Record<string, unknown>>({ defaults }) });
+        const itemsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<Record<string, unknown>>({ defaults }) });
         const items = itemsService.createStoreSlot(db);
         itemsService.writeSlotContentByKey(items, (item => item.id as string)(wide('')), wide(''));
         itemsService.writeSlotContentByKey(items, (item => item.id as string)(wide('f0')), wide('f0'));
-        const recordService = createOIMSingleSlotService({ defaults, slotContentService: createOIMSlotContentEntityService<Record<string, unknown>>({ defaults, entityWriter: createWriter() }) });
+        const recordService = createOIMSingleSlotService({ defaults, slotContentService: createOIMEntityContentService<Record<string, unknown>>({ defaults, entityWriter: createWriter() }) });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, wide(''));
         recordService.slotContentService.deleteEntityColumns(recordService.getSingleSlot(record), ['f1']);
@@ -155,7 +155,7 @@ describe.each(writers)('what V8 keeps on fast properties, an entity written %s',
 
     it('stays fast after columns are taken away from a standalone record', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: createWriter() }) });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>({ entityWriter: createWriter() }) });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', deck: 'd1', rank: 1, note: 'n' });
 

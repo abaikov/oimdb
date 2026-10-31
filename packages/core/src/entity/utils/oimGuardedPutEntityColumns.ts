@@ -6,7 +6,7 @@ import { oimOwnEntityColumns } from './oimOwnEntityColumns';
 export const oimGuardedPutEntityColumns: typeof oimPutEntityColumns = (
     slot, entity, sameValueGuard, changedColumnNames, targetOf,
 ) => {
-    const prevEntity = slot.entity as Record<string, unknown> | undefined;
+    const prevEntity = slot.content as Record<string, unknown> | undefined;
     if (prevEntity === undefined) return undefined;
     const ownColumns = oimOwnEntityColumns(entity);
     const target = oimPatchEntityColumns(slot, ownColumns, sameValueGuard, changedColumnNames, targetOf);

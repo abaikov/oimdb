@@ -1,11 +1,11 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -20,9 +20,9 @@ const createFixture =() => {
         close: (): void => { OIMUnusedSlotCollectorService.INSTANCE.close(unusedSlotCollectorSlot); },
         run: <TAnswer>(body: () => TAnswer): TAnswer => OIMUnusedSlotCollectorService.INSTANCE.run(unusedSlotCollectorSlot, body),
     };
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
     const decks = decksService.createStoreSlot(db);
     return { db, unusedSlotCollector, cardsService, cards, decksService, decks };
 };

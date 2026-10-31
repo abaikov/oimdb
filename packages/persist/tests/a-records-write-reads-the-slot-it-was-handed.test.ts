@@ -27,7 +27,7 @@ function build() {
         persistRecordsService: testPersistBackend.createRecordsStrategy(),
     }));
     persistor.start();
-    const slotContentEntityService = entityCollectionService.slotContentService;
+    const entityContentService = entityCollectionService.slotContentService;
     return {
         db,
         entityCollectionService,
@@ -35,11 +35,11 @@ function build() {
         persistor,
         testPersistBackend,
         updateCardByKey: (key: TOIMStoreKey, patch: Partial<TCard>): void => {
-            slotContentEntityService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
+            entityContentService.updateEntity(entityCollectionService.getSlotByKey(entityStoreSlot, key), patch);
         },
         deleteCardByKey: (key: TOIMStoreKey): void => {
             const cardSlot = entityCollectionService.findSlotByKey(entityStoreSlot, key);
-            if (cardSlot !== undefined) slotContentEntityService.clearSlotContent(cardSlot);
+            if (cardSlot !== undefined) entityContentService.clearSlotContent(cardSlot);
         },
     };
 }

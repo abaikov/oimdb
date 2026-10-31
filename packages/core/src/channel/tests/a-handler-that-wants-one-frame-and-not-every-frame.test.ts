@@ -3,7 +3,7 @@ import { OIMChannelService } from '../OIMChannelService';
 import type { TOIMEntitySlot, TOIMDisposer } from '../../index';
 import { OIMEffectService } from '../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -14,7 +14,7 @@ const fixture = (caught?: (error: unknown) => void) => {
     const channelService = OIMChannelService.INSTANCE;
     const channelSlot = db.defaultChannelSlot;
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const slot = rowsService.writeSlotContentByKey(rows, 'a', { id: 'a', n: 0 });
     db.flush();

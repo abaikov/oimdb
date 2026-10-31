@@ -31,15 +31,15 @@ description: Which reads mint a slot and how the unused-slot collector handles t
 There is no observable wrapper in this engine. You read the slot.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, OIMUnusedSlotCollectorService, createOIMComputedService, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMComputedSlot, type TOIMSingleSlotStore, type TOIMDisposer, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands, createOIMSingleComputedService, type TOIMSlot, type IOIMSlotSubscriptionListener } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, OIMUnusedSlotCollectorService, createOIMComputedService, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMComputedSlot, type TOIMSingleSlotStore, type TOIMDisposer, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleComputedService, type TOIMSlot, type IOIMSlotSubscriptionListener } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
 declare const slot: TOIMEntitySlot<Card, TOIMStoreKey>;
@@ -62,8 +62,8 @@ cardService.hasSlotContentByKey(cards, 'c2');            // false, and nothing m
 cardService.getSlotCount(cards);
 for (const s of cardService.getSlots(cards)) { console.log(s.key); }
 
-byDeckService.slotContentService.getBucketMemberSlots(bucket);       // Iterable<TOIMEntitySlot<Card>>
-byDeckService.slotContentService.getBucketMemberSlotCount(bucket);
+bucket.getBucketMemberSlots();       // Iterable<TOIMEntitySlot<Card>>
+bucket.getBucketMemberSlotCount();
 ```
 
 Every read that names a key is the collection service's and takes the store slot of the collection first;
@@ -97,7 +97,7 @@ a key you reserved with `holdSlotByKey` has an identity and no value yet, and
 | `holdSlotByKey(storeSlot, key)`, `holdSingleSlot(storeSlot)`, `holdColumn(slot, name)` | the slot | your hold, until its give-back |
 | `hasSlotContentByKey(storeSlot, key)`, `hasSingleSlotContent(storeSlot)`, `isSameKey(key, otherKey)`, `getSlots(storeSlot)`, `getSlotCount(storeSlot)`, `getBucketMemberSlots(bucket)`, `getBucketMemberSlotCount(bucket)` | nothing | — |
 
-A computed slot is read through the value service it carries — `slot.computedValueService.getValueForSlot(slot)`
+A computed slot is read through the value service it carries — `slot.value`
 — because that refreshes it first. `computedSlot.value` is the value as of its last refresh. See
 [The compute graph](/docs/core/computed-effects).
 
@@ -129,7 +129,7 @@ need to `holdSlotUntilFlush`, and `flush` it when you are done.
 ### "Live" carries one rule
 
 `getBucketMemberSlots(bucket)` hands back the live slots the bucket content service maintains — the
-`Set` itself for `OIMSlotContentSetBucketService`, the list itself for the array-driven one.
+`Set` itself for `OIMSetBucketContentService`, the list itself for the array-driven one.
 `cardService.getSlots(cards)` carries the same rule: it iterates the store the store slot carries rather
 than a copy of it. So a `clearSlotContent`, or a `removeBucketMemberSlots` / `addBucketMemberSlots`, inside the
 loop edits the thing the loop is walking. Nothing throws. On an array-driven bucket the slot is spliced
@@ -139,8 +139,8 @@ Copy first when the body writes:
 
 ```typescript
 const bucketContentService = byDeckService.slotContentService;
-for (const entry of Array.from(bucketContentService.getBucketMemberSlots(bucket))) {
-    bucketContentService.removeBucketMemberSlots(bucket, [entry]);
+for (const entry of Array.from(bucket.getBucketMemberSlots())) {
+    bucket.removeBucketMemberSlots([entry]);
 }
 ```
 
@@ -186,7 +186,7 @@ const rankOf = rankService.createComputedStoreSlot(
 const rankSlot = rankService.computedSingleSlotService.holdSingleSlot(rankOf);
 
 const rankEffect = effectService.createEffect(db, () => {
-    show(rankSlot.computedValueService.getValueForSlot(rankSlot));
+    show(rankSlot.value);
 }, [], [rankSlot]);
 ```
 
@@ -248,7 +248,7 @@ ignored, so an expression-bodied arrow such as `() => set.add(key)` is safe.
 ### Subscribing to one column
 
 ```typescript
-const onRank = effectService.createEffect(db, () => { render(slot.entity); }, [cardService.columnSlotService.holdColumn(slot, 'rank')]);
+const onRank = effectService.createEffect(db, () => { render(slot.entity); }, [slot.holdColumn('rank')]);
 ```
 
 It wakes only when that named column moves. A write that changes
@@ -285,9 +285,9 @@ slot somebody else resolved and you need it to outlive that subscription,
 take a hold of your own:
 
 ```typescript
-slot.owner.holdSlot(slot);
+slot.holdSlot();
 // …
-slot.owner.unholdSlot(slot);
+slot.unholdSlot();
 ```
 
 Without a hold of your own, an identity whose only reference was your subscription is
@@ -315,7 +315,7 @@ const disposers: TOIMDisposer[] = [];
 disposers.push(effectService.subscribeEffect(db, body, [slot]));
 
 const held = cardService.holdSlotByKey(cards, pk);
-disposers.push(() => { held.owner.unholdSlot(held); });
+disposers.push(() => { held.unholdSlot(); });
 
 for (let i = disposers.length - 1; i >= 0; i--) disposers[i]();
 ```
@@ -348,7 +348,7 @@ const loadWhileWatched: IOIMSlotSubscriptionListener = {
     onSlotLastUnsubscribed: watchedSlot => { stopLoading(watchedSlot); },
 };
 
-const loadedCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotSubscriptionListener: loadWhileWatched });
+const loadedCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), slotSubscriptionListener: loadWhileWatched });
 ```
 
 - Only subscribers count. A hold, a `getSlotByKey` and membership in a bucket do not tell the

@@ -2,15 +2,18 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
+import type { OIMComputedSlot } from '../OIMComputedSlot';
+import type { OIMSourceTracker } from '../OIMSourceTracker';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCorrection = { id: string; version: number; note: string };
 type TQuery = { key: string; version: number };
 
 function setUp(sameValueGuard?: (prev: TQuery, next: TQuery) => boolean) {
     const db = new OIMDB();
-    const correctionsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCorrection>() });
+    const correctionsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCorrection>() });
     const corrections = correctionsService.createStoreSlot(db);
     const released: TQuery[] = [];
     let derived = 0;
@@ -36,11 +39,11 @@ describe('what a computed value is released for', () => {
     it('releases the previous value when derive produced a different one, and never the initial value', () => {
         const { queriesService, queries, correct, released } = setUp();
         const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
-        const first = query.computedValueService.getValueForSlot(query);
+        const first = readValueWithoutTracking(query);
         expect(released).toEqual([]);
 
         correct('q', 1);
-        const second = query.computedValueService.getValueForSlot(query);
+        const second = readValueWithoutTracking(query);
 
         expect(second).not.toBe(first);
         expect(released).toEqual([first]);
@@ -51,11 +54,11 @@ describe('what a computed value is released for', () => {
         const { queriesService, queries, correct, released, derivedCount } = setUp((prev, next) => prev.version === next.version);
         const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
         correct('q', 1);
-        const kept = query.computedValueService.getValueForSlot(query);
+        const kept = readValueWithoutTracking(query);
         const derivedBefore = derivedCount();
 
         correct('q', 1, 'touched');
-        expect(query.computedValueService.getValueForSlot(query)).toBe(kept);
+        expect(readValueWithoutTracking(query)).toBe(kept);
 
         expect(derivedCount()).toBe(derivedBefore + 1);
         expect(released).not.toContain(kept);
@@ -65,11 +68,11 @@ describe('what a computed value is released for', () => {
         const { queriesService, queries, correct, released } = setUp((prev, next) => prev.version === next.version);
         const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
         correct('q', 1);
-        const kept = query.computedValueService.getValueForSlot(query);
+        const kept = readValueWithoutTracking(query);
         released.length = 0;
 
         correct('q', 1, 'touched');
-        query.computedValueService.getValueForSlot(query);
+        readValueWithoutTracking(query);
 
         expect(released).toHaveLength(1);
         expect(released[0]).not.toBe(kept);
@@ -79,7 +82,7 @@ describe('what a computed value is released for', () => {
     it('releases the current value when the slot is released', () => {
         const { queriesService, queries, released } = setUp();
         const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
-        const current = query.computedValueService.getValueForSlot(query);
+        const current = readValueWithoutTracking(query);
 
         query.owner.unholdSlot(query);
 
@@ -110,10 +113,10 @@ describe('what a computed value is released for', () => {
         const slot = countService.computedSingleSlotService.holdSingleSlot(count);
         unholdDuringDerive = () => { unholdDuringDerive = undefined; slot.owner.unholdSlot(slot); };
 
-        expect(() => slot.computedValueService.getValueForSlot(slot)).not.toThrow();
+        expect(() => readValueWithoutTracking(slot)).not.toThrow();
 
         expect(released).toEqual([7]);
-        expect(slot.value).toBe(0);
+        expect((slot as unknown as OIMComputedSlot<number, NonNullable<unknown>, OIMSourceTracker | undefined>).content).toBe(0);
     });
 
     it('releases on the release an effect causes when it lets the last hold go', () => {
@@ -121,7 +124,7 @@ describe('what a computed value is released for', () => {
         const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
         const watching = OIMEffectService.INSTANCE.createEffect(db, () => undefined, [], [query]);
         query.owner.unholdSlot(query);
-        const current = query.computedValueService.getValueForSlot(query);
+        const current = readValueWithoutTracking(query);
         expect(released).toEqual([]);
 
         OIMEffectService.INSTANCE.disposeEffect(watching);

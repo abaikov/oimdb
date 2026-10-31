@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../../../core/src/computed/OIMComputedSlot';
 // Prose: ./README.md#alternativepairsmemo
 import {
     OIMChannelService,
@@ -89,7 +90,7 @@ const memoPair = (bodyName: string, body: TBody, readsPerWrite: number, caveat: 
         );
         const memoSlots: TOIMComputedSlot<number, number>[] = [];
         for (let i = 0; i < LISTS; i++) memoSlots.push(memoComputedCollectionService.holdSlotByKey(memoComputedStoreSlot, i));
-        const computedValueService = memoSlots[0].computedValueService;
+        const computedValueService = (memoSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
         for (let i = 0; i < LISTS; i++) {
             if (computedValueService.getValueForSlot(memoSlots[i]) === body(lists[i].rows)) continue;
             throw new Error(`price: the memo and the recompute disagree on list ${i}.`);

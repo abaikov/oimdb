@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import type { TOIMEffect } from '../types/TOIMEffect';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -11,7 +11,7 @@ describe('an effect that leaves before its body is done', () => {
     it('runs the cleanup its body returned after disposing itself from inside', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         let cleanups = 0;
         const self: { effect?: TOIMEffect } = {};
@@ -29,7 +29,7 @@ describe('an effect that leaves before its body is done', () => {
     it('gives back what it took when its first run throws, and throws to the caller', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const slot = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -61,7 +61,7 @@ describe('one handler subscribed twice', () => {
 
     it('stays subscribed after each frame through the disposer it was not given back', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         let calls = 0;
         const handler = (): void => { calls++; };

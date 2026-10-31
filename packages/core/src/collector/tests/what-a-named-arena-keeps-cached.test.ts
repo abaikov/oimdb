@@ -4,15 +4,16 @@ import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService'
 import { createOIMUnusedSlotCollectorSlot } from '../utils/createOIMUnusedSlotCollectorSlot';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     let built = 0;
     const ranksService = createOIMComputedService<string, number>({
@@ -35,9 +36,7 @@ const createFixture =() => {
         flushUnusedSlotCollector: (): void => {
             OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         },
-        readValueByKey: (key: string): number => ((ranksCollectionService.getSlotByKey(ranks, key)) as TOIMComputedContentSlot<number>).computedValueService.getValueForSlot(
-            ranksCollectionService.getSlotByKey(ranks, key),
-        ),
+        readValueByKey: (key: string): number => readValueWithoutTracking(ranksCollectionService.getSlotByKey(ranks, key) as TOIMComputedContentSlot<number>),
     };
 };
 

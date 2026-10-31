@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import type { IOIMSlotEmptinessPolicy } from '../interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -22,7 +22,7 @@ const makeCountingEmptiness = (): IOIMSlotEmptinessPolicy<TCardSlot> & { asked: 
 const createFixture = () => {
     const db = new OIMDB();
     const emptiness = makeCountingEmptiness();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: emptiness }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ slotEmptinessPolicy: emptiness }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, emptiness };
 };

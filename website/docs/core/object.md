@@ -29,13 +29,13 @@ is a [single computed](/docs/core/computed-effects#one-derivation-no-key), not a
 writing.
 
 ```typescript setup
-import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, oimInsertEntityWithCopy, createOIMComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMSlotContentEntityService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSingleSlotStoreService, oimInsertEntityWithCopy, createOIMComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type TOIMComputedSlot, type TOIMSingleSlotStore, createOIMEntityContentService, createOIMSingleSlotService, createOIMSingleComputedService } from '@oimdb/core';
 
 type Settings = { theme: string; fontSize: number; sidebar?: boolean };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14 });
@@ -52,9 +52,9 @@ answers `undefined`.
 leave them out. `columnNames` names the columns, files their slots in the ordinal store
 `OIMColumnSlotOrdinalStoreService` and types `getColumn`, `holdColumn` and `getColumnGroup` on those names.
 The base layer it assembles is
-`createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService({ slotStoreService: OIMSingleSlotStoreService.INSTANCE }) })`.
+`createOIMSingleSlotService({ slotContentService: createOIMEntityContentService({ slotStoreService: OIMSingleSlotStoreService.INSTANCE }) })`.
 The column doors are the single slot service's: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
-`getColumnGroup(names)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
+`getColumnGroup(names)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
 `unholdColumn(columnSlot)` — with the record's slot as the slot.
 
 The record owns one slot, and it is read through the single doors:
@@ -75,7 +75,7 @@ of its columns, or a computed that names it as a source.
 effectService.createEffect(db, () => { console.log(settingsSlot.entity?.theme); }, [settingsSlot]);
 effectService.createEffect(db, () => {
     console.log(settingsSlot.entity?.fontSize);
-}, [settingsService.columnSlotService.holdColumn(settingsSlot, 'fontSize')]);
+}, [settingsSlot.holdColumn('fontSize')]);
 
 const fontLabelService = createOIMSingleComputedService<string>();
 const fontLabel = fontLabelService.createComputedStoreSlot(
@@ -84,7 +84,7 @@ const fontLabel = fontLabelService.createComputedStoreSlot(
     () => ({ sourceSlots: [settingsSlot] }),
 );
 const fontLabelSlot = fontLabelService.computedSingleSlotService.getSingleSlot(fontLabel);
-fontLabelSlot.computedValueService.getValueForSlot(fontLabelSlot);
+fontLabelSlot.value;
 ```
 
 An effect on a column takes the column slot as its root.
@@ -96,9 +96,9 @@ record runs on any write that moved something.
 ## Writing
 
 ```typescript
-settingsContentService.updateEntity(settingsSlot, { theme: 'light' });                // patch: named columns move
-settingsContentService.deleteEntityColumns(settingsSlot, ['sidebar']);                // the thing a patch cannot say
-settingsService.slotContentService.writeSlotContent(settingsSlot, { theme: 'dark', fontSize: 16 });   // becomes exactly this
+settingsSlot.updateEntity({ theme: 'light' });                // patch: named columns move
+settingsSlot.deleteEntityColumns(['sidebar']);                // the thing a patch cannot say
+settingsSlot.writeSlotContent({ theme: 'dark', fontSize: 16 });   // becomes exactly this
 db.flush();
 ```
 
@@ -138,10 +138,10 @@ so every record of one service shares it:
 ```typescript
 const initial: Settings = { theme: 'dark', fontSize: 14 };
 
-const inPlaceSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMInPlaceEntityWriter() }) });
+const inPlaceSettingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMInPlaceEntityWriter() }) });
 inPlaceSettingsService.writeSingleSlotContent(inPlaceSettingsService.createStoreSlot(db), initial);
 
-const replacingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMReplacingEntityWriter() }) });
+const replacingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMReplacingEntityWriter() }) });
 replacingSettingsService.writeSingleSlotContent(replacingSettingsService.createStoreSlot(db), initial);
 ```
 
@@ -163,7 +163,7 @@ shallow copy (`{ ...entity }`), one level deep: a nested object is shared with
 the value you handed in.
 
 ```typescript
-const copyingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+const copyingSettingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
 copyingSettingsService.writeSingleSlotContent(copyingSettingsService.createStoreSlot(db), { theme: 'dark', fontSize: 14 });
 ```
 

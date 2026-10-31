@@ -1,4 +1,4 @@
-import { OIMSlotContentChangeListenerService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
+import { OIMSlotContentChangeListenerService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotMapStoreService, oimIsSlotReleased } from '../../../core/src/index';
 import type {
     IOIMSlotContentChangeListener,
     OIMDB,
@@ -82,7 +82,7 @@ const oursSide = (
     bucketAddsScenario: TBucketAddsScenario, db: OIMDB, entitySlots: readonly TMemberEntitySlot[],
 ): TPriceSide => {
     const { addsPerBatch, bucketCount } = bucketAddsScenario;
-    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TMemberEntitySlot, string>(), slotStoreService: new OIMSlotMapStoreService<TMemberBucketSlot, string>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TMemberEntitySlot, string>(), slotStoreService: new OIMSlotMapStoreService<TMemberBucketSlot, string>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
     const slotContentService = bucketService.slotContentService;
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketKeys = bucketKeysOf(bucketCount);

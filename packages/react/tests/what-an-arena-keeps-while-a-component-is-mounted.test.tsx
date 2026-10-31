@@ -2,14 +2,14 @@ import * as React from 'react';
 import { render, act } from '@testing-library/react';
 import { OIMDB, OIMUnusedSlotCollectorService, createOIMComputedService, oimSameValueZeroGuard } from '@oimdb/core';
 import { useOIMSlotsByKeys } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TCard = { id: string; rank: number };
 
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     let builtCount = 0;
     const ranksService = createOIMComputedService<string, number>({
@@ -43,7 +43,7 @@ function Ranks(
     },
 ): React.ReactElement {
     const slots = useOIMSlotsByKeys(ranks, ids);
-    return <span>{slots.map(slot => slot.computedValueService.getValueForSlot(slot)).join(',')}</span>;
+    return <span>{slots.map(slot => slot.value).join(',')}</span>;
 }
 
 describe('a component wrapped in an arena', () => {

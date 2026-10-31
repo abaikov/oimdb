@@ -30,12 +30,12 @@ Each job such a list is taken for has a door that exists for that job,
 and each of those doors belongs to the consumer that opens it.
 
 ```ts setup
-import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotContentChangeListenerService, OIMChannelService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMDB, type TOIMStoreKey, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotContentChangeListenerService, OIMChannelService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 

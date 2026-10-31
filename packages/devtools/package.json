@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/devtools",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Debug registry for OIMDB: name collections and indexes, inspect runtime state, assist AI development",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -38,7 +38,7 @@
     "prepublishOnly": "npm run type-check && npm test && npm run build"
   },
   "peerDependencies": {
-    "@oimdb/core": "^4.2.0"
+    "@oimdb/core": "^4.4.0"
   },
   "devDependencies": {
     "@oimdb/core": "*",

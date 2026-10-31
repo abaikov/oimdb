@@ -1,6 +1,6 @@
-import type { TOIMEntityContentSlot } from './TOIMEntityContentSlot';
+import type { OIMEntitySlot } from '../OIMEntitySlot';
 
 export type TOIMEntityInserter = <TEntity extends object>(
-    slot: TOIMEntityContentSlot<TEntity>,
+    slot: OIMEntitySlot<TEntity>,
     entity: TEntity,
 ) => void;

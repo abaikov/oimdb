@@ -50,7 +50,7 @@ functions, `exoRows` re-reads a key array and reconciles by key, while the two
 consumer can apply ops, and `exoRows` when it wants a fresh array.
 
 ```ts setup
-import { OIMDB, createOIMBucketMemoComputedService, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, createOIMBucketMemoComputedService, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
     exoBinding, exoSource, exoCombine, exoFollowKey, exoRows, exoDerivedList, exoPositionalList,
@@ -60,10 +60,10 @@ import type { TExoBindable } from '@exodra/reactivity-types';
 type Card = { id: string; title: string; deck: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const bucket = byDeckService.getSlotByKey(byDeck, 'spades');
 const orderService = createOIMBucketMemoComputedService({
@@ -71,7 +71,7 @@ const orderService = createOIMBucketMemoComputedService({
 });
 const order = orderService.createBucketMemoStoreSlot(byDeck);
 const orders = orderService.computedCollectionService;
-const boardService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const boardService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
 
 const renderCard = (cardSlot: TOIMEntitySlot): string => String(cardSlot.key);
@@ -103,14 +103,14 @@ const cardEntity = exoBinding(db, {
 // A bucket's slots. `getBucketMemberSlots` hands back the LIVE container, so copy it.
 const deckCards = exoBinding(db, {
     sourceSlots: [bucket],
-    derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)),
+    derive: () => Array.from(bucket.getBucketMemberSlots()),
 });
 
 // A derivation — the order of a bucket, a filtered page, an auto index.
 const deck = orders.holdSlotByKey(order, 'spades');
 const ordered = exoBinding(db, {
     sourceComputeds: [deck],
-    derive: () => deck.computedValueService.getValueForSlot(deck),
+    derive: () => deck.value,
 });
 ```
 
@@ -152,9 +152,9 @@ const groupFor = (deckId: TOIMStoreKey) => {
     const held = orders.holdSlotByKey(order, deckId);     // a hold is what mints one
     return Object.assign(
         exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.computedValueService.getValueForSlot(held),
+            sourceComputeds: [held], derive: () => held.value,
         }),
-        { dispose: () => held.owner.unholdSlot(held) },
+        { dispose: () => held.unholdSlot() },
     );
 };
 ```
@@ -174,9 +174,9 @@ const selected = exoFollowKey(selectedDeck, (deckId) => {
     const held = orders.holdSlotByKey(order, deckId);
     return Object.assign(
         exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.computedValueService.getValueForSlot(held),
+            sourceComputeds: [held], derive: () => held.value,
         }),
-        { dispose: () => held.owner.unholdSlot(held) },
+        { dispose: () => held.unholdSlot() },
     );
 });
 ```
@@ -215,9 +215,9 @@ deduped by `Object.is`.
 const rows = exoRows(deckIds, (deckId) => {
     const held = orders.holdSlotByKey(order, deckId);
     const deckCards = exoBinding(db, {
-        sourceComputeds: [held], derive: () => held.computedValueService.getValueForSlot(held),
+        sourceComputeds: [held], derive: () => held.value,
     });
-    return { schema: { deckId, cards: deckCards }, dispose: () => held.owner.unholdSlot(held) };
+    return { schema: { deckId, cards: deckCards }, dispose: () => held.unholdSlot() };
 });
 ```
 
@@ -256,12 +256,12 @@ const board = exoPositionalList(db, boardService.slotContentService, boardBucket
 `exoDerivedList(db, computedSlot, render, maxCommandsPerSlot?)` takes a `TOIMComputedSlot` of
 `readonly TOIMEntitySlot[]`, one held from `createOIMSortedComputedService`,
 `createOIMBucketMemoComputedService`, or a computed service of your own. It reads the list through
-`computedSlot.computedValueService.getValueForSlot(computedSlot)`. A frame that
+`computedSlot.value`. A frame that
 moved the list costs one `oimOrderedListCommandsOfTransition`: a pass over both lists, a
 longest-increasing-subsequence pass, and `common − LIS` moves, which is the
 optimum. A quiet frame costs nothing, because the effect does not run.
 
-`exoPositionalList(db, slotContentBucketService, bucketSlot, render)` costs
+`exoPositionalList(db, bucketContentService, bucketSlot, render)` costs
 nothing at all. It takes the bucket collection's **content service**
 (`boardService.slotContentService`), which holds the bucket's slots and its reads. That
 content service must be built with an `OIMBucketCommands` as its `bucketCommands`, which is

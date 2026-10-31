@@ -6,7 +6,7 @@
  * plumbing, and every claim below about WHAT `write` does with the list it is
  * handed rides along invisibly inside it. These are that half, on its own: the
  * updater resolves pks through `linkedEntityService.holdSlotByKey` and hands the whole
- * list to `OIMSlotContentBucketService.writeSlotContent`, and both of those are core's, both are
+ * list to `OIMBucketContentService.writeSlotContent`, and both of those are core's, both are
  * silent when they change, and neither has a test of this package's that would
  * notice.
  */
@@ -96,7 +96,7 @@ describe('writing a linked index from an entity field', () => {
         // an entity changes for reasons that have nothing to do with its linked
         // field — a rename, a flag. Every one of those re-sends this same list.
         // The updater does no diffing of its own precisely because
-        // `OIMSlotContentBucketService.writeSlotContent` asks the service whether the bucket
+        // `OIMBucketContentService.writeSlotContent` asks the service whether the bucket
         // already holds exactly these slots; without that question each of
         // them would evict and rejoin every row and wake every screen showing
         // the deck.

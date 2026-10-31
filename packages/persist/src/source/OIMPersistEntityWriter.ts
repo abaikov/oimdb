@@ -1,4 +1,4 @@
-import type { IOIMEntityWriter, TOIMDisposer, TOIMEntityContentSlot, TOIMEntitySlot } from '@oimdb/core';
+import type { IOIMEntityWriter, OIMEntitySlot, TOIMDisposer, TOIMEntitySlot } from '@oimdb/core';
 import type { TOIMPersistEntityWriterOptions } from './types/TOIMPersistEntityWriterOptions';
 
 export class OIMPersistEntityWriter<TEntity extends object, TKey extends NonNullable<unknown>> implements IOIMEntityWriter {
@@ -16,13 +16,13 @@ export class OIMPersistEntityWriter<TEntity extends object, TKey extends NonNull
         return () => { this.entitySlotWrittenListeners.delete(onEntitySlotWritten); };
     }
 
-    public readonly fillEntity = (entitySlot: TOIMEntityContentSlot, entity: object): void => {
+    public readonly fillEntity = (entitySlot: OIMEntitySlot, entity: object): void => {
         this.entityWriter.fillEntity(entitySlot, entity);
         this.notifyEntitySlotWrittenListeners(entitySlot);
     };
 
     public readonly putEntity = (
-        entitySlot: TOIMEntityContentSlot, entity: object, changedColumnNames: string[] | undefined,
+        entitySlot: OIMEntitySlot, entity: object, changedColumnNames: string[] | undefined,
     ): boolean => {
         if (!this.entityWriter.putEntity(entitySlot, entity, changedColumnNames)) return false;
         this.notifyEntitySlotWrittenListeners(entitySlot);
@@ -30,7 +30,7 @@ export class OIMPersistEntityWriter<TEntity extends object, TKey extends NonNull
     };
 
     public readonly patchEntity = (
-        entitySlot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
+        entitySlot: OIMEntitySlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean => {
         if (!this.entityWriter.patchEntity(entitySlot, patch, changedColumnNames)) return false;
         this.notifyEntitySlotWrittenListeners(entitySlot);
@@ -38,28 +38,28 @@ export class OIMPersistEntityWriter<TEntity extends object, TKey extends NonNull
     };
 
     public readonly patchColumn = (
-        entitySlot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
+        entitySlot: OIMEntitySlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
     ): boolean => {
         if (!this.entityWriter.patchColumn(entitySlot, columnName, value, changedColumnNames)) return false;
         this.notifyEntitySlotWrittenListeners(entitySlot);
         return true;
     };
 
-    public readonly deleteColumns = (entitySlot: TOIMEntityContentSlot, columnNames: readonly string[]): readonly string[] => {
+    public readonly deleteColumns = (entitySlot: OIMEntitySlot, columnNames: readonly string[]): readonly string[] => {
         const deletedColumnNames = this.entityWriter.deleteColumns(entitySlot, columnNames);
         if (deletedColumnNames.length !== 0) this.notifyEntitySlotWrittenListeners(entitySlot);
         return deletedColumnNames;
     };
 
-    public readonly clearEntity = (entitySlot: TOIMEntityContentSlot): void => {
+    public readonly clearEntity = (entitySlot: OIMEntitySlot): void => {
         this.entityWriter.clearEntity(entitySlot);
         this.notifyEntitySlotWrittenListeners(entitySlot);
     };
 
-    private notifyEntitySlotWrittenListeners(entitySlot: TOIMEntityContentSlot): void {
+    private notifyEntitySlotWrittenListeners(entitySlot: OIMEntitySlot): void {
         const entitySlotWrittenListeners = this.entitySlotWrittenListeners;
         if (entitySlotWrittenListeners.size === 0) return;
-        const writtenEntitySlot = entitySlot as TOIMEntitySlot<TEntity, TKey>;
+        const writtenEntitySlot = entitySlot as unknown as TOIMEntitySlot<TEntity, TKey>;
         for (const onEntitySlotWritten of entitySlotWrittenListeners) onEntitySlotWritten(writtenEntitySlot);
     }
 }

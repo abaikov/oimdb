@@ -1,5 +1,5 @@
 import type {
-    IOIMChannelMap, OIMSlotContentBucketService, TOIMBucketContentSlot, TOIMDefaultSlotStore, TOIMEntitySlot, TOIMStoreKey,
+    IOIMChannelMap, OIMBucketContentService, TOIMBucketContentSlot, TOIMDefaultSlotStore, TOIMEntitySlot, TOIMStoreKey,
     TOIMStoreSlot,
 } from '@oimdb/core';
 import type { TOIMPersistEntityCollectionService } from './TOIMPersistEntityCollectionService';
@@ -11,8 +11,8 @@ export type TOIMPersistRecordSourceBucketDrivenOptions<
     readonly channelMap: IOIMChannelMap;
     readonly entityCollectionService: TOIMPersistEntityCollectionService<TKey, TEntity, TEntityStore>;
     readonly entityStoreSlot: TOIMStoreSlot<TEntityStore, TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>>;
-    readonly slotContentBucketService: Pick<
-        OIMSlotContentBucketService<TOIMEntitySlot<TEntity, TKey>, TSlots>,
+    readonly bucketContentService: Pick<
+        OIMBucketContentService<TOIMEntitySlot<TEntity, TKey>, TSlots>,
         'getBucketMemberSlots' | 'hasBucketMemberSlot' | 'writeSlotContent' | 'addBucketMemberSlots'
     >;
     readonly bucketSlot: TOIMBucketContentSlot<TSlots>;

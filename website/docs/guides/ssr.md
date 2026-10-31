@@ -53,14 +53,14 @@ stated separately on both sides. See
 ## Server: fill, then serialize both
 
 ```ts setup
-import { OIMChannelService, OIMDB, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMChannelService, OIMDB, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 
 type Question = { id: string; text: string; answer?: string };
 
 const db = new OIMDB();
-const questionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Question>() });
+const questionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Question>() });
 const questions = questionService.createStoreSlot(db);
-const resultService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Question>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const resultService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Question>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const results = resultService.createStoreSlot(db);
 const resultContentService = resultService.slotContentService;
 ```
@@ -74,7 +74,7 @@ const entities: readonly Question[] = [
 questionService.writeInBatch(questions, () => (entities).map(entity => questionService.writeSlotContentByKey(questions, entity.id, entity)));
 
 const page = resultService.holdSlotByKey(results, 'page-1');
-resultContentService.writeSlotContent(page, entities.map((question) => questionService.getSlotByKey(questions, question.id)));
+page.writeSlotContent(entities.map((question) => questionService.getSlotByKey(questions, question.id)));
 db.flush();
 
 const snapshot = { entities, bucketIds: entities.map((question) => question.id) };
@@ -96,10 +96,7 @@ const snapshot = (window as unknown as { __OIM__: { entities: Question[]; bucket
 questionService.writeInBatch(questions, () => (snapshot.entities).map(entity => questionService.writeSlotContentByKey(questions, entity.id, entity)));
 
 const page = resultService.holdSlotByKey(results, 'page-1');
-resultContentService.writeSlotContent(
-    page,
-    snapshot.bucketIds.map((id) => questionService.getSlotByKey(questions, id)),
-);
+page.writeSlotContent(snapshot.bucketIds.map((id) => questionService.getSlotByKey(questions, id)));
 db.flush();
 
 // hydrateRoot(document.getElementById('root')!, <App />);
@@ -124,14 +121,14 @@ yourself and state that:
 ```typescript
 const page = resultService.holdSlotByKey(results, 'page-1');
 const incoming = [questionService.getSlotByKey(questions, 'q3')];
-const merged = [...new Set([...resultContentService.getBucketMemberSlots(page), ...incoming])];
-resultContentService.writeSlotContent(page, merged);
+const merged = [...new Set([...page.getBucketMemberSlots(), ...incoming])];
+page.writeSlotContent(merged);
 ```
 
 `writeSlotContent` is idempotent, so re-stating an unchanged list evicts nothing
 and wakes nobody: the bucket content service reconciles the new list against the
 old one, and when nothing arrived and nothing departed the write returns `false`
-without marking the bucket (`OIMSlotContentBucketService.writeSlotContent`).
+without marking the bucket (`OIMBucketContentService.writeSlotContent`).
 
 **Why a whole list and not add/remove calls.** A server response is a whole list.
 Stating it whole means the client never has to know what it held before, and the
@@ -158,7 +155,7 @@ const page = resultService.holdSlotByKey(results, 'page-1');
 ```
 
 Keep that `page` slot for as long as the bucket is meant to exist, and call
-`page.owner.unholdSlot(page)` when it is not. Under the default release policy,
+`page.unholdSlot()` when it is not. Under the default release policy,
 `OIMSlotAtEmptyReleasePolicy`, a bucket is kept by its slots, its effects (an
 effect holds what it subscribes to) and its holds; one that passes through empty
 with none of the three is unfiled. On the server, where nothing subscribes, the

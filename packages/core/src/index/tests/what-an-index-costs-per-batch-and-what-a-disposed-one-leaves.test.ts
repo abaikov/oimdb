@@ -1,7 +1,7 @@
 import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { OIMAppendingIndexKeysService } from '../OIMAppendingIndexKeysService';
 import { OIMReclaimingIndexKeysService } from '../OIMReclaimingIndexKeysService';
@@ -10,7 +10,7 @@ import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; suit: string };
@@ -41,14 +41,14 @@ const createFixture = (indexKeysService: IOIMIndexKeysService) => {
     const defaults = new OIMDefaults({ indexKeysService });
     const db = new OIMDB();
     const entitySlotStoreService = new OIMSlotStoreServiceCountingWalks<TOIMEntitySlot<TCard, TOIMStoreKey>>();
-    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }), slotStoreService: entitySlotStoreService });
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }), slotStoreService: entitySlotStoreService });
     const cards = cardsService.createStoreSlot(db);
     const bucketSlotStoreService = new OIMSlotStoreServiceCountingGets<TBucket>();
     const makeIndex = (keyOf: (card: TCard) => string) => {
         const service = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
             keyOf,
-            slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
+            slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
             bucketSlotStoreService,
         });
         return { service, store: service.createIndexStoreSlot(cards) };

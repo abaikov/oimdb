@@ -1,7 +1,7 @@
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { oimClearEntity } from '../utils/oimClearEntity';
 import { createOIMEntitySlot } from '../utils/createOIMEntitySlot';
 import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
@@ -19,12 +19,14 @@ import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
+import type { OIMEntitySlot } from '../OIMEntitySlot';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const patchNames = (writer: IOIMEntityWriter, slot: TOIMEntityContentSlot, patch: object): string[] => {
     const changedColumnNames: string[] = [];
-    writer.patchEntity(slot, patch, changedColumnNames);
+    writer.patchEntity(slot as unknown as OIMEntitySlot, patch, changedColumnNames);
     return changedColumnNames;
 };
 
@@ -42,7 +44,7 @@ function emptySlot(): TRecordSlot {
 /** A slot already holding a record, filed through the strategy under test. */
 function filledSlot(writeService: IOIMEntityWriter, item: object = { id: 'k1', title: 'A', score: 1 }): TRecordSlot {
     const slot = emptySlot();
-    writeService.fillEntity(slot, item);
+    writeService.fillEntity(slot as unknown as OIMEntitySlot, item);
     return slot;
 }
 
@@ -168,7 +170,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             const slot = filledSlot(writeService);
             const before = slot.entity;
 
-            const changed = writeService.patchEntity(slot, { title: 'A', score: 1 }, undefined);
+            const changed = writeService.patchEntity(slot as unknown as OIMEntitySlot, { title: 'A', score: 1 }, undefined);
 
             // An unchanged write answers false and, on the replacing arm, makes no
             // record either: it must not hand readers a new reference.
@@ -213,7 +215,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
         it('reports the columns that were actually there', () => {
             const slot = filledSlot(writeService);
 
-            expect(writeService.deleteColumns(slot, ['title', 'never-was'])).toEqual(['title']);
+            expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['title', 'never-was'])).toEqual(['title']);
             expect(slot.entity).toEqual({ id: 'k1', score: 1 });
         });
 
@@ -223,14 +225,14 @@ for (const { name, writeService, guardedWriteService } of arms) {
 
             // "A removal that removes nothing must not hand readers a new
             // reference" — the same rule the unchanged patch obeys above.
-            expect(writeService.deleteColumns(slot, ['never-was'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
+            expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['never-was'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
             expect(slot.entity).toBe(before);
         });
 
         it('leaves a record behind when its last column goes, because that is not the same as holding none', () => {
             const slot = filledSlot(writeService, { id: 'k1' });
 
-            expect(writeService.deleteColumns(slot, ['id'])).toEqual(['id']);
+            expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['id'])).toEqual(['id']);
             // `deleteColumns` can only ever leave a record BEHIND. `undefined` is
             // how this engine spells "there is no value", and only `clearSlot`
             // says it — IOIMEntityWriter.clearEntity.
@@ -240,7 +242,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
         it('does nothing at all to a slot that holds no record', () => {
             const slot = emptySlot();
 
-            expect(writeService.deleteColumns(slot, ['title'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
+            expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['title'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
             expect(oimIsSlotEmpty(slot)).toBe(true);
         });
     });
@@ -250,7 +252,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             const handedIn = { id: 'k1', title: 'A' };
             const slot = emptySlot();
 
-            writeService.fillEntity(slot, handedIn);
+            writeService.fillEntity(slot as unknown as OIMEntitySlot, handedIn);
             handedIn.title = 'edited behind the engine\'s back';
 
             // "An engine that delivers changes cannot hold a slot somebody else
@@ -269,7 +271,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             }
             const slot = emptySlot();
 
-            writeService.fillEntity(slot, new CardRecord('k1', 'A'));
+            writeService.fillEntity(slot as unknown as OIMEntitySlot, new CardRecord('k1', 'A'));
 
             expect(slot.entity).toEqual({ id: 'k1', title: 'A' });
             // A spread copies own enumerable properties, and a class's methods
@@ -284,7 +286,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             const slot = filledSlot(writeService);
             (slot as TOIMEditable<typeof slot>).holdCount = 3;
 
-            writeService.clearEntity(slot);
+            writeService.clearEntity(slot as unknown as OIMEntitySlot);
 
             expect(oimIsSlotEmpty(slot)).toBe(true);
             // The identity outlives its value: the key, the holds, the
@@ -353,7 +355,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
         it('drops `__proto__` at the door where a first value is filed', () => {
             const slot = emptySlot();
 
-            writeService.fillEntity(slot, polluting());
+            writeService.fillEntity(slot as unknown as OIMEntitySlot, polluting());
 
             expect(slot.entity).toEqual({ title: 'B' });
             expect(Object.keys(slot.entity ?? {})).not.toContain('__proto__');
@@ -395,7 +397,7 @@ for (const { name, writeService, guardedWriteService } of arms) {
             // report a removal on every slot of the collection and wake every
             // subscriber watching it — and `delete` could not have made the
             // report true.
-            expect(writeService.deleteColumns(slot, ['__proto__'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
+            expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['__proto__'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
             expect(slot.entity).toBe(before);
         });
     });
@@ -407,7 +409,7 @@ describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
         Object.defineProperty(stored, '__proto__', {
             value: { injected: true }, enumerable: true, writable: true, configurable: true,
         });
-        (slot as TOIMEditable<typeof slot>).entity = stored as never;
+        entitySlotOf(slot).content = stored as never;
     };
 
     for (const { name, writeService } of arms) {
@@ -423,7 +425,7 @@ describe('what the skip in oimOwnedColumnNames is load-bearing for', () => {
         const slot = filledSlot(writeService, { id: 'k1', title: 'A' });
         expect(Object.prototype.hasOwnProperty.call(slot.entity as object, '__proto__')).toBe(true);
 
-        expect(writeService.deleteColumns(slot, ['__proto__'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
+        expect(writeService.deleteColumns(slot as unknown as OIMEntitySlot, ['__proto__'])).toBe(OIM_FROZEN_EMPTY_COLUMN_NAMES);
         expect(Object.prototype.hasOwnProperty.call(slot.entity as object, '__proto__')).toBe(true);
     });
 });
@@ -461,9 +463,9 @@ describe('the replacing arm rebuilds a record, and what the rebuild refuses to c
         // Reached into by hand, which is the case the rebuild's own comment names
         // — "a slot a caller reached into by hand, a slot restored from a
         // snapshot". No write of this engine puts such a name in a record.
-        (slot as TOIMEditable<typeof slot>).entity = JSON.parse('{"id":"k1","title":"A","__proto__":{"x":1}}') as TRecord;
+        entitySlotOf(slot).content = JSON.parse('{"id":"k1","title":"A","__proto__":{"x":1}}') as TRecord;
 
-        expect(replacing.deleteColumns(slot, ['title'])).toEqual(['title']);
+        expect(replacing.deleteColumns(slot as unknown as OIMEntitySlot, ['title'])).toEqual(['title']);
 
         // The rebuild is a plain spread: the own `__proto__` is carried as data, no setter runs.
         expect(Object.keys(slot.entity ?? {})).toEqual(['id', 'title', '__proto__']);
@@ -476,9 +478,9 @@ describe('the replacing arm rebuilds a record, and what the rebuild refuses to c
         const planted: TRecord = Object.create({ inheritedColumn: 'from the prototype' }) as TRecord;
         planted.id = 'k1';
         planted.title = 'A';
-        (slot as TOIMEditable<typeof slot>).entity = planted;
+        entitySlotOf(slot).content = planted;
 
-        expect(replacing.deleteColumns(slot, ['title'])).toEqual(['title']);
+        expect(replacing.deleteColumns(slot as unknown as OIMEntitySlot, ['title'])).toEqual(['title']);
 
         // What is rebuilt has to be what a spread of the record would have been,
         // minus the removed names — and a spread takes own properties only.
@@ -565,20 +567,20 @@ describe('both arms of the fork answer a patch the same way', () => {
         const arriving = { id: 2 };
 
         const inPlace = createOIMInPlaceEntityWriter({ sameValueGuard: bothObjects });
-        const slotA = { entity: { n: 1, tags: kept } } as unknown as Parameters<typeof inPlace.patchEntity>[0];
+        const slotA = { content: { n: 1, tags: kept } } as unknown as Parameters<typeof inPlace.patchEntity>[0];
         const movedA = patchNames(inPlace, slotA, { n: 2, tags: arriving });
 
         const replacing = createOIMReplacingEntityWriter({ sameValueGuard: bothObjects });
-        const slotB = { entity: { n: 1, tags: kept } } as unknown as Parameters<typeof replacing.patchEntity>[0];
+        const slotB = { content: { n: 1, tags: kept } } as unknown as Parameters<typeof replacing.patchEntity>[0];
         const movedB = patchNames(replacing, slotB, { n: 2, tags: arriving });
 
         expect([...movedA]).toEqual(['n']);
         expect([...movedB]).toEqual(['n']);
 
-        expect((slotA.entity as { tags: unknown }).tags).toBe(kept);
-        expect((slotB.entity as { tags: unknown }).tags).toBe(kept);
+        expect((entitySlotOf(slotA).content as { tags: unknown }).tags).toBe(kept);
+        expect((entitySlotOf(slotB).content as { tags: unknown }).tags).toBe(kept);
 
-        expect((slotA.entity as { n: number }).n).toBe(2);
-        expect((slotB.entity as { n: number }).n).toBe(2);
+        expect((entitySlotOf(slotA).content as { n: number }).n).toBe(2);
+        expect((entitySlotOf(slotB).content as { n: number }).n).toBe(2);
     });
 });

@@ -1,9 +1,9 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 
 type Card = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<Card, string>;
@@ -29,7 +29,7 @@ const heldStore = (probe: UniqueSequenceProbe, held: readonly TCardSlot[]): TOIM
 };
 
 const setReconcileFindsNothing = (db: OIMDB, held: readonly TCardSlot[], slots: readonly TCardSlot[]): boolean => {
-    const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
+    const membersService = new OIMSetBucketContentService<TCardSlot, string>();
     const setsService = createOIMSlotCollectionService({ slotContentService: membersService });
     const bucket = setsService.holdSlotByKey(setsService.createStoreSlot(db), 'held');
     membersService.addBucketMemberSlots(bucket, held);
@@ -38,7 +38,7 @@ const setReconcileFindsNothing = (db: OIMDB, held: readonly TCardSlot[], slots: 
 
 const named = (): { db: OIMDB; slots: Record<string, TCardSlot> } => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,
@@ -122,8 +122,8 @@ describe('two bodies for one question', () => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot, string>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
     const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const cards = cardsService.createStoreSlot(db);
     const decks = decksService.createStoreSlot(db);

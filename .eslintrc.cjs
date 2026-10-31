@@ -67,7 +67,7 @@ module.exports = {
         // showing the old value with no error anywhere; only the call site can see that.
         'react-hooks/rules-of-hooks': 'error',
         'react-hooks/exhaustive-deps': ['error', {
-            additionalHooks: '^(useOIMSingleComputedValue|useOIMComputedCollection)$',
+            additionalHooks: '^(useOIMSingleComputedValue|useOIMComputedCollection|useOIMSourceTrackingValue)$',
         }],
 
         // A private field or method nobody reads is dead weight that still reads

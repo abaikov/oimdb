@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { OIMDB } from '../OIMDB';
 import { OIMDefaults } from '../OIMDefaults';
 import { createOIMReplacingEntityWriter } from '../../entity/createOIMReplacingEntityWriter';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TCard = { id: string; title: string };
 
@@ -20,7 +20,7 @@ const codeOf = (path: string): string =>
 const ROOT = 'db/OIMDB.ts';
 const DEFAULTS = 'db/OIMDefaults.ts';
 
-const ENTITY_DOOR = 'entity/createOIMSlotContentEntityService.ts';
+const ENTITY_DOOR = 'entity/createOIMEntityContentService.ts';
 const DOORS = [
     ENTITY_DOOR,
     'index/createOIMSlotCollectionIndexService.ts',
@@ -40,7 +40,7 @@ const OPTION_TYPES_A_DOOR_TAKES: Readonly<Record<string, readonly string[]>> = {
 const HELPERS_A_DOOR_CALLS: Readonly<Record<string, string>> = {
     'return createOIMSlotCollectionService': 'slot/createOIMSlotCollectionService.ts',
     'return createOIMSingleSlotService': 'slot/createOIMSingleSlotService.ts',
-    'slotContentService: createOIMSlotContentEntityService': 'entity/createOIMSlotContentEntityService.ts',
+    'slotContentService: createOIMEntityContentService': 'entity/createOIMEntityContentService.ts',
     'oimResolveSlotOwnerServiceOptions(': 'slot/utils/oimResolveSlotOwnerServiceOptions.ts',
     'oimResolveSlotStoreService(': 'store/utils/oimResolveSlotStoreService.ts',
     'oimResolveColumnSlotOwnerOptions(': 'column/utils/oimResolveColumnSlotOwnerOptions.ts',
@@ -103,15 +103,15 @@ const CLASS_PATHS: Readonly<Record<string, string>> = {
     OIMSlotTreeStoreService: 'store/OIMSlotTreeStoreService.ts',
     OIMSlotAtUnholdReleasePolicy: 'collector/OIMSlotAtUnholdReleasePolicy.ts',
     OIMSlotOwnerService: 'slot/OIMSlotOwnerService.ts',
-    OIMSlotContentEntityService: 'entity/OIMSlotContentEntityService.ts',
+    OIMEntityContentService: 'entity/OIMEntityContentService.ts',
     OIMSlotCollectionService: 'slot/OIMSlotCollectionService.ts',
     OIMWritableSlotCollectionService: 'slot/OIMSlotCollectionService.ts',
     OIMWritableSingleSlotService: 'slot/OIMSingleSlotService.ts',
     OIMSingleComputedService: 'computed/OIMSingleComputedService.ts',
     OIMSingleSlotService: 'slot/OIMSingleSlotService.ts',
     OIMBucketCommands: 'bucket/OIMBucketCommands.ts',
-    OIMSlotContentPositionalArrayBucketService: 'bucket/OIMSlotContentPositionalArrayBucketService.ts',
-    OIMSlotContentSortedArrayBucketService: 'bucket/OIMSlotContentSortedArrayBucketService.ts',
+    OIMPositionalArrayBucketContentService: 'bucket/OIMPositionalArrayBucketContentService.ts',
+    OIMSortedArrayBucketContentService: 'bucket/OIMSortedArrayBucketContentService.ts',
     OIMSlotCollectionIndexService: 'index/OIMSlotCollectionIndexService.ts',
     OIMSlotCollectionSortedArrayIndexService: 'index/OIMSlotCollectionSortedArrayIndexService.ts',
     OIMComputedService: 'computed/OIMComputedService.ts',
@@ -131,7 +131,7 @@ type TInjected = {
     columnSlotStoreService: unknown;
 };
 
-const injectedInto = (cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>, db: OIMDB): TInjected => {
+const injectedInto = (cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>, db: OIMDB): TInjected => {
     const cards = cardsService.createStoreSlot(db);
     cardsService.columnSlotService.getColumn(cardsService.writeSlotContentByKey(cards, (card => card.id)({ id: 'c1', title: 't' }), { id: 'c1', title: 't' }), 'title');
     const slotOwnerService = Reflect.get(cardsService, 'slotOwnerService') as { columnSlotOwner: object };
@@ -212,9 +212,9 @@ describe('which answer a collection the root mints gets', () => {
         const entityWriter = createOIMReplacingEntityWriter();
         const defaults = new OIMDefaults({ entityWriter });
         const injected = injectedInto(createOIMSlotCollectionService({
-            defaults, slotContentService: createOIMSlotContentEntityService<TCard, string>({ defaults }),
+            defaults, slotContentService: createOIMEntityContentService<TCard, string>({ defaults }),
         }), new OIMDB());
-        const plain = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), new OIMDB());
+        const plain = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() }), new OIMDB());
 
         expect(injected.entityWriter).toBe(entityWriter);
         expect(plain.entityWriter).not.toBe(entityWriter);
@@ -224,7 +224,7 @@ describe('which answer a collection the root mints gets', () => {
 
     it('hands a collection its own answer and never lets the class reach for one', () => {
         const db = new OIMDB();
-        const injected = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), db);
+        const injected = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() }), db);
 
         expect(injected.entityWriter).toBeDefined();
         expect(injected.columnSlotStoreService).toBeDefined();
@@ -234,8 +234,8 @@ describe('which answer a collection the root mints gets', () => {
     it('reads each global once, so two roots in one process hand out the same answer', () => {
         const oneDb = new OIMDB();
         const otherDb = new OIMDB();
-        const one = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), oneDb);
-        const other = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() }), otherDb);
+        const one = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() }), oneDb);
+        const other = injectedInto(createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() }), otherDb);
 
         expect(other.entityWriter).toBe(one.entityWriter);
         expect(other.columnSlotStoreService).toBe(one.columnSlotStoreService);

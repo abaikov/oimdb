@@ -3,7 +3,7 @@
 // of their bundles must be the block appended at the bottom. Change one, change all five.
 import { OIMDB, OIMEffectService, OIMSlotMapStoreService } from '../../../../core/src/index';
 import type { TOIMColumnSlot } from '../../../../core/src/index';
-import { createOIMSlotContentEntityService } from '../../../../core/src/index';
+import { createOIMEntityContentService } from '../../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../../core/src/index';
 
 type TCard = { id: string; deckId: string; rank: number; title: string };
@@ -12,7 +12,7 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
 
 // `writeSlotContentByKey` mints and hands the slot back; a getter never mints.

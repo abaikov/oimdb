@@ -1,10 +1,10 @@
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import { OIMDB, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsArrayStore } from '../../index';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -14,15 +14,15 @@ type TMessageSlot = TOIMEntitySlot<TMessage>;
 type TChain = readonly TOIMEntitySlot[];
 type TPinned = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TMessageSlot>, TChain>;
 
-const createPinnedService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPinned>(OIMCompositeKeyTreeWalk.INSTANCE) });
+const createPinnedService = () => createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TMessageSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPinned>(OIMCompositeKeyTreeWalk.INSTANCE) });
 
 function createFixture() {
     const db = new OIMDB();
-    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed, string>() });
+    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TNamed, string>() });
     const rooms = roomsService.createStoreSlot(db);
-    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed, string>() });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TNamed, string>() });
     const users = usersService.createStoreSlot(db);
-    const messagesService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TMessage>() });
+    const messagesService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TMessage>() });
     const messages = messagesService.createStoreSlot(db);
     // The segments a chain is built out of are ORDINARY identities, so they are
     // written rather than resolved.
@@ -88,14 +88,14 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
     /**
      * A REMOVED MESSAGE STAYS PINNED, AND THAT IS THE CONTRACT.
      *
-     * `OIMSlotContentEntityService.deleteEntity` clears the value and does nothing else: an
+     * `OIMEntityContentService.deleteEntity` clears the value and does nothing else: an
      * entity does not derive which buckets hold it, so nothing there could know
      * which buckets this one is in without scanning every bucket collection in
      * the process.
      *
      * What is left in the bucket is a slot holding no value — the same thing a
      * bucket resolved before its entities arrived already holds, which every
-     * reader of `OIMSlotContentBucketService.getBucketMemberSlots` already answers for. Taking it out is
+     * reader of `OIMBucketContentService.getBucketMemberSlots` already answers for. Taking it out is
      * the caller's, and it is the same call that put it in. Both halves are
      * asserted here, because the first without the second reads as a leak and
      * the second without the first reads as an automatic eviction.
@@ -155,7 +155,7 @@ describe('Hand-set slots, keyed by a chain of identities', () => {
 describe('Hand-set slots, one bucket under no key at all', () => {
     function hand() {
         const { db, messagesService, messages } = createFixture();
-        const shortlistService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TMessageSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const shortlistService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TMessageSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const shortlist = shortlistService.createStoreSlot(db);
         const heldShortlistSlot = shortlistService.holdSingleSlot(shortlist);
         return { db, messagesService, messages, shortlistService, shortlist, heldShortlistSlot };
@@ -190,7 +190,7 @@ describe('Hand-set slots, one bucket under no key at all', () => {
         shortlistService.slotContentService.writeSlotContent(shortlistService.getSingleSlot(shortlist),[messagesService.getSlotByKey(messages, 'm1')!]);
         db.flush();
 
-        // Emptied by the caller: `OIMSlotContentEntityService.deleteEntity` leaves the
+        // Emptied by the caller: `OIMEntityContentService.deleteEntity` leaves the
         // bucket's slots standing — see the chain-keyed case above.
         shortlistService.slotContentService.clearSlotContent(shortlistService.getSingleSlot(shortlist));
         db.flush();

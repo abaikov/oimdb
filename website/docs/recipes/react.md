@@ -15,7 +15,7 @@ collection service first and the store slot after it.
 ```ts setup
 import { memo } from 'react';
 import type { ReactNode } from 'react';
-import { OIMDB, OIMSlotContentSetBucketService, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, OIMSingleSlotStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleComputedService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMComputedSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMDBProvider, useOIMBucketSlotsByKey, useOIMComputedValue, useOIMDB, useOIMEntity,
@@ -26,11 +26,11 @@ type Card = { id: string; deckId: string; title: string; rank: number };
 type User = { id: string; name: string; avatarUrl: string; bio: string };
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>() });
 const users = userService.createStoreSlot(db);
-const searchResultService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
+const searchResultService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<Card>>() });
 const searchResults = searchResultService.createStoreSlot(db);
 const cardsByDeckService = createOIMSlotCollectionIndexService({
   entityService: cardService,
@@ -148,8 +148,8 @@ function SearchResults({ query }: { query: string }) {
 
 declare const found: readonly Card[];
 const aceResults = searchResultService.holdSlotByKey(searchResults, 'ace');
-searchResultService.slotContentService.writeSlotContent(aceResults, cardService.writeInBatch(cards, () => (found).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
-aceResults.owner.unholdSlot(aceResults);
+aceResults.writeSlotContent(cardService.writeInBatch(cards, () => (found).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity))));
+aceResults.unholdSlot();
 ```
 
 **Why this way:** the bucket slot is written when its member list changes, and
@@ -215,9 +215,8 @@ function RankedDeck({ deckId }: { deckId: string }) {
 **Why this way:** each derivation holds its own sources — the index bucket for
 its key and one bucket column slot per sort column — and re-sorts only when
 membership changes or a write changes a sort column on a member, so a title
-write leaves the order alone and reaches one item. A computed is read only
-through its value service: `getValueForSlot` settles it first, while `slot.value` is not
-refreshed outside an effect body. A computed releases a derivation at
+write leaves the order alone and reaches one item. A computed is read as
+`slot.value`, a getter that settles it first. A computed releases a derivation at
 its last unhold, so `useOIMSlotsByKeys` is what keeps it alive while the
 component is mounted; it owns a lifetime, not a subscription, which is why
 `useOIMComputedValue` sits beside it. `useOIMComputedValueByKey` does both in one hook.
@@ -241,7 +240,7 @@ const heartsCountService = createOIMSingleComputedService<number>({
 });
 const heartsCount = heartsCountService.createComputedStoreSlot(
   db,
-  () => cardsByDeckService.slotContentService.getBucketMemberSlotCount(hearts),
+  () => hearts.getBucketMemberSlotCount(),
   () => ({ sourceSlots: [hearts] }),
 );
 const heartsCountSlot = heartsCountService.computedSingleSlotService.holdSingleSlot(heartsCount);
@@ -276,7 +275,7 @@ never reach a component.
 const paintedDb = new OIMDB({
   channelScheduler: (flush) => { requestAnimationFrame(() => { flush(); }); },
 });
-const paintedCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const paintedCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const paintedCards = paintedCardService.createStoreSlot(paintedDb);
 
 function PaintedApp({ children }: { children: ReactNode }) {
@@ -285,7 +284,7 @@ function PaintedApp({ children }: { children: ReactNode }) {
 
 function RenameButton({ cardId }: { cardId: string }) {
   return <button onClick={() => {
-    paintedCardService.slotContentService.updateEntity(paintedCardService.getSlotByKey(paintedCards, cardId), { title: 'Renamed' });
+    paintedCardService.getSlotByKey(paintedCards, cardId).updateEntity({ title: 'Renamed' });
   }}>Rename</button>;
 }
 ```

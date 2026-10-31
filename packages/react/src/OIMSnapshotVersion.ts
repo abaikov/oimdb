@@ -18,4 +18,20 @@ export class OIMSnapshotVersion {
             onStoreChange();
         }, sourceSlots, sourceComputeds);
     }
+
+    public subscribeSourceTrackingEffect(
+        channelMap: IOIMChannelMap,
+        onStoreChange: () => void,
+        derive: () => void,
+    ): TOIMDisposer {
+        this.version++;
+        let isFirstRun = true;
+        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(channelMap, () => {
+            derive();
+            if (isFirstRun) { isFirstRun = false; return; }
+            this.version++;
+            onStoreChange();
+        });
+        return () => { OIMEffectService.INSTANCE.disposeEffect(effect); };
+    }
 }

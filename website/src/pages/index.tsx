@@ -5,6 +5,7 @@ import Layout from '@theme/Layout';
 import CodeBlock from '@theme/CodeBlock';
 import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import LiveDemo from '@site/src/components/LiveDemo';
+import ScaleDemo from '@site/src/components/ScaleDemo';
 import LandingSpeed from '@site/src/components/Landing/LandingSpeed';
 import LandingMemory from '@site/src/components/Landing/LandingMemory';
 import Reveal from '@site/src/components/Landing/Reveal';
@@ -12,16 +13,15 @@ import landingStyles from '@site/src/components/Landing/styles.module.css';
 
 import styles from './index.module.css';
 
-const HERO_CODE = `const taskService = createOIMEntityService<Task>(db, {
-    keyOf: (task) => task.id,
+const HERO_CODE = `const tasks = createOIMSlotCollectionStoreAggregate(db, {
+    slotContentService: createOIMEntityContentService<Task>(),
 });
-const tasks = taskService.createStoreSlot(db);
 
 const byColumnService = createOIMSlotCollectionIndexService({
-    entityService: taskService,
+    entityService: tasks.slotService,
     columns: ['column'],
 });
-const tasksByColumn = byColumnService.createIndexStoreSlot(tasks);
+const tasksByColumn = byColumnService.createIndexStoreSlot(tasks.storeSlot);
 
 const byPriorityService = createOIMSortedComputedService({
     indexService: byColumnService,
@@ -29,9 +29,14 @@ const byPriorityService = createOIMSortedComputedService({
 });
 const tasksByPriority = byPriorityService.createSortedStoreSlot(tasksByColumn);
 
-taskService.slotContentService.updateEntity(
-    taskService.getSlotByKey(tasks, 't1'), { title: 'Fix login redirect' },
-);
+const fix = tasks.writeSlotContentByKey('t1', { id: 't1', column: 'todo', title: 'Fix login redirect', priority: 1 });
+const todo = byPriorityService.computedCollectionService.holdSlotByKey(tasksByPriority, 'todo');
+
+OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
+    render(todo.value.map((task) => task.entity?.title));
+});
+
+fix.updateEntity({ title: 'Fix the login redirect' });
 db.flush();`;
 
 function HomepageHeader(): ReactNode {
@@ -96,6 +101,28 @@ function GranularSection(): ReactNode {
     );
 }
 
+function ScaleSection(): ReactNode {
+    return (
+        <section className={landingStyles.demoSection}>
+            <div className="container">
+                <Reveal>
+                    <p className={landingStyles.eyebrow}>At scale</p>
+                    <h2 className={landingStyles.statement}>
+                        A hundred thousand entities, and a write still costs what one entity costs.
+                    </h2>
+                    <p className={landingStyles.lead}>
+                        Start the ticker, then switch between OIMDB and zustand. A zustand update copies the whole
+                        record of entities; an OIMDB write touches only the entity it changes.
+                    </p>
+                </Reveal>
+                <Reveal>
+                    <ScaleDemo />
+                </Reveal>
+            </div>
+        </section>
+    );
+}
+
 function ClosingSection(): ReactNode {
     return (
         <section className={landingStyles.closing}>
@@ -145,6 +172,7 @@ export default function Home(): ReactNode {
                 <LandingMemory />
                 <LandingSpeed />
                 <GranularSection />
+                <ScaleSection />
                 <ClosingSection />
             </main>
         </Layout>

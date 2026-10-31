@@ -4,13 +4,13 @@ import { createOIMInPlaceEntityWriter } from '../../entity/createOIMInPlaceEntit
 import { oimInsertEntityWithCopy } from '../../entity/utils/oimInsertEntityWithCopy';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
 
 const rowsOf = (db: OIMDB) => {
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
@@ -164,7 +164,7 @@ describe('an identity is not filed before its content lands', () => {
 /**
  * AND THE BULK DOOR OWES THE SAME THING.
  *
- * `OIMSlotContentEntityService.fillEntities` files each key and then fills it, so a throw
+ * `OIMEntityContentService.fillEntities` files each key and then fills it, so a throw
  * part-way through a bulk load stranded the pair IN FLIGHT: its key filed, its
  * content never arrived, `find` answering a slot for a row nobody wrote, `size`
  * counting it, and `fill` refused for the life of the collection afterwards.
@@ -228,7 +228,7 @@ describe('a bulk load leaves no key filed for content that never landed', () => 
 
     it('keeps the rows before a key that cannot be read and files nothing from that row on', () => {
         const db = new OIMDB();
-        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
         const rows = rowsService.createStoreSlot(db);
 
         expect(() => rowsService.writeInBatch(rows, () => ([

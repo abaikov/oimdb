@@ -1,31 +1,31 @@
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TCard = { id: string; deck: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
-type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>, TOIMBucketSlotsSetStore<TCardSlot>,
-    OIMSlotContentSetBucketService<TCardSlot, string>
+    OIMSetBucketContentService<TCardSlot, string>
 >({
     entityService: cardsService,
-    slotContentService: new OIMSlotContentSetBucketService<TCardSlot, string>(),
+    slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
     keyOf: (card: TCard) => card.deck,
 });
 
 describe('a bucket filled by a scan of the source after a hand mutation', () => {
     it('takes the row out of the bucket its old key named, so it is in one bucket, not two', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -43,7 +43,7 @@ describe('a bucket filled by a scan of the source after a hand mutation', () => 
     it('keeps the row alive across the move even when its last hold is the one it leaves', () => {
         const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);

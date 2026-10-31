@@ -2,13 +2,14 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMComputedSources } from '../types/TOIMComputedSources';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; n: number };
 
-const rowsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+const rowsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
 
 const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => Partial<TOIMComputedSources>) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
@@ -17,7 +18,7 @@ const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => 
         getSingleSlot: (storeSlot: typeof computed) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof computed) => {
             const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
     return { computedService: computedReads, computed };

@@ -1,11 +1,11 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import { OIMEffectService } from '../../../effect/OIMEffectService';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
 import { assertConsistent, bucketsUnderTest, entitiesUnderTest } from '../../../../tests/support/assertConsistent';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; rank: number; label: string };
@@ -27,9 +27,9 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot, string>();
+    const membersService = new OIMPositionalArrayBucketContentService<TRowSlot, string>();
     const searchService = createOIMSlotCollectionService({ slotContentService: membersService });
     const search = searchService.createStoreSlot(db);
     const upsertEntity = (row: TRow): void => { rowsService.writeSlotContentByKey(rows, row.id, row); };

@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../computed/OIMComputedSlot';
 import type { TOIMComputedContentSlot } from '../computed/types/TOIMComputedContentSlot';
 import type { IOIMComputedValueService } from '../computed/interfaces/IOIMComputedValueService';
 import type { TOIMComputedColumnSlot } from './types/TOIMComputedColumnSlot';
@@ -47,7 +48,7 @@ export class OIMPullColumnSlotOwner
             oimReleaseNoValue,
             carrierStoreSlot.channelSlot.clock,
         );
-        return columnSlot.value;
+        return (columnSlot as unknown as OIMComputedSlot<unknown>).content;
     }
 
     protected createColumnSlot(carrierSlot: TOIMComputedContentSlot, key: string): TOIMComputedColumnSlot {
@@ -62,12 +63,12 @@ export class OIMPullColumnSlotOwner
     }
 
     private deriveColumnValue(columnSlot: TOIMComputedColumnSlot): unknown {
-        const carrierValue = this.carrierSlotOf(columnSlot).value;
+        const carrierValue = (this.carrierSlotOf(columnSlot) as unknown as OIMComputedSlot<unknown>).content;
         return columnSlot.key === OIM_ANY_COLUMN_KEY ? carrierValue : columnValueOf(carrierValue, columnSlot.key);
     }
 
     private deriveColumnValues(columnSlot: TOIMComputedColumnSlot, columnNames: readonly string[]): unknown {
-        const carrierValue = this.carrierSlotOf(columnSlot).value;
+        const carrierValue = (this.carrierSlotOf(columnSlot) as unknown as OIMComputedSlot<unknown>).content;
         const columnValues: unknown[] = new Array(columnNames.length);
         for (let i = 0; i < columnNames.length; i++) columnValues[i] = columnValueOf(carrierValue, columnNames[i]);
         return columnValues;

@@ -37,8 +37,9 @@ subscription goes through that identity. A bucket holds the slots themselves,
 each one the identity of an entity; a subscription is a handler hanging on an
 identity; a bucket is an identity whose content is other identities.
 
-That is why every write takes the identity (`updateEntity(slot, patch)`,
-`clearSlotContent(slot)`), and there is no write door that takes a key: a caller holding
+That is why a write goes through the identity (`slot.updateEntity(patch)`,
+`slot.clearSlotContent()`). The one write that takes a key, `writeSlotContentByKey`, hands the
+identity back so you keep it; a caller holding
 only a key resolves it first with `getSlotByKey`, so the lookup is a call you can see.
 
 <SlotDiagram />
@@ -47,7 +48,7 @@ Three sentences carry the rest:
 
 1. Four doors mint an identity: writing a value, subscribing, taking a
    hold, and `getSlotByKey`, whose mint the unused-slot collector holds for the
-   turn. `findSlotByKey`, `hasSlotContentByKey` and `findSlotByKey` read without minting.
+   turn. `findSlotByKey` and `hasSlotContentByKey` read without minting.
 2. A slot goes when nothing refers to it, and whatever took a reference
    gives it back.
 3. Where a trade-off has two defensible strategies, both ship and you pick one
@@ -58,34 +59,34 @@ See [The model](/docs/core/model).
 ## A small example
 
 ```typescript
-import { OIMDB, OIMEffectService, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMEffectService, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
 
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 
 const first = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', title: 'alpha' });
 const deckOne = byDeckService.holdSlotByKey(byDeck, 'd1');
-byDeckService.slotContentService.writeSlotContent(deckOne, [first]);
+deckOne.writeSlotContent([first]);
 db.flush();
 
 const effect = effectService.createEffect(db, () => {
-    console.log('deck d1 now has', byDeckService.slotContentService.getBucketMemberSlotCount(deckOne), 'card(s)');
+    console.log('deck d1 now has', deckOne.getBucketMemberSlotCount(), 'card(s)');
 }, [deckOne]);
 
 const second = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', deck: 'd1', title: 'beta' });
-byDeckService.slotContentService.writeSlotContent(deckOne, [first, second]);
+deckOne.writeSlotContent([first, second]);
 db.flush();              // -> "deck d1 now has 2 card(s)"
 
 effectService.disposeEffect(effect);
-deckOne.owner.unholdSlot(deckOne);
+deckOne.unholdSlot();
 ```
 
 `OIMDB` holds the clock, the default channel slot and the unused-slot collector slot that every
@@ -102,8 +103,8 @@ column, an index fills the buckets instead. [Quick Start](/docs/getting-started/
 builds that version, with a sorted view on top.
 
 Every write is reported to the channel slot of the store slot it lands in.
-`createOIMSlotCollectionService` is a convenience wrapper: the base layer is
-`createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService({ keyOf }) })`.
+`createOIMSlotCollectionStoreAggregate(db, options)` is the short form: it builds
+`createOIMSlotCollectionService(options)`, creates its store slot on `db`, and binds the two.
 See [Writing](/docs/core/writing).
 
 ## Packages

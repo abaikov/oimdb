@@ -17,7 +17,7 @@ import {
     OIMPersistor,
 } from '@oimdb/persist';
 import { OIMPersistLocalStorageKeyValueBackend } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TNode = { id: string; self?: unknown };
@@ -41,7 +41,7 @@ function buildNodes(db: OIMDB, storageKey: string) {
     const persistEntityWriter = new OIMPersistEntityWriter<TNode, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNode>({ entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TNode>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistSnapshotResource = new OIMPersistSnapshotResource<
         OIMPersistKeyValueBackend, OIMPersistKeyValueWriteBatch, TNodeRecords, TNodeRecords

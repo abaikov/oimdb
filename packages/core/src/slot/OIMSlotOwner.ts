@@ -2,7 +2,9 @@ import type { IOIMSlotOwner } from './interfaces/IOIMSlotOwner';
 import type { TOIMEffect } from '../effect/types/TOIMEffect';
 import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMEditable } from './types/TOIMEditable';
+import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
+import { OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS } from './constants/OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS';
 export class OIMSlotOwner implements IOIMSlotOwner {
     public holdSlot(slot: TOIMSlot): void {
         this.assertNotReleased(slot);
@@ -24,9 +26,10 @@ export class OIMSlotOwner implements IOIMSlotOwner {
         this.releaseSlotIfUnheld(slot);
     }
 
-    public subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number): number {
+    public subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number, columnGroup?: TOIMColumnGroup): number {
         this.holdSlot(slot);
         const editableSlot = slot as TOIMEditable<TOIMSlot>;
+        if (columnGroup !== undefined) editableSlot.slotFlags |= OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS;
         const subscribers = (editableSlot.effects ??= []);
         subscribers.push(effect);
         (editableSlot.effectEdges ??= []).push(edge);
@@ -47,6 +50,9 @@ export class OIMSlotOwner implements IOIMSlotOwner {
         subscribers.pop();
         effectEdges.pop();
         if (last !== positionInSlot) tailEffect.effectService.setPositionInSubscribedSlot(tailEffect, tailEdge, positionInSlot);
+        if ((slot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) !== 0 && !hasColumnFilteredSubscriber(subscribers, effectEdges)) {
+            (slot as TOIMEditable<TOIMSlot>).slotFlags &= ~OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS;
+        }
         if (last === 0) {
             this.onSlotIdle(slot);
             this.onSlotLastUnsubscribed(slot);
@@ -72,4 +78,11 @@ export class OIMSlotOwner implements IOIMSlotOwner {
     protected assertNotReleased(slot: TOIMSlot): void {
         oimAssertSlotNotReleased(slot);
     }
+}
+
+function hasColumnFilteredSubscriber(subscribers: readonly TOIMEffect[], effectEdges: readonly number[]): boolean {
+    for (let i = 0; i < subscribers.length; i++) {
+        if (subscribers[i].columnGroupsByEdge?.[effectEdges[i]] !== undefined) return true;
+    }
+    return false;
 }

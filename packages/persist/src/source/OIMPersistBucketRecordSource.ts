@@ -30,8 +30,8 @@ export class OIMPersistBucketRecordSource<
     private readonly channelMap: IOIMChannelMap;
     private readonly entityCollectionService: TOIMPersistEntityCollectionService<TKey, TEntity, TEntityStore>;
     private readonly entityStoreSlot: TOIMStoreSlot<TEntityStore, TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>>;
-    private readonly slotContentBucketService:
-        TOIMPersistRecordSourceBucketDrivenOptions<TKey, TEntity, TSlots, TEntityStore>['slotContentBucketService'];
+    private readonly bucketContentService:
+        TOIMPersistRecordSourceBucketDrivenOptions<TKey, TEntity, TSlots, TEntityStore>['bucketContentService'];
     private readonly bucketSlot: TOIMBucketContentSlot<TSlots>;
     private readonly persistRestoredEntities = new OIMPersistRestoredEntities<TKey, TEntity>();
     private readonly entitySlotChangedListeners = new Set<(entitySlot: TOIMEntitySlot<TEntity, TKey>) => void>();
@@ -73,7 +73,7 @@ export class OIMPersistBucketRecordSource<
         this.channelMap = persistRecordSourceBucketDrivenOptions.channelMap;
         this.entityCollectionService = persistRecordSourceBucketDrivenOptions.entityCollectionService;
         this.entityStoreSlot = persistRecordSourceBucketDrivenOptions.entityStoreSlot;
-        this.slotContentBucketService = persistRecordSourceBucketDrivenOptions.slotContentBucketService;
+        this.bucketContentService = persistRecordSourceBucketDrivenOptions.bucketContentService;
         this.bucketSlot = persistRecordSourceBucketDrivenOptions.bucketSlot;
         oimAssertOneChannel(this.channelMap, this.entityStoreSlot, 'OIMPersistBucketRecordSource');
         oimAssertOneChannel(this.channelMap, this.bucketSlot.storeSlot, 'OIMPersistBucketRecordSource');
@@ -89,7 +89,7 @@ export class OIMPersistBucketRecordSource<
             this.persistRestoredEntities.rememberRestoredEntity(records[i].key, records[i].entity);
         }
         const restoredEntitySlots = oimUpsertPersistRecords(this.entityCollectionService, this.entityStoreSlot, records);
-        this.slotContentBucketService.writeSlotContent(this.bucketSlot, restoredEntitySlots);
+        this.bucketContentService.writeSlotContent(this.bucketSlot, restoredEntitySlots);
     }
 
     public subscribeSnapshotChanged(onSnapshotChanged: () => void): TOIMDisposer {
@@ -153,7 +153,7 @@ export class OIMPersistBucketRecordSource<
         }
         const loadedEntitySlots = oimUpsertPersistRecords(this.entityCollectionService, this.entityStoreSlot, records)
             .filter(entitySlot => !this.isBucketMemberSlot(entitySlot));
-        if (loadedEntitySlots.length !== 0) this.slotContentBucketService.addBucketMemberSlots(this.bucketSlot, loadedEntitySlots);
+        if (loadedEntitySlots.length !== 0) this.bucketContentService.addBucketMemberSlots(this.bucketSlot, loadedEntitySlots);
     }
 
     public unloadKeys(keys: readonly TKey[]): void {
@@ -166,13 +166,13 @@ export class OIMPersistBucketRecordSource<
     }
 
     private readonly isBucketMemberSlot = (entitySlot: TOIMEntitySlot<TEntity, TKey>): boolean =>
-        this.slotContentBucketService.hasBucketMemberSlot(this.bucketSlot, entitySlot);
+        this.bucketContentService.hasBucketMemberSlot(this.bucketSlot, entitySlot);
 
     private readonly hasBucketMemberSlotEffect = (entitySlot: TOIMEntitySlot<TEntity, TKey>): boolean =>
         this.bucketMemberSlotEffectByEntitySlot.has(entitySlot);
 
     private readBucketMemberSlots(): Iterable<TOIMEntitySlot<TEntity, TKey>> {
-        return this.slotContentBucketService.getBucketMemberSlots(this.bucketSlot);
+        return this.bucketContentService.getBucketMemberSlots(this.bucketSlot);
     }
 
     private notifyEntitySlotChangedListeners(entitySlot: TOIMEntitySlot<TEntity, TKey>): void {

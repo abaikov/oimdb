@@ -9,14 +9,14 @@ into an ordinary collection.
 
 ```ts
 import { OIMDB } from '@oimdb/core';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type User = { id: string; name: string };
 declare function fetchUsers(): Promise<User[]>;
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>() });
 const users = userService.createStoreSlot(db);
 
 const fetchedUsers = await fetchUsers();

@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { createOIMInPlaceEntityWriter } from '../../entity/createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../../entity/createOIMReplacingEntityWriter';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
@@ -11,7 +11,7 @@ import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnNa
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TPost = { id: string; deleted?: boolean; title?: string; body?: string; deck?: string };
@@ -33,7 +33,7 @@ const WRITERS: readonly [string, () => IOIMEntityWriter][] = [
 const openPosts = (entityWriter: IOIMEntityWriter, emptiness = softDeleted) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const postsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPost, TOIMStoreKey>({ entityWriter, slotEmptinessPolicy: emptiness }) });
+    const postsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPost, TOIMStoreKey>({ entityWriter, slotEmptinessPolicy: emptiness }) });
     const posts = postsService.createStoreSlot(db);
     const upsertHeld = (post: TPost): TPostSlot => {
         postsService.writeSlotContentByKey(posts, post.id, post);
@@ -156,10 +156,10 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         const byDeckService = createOIMSlotCollectionIndexService<
             TPost, TOIMStoreKey, readonly TOIMEntityColumnName<TPost>[], string,
             Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TOIMEntitySlot<TPost>>,
-            OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>
+            OIMSetBucketContentService<TOIMEntitySlot<TPost>, string>
         >({
             entityService: postsService,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPost>, string>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPost>, string>(),
             keyOf: (post: TPost) => post.deck ?? 'none',
         });
         const byDeck = byDeckService.createIndexStoreSlot(posts);

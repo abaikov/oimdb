@@ -4,10 +4,10 @@ import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWrite
 import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
 import { oimInsertEntityWithSanitizedCopy } from '../utils/oimInsertEntityWithSanitizedCopy';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
-import type { TOIMEditable } from '../../slot/types/TOIMEditable';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { TOIMEntityContentSlot } from '../types/TOIMEntityContentSlot';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 type TRow = { id: string; n: number; label?: string };
 
@@ -65,18 +65,18 @@ const cases: readonly TCase[] = [
 const spreadWithoutDeletingTheKey: TOIMEntityInserter = <TEntity extends object>(
     slot: TOIMEntityContentSlot<TEntity>, entity: TEntity,
 ): void => {
-    (slot as TOIMEditable<TOIMEntityContentSlot<TEntity>>).entity = { ...entity };
+    entitySlotOf(slot).content = { ...entity };
 };
 
 const rowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 
 const replacingRowsFilledBy = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: createOIMReplacingEntityWriter({ entityInserter }) }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: createOIMReplacingEntityWriter({ entityInserter }) }) });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 };
 

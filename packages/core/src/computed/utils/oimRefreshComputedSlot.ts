@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../OIMComputedSlot';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMChannelClock } from '../../channel/types/TOIMChannelClock';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
@@ -8,7 +9,7 @@ import { oimHasSourceChangedSinceLastRun } from './oimHasSourceChangedSinceLastR
 import { oimIsRevisionAfter } from '../../channel/utils/oimIsRevisionAfter';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_RELEASED } from '../../slot/constants/OIM_SLOT_FLAG_RELEASED';
-import type { OIMSourceTracker } from '../OIMSourceTracker';
+import { OIMSourceTracker } from '../OIMSourceTracker';
 
 export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined>>(
     computedSlot: TComputedSlot,
@@ -20,25 +21,31 @@ export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMCompute
     if (computedSlot.isDeriving) return;
     if (computedSlot.checkedAtRevision === channelClock.revision && computedSlot.checkedAtEpoch === channelClock.epoch) return;
     const editableComputedSlot = computedSlot as TOIMEditable<TOIMComputedContentSlot<TValue>>;
-    oimRefreshSourceComputeds(computedSlot.sourceComputeds);
-    if (computedSlot.ranAtRevision !== -1 && !oimHasSourceChangedSinceLastRun(computedSlot)) {
-        editableComputedSlot.checkedAtRevision = channelClock.revision;
-        editableComputedSlot.checkedAtEpoch = channelClock.epoch;
-        return;
-    }
-    const hasDerived = computedSlot.ranAtRevision !== -1;
-    editableComputedSlot.isDeriving = true;
+    const outerSourceTracker = OIMSourceTracker.activeSourceTracker;
+    OIMSourceTracker.activeSourceTracker = undefined;
     let next: TValue;
     try {
-        next = derive(computedSlot);
+        oimRefreshSourceComputeds(computedSlot.sourceComputeds);
+        if (computedSlot.ranAtRevision !== -1 && !oimHasSourceChangedSinceLastRun(computedSlot)) {
+            editableComputedSlot.checkedAtRevision = channelClock.revision;
+            editableComputedSlot.checkedAtEpoch = channelClock.epoch;
+            return;
+        }
+        editableComputedSlot.isDeriving = true;
+        try {
+            next = derive(computedSlot);
+        } finally {
+            editableComputedSlot.isDeriving = false;
+        }
     } finally {
-        editableComputedSlot.isDeriving = false;
+        OIMSourceTracker.activeSourceTracker = outerSourceTracker;
     }
+    const hasDerived = computedSlot.ranAtRevision !== -1;
     if ((computedSlot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) {
         releaseValue(next);
         return;
     }
-    const prevValue = computedSlot.value;
+    const prevValue = (computedSlot as unknown as OIMComputedSlot<TValue>).content;
     const isSameValue = sameValueGuard(prevValue, next);
     editableComputedSlot.ranAtRevision = channelClock.revision;
     editableComputedSlot.ranAtEpoch = channelClock.epoch;
@@ -48,7 +55,7 @@ export function oimRefreshComputedSlot<TValue, TComputedSlot extends TOIMCompute
         if (next !== prevValue) releaseValue(next);
         return;
     }
-    editableComputedSlot.value = next;
+    (editableComputedSlot as unknown as TOIMEditable<OIMComputedSlot<TValue>>).content = next;
     if (hasDerived) releaseValue(prevValue);
     const sourceSlots = computedSlot.sourceSlots;
     const sourceComputeds = computedSlot.sourceComputeds;

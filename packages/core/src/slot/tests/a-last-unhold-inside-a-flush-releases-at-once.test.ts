@@ -2,8 +2,8 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMComputedService } from '../../computed/createOIMComputedService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAtUnholdReleasePolicy } from '../../collector/OIMSlotAtUnholdReleasePolicy';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
 import type { TOIMSlot } from '../types/TOIMSlot';
@@ -15,7 +15,7 @@ function releaseInsideAFlush(db: OIMDB, slot: TOIMSlot): { isReleasedInsideTheFl
     const effectService = OIMEffectService.INSTANCE;
     const watching = effectService.createEffect(db, () => undefined, [slot]);
     slot.owner.unholdSlot(slot);
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const trigger = cardsService.holdSlotByKey(cards, 'trigger');
     const answer: { isReleasedInsideTheFlush: boolean | undefined } = { isReleasedInsideTheFlush: undefined };
@@ -42,7 +42,7 @@ describe('a last unhold inside a flush', () => {
     it('releases an entity slot with a value at once, under a policy that releases it at its last unhold', () => {
         const db = new OIMDB();
         const cardsService = createOIMSlotCollectionService({
-            slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
+            slotContentService: createOIMEntityContentService<TCard>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
         });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.holdSlotByKey(cards, 'ace');
@@ -54,11 +54,11 @@ describe('a last unhold inside a flush', () => {
 
     it('releases a bucket slot with members at once, under a policy that releases it at its last unhold, and gives its members back', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'Ace' });
         const handsService = createOIMSlotCollectionService({
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(), slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
         });
         const hands = handsService.createStoreSlot(db);
         const hand = handsService.holdSlotByKey(hands, 'hand');

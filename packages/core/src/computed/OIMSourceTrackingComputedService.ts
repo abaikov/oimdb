@@ -7,13 +7,13 @@ import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMSourceTrackingComputedDerivationOptions } from './types/TOIMSourceTrackingComputedDerivationOptions';
 import type { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
 import { OIMSourceTrackingComputedValueService } from './OIMSourceTrackingComputedValueService';
-import { OIMSlotContentSourceTrackingComputedService } from './OIMSlotContentSourceTrackingComputedService';
+import { OIMSourceTrackingComputedContentService } from './OIMSourceTrackingComputedContentService';
 import { createOIMComputedSlotCollectionService } from './utils/createOIMComputedSlotCollectionService';
 
 export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>, TValue, TComputedStore> {
     public readonly computedCollectionService: OIMSlotCollectionService<
         TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore,
-        OIMSlotContentSourceTrackingComputedService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>,
+        OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>,
         Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
     >;
 
@@ -24,9 +24,9 @@ export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>,
     ) {
         this.computedCollectionService = createOIMComputedSlotCollectionService<
             TKey, TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore, Extract<keyof TValue, string>,
-            OIMSlotContentSourceTrackingComputedService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>
+            OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>
         >({
-            slotContentService: new OIMSlotContentSourceTrackingComputedService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>({
+            slotContentService: new OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>({
                 computedValueService: new OIMSourceTrackingComputedValueService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>({
                     derive: options.derive,
                     sameValueGuard: options.sameValueGuard,

@@ -12,7 +12,7 @@ const engineLayersThatWriteForACallerWhoAsked = [
 
 const filesAllowedToWriteWithoutAsking = [
     CHANNEL,
-    'entity/OIMSlotContentEntityService.ts',
+    'entity/OIMEntityContentService.ts',
     ...engineLayersThatWriteForACallerWhoAsked,
 ].sort();
 

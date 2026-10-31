@@ -39,6 +39,16 @@ export abstract class OIMColumnSlotOwner<
         return Object.freeze({ key: oimColumnGroupKeyOfColumnNames(sortedColumnNames), columnNames: Object.freeze(sortedColumnNames) });
     }
 
+    public getColumnGroupSlot(
+        carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup, unusedSlotCollectorSlot: TOIMUnusedSlotCollectorSlot,
+    ): TColumnSlot {
+        const storedColumnSlot = this.getColumnIfFiled(carrierSlot, columnGroup.key);
+        if (storedColumnSlot !== undefined) return storedColumnSlot;
+        const columnSlot = this.mintColumnGroupSlot(carrierSlot, columnGroup);
+        OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(unusedSlotCollectorSlot, columnSlot);
+        return columnSlot;
+    }
+
     public holdColumnGroup(carrierSlot: TCarrierSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
         const columnSlot = this.getColumnIfFiled(carrierSlot, columnGroup.key) ?? this.mintColumnGroupSlot(carrierSlot, columnGroup);
         this.holdSlot(columnSlot);

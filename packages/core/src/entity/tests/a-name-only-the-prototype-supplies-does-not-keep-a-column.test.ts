@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -23,7 +23,7 @@ Object.defineProperty(Card.prototype, 'deckId', { value: 'unset', enumerable: tr
 const definedColumnNamesOf = (entity: object | undefined): string[] =>
     Object.entries(entity ?? {}).filter(([, value]) => value !== undefined).map(([name]) => name);
 
-const cardsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const cardsOn = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 
 describe('a name only the prototype supplies does not keep a column, on a collection row', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
@@ -97,7 +97,7 @@ describe('a name only the prototype supplies does not keep a column, on a collec
 describe('a name only the prototype supplies does not keep a column, on a standalone record', () => {
     it('takes away a column the arriving instance carries only on its prototype', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
 
@@ -109,7 +109,7 @@ describe('a name only the prototype supplies does not keep a column, on a standa
 
     it('takes away a column named after an `Object.prototype` method', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', toString: 'x' } as unknown as TCard);
         expect(Object.keys(recordService.getSingleSlot(record).entity ?? {}).sort()).toEqual(['id', 'toString']);
@@ -121,7 +121,7 @@ describe('a name only the prototype supplies does not keep a column, on a standa
 
     it('wakes the readers of the record whose column it took away', () => {
         const db = new OIMDB();
-        const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const recordService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>() });
         const record = recordService.createStoreSlot(db);
         recordService.writeSingleSlotContent(record, { id: 'c1', deckId: 'd1' });
         let runCount = 0;

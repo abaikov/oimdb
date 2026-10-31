@@ -1,9 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { OIMSlotCollectionIndexService } from '../../index/OIMSlotCollectionIndexService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
 type TCard = { id: string; deck: string; title: string };
@@ -17,10 +17,10 @@ type TIndexDeliveries = {
 function setUp(keyOf: (card: TCard) => string = card => card.deck) {
     const db = new OIMDB();
     const cardsService = createOIMSlotCollectionService({
-        slotContentService: createOIMSlotContentEntityService<TCard>(),
+        slotContentService: createOIMEntityContentService<TCard>(),
     });
     const cards = cardsService.createStoreSlot(db);
-    const bucketService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
+    const bucketService = new OIMPositionalArrayBucketContentService<TCardSlot, string>();
     const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf, slotContentService: bucketService });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const spades = byDeckService.holdSlotByKey(byDeck, 'spades');

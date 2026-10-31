@@ -28,7 +28,7 @@ after each write. The entity service is constructed with an `OIMPersistEntityWri
 the source learns which entity slot was written.
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistIdentityCodec, OIMPersistVersionedCodec, OIMPersistEntityWriter, OIMPersistKeyValueBackend,
@@ -50,7 +50,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: persistEntityWriter }) });
+const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 const cardContentService = cardCollectionService.slotContentService;
 
@@ -147,7 +147,7 @@ it holds an entity and is not released, and a deletion of its key otherwise; whe
 |---|---|---|---|
 | `OIMPersistCollectionWriteRecordSource` | `{ entityCollectionService, entityStoreSlot, persistEntityWriter }` (`TOIMPersistRecordSourceCollectionOptions`) | synchronously, from the writer on every write that changed the entity | `OIMPersistMicrotaskScheduler` |
 | `OIMPersistCollectionChangeWriteRecordSource` | the same `TOIMPersistRecordSourceCollectionOptions` | synchronously, from the writer and from the store slot's content-change listener | `OIMPersistMicrotaskScheduler` |
-| `OIMPersistBucketRecordSource` | `{ channelMap, entityCollectionService, entityStoreSlot, slotContentBucketService, bucketSlot }` | from effects, when the channel runs its frame | `OIMPersistFrameScheduler` |
+| `OIMPersistBucketRecordSource` | `{ channelMap, entityCollectionService, entityStoreSlot, bucketContentService, bucketSlot }` | from effects, when the channel runs its frame | `OIMPersistFrameScheduler` |
 | `OIMPersistSingleEntitySnapshotSource` | `{ channelMap, singleSlotService, entityStoreSlot }`, over a single entity service from `createOIMSingleSlotService` and its store slot | from an effect, when the channel runs its frame | `OIMPersistFrameScheduler` |
 
 **Collection.** The whole collection: every entity slot of the store slot that holds an entity.
@@ -184,14 +184,14 @@ value: the first different value the source sees ends it, so an edit and a later
 another frame are both written.
 
 ```ts
-const cardBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const cardBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 const cardBucketStoreSlot = cardBucketService.createStoreSlot(db);
 const inboxBucketSlot = cardBucketService.holdSlotByKey(cardBucketStoreSlot, 'inbox');
 const inboxPersistRecordSource = new OIMPersistBucketRecordSource({
     channelMap: db,
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
-    slotContentBucketService: cardBucketService.slotContentService,
+    bucketContentService: cardBucketService.slotContentService,
     bucketSlot: inboxBucketSlot,
 });
 ```
@@ -204,7 +204,7 @@ exemption rule as the bucket source. `readSnapshot` throws while no entity has b
 or restored, so write the entity (or hydrate) before the persistor reads it.
 
 ```ts
-const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 const settingsContentService = settingsSingleEntityService.slotContentService;
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'light', density: 'compact' });
@@ -393,7 +393,7 @@ entities are not written back. It skips every key that holds a value in memory o
 resource has not written yet (pending or in a commit), so neither a write nor a heard deletion made
 during the read is overwritten. A collection source upserts the entities into the store slot; the
 bucket source upserts them into the entity store slot, adds the slots back to the bucket
-(`slotContentBucketService.addBucketMemberSlots(bucketSlot, …)`) and remembers them as restored. The keys stop
+(`bucketContentService.addBucketMemberSlots(bucketSlot, …)`) and remembers them as restored. The keys stop
 counting as unloaded, so once none is, `persist()` replaces the stored table again. Another
 resource over the same entity store slot is not silenced and hears the upserts as writes. A key-value
 backend has no records strategy, so a snapshot resource has no `load`. A failed read rejects the

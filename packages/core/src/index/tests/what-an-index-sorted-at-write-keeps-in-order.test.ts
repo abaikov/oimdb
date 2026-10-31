@@ -1,5 +1,5 @@
 import { OIMDB, OIMEffectService, createOIMSlotCollectionSortedArrayIndexService } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; rank: number; score: number; label: string };
@@ -18,7 +18,7 @@ const compareCards = (left: TCard, right: TCard): number => (left.rank - right.r
 
 const createFixture = (initialCards: readonly TCard[]) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => (initialCards.map(card => ({ ...card }))).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     db.flush();

@@ -101,9 +101,9 @@ export const bundlePieces: readonly TBundlePiece[] = [
          * arithmetic in between.
          */
         spotlight: {
-            module: 'bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            module: 'bucket/OIMPositionalArrayBucketContentService.ts',
             label: 'array?',
-            name: 'bucket/OIMSlotContentPositionalArrayBucketService.ts',
+            name: 'bucket/OIMPositionalArrayBucketContentService.ts',
         },
         decompose: [
             {

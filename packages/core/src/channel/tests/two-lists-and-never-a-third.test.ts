@@ -3,15 +3,15 @@ import type { OIMChannelQueue } from '../OIMChannelQueue';
 import type { TOIMChannelSlot } from '../types/TOIMChannelSlot';
 import type { TOIMEffect } from '../../effect/types/TOIMEffect';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type Card = { id: string; n: number };
 
 const updateEntityByKey = (
-    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<Card>>>,
-    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<Card>>>['createStoreSlot']>,
+    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<Card>>>,
+    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<Card>>>['createStoreSlot']>,
     key: string, patch: Partial<Card>,
 ): void => {
     const slot = cardsService.findSlotByKey(cards, key);
@@ -44,7 +44,7 @@ const leafCountOf = (channelSlot: TOIMChannelSlot): number => effectChannelQueue
 const subscribedCards = (size: number) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     for (let i = 0; i < size; i++) cardsService.writeSlotContentByKey(cards, `c${i}`, { id: `c${i}`, n: 0 });
     db.flush();

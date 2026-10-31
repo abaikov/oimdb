@@ -1,9 +1,9 @@
 import {
-    OIMSlotContentPositionalArrayBucketService,
-    OIMSlotContentSetBucketService,
+    OIMPositionalArrayBucketContentService,
+    OIMSetBucketContentService,
 } from '../../../core/src/index';
 import type {
-    OIMSlotContentBucketService,
+    OIMBucketContentService,
     TOIMBucketSlotsArrayStore,
     TOIMBucketSlot,
     TOIMEntitySlot,
@@ -85,7 +85,7 @@ const SWEEP_STOPS = 16;
 type TMutatorWorld<TSlots> = {
     readonly fixture: ReturnType<typeof priceFixture>;
     /** The one strategy object the two halves of a pair differ in. */
-    readonly slotContentService: OIMSlotContentBucketService<TRowSlot, TSlots>;
+    readonly slotContentService: OIMBucketContentService<TRowSlot, TSlots>;
     /** One per page, in page order, resolved once so no body asks for one. */
     readonly buckets: TOIMBucketSlot<TSlots, TOIMStoreKey>[];
     /**
@@ -125,7 +125,7 @@ type TMutatorWorld<TSlots> = {
 const mutatorWorld = <TSlots>(
     pageCount: number,
     bucketSize: number,
-    slotContentService: OIMSlotContentBucketService<TRowSlot, TSlots>,
+    slotContentService: OIMBucketContentService<TRowSlot, TSlots>,
 ): TMutatorWorld<TSlots> => {
     if (priceDataset.groups % pageCount !== 0 || pageCount % 2 !== 0) {
         throw new Error(
@@ -260,7 +260,7 @@ const assertBandsAreWhereTheyAreExpected = <TSlots>(
  */
 const assertBandsSitAtTheirIndex = <TSlots>(
     world: TMutatorWorld<TSlots>,
-    slotContentServiceArrayDriven: OIMSlotContentPositionalArrayBucketService<TRowSlot>,
+    slotContentServiceArrayDriven: OIMPositionalArrayBucketContentService<TRowSlot>,
     pageCount: number,
     stopStride: number,
     swappedStop: number,
@@ -272,7 +272,7 @@ const assertBandsSitAtTheirIndex = <TSlots>(
         for (let p = 0; p < pageCount; p++) {
             const row = base + rowOfBandIn(p, stop === swappedStop);
             const at = slotContentServiceArrayDriven.getBucketMemberSlotPosition(
-                world.buckets[p] as TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>>, slots[row]);
+                world.buckets[p] as unknown as TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>>, slots[row]);
             if (at !== band) {
                 throw new Error(
                     `alternativePairsMutator: band ${band} of page ${p} sits at position ${at}, ` +
@@ -322,7 +322,7 @@ const REMOVAL_CAVEAT =
     + 'engine offers for it — two array stores that exchange the member between the two lists this '
     + 'file holds, `slotContentService.writeSlotContent` of each of those lists, a flush, and a read of every '
     + 'bucket in the frame through `getBucketMemberSlots`. Both halves run the identical body; the only difference in '
-    + 'the process is which slot content bucket service object the bucket service was created with.'
+    + 'the process is which bucket content service object the bucket service was created with.'
     + 'READINGS RECORDED BEFORE 2026-08-23 priced a re-file reached through a derived membership '
     + 'source and are not this operation. '
     + 'EVERY OPERATION REALLY MOVES A MEMBER, which is the failure this suite has already published '
@@ -338,7 +338,7 @@ const REMOVAL_CAVEAT =
     + 'DIRECTION, three ways. (1) The two array stores, the mark, the flush and the read call are '
     + 'identical in SHAPE on both halves and inside both numbers, which pulls the RATIO toward '
     + '1.00, so the two printed nanosecond figures are the numbers to read. (2) ONLY THE SET HALF DIFFS: '
-    + '`OIMSlotContentSetBucketService.reconcileSlots` takes the set difference (one Set of the list '
+    + '`OIMSetBucketContentService.reconcileSlots` takes the set difference (one Set of the list '
     + 'handed in, one probe per held member) and moves one hold each way, while the ordered half\'s '
     + '`reconcileSlots` compares the two sequences up to the first mismatch, then drains the whole list '
     + 'and re-adds every member, so every member it holds is unheld and held again. READINGS '
@@ -365,8 +365,8 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
         path: EPricePath.PerRowPerWrite,
         ours:
             `a member leaves a bucket of ${bucketSize} and joins another, membership in a Set `
-            + '(OIMSlotContentSetBucketService)',
-        floor: 'the same move, membership in a list kept in the caller\'s order (OIMSlotContentPositionalArrayBucketService)',
+            + '(OIMSetBucketContentService)',
+        floor: 'the same move, membership in a list kept in the caller\'s order (OIMPositionalArrayBucketContentService)',
         caveat:
             `A BUCKET OF ${bucketSize}, and the size is in the id because the answer is a function `
             + 'of it on BOTH halves. THE COUNT THIS PREDICTS, per member moved, through '
@@ -387,8 +387,8 @@ const removalPair = (pageCount: number, bucketSize: number, size: string): TPric
             // Ours is the unordered service, the floor the ordered one — see the
             // head of this file for why that way round, and note that neither is
             // a rejected design.
-            const ourWorld = mutatorWorld(pageCount, bucketSize, new OIMSlotContentSetBucketService<TRowSlot>());
-            const orderedMutator = new OIMSlotContentPositionalArrayBucketService<TRowSlot>();
+            const ourWorld = mutatorWorld(pageCount, bucketSize, new OIMSetBucketContentService<TRowSlot>());
+            const orderedMutator = new OIMPositionalArrayBucketContentService<TRowSlot>();
             const floorWorld = mutatorWorld(pageCount, bucketSize, orderedMutator);
 
             // THE PREMISE, CHECKED THREE TIMES AND OUTSIDE THE CLOCK: every band
@@ -532,8 +532,8 @@ const iteratePair: TPricePair = {
     build: () => {
         // Two pages, because the builder lays pages out in lanes; only the first
         // is walked.
-        const ourWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentSetBucketService<TRowSlot>());
-        const floorWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
+        const ourWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMSetBucketContentService<TRowSlot>());
+        const floorWorld = mutatorWorld(2, ITERATE_MEMBERS, new OIMPositionalArrayBucketContentService<TRowSlot>());
         return {
             ours: {
                 reset: () => undefined,

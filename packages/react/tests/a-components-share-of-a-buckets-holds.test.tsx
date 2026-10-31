@@ -20,18 +20,18 @@ import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import { OIMDB, OIMUnusedSlotCollectorService, oimIsSlotReleased } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMDBProvider, useOIMBucketSlotsByKey } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
 
-const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 type TByDeckService = ReturnType<typeof createByDeckService>;
 type TByDeck = ReturnType<TByDeckService['createStoreSlot']>;
 

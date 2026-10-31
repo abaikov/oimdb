@@ -1,11 +1,11 @@
 import { OIMCompositeKeyTreeWalk } from '../../../core/dist/index.js';
-import { OIMChannelService, OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
     OIMComputedService,
     OIMWritableSlotCollectionService,
-    OIMSlotContentEntityService,
+    OIMEntityContentService,
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
     TOIMBucketSlotsArrayStore,
@@ -55,7 +55,7 @@ type TRowStore = Map<TOIMStoreKey, TRowSlot>;
 type TEntityService<
     TKey extends NonNullable<unknown>, TEntity extends object, TStore, TColumnName extends string = TOIMEntityColumnName<TEntity>,
 > = OIMWritableSlotCollectionService<
-    TKey, TOIMEntitySlot<TEntity, TKey>, TStore, TEntity, OIMSlotContentEntityService<TEntity, TKey, TColumnName>,
+    TKey, TOIMEntitySlot<TEntity, TKey>, TStore, TEntity, OIMEntityContentService<TEntity, TKey, TColumnName>,
     TColumnName, TOIMColumnSlot, OIMPushColumnSlotOwner, Partial<TEntity>
 >;
 type TRowEntityService = TEntityService<TOIMStoreKey, TRow, TRowStore, TRowColumnName>;
@@ -72,7 +72,6 @@ type TGroupOrders<TGroupOrder, TOrderedSlots> = {
     readOrderedSlots: (groupOrder: TGroupOrder) => TOrderedSlots;
     getOrderedSlotCount: (orderedSlots: TOrderedSlots) => number;
     getOrderedSlotAt: (orderedSlots: TOrderedSlots, at: number) => TRowSlot;
-    watchGroupOrder: (db: OIMDB, groupOrder: TGroupOrder, body: () => void) => TOIMEffect;
 };
 
 type TGroupOrderStrategy<TGroupOrder, TOrderedSlots> = {
@@ -104,7 +103,7 @@ const BY_RANK_THEN_ID: readonly TOIMSortColumn<TRow>[] = [
 // In place, so the stored object keeps its identity for its whole life and
 // `slot.entity` IS that object — what `readAll` and the pinned reads depend on.
 const createRowEntityService = (): TRowEntityService =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>(), columnNames: ROW_COLUMNS });
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>(), columnNames: ROW_COLUMNS });
 
 // THE GROUP FILING IS THE LIBRARY'S: on a write that changed one of the index's
 // columns the collection reads the key again, compares it with the key the row was
@@ -113,11 +112,11 @@ const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, r
     createGroupOrders: (entityService, entityStoreSlot, indexKeyOptions, slotReleasePolicy) => {
         const indexService = createOIMSlotCollectionIndexService<
             TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TGroupSlots,
-            OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>
+            OIMSetBucketContentService<TOIMEntitySlot<TRow>>
         >({
             ...indexKeyOptions,
             entityService,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TRow>>(),
             slotReleasePolicy,
         });
         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
@@ -133,11 +132,9 @@ const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, r
             unholdGroupOrder: groupOrder => {
                 groupOrder.owner.unholdSlot(groupOrder);
             },
-            readOrderedSlots: groupOrder => groupOrder.computedValueService.getValueForSlot(groupOrder),
+            readOrderedSlots: groupOrder => groupOrder.value,
             getOrderedSlotCount: orderedSlots => orderedSlots.length,
             getOrderedSlotAt: (orderedSlots, at) => orderedSlots[at] as TRowSlot,
-            watchGroupOrder: (db, groupOrder, body) =>
-                OIMEffectService.INSTANCE.createEffect(db, body, NO_ROOT_SLOTS, [groupOrder]),
         };
     },
 };
@@ -165,10 +162,8 @@ const createGroupOrdersSortedAtWrite = (
             bucketSlot.owner.unholdSlot(bucketSlot);
         },
         readOrderedSlots: bucketSlot => bucketSlot,
-        getOrderedSlotCount: bucketSlot => bucketContentService.getBucketMemberSlotCount(bucketSlot),
+        getOrderedSlotCount: bucketSlot => bucketSlot.getBucketMemberSlotCount(),
         getOrderedSlotAt: (bucketSlot, at) => bucketContentService.getBucketMemberSlotAt(bucketSlot, at) as TRowSlot,
-        watchGroupOrder: (db, bucketSlot, body) =>
-            OIMEffectService.INSTANCE.createEffect(db, body, [bucketSlot], NO_SOURCE_COMPUTEDS),
     };
     return groupOrders;
 };
@@ -274,144 +269,102 @@ const bindRowWrites = (
     };
 };
 
-type TWindowView<TGroupOrder, TOrderedSlots> = {
-    groupOrders: TGroupOrders<TGroupOrder, TOrderedSlots>;
-    groupOrder: TGroupOrder;
-    consumer: BenchConsumer;
-    /** Where this view's window starts. Moved by `scrollTo` and `switchGroup`, on the read binding's view A only. */
-    offset: number;
-    /** Set by the order's own effect: the window may have moved. */
-    shapeMoved: boolean;
-    /** Set by anything: something this view shows has changed. */
-    pending: boolean;
-    shape: TOIMEffect;
-    watching: TOIMEffect | undefined;
-    watchedRows: Map<TRowSlot, TWatchedRow>;
-    watchedSlots: TRowSlot[];
-    resyncCount: number;
-    /** The rows handed to the consumer — reused, so a render allocates nothing. */
-    visible: TRow[];
-    markPending: () => void;
-    markShapeMoved: () => void;
+type TWindowViewHandle = {
+    paint: () => void;
+    scrollTo: (offset: number) => void;
+    switchGroup: (group: string) => void;
+    drop: () => void;
 };
 
-type TWatchedRow = { readonly columnGroupSlot: TOIMColumnSlot; seenInResync: number };
+type TWindowViewFactory<TGroupOrder, TOrderedSlots> = {
+    makeView: (groupOrders: TGroupOrders<TGroupOrder, TOrderedSlots>, group: string, consumer: BenchConsumer) => TWindowViewHandle;
+};
 
-const createWindowViews = <TGroupOrder, TOrderedSlots>(
+type TWindowViewsCreator = <TGroupOrder, TOrderedSlots>(
+    db: OIMDB,
+    entityService: TRowEntityService,
+    windowSize: number,
+    deliverView: (consumer: BenchConsumer, visible: readonly TRow[]) => void,
+) => TWindowViewFactory<TGroupOrder, TOrderedSlots>;
+
+type TPageOffset = { offset: number };
+
+const createWindowViews: TWindowViewsCreator = <TGroupOrder, TOrderedSlots>(
     db: OIMDB,
     entityService: TRowEntityService,
     windowSize: number,
     deliverView: (consumer: BenchConsumer, visible: readonly TRow[]) => void
-) => {
-    type TView = TWindowView<TGroupOrder, TOrderedSlots>;
+): TWindowViewFactory<TGroupOrder, TOrderedSlots> => {
     const effectService = OIMEffectService.INSTANCE;
-    const renderedColumns = entityService.columnSlotService.getColumnGroup(['rank', 'label']);
+    const columnSlotService = entityService.columnSlotService;
+    const renderedColumns = columnSlotService.getColumnGroup(['rank', 'label']);
+    const offsetService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPageOffset>() });
+    const offsetStoreSlot = offsetService.createStoreSlot(db);
+    let viewCount = 0;
 
-
-    const watchShape = (state: TView): TOIMEffect =>
-        state.groupOrders.watchGroupOrder(db, state.groupOrder, state.markShapeMoved);
-
-    const makeView = (groupOrders: TGroupOrders<TGroupOrder, TOrderedSlots>, group: string, consumer: BenchConsumer): TView => {
-        const state: Omit<TView, 'shape'> & { shape?: TOIMEffect } = {
-            groupOrders,
-            groupOrder: groupOrders.holdGroupOrder(group),
-            consumer,
-            offset: 0,
-            shapeMoved: true,
-            pending: false,
-            watching: undefined,
-            watchedRows: new Map(),
-            watchedSlots: [],
-            resyncCount: 0,
-            visible: [],
-            markPending: () => {
-                state.pending = true;
-            },
-            markShapeMoved: () => {
-                state.shapeMoved = true;
-                state.pending = true;
-            },
-        };
-        state.shape = watchShape(state as TView);
-        return state as TView;
+    return {
+        makeView: (groupOrders, group, consumer) => {
+            const offsetSlot = offsetService.writeSlotContentByKey(offsetStoreSlot, viewCount++, { offset: 0 });
+            const visible: TRow[] = [];
+            const shownIds: string[] = [];
+            const shownRanks: number[] = [];
+            const shownLabels: string[] = [];
+            let pending = false;
+            let groupOrder = groupOrders.holdGroupOrder(group);
+            const watchWindow = (): TOIMEffect => effectService.createSourceTrackingEffect(db, () => {
+                const offset = (offsetSlot.entity as TPageOffset).offset;
+                const orderedSlots = groupOrders.readOrderedSlots(groupOrder);
+                const orderedSlotCount = groupOrders.getOrderedSlotCount(orderedSlots);
+                visible.length = 0;
+                for (let at = offset; at < orderedSlotCount && visible.length < windowSize; at++) {
+                    const slot = groupOrders.getOrderedSlotAt(orderedSlots, at);
+                    const entity = slot.readEntity(renderedColumns);
+                    if (entity === undefined) continue;
+                    visible.push(entity);
+                }
+                pending = true;
+            });
+            let effect = watchWindow();
+            return {
+                paint: () => {
+                    if (!pending) return;
+                    pending = false;
+                    let isShownChanged = visible.length !== shownIds.length;
+                    for (let i = 0; i < visible.length; i++) {
+                        const row = visible[i];
+                        if (shownIds[i] !== row.id || shownRanks[i] !== row.rank || shownLabels[i] !== row.label) {
+                            isShownChanged = true;
+                            shownIds[i] = row.id;
+                            shownRanks[i] = row.rank;
+                            shownLabels[i] = row.label;
+                        }
+                    }
+                    if (!isShownChanged) return;
+                    shownIds.length = visible.length;
+                    shownRanks.length = visible.length;
+                    shownLabels.length = visible.length;
+                    deliverView(consumer, visible);
+                },
+                scrollTo: offset => {
+                    offsetService.slotContentService.updateEntityColumn(offsetSlot, 'offset', offset);
+                },
+                switchGroup: nextGroup => {
+                    const nextGroupOrder = groupOrders.holdGroupOrder(nextGroup);
+                    effectService.disposeEffect(effect);
+                    groupOrders.unholdGroupOrder(groupOrder);
+                    groupOrder = nextGroupOrder;
+                    offsetService.slotContentService.updateEntityColumn(offsetSlot, 'offset', 0);
+                    effect = watchWindow();
+                },
+                drop: () => {
+                    effectService.disposeEffect(effect);
+                    visible.length = 0;
+                },
+            };
+        },
     };
-
-    const resync = (state: TView): void => {
-        const visible = state.visible;
-        if (visible.length !== 0) visible.length = 0;
-        const resyncCount = ++state.resyncCount;
-        const watchedRows = state.watchedRows;
-        const groupOrders = state.groupOrders;
-        const orderedSlots = groupOrders.readOrderedSlots(state.groupOrder);
-        const orderedSlotCount = groupOrders.getOrderedSlotCount(orderedSlots);
-        const nextWatchedSlots: TRowSlot[] = [];
-        const watchedColumnGroupSlots: TOIMColumnSlot[] = [];
-        for (let at = state.offset; at < orderedSlotCount && visible.length < windowSize; at++) {
-            const slot = groupOrders.getOrderedSlotAt(orderedSlots, at);
-            const entity = slot.entity;
-            if (entity === undefined) continue;
-            visible.push(entity);
-            let watchedRow = watchedRows.get(slot);
-            if (watchedRow === undefined) {
-                watchedRow = { columnGroupSlot: entityService.columnSlotService.holdColumnGroup(slot, renderedColumns), seenInResync: resyncCount };
-                watchedRows.set(slot, watchedRow);
-            } else {
-                watchedRow.seenInResync = resyncCount;
-            }
-            nextWatchedSlots.push(slot);
-            watchedColumnGroupSlots.push(watchedRow.columnGroupSlot);
-        }
-        if (state.watching !== undefined) effectService.disposeEffect(state.watching);
-        const prevWatchedSlots = state.watchedSlots;
-        for (let i = 0; i < prevWatchedSlots.length; i++) {
-            const slot = prevWatchedSlots[i];
-            const watchedRow = watchedRows.get(slot);
-            if (watchedRow === undefined || watchedRow.seenInResync === resyncCount) continue;
-            entityService.columnSlotService.unholdColumn(watchedRow.columnGroupSlot);
-            watchedRows.delete(slot);
-        }
-        state.watchedSlots = nextWatchedSlots;
-        state.watching = effectService.createEffect(db, state.markPending, watchedColumnGroupSlots, NO_SOURCE_COMPUTEDS);
-    };
-
-    const refresh = (state: TView): void => {
-        if (state.visible.length !== 0) state.visible.length = 0;
-        const groupOrders = state.groupOrders;
-        const orderedSlots = groupOrders.readOrderedSlots(state.groupOrder);
-        const orderedSlotCount = groupOrders.getOrderedSlotCount(orderedSlots);
-        for (let at = state.offset; at < orderedSlotCount && state.visible.length < windowSize; at++) {
-            const entity = groupOrders.getOrderedSlotAt(orderedSlots, at).entity;
-            if (entity !== undefined) state.visible.push(entity);
-        }
-    };
-
-    const dropView = (state: TView): void => {
-        effectService.disposeEffect(state.shape);
-        if (state.watching !== undefined) effectService.disposeEffect(state.watching);
-        state.watching = undefined;
-        for (const watchedRow of state.watchedRows.values()) entityService.columnSlotService.unholdColumn(watchedRow.columnGroupSlot);
-        state.watchedRows.clear();
-        state.watchedSlots = [];
-        state.visible.length = 0;
-    };
-
-    const paint = (views: readonly TView[]): void => {
-        for (let i = 0; i < views.length; i++) {
-            const state = views[i];
-            if (!state.pending) continue;
-            state.pending = false;
-            if (state.shapeMoved) {
-                state.shapeMoved = false;
-                resync(state);
-            } else {
-                refresh(state);
-            }
-            deliverView(state.consumer, state.visible);
-        }
-    };
-
-    return { makeView, watchShape, dropView, paint };
 };
+
 
 const bindViews = <TGroupOrder, TOrderedSlots>(
     groupOrderStrategy: TGroupOrderStrategy<TGroupOrder, TOrderedSlots>,
@@ -465,11 +418,13 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
     const dropWindowWiring = (): void => {
         if (!windowsWired) return;
         windowsWired = false;
-        for (const state of views) windows.dropView(state);
+        for (const state of views) state.drop();
     };
 
     const paint = (): void => {
-        if (windowsWired) windows.paint(views);
+        if (windowsWired) {
+            for (let i = 0; i < views.length; i++) views[i].paint();
+        }
         if (!cellsWired) return;
         if (labelPending) {
             labelPending = false;
@@ -586,7 +541,7 @@ const createChurnMounts = (
             const level = computedSlot.key % CHAIN_KEYS_PER_SUBSCRIBER;
             return level === 1
                 ? chainLevelOf(joinedLabelsOf(computedSlot.sourceSlots as readonly TRowSlot[]), 1)
-                : chainLevelOf((computedSlot.sourceComputeds[0] as TChurnDerivationSlot).computedValueService.getValueForSlot(computedSlot.sourceComputeds[0] as TChurnDerivationSlot), level);
+                : chainLevelOf((computedSlot.sourceComputeds[0] as TChurnDerivationSlot).value, level);
         },
         sameValueGuard: oimSameValueZeroGuard,
     });
@@ -607,8 +562,8 @@ const createChurnMounts = (
                 const leftSlot = sourceComputeds[0] as TChurnDerivationSlot;
                 const rightSlot = sourceComputeds[1] as TChurnDerivationSlot;
                 return diamondJoinOf(
-                    leftSlot.computedValueService.getValueForSlot(leftSlot),
-                    rightSlot.computedValueService.getValueForSlot(rightSlot),
+                    leftSlot.value,
+                    rightSlot.value,
                 );
             }
             const label = labelOf(computedSlot.sourceSlots[0] as TRowSlot);
@@ -629,15 +584,14 @@ const createChurnMounts = (
         const headKey = firstKey + keyCount - 1;
         for (let key = firstKey; key < headKey; key++) computedCollectionService.holdSlotByKey(computedStoreSlot, key);
         const head = computedCollectionService.holdSlotByKey(computedStoreSlot, headKey);
-        const computedValueService = head.computedValueService;
         effects[at] = OIMEffectService.INSTANCE.createEffect(db, () => {
-            readHead(at, computedValueService.getValueForSlot(head));
+            readHead(at, head.value);
         }, NO_ROOT_SLOTS, [head]);
         for (let key = firstKey; key <= headKey; key++) {
             const derivationSlot = computedCollectionService.getSlotByKey(computedStoreSlot, key);
             derivationSlot.owner.unholdSlot(derivationSlot);
         }
-        return computedValueService.getValueForSlot(head);
+        return head.value;
     };
 
     return {
@@ -773,7 +727,6 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
     plan: TPlan
 ): TReadBinding => {
     const db = new OIMDB();
-    const effectService = OIMEffectService.INSTANCE;
     const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
     /**
@@ -805,7 +758,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
 
     return {
         ...bindRowWrites(db, entityService, entityStoreSlot, () => {
-            windows.paint(views);
+            for (let i = 0; i < views.length; i++) views[i].paint();
         }),
         ...pinNothing,
         // NOTHING IS RESOLVED BEFORE THIS CALL AND NOTHING IS KEPT AFTER IT — the lookup
@@ -824,22 +777,11 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
         // OF VISIBLE ROWS changed, and it is what makes the next frame re-point one
         // subscription per visible row.
         scrollTo: to => {
-            const state = views[0];
-            state.offset = to;
-            state.shapeMoved = true;
-            state.pending = true;
+            views[0].scrollTo(to);
         },
         // Held before the old key is given back, so a switch to the same group keeps its order.
         switchGroup: group => {
-            const state = views[0];
-            const groupOrder = orderByGroup.holdGroupOrder(group);
-            effectService.disposeEffect(state.shape);
-            orderByGroup.unholdGroupOrder(state.groupOrder);
-            state.groupOrder = groupOrder;
-            state.shape = windows.watchShape(state);
-            state.offset = 0;
-            state.shapeMoved = true;
-            state.pending = true;
+            views[0].switchGroup(group);
         },
         // THE GROUP INDEX AND NOT THE AXIS ONE: the audit asks for a whole group.
         groupOrder: group => groupOrderOf(orderByGroup, group),
@@ -862,11 +804,11 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
     const rowEntityStoreSlot = rowEntityService.createStoreSlot(db);
     // The SECOND ENTITY TYPE, and into the SAME channel, so a frame that wrote both
     // types is one frame and one flush.
-    const ownerEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TOwner>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
+    const ownerEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TOwner>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithCopy }) }) });
     const ownerEntityStoreSlot = ownerEntityService.createStoreSlot(db);
     // The records keyed by a COMBINATION OF IDENTITIES. The descent compares nothing:
     // rebuilding `[a, b]` from the same two slots arrives at the same node.
-    const pairEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPairEntity, TPairKey>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMCompositeKeyTreeWalk.INSTANCE) });
+    const pairEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPairEntity, TPairKey>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(OIMCompositeKeyTreeWalk.INSTANCE) });
     const pairEntityStoreSlot = pairEntityService.createStoreSlot(db);
 
     /** The addresses `holdRelation` was given. Both views render these rows. */
@@ -1027,7 +969,7 @@ const bindSingleStore = (participantName: string, consumers: TConsumers): TSingl
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     /** The value the scripts write, and the one no step of either writes. */
-    const entityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ value: string }>() });
+    const entityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<{ value: string }>() });
     const slotContentService = entityService.slotContentService;
     const valueEntitySlot = entityService.holdSingleSlot(entityService.createStoreSlot(db));
     slotContentService.writeSlotContent(valueEntitySlot, { value: '' });
@@ -1166,11 +1108,11 @@ const OIMDB_DEPARTURE =
 export const oimdbAdapter: TAdapter = oimdbAdapterWith({
     name: 'oimdb',
     docs:
-        'packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService() }) on one ' +
+        'packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService() }) on one ' +
         'OIMDB with the default entity writer, createOIMInPlaceEntityWriter(), and one createStoreSlot(db) as the instance; every load goes in through ' +
         'entityService.writeSlotContentByKey(entityStoreSlot, id, row) for each row inside entityService.writeInBatch; a label or note patch assigns slot.entity in ' +
         'place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; ' +
-        'a createOIMSlotCollectionIndexService with an OIMSlotContentSetBucketService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a ' +
+        'a createOIMSlotCollectionIndexService with an OIMSetBucketContentService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a ' +
         'createOIMSortedComputedService over that index service (rank then id, as sortColumns, so only a write that ' +
         'changes rank or id on a member re-sorts), read through createSortedStoreSlot(indexStoreSlot), keeps the order of a held group as a computed slot; the ' +
         'read views wake on that order too, one per index; the churn chain levels are slots of one ' +

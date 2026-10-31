@@ -1,10 +1,11 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService } from '../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { bucketSlotsStoreOf } from '../../../tests/support/bucketSlotsStoreOf';
 
 type TRow = { id: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
@@ -92,8 +93,8 @@ class PositionsMapSlots {
 const watchPresence = <TBucketMemberSlot extends TOIMSlot>(
     bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>,
 ): CountedSet<TBucketMemberSlot> => {
-    const counted = new CountedSet<TBucketMemberSlot>(bucket.bucketSlotsStore.uniqueBucketMemberSlots!);
-    bucket.bucketSlotsStore.uniqueBucketMemberSlots! = counted;
+    const counted = new CountedSet<TBucketMemberSlot>(bucketSlotsStoreOf<TBucketMemberSlot>(bucket).uniqueBucketMemberSlots!);
+    bucketSlotsStoreOf<TBucketMemberSlot>(bucket).uniqueBucketMemberSlots! = counted;
     counted.reset();
     return counted;
 };
@@ -101,9 +102,9 @@ const watchPresence = <TBucketMemberSlot extends TOIMSlot>(
 /** No sorter, so the positions are the caller's; a distinct list, so its slots have a hash. */
 const handFilledBucket = (size: number) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
+    const membersService = new OIMPositionalArrayBucketContentService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() });
     const indexService = createOIMSlotCollectionService({ slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
 

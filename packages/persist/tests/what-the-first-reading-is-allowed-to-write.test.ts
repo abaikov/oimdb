@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService } from '@oimdb/core';
 import type { TOIMPersistRecords } from '../src';
 import {
     OIMPersistBucketRecordSource,
@@ -8,7 +8,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
@@ -19,9 +19,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function buildUsers() {
     const db = new OIMDB();
-    const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+    const userEntityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
     const userEntityStoreSlot = userEntityService.createStoreSlot(db);
-    const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const userBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
     const userBucketStoreSlot = userBucketService.createStoreSlot(db);
     const bucketSlot = userBucketService.holdSlotByKey(userBucketStoreSlot, 'all');
     const fileEveryUser = (): void => {
@@ -35,7 +35,7 @@ function buildUsers() {
         channelMap: db,
         entityCollectionService: userEntityService,
         entityStoreSlot: userEntityStoreSlot,
-        slotContentBucketService: userBucketService.slotContentService,
+        bucketContentService: userBucketService.slotContentService,
         bucketSlot,
     });
     return { db, userEntityService, userEntityStoreSlot, fileEveryUser, createPersistRecordSourceBucketDriven };

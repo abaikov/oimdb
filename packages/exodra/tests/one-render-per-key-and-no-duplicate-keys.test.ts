@@ -36,7 +36,7 @@ function renderDeckRow(world: TExoTestWorld) {
     return (deckId: TOIMStoreKey) => {
         const heldSlot = world.orderService.holdSlotByKey(world.order, deckId);
         const cards = exoBinding(world.db, {
-            sourceComputeds: [heldSlot], derive: () => heldSlot.computedValueService.getValueForSlot(heldSlot),
+            sourceComputeds: [heldSlot], derive: () => heldSlot.value,
         });
         return { schema: { deckId, cards }, dispose: () => { heldSlot.owner.unholdSlot(heldSlot); } };
     };

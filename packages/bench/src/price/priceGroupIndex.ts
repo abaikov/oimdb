@@ -2,7 +2,7 @@
 import { OIMSlotMapStoreService } from '../../../core/src/index';
 import type {
     OIMDB,
-    OIMSlotContentBucketService,
+    OIMBucketContentService,
     TOIMBucketSlot,
     TOIMColumnSlot,
     TOIMEntitySlot,
@@ -14,7 +14,7 @@ import { createOIMSlotCollectionService } from '../../../core/src/index';
 export const priceGroupIndex = <TSlots>(
     db: OIMDB,
     slots: readonly TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[],
-    slotContentService: OIMSlotContentBucketService<TOIMEntitySlot<TPriceDataRow>, TSlots>,
+    slotContentService: OIMBucketContentService<TOIMEntitySlot<TPriceDataRow>, TSlots>,
     /** The address each row is filed under. `group` unless a pair says otherwise. */
     addressOf: (row: TPriceDataRow) => TOIMStoreKey = row => row.group,
 ) => {

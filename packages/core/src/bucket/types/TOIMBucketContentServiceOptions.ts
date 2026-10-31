@@ -1,5 +1,5 @@
 import type { IOIMBucketCommands } from '../commands/interfaces/IOIMBucketCommands';
 
-export type TOIMSlotContentBucketServiceOptions = {
+export type TOIMBucketContentServiceOptions = {
     bucketCommands?: IOIMBucketCommands | undefined;
 };

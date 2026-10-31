@@ -4,7 +4,7 @@ import { OIMFlushSchedulerService } from '../OIMFlushSchedulerService';
 import { OIM_NOTHING_TO_DISPOSE } from '../constants/OIM_NOTHING_TO_DISPOSE';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { IOIMFlushSchedulerListener } from '../interfaces/IOIMFlushSchedulerListener';
 
@@ -40,7 +40,7 @@ describe('a timer that runs its callback before it returns', () => {
     it('delivers every write through a channel scheduler that flushes at once', () => {
         type TCard = { id: string; title: string };
         const db = new OIMDB({ channelScheduler: (run) => { run(); } });
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         let runs = 0;
         OIMEffectService.INSTANCE.createEffect(db, () => { runs++; }, [cardsService.getSlotByKey(cards, 'c1')]);

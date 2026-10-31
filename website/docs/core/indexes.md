@@ -7,7 +7,7 @@ description: How to build a bucket collection whose slots the caller states, wri
 # Buckets
 
 ```ts setup
-import { OIMBucketCommands, OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMBucketUniqueMemberSlotsArrayService, OIMSlotContentSetBucketService, oimOrderedListCommandsOfTransition, type TOIMBucketSlotsArrayStore, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMBucketCommands, OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMBucketUniqueMemberSlotsArrayService, OIMSetBucketContentService, oimOrderedListCommandsOfTransition, type TOIMBucketSlotsArrayStore, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -17,10 +17,10 @@ declare function applyToTheRenderedList(commands: readonly TOIMOrderedListComman
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
-const orderedDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const orderedDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const orderedDecks = orderedDeckService.createStoreSlot(db);
 ```
 
@@ -40,7 +40,7 @@ store of each bucket store slot. Together they answer "which entities belong to 
 
 | Your situation | Take | Section |
 |---|---|---|
-| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
+| The members come from outside: a server page, a search result, a selection, a visible window | `createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService() })` | [A bucket's slots are the caller's](#a-buckets-slots-are-the-callers) |
 | Membership is a function of the entity (`card.deck`) | an index, `createOIMSlotCollectionIndexService` | [Indexes](/docs/core/oimindex) |
 | A list sorted by columns | `createOIMSortedComputedService` over an index service | [Ordering](/docs/core/oimindex#ordering) |
 | A list whose order the user decides (drag, reorder) | `createOIMSlotCollectionService()` — array-driven by default | [Positions the caller decides](#positions-the-caller-decides) |
@@ -64,7 +64,7 @@ factory you call.
 ## Building one
 
 ```ts setup
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>() });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<Card>>() });
 const byDeck = byDeckService.createStoreSlot(db);
 const deckContentService = byDeckService.slotContentService;
 ```
@@ -76,7 +76,7 @@ bucket's type parameter is the type of its bucket member slots, `TBucketMemberSl
 A bucket collection is two stateless objects, like an entity collection:
 
 1. **How a bucket holds its slots, and in what order** — the bucket content service, the strategy:
-   `OIMSlotContentPositionalArrayBucketService` (the default), `OIMSlotContentSetBucketService`, or the
+   `OIMPositionalArrayBucketContentService` (the default), `OIMSetBucketContentService`, or the
    sorted one an index builds for itself. It has every write and member read of a bucket.
 2. **Where its buckets live** — the collection service over it, `OIMSlotCollectionService`, with an
    ordinary slot store service (a Map store unless you pass `bucketSlotStoreService`). A store is chosen by
@@ -88,7 +88,7 @@ The options of `createOIMSlotCollectionService(options?)`:
 
 | Option | Default | What it decides |
 |---|---|---|
-| `slotContentService` | `new OIMSlotContentPositionalArrayBucketService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }) })` | how a bucket holds its slots |
+| `slotContentService` | `new OIMPositionalArrayBucketContentService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }) })` | how a bucket holds its slots |
 | `maxCommandsPerSlot` | `OIM_MAX_COMMANDS_PER_SLOT` | the recorder of the default content service — see [the commands](#the-commands-on-the-bucket-slot) |
 | `bucketSlotStoreService` | a Map store; required when `TKey` is an array (an `OIMSlotTreeStoreService`), because a Map store compares arrays by reference | where buckets are filed |
 | `slotReleasePolicy` | `defaults.slotReleasePolicy`, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` — an unheld bucket stays while it has members and goes once it is empty | whether and when an unheld bucket goes |
@@ -132,15 +132,15 @@ const cardSlot1 = cardService.getSlotByKey(cards, 'c1');
 const cardSlot2 = cardService.getSlotByKey(cards, 'c2');
 const cardSlot3 = cardService.getSlotByKey(cards, 'c3');
 
-deckContentService.writeSlotContent(red, [cardSlot1, cardSlot2]);   // the whole list, stated
-deckContentService.addBucketMemberSlots(red, [cardSlot3]);                // this one joins, nothing else moves
-deckContentService.removeBucketMemberSlots(red, [cardSlot1]);             // this one leaves, nothing else moves
-deckContentService.clearSlotContent(red);                           // everyone out
+red.writeSlotContent([cardSlot1, cardSlot2]);   // the whole list, stated
+red.addBucketMemberSlots([cardSlot3]);                // this one joins, nothing else moves
+red.removeBucketMemberSlots([cardSlot1]);             // this one leaves, nothing else moves
+red.clearSlotContent();                           // everyone out
 
-red.owner.unholdSlot(red);
+red.unholdSlot();
 ```
 
-`addBucketMemberSlot` / `removeBucketMemberSlot` are the one-slot forms. There are no by-key writes: a
+`addBucketMemberSlot` / `removeBucketMemberSlot` are the one-slot forms. Apart from the whole-list `writeSlotContentByKey`, a
 write by key resolves the bucket first (`getSlotByKey` mints it, `findSlotByKey` does not). A change that
 matters only to a bucket somebody already asked for goes through `findSlotByKey` and does nothing on
 `undefined`.
@@ -183,7 +183,7 @@ what left is exactly when `writeSlotContent` is the right door; its cost is the 
 
 A slot in a bucket is a counted reference, a hold. Joining a bucket takes a
 hold on the slot; leaving gives it back. So a bucket you never emptied keeps its
-slots alive, and `cardService.slotContentService.clearSlotContent(slot)` does not take the slot out
+slots alive, and `slot.clearSlotContent()` does not take the slot out
 of your buckets. It takes the *value* away and leaves a valueless slot in the
 bucket, just like the valueless slots a bucket holds when it was resolved before its
 entities arrived.
@@ -193,9 +193,9 @@ entities arrived.
 ```ts
 const bucket = byDeckService.holdSlotByKey(byDeck, 'red');
 
-for (const cardSlot of deckContentService.getBucketMemberSlots(bucket)) { render(cardSlot.entity); }
-deckContentService.getBucketMemberSlotCount(bucket);                  // read without the walk
-deckContentService.hasBucketMemberSlot(bucket, cardService.getSlotByKey(cards, 'c1'));
+for (const cardSlot of bucket.getBucketMemberSlots()) { render(cardSlot.entity); }
+bucket.getBucketMemberSlotCount();                  // read without the walk
+bucket.hasBucketMemberSlot(cardService.getSlotByKey(cards, 'c1'));
 ```
 
 A write followed by a read with no flush between them hands back this frame's
@@ -211,7 +211,7 @@ Subscribing to a bucket is an ordinary effect:
 ```ts
 const bucket = byDeckService.holdSlotByKey(byDeck, 'red');
 
-effectService.createAndRunEffect(db, () => { render(deckContentService.getBucketMemberSlots(bucket)); }, [bucket]);
+effectService.createAndRunEffect(db, () => { render(bucket.getBucketMemberSlots()); }, [bucket]);
 ```
 
 The bucket slot is written when its membership or its order changes, and only then.
@@ -220,8 +220,8 @@ The bucket slot is written when its membership or its order changes, and only th
 
 | Content service | Storage | What one add records | Take it when |
 |---|---|---|---|
-| `OIMSlotContentSetBucketService({ bucketCommands? })` | `Set` | one entry per slot; a slot named twice is one | order does not matter, or a sorted view will impose one |
-| `OIMSlotContentPositionalArrayBucketService({ bucketCommands? })` | list | one per **mention**; a slot named twice is two | the caller's order is part of the answer, and the list may repeat a slot (a playlist) or the caller never repeats one |
+| `OIMSetBucketContentService({ bucketCommands? })` | `Set` | one entry per slot; a slot named twice is one | order does not matter, or a sorted view will impose one |
+| `OIMPositionalArrayBucketContentService({ bucketCommands? })` | list | one per **mention**; a slot named twice is two | the caller's order is part of the answer, and the list may repeat a slot (a playlist) or the caller never repeats one |
 | `OIMBucketUniqueMemberSlotsArrayService({ bucketCommands? })` | list + `Set` | one per slot, order kept | the caller's order is part of the answer, and a position must name exactly one entity; a repeated add or insert is refused |
 
 The array-driven service is the default of `createOIMSlotCollectionService` (with a recorder) and of
@@ -238,7 +238,7 @@ removal of one named slot scan the list.
 ### And what naming a slot records: one per mention or one per slot
 
 ```ts
-new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({
+new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({
     bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService<TOIMEntitySlot<Card>>(),
 });
 ```
@@ -249,8 +249,8 @@ never disagree. With the unique one the membership test is a `Set` lookup; with 
 The bucket's own type says which storage it carries, so the pairing is checked:
 
 ```ts signature
-TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>>          // OIMSlotContentSetBucketService
-TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>>        // OIMSlotContentPositionalArrayBucketService
+TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>>          // OIMSetBucketContentService
+TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>>        // OIMPositionalArrayBucketContentService
 ```
 
 Handing a set-driven bucket to the array-driven service is a compile error. The content
@@ -263,7 +263,7 @@ queue someone reorders by hand. `createOIMSlotCollectionService()` builds an arr
 a recorder, and you decide the positions:
 
 ```ts setup
-const pageService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pageService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const page = pageService.createStoreSlot(db);
 const pageContentService = pageService.slotContentService;
 ```
@@ -341,7 +341,7 @@ pageContentService.moveBucketMemberSlotToPosition(
 declare const slotsInTheOrderTheServerSent: readonly TOIMEntitySlot<Card>[];
 
 const bucket = pageService.holdSlotByKey(page, 'results');
-pageContentService.writeSlotContent(bucket, slotsInTheOrderTheServerSent);
+bucket.writeSlotContent(slotsInTheOrderTheServerSent);
 ```
 
 **A reorder a renderer has to animate.** Read the commands, not the list — below.
@@ -364,7 +364,7 @@ command. Nothing has to be disposed.
 const bucket = pageService.holdSlotByKey(page, 'results');
 
 effectService.createEffect(db, () => {
-    if (bucket.isWholeListRecorded) rebuildFrom(pageContentService.getBucketMemberSlots(bucket));
+    if (bucket.isWholeListRecorded) rebuildFrom(bucket.getBucketMemberSlots());
     else applyToTheRenderedList(bucket.commands ?? []);
 }, [bucket]);
 ```
@@ -412,13 +412,13 @@ fresh one if the last was released, and the unused-slot collector holds that min
 `holdSingleSlot(storeSlot)` hands it out held, and `findSingleSlot(storeSlot)` answers it without minting.
 
 ```ts
-const searchResultService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const searchResultService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const searchResult = searchResultService.createStoreSlot(db);
 const searchResultSlot = searchResultService.holdSingleSlot(searchResult);
 
-searchResultService.slotContentService.writeSlotContent(searchResultSlot, [cardService.getSlotByKey(cards, 'c1')]);
+searchResultSlot.writeSlotContent([cardService.getSlotByKey(cards, 'c1')]);
 effectService.createEffect(db, () => {
-    render(Array.from(searchResultService.slotContentService.getBucketMemberSlots(searchResultSlot)));
+    render(Array.from(searchResultSlot.getBucketMemberSlots()));
 }, [searchResultSlot]);
 ```
 
@@ -446,7 +446,7 @@ a positional bucket with a recorder already hands you the script.
 declare const whatIRendered: readonly TOIMEntitySlot<Card>[];
 
 const bucket = orderedDeckService.holdSlotByKey(orderedDecks, 'red');
-const now = Array.from(orderedDeckService.slotContentService.getBucketMemberSlots(bucket));
+const now = Array.from(bucket.getBucketMemberSlots());
 
 for (const command of oimOrderedListCommandsOfTransition(whatIRendered, now)) {
     switch (command.type) {
@@ -487,7 +487,7 @@ the last of those lets go. A caller who means to empty a bucket store slot
 clears each bucket in it:
 
 ```ts
-for (const bucket of Array.from(byDeckService.getSlots(byDeck))) deckContentService.clearSlotContent(bucket);
+for (const bucket of Array.from(byDeckService.getSlots(byDeck))) bucket.clearSlotContent();
 ```
 
 ## Where to next

@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
@@ -7,7 +7,7 @@ import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
@@ -23,9 +23,9 @@ const somethingIsListening = (slot: TOIMSlot): boolean =>
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
-    const byTagService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow>>() });
+    const byTagService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TRow>>() });
     const byTag = byTagService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
     return { db, flushUnusedSlots, effectService, rowsService, rows, byTagService, byTag };

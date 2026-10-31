@@ -4,12 +4,12 @@ import type { TOIMBucketSlotsArrayStore } from '../bucket/array/types/TOIMBucket
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
 import type { TOIMEntityColumnName } from '../entity/types/TOIMEntityColumnName';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { TOIMIndexKey } from './types/TOIMIndexKey';
 import type { TOIMIndexKeyOptions } from './types/TOIMIndexKeyOptions';
 import type { TOIMSlotCollectionIndexServiceFactoryOptions } from './types/TOIMSlotCollectionIndexServiceFactoryOptions';
 import { OIMSlotCollectionIndexService } from './OIMSlotCollectionIndexService';
-import { OIMSlotContentPositionalArrayBucketService } from '../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../bucket/OIMPositionalArrayBucketContentService';
 import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
 import { OIMDefaults } from '../db/OIMDefaults';
 import { oimResolveSlotCollectionIndexServiceOptions } from './utils/oimResolveSlotCollectionIndexServiceOptions';
@@ -21,16 +21,16 @@ export function createOIMSlotCollectionIndexService<
         ? Extract<TOIMIndexKey<TEntity, TColumns>, TOIMStoreKey> : never,
     TSourceStore = unknown,
     TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>,
-    TSlotContentService extends OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>
-        = OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TEntity>, TKey>
-            & OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>
+        = OIMPositionalArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>
+            & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
 >(
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
-        slotContentService?: (TSlotContentService & OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>) | undefined;
+        slotContentService?: (TBucketContentService & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>) | undefined;
         bucketSlotStoreService?: undefined;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
 ): OIMSlotCollectionIndexService<
-    TKey, TEntity, TSlots, TSourceKey, TSourceStore, TSlotContentService, TOIMBucketSlot<TSlots, TKey>,
+    TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketContentService, TOIMBucketSlot<TSlots, TKey>,
     Map<TKey, TOIMBucketSlot<TSlots, TKey>>
 >;
 export function createOIMSlotCollectionIndexService<
@@ -39,33 +39,33 @@ export function createOIMSlotCollectionIndexService<
     TKey extends TOIMStoreKey | readonly TOIMStoreKey[] = TOIMStoreKey,
     TSourceStore = unknown,
     TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>,
-    TSlotContentService extends OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>
-        = OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TEntity>, TKey>
-            & OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>
+        = OIMPositionalArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>
+            & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
     TStore = Map<TKey, TOIMBucketSlot<TSlots, TKey>>,
 >(
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
-        slotContentService?: (TSlotContentService & OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>) | undefined;
+        slotContentService?: (TBucketContentService & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>) | undefined;
         bucketSlotStoreService: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore>;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
-): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TSlotContentService, TOIMBucketSlot<TSlots, TKey>, TStore>;
+): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketContentService, TOIMBucketSlot<TSlots, TKey>, TStore>;
 export function createOIMSlotCollectionIndexService<
     TEntity extends object, TSourceKey extends NonNullable<unknown>, TColumns extends readonly TOIMEntityColumnName<TEntity>[],
     TKey extends TOIMStoreKey | readonly TOIMStoreKey[], TSourceStore, TSlots,
-    TSlotContentService extends OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TStore,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TStore,
 >(
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
-        slotContentService?: TSlotContentService | undefined;
+        slotContentService?: TBucketContentService | undefined;
         bucketSlotStoreService?: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore> | undefined;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
-): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TSlotContentService, TOIMBucketSlot<TSlots, TKey>, TStore> {
+): OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketContentService, TOIMBucketSlot<TSlots, TKey>, TStore> {
     return new OIMSlotCollectionIndexService(oimResolveSlotCollectionIndexServiceOptions(
         options.defaults ?? OIMDefaults.INSTANCE,
         options,
         oimResolveSlotStoreService(options.bucketSlotStoreService),
         options.slotContentService
-            ?? new OIMSlotContentPositionalArrayBucketService<
+            ?? new OIMPositionalArrayBucketContentService<
                 TOIMEntitySlot<TEntity>, TKey
-            >() as unknown as TSlotContentService,
+            >() as unknown as TBucketContentService,
     ));
 }

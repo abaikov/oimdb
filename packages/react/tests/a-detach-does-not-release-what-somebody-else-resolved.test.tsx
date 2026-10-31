@@ -26,9 +26,9 @@ import { render, screen, act } from '@testing-library/react';
 import type { TOIMEntitySlot } from '@oimdb/core';
 import { OIMDB } from '@oimdb/core';
 import { OIMDBProvider, useOIMField, useOIMBucketSlots } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
@@ -43,9 +43,9 @@ type TCardSlot = TOIMEntitySlot<TCard>;
  */
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, cardsService, cards, byDeckService, byDeck };
 }

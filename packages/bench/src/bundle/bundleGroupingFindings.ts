@@ -124,7 +124,7 @@ export const bundleGroupingFindings = (
             'THE DECISION THIS ROW PRICES IS WHETHER A GROUPING TAKES A CONSTRUCTED BUCKET SERVICE. '
             + 'Under the shipped design the bucket service arrives constructed, so `groupBy` names '
             + 'exactly one service — the set-driven fallback. Under the option form it names both arms of '
-            + '`order === undefined ? new OIMSlotContentSetBucketService() : new OIMSlotContentPositionalArrayBucketService()`, '
+            + '`order === undefined ? new OIMSetBucketContentService() : new OIMPositionalArrayBucketContentService()`, '
             + 'and a bundler cannot see past a runtime test, so the array-driven service and the two '
             + 'modules only it reaches follow every consumer who groups ANYTHING. WHAT THE ARM ON '
             + 'THE RIGHT STANDS IN FOR: the class is referenced and never constructed, which is '

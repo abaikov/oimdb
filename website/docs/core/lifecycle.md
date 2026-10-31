@@ -22,12 +22,12 @@ delivered (frames and batches) is the channel's business and is covered in
 </InShort>
 
 ```ts setup
-import { OIMDB, oimIsSlotReleased, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot, OIMDefaults } from '@oimdb/core';
+import { OIMDB, oimIsSlotReleased, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMSlotAfterUnholdReleasePolicy, oimMintAfterIdleSlotReleaseWheel, OIMSlotReleaseManualDueFramePolicy, OIMSlotRefetchWheel, type TOIMSlot, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -94,12 +94,12 @@ then the caller can keep using what the write returned:
 
 ```ts
 const briefService = createOIMSlotCollectionService({
-    slotContentService: createOIMSlotContentEntityService<Card>(),
+    slotContentService: createOIMEntityContentService<Card>(),
     slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 0 }),
 });
 const briefs = briefService.createStoreSlot(db);
 const brief = briefService.writeSlotContentByKey(briefs, 'b1', { id: 'b1', title: 'one' });
-briefService.slotContentService.updateEntity(brief, { title: 'two' });
+brief.updateEntity({ title: 'two' });
 db.flush();
 const isGone = oimIsSlotReleased(brief);
 ```
@@ -123,9 +123,9 @@ const ace = cardService.holdSlotByKey(cards, 'c2');
 const filled = cardService.writeSlotContentByKey(cards, 'c2', { id: 'c2', title: 'Ace' });
 const isSameIdentity = filled === ace;
 db.flush();
-ace.owner.unholdSlot(ace);
+ace.unholdSlot();
 const keptByValue = !oimIsSlotReleased(ace);
-cardService.slotContentService.clearSlotContent(ace);
+ace.clearSlotContent();
 const goneWithValue = oimIsSlotReleased(ace);
 ```
 
@@ -157,10 +157,10 @@ bucket, index or computed), and you keep a slot only for as long as you hold it.
 const late = cardService.getSlotByKey(cards, 'c3');
 db.flush();
 try {
-    late.owner.holdSlot(late);
+    late.holdSlot();
 } catch {
     const fresh = cardService.holdSlotByKey(cards, 'c3');
-    fresh.owner.unholdSlot(fresh);
+    fresh.unholdSlot();
 }
 ```
 
@@ -300,8 +300,8 @@ type Deck = { id: string; title: string };
 
 const serverDb = new OIMDB();
 const serverFrame = new OIMSlotReleaseManualDueFramePolicy();
-const serverDeckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Deck>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy: serverFrame }) });
-const serverCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverDeckService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Deck>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy: serverFrame }) });
+const serverCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy: serverFrame }) });
 const serverDecks = serverDeckService.createStoreSlot(serverDb);
 const serverCards = serverCardService.createStoreSlot(serverDb);
 
@@ -364,7 +364,7 @@ A held slot is off the clock. Two consequences follow:
   ```typescript
   const heldSlot = cardService.holdSlotByKey(cards, 'c1');
   // …the window passes, sweeps run, nothing happens to this slot…
-  heldSlot.owner.unholdSlot(heldSlot);
+  heldSlot.unholdSlot();
   oimIsSlotReleased(heldSlot); // true — the give-back settles what the sweep could not
   ```
 

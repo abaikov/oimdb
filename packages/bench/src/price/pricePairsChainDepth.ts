@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMEntityContentSlot } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
@@ -14,7 +15,7 @@ const ROWS = 1024;
  * ONE MORE LINK, AND IT DOES NOTHING BUT FORWARD.
  *
  * A class rather than an object literal because that is what a consumer's layer
- * is — `OIMSlotContentEntityService` is one — and because the shape at the
+ * is — `OIMEntityContentService` is one — and because the shape at the
  * delegating call site is half of what these rows measure.
  */
 class PassThroughLink implements IOIMEntityWriter {
@@ -25,29 +26,29 @@ class PassThroughLink implements IOIMEntityWriter {
     public constructor(private readonly inner: IOIMEntityWriter) {}
 
     public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
-        this.inner.fillEntity(slot, item);
+        this.inner.fillEntity(slot as unknown as OIMEntitySlot, item);
     };
 
     public readonly putEntity = (
         slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
+    ): boolean => this.inner.putEntity(slot as unknown as OIMEntitySlot, item, changedColumnNames);
 
     public readonly patchEntity = (
         slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
+    ): boolean => this.inner.patchEntity(slot as unknown as OIMEntitySlot, patch, changedColumnNames);
 
     public readonly patchColumn = (
         slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
+    ): boolean => this.inner.patchColumn(slot as unknown as OIMEntitySlot, columnName, value, changedColumnNames);
 
 
     public readonly deleteColumns = (
         slot: TOIMEntityContentSlot,
         names: readonly string[],
-    ): readonly string[] => this.inner.deleteColumns(slot, names);
+    ): readonly string[] => this.inner.deleteColumns(slot as unknown as OIMEntitySlot, names);
 
     public readonly clearEntity = (slot: TOIMEntityContentSlot): void => {
-        this.inner.clearEntity(slot);
+        this.inner.clearEntity(slot as unknown as OIMEntitySlot);
     };
 }
 
@@ -59,7 +60,7 @@ const inertSide: TPriceSide = { reset: () => undefined, run: () => undefined };
 
 /**
  * The chain under test, built from the shipped parts. `depth` counts the links
- * BELOW `OIMSlotContentEntityService`, so 1 is what ships today.
+ * BELOW `OIMEntityContentService`, so 1 is what ships today.
  */
 const chainOf = (depth: number): IOIMEntityWriter => {
     let service: IOIMEntityWriter = createOIMInPlaceEntityWriter();
@@ -109,7 +110,7 @@ const sideOfDepth = (depth: number): TPriceSide => {
  *
  * ONE STAGE, so the row is comparable to `chain.three-links-vs-the-shipped-two`
  * operation for operation: both put exactly one forwarding step between
- * `OIMSlotContentEntityService` and `createOIMInPlaceEntityWriter`.
+ * `OIMEntityContentService` and `createOIMInPlaceEntityWriter`.
  */
 type TStage = {
     readonly fill: (slot: TOIMEntityContentSlot, item: object, next: TFillNext) => void;
@@ -152,7 +153,7 @@ class NextParameterChain implements IOIMEntityWriter {
 
     public readonly putEntity = (
         slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.last.putEntity(slot, item, changedColumnNames);
+    ): boolean => this.last.putEntity(slot as unknown as OIMEntitySlot, item, changedColumnNames);
 
     public readonly patchEntity = (
         slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
@@ -160,7 +161,7 @@ class NextParameterChain implements IOIMEntityWriter {
 
     public readonly patchColumn = (
         slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
-    ): boolean => this.last.patchColumn(slot, columnName, value, changedColumnNames);
+    ): boolean => this.last.patchColumn(slot as unknown as OIMEntitySlot, columnName, value, changedColumnNames);
 
 
     public readonly deleteColumns = (
@@ -173,14 +174,14 @@ class NextParameterChain implements IOIMEntityWriter {
     };
 
     private fillFrom(at: number, slot: TOIMEntityContentSlot, item: object): void {
-        if (at === this.stages.length) { this.last.fillEntity(slot, item); return; }
+        if (at === this.stages.length) { this.last.fillEntity(slot as unknown as OIMEntitySlot, item); return; }
         this.stages[at].fill(slot, item, (s, i) => { this.fillFrom(at + 1, s, i); });
     }
 
     private mutateFrom(
         at: number, slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
     ): boolean {
-        if (at === this.stages.length) return this.last.patchEntity(slot, patch, changedColumnNames);
+        if (at === this.stages.length) return this.last.patchEntity(slot as unknown as OIMEntitySlot, patch, changedColumnNames);
         return this.stages[at].mutate(
             slot, patch, changedColumnNames, (s, p, names) => this.mutateFrom(at + 1, s, p, names),
         );
@@ -191,12 +192,12 @@ class NextParameterChain implements IOIMEntityWriter {
         slot: TOIMEntityContentSlot,
         names: readonly string[],
     ): readonly string[] {
-        if (at === this.stages.length) return this.last.deleteColumns(slot, names);
+        if (at === this.stages.length) return this.last.deleteColumns(slot as unknown as OIMEntitySlot, names);
         return this.stages[at].remove(slot, names, (s, n) => this.removeFrom(at + 1, s, n));
     }
 
     private clearFrom(at: number, slot: TOIMEntityContentSlot): void {
-        if (at === this.stages.length) { this.last.clearEntity(slot); return; }
+        if (at === this.stages.length) { this.last.clearEntity(slot as unknown as OIMEntitySlot); return; }
         this.stages[at].clear(slot, s => { this.clearFrom(at + 1, s); });
     }
 }
@@ -214,22 +215,22 @@ class LinkB implements IOIMEntityWriter {
 
     public constructor(private readonly inner: IOIMEntityWriter) {}
     public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
-        this.inner.fillEntity(slot, item);
+        this.inner.fillEntity(slot as unknown as OIMEntitySlot, item);
     };
     public readonly putEntity = (
         slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
+    ): boolean => this.inner.putEntity(slot as unknown as OIMEntitySlot, item, changedColumnNames);
     public readonly patchEntity = (
         slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
+    ): boolean => this.inner.patchEntity(slot as unknown as OIMEntitySlot, patch, changedColumnNames);
     public readonly patchColumn = (
         slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
+    ): boolean => this.inner.patchColumn(slot as unknown as OIMEntitySlot, columnName, value, changedColumnNames);
     public readonly deleteColumns = (
         slot: TOIMEntityContentSlot,
         names: readonly string[],
-    ): readonly string[] => this.inner.deleteColumns(slot, names);
-    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot); };
+    ): readonly string[] => this.inner.deleteColumns(slot as unknown as OIMEntitySlot, names);
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot as unknown as OIMEntitySlot); };
 }
 
 class LinkC implements IOIMEntityWriter {
@@ -239,22 +240,22 @@ class LinkC implements IOIMEntityWriter {
 
     public constructor(private readonly inner: IOIMEntityWriter) {}
     public readonly fillEntity = (slot: TOIMEntityContentSlot, item: object): void => {
-        this.inner.fillEntity(slot, item);
+        this.inner.fillEntity(slot as unknown as OIMEntitySlot, item);
     };
     public readonly putEntity = (
         slot: TOIMEntityContentSlot, item: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.putEntity(slot, item, changedColumnNames);
+    ): boolean => this.inner.putEntity(slot as unknown as OIMEntitySlot, item, changedColumnNames);
     public readonly patchEntity = (
         slot: TOIMEntityContentSlot, patch: object, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchEntity(slot, patch, changedColumnNames);
+    ): boolean => this.inner.patchEntity(slot as unknown as OIMEntitySlot, patch, changedColumnNames);
     public readonly patchColumn = (
         slot: TOIMEntityContentSlot, columnName: string, value: unknown, changedColumnNames: string[] | undefined,
-    ): boolean => this.inner.patchColumn(slot, columnName, value, changedColumnNames);
+    ): boolean => this.inner.patchColumn(slot as unknown as OIMEntitySlot, columnName, value, changedColumnNames);
     public readonly deleteColumns = (
         slot: TOIMEntityContentSlot,
         names: readonly string[],
-    ): readonly string[] => this.inner.deleteColumns(slot, names);
-    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot); };
+    ): readonly string[] => this.inner.deleteColumns(slot as unknown as OIMEntitySlot, names);
+    public readonly clearEntity = (slot: TOIMEntityContentSlot): void => { this.inner.clearEntity(slot as unknown as OIMEntitySlot); };
 }
 
 /** A side driven through a write service the caller names. */
@@ -391,7 +392,7 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
         caveat:
             'THE TWO WAYS TO SPELL A CHAIN, WITH EXACTLY ONE STAGE IN EACH so the comparison is ' +
             'about the SPELLING and not about depth. Both arms put one forwarding step between ' +
-            '`OIMSlotContentEntityService` and `createOIMInPlaceEntityWriter`, and that step does nothing but pass ' +
+            '`OIMEntityContentService` and `createOIMInPlaceEntityWriter`, and that step does nothing but pass ' +
             'the call on. THE DIFFERENCE, and it is the whole row: the field-bound arm reads ' +
             '`this.inner` and calls a method on it; the parameter arm ALLOCATES THE CONTINUATION ' +
             '— a closure over the stage index and the receiver — and hands it in, on every write. ' +
@@ -420,7 +421,7 @@ export const pricePairsChainDepth: readonly TPricePair[] = [
         caveat:
             'THE COST NO OTHER ROW IN THIS FILE PRICES, AND THE ONE THAT DECIDES THE SHAPE OF A ' +
             'LAYER API. Every other row here declares `isolate` so each arm runs with ONE shape ' +
-            'at `OIMSlotContentEntityService`\'s `this.entityWriter.patchEntity`; this row is what those ' +
+            'at `OIMEntityContentService`\'s `this.entityWriter.patchEntity`; this row is what those ' +
             'rows deliberately keep out. Both arms write the same number of rows through the same ' +
             'depth over three populations round-robin, and DIFFER ONLY IN HOW MANY CLASSES stand ' +
             'at that one call site: three, or one constructed three times. The three classes have ' +

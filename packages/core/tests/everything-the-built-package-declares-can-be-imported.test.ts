@@ -72,7 +72,7 @@ const COMMONJS_LIST = /module\.exports = \{([\s\S]*?)\}\);/;
 /** A declaration at column 0 of a flattened `.d.ts`. */
 const DECLARATION = /^(?:declare )?(?:abstract class|class|function|const|let|var|enum|interface|type|namespace) ([A-Za-z_$][\w$]*)/gm;
 
-type TSpecifier = { name: string; isType: boolean };
+type TSpecifier = { name: string; isType: boolean; isAlias: boolean };
 
 /** `type A as B` and `A as B` both export the name after `as`. */
 const exportedName = (raw: string): string => {
@@ -86,6 +86,7 @@ const specifiersOf = (source: string): TSpecifier[] => {
     return list[1].split(',').map(raw => raw.trim()).filter(raw => raw !== '').map(raw => ({
         name: exportedName(raw),
         isType: raw.startsWith('type '),
+        isAlias: raw.includes(' as '),
     }));
 };
 
@@ -160,7 +161,7 @@ describe('everything the built package declares can be imported', () => {
         it('was parsed, so the cases below are asserting against something', () => {
             expect(shipped.length).toBeGreaterThan(50);
             expect(exported.size).toBeGreaterThan(20);
-            expect(declared.length).toBeGreaterThanOrEqual(shipped.length);
+            expect(declared.length).toBeGreaterThanOrEqual(shipped.filter(specifier => !specifier.isAlias).length);
             expect(shippedNames.has('OIMChannelService')).toBe(true);
             expect(meantAsType.size).toBeGreaterThan(20);
         });

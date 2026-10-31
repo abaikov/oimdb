@@ -1,5 +1,5 @@
 import { OIMDB, OIMEffectService, OIMThrowAtOnceErrorPolicy } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; n: number };
@@ -14,7 +14,7 @@ describe('what a throwing onBeforeFlush leaves for the next write', () => {
             onBeforeFlush: () => { if (fail) throw new Error('before'); },
         });
         const effectService = OIMEffectService.INSTANCE;
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
         const seen: number[] = [];

@@ -1,6 +1,6 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../index';
 import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; group: string; rank: number; label: string; note: string };
@@ -9,15 +9,15 @@ type TRowSlot = TOIMEntitySlot<TRow>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     for (let i = 0; i < 10; i++) rowsService.writeSlotContentByKey(rows, `e${i}`, { id: `e${i}`, group: `g${i % 3}`, rank: i, label: `l${i}`, note: '' });
     const byGroupService = createOIMSlotCollectionIndexService<
         TRow, TOIMStoreKey, readonly ['group'], string, Map<TOIMStoreKey, TOIMEntitySlot<TRow, TOIMStoreKey>>,
-        TOIMBucketSlotsSetStore<TRowSlot>, OIMSlotContentSetBucketService<TRowSlot, string>
+        TOIMBucketSlotsSetStore<TRowSlot>, OIMSetBucketContentService<TRowSlot, string>
     >({
         entityService: rowsService,
-        slotContentService: new OIMSlotContentSetBucketService<TRowSlot, string>(),
+        slotContentService: new OIMSetBucketContentService<TRowSlot, string>(),
         columns: ['group'],
     });
     const byGroup = byGroupService.createIndexStoreSlot(rows);

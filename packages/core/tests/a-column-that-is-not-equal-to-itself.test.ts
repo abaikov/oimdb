@@ -41,12 +41,13 @@ import { OIMEffectService } from '../src/effect/OIMEffectService';
 import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
 import { createOIMInPlaceEntityWriter } from '../src/entity/createOIMInPlaceEntityWriter';
 import { createOIMReplacingEntityWriter } from '../src/entity/createOIMReplacingEntityWriter';
-import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../src/bucket/OIMSetBucketContentService';
 import type { IOIMEntityWriter } from '../src/entity/interfaces/IOIMEntityWriter';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../src/computed/createOIMSingleComputedService';
+import { readValueWithoutTracking } from './support/readValueWithoutTracking';
 
 type TReading = { id: string; score: number; label: string };
 
@@ -58,7 +59,7 @@ type TReading = { id: string; score: number; label: string };
 const createFixture =(strategy: IOIMEntityWriter = createOIMInPlaceEntityWriter()) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const readingsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TReading>({ entityWriter: strategy }) });
+    const readingsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TReading>({ entityWriter: strategy }) });
     const readings = readingsService.createStoreSlot(db);
     const updateReading = (key: string, patch: Partial<TReading>): void => {
         const readingSlot = readingsService.findSlotByKey(readings, key);
@@ -153,7 +154,7 @@ describe('a column that is not equal to itself', () => {
      */
     it('gives the write path the answer the key store already gave', () => {
         const { db, effectService, readingsService, readings, updateReading } = createFixture();
-        const byScoreService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TReading>>() });
+        const byScoreService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TReading>>() });
         const byScore = byScoreService.createStoreSlot(db);
 
         readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: Number.NaN, label: 'x' });
@@ -248,7 +249,7 @@ describe('a column that is not equal to itself', () => {
         );
         const scoreValue = (): number => {
             const scoreSlot = scoreCollectionService.getSingleSlot(score);
-            return scoreSlot.computedValueService.getValueForSlot(scoreSlot);
+            return readValueWithoutTracking(scoreSlot);
         };
         const belowRuns: number[] = [];
         const belowService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });

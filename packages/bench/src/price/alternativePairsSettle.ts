@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../../../core/src/computed/OIMComputedSlot';
 import {
     OIMChannelService,
     OIMDB,
@@ -129,7 +130,7 @@ const sumOfComputedsForPull = (sourceComputeds: readonly TOIMComputedSlot<number
     let sum = 0;
     for (let i = 0; i < sourceComputeds.length; i++) {
         const sourceComputed = sourceComputeds[i];
-        sum += sourceComputed.computedValueService.getValueForSlot(sourceComputed);
+        sum += sourceComputed.value;
     }
     return sum;
 };
@@ -197,7 +198,7 @@ const buildPullChain = (depth: number) => {
     const topSlots = below;
     // The first settle, outside the clock: every node is born owing a derivation
     // and the frame that paid for it would be a frame unlike every other.
-    const computedValueService = topSlots[0].computedValueService;
+    const computedValueService = (topSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
     for (let i = 0; i < topSlots.length; i++) priceSink.number = computedValueService.getValueForSlot(topSlots[i]);
     return { db, roots, computedValueService, top: topSlots };
 };

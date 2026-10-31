@@ -11,9 +11,9 @@
  * `tests/what-a-list-that-names-a-slot-twice-leaves-behind.test.ts`; what is
  * here is this file's own subject, the WAKE-UP.
  */
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMEffectService } from '../src/index';
-import type { OIMSlotContentBucketService, TOIMEntitySlot, TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore } from '../src/index';
-import { createOIMSlotContentEntityService } from '../src/index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMEffectService } from '../src/index';
+import type { OIMBucketContentService, TOIMEntitySlot, TOIMBucketSlotsArrayStore, TOIMBucketSlotsSetStore } from '../src/index';
+import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
 
 type TRow = { id: string; rank: number; label: string };
@@ -35,10 +35,10 @@ const SENT = ['k1', 'k2', 'k3'];
  * the same bucket for the length of a case: `writeSlotContent(bucket, [])` asks the
  * bucket's owner to let it go, and a hold is the answer to that question.
  */
-const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketService<TRowSlot, TSlots>) => {
+const createFixtureOver = <TSlots>(slotContentService: OIMBucketContentService<TRowSlot, TSlots>) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     const bucketService = createOIMSlotCollectionService({ slotContentService });
     const buckets = bucketService.createStoreSlot(db);
@@ -56,16 +56,16 @@ const createFixtureOver = <TSlots>(slotContentService: OIMSlotContentBucketServi
 };
 
 const createFixture = (
-    service: OIMSlotContentPositionalArrayBucketService<TRowSlot>,
+    service: OIMPositionalArrayBucketContentService<TRowSlot>,
 ) => createFixtureOver<TOIMBucketSlotsArrayStore<TRowSlot>>(service);
 
-const createSetFixture = (service: OIMSlotContentSetBucketService<TRowSlot>) =>
+const createSetFixture = (service: OIMSetBucketContentService<TRowSlot>) =>
     createFixtureOver<TOIMBucketSlotsSetStore<TRowSlot>>(service);
 
 describe('a list of slots re-sent in the order the caller sent it', () => {
 
     it('a set holds no order, so the same slots in another order set nothing', () => {
-        const { db, effectService, bucket, send, ids } =createSetFixture(new OIMSlotContentSetBucketService<TRowSlot>());
+        const { db, effectService, bucket, send, ids } =createSetFixture(new OIMSetBucketContentService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;
@@ -79,7 +79,7 @@ describe('a list of slots re-sent in the order the caller sent it', () => {
     });
 
     it('a list that really did change still lands and still wakes', () => {
-        const { db, effectService, bucket, send, ids } =createFixture(new OIMSlotContentPositionalArrayBucketService<TRowSlot>());
+        const { db, effectService, bucket, send, ids } =createFixture(new OIMPositionalArrayBucketContentService<TRowSlot>());
         send(SENT);
 
         let runCount = 0;

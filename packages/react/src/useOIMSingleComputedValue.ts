@@ -23,5 +23,5 @@ export function useOIMSingleComputedValue<TValue>(
         [db, computedService, ...dependencyList],
     );
     const computedSlot = useOIMSingleSlot('useOIMSingleComputedValue', computedStoreSlot, sourcesOfComputedSlot);
-    return computedSlot.computedValueService.getValueForSlot(computedSlot);
+    return computedSlot.value;
 }

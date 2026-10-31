@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/persist-idb",
-  "version": "4.1.0",
+  "version": "4.1.1",
   "description": "IndexedDB persistence backend for @oimdb/persist (browser-side durable storage)",
   "type": "module",
   "main": "./dist/index.cjs",

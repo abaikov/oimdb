@@ -4,12 +4,12 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMChannelSlot } from '../../channel/types/TOIMChannelSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../OIMEntityContentService';
 
 type TCard = { id: string; title: string };
-type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 type TCounted = {
     db: OIMDB;
@@ -28,7 +28,7 @@ afterEach(() => {
 const createFixture = (): TCounted => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
     let all = 0;
     const channelService = OIMChannelService.INSTANCE;

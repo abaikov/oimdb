@@ -1,5 +1,5 @@
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService } from '@oimdb/core';
 import type { TOIMPersistRecords } from '../src';
 import {
     OIMPersistBucketRecordSource,
@@ -9,7 +9,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
@@ -22,9 +22,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
     const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-    const bucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const bucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
     const bucketStoreSlot = bucketCollectionService.createStoreSlot(db);
     const bucketSlot = bucketCollectionService.holdSlotByKey(bucketStoreSlot, 'all');
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
@@ -38,7 +38,7 @@ function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
             channelMap: db,
             entityCollectionService,
             entityStoreSlot,
-            slotContentBucketService: bucketCollectionService.slotContentService,
+            bucketContentService: bucketCollectionService.slotContentService,
             bucketSlot,
         }),
         persistRecordsService: testPersistBackend.createRecordsStrategy(),
@@ -70,7 +70,7 @@ describe('autosave started behind an edit of the open batch', () => {
 describe('a single entity mirror subscribed behind a write of the open batch', () => {
     it('reports the write, which no wake is coming for', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();

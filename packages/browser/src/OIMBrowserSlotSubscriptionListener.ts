@@ -1,13 +1,13 @@
-import type { IOIMSlotSubscriptionListener, OIMSlotContentEntityService, TOIMDisposer, TOIMEntityContentSlot, TOIMSlot } from '@oimdb/core';
+import type { IOIMSlotSubscriptionListener, OIMEntityContentService, TOIMDisposer, TOIMEntityContentSlot, TOIMSlot } from '@oimdb/core';
 import { OIMChannelService, oimIsSlotReleased } from '@oimdb/core';
 
 export abstract class OIMBrowserSlotSubscriptionListener<TEntity extends object> implements IOIMSlotSubscriptionListener {
-    private readonly slotContentEntityService: OIMSlotContentEntityService<TEntity>;
+    private readonly entityContentService: OIMEntityContentService<TEntity>;
 
     private readonly browserListenerDisposersBySlot = new Map<TOIMSlot, TOIMDisposer>();
 
-    public constructor(slotContentEntityService: OIMSlotContentEntityService<TEntity>) {
-        this.slotContentEntityService = slotContentEntityService;
+    public constructor(entityContentService: OIMEntityContentService<TEntity>) {
+        this.entityContentService = entityContentService;
     }
 
     public onSlotFirstSubscribed(slot: TOIMSlot): void {
@@ -30,13 +30,13 @@ export abstract class OIMBrowserSlotSubscriptionListener<TEntity extends object>
     private writeCurrentEntity(entitySlot: TOIMEntityContentSlot<TEntity>): void {
         const channelSlot = entitySlot.storeSlot.channelSlot;
         if (!OIMChannelService.INSTANCE.isRefusingWrites(channelSlot)) {
-            this.slotContentEntityService.writeSlotContent(entitySlot, this.readCurrentEntity());
+            this.entityContentService.writeSlotContent(entitySlot, this.readCurrentEntity());
             return;
         }
         const afterFlushDisposer = OIMChannelService.INSTANCE.subscribeAfterEachFlush(channelSlot, () => {
             afterFlushDisposer();
             if (oimIsSlotReleased(entitySlot)) return;
-            this.slotContentEntityService.writeSlotContent(entitySlot, this.readCurrentEntity());
+            this.entityContentService.writeSlotContent(entitySlot, this.readCurrentEntity());
         });
     }
 }

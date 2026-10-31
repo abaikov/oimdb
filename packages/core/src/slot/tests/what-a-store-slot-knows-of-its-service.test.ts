@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../createOIMSingleSlotService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 
 type TCard = { id: string; deck: string };
@@ -11,7 +11,7 @@ describe('a store slot', () => {
     it('names the collection service that created it, so one constant reaches both', () => {
         const db = new OIMDB();
         const cards = createOIMSlotCollectionService({
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
+            slotContentService: createOIMEntityContentService<TCard, string>(),
         }).createStoreSlot(db);
 
         cards.slotService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
@@ -22,7 +22,7 @@ describe('a store slot', () => {
     it('names the single slot service that created it', () => {
         const db = new OIMDB();
         const settings = createOIMSingleSlotService({
-            slotContentService: createOIMSlotContentEntityService<TSettings>(),
+            slotContentService: createOIMEntityContentService<TSettings>(),
         }).createStoreSlot(db);
 
         settings.slotService.writeSingleSlotContent(settings, { theme: 'dark' });
@@ -33,7 +33,7 @@ describe('a store slot', () => {
     it('of an index names the index service', () => {
         const db = new OIMDB();
         const cards = createOIMSlotCollectionService({
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
+            slotContentService: createOIMEntityContentService<TCard, string>(),
         }).createStoreSlot(db);
         const byDeck = createOIMSlotCollectionIndexService({
             entityService: cards.slotService, keyOf: (card: TCard) => card.deck,

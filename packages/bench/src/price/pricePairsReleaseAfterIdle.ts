@@ -4,7 +4,7 @@ import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TIdleEntity = { readonly id: string; readonly title: string };
@@ -40,7 +40,7 @@ const oursSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[]
         getNowMs: () => idleClock.nowMs,
         releaseTimer: (): TOIMDisposer => () => undefined,
     });
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TIdleEntity>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TIdleEntity>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: KEEP_AFTER_IDLE_MS }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);
     const runSweep = (entityCount: number): void => {

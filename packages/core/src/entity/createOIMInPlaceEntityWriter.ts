@@ -1,5 +1,5 @@
 import type { IOIMEntityWriter } from './interfaces/IOIMEntityWriter';
-import type { TOIMEntityContentSlot } from './types/TOIMEntityContentSlot';
+import type { OIMEntitySlot } from './OIMEntitySlot';
 import { oimClearEntity } from './utils/oimClearEntity';
 import type { TOIMEntityWriterOptions } from './types/TOIMEntityWriterOptions';
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from './constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
@@ -8,10 +8,10 @@ import { oimResolveEntityWriterOptions } from './utils/oimResolveEntityWriterOpt
 
 const theEntityItself = (entity: Record<string, unknown>): Record<string, unknown> => entity;
 
-function deleteColumnsInPlace(slot: TOIMEntityContentSlot, names: readonly string[]): readonly string[] {
+function deleteColumnsInPlace(slot: OIMEntitySlot, names: readonly string[]): readonly string[] {
     const deleted = oimOwnedColumnNames(slot, names);
     if (deleted === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
-    const entity = slot.entity as Record<string, unknown>;
+    const entity = slot.content as Record<string, unknown>;
     for (let i = 0; i < deleted.length; i++) entity[deleted[i]] = undefined;
     return deleted;
 }

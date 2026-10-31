@@ -234,33 +234,33 @@
       "reads.bySwitch": 156
     },
     "oimdb": {
-      "bind": 340,
-      "bindPerGroup": 334,
-      "churn.row": 165,
-      "churn.wide": 165,
-      "churn.column": 167,
-      "churn.chain": 239,
-      "churn.diamond": 239,
-      "reads.byKey": 261,
-      "reads.byWindow": 257,
-      "reads.byTwoAxes": 251,
-      "reads.bySwitch": 262,
-      "relations": 220,
+      "bind": 286,
+      "bindPerGroup": 280,
+      "churn.row": 155,
+      "churn.wide": 155,
+      "churn.column": 157,
+      "churn.chain": 229,
+      "churn.diamond": 229,
+      "reads.byKey": 194,
+      "reads.byWindow": 190,
+      "reads.byTwoAxes": 184,
+      "reads.bySwitch": 195,
+      "relations": 214,
       "single": 92
     },
     "oimdb-sorted-index": {
-      "bind": 340,
-      "bindPerGroup": 334,
-      "churn.row": 165,
-      "churn.wide": 165,
-      "churn.column": 167,
-      "churn.chain": 239,
-      "churn.diamond": 239,
-      "reads.byKey": 261,
-      "reads.byWindow": 257,
-      "reads.byTwoAxes": 251,
-      "reads.bySwitch": 262,
-      "relations": 220,
+      "bind": 286,
+      "bindPerGroup": 280,
+      "churn.row": 155,
+      "churn.wide": 155,
+      "churn.column": 157,
+      "churn.chain": 229,
+      "churn.diamond": 229,
+      "reads.byKey": 194,
+      "reads.byWindow": 190,
+      "reads.byTwoAxes": 184,
+      "reads.bySwitch": 195,
+      "relations": 214,
       "single": 92
     },
     "oimdb-3.12.1": {
@@ -590,7 +590,7 @@
     }
   },
   "format": 1,
-  "generatedAt": "2026-10-23T00:54:54.396Z",
+  "generatedAt": "2026-10-31T17:57:03.643Z",
   "environment": {
     "node": "v24.16.0",
     "machine": "arm64 8× Apple M1",
@@ -633,17 +633,17 @@
     },
     {
       "name": "oimdb",
-      "version": "4.0.0",
-      "docs": "packages/core/dist (the built package, as a consumer gets it) — createOIMEntityService(db, …) on one OIMDB with the default entity writer, createOIMEntityWriterInPlace(), and one createStoreSlot(db) as the instance; a first load goes in through entityService.slotContentService.insertEntities(entityStoreSlot, …), later writes through slotContentService.upsertEntities; a label or note patch assigns slot.entity in place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; a createOIMIndexService with an OIMSlotContentBucketServiceSetDriven over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a createOIMComputedServiceSorted over that index service (rank then id, as sortColumns, so only a write that changes rank or id on a member re-sorts), read through createSortedStoreSlot(indexStoreSlot), keeps the order of a held group as a computed slot; the read views wake on that order too, one per index; the churn chain levels are slots of one createOIMComputedService store slot and the diamond nodes slots of another, each keyed by subscriber and level, under one OIMEffectService.INSTANCE.createEffect(db, …) on the head; a frame of the window and read bindings is one OIMChannelService.INSTANCE.openSubframe/closeSubframe subframe on db.defaultChannelSlot",
-      "admission": "the row values live in the library — an entity service's slots, written through its slotContentService's insertEntities, upsertEntities, updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the library's own OIMEffectService effect over a slot, a column, a bucket or an index order, delivered at the frame flush; the GROUP FILING and the ORDER are the library's too, an OIMIndexService whose entity service calls keyOf on each write, moves the row between its buckets itself and an OIMComputedServiceSorted re-sorts a held group's order when a write touches the sorter's columns.",
-      "departure": "measured against source that is not released: @oimdb/core 4.0.0 is unpublished and imported from the working tree. Two things it does that no other row pays for or is credited with: an index bucket is minted only when a key is held, so the two-view bindings file into the two groups a view watches and into no other, where several rows here keep a bucket per group whether or not anybody watches it — the fifty-view binding holds all fifty and files into all fifty; and on the wide mount shape the subscriber is registered over every churn row it is asked for while its body reads the first of them alone. Every binding with entity collections tears down with one OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot) and clears its own arrays: no effect is detached and no hold given back one at a time, because a dropped channel neither schedules nor runs a frame, so no effect body runs again. The single binding disposes its two effects and keeps its channel."
+      "version": "4.1.0",
+      "docs": "packages/core/dist (the built package, as a consumer gets it) — createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService() }) on one OIMDB with the default entity writer, createOIMInPlaceEntityWriter(), and one createStoreSlot(db) as the instance; every load goes in through entityService.writeSlotContentByKey(entityStoreSlot, id, row) for each row inside entityService.writeInBatch; a label or note patch assigns slot.entity in place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; a createOIMSlotCollectionIndexService with an OIMSetBucketContentService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a createOIMSortedComputedService over that index service (rank then id, as sortColumns, so only a write that changes rank or id on a member re-sorts), read through createSortedStoreSlot(indexStoreSlot), keeps the order of a held group as a computed slot; the read views wake on that order too, one per index; the churn chain levels are slots of one createOIMComputedService store slot and the diamond nodes slots of another, each keyed by subscriber and level, under one OIMEffectService.INSTANCE.createEffect(db, …) on the head; a frame of the window and read bindings is one entityService.writeInBatch(entityStoreSlot, …) batch",
+      "admission": "the row values live in the library — an entity service's slots, written through writeSlotContentByKey and its slotContentService's updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the library's own OIMEffectService effect over a slot, a column, a bucket or an index order, delivered at the frame flush; the GROUP FILING and the ORDER are the library's too, an OIMSlotCollectionIndexService whose keyOf runs on each write, moves the row between its buckets itself and an OIMSortedComputedService re-sorts a held group's order when a write touches the sorter's columns.",
+      "departure": "measured against source that is not released: @oimdb/core is imported from the working tree, ahead of the published 4.0.1. Two things it does that no other row pays for or is credited with: an index bucket is minted only when a key is held, so the two-view bindings file into the two groups a view watches and into no other, where several rows here keep a bucket per group whether or not anybody watches it — the fifty-view binding holds all fifty and files into all fifty; and on the wide mount shape the subscriber is registered over every churn row it is asked for while its body reads the first of them alone. Every binding with entity collections tears down with one OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot) and clears its own arrays: no effect is detached and no hold given back one at a time, because a dropped channel neither schedules nor runs a frame, so no effect body runs again. The single binding disposes its two effects and keeps its channel."
     },
     {
       "name": "oimdb-sorted-index",
-      "version": "4.0.0",
-      "docs": "packages/core/dist (the built package, as a consumer gets it) — the same wiring as the oimdb row except for group order: a createOIMIndexServiceSortedArrayDriven over the group column with sortColumns rank then id, and indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf and keeps every bucket in that order at the write, so there is no createOIMComputedServiceSorted; a window or read view reads its page with indexService.slotContentService.getBucketMemberSlotCount and getBucketMemberSlotAt from its offset, and its order effect has the held bucket slot as a root slot, which the index writes when membership changes or a member's rank or id changes; the read binding builds two such indexes, the group and the second axis",
-      "admission": "the row values live in the library — an entity service's slots, written through its slotContentService's insertEntities, upsertEntities, updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the library's own OIMEffectService effect over a slot, a column or a bucket, delivered at the frame flush; the GROUP FILING and the ORDER are the library's too, an OIMIndexServiceSortedArrayDriven whose entity service calls keyOf on each write, moves the row between its buckets itself and keeps each bucket sorted by rank then id at the write.",
-      "departure": "measured against source that is not released: @oimdb/core 4.0.0 is unpublished and imported from the working tree. Two things it does that no other row pays for or is credited with: an index bucket is minted only when a key is held, so the two-view bindings file into the two groups a view watches and into no other, where several rows here keep a bucket per group whether or not anybody watches it — the fifty-view binding holds all fifty and files into all fifty; and on the wide mount shape the subscriber is registered over every churn row it is asked for while its body reads the first of them alone. Every binding with entity collections tears down with one OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot) and clears its own arrays: no effect is detached and no hold given back one at a time, because a dropped channel neither schedules nor runs a frame, so no effect body runs again. The single binding disposes its two effects and keeps its channel."
+      "version": "4.1.0",
+      "docs": "packages/core/dist (the built package, as a consumer gets it) — the same wiring as the oimdb row except for group order: a createOIMSlotCollectionSortedArrayIndexService over the group column with sortColumns rank then id, and indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf and keeps every bucket in that order at the write, so there is no createOIMSortedComputedService; a window or read view reads its page with indexService.slotContentService.getBucketMemberSlotCount and getBucketMemberSlotAt from its offset, and its order effect has the held bucket slot as a root slot, which the index writes when membership changes or a member's rank or id changes; the read binding builds two such indexes, the group and the second axis",
+      "admission": "the row values live in the library — an entity service's slots, written through writeSlotContentByKey and its slotContentService's updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the library's own OIMEffectService effect over a slot, a column or a bucket, delivered at the frame flush; the GROUP FILING and the ORDER are the library's too, an OIMSlotCollectionSortedArrayIndexService whose keyOf runs on each write, moves the row between its buckets itself and keeps each bucket sorted by rank then id at the write.",
+      "departure": "measured against source that is not released: @oimdb/core is imported from the working tree, ahead of the published 4.0.1. Two things it does that no other row pays for or is credited with: an index bucket is minted only when a key is held, so the two-view bindings file into the two groups a view watches and into no other, where several rows here keep a bucket per group whether or not anybody watches it — the fifty-view binding holds all fifty and files into all fifty; and on the wide mount shape the subscriber is registered over every churn row it is asked for while its body reads the first of them alone. Every binding with entity collections tears down with one OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot) and clears its own arrays: no effect is detached and no hold given back one at a time, because a dropped channel neither schedules nor runs a frame, so no effect body runs again. The single binding disposes its two effects and keeps its channel."
     },
     {
       "name": "oimdb-3.12.1",
@@ -1333,15 +1333,15 @@
         },
         {
           "adapter": "baseline-indexed",
-          "place": 4,
-          "ms": 1.471583,
+          "place": null,
+          "ms": 3.147208,
           "ratio": 1,
-          "drift": 0.026134441618311723,
+          "drift": 0.44237622680166033,
           "processes": 3,
           "samples": 5,
           "repeat": 1,
           "runs": 15,
-          "batchSeconds": 246.909,
+          "batchSeconds": 173.904,
           "deliveries": [
             1,
             1
@@ -1354,17 +1354,20 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T18:36:30.061Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:37:59.274Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 2.22265625
+          "foreignLoad": 58.31982421875
         },
         {
           "adapter": "oimdb-sorted-index",
-          "place": 5,
+          "place": null,
           "ms": 1.67225,
           "ratio": 1.1363613197488691,
           "drift": 0.03650291523396624,
@@ -1386,38 +1389,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:36:30.061Z",
-          "stale": [],
-          "issues": [
-            "busy",
-            "gate-raised"
+          "stale": [
+            "adapter",
+            "subject"
           ],
-          "foreignLoad": 2.22265625
-        },
-        {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 1.690709,
-          "ratio": 1.1489049547324208,
-          "drift": 0.03822301768074814,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 1,
-          "runs": 15,
-          "batchSeconds": 246.909,
-          "deliveries": [
-            1,
-            1
-          ],
-          "distinct": [
-            1,
-            1
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T18:36:30.061Z",
-          "stale": [],
           "issues": [
             "busy",
             "gate-raised"
@@ -1609,6 +1584,41 @@
           "foreignLoad": 0.49169921875
         },
         {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 3.868125,
+          "ratio": 2.376363077868223,
+          "drift": 0.2749394086282114,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 1,
+          "runs": 15,
+          "batchSeconds": 68.98,
+          "deliveries": [
+            1,
+            1
+          ],
+          "distinct": [
+            1,
+            1
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:56:20.621Z",
+          "stale": [
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 31.04931640625
+        },
+        {
           "adapter": "alien-signals",
           "place": null,
           "ms": 3.949584,
@@ -1700,39 +1710,8 @@
           "foreignLoad": 2.22265625
         },
         {
-          "adapter": "oimdb-3.12.1",
-          "place": null,
-          "ms": 6.989167,
-          "ratio": 4.749420861752276,
-          "drift": 0.09303082899578735,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 1,
-          "runs": 15,
-          "batchSeconds": 246.909,
-          "deliveries": [
-            1,
-            1
-          ],
-          "distinct": [
-            1,
-            1
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T18:36:30.061Z",
-          "stale": [],
-          "issues": [
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 2.22265625
-        },
-        {
           "adapter": "jotai",
-          "place": 17,
+          "place": 16,
           "ms": 14.143,
           "ratio": 9.610738911770522,
           "drift": 0.13126932051191395,
@@ -1762,8 +1741,40 @@
           "foreignLoad": 2.22265625
         },
         {
+          "adapter": "oimdb-3.12.1",
+          "place": null,
+          "ms": 16.898042,
+          "ratio": 10.38122684687452,
+          "drift": 0.3969074050117759,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 1,
+          "runs": 15,
+          "batchSeconds": 68.98,
+          "deliveries": [
+            1,
+            1
+          ],
+          "distinct": [
+            1,
+            1
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:56:20.621Z",
+          "stale": [],
+          "issues": [
+            "unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 31.04931640625
+        },
+        {
           "adapter": "redux-toolkit",
-          "place": 18,
+          "place": null,
           "ms": 16.102083,
           "ratio": 10.942014823492796,
           "drift": 0.030829365368443388,
@@ -1825,7 +1836,7 @@
         },
         {
           "adapter": "mobx",
-          "place": 20,
+          "place": null,
           "ms": 25.129458,
           "ratio": 17.076480225716114,
           "drift": 0.024365507604660636,
@@ -2105,7 +2116,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:40:38.393Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -2115,15 +2129,15 @@
         },
         {
           "adapter": "oimdb",
-          "place": 3,
-          "ms": 0.278541,
-          "ratio": 0.8297121307803209,
-          "drift": 0.10994790713036866,
+          "place": null,
+          "ms": 0.3075,
+          "ratio": 0.8667049989853209,
+          "drift": 0.1459349593495935,
           "processes": 3,
           "samples": 15,
           "repeat": 1,
           "runs": 45,
-          "batchSeconds": 248.328,
+          "batchSeconds": 47.682,
           "deliveries": [
             1,
             1
@@ -2136,14 +2150,17 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T18:40:38.393Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T16:57:08.314Z",
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 3.59619140625
+          "foreignLoad": 35.55224609375
         },
         {
           "adapter": "tanstack-store",
@@ -2308,14 +2325,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 0.335708,
+          "ms": 0.365125,
           "ratio": 1,
-          "drift": 0.11555280183969399,
+          "drift": 0.7594412872304006,
           "processes": 3,
           "samples": 15,
           "repeat": 1,
           "runs": 45,
-          "batchSeconds": 248.328,
+          "batchSeconds": 157.651,
           "deliveries": [
             1,
             1
@@ -2328,14 +2345,16 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T18:40:38.392Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:40:36.936Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
-            "fine-unresolved",
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 3.59619140625
+          "foreignLoad": 68.48388671875
         },
         {
           "adapter": "baseline-array",
@@ -2434,6 +2453,38 @@
           "foreignLoad": 3.59619140625
         },
         {
+          "adapter": "oimdb-3.12.1",
+          "place": null,
+          "ms": 0.803541,
+          "ratio": 2.2648227693972807,
+          "drift": 1.4481737708467897,
+          "processes": 3,
+          "samples": 15,
+          "repeat": 1,
+          "runs": 45,
+          "batchSeconds": 47.682,
+          "deliveries": [
+            1,
+            1
+          ],
+          "distinct": [
+            1,
+            1
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:57:08.314Z",
+          "stale": [],
+          "issues": [
+            "fine-unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 35.55224609375
+        },
+        {
           "adapter": "effector",
           "place": null,
           "ms": 0.839125,
@@ -2498,38 +2549,6 @@
           "foreignLoad": 3.59619140625
         },
         {
-          "adapter": "oimdb-3.12.1",
-          "place": 15,
-          "ms": 1.062833,
-          "ratio": 3.165944809179406,
-          "drift": 0.009801163494170883,
-          "processes": 3,
-          "samples": 15,
-          "repeat": 1,
-          "runs": 45,
-          "batchSeconds": 248.328,
-          "deliveries": [
-            1,
-            1
-          ],
-          "distinct": [
-            1,
-            1
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T18:40:38.393Z",
-          "stale": [],
-          "issues": [
-            "fine-unresolved",
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 3.59619140625
-        },
-        {
           "adapter": "valtio",
           "place": null,
           "ms": 1.148458,
@@ -2563,7 +2582,7 @@
         },
         {
           "adapter": "tinybase",
-          "place": 17,
+          "place": null,
           "ms": 1.628541,
           "ratio": 4.851064019922075,
           "drift": 0.12713342801931296,
@@ -2945,7 +2964,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:44:33.749Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -3007,7 +3029,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:44:33.749Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -3797,15 +3822,15 @@
         },
         {
           "adapter": "baseline-indexed",
-          "place": 4,
-          "ms": 1.495458,
+          "place": null,
+          "ms": 1.814458,
           "ratio": 1,
-          "drift": 0.012761307907009158,
+          "drift": 2.102625136542152,
           "processes": 3,
           "samples": 5,
           "repeat": 1,
           "runs": 15,
-          "batchSeconds": 227.192,
+          "batchSeconds": 191.55,
           "deliveries": [
             1,
             1
@@ -3818,16 +3843,20 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T18:48:20.945Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:43:48.510Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
+            "unresolved",
+            "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0
+          "foreignLoad": 71.70849609375
         },
         {
           "adapter": "oimdb-sorted-index",
-          "place": 5,
+          "place": null,
           "ms": 1.670666,
           "ratio": 1.117160094098263,
           "drift": 0.022047494831402586,
@@ -3849,37 +3878,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:48:20.945Z",
-          "stale": [],
-          "issues": [
-            "gate-raised"
+          "stale": [
+            "adapter",
+            "subject"
           ],
-          "foreignLoad": 0
-        },
-        {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 1.698167,
-          "ratio": 1.135549778061303,
-          "drift": 0.019064084981041396,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 1,
-          "runs": 15,
-          "batchSeconds": 227.192,
-          "deliveries": [
-            1,
-            1
-          ],
-          "distinct": [
-            1,
-            1
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T18:48:20.945Z",
-          "stale": [],
           "issues": [
             "gate-raised"
           ],
@@ -3946,8 +3948,42 @@
           "foreignLoad": 0
         },
         {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 2.218291,
+          "ratio": 1.4415410899038428,
+          "drift": 0.14895115203550852,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 1,
+          "runs": 15,
+          "batchSeconds": 31.801,
+          "deliveries": [
+            1,
+            1
+          ],
+          "distinct": [
+            1,
+            1
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:57:40.119Z",
+          "stale": [
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 25.20849609375
+        },
+        {
           "adapter": "nanostores",
-          "place": 9,
+          "place": null,
           "ms": 2.194875,
           "ratio": 1.467694177970896,
           "drift": 0.015737570476678658,
@@ -3977,7 +4013,7 @@
         },
         {
           "adapter": "nanostores-per-row",
-          "place": 10,
+          "place": null,
           "ms": 3.076917,
           "ratio": 2.057508134631665,
           "drift": 0.3319338805694142,
@@ -4162,14 +4198,14 @@
         {
           "adapter": "oimdb-3.12.1",
           "place": null,
-          "ms": 7.652916,
-          "ratio": 5.117439607130391,
-          "drift": 0.23450760468297308,
+          "ms": 9.010167,
+          "ratio": 5.85519481321235,
+          "drift": 0.2159874506210597,
           "processes": 3,
           "samples": 5,
           "repeat": 1,
           "runs": 15,
-          "batchSeconds": 227.192,
+          "batchSeconds": 31.801,
           "deliveries": [
             1,
             1
@@ -4182,12 +4218,13 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T18:48:20.945Z",
+          "measuredAt": "2026-10-31T16:57:40.119Z",
           "stale": [],
           "issues": [
+            "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0
+          "foreignLoad": 25.20849609375
         },
         {
           "adapter": "jotai",
@@ -4619,7 +4656,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:54:40.121Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -4683,7 +4723,10 @@
             0
           ],
           "measuredAt": "2026-10-22T18:54:40.121Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -5381,16 +5424,16 @@
       "scenario": "patchColumn",
       "rows": [
         {
-          "adapter": "oimdb",
-          "place": 1,
-          "ms": 0.13230893103448274,
-          "ratio": 0.3690670065287179,
-          "drift": 0.018395557523549398,
+          "adapter": "oimdb-3.12.1",
+          "place": null,
+          "ms": 0.14654310344827584,
+          "ratio": 0.25568814751944136,
+          "drift": 0.7670157068062832,
           "processes": 3,
           "samples": 5,
           "repeat": 29,
           "runs": 435,
-          "batchSeconds": 479.208,
+          "batchSeconds": 87.554,
           "deliveries": [
             32,
             0
@@ -5403,14 +5446,49 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T19:02:43.123Z",
+          "measuredAt": "2026-10-31T16:59:07.677Z",
           "stale": [],
           "issues": [
-            "fine-unresolved",
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 1.3466796875
+          "foreignLoad": 32.96240234375
+        },
+        {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.16718679310344828,
+          "ratio": 0.29170722069104477,
+          "drift": 0.27299281394319,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 29,
+          "runs": 435,
+          "batchSeconds": 87.554,
+          "deliveries": [
+            32,
+            0
+          ],
+          "distinct": [
+            32,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:59:07.677Z",
+          "stale": [
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 32.96240234375
         },
         {
           "adapter": "oimdb-sorted-index",
@@ -5436,39 +5514,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:02:43.123Z",
-          "stale": [],
-          "issues": [
-            "fine-unresolved",
-            "busy",
-            "gate-raised"
+          "stale": [
+            "adapter",
+            "subject"
           ],
-          "foreignLoad": 1.3466796875
-        },
-        {
-          "adapter": "oimdb-3.12.1",
-          "place": 3,
-          "ms": 0.13760920689655173,
-          "ratio": 0.383851775258203,
-          "drift": 0.005773721535773268,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 29,
-          "runs": 435,
-          "batchSeconds": 479.208,
-          "deliveries": [
-            32,
-            0
-          ],
-          "distinct": [
-            32,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T19:02:43.123Z",
-          "stale": [],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -5478,7 +5527,7 @@
         },
         {
           "adapter": "alien-signals",
-          "place": 4,
+          "place": null,
           "ms": 0.15422413793103448,
           "ratio": 0.4301980257541691,
           "drift": 0.004686193404136396,
@@ -5703,14 +5752,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 0.3584956896551724,
+          "ms": 1.480280172413793,
           "ratio": 1,
-          "drift": 0.006993591516273572,
+          "drift": 0.08779111596418429,
           "processes": 3,
           "samples": 5,
           "repeat": 29,
           "runs": 435,
-          "batchSeconds": 479.208,
+          "batchSeconds": 350.004,
           "deliveries": [
             32,
             0
@@ -5723,18 +5772,20 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T19:02:43.123Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:49:38.524Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
-            "fine-unresolved",
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 1.3466796875
+          "foreignLoad": 80.68603515625
         },
         {
           "adapter": "nanostores",
-          "place": 12,
+          "place": null,
           "ms": 0.3772198275862069,
           "ratio": 1.0522297435404169,
           "drift": 0.019486213791921374,
@@ -6351,15 +6402,15 @@
         },
         {
           "adapter": "baseline-indexed",
-          "place": 5,
-          "ms": 0.0018279999999999998,
+          "place": null,
+          "ms": 0.002189102564102564,
           "ratio": 1,
-          "drift": 0.10870784940806838,
+          "drift": 1.7135226939970716,
           "processes": 3,
           "samples": 5,
           "repeat": 39,
           "runs": 585,
-          "batchSeconds": 523.11,
+          "batchSeconds": 106.655,
           "deliveries": [
             0,
             0
@@ -6372,14 +6423,52 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T19:11:26.238Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:16:35.701Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 1.06494140625
+          "foreignLoad": 34.384765625
+        },
+        {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.002692307692307692,
+          "ratio": 1.2298682284040994,
+          "drift": 0.28968571428571444,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 39,
+          "runs": 585,
+          "batchSeconds": 106.655,
+          "deliveries": [
+            0,
+            0
+          ],
+          "distinct": [
+            0,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T17:16:35.701Z",
+          "stale": [
+            "harness",
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "fine-unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 34.384765625
         },
         {
           "adapter": "oimdb-sorted-index",
@@ -6405,39 +6494,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:11:26.238Z",
-          "stale": [],
-          "issues": [
-            "fine-unresolved",
-            "busy",
-            "gate-raised"
+          "stale": [
+            "adapter",
+            "subject"
           ],
-          "foreignLoad": 1.06494140625
-        },
-        {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 0.0030694358974358974,
-          "ratio": 1.6791224821859396,
-          "drift": 0.06544257693721384,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 39,
-          "runs": 585,
-          "batchSeconds": 523.11,
-          "deliveries": [
-            0,
-            0
-          ],
-          "distinct": [
-            0,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T19:11:26.238Z",
-          "stale": [],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -6447,7 +6507,7 @@
         },
         {
           "adapter": "oimdb-3.12.1",
-          "place": 8,
+          "place": null,
           "ms": 0.006325846153846154,
           "ratio": 3.460528530550413,
           "drift": 0.0344577395139193,
@@ -7065,14 +7125,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 0.000824404761904762,
+          "ms": 0.0010139047619047619,
           "ratio": 1,
-          "drift": 0.054151624548736316,
+          "drift": 0.07336088671801606,
           "processes": 3,
           "samples": 5,
           "repeat": 42,
           "runs": 630,
-          "batchSeconds": 564.894,
+          "batchSeconds": 88.03,
           "deliveries": [
             0,
             0
@@ -7085,14 +7145,16 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T19:20:51.135Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:18:03.737Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 2.09521484375
+          "foreignLoad": 39.81494140625
         },
         {
           "adapter": "preact-signals",
@@ -7246,7 +7308,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:20:51.135Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -7257,14 +7322,14 @@
         {
           "adapter": "oimdb",
           "place": null,
-          "ms": 0.0024523809523809524,
-          "ratio": 2.974729241877256,
-          "drift": 0.0962815533980582,
+          "ms": 0.003927571428571429,
+          "ratio": 3.873708435092993,
+          "drift": 0.10937329502055065,
           "processes": 3,
           "samples": 5,
           "repeat": 42,
           "runs": 630,
-          "batchSeconds": 564.894,
+          "batchSeconds": 88.03,
           "deliveries": [
             0,
             0
@@ -7277,14 +7342,18 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T19:20:51.135Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:18:03.737Z",
+          "stale": [
+            "harness",
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 2.09521484375
+          "foreignLoad": 39.81494140625
         },
         {
           "adapter": "mobx",
@@ -8020,7 +8089,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:42:57.007Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -8051,7 +8123,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:42:57.007Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -8835,7 +8910,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:49:06.082Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -8897,7 +8975,10 @@
             0
           ],
           "measuredAt": "2026-10-22T19:49:06.082Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -9749,7 +9830,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:03:08.115Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -9781,7 +9865,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:03:08.115Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -10584,7 +10671,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:05:40.905Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -10646,7 +10736,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:05:40.905Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -11213,7 +11306,10 @@
             0
           ],
           "measuredAt": "2026-10-22T21:55:49.921Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -11373,7 +11469,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:08:12.714Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -12086,7 +12185,10 @@
             0
           ],
           "measuredAt": "2026-10-22T21:59:11.762Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "gate-raised"
@@ -12213,7 +12315,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:08:32.248Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "gate-raised"
@@ -12937,7 +13042,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:04:21.332Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -13065,7 +13173,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:09:12.228Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "gate-raised"
@@ -13840,7 +13951,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:09:25.721Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -13935,7 +14049,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:10:23.562Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -14582,7 +14699,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:20:58.310Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -14806,7 +14926,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:11:34.476Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -15423,7 +15546,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:11:52.462Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -15517,7 +15643,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:52:58.213Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -16453,7 +16582,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:56:37.191Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -16515,7 +16647,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:12:08.822Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -17178,7 +17313,10 @@
             0
           ],
           "measuredAt": "2026-10-22T22:59:59.658Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -17272,7 +17410,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:12:43.367Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -18150,7 +18291,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:12:54.633Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -18181,7 +18325,10 @@
             0
           ],
           "measuredAt": "2026-10-22T23:04:07.160Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -18842,7 +18989,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:13:40.929Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -18874,7 +19024,10 @@
             0
           ],
           "measuredAt": "2026-10-22T23:09:39.312Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "busy",
@@ -19610,39 +19763,8 @@
       "scenario": "churnOne",
       "rows": [
         {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 0.002465740234375,
-          "ratio": 0.8572358829884247,
-          "drift": 0.08683371103536823,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 512,
-          "runs": 7680,
-          "batchSeconds": 5.944,
-          "deliveries": [
-            8,
-            0
-          ],
-          "distinct": [
-            8,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T20:13:46.876Z",
-          "stale": [],
-          "issues": [
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 0.701171875
-        },
-        {
           "adapter": "oimdb-sorted-index",
-          "place": null,
+          "place": 1,
           "ms": 0.00258056640625,
           "ratio": 0.939472046929162,
           "drift": 0.051529990539262084,
@@ -19664,7 +19786,10 @@
             0
           ],
           "measuredAt": "2026-10-22T23:36:43.423Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -19672,16 +19797,16 @@
           "foreignLoad": 3.06982421875
         },
         {
-          "adapter": "baseline-array",
-          "place": 3,
-          "ms": 0.002746826171875,
-          "ratio": 1,
-          "drift": 0.06260207981512768,
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.002696044921875,
+          "ratio": 0.9495270851246774,
+          "drift": 0.8658878927827585,
           "processes": 3,
           "samples": 5,
           "repeat": 512,
           "runs": 7680,
-          "batchSeconds": 1614.224,
+          "batchSeconds": 32.326,
           "deliveries": [
             8,
             0
@@ -19694,13 +19819,49 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T23:36:43.423Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T16:59:40.006Z",
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 3.06982421875
+          "foreignLoad": 53.3076171875
+        },
+        {
+          "adapter": "baseline-array",
+          "place": null,
+          "ms": 0.00283935546875,
+          "ratio": 1,
+          "drift": 0.050759759243336096,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 512,
+          "runs": 7680,
+          "batchSeconds": 32.326,
+          "deliveries": [
+            8,
+            0
+          ],
+          "distinct": [
+            8,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T16:59:40.006Z",
+          "stale": [],
+          "issues": [
+            "unresolved",
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 53.3076171875
         },
         {
           "adapter": "nanostores-per-row",
@@ -19827,7 +19988,7 @@
         },
         {
           "adapter": "lokijs",
-          "place": 8,
+          "place": null,
           "ms": 0.00447623828125,
           "ratio": 1.6296037685539064,
           "drift": 0.006689838792861918,
@@ -19889,14 +20050,14 @@
         {
           "adapter": "oimdb-3.12.1",
           "place": null,
-          "ms": 0.005195150390625,
-          "ratio": 1.8913284152519778,
-          "drift": 0.14862606615168816,
+          "ms": 0.006675537109375,
+          "ratio": 2.3510748065348235,
+          "drift": 4.4572651135573995,
           "processes": 3,
           "samples": 5,
           "repeat": 512,
           "runs": 7680,
-          "batchSeconds": 1614.224,
+          "batchSeconds": 32.326,
           "deliveries": [
             8,
             0
@@ -19909,13 +20070,14 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T23:36:43.423Z",
+          "measuredAt": "2026-10-31T16:59:40.006Z",
           "stale": [],
           "issues": [
+            "unresolved",
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 3.06982421875
+          "foreignLoad": 53.3076171875
         },
         {
           "adapter": "vue-reactivity",
@@ -20010,7 +20172,7 @@
         },
         {
           "adapter": "jotai",
-          "place": 14,
+          "place": null,
           "ms": 0.013344482421875,
           "ratio": 4.8581459425828815,
           "drift": 0.02169216414497162,
@@ -20449,7 +20611,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:13:52.231Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -20542,7 +20707,10 @@
             0
           ],
           "measuredAt": "2026-10-22T23:46:50.719Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -21207,7 +21375,10 @@
             0
           ],
           "measuredAt": "2026-10-22T23:56:38.434Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -21269,7 +21440,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:13:57.690Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -21996,7 +22170,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:03.531Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -22027,7 +22204,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:01:18.609Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -22759,7 +22939,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:05:59.422Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -22790,7 +22973,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:09.821Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -23522,7 +23708,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:23:04.747Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -23553,7 +23742,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:15.841Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -24373,7 +24565,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:23.330Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -24404,7 +24599,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:04.481Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -24993,7 +25191,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:17.912Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -25024,7 +25225,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:28.197Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -25311,7 +25515,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:23.055Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unattested",
             "gate-raised"
@@ -25342,7 +25549,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:32.388Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unattested",
             "gate-raised"
@@ -25646,7 +25856,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:27.932Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unattested",
             "gate-raised"
@@ -25677,7 +25890,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:35.613Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unattested",
             "gate-raised"
@@ -26066,7 +26282,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:39.948Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -26097,7 +26316,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:34.867Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -26351,7 +26573,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:44.851Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "gate-raised"
@@ -26382,7 +26607,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:44.498Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -26609,7 +26837,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:50.146Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -26639,7 +26870,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:49.810Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -26773,7 +27007,10 @@
             0
           ],
           "measuredAt": "2026-10-23T00:54:53.901Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -26803,7 +27040,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:53.504Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -26997,6 +27237,7 @@
           ],
           "measuredAt": "2026-10-22T17:12:46.686Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -27029,7 +27270,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:14:57.957Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -27313,6 +27557,7 @@
           ],
           "measuredAt": "2026-10-22T17:12:54.683Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -27346,7 +27591,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:15:04.130Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "unresolved",
             "busy",
@@ -27633,6 +27881,7 @@
           ],
           "measuredAt": "2026-10-22T17:13:14.527Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -27666,7 +27915,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:15:19.966Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -27864,8 +28116,43 @@
           "foreignLoad": 0.0068359375
         },
         {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.05129965,
+          "ratio": 0.465797333799033,
+          "drift": 0.7934726000404811,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 120,
+          "runs": 1800,
+          "batchSeconds": 57.192,
+          "deliveries": [
+            8,
+            0
+          ],
+          "distinct": [
+            8,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T17:19:00.933Z",
+          "stale": [
+            "harness",
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 31.65087890625
+        },
+        {
           "adapter": "vue-reactivity",
-          "place": 4,
+          "place": null,
           "ms": 0.05118888333333334,
           "ratio": 0.5181643651399066,
           "drift": 0.04082120043642291,
@@ -27918,6 +28205,7 @@
           ],
           "measuredAt": "2026-10-22T17:13:59.326Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -27927,39 +28215,8 @@
           "foreignLoad": 1.11962890625
         },
         {
-          "adapter": "oimdb",
-          "place": null,
-          "ms": 0.05268645833333333,
-          "ratio": 0.5363209496236856,
-          "drift": 0.0166340971549458,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 120,
-          "runs": 1800,
-          "batchSeconds": 41.729,
-          "deliveries": [
-            8,
-            0
-          ],
-          "distinct": [
-            8,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T20:16:01.697Z",
-          "stale": [],
-          "issues": [
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 1.0908203125
-        },
-        {
           "adapter": "solid-js",
-          "place": 7,
+          "place": null,
           "ms": 0.06533854166666667,
           "ratio": 0.6613956343100992,
           "drift": 0.14808028696691908,
@@ -28023,14 +28280,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 0.09823680833333334,
+          "ms": 0.6103444416666667,
           "ratio": 1,
-          "drift": 0.013410027826467188,
+          "drift": 1.7716715232367493,
           "processes": 3,
           "samples": 5,
           "repeat": 120,
           "runs": 1800,
-          "batchSeconds": 41.729,
+          "batchSeconds": 299.869,
           "deliveries": [
             8,
             0
@@ -28043,13 +28300,15 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:16:01.697Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:54:38.457Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 1.0908203125
+          "foreignLoad": 61.96435546875
         }
       ],
       "problems": [],
@@ -28174,8 +28433,43 @@
           "foreignLoad": 0
         },
         {
+          "adapter": "oimdb",
+          "place": null,
+          "ms": 0.0644046875,
+          "ratio": 0.2753139924724844,
+          "drift": 0.2682421213518038,
+          "processes": 3,
+          "samples": 5,
+          "repeat": 80,
+          "runs": 1200,
+          "batchSeconds": 56.784,
+          "deliveries": [
+            8,
+            0
+          ],
+          "distinct": [
+            8,
+            0
+          ],
+          "redundant": [
+            0,
+            0
+          ],
+          "measuredAt": "2026-10-31T17:19:57.721Z",
+          "stale": [
+            "harness",
+            "adapter",
+            "subject"
+          ],
+          "issues": [
+            "busy",
+            "gate-raised"
+          ],
+          "foreignLoad": 20.271484375
+        },
+        {
           "adapter": "vue-reactivity",
-          "place": 4,
+          "place": null,
           "ms": 0.0610052,
           "ratio": 0.2893648851728435,
           "drift": 0.019423139338941648,
@@ -28205,7 +28499,7 @@
         },
         {
           "adapter": "solid-js",
-          "place": 5,
+          "place": null,
           "ms": 0.07628281249999999,
           "ratio": 0.3618309140814889,
           "drift": 0.03523762315397077,
@@ -28234,39 +28528,8 @@
           "foreignLoad": 0
         },
         {
-          "adapter": "oimdb",
-          "place": 6,
-          "ms": 0.109433325,
-          "ratio": 0.5237610529464553,
-          "drift": 0.008676401818184713,
-          "processes": 3,
-          "samples": 5,
-          "repeat": 80,
-          "runs": 1200,
-          "batchSeconds": 39.623,
-          "deliveries": [
-            8,
-            0
-          ],
-          "distinct": [
-            8,
-            0
-          ],
-          "redundant": [
-            0,
-            0
-          ],
-          "measuredAt": "2026-10-22T20:16:41.323Z",
-          "stale": [],
-          "issues": [
-            "busy",
-            "gate-raised"
-          ],
-          "foreignLoad": 0.9873046875
-        },
-        {
           "adapter": "oimdb-sorted-index",
-          "place": null,
+          "place": 7,
           "ms": 0.111139575,
           "ratio": 0.5302513449412337,
           "drift": 0.10252221137250173,
@@ -28289,6 +28552,7 @@
           ],
           "measuredAt": "2026-10-22T17:14:41.721Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -28332,14 +28596,14 @@
         {
           "adapter": "baseline-indexed",
           "place": null,
-          "ms": 0.2089375,
+          "ms": 0.2339317625,
           "ratio": 1,
-          "drift": 0.00974675441220462,
+          "drift": 0.1660028423887072,
           "processes": 3,
           "samples": 5,
           "repeat": 80,
           "runs": 1200,
-          "batchSeconds": 39.623,
+          "batchSeconds": 56.784,
           "deliveries": [
             8,
             0
@@ -28352,13 +28616,15 @@
             0,
             0
           ],
-          "measuredAt": "2026-10-22T20:16:41.323Z",
-          "stale": [],
+          "measuredAt": "2026-10-31T17:19:57.721Z",
+          "stale": [
+            "harness"
+          ],
           "issues": [
             "busy",
             "gate-raised"
           ],
-          "foreignLoad": 0.9873046875
+          "foreignLoad": 20.271484375
         }
       ],
       "problems": [],
@@ -28630,6 +28896,7 @@
           ],
           "measuredAt": "2026-10-22T17:15:15.285Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -28662,7 +28929,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:17:12.656Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "busy",
             "gate-raised"
@@ -28811,6 +29081,7 @@
           ],
           "measuredAt": "2026-10-22T17:15:34.830Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -28908,7 +29179,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:17:31.009Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -29069,7 +29343,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:17:54.126Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "gate-raised"
@@ -29101,6 +29378,7 @@
           ],
           "measuredAt": "2026-10-22T17:16:01.102Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -29357,7 +29635,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:18:15.549Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "fine-unresolved",
             "gate-raised"
@@ -29389,6 +29670,7 @@
           ],
           "measuredAt": "2026-10-22T17:16:25.170Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -29744,7 +30026,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:18:26.858Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -29775,6 +30060,7 @@
           ],
           "measuredAt": "2026-10-22T17:16:38.880Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -29976,6 +30262,7 @@
           ],
           "measuredAt": "2026-10-22T17:16:47.392Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [
@@ -30008,7 +30295,10 @@
             0
           ],
           "measuredAt": "2026-10-22T20:18:34.658Z",
-          "stale": [],
+          "stale": [
+            "adapter",
+            "subject"
+          ],
           "issues": [
             "gate-raised"
           ],
@@ -30104,6 +30394,7 @@
           ],
           "measuredAt": "2026-10-22T16:00:35.770Z",
           "stale": [
+            "adapter",
             "subject"
           ],
           "issues": [

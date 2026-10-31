@@ -12,16 +12,16 @@ many-to-many relations, composite keys, a single settings record, soft delete, a
 choosing between the in-place and the replacing writer.
 
 ```ts setup
-import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMSlotContentEntityService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService, OIMScalarKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMDefaults, OIMEffectService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionService, createOIMEntityContentService, type IOIMSlotEmptinessPolicy, type TOIMEntitySlot, type TOIMSlotStoreTree, type TOIMStoreKey, createOIMSingleSlotService, OIMScalarKeyTreeWalk } from '@oimdb/core';
 
 type User = { id: string; name: string };
 type Message = { id: string; chatId: string; text: string; pinned?: boolean };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>() });
 const users = userService.createStoreSlot(db);
-const messageService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Message>() });
+const messageService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Message>() });
 const messages = messageService.createStoreSlot(db);
 const messageContentService = messageService.slotContentService;
 
@@ -73,9 +73,9 @@ without restating the rest, `deleteEntityColumns(slot, columnNames)`.
 ```ts
 const slot = messageService.writeSlotContentByKey(messages, 'm1', { id: 'm1', chatId: 'c1', text: 'Hi', pinned: true });
 
-messageContentService.updateEntityColumn(slot, 'text', 'Hello');      // text moves, pinned stays
+slot.updateEntityColumn('text', 'Hello');      // text moves, pinned stays
 const byKey = messageService.findSlotByKey(messages, 'm1');           // a key arriving from outside
-if (byKey !== undefined) messageContentService.updateEntity(byKey, { text: 'Hello!' });
+if (byKey !== undefined) byKey.updateEntity({ text: 'Hello!' });
 
 messageService.writeSlotContentByKey(messages, 'm1', { id: 'm1', chatId: 'c1', text: 'Hello!' });   // pinned is taken away
 slot.entity?.pinned;                                                  // undefined
@@ -87,7 +87,7 @@ Why this way: PATCH and PUT are two writer calls, `patchEntity` and
 subscriber of `text` is not woken by a change to `pinned`. Take `updateEntity`
 or `updateEntityColumn` on the slot you hold — the write that returned it already paid for the
 lookup; a key arriving from outside is resolved once with `findSlotByKey` (which mints nothing) or
-`getSlotByKey`. There are no by-key write doors. A dropped column is set to
+`getSlotByKey`. The one by-key write is the whole-value `writeSlotContentByKey`. A dropped column is set to
 `undefined` under both writers rather than deleted, so every entity of a kind
 keeps one object shape; the key stays in `Object.keys`, reads `undefined`, and
 counts as absent.
@@ -106,7 +106,7 @@ const watched = messageService.writeSlotContentByKey(messages, 'm2', { id: 'm2',
 const onMessage = effectService.createEffect(db, () => render(watched.entity), [watched]);
 db.flush();
 
-messageService.slotContentService.clearSlotContent(watched);
+watched.clearSlotContent();
 db.flush();                        // onMessage runs; watched.entity is undefined
 
 messageService.writeSlotContentByKey(messages, 'm2', { id: 'm2', chatId: 'c1', text: 'Back' });
@@ -114,7 +114,7 @@ db.flush();                        // the same slot is filled; onMessage runs ag
 
 effectService.disposeEffect(onMessage);
 const gone = ['m2', 'm3'].flatMap((id) => messageService.findSlotByKey(messages, id) ?? []);
-messageService.writeInBatch(messages, () => { for (const entitySlot of gone) messageService.slotContentService.clearSlotContent(entitySlot); });   // a key with no slot is simply not in the list
+messageService.writeInBatch(messages, () => { for (const entitySlot of gone) entitySlot.clearSlotContent(); });   // a key with no slot is simply not in the list
 ```
 
 Why this way: a subscription takes a hold on the slot it watches, so a deleted
@@ -146,15 +146,15 @@ const messagesByChat = messagesByChatService.createIndexStoreSlot(messages);
 
 const chatBucket = messagesByChatService.holdSlotByKey(messagesByChat, 'c1');
 const onChat = effectService.createAndRunEffect(db, () => {
-    for (const messageSlot of messagesByChatService.slotContentService.getBucketMemberSlots(chatBucket)) render(messageSlot.entity);
+    for (const messageSlot of chatBucket.getBucketMemberSlots()) render(messageSlot.entity);
 }, [chatBucket]);
 
 const joining = messageService.writeSlotContentByKey(messages, 'm4', { id: 'm4', chatId: 'c1', text: 'Joins c1' });
-messageContentService.updateEntity(joining, { chatId: 'c2' });   // leaves c1's bucket, joins c2's
+joining.updateEntity({ chatId: 'c2' });   // leaves c1's bucket, joins c2's
 db.flush();
 
 effectService.disposeEffect(onChat);
-chatBucket.owner.unholdSlot(chatBucket);
+chatBucket.unholdSlot();
 ```
 
 Why this way: membership is a function of the entity, so every write can decide
@@ -179,9 +179,9 @@ stay in step, and nothing ties the two writes together.
 type Group = { id: string; title: string };
 type Membership = { id: string; userId: string; groupId: string };
 
-const groupService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Group>() });
+const groupService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Group>() });
 const groups = groupService.createStoreSlot(db);
-const membershipService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Membership>() });
+const membershipService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Membership>() });
 const memberships = membershipService.createStoreSlot(db);
 const membershipsByUserService = createOIMSlotCollectionIndexService({
     entityService: membershipService,
@@ -202,18 +202,18 @@ const [, secondMembership] = membershipService.writeInBatch(memberships, () => (
 
 const userMemberships = membershipsByUserService.holdSlotByKey(membershipsByUser, 'u1');
 const onUserGroups = effectService.createAndRunEffect(db, () => {
-    for (const membershipSlot of membershipsByUserService.slotContentService.getBucketMemberSlots(userMemberships)) {
+    for (const membershipSlot of userMemberships.getBucketMemberSlots()) {
         const membership = membershipSlot.entity;
         if (membership !== undefined) render(groupService.findSlotByKey(groups, membership.groupId)?.entity);
     }
 }, [userMemberships]);
 
-membershipService.slotContentService.clearSlotContent(secondMembership);     // u1 leaves g2: both indexes drop it
+secondMembership.clearSlotContent();     // u1 leaves g2: both indexes drop it
 membershipsByGroupService.getEntitiesByKey(membershipsByGroup, 'g1');
 db.flush();
 
 effectService.disposeEffect(onUserGroups);
-userMemberships.owner.unholdSlot(userMemberships);
+userMemberships.unholdSlot();
 ```
 
 Why this way: the relation is one entity per pair, so joining or leaving is one
@@ -236,8 +236,8 @@ type TScalarChain = readonly TOIMStoreKey[];
 type ReadMark = { userId: string; chatId: string; lastReadAt: number };
 type TReadMarkStore = TOIMSlotStoreTree<TOIMEntitySlot<ReadMark, TScalarChain>, TOIMStoreKey>;
 
-const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createOIMSlotContentEntityService<ReadMark, TScalarChain>>, TReadMarkStore>({
-    slotContentService: createOIMSlotContentEntityService<ReadMark, TScalarChain>(),
+const readMarkService = createOIMSlotCollectionService<ReturnType<typeof createOIMEntityContentService<ReadMark, TScalarChain>>, TReadMarkStore>({
+    slotContentService: createOIMEntityContentService<ReadMark, TScalarChain>(),
     slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TOIMEntitySlot<ReadMark, TScalarChain>>(
         OIMScalarKeyTreeWalk.INSTANCE,
     ),
@@ -270,22 +270,22 @@ Map-backed collection with one invented key: a Map store files identities per ke
 ```ts
 type Settings = { theme: 'light' | 'dark'; fontSize: number; token?: string };
 
-const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>(), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const settings = settingsService.createStoreSlot(db);
 const settingsContentService = settingsService.slotContentService;
 settingsService.writeSingleSlotContent(settings, { theme: 'dark', fontSize: 14, token: 'abc' });
 const settingsSlot = settingsService.holdSingleSlot(settings);
 
-const themeColumn = settingsService.columnSlotService.holdColumn(settingsSlot, 'theme');
+const themeColumn = settingsSlot.holdColumn('theme');
 const onTheme = effectService.createEffect(db, () => render(settingsSlot.entity?.theme), [themeColumn]);
 
-settingsContentService.updateEntity(settingsSlot, { fontSize: 16 });                 // PATCH; onTheme is not woken
-settingsContentService.deleteEntityColumns(settingsSlot, ['token']);                 // a column out, which a patch cannot say
-settingsService.slotContentService.writeSlotContent(settingsSlot, { theme: 'light', fontSize: 16 }); // PUT; onTheme is woken
+settingsSlot.updateEntity({ fontSize: 16 });                 // PATCH; onTheme is not woken
+settingsSlot.deleteEntityColumns(['token']);                 // a column out, which a patch cannot say
+settingsSlot.writeSlotContent({ theme: 'light', fontSize: 16 }); // PUT; onTheme is woken
 db.flush();
 
 effectService.disposeEffect(onTheme);
-settingsService.columnSlotService.unholdColumn(themeColumn);
+themeColumn.unholdSlot();
 ```
 
 Why this way: a single is a store slot that holds one slot under no key, so there is no lookup to pay.
@@ -315,14 +315,14 @@ const archivedIsEmpty: IOIMSlotEmptinessPolicy<PostSlot> = {
     isEmpty: (slot) => slot.entity === undefined || slot.entity.archived,
 };
 
-const postService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Post>({ slotEmptinessPolicy: archivedIsEmpty }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
+const postService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Post>({ slotEmptinessPolicy: archivedIsEmpty }), slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE });
 const posts = postService.createStoreSlot(db);
 
 const oldPost = postService.writeSlotContentByKey(posts, 'p1', { id: 'p1', title: 'Old', archived: true });
 db.flush();
 postService.hasSlotContentByKey(posts, 'p1');                              // false
 postService.findSlotByKey(posts, 'p1')?.entity?.title;        // 'Old': the value is still stored
-postService.slotContentService.updateEntity(oldPost, { archived: false });
+oldPost.updateEntity({ archived: false });
 postService.hasSlotContentByKey(posts, 'p1');                              // true
 ```
 
@@ -346,15 +346,15 @@ every reader is an effect.
 
 ```ts
 const replacingDefaults = new OIMDefaults({ entityWriter: createOIMReplacingEntityWriter() });
-const contactService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>({ defaults: replacingDefaults }) });
+const contactService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>({ defaults: replacingDefaults }) });
 const contacts = contactService.createStoreSlot(db);
 
 const alice = contactService.writeSlotContentByKey(contacts, 'u1', { id: 'u1', name: 'Alice' });
 const before = alice.entity;
-contactService.slotContentService.updateEntity(alice, { name: 'Alicia' });
+alice.updateEntity({ name: 'Alicia' });
 alice.entity !== before;   // true: a new object per write that changed something
 
-const draftService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Message>({ entityWriter: createOIMReplacingEntityWriter() }) });
+const draftService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Message>({ entityWriter: createOIMReplacingEntityWriter() }) });
 ```
 
 Why this way: under the in-place writer the stored object keeps its reference

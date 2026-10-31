@@ -10,9 +10,10 @@ import { OIMSlotNeverReleasePolicy } from '../../collector/OIMSlotNeverReleasePo
 import { OIM_SLICE_LENGTH_MS } from '../../collector/constants/OIM_SLICE_LENGTH_MS';
 import type { IOIMSlotReleasePolicy } from '../../collector/interfaces/IOIMSlotReleasePolicy';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; rank: number };
 
@@ -27,7 +28,7 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
     const clock: TClock = { now: () => ms, at: (value: number): void => { ms = value; } };
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: () => () => undefined });
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 1 });
     db.flush();
@@ -52,7 +53,7 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
         getSingleSlot: (storeSlot: typeof rank) => rankCollectionService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof rank) => {
             const computedSlot = rankCollectionService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
     return { db, effectService, cardsService, cards, card, rankService, rank, clock, builds: () => builds, derives: () => derives };

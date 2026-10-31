@@ -110,7 +110,7 @@ const narrowUpsertSide = (writer: IOIMEntityWriter): TPriceSide => {
 
 const GUARDS =
     'The guards are the `__proto__` key check and the own-key check (`hasOwnProperty`) the shipped walk runs on every key of the patch. '
-    + 'Both sides write through the shipped OIMSlotContentEntityService (entityService.slotContentService) with no index and no subscriber, so the write is one channel write and opens no subframe; '
+    + 'Both sides write through the shipped OIMEntityContentService (entityService.slotContentService) with no index and no subscriber, so the write is one channel write and opens no subframe; '
     + 'only the writer differs. The same-value guard stays on both sides: it is a strategy already (`sameValueGuard`), not part of what is priced here.';
 
 const patchGuardPair = (fields: string, patchOf: TPatchOf, walkName: string, walk: TPatchWalk): TPricePair => ({

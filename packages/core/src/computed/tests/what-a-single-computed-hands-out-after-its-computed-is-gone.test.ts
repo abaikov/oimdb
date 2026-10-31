@@ -4,16 +4,17 @@ import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; rank: number };
 
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const sourceSlots: TOIMEntitySlot<Card, TOIMStoreKey>[] = [];
     const topRankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
@@ -64,7 +65,7 @@ describe('a single computed is a factory that outlives the computed it hands out
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', rank: 7 });
         db.flush();
-        expect(second.computedValueService.getValueForSlot(second)).toBe(7);
+        expect(readValueWithoutTracking(second)).toBe(7);
     });
 
     it('lets a computed nobody held go at the next flush, and builds a new one after', () => {
@@ -83,7 +84,7 @@ describe('a single computed is a factory that outlives the computed it hands out
         const { db, effectService, cardsService, cards, topRankService, topRank } = createFixture();
         const first = topRankService.holdSingleSlot(topRank);
         let seen = 0;
-        const effect = effectService.createEffect(db, () => { seen = first.computedValueService.getValueForSlot(first); }, [], [first]);
+        const effect = effectService.createEffect(db, () => { seen = readValueWithoutTracking(first); }, [], [first]);
         first.owner.unholdSlot(first);
         expect(oimIsSlotReleased(first)).toBe(false);
 

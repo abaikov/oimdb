@@ -7,7 +7,7 @@ description: How an index files the entities of a source collection into buckets
 # Indexes
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMReclaimingIndexKeysService, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimSameSlotSequence, type TOIMEntitySlot, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotTreeStoreService, OIMDefaults, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMStoreKey, OIMScalarKeyTreeWalk } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMReclaimingIndexKeysService, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimSameSlotSequence, type TOIMEntitySlot, createOIMEntityContentService, createOIMSlotCollectionService, OIMSlotTreeStoreService, OIMDefaults, type TOIMBucketSlot, type TOIMBucketSlotsArrayStore, type TOIMStoreKey, OIMScalarKeyTreeWalk } from '@oimdb/core';
 
 type Card = { id: string; deck: string; rank: number };
 
@@ -15,7 +15,7 @@ declare function render(value?: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
@@ -73,7 +73,7 @@ Array.from(deckBucketReads.getBucketMemberSlots(red)); // [c1]
 |---|---|---|
 | `entityService` | required | the source collection service; only its `getSlots` is used, to fill a new bucket |
 | `columns` / `keyOf` | one of them required | [where the key comes from](#where-the-key-comes-from-columns-keyof-or-both) |
-| `slotContentService` | `new OIMSlotContentPositionalArrayBucketService()`, with no recorder | how a bucket holds its slots: pass `new OIMSlotContentSetBucketService()` for no order, or one built with `bucketCommands` for a render script |
+| `slotContentService` | `new OIMPositionalArrayBucketContentService()`, with no recorder | how a bucket holds its slots: pass `new OIMSetBucketContentService()` for no order, or one built with `bucketCommands` for a render script |
 | `bucketSlotStoreService` | a Map store; required for an array key | where buckets are filed |
 | `slotReleasePolicy` | `defaults.slotReleasePolicy`, then `OIMSlotAtEmptyReleasePolicy.INSTANCE` | [how long a bucket lives](#what-a-write-costs-and-how-long-a-bucket-lives) |
 | `columnSlotStoreService` / `columnNames` | a shared map-driven store | where bucket column slots live |
@@ -86,7 +86,7 @@ The index-keys strategy comes from `defaults` (`new OIMDefaults({ indexKeysServi
 const unorderedDeckIndexService = createOIMSlotCollectionIndexService({
     entityService: cardService,
     keyOf: (card: Card) => card.deck,
-    slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>>(),
+    slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<Card>>(),
 });
 const unorderedDeckIndex = unorderedDeckIndexService.createIndexStoreSlot(cards);
 ```
@@ -155,7 +155,7 @@ is the array of their values, in that order:
 ```ts
 type PlayingCard = { id: string; deck: string; suit: string };
 
-const playingCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<PlayingCard>() });
+const playingCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<PlayingCard>() });
 const playingCards = playingCardService.createStoreSlot(db);
 type TDeckAndSuitBucket = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<PlayingCard>>, readonly [string, string]>;
 const byDeckAndSuitService = createOIMSlotCollectionIndexService({
@@ -287,8 +287,8 @@ const redEffect = effectService.createEffect(db, () => {
     render(deckIndexService.getEntitiesByKey(deckIndex, 'red'));
 }, [redBucket, redAnyColumn]);
 effectService.disposeEffect(redEffect);
-deckIndexService.columnSlotService.unholdColumn(redAnyColumn);
-redBucket.owner.unholdSlot(redBucket);
+redAnyColumn.unholdSlot();
+redBucket.unholdSlot();
 ```
 
 **Do not use it to render a list.** One edit of one entity wakes the whole list, so a
@@ -352,8 +352,8 @@ const cardsByRankService = createOIMSortedComputedService({
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsInDeck);
 
 const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
-effectService.createAndRunEffect(db, () => { render(red.computedValueService.getValueForSlot(red)); }, [], [red]);
-red.owner.unholdSlot(red);
+effectService.createAndRunEffect(db, () => { render(red.value); }, [], [red]);
+red.unholdSlot();
 ```
 
 - `indexService` is the `OIMSlotCollectionIndexService` whose buckets the sorted list reads, and the
@@ -378,7 +378,7 @@ red.owner.unholdSlot(red);
 
   ```ts
   type TitledCard = { id: string; deck: string; title: string; rank: number; note: string };
-  const titledCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TitledCard>() });
+  const titledCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TitledCard>() });
   const titledCards = titledCardService.createStoreSlot(db);
   const titledCardsInDeckService = createOIMSlotCollectionIndexService({
       entityService: titledCardService,
@@ -399,7 +399,7 @@ columns on a member: its sources are the bucket slot of the key plus the
 **bucket column slot** of each column (or the bucket's any-column slot when only a
 comparator is given). Its slots are computed slots: pulled, re-derived on the read that
 asks, subscribed to in the `sourceComputeds` list of `createEffect`. Read the value through
-`slot.computedValueService.getValueForSlot(slot)`; `slot.value` is not refreshed by reading it. A
+`slot.value`, which settles the order before answering. A
 re-sort that yields the same sequence keeps the previous array, so a consumer
 memoising on identity needs no comparison of its own. The sorted array names each
 member slot once, even over a bucket that names one twice. Why this is a pull and
@@ -416,7 +416,7 @@ Subscribe to one when you need "some member's `rank` moved" without "some member
 const rankInRed = deckIndexService.holdBucketColumnByKey(deckIndex, 'red', 'rank');
 const onRankInRed = effectService.createEffect(db, () => { render(); }, [rankInRed]);
 effectService.disposeEffect(onRankInRed);
-deckIndexService.columnSlotService.unholdColumn(rankInRed);
+rankInRed.unholdSlot();
 ```
 
 An index marks bucket column slots only once somebody has asked for one, so an
@@ -442,7 +442,7 @@ const cardsByDeckService = createOIMSlotCollectionSortedArrayIndexService({
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');
-Array.from(cardsByDeckService.slotContentService.getBucketMemberSlots(spades));
+Array.from(spades.getBucketMemberSlots());
 cardsByDeckService.slotContentService.getBucketMemberSlotAt(spades, 0);
 ```
 
@@ -453,7 +453,7 @@ cardsByDeckService.slotContentService.getBucketMemberSlotAt(spades, 0);
 - **A member is re-filed when one of its sort columns changes, and only then.** A write to
   a column that is neither the key nor a sort column neither reorders the bucket nor wakes it.
 - **There are no positional writes** on this bucket. The order belongs to the comparator,
-  so `insertBucketMemberSlotAt` and the other position writes stay on `OIMSlotContentPositionalArrayBucketService`.
+  so `insertBucketMemberSlotAt` and the other position writes stay on `OIMPositionalArrayBucketContentService`.
 - **No render script.** The strategy records no bucket commands.
 
 Which arm to take: sort-at-write suits point updates, where a rank change re-files one

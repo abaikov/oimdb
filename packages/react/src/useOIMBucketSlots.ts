@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type {
-    OIMSlotContentBucketService, TOIMBucketContentSlot, TOIMEntitySlot,
+    OIMBucketContentService, TOIMBucketContentSlot, TOIMEntitySlot,
 } from '@oimdb/core';
 import type { TOIMBinding } from './types/TOIMBinding';
 import { useOIMValue } from './useOIMValue';
@@ -10,7 +10,7 @@ import { oimAssertOneChannel } from './oimAssertOneChannel';
 /** A bucket's slots, copied out of the service's LIVE container, in the collection's order. */
 export function useOIMBucketSlots<TEntity extends object, TSlots = unknown>(
     bucketCollectionService: {
-        readonly slotContentService: Pick<OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>;
+        readonly slotContentService: Pick<OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>;
     },
     bucketSlot: TOIMBucketContentSlot<TSlots>,
 ): readonly TOIMEntitySlot<TEntity>[] {

@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 // Prose: ./README.md#alternativepairswritepath
 import { OIMDB, OIMEffectService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
 import type {
@@ -7,7 +8,6 @@ import type {
     TOIMEntityContentSlot,
     TOIMEntitySlot,
     TOIMSameValueGuard,
-    TOIMEditable,
     TOIMStoreKey,
     TOIMStoreSlot,
 } from '../../../core/src/index';
@@ -27,7 +27,7 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const WIDE_COLUMN_COUNT = 16;
@@ -69,7 +69,7 @@ const makeWideRows = (count: number): TWideRow[] => {
 };
 
 const makeWideEntityService = (entityWriter?: IOIMEntityWriter): TWideEntityService =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TWideRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TWideRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
 const shippedDefault: TMakeWideEntityService = () => makeWideEntityService();
 
@@ -308,7 +308,7 @@ const caseInsensitiveEquality: TOIMSameValueGuard = (a, b) => {
 };
 
 const storeEntity = (slot: TOIMEntityContentSlot, entity: Record<string, unknown>): void => {
-    (slot as TOIMEditable<TOIMEntityContentSlot>).entity = entity;
+    (slot as unknown as OIMEntitySlot).content = entity;
 };
 
 const writeReplacingBuildingAsItWalks = (): IOIMEntityWriter => ({
@@ -433,7 +433,7 @@ const grownSlots: TMakeWideEntityService = () => {
 
 const ONE_COMPILED_WALK =
     'THIS PAIR DECLARES `isolate`, AND THE READING IS UNINTERPRETABLE WITHOUT IT. Both arms ' +
-    'reach the engine through one compiled function — `OIMSlotContentEntityService.prototype.updateEntity`, ' +
+    'reach the engine through one compiled function — `OIMEntityContentService.prototype.updateEntity`, ' +
     'whose single call site `this.entityWriter.patchEntity(entitySlot, patch, undefined)` would see both ' +
     'writers in one process. Neither would then be inlined, and inlining the column walk into the ' +
     'write is exactly where a walk\'s advantage lives; worse, the failure is invisible, because a ' +

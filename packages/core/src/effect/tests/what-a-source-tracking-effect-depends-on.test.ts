@@ -1,25 +1,25 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TLabel = { text: string };
 type TSwitch = { isOn: boolean };
-type TLabelService = ReturnType<typeof createOIMSingleSlotService<OIMSlotContentEntityService<TLabel>>>;
+type TLabelService = ReturnType<typeof createOIMSingleSlotService<OIMEntityContentService<TLabel>>>;
 
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const firstService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TLabel>() });
+    const firstService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TLabel>() });
     const first = firstService.createStoreSlot(db);
     firstService.writeSingleSlotContent(first, { text: 'dark' });
-    const secondService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TLabel>() });
+    const secondService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TLabel>() });
     const second = secondService.createStoreSlot(db);
     secondService.writeSingleSlotContent(second, { text: 'red' });
-    const toggleService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSwitch>() });
+    const toggleService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSwitch>() });
     const toggle = toggleService.createStoreSlot(db);
     toggleService.writeSingleSlotContent(toggle, { isOn: true });
     db.flush();
@@ -42,9 +42,9 @@ describe('what a source-tracking effect depends on', () => {
     it('wakes on a write to either of two slots it read', () => {
         const { db, effectService, first, firstService, second, secondService } = createFixture();
         const seen: string[] = [];
-        effectService.createSourceTrackingEffect(db, sourceTracker => {
-            const firstText = sourceTracker.readSourceSlot(firstService.getSingleSlot(first)).entity?.text ?? '';
-            const secondText = sourceTracker.readSourceSlot(secondService.getSingleSlot(second)).entity?.text ?? '';
+        effectService.createSourceTrackingEffect(db, () => {
+            const firstText = firstService.getSingleSlot(first).entity?.text ?? '';
+            const secondText = secondService.getSingleSlot(second).entity?.text ?? '';
             seen.push(`${firstText}/${secondText}`);
         });
         writeText(db, firstService, first, 'light');
@@ -55,10 +55,10 @@ describe('what a source-tracking effect depends on', () => {
     it('hears only the branch it took, and moves when the branch flips', () => {
         const { db, effectService, first, firstService, second, secondService, toggle, toggleService } = createFixture();
         const seen: string[] = [];
-        effectService.createSourceTrackingEffect(db, sourceTracker => {
-            const isOn = sourceTracker.readSourceSlot(toggleService.getSingleSlot(toggle)).entity?.isOn ?? false;
+        effectService.createSourceTrackingEffect(db, () => {
+            const isOn = toggleService.getSingleSlot(toggle).entity?.isOn ?? false;
             const labelSlot = isOn ? firstService.getSingleSlot(first) : secondService.getSingleSlot(second);
-            seen.push(sourceTracker.readSourceSlot(labelSlot).entity?.text ?? '');
+            seen.push(labelSlot.entity?.text ?? '');
         });
         writeText(db, secondService, second, 'blue');
         expect(seen).toEqual(['dark']);
@@ -83,9 +83,9 @@ describe('what a source-tracking effect depends on', () => {
     it('subscribes once to a slot it read twice', () => {
         const { db, effectService, first, firstService } = createFixture();
         let runCount = 0;
-        const effect = effectService.createSourceTrackingEffect(db, sourceTracker => {
-            sourceTracker.readSourceSlot(firstService.getSingleSlot(first));
-            sourceTracker.readSourceSlot(firstService.getSingleSlot(first));
+        const effect = effectService.createSourceTrackingEffect(db, () => {
+            void firstService.getSingleSlot(first).entity;
+            void firstService.getSingleSlot(first).entity;
             runCount++;
         });
         expect(effectCountOf(firstService.getSingleSlot(first))).toBe(1);
@@ -104,8 +104,8 @@ describe('what a source-tracking effect depends on', () => {
             () => ({ sourceSlots: [firstService.getSingleSlot(first)] }),
         );
         const seen: number[] = [];
-        effectService.createSourceTrackingEffect(db, sourceTracker => {
-            seen.push(sourceTracker.readSourceComputedValue(textLengthService.computedSingleSlotService.getSingleSlot(textLength)));
+        effectService.createSourceTrackingEffect(db, () => {
+            seen.push(textLengthService.computedSingleSlotService.getSingleSlot(textLength).value);
         });
         writeText(db, firstService, first, 'blue');
         expect(seen).toEqual([4]);
@@ -123,9 +123,9 @@ describe('what a source-tracking effect depends on', () => {
         );
         const computedSlot = textLengthService.computedSingleSlotService.holdSingleSlot(textLength);
         let runCount = 0;
-        const effect = effectService.createSourceTrackingEffect(db, sourceTracker => {
-            sourceTracker.readSourceSlot(firstService.getSingleSlot(first));
-            sourceTracker.readSourceComputedValue(computedSlot);
+        const effect = effectService.createSourceTrackingEffect(db, () => {
+            void firstService.getSingleSlot(first).entity;
+            void computedSlot.value;
             runCount++;
         });
         expect([effectCountOf(firstService.getSingleSlot(first)), effectCountOf(secondService.getSingleSlot(second)), effectCountOf(computedSlot)]).toEqual([1, 1, 1]);
@@ -140,9 +140,9 @@ describe('what a source-tracking effect depends on', () => {
     it('leaves its subscriptions and its source list alone across runs that read the same slots', () => {
         const { db, effectService, first, firstService, second, secondService } = createFixture();
         let runCount = 0;
-        const effect = effectService.createSourceTrackingEffect(db, sourceTracker => {
-            sourceTracker.readSourceSlot(firstService.getSingleSlot(first));
-            sourceTracker.readSourceSlot(secondService.getSingleSlot(second));
+        const effect = effectService.createSourceTrackingEffect(db, () => {
+            void firstService.getSingleSlot(first).entity;
+            void secondService.getSingleSlot(second).entity;
             runCount++;
         });
         const sourceSlotsAfterFirstRun = effect.sourceSlots;

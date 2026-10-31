@@ -2,7 +2,7 @@ import type { OIMDefaults } from '../../db/OIMDefaults';
 import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreService';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { OIMSlotContentBucketService } from '../../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../../bucket/OIMBucketContentService';
 import type { TOIMSlotCollectionIndexServiceOptions } from '../types/TOIMSlotCollectionIndexServiceOptions';
 import type { TOIMSlotCollectionIndexServiceFactoryOptions } from '../types/TOIMSlotCollectionIndexServiceFactoryOptions';
 import { OIM_DEFAULT_INDEX_KEYS_SERVICE } from '../../db/constants/OIM_DEFAULT_INDEX_KEYS_SERVICE';
@@ -12,7 +12,7 @@ import { oimKeyOfColumns } from './oimKeyOfColumns';
 
 export function oimResolveSlotCollectionIndexServiceOptions<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
-    TSlotContentService extends OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TStore,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TStore,
 >(
     defaults: OIMDefaults,
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
@@ -20,8 +20,8 @@ export function oimResolveSlotCollectionIndexServiceOptions<
         columns?: readonly string[] | undefined;
     },
     slotStoreService: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore>,
-    slotContentService: TSlotContentService,
-): TOIMSlotCollectionIndexServiceOptions<TKey, TEntity, TOIMBucketSlot<TSlots, TKey>, TStore, TSlotContentService, TSourceKey, TSourceStore> {
+    slotContentService: TBucketContentService,
+): TOIMSlotCollectionIndexServiceOptions<TKey, TEntity, TOIMBucketSlot<TSlots, TKey>, TStore, TBucketContentService, TSourceKey, TSourceStore> {
     return {
         ...oimResolveSlotOwnerServiceOptions(defaults, options),
         slotStoreService,

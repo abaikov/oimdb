@@ -1,11 +1,11 @@
-import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -14,9 +14,9 @@ type TGroupSlot = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKe
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+    const membersService = new OIMSetBucketContentService<TCardSlot>();
     const groupsService = createOIMSlotCollectionService({ slotContentService: membersService });
     const groups = groupsService.createStoreSlot(db);
     const rows = (from: number, count: number): TOIMEntitySlot<TCard, TOIMStoreKey>[] => {

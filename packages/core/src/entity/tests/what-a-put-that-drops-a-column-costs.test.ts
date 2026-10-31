@@ -6,9 +6,10 @@ import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMChannelSlot } from '../../channel/types/TOIMChannelSlot';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 type TRow = { id: string; a?: number; b?: number; c?: number; d?: number };
 
@@ -20,8 +21,8 @@ afterEach(() => {
 
 const countNewEntityObjects = (slot: TOIMEntitySlot): (() => number) => {
     let entityObjects = 0;
-    let stored = slot.entity;
-    Object.defineProperty(slot, 'entity', {
+    let stored = entitySlotOf(slot).content;
+    Object.defineProperty(slot, 'content', {
         get: () => stored,
         set: (next: object | undefined) => {
             if (next !== stored) entityObjects++;
@@ -52,7 +53,7 @@ const writers: [string, () => IOIMEntityWriter, number, string[]][] = [
 
 const createRow = (entityWriter: IOIMEntityWriter) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter }) });
     const rows = rowsService.createStoreSlot(db);
     rowsService.writeSlotContentByKey(rows, 'r', { id: 'r', a: 1, b: 2, c: 3, d: 4 });
     const slot = rowsService.holdSlotByKey(rows, 'r');
@@ -111,7 +112,7 @@ describe('what an upsert that drops columns costs', () => {
 
     it.each(writers)('%s: a single entity replaced with a column gone writes once', (_, createWriter) => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; volume?: number }>({ entityWriter: createWriter() }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<{ theme: string; volume?: number }>({ entityWriter: createWriter() }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', volume: 5 });
         const channelWrites = countChannelWritesOf(settingsService.getSingleSlot(settings));

@@ -32,35 +32,29 @@ off the slots afterwards.
 ## Minimal usage
 
 ```tsx file=minimal.tsx
-import { OIMDB, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
+import { OIMDB, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
 import { OIMDBProvider, useOIMEntity } from '@oimdb/react';
 
-type Card = { id: string; title: string };
+type TTodo = { id: string; title: string; done: boolean };
 
-const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
-const cards = cardService.createStoreSlot(db);
+const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
+const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TTodo>() });
 
-function CardTitle({ cardId }: { cardId: string }) {
-  const card = useOIMEntity(cards, cardId);
-  return <h1>{card?.title}</h1>;
+todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
+
+function Todo({ id }: { id: string }) {
+    const todo = useOIMEntity(todos.storeSlot, id);
+    if (todo === undefined) return null;
+    return <li onClick={() => todos.writeSlotContentByKey(id, { ...todo, done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export function App() {
-  return (
-    <OIMDBProvider db={db}>
-      <CardTitle cardId="c1" />
-    </OIMDBProvider>
-  );
-}
-
-cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'First' });
-db.flush();
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-`CardTitle` renders nothing until the upsert; `db.flush()` ends the frame, and the
-component re-renders with the new entity. The services are built once per type and hold
-no data; `cards`, the store slot, is the one instance they read and write.
+Clicking a todo re-renders that one `Todo` and nothing else. The `channelScheduler` delivers every
+write of a turn in one flush on a microtask, so nothing calls `db.flush()` by hand. `todos` is a
+store aggregate: the collection service and the one store slot it reads and writes.
 
 ## Which hook to take
 
@@ -78,15 +72,16 @@ no data; `cards`, the store slot, is the one instance they read and write.
 | a single entity store slot | its entity, re-rendered when it is written | `useOIMSingleEntity(singleSlotStoreSlot)` |
 | a single bucket store slot | its member slots as an array | `useOIMSingleBucketSlots(singleSlotStoreSlot)` |
 | any slots and derivations | any value read off them | `useOIMValue(binding)` |
+| whatever a function reads | the function's result, with its reads as the sources | `useOIMSourceTrackingValue(read, deps)` |
 | nothing | the `OIMDB` the provider was given | `useOIMDB()` |
 
 Every hook that reads a collection by key takes the store slot alone and calls the service the store slot
 carries, `storeSlot.slotService`, typed as a `Pick` of `OIMSlotCollectionService` with only the members it
 calls. A store aggregate passes its `storeSlot`. `useOIMBucketSlotsByKey` resolves through
 `holdSlotByKey(bucketStoreSlot, key)` and reads members through
-`bucketStoreSlot.slotService.slotContentService.getBucketMemberSlots(bucketSlot)`, so an index store slot fits
+`bucketSlot.getBucketMemberSlots()`, so an index store slot fits
 it as well as a bucket collection's. The hold is given back through the slot's own owner,
-`slot.owner.unholdSlot(slot)`. `useOIMBucketSlots` takes a bucket collection service and a bucket somebody else holds.
+`slot.unholdSlot()`. `useOIMBucketSlots` takes a bucket collection service and a bucket somebody else holds.
 
 ## Why one binding is enough
 
@@ -141,11 +136,11 @@ type Card = { id: string; title: string; deckId: string; rank: number };
 type User = { id: string; avatarUrl: string };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<User>() });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<User>() });
 const users = userService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const deckIndexService = createOIMSlotCollectionIndexService({
   entityService: cardService,
@@ -185,7 +180,7 @@ why `useOIMDB` throws outside a provider.
 function DeckSize({ bucket }: { bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>> }) {
   const deckCards = useOIMValue(useMemo(() => ({
     sourceSlots: [bucket],
-    derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)),
+    derive: () => Array.from(bucket.getBucketMemberSlots()),
   }), [bucket]));
   return <span>{deckCards.length}</span>;
 }
@@ -200,9 +195,9 @@ effect body only bumps the counter and tells React. The notification never carri
 produces it during the render.
 
 It settles the binding's derivations before every read, by calling
-`slot.computedValueService.getValueForSlot(slot)` on each entry of `sourceComputeds`, because a
+`slot.value` on each entry of `sourceComputeds`, because a
 derivation is asked and never woken: nothing in a frame walks to a computed slot,
-so a `derive` that reaches a derivation's result any way other than `getValueForSlot`
+so a `derive` that reaches a derivation's result any way other than `slot.value`
 would show whatever the last produce left there.
 
 ### The binding must keep its identity across renders
@@ -214,7 +209,7 @@ screen.
 function BrokenDeckSize({ bucket }: { bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<Card>>> }) {
   // DO NOT. A new binding every render, and this never stops rendering.
   const slots = useOIMValue({ sourceSlots: [bucket],
-                              derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)) });
+                              derive: () => Array.from(bucket.getBucketMemberSlots()) });
   return <span>{slots.length}</span>;
 }
 ```
@@ -329,7 +324,7 @@ composite-keyed bucket collection to the definitions above:
 
 ```tsx setup
 import {
-  OIMCompositeKeyTreeWalk, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands,
+  OIMCompositeKeyTreeWalk, OIMSetBucketContentService, OIMSlotTreeStoreService, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands,
 } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMSlotStoreTree } from '@oimdb/core';
 
@@ -337,11 +332,11 @@ type Deck = { id: string };
 type Day = { id: string };
 type TDeckAndDayBucketSlot = TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>, readonly TOIMEntitySlot[]>;
 
-const deckService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Deck>() });
+const deckService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Deck>() });
 const decks = deckService.createStoreSlot(db);
-const dayService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Day>() });
+const dayService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Day>() });
 const days = dayService.createStoreSlot(db);
-const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<Card>, readonly TOIMEntitySlot[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TDeckAndDayBucketSlot>(
+const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<Card>, readonly TOIMEntitySlot[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TDeckAndDayBucketSlot>(
     new OIMCompositeKeyTreeWalk(),
   ) });
 const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
@@ -423,7 +418,7 @@ const deckCardCountService = createOIMSingleComputedService<number>();
 function DeckCardCount({ deckId }: { deckId: string }) {
   const size = useOIMSingleComputedValue(
     deckCardCountService,
-    () => deckIndexService.slotContentService.getBucketMemberSlotCount(deckIndexService.getSlotByKey(deckIndex, deckId)),
+    () => deckIndexService.getSlotByKey(deckIndex, deckId).getBucketMemberSlotCount(),
     () => ({ sourceSlots: [deckIndexService.getSlotByKey(deckIndex, deckId)] }),
     [deckId],
   );
@@ -447,7 +442,7 @@ given back once the effect exists.
 ```tsx
 type Settings = { theme: string };
 
-const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Settings>() });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Settings>() });
 const settings = settingsService.createStoreSlot(db);
 settingsService.writeSingleSlotContent(settings, { theme: 'dark' });
 
@@ -462,7 +457,7 @@ ordinary announced write. `useOIMSingleEntity(singleSlotStoreSlot)` returns
 while subscribed, and re-renders when the entity is written.
 
 ```tsx
-const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pickedService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const picked = pickedService.createStoreSlot(db);
 
 function Picked() {
@@ -481,7 +476,7 @@ function DeckTopCard({ deckId }: { deckId: string }) {
   const [ranked] = useOIMSlotsByKeys(byRank, [deckId]);
   const top = useOIMValue(useMemo(() => ({
     sourceComputeds: [ranked],
-    derive: () => ranked.computedValueService.getValueForSlot(ranked)[0]?.entity?.title,
+    derive: () => ranked.value[0]?.entity?.title,
   }), [ranked]));
   return <span>{top}</span>;
 }
@@ -506,11 +501,9 @@ collection, a bucket collection or an index. It returns the slots.
 
 ## Binding a derivation
 
-A computed is a `TOIMComputedSlot` that you read only through its value service:
-`slot.computedValueService.getValueForSlot(slot)`. `slot.value` compiles, but nothing
-refreshes it when you read it. Bind a computed by putting its slot in
-`sourceComputeds` and reading through `getValueForSlot` in `derive`. For one computed
-slot, hand it to `useOIMComputedValue`, which does exactly that:
+A computed is a `TOIMComputedSlot`, read as `slot.value`, which settles it before answering.
+Bind a computed by putting its slot in `sourceComputeds` and reading `slot.value` in `derive`.
+For one computed slot, hand it to `useOIMComputedValue`, which does exactly that:
 
 ```tsx
 const spadesCountService = createOIMSingleComputedService<number>({
@@ -518,7 +511,7 @@ const spadesCountService = createOIMSingleComputedService<number>({
 });
 const spadesCount = spadesCountService.createComputedStoreSlot(
   db,
-  () => deckIndexService.slotContentService.getBucketMemberSlotCount(deckIndexService.getSlotByKey(deckIndex, 'spades')),
+  () => deckIndexService.getSlotByKey(deckIndex, 'spades').getBucketMemberSlotCount(),
   () => ({ sourceSlots: [deckIndexService.getSlotByKey(deckIndex, 'spades')] }),
 );
 const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
@@ -551,7 +544,7 @@ const spades = deckIndexService.holdSlotByKey(deckIndex, 'spades');
 
 function Spades() {
   const slots = useOIMValue(useMemo(() => ({
-    sourceSlots: [spades], derive: () => Array.from(deckIndexService.slotContentService.getBucketMemberSlots(spades)),
+    sourceSlots: [spades], derive: () => Array.from(spades.getBucketMemberSlots()),
   }), []));
   return <ul>{slots.map((s) => <li key={String(s.key)}>{s.entity?.title}</li>)}</ul>;
 }

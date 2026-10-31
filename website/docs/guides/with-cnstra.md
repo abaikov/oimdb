@@ -19,7 +19,7 @@ calls it, and when. In an application, the orchestrator does.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMEffectService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotCollectionIndexService, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; deck: string; title: string };
 
@@ -28,11 +28,11 @@ declare function fetchDeck(deck: string): Promise<Card[]>;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deck });
 const byDeck = byDeckService.createIndexStoreSlot(cards);
-const loadingService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ deck: string }>() });
+const loadingService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<{ deck: string }>() });
 const loading = loadingService.createStoreSlot(db);
 ```
 
@@ -63,7 +63,7 @@ async function loadDeck(deck: string): Promise<void> {
     const loadingSlot = loadingService.writeSlotContentByKey(loading, deck, { deck });
     const fetched = await fetchDeck(deck);
     cardService.writeInBatch(cards, () => (fetched).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
-    loadingService.slotContentService.clearSlotContent(loadingSlot);
+    loadingSlot.clearSlotContent();
 }
 ```
 
@@ -124,5 +124,5 @@ to each entity's own slot. See [buckets](/docs/core/indexes).
 
 ```ts
 const spades = byDeckService.getSlotByKey(byDeck, 'spades');
-effectService.createEffect(db, () => console.log(byDeckService.slotContentService.getBucketMemberSlotCount(spades)), [spades]);
+effectService.createEffect(db, () => console.log(spades.getBucketMemberSlotCount()), [spades]);
 ```

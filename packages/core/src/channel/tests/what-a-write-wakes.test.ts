@@ -5,10 +5,11 @@ import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -19,13 +20,11 @@ const createRankService = () => createOIMSingleComputedService<number>({ sameVal
 type TRankService = ReturnType<typeof createRankService>;
 
 const valueOf = (service: TRankService, storeSlot: ReturnType<TRankService['createComputedStoreSlot']>): number =>
-    ((service.computedSingleSlotService.getSingleSlot(storeSlot)) as TOIMComputedContentSlot<number>).computedValueService.getValueForSlot(
-        service.computedSingleSlotService.getSingleSlot(storeSlot),
-    );
+    readValueWithoutTracking(service.computedSingleSlotService.getSingleSlot(storeSlot) as TOIMComputedContentSlot<number>);
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

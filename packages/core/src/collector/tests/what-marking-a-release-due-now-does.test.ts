@@ -5,7 +5,7 @@ import { OIMSlotAfterWriteReleasePolicy } from '../OIMSlotAfterWriteReleasePolic
 import { OIMSlotReleaseManualDueFramePolicy } from '../OIMSlotReleaseManualDueFramePolicy';
 import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlotReleaseWheel';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -18,7 +18,7 @@ const createWorld = () => {
     const slotReleaseDueFramePolicy = new OIMSlotReleaseManualDueFramePolicy();
     const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_MS, slotReleaseDueFramePolicy }) });
     const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: () => () => undefined });
-    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow, string>({ defaults }) });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
     const slot = rowsService.holdSlotByKey(rows, 'r');
     slotReleaseDueFramePolicy.writeInSlotReleaseDueFrame(() => { rowsService.writeSlotContentByKey(rows, 'r', { id: 'r', n: 0 }); });

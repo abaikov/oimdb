@@ -1,16 +1,17 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.holdSlotByKey(cards, 'a');
     const rowSlot = cardsService.getSlotByKey(cards, 'a');
@@ -64,7 +65,7 @@ describe('what an effect that names one derivation twice leaves behind', () => {
         const { db, effectService, cards, cardsService, rank } = createFixture();
         let runs = 0;
         let seen = -1;
-        effectService.createEffect(db, () => { runs++; seen = rank.computedValueService.getValueForSlot(rank); }, [], [rank, rank]);
+        effectService.createEffect(db, () => { runs++; seen = readValueWithoutTracking(rank); }, [], [rank, rank]);
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 7 });
         db.flush();

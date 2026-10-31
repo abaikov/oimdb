@@ -1,14 +1,15 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { createOIMBucketMemoComputedService } from '../createOIMBucketMemoComputedService';
 import { createOIMSortedComputedService } from '../createOIMSortedComputedService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; deck: string; rank: number };
 type TCardSlotInBucket = TOIMEntitySlot<Card>;
@@ -16,7 +17,7 @@ type TCardSlotInBucket = TOIMEntitySlot<Card>;
 const createFixture = () => {
     const db = new OIMDB();
     let compared = 0;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -54,7 +55,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
         const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
         put({ id: 'c', rank: 30 }, { id: 'a', rank: 10 }, { id: 'b', rank: 20 });
 
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'b', 'c']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'b', 'c']);
 
         heldSlot.owner.unholdSlot(heldSlot);
     });
@@ -74,8 +75,8 @@ describe('the order of a key is derived, and the read is what derives it', () =>
         const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
         put({ id: 'a', rank: 10 }, { id: 'b', rank: 20 });
 
-        const first = heldSlot.computedValueService.getValueForSlot(heldSlot);
-        const again = heldSlot.computedValueService.getValueForSlot(heldSlot);
+        const first = readValueWithoutTracking(heldSlot);
+        const again = readValueWithoutTracking(heldSlot);
 
         expect(again).toBe(first);
 
@@ -113,13 +114,13 @@ describe('a subscriber is woken by the bucket and run only when the list changed
         put({ id: 'a', rank: 10 }, { id: 'b', rank: 20 }, { id: 'c', rank: 30 });
         db.flush();
         expect(ran).toBe(1);
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'b', 'c']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'b', 'c']);
 
         updateEntityByKey('b', { rank: 25 });
         db.flush();
 
         expect(ran).toBe(1);
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'b', 'c']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'b', 'c']);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);
@@ -139,7 +140,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
         db.flush();
 
         expect(ran).toBe(2);
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'c', 'b']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'c', 'b']);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);
@@ -162,7 +163,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
         put({ id: 'd', rank: 15 });
         db.flush();
         expect(ran).toBe(2);
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'd', 'b']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'd', 'b']);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);
@@ -178,7 +179,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
         db.flush();
 
         expect(ran).toBe(0);
-        expect(idsOf(heldSlot.computedValueService.getValueForSlot(heldSlot))).toEqual(['a', 'b', 'c']);
+        expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'b', 'c']);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);
@@ -188,9 +189,9 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 describe('what a derivation lets go of', () => {
     it('gives the bucket back when the last reader leaves', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
         const cards = cardsService.createStoreSlot(db);
-        const rankedService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlotInBucket, string>() });
+        const rankedService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlotInBucket, string>() });
         const ranked = rankedService.createStoreSlot(db);
         const orderService = createOIMBucketMemoComputedService({ bucketCollectionService: rankedService });
         const order = orderService.createBucketMemoStoreSlot(ranked);
@@ -199,7 +200,7 @@ describe('what a derivation lets go of', () => {
         rankedService.slotContentService.writeSlotContent(
             bucket, [cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'deck', rank: 10 })],
         );
-        expect(heldSlot.computedValueService.getValueForSlot(heldSlot).length).toBe(1);
+        expect(readValueWithoutTracking(heldSlot).length).toBe(1);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(bucket.holdCount).toBeGreaterThan(0);

@@ -1,14 +1,15 @@
 import { OIMDB } from '../../index';
 import type { TOIMComputedContentSlot, TOIMEntitySlot, TOIMSlot, TOIMStoreKey } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../index';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const slot = rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', rank: 1 });
     db.flush();
@@ -32,7 +33,7 @@ const createDerived = (
         holdSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.holdSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof derived) => {
             const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
     return { derivedService, derived };

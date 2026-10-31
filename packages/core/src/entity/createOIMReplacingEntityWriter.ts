@@ -5,21 +5,21 @@ import type { TOIMEntityWriterOptions } from './types/TOIMEntityWriterOptions';
 import { OIM_FROZEN_EMPTY_COLUMN_NAMES } from './constants/OIM_FROZEN_EMPTY_COLUMN_NAMES';
 import { oimOwnedColumnNames } from './utils/oimOwnedColumnNames';
 import { oimResolveEntityWriterOptions } from './utils/oimResolveEntityWriterOptions';
-import type { TOIMEntityContentSlot } from './types/TOIMEntityContentSlot';
+import type { OIMEntitySlot } from './OIMEntitySlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 
-function storeReplacement(slot: TOIMEntityContentSlot, next: Record<string, unknown> | undefined): boolean {
+function storeReplacement(slot: OIMEntitySlot, next: Record<string, unknown> | undefined): boolean {
     if (next === undefined) return false;
-    (slot as TOIMEditable<TOIMEntityContentSlot>).entity = next;
+    (slot as TOIMEditable<OIMEntitySlot>).content = next;
     return true;
 }
 
-function deleteColumnsInCopy(slot: TOIMEntityContentSlot, names: readonly string[]): readonly string[] {
+function deleteColumnsInCopy(slot: OIMEntitySlot, names: readonly string[]): readonly string[] {
     const deleted = oimOwnedColumnNames(slot, names);
     if (deleted === undefined) return OIM_FROZEN_EMPTY_COLUMN_NAMES;
-    const next = oimCopyEntity(slot.entity as object);
+    const next = oimCopyEntity(slot.content as object);
     for (let i = 0; i < deleted.length; i++) next[deleted[i]] = undefined;
-    (slot as TOIMEditable<TOIMEntityContentSlot>).entity = next;
+    (slot as TOIMEditable<OIMEntitySlot>).content = next;
     return deleted;
 }
 

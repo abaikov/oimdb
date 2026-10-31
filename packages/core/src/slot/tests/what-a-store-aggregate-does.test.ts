@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 import { createOIMSlotCollectionStoreAggregate } from '../createOIMSlotCollectionStoreAggregate';
 import { createOIMSingleSlotStoreAggregate } from '../createOIMSingleSlotStoreAggregate';
@@ -13,7 +13,7 @@ type TSession = { userId: string };
 describe('what a store aggregate does', () => {
     it('a collection aggregate answers with the slots of its store slot', () => {
         const db = new OIMDB();
-        const cardSlotService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardSlotService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cardStoreSlot = cardSlotService.createStoreSlot(db);
         const cardStoreAggregate = cardSlotService.createStoreAggregate(cardStoreSlot);
 
@@ -34,7 +34,7 @@ describe('what a store aggregate does', () => {
     it('a write through the aggregate wakes an effect at the flush, and a batch is one delivery', () => {
         const db = new OIMDB();
         const cardStoreAggregate = createOIMSlotCollectionStoreAggregate(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard>(),
+            slotContentService: createOIMEntityContentService<TCard>(),
         });
         const slot = cardStoreAggregate.holdSlotByKey('c1');
         const titles: string[] = [];
@@ -52,7 +52,7 @@ describe('what a store aggregate does', () => {
     it('a single aggregate writes, reads and clears its one slot', () => {
         const db = new OIMDB();
         const sessionStoreAggregate = createOIMSingleSlotStoreAggregate(db, {
-            slotContentService: createOIMSlotContentEntityService<TSession>(),
+            slotContentService: createOIMEntityContentService<TSession>(),
         });
 
         const slot = sessionStoreAggregate.writeSingleSlotContent({ userId: 'u1' });
@@ -71,10 +71,10 @@ describe('what a store aggregate does', () => {
     it('opens and closes a batch on its store slot, and holds its single slot', () => {
         const db = new OIMDB();
         const cardStoreAggregate = createOIMSlotCollectionStoreAggregate(db, {
-            slotContentService: createOIMSlotContentEntityService<TCard>(),
+            slotContentService: createOIMEntityContentService<TCard>(),
         });
         const sessionStoreAggregate = createOIMSingleSlotStoreAggregate(db, {
-            slotContentService: createOIMSlotContentEntityService<TSession>(),
+            slotContentService: createOIMEntityContentService<TSession>(),
         });
 
         cardStoreAggregate.openBatch();

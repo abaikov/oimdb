@@ -1,12 +1,12 @@
 import { OIMDB } from '../../db/OIMDB';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type TSettings = { theme: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
     const settings = settingsService.createStoreSlot(db);
     return { db, settingsService, settings };
 };

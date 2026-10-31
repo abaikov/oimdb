@@ -11,7 +11,7 @@ import {
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
 import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string; onGreet?: () => string };
@@ -21,7 +21,7 @@ function buildPersistedUsers(databaseName: string) {
         entityWriter: createOIMInPlaceEntityWriter(),
     });
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistIndexedDbBackend = new OIMPersistIndexedDbBackend({ databaseName, indexedDb: new IDBFactory() });
     const persistOperations: TOIMPersistOperation[] = [];

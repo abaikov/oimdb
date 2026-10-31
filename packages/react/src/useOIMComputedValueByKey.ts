@@ -15,5 +15,5 @@ export function useOIMComputedValueByKey<TValue, TKey extends NonNullable<unknow
     key: TKey,
 ): TValue {
     const computedSlot = useOIMSlotByKey('useOIMComputedValueByKey', computedStoreSlot, key, sourcesOfComputedSlot);
-    return computedSlot.computedValueService.getValueForSlot(computedSlot);
+    return computedSlot.value;
 }

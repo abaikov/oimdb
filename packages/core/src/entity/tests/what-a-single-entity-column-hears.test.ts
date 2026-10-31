@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type TSession = { userId: string; theme: string; locale: string };
@@ -10,7 +10,7 @@ const createFixture = (columns?: readonly ('theme' | 'locale')[]) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     const sessionService = createOIMSingleSlotService({
-        slotContentService: createOIMSlotContentEntityService<TSession>(),
+        slotContentService: createOIMEntityContentService<TSession>(),
         ...(columns !== undefined ? { columnNames: columns } : {}),
     });
     const session = sessionService.createStoreSlot(db);

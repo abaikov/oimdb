@@ -5,9 +5,10 @@ import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotColl
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -20,7 +21,7 @@ const createNumberService = () => {
         getSingleSlot: (storeSlot: TStoreSlot) => collectionService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
 };
@@ -28,7 +29,7 @@ const createNumberService = () => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     let builds = 0;
     // The ordinary shape of a build: resolve through the hold door, derive over
@@ -70,7 +71,7 @@ describe('one derivation per key, and the key is how it is found again', () => {
         expect(oimIsSlotEmpty(cardsService.getSlotByKey(cards, 'a'))).toBe(true);
 
         let seen = 0;
-        effectService.createEffect(db, () => { seen = rank.computedValueService.getValueForSlot(rank); }, [], [rank]);
+        effectService.createEffect(db, () => { seen = readValueWithoutTracking(rank); }, [], [rank]);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 4 });
         db.flush();
         expect(seen).toBe(4);

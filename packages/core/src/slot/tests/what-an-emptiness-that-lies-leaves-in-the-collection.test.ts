@@ -5,14 +5,14 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimIsSlotEmpty } from '../utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
 const collectionCalling = (isEmpty: (slot: TOIMEntitySlot<TCard, TOIMStoreKey>) => boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: { isEmpty } }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ slotEmptinessPolicy: { isEmpty } }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

@@ -115,6 +115,11 @@ const PINNED: readonly (readonly [string, string])[] = [
     ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:removedPrevIndices', DIFF_SCRATCH],
     ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:tails', DIFF_SCRATCH],
     ['core/bucket/commands/utils/oimOrderedListCommandsOfTransition.ts:futureBucketIndices', DIFF_SCRATCH],
+    [
+        'core/computed/OIMSourceTracker.ts:activeSourceTracker',
+        'one reference to the tracker of the tracked body or derive running now; set before it runs and put back in a '
+        + 'finally, so it is undefined outside a tracked run and never outlives one',
+    ],
     ['core/db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER.ts:OIM_DEFAULT_STORE_SLOT_LISTENER', DEFAULT_VALUE],
     ['core/db/constants/OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],
     ['core/db/constants/OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.ts:OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE', DEFAULT_VALUE],

@@ -127,11 +127,11 @@ describe('what a getter hands to the collector', () => {
 
     it('is the whole list of ways an identity gets filed, so a new one cannot hide behind a getter', () => {
         expect(mints.map(signature).sort()).toEqual([
-            'bucket/OIMSlotContentBucketService.ts createSlot',
+            'bucket/OIMBucketContentService.ts createSlot',
             'column/OIMColumnSlotOwner.ts getColumn',
             'column/OIMColumnSlotOwner.ts holdColumn',
             'column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
-            'entity/OIMSlotContentEntityService.ts createSlot',
+            'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts getSingleSlot',
             'slot/OIMSingleSlotService.ts holdSingleSlot',
             'slot/OIMSingleSlotService.ts mintSingleSlot',
@@ -162,10 +162,10 @@ describe('what a getter hands to the collector', () => {
             .sort();
 
         expect(unnamed).toEqual([
-            'bucket/OIMSlotContentBucketService.ts createSlot',
+            'bucket/OIMBucketContentService.ts createSlot',
             'column/OIMColumnSlotOwner.ts holdColumn',
             'column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
-            'entity/OIMSlotContentEntityService.ts createSlot',
+            'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts holdSingleSlot',
             'slot/OIMSingleSlotService.ts mintSingleSlot',
             'slot/OIMSlotCollectionService.ts holdSlotByKey',
@@ -185,6 +185,7 @@ describe('what a getter hands to the collector', () => {
         expect(borrowers).toEqual([
             'column/OIMColumnSlotOwner.ts getAnyColumn',
             'column/OIMColumnSlotService.ts getColumn',
+            'entity/OIMEntitySlot.ts getColumn',
             'index/OIMSlotCollectionIndexService.ts getAnyBucketColumnByKey',
             'index/OIMSlotCollectionIndexService.ts getBucketColumnByKey',
             'index/OIMSlotCollectionIndexService.ts getEntitiesByKey',

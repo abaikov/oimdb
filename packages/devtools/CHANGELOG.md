@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.1
+
+### Changed
+
+- Requires `@oimdb/core` 4.4.0; reads a computed slot through `computedSlot.value`.
+
 ## 2.2.0
 
 ### Changed

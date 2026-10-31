@@ -1,7 +1,7 @@
+import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { IOIMSlotContentService } from '../slot/interfaces/IOIMSlotContentService';
 import type { IOIMKeyedSlotCreator } from '../slot/interfaces/IOIMKeyedSlotCreator';
 import type { IOIMSingleSlotCreator } from '../slot/interfaces/IOIMSingleSlotCreator';
-import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { IOIMSlotContentWriter } from '../slot/interfaces/IOIMSlotContentWriter';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
 import type { IOIMBucketCommands } from './commands/interfaces/IOIMBucketCommands';
@@ -11,7 +11,7 @@ import type { TOIMBucketSlotOwnerService } from './types/TOIMBucketSlotOwnerServ
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
-import type { TOIMSlotContentBucketServiceOptions } from './types/TOIMSlotContentBucketServiceOptions';
+import type { TOIMBucketContentServiceOptions } from './types/TOIMBucketContentServiceOptions';
 import { createOIMBucketContentSlot } from './utils/createOIMBucketContentSlot';
 import { OIMNoBucketCommands } from './commands/OIMNoBucketCommands';
 import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
@@ -25,7 +25,7 @@ import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
 import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
 import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
 
-export abstract class OIMSlotContentBucketService<
+export abstract class OIMBucketContentService<
     TBucketMemberSlot extends TOIMSlot, TSlots, TKey extends NonNullable<unknown> = TOIMStoreKey,
 >
 implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
@@ -33,7 +33,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     IOIMSlotContentWriter<TOIMBucketContentSlot<TSlots>, readonly TBucketMemberSlot[]> {
     protected readonly bucketCommands: IOIMBucketCommands;
 
-    protected constructor(options: TOIMSlotContentBucketServiceOptions) {
+    protected constructor(options: TOIMBucketContentServiceOptions) {
         this.bucketCommands = options.bucketCommands ?? OIMNoBucketCommands.INSTANCE;
     }
 
@@ -55,12 +55,16 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
 
     protected abstract drainSlots(bucketSlot: TOIMBucketContentSlot<TSlots>, departedChannelQueue: OIMChannelQueue<TOIMSlot>): void;
 
+    /** @deprecated Use `slot.hasBucketMemberSlot(…)`; removed in 5.0. */
     public abstract hasBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): boolean;
 
+    /** @deprecated Use `slot.getBucketMemberSlotCount(…)`; removed in 5.0. */
     public abstract getBucketMemberSlotCount(bucketSlot: TOIMBucketContentSlot<TSlots>): number;
 
+    /** @deprecated Use `slot.getBucketMemberSlots(…)`; removed in 5.0. */
     public abstract getBucketMemberSlots(bucketSlot: TOIMBucketContentSlot<TSlots>): Iterable<TBucketMemberSlot>;
 
+    /** @deprecated Use `slot.getBucketMemberSlotsMissingFrom(…)`; removed in 5.0. */
     public getBucketMemberSlotsMissingFrom(
         bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlots: readonly TBucketMemberSlot[],
     ): TBucketMemberSlot[] {
@@ -97,6 +101,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         this.unholdAllBucketMemberSlots(bucketSlot);
     }
 
+    /** @deprecated Use `slot.markContentChanged(…)`; removed in 5.0. */
     public markContentChanged(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         (bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>).assertWritable(bucketSlot);
         this.markBucketSlotChanged(bucketSlot);
@@ -112,6 +117,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         slotOwnerService.columnSlotOwner.markColumnsChanged(bucketSlot, patch, changedColumns, oimGetChannelSlot(bucketSlot));
     }
 
+    /** @deprecated Use `slot.addBucketMemberSlot(…)`; removed in 5.0. */
     public addBucketMemberSlot(
         bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlot: TBucketMemberSlot,
@@ -122,6 +128,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlot)) this.markBucketSlotChanged(bucketSlot);
     }
 
+    /** @deprecated Use `slot.removeBucketMemberSlot(…)`; removed in 5.0. */
     public removeBucketMemberSlot(
         bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlot: TBucketMemberSlot,
@@ -134,6 +141,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         this.markBucketSlotChanged(bucketSlot);
     }
 
+    /** @deprecated Use `slot.addBucketMemberSlots(…)`; removed in 5.0. */
     public addBucketMemberSlots(
         bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
@@ -148,6 +156,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         if (isAnyAdded) this.markBucketSlotChanged(bucketSlot);
     }
 
+    /** @deprecated Use `slot.removeBucketMemberSlots(…)`; removed in 5.0. */
     public removeBucketMemberSlots(
         bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
@@ -189,6 +198,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         else if (changedBucketSlots !== undefined) changedBucketSlots.push(bucketSlot);
     }
 
+    /** @deprecated Use `slot.writeSlotContent(…)`; removed in 5.0. */
     public writeSlotContent(
         bucketSlot: TOIMBucketContentSlot<TSlots>,
         bucketMemberSlots: readonly TBucketMemberSlot[],
@@ -200,6 +210,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         return true;
     }
 
+    /** @deprecated Use `slot.clearSlotContent(…)`; removed in 5.0. */
     public clearSlotContent(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
@@ -213,7 +224,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     ): void {
         if (bucketSlot.changedAtRevision !== 0) {
             throw new Error(
-                'OIMSlotContentBucketService: fillBucketMemberSlots fills only a bucket nobody was told about yet, and this one '
+                'OIMBucketContentService: fillBucketMemberSlots fills only a bucket nobody was told about yet, and this one '
                 + 'was announced. Use addBucketMemberSlots or writeSlotContent, which tell its listeners.',
             );
         }
@@ -245,7 +256,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     protected assertBucketMemberSlotNotReleased(bucketMemberSlot: TOIMSlot): void {
         if (!oimIsSlotReleased(bucketMemberSlot)) return;
         throw new Error(
-            'OIMSlotContentBucketService: an identity handed to a bucket was released — it is filed under no key '
+            'OIMBucketContentService: an identity handed to a bucket was released — it is filed under no key '
             + 'and nothing may hold it, so a bucket keeping it would keep a slot no lookup returns. The '
             + 'bucket is left as it was. Resolve the key afresh before handing it in.',
         );

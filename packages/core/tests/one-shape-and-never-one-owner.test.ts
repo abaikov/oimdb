@@ -3,7 +3,7 @@
  * class that implements it, and the much larger thing it must never be read as
  * saying.
  *
- * `OIMSubscriberStore` and `OIMSlotContentSetBucketService` were written apart and
+ * `OIMSubscriberStore` and `OIMSetBucketContentService` were written apart and
  * arrived at the same object: a `Set` living on a field of somebody else's
  * struct, private to its owner, with entry, exit and a count offered publicly.
  * `src/bucket/array/interfaces/IOIMBucketMemberSlotsArrayService.ts` names that, and naming
@@ -33,12 +33,12 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { OIMSlotContentSetBucketService } from '../src/bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../src/bucket/OIMSetBucketContentService';
 import type { TOIMBucketSlot } from '../src/bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsSetStore } from '../src/bucket/types/TOIMBucketSlotsSetStore';
 
-class OIMBucketSlotsServiceSetDriven extends OIMSlotContentSetBucketService<TOIMEntitySlot> {
+class OIMBucketSlotsServiceSetDriven extends OIMSetBucketContentService<TOIMEntitySlot> {
     public createStore(): TOIMBucketSlotsSetStore<TOIMEntitySlot> { return this.createBucketMemberSlotsStore(); }
 
     public override addSlot(bucketSlot: TOIMBucketSlot<TOIMBucketSlotsSetStore<TOIMEntitySlot>>, bucketMemberSlot: TOIMEntitySlot): boolean {
@@ -191,8 +191,8 @@ describe('what naming the shape was not allowed to cost', () => {
      * accessor, and nothing in the file routes through an `ensure`.
      */
     it('the unordered add reaches its own field directly, with no ensure between', () => {
-        const source = sourceOf('bucket/OIMSlotContentSetBucketService.ts');
-        expect(source).toContain('const bucketMemberSlotsSetStore = bucketSlot.bucketSlotsStore;');
+        const source = sourceOf('bucket/OIMSetBucketContentService.ts');
+        expect(source).toContain('const bucketMemberSlotsSetStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>).bucketSlotsStore;');
         expect(source).toContain('bucketMemberSlotsSetStore.add(bucketMemberSlot);');
         expect(source).not.toContain('ensure(');
     });

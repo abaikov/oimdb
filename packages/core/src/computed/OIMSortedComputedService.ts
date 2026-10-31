@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { OIMPullColumnSlotOwner } from '../column/OIMPullColumnSlotOwner';
 import type { TOIMComputedColumnSlot } from '../column/types/TOIMComputedColumnSlot';
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
@@ -7,13 +8,13 @@ import type { TOIMIndexStoreSlot } from '../index/types/TOIMIndexStoreSlot';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { OIMSlotCollectionIndexService } from '../index/OIMSlotCollectionIndexService';
 import type { TOIMSortColumn } from './types/TOIMSortColumn';
 import type { TOIMSortedComputedSlot } from './types/TOIMSortedComputedSlot';
 import type { TOIMSlotCollectionIndexServiceStoreSlot } from '../index/types/TOIMSlotCollectionIndexServiceStoreSlot';
 import type { TOIMSortedComputedServiceOptions } from './types/TOIMSortedComputedServiceOptions';
-import { OIMSlotContentComputedService } from './OIMSlotContentComputedService';
+import { OIMComputedContentService } from './OIMComputedContentService';
 import { createOIMComputedSlotCollectionService } from './utils/createOIMComputedSlotCollectionService';
 import { oimSameSlotSequence } from '../bucket/utils/oimSameSlotSequence';
 import { oimIsRevisionAfter } from '../channel/utils/oimIsRevisionAfter';
@@ -24,7 +25,7 @@ import { oimColumnsComparator } from './utils/oimColumnsComparator';
 import { oimEntitySlotsComparator } from './utils/oimEntitySlotsComparator';
 
 type TOIMEntityBucketContentService<TEntity extends object, TSlots> = Pick<
-    OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots' | 'getBucketMemberSlotCount' | 'hasBucketMemberSlot'
+    OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots' | 'getBucketMemberSlotCount' | 'hasBucketMemberSlot'
 >;
 
 export class OIMSortedComputedService<
@@ -32,7 +33,7 @@ export class OIMSortedComputedService<
 > {
     public readonly computedCollectionService: OIMSlotCollectionService<
         TKey, TOIMSortedComputedSlot<TEntity, TKey>, TComputedStore,
-        OIMSlotContentComputedService<readonly TOIMEntitySlot<TEntity>[], TOIMSortedComputedSlot<TEntity, TKey>>,
+        OIMComputedContentService<readonly TOIMEntitySlot<TEntity>[], TOIMSortedComputedSlot<TEntity, TKey>>,
         string, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
     >;
 
@@ -51,7 +52,7 @@ export class OIMSortedComputedService<
         this.computedCollectionService = createOIMComputedSlotCollectionService<
             TKey, readonly TOIMEntitySlot<TEntity>[], TOIMSortedComputedSlot<TEntity, TKey>, TComputedStore, string
         >({
-            slotContentService: new OIMSlotContentComputedService<readonly TOIMEntitySlot<TEntity>[], TOIMSortedComputedSlot<TEntity, TKey>>({
+            slotContentService: new OIMComputedContentService<readonly TOIMEntitySlot<TEntity>[], TOIMSortedComputedSlot<TEntity, TKey>>({
                 computedValueService,
                 createSources: computedSlot => createSortedComputedSources(
                 computedSlot.key, computedSlot.storeSlot, indexService, sortColumns, hasComparator,
@@ -104,7 +105,7 @@ function sortBucketMemberSlots<TKey extends NonNullable<unknown>, TEntity extend
     compareEntitySlots: (leftEntitySlot: TOIMEntitySlot<TEntity>, rightEntitySlot: TOIMEntitySlot<TEntity>) => number,
 ): readonly TOIMEntitySlot<TEntity>[] {
     const bucketSlot = computedSlot.sourceSlots[0] as TOIMBucketSlot<TSlots>;
-    const previous = computedSlot.value;
+    const previous = (computedSlot as unknown as OIMComputedSlot<readonly TOIMEntitySlot<TEntity>[]>).content;
     const membershipChanged = oimIsRevisionAfter(
         bucketSlot.changedAtRevision, bucketSlot.changedAtEpoch, computedSlot.ranAtRevision, computedSlot.ranAtEpoch,
     );
@@ -123,7 +124,7 @@ function reconcileArrayWithBucketMemberSlots<TKey extends NonNullable<unknown>, 
     const storeSlot = computedSlot.storeSlot as TOIMEditable<TOIMStoreSlot>;
     const keptStampedEntitySlots = (storeSlot.keptStampedEntitySlots ??= new Set<TOIMSlot>()) as Set<TOIMEntitySlot<TEntity>>;
     if (keptStampedEntitySlots.size !== 0) keptStampedEntitySlots.clear();
-    const entitySlots = computedSlot.value;
+    const entitySlots = (computedSlot as unknown as OIMComputedSlot<readonly TOIMEntitySlot<TEntity>[]>).content;
     const ranAtRevision = computedSlot.ranAtRevision;
     const ranAtEpoch = computedSlot.ranAtEpoch;
     const next: TOIMEntitySlot<TEntity>[] = [];

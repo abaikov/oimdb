@@ -1,10 +1,11 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../types/TOIMBucketSlotsArrayStore';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
+import { bucketSlotsStoreOf } from '../../../../tests/support/bucketSlotsStoreOf';
 
 type TRow = { id: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
@@ -53,9 +54,9 @@ const watchedList = (
 /** An ordered bucket already holding `size` slots. */
 const filledBucket = (size: number) => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TRowSlot, string>();
+    const membersService = new OIMPositionalArrayBucketContentService<TRowSlot, string>();
     const indexService = createOIMSlotCollectionService({ slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
 
@@ -88,7 +89,7 @@ const watch = (bucket: TPage): TListTally => {
     const tally: TListTally = {
         indexReads: 0, indexWrites: 0, indexDeletes: 0, lengthWrites: 0,
     };
-    bucket.bucketSlotsStore.bucketMemberSlots = watchedList(bucket.bucketSlotsStore.bucketMemberSlots, tally);
+    bucketSlotsStoreOf<TRowSlot>(bucket).bucketMemberSlots = watchedList(bucketSlotsStoreOf<TRowSlot>(bucket).bucketMemberSlots, tally);
     return tally;
 };
 

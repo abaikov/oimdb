@@ -6,7 +6,7 @@ import { oimMintAfterWriteSlotReleaseWheel } from '../utils/oimMintAfterWriteSlo
 import type { IOIMSlotReleasePolicy } from '../interfaces/IOIMSlotReleasePolicy';
 import type { TOIMTimer } from '../../schedule/types/TOIMTimer';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -18,7 +18,7 @@ const createWorld = (slotReleasePolicy: IOIMSlotReleasePolicy) => {
     const releaseTimer: TOIMTimer = () => () => undefined;
     const defaults = new OIMDefaults({ slotReleasePolicy });
     const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer });
-    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow, string>({ defaults }) });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
     return {
         db,
@@ -67,7 +67,7 @@ describe('which writes move the write deadline', () => {
     it('one manual frame moves the deadline of every policy that shares it, each by its own window', () => {
         const slotReleaseDueFramePolicy = new OIMSlotReleaseManualDueFramePolicy();
         const world = createWorld(new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 30_000, slotReleaseDueFramePolicy }));
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: 60_000, slotReleaseDueFramePolicy }) });
         const cards = cardsService.createStoreSlot(world.db);
         let deckSlot: TOIMSlot | undefined;
         let cardSlot: TOIMSlot | undefined;

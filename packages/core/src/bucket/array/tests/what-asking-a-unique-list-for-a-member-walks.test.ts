@@ -1,16 +1,16 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import { OIMBucketUniqueMemberSlotsArrayService } from '../OIMBucketUniqueMemberSlotsArrayService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createFixture = (membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>) => {
+const createFixture = (membersService: OIMPositionalArrayBucketContentService<TCardSlot>) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
@@ -25,7 +25,7 @@ const createFixture = (membersService: OIMSlotContentPositionalArrayBucketServic
 describe('what asking a list for a member walks', () => {
     it('a unique list answers from its set and walks no array', () => {
         const { membersService, bucketSlot, memberSlots, stranger } = createFixture(
-            new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() }) as OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+            new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService() }) as OIMPositionalArrayBucketContentService<TCardSlot>,
         );
         const indexOf = jest.spyOn(Array.prototype, 'indexOf');
 
@@ -38,7 +38,7 @@ describe('what asking a list for a member walks', () => {
     });
 
     it('a list that may hold a member twice still answers by walking the array', () => {
-        const { membersService, bucketSlot, memberSlots, stranger } = createFixture(new OIMSlotContentPositionalArrayBucketService<TCardSlot>());
+        const { membersService, bucketSlot, memberSlots, stranger } = createFixture(new OIMPositionalArrayBucketContentService<TCardSlot>());
 
         expect(membersService.hasBucketMemberSlot(bucketSlot, memberSlots[99])).toBe(true);
         expect(membersService.hasBucketMemberSlot(bucketSlot, stranger)).toBe(false);

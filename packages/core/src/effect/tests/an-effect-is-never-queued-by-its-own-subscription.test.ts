@@ -1,13 +1,14 @@
+import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMEffectService } from '../OIMEffectService';
 import { oimIsEffectRunScheduled } from '../utils/oimIsEffectRunScheduled';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -15,7 +16,7 @@ type TRow = { isOn: boolean; text: string };
 
 const makeSlot = (key: string, row: TRow): TOIMEntitySlot<TRow, string> => {
     const slot = createOIMEntitySlot<TRow, string>(key, new OIMSlotOwner(), testStoreSlot);
-    (slot as TOIMEditable<typeof slot>).entity = row;
+    entitySlotOf(slot).content = row;
     return slot;
 };
 
@@ -50,14 +51,14 @@ describe('an effect is never queued by its own subscription', () => {
         const toggle = makeSlot('toggle', { isOn: false, text: '' });
         const label = makeSlot('label', { isOn: false, text: 'before' });
         const seen: string[] = [];
-        const effect = effectService.createSourceTrackingEffect(db, sourceTracker => {
-            const isOn = sourceTracker.readSourceSlot(toggle).entity?.isOn ?? false;
-            seen.push(isOn ? sourceTracker.readSourceSlot(label).entity?.text ?? '' : 'off');
+        const effect = effectService.createSourceTrackingEffect(db, () => {
+            const isOn = toggle.entity?.isOn ?? false;
+            seen.push(isOn ? label.entity?.text ?? '' : 'off');
         });
 
-        (toggle as TOIMEditable<typeof toggle>).entity = { isOn: true, text: '' };
+        entitySlotOf(toggle).content = { isOn: true, text: '' };
         OIMChannelService.INSTANCE.write(db.defaultChannelSlot, toggle);
-        (label as TOIMEditable<typeof label>).entity = { isOn: false, text: 'after' };
+        entitySlotOf(label).content = { isOn: false, text: 'after' };
         OIMChannelService.INSTANCE.write(db.defaultChannelSlot, label);
         db.flush();
 
@@ -114,15 +115,15 @@ describe('who asks an effect\'s sources before it runs', () => {
         const textLengthSlot = textLengthService.computedSingleSlotService.getSingleSlot(textLength);
         let runs = 0;
         effectService.createEffect(db, () => { runs++; }, [], [textLengthSlot]);
-        expect(textLengthSlot.computedValueService.getValueForSlot(textLengthSlot)).toBe(3);
+        expect(readValueWithoutTracking(textLengthSlot)).toBe(3);
         db.flush();
 
-        (source as TOIMEditable<typeof source>).entity = { isOn: false, text: 'xyz' };
+        entitySlotOf(source).content = { isOn: false, text: 'xyz' };
         OIMChannelService.INSTANCE.write(db.defaultChannelSlot, source);
         db.flush();
         expect(runs).toBe(0);
 
-        (source as TOIMEditable<typeof source>).entity = { isOn: false, text: 'longer' };
+        entitySlotOf(source).content = { isOn: false, text: 'longer' };
         OIMChannelService.INSTANCE.write(db.defaultChannelSlot, source);
         db.flush();
         expect(runs).toBe(1);

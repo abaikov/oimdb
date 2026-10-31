@@ -2,7 +2,7 @@ import * as React from 'react';
 import { act, render, screen } from '@testing-library/react';
 import {
     OIMDB, createOIMSlotCollectionIndexService, createOIMSlotCollectionStoreAggregate, createOIMSingleSlotStoreAggregate,
-    createOIMSlotContentEntityService,
+    createOIMEntityContentService,
 } from '@oimdb/core';
 import { OIMDBProvider, useOIMBucketSlotsByKey, useOIMEntity, useOIMSingleEntity } from '../src/index';
 
@@ -12,10 +12,10 @@ type TFilter = { query: string };
 describe('what a store aggregate hands a hook', () => {
     it('renders an entity, an index bucket and a single through the store slots of their aggregates', () => {
         const db = new OIMDB();
-        const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMSlotContentEntityService<TTodo>() });
+        const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TTodo>() });
         const byListService = createOIMSlotCollectionIndexService({ entityService: todos.slotService, columns: ['listId'] });
         const byList = byListService.createStoreAggregate(byListService.createIndexStoreSlot(todos.storeSlot));
-        const filter = createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMSlotContentEntityService<TFilter>() });
+        const filter = createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<TFilter>() });
         todos.writeSlotContentByKey('t1', { id: 't1', listId: 'inbox', title: 'Buy milk' });
         filter.writeSingleSlotContent({ query: 'milk' });
         db.flush();

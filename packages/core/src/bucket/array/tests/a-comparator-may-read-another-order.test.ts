@@ -2,8 +2,9 @@ import { OIMDB } from '../../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../../index/createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../../computed/createOIMSortedComputedService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; group: string; rank: number };
 
@@ -12,7 +13,7 @@ const idsOf = (slots: readonly TOIMEntitySlot<TCard>[]): string[] => slots.map(s
 describe('a comparator that reads a different index order', () => {
     it('orders both, and refuses neither', () => {
         const db = new OIMDB();
-        const othersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const othersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const others = othersService.createStoreSlot(db);
         const otherByGroupService = createOIMSlotCollectionIndexService({
             entityService: othersService,
@@ -26,10 +27,10 @@ describe('a comparator that reads a different index order', () => {
         const otherByGroupOrders = otherByGroupOrdersService.createSortedStoreSlot(otherByGroup);
         const otherOrder = otherByGroupOrdersService.computedCollectionService.holdSlotByKey(otherByGroupOrders, 'other');
         const getOtherOrderValue = () =>
-            otherOrder.computedValueService.getValueForSlot(otherOrder);
+            readValueWithoutTracking(otherOrder);
 
         const during = { armed: false, read: [] as string[] };
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byGroupService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
@@ -48,7 +49,7 @@ describe('a comparator that reads a different index order', () => {
         });
         const byGroupOrders = byGroupOrdersService.createSortedStoreSlot(byGroup);
         const order = byGroupOrdersService.computedCollectionService.holdSlotByKey(byGroupOrders, 'group');
-        const getOrderValue = () => order.computedValueService.getValueForSlot(order);
+        const getOrderValue = () => readValueWithoutTracking(order);
 
         othersService.writeInBatch(others, () => ([
             { id: 'x', group: 'other', rank: 3 },

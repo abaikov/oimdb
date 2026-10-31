@@ -1,4 +1,4 @@
-import { OIMSlotContentSetBucketService } from '../../../core/src/index';
+import { OIMSetBucketContentService } from '../../../core/src/index';
 import type {
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
@@ -41,7 +41,7 @@ const groupedFixture = () => {
     // body below READS this bucket collection and none of them writes `group`,
     // so the snapshot it builds stays correct for the life of the fixture.
     const { bucketService, bucketStoreSlot, bucketOf } = priceGroupIndex<TGroupSlots>(
-        fixture.db, fixture.slots, new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
+        fixture.db, fixture.slots, new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
     );
     fixture.db.flush();
 

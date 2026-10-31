@@ -18,7 +18,7 @@ frame errors at all but refusals thrown at the call.
 </InShort>
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotAfterIdleReleasePolicy, type IOIMErrorPolicy, createOIMSlotContentEntityService, createOIMSlotCollectionService, OIMDefaults } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotAfterIdleReleasePolicy, type IOIMErrorPolicy, createOIMEntityContentService, createOIMSlotCollectionService, OIMDefaults } from '@oimdb/core';
 
 type Card = { id: string; title: string };
 
@@ -26,7 +26,7 @@ declare function reportToSentry(error: unknown): void;
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 ```
 

@@ -1,0 +1,140 @@
+.switch {
+  display: inline-flex;
+  border: 1px solid var(--oim-hairline-gold);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.switch button {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 7px 14px;
+  border: 0;
+  background: transparent;
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+}
+
+.switch button + button {
+  border-left: 1px solid var(--oim-hairline-gold);
+}
+
+.switch .active {
+  background: var(--oim-gold-soft);
+  color: var(--oim-gold);
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.start {
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--oim-gradient-brand);
+  color: #fff;
+  cursor: pointer;
+}
+
+.stop {
+  background: var(--oim-red);
+}
+
+.head,
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 14px;
+}
+
+.head {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  padding-bottom: 8px;
+}
+
+.viewport {
+  position: relative;
+  height: 360px;
+  overflow-y: auto;
+  border: 1px solid var(--oim-hairline);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.viewport > div {
+  position: relative;
+}
+
+.row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 30px;
+  align-items: center;
+  font-size: 0.86rem;
+  border-bottom: 1px solid var(--oim-hairline);
+}
+
+.name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.number {
+  font-family: var(--ifm-font-family-monospace);
+  text-align: right;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 28px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--oim-hairline);
+}
+
+.stats div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.stats b {
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 1.35rem;
+}
+
+.stats span {
+  font-size: 0.82rem;
+  opacity: 0.75;
+}
+
+.note {
+  margin: 12px 0 0;
+  font-size: 0.82rem;
+  opacity: 0.7;
+}
+
+@media (max-width: 720px) {
+  .head,
+  .row {
+    gap: 6px;
+    padding: 0 8px;
+    font-size: 0.78rem;
+  }
+}

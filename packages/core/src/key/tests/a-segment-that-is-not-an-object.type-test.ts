@@ -3,7 +3,7 @@ import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
 import { OIMDB } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TNamed = { id: string };
@@ -31,7 +31,7 @@ export function aKeyIsNotASegment(): void {
  */
 export function anIdentityIsASegment(): void {
     const db = new OIMDB();
-    const decksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed>() });
+    const decksService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TNamed>() });
     const decks = decksService.createStoreSlot(db);
     // `hold` and not a read: a read never mints, so `find` answers
     // `TOIMEntitySlot | undefined` and the positive half below would be

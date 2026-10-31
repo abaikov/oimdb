@@ -78,7 +78,7 @@ const isWriteOrMutation = (before: string, after: string): boolean =>
     ASSIGN.test(after) || INCREMENT_AFTER.test(after) || INCREMENT_BEFORE.test(before.replace(/\s+$/, ''))
     || MUTATING_CALL.test(after) || LENGTH_ASSIGN.test(after) || INDEX_ASSIGN.test(after);
 
-const writesToSlotData = (source: string): { line: number; text: string }[] => {
+const writesToSlotData = (source: string, isEntitySlotConstructor = false): { line: number; text: string }[] => {
     const lines = codeOnly(source).split('\n');
     const joined = lines.join('\n');
     const aliases = new Set<string>();
@@ -95,7 +95,8 @@ const writesToSlotData = (source: string): { line: number; text: string }[] => {
             const before = line.slice(0, match.index).replace(/\s+$/, '');
             const after = line.slice(match.index + FIELD.length);
             const onOwner = before.endsWith('.') || (before === '' && i > 0 && /\.\s*$/.test(lines[i - 1]));
-            if (onOwner && isWriteOrMutation(before, after)) sites.push({ line: i + 1, text: line.trim() });
+            const isMintedUndefined = isEntitySlotConstructor && before.endsWith('this.') && /^\s*=\s*undefined;\s*$/.test(after);
+            if (onOwner && !isMintedUndefined && isWriteOrMutation(before, after)) sites.push({ line: i + 1, text: line.trim() });
             match = field.exec(line);
         }
         for (const name of aliases) {
@@ -121,11 +122,11 @@ describe('nothing in the core writes a slot data', () => {
 
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'entity/OIMSlotContentEntityService.ts')).toBe(true);
+        expect(files.some(file => file.path === 'entity/OIMEntityContentService.ts')).toBe(true);
     });
 
     it('no non-test file under src assigns to or mutates .data', () => {
-        const found = files.flatMap(file => writesToSlotData(file.source)
+        const found = files.flatMap(file => writesToSlotData(file.source, file.path === 'entity/OIMEntitySlot.ts')
             .map(site => `${file.path}:${site.line} ${site.text}`));
         expect(found).toEqual([]);
     });

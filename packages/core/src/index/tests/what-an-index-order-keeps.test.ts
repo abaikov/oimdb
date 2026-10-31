@@ -3,8 +3,9 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../computed/createOIMSortedComputedService';
 import type { TOIMSortColumn } from '../../computed/types/TOIMSortColumn';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; rank: number; label: string };
 
@@ -15,7 +16,7 @@ type TSorter = {
 
 const createFixture = (sorter: TSorter) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -25,7 +26,7 @@ const createFixture = (sorter: TSorter) => {
     const ordersService = createOIMSortedComputedService({ indexService: byDeckService, ...sorter });
     const orders = ordersService.createSortedStoreSlot(byDeck);
     const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'spades');
-    const idsInOrder = (): string[] => order.computedValueService.getValueForSlot(order).map(slot => slot.entity?.id ?? '');
+    const idsInOrder = (): string[] => readValueWithoutTracking(order).map(slot => slot.entity?.id ?? '');
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
         const slot = cardsService.findSlotByKey(cards, key);
         if (slot !== undefined) cardsService.slotContentService.updateEntity(slot, patch);
@@ -93,11 +94,11 @@ describe('an index order', () => {
         const { counter, sorter } = countingByRank();
         const { cards, cardsService, order, idsInOrder, updateEntityByKey } = createFixture(sorter);
         cardsService.writeInBatch(cards, () => (seed).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
-        const before = order.computedValueService.getValueForSlot(order);
+        const before = readValueWithoutTracking(order);
         expect(idsInOrder()).toEqual(['c1', 'c2', 'c3']);
         counter.compared = 0;
         updateEntityByKey('c2', { label: 'deuce' });
-        expect(order.computedValueService.getValueForSlot(order)).toBe(before);
+        expect(readValueWithoutTracking(order)).toBe(before);
         expect(counter.compared).toBe(0);
     });
 
@@ -139,12 +140,12 @@ describe('an index order', () => {
         cardsService.writeInBatch(cards, () => (seed).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         expect(idsInOrder()).toEqual(['c1', 'c2', 'c3']);
         const c3 = cardsService.getSlotByKey(cards, 'c3');
-        const before = order.computedValueService.getValueForSlot(order);
+        const before = readValueWithoutTracking(order);
         counter.compared = 0;
 
         c3.entity!.label = 'trey';
         cardsService.slotContentService.markEntityChanged(c3, ['label']);
-        expect(order.computedValueService.getValueForSlot(order)).toBe(before);
+        expect(readValueWithoutTracking(order)).toBe(before);
         expect(counter.compared).toBe(0);
 
         c3.entity!.rank = 1;

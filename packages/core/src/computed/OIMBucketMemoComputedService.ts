@@ -6,10 +6,10 @@ import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMComputedSources } from './types/TOIMComputedSources';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { TOIMBucketMemoComputedServiceOptions } from './types/TOIMBucketMemoComputedServiceOptions';
 import type { TOIMBucketMemoComputedSlot } from './types/TOIMBucketMemoComputedSlot';
-import { OIMSlotContentComputedService } from './OIMSlotContentComputedService';
+import { OIMComputedContentService } from './OIMComputedContentService';
 import { createOIMComputedSlotCollectionService } from './utils/createOIMComputedSlotCollectionService';
 import { oimSameSlotSequence } from '../bucket/utils/oimSameSlotSequence';
 import { OIMComputedValueService } from './OIMComputedValueService';
@@ -18,7 +18,7 @@ import type { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService'
 
 type TOIMBucketSlotCollectionService<TKey extends NonNullable<unknown>, TBucketMemberSlot extends TOIMSlot, TSlots, TBucketStore> =
     OIMSlotCollectionService<
-        TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMSlotContentBucketService<TBucketMemberSlot, TSlots>,
+        TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMBucketContentService<TBucketMemberSlot, TSlots>,
         string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TBucketMemberSlot[]
     >;
 
@@ -27,7 +27,7 @@ export class OIMBucketMemoComputedService<
 > {
     public readonly computedCollectionService: OIMSlotCollectionService<
         TKey, TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>, TComputedStore,
-        OIMSlotContentComputedService<readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>>,
+        OIMComputedContentService<readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>>,
         string, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
     >;
 
@@ -43,7 +43,7 @@ export class OIMBucketMemoComputedService<
         this.computedCollectionService = createOIMComputedSlotCollectionService<
             TKey, readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>, TComputedStore, string
         >({
-            slotContentService: new OIMSlotContentComputedService<readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>>({
+            slotContentService: new OIMComputedContentService<readonly TBucketMemberSlot[], TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>>({
                 computedValueService,
                 createSources: computedSlot => createBucketMemoComputedSources(computedSlot.key, computedSlot.storeSlot, bucketCollectionService),
                 initialValue: OIM_FROZEN_EMPTY_SLOTS as readonly TBucketMemberSlot[],
@@ -64,7 +64,7 @@ export class OIMBucketMemoComputedService<
 
 function deriveBucketMemo<TKey extends NonNullable<unknown>, TBucketMemberSlot extends TOIMSlot, TSlots>(
     computedSlot: TOIMBucketMemoComputedSlot<TBucketMemberSlot, TKey>,
-    bucketContentService: OIMSlotContentBucketService<TBucketMemberSlot, TSlots>,
+    bucketContentService: OIMBucketContentService<TBucketMemberSlot, TSlots>,
 ): readonly TBucketMemberSlot[] {
     return Array.from(bucketContentService.getBucketMemberSlots(computedSlot.sourceSlots[0] as TOIMBucketSlot<TSlots>));
 }

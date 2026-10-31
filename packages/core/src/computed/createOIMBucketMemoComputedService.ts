@@ -7,7 +7,7 @@ import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMComputedSlot } from './types/TOIMComputedSlot';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMDefaultSlotStore } from '../store/types/TOIMDefaultSlotStore';
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
 import { OIMSlotAtUnholdReleasePolicy } from '../collector/OIMSlotAtUnholdReleasePolicy';
 import { OIMBucketMemoComputedService } from './OIMBucketMemoComputedService';
@@ -23,7 +23,7 @@ export function createOIMBucketMemoComputedService<
     options: {
         defaults?: OIMDefaults | undefined;
         bucketCollectionService: OIMSlotCollectionService<
-            TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMSlotContentBucketService<TBucketMemberSlot, TSlots>,
+            TKey, TOIMBucketSlot<TSlots, TKey>, TBucketStore, OIMBucketContentService<TBucketMemberSlot, TSlots>,
             string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TBucketMemberSlot[]
         >;
         slotReleasePolicy?: IOIMSlotReleasePolicy | undefined;

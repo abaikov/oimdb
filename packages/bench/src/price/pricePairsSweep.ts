@@ -1,7 +1,7 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../../core/src/index';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
-    OIMSlotContentBucketService,
+    OIMBucketContentService,
     TOIMBucketSlotsArrayStore,
     TOIMBucketSlot,
     TOIMBucketSlotsSetStore,
@@ -16,7 +16,7 @@ import { priceGroupIndex } from './priceGroupIndex';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 /**
@@ -161,7 +161,7 @@ const GROUPED_FLOOR_CAVEAT =
  * WHAT VARIES IS THE WRITE STRATEGY, and the job here is to find out whether the
  * fork is FREE rather than to find a winner: both shipped writers fill a fresh
  * slot through the same `oimInsertEntityWithoutCopy`, and the insert branch of
- * `OIMSlotContentEntityService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and nothing else of the
+ * `OIMEntityContentService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and nothing else of the
  * writer.
  */
 const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPricePair => ({
@@ -173,7 +173,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
         `THE ARM IS ${arm.toUpperCase()}, AND THE SWEEP'S QUESTION ON THIS TASK IS WHETHER THE ` +
         'FORK COSTS ANYTHING AT ALL HERE. `createOIMInPlaceEntityWriter` and ' +
         '`createOIMReplacingEntityWriter` both default `fillEntity` to `oimInsertEntityWithoutCopy`, and ' +
-        'the insert branch of `OIMSlotContentEntityService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and no other ' +
+        'the insert branch of `OIMEntityContentService.insertSlotContent` (reached by `writeSlotContentByKey`) calls `fillEntity` and no other ' +
         'member of the writer — so the two arms should run the same code on this path. [FIGURE ' +
         'STATED IN ADVANCE] Expect the two arms to differ by less than each row\'s own noise; a ' +
         'difference larger than that is the finding. ' +
@@ -193,7 +193,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
             ? createOIMReplacingEntityWriter()
             : createOIMInPlaceEntityWriter();
         const build = () =>
-            createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+            createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         let entityService = build();
         let entityStoreSlot = entityService.createStoreSlot(db);
         let map = new Map<string, TPriceDataRow>();
@@ -273,7 +273,7 @@ const membersOfFixture = (fixture: ReturnType<typeof priceFixture>, names: reado
 };
 
 const groupedManualWorld = <TSlots>(
-    slotContentService: OIMSlotContentBucketService<TOIMEntitySlot<TPriceDataRow>, TSlots>,
+    slotContentService: OIMBucketContentService<TOIMEntitySlot<TPriceDataRow>, TSlots>,
 ) => {
     const fixture = priceFixture(priceDataset.batch);
     const names = priceDataset.groupNames();
@@ -292,7 +292,7 @@ const groupedManualWorld = <TSlots>(
 const groupIndexOf = (fixture: ReturnType<typeof priceFixture>, names: readonly string[]) => {
     const indexService = createOIMSlotCollectionIndexService({
         entityService: fixture.entityService,
-        slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
+        slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
         keyOf: (row: TPriceDataRow) => row.group,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(),
     });
@@ -384,7 +384,7 @@ const groupedManualPositionalPair: TPricePair = {
     caveat: joined(
         'THE ARM IS THE POSITIONAL DOOR, IN PLACE. ',
         MANUAL_MEMBERSHIP_CAVEAT,
-        'THIS ARM TAKES THE POSITIONAL DOOR on an `OIMSlotContentPositionalArrayBucketService`, so ',
+        'THIS ARM TAKES THE POSITIONAL DOOR on an `OIMPositionalArrayBucketContentService`, so ',
         'the caller owns the order: `getBucketMemberSlotPosition` finds the member in the bucket it is leaving — ',
         'an `indexOf` over that group — `removeBucketMemberSlotAt` splices it out, and `insertBucketMemberSlotAt` at ',
         '`getBucketMemberSlotCount` appends it to the one it joins. It is O(members of the group being left) ',
@@ -392,7 +392,7 @@ const groupedManualPositionalPair: TPricePair = {
         GROUPED_FLOOR_CAVEAT,
     ),
     build: () => {
-        const slotContentService = new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TPriceDataRow>>();
+        const slotContentService = new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TPriceDataRow>>();
         const { world, bucketService, bucketStoreSlot } = groupedManualWorld<TOrderedGroupSlots>(slotContentService);
         assertSameReadGroup(slotContentService.getBucketMemberSlots(world.readBucket), world.readSet);
         const patch: TGroupPatch = { group: '' };
@@ -460,7 +460,7 @@ const groupedManualSetMembersPair: TPricePair = {
         GROUPED_FLOOR_CAVEAT,
     ),
     build: () => {
-        const slotContentService = new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>();
+        const slotContentService = new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>();
         const { world, bucketService, bucketStoreSlot } = groupedManualWorld<TUnorderedGroupSlots>(slotContentService);
         assertSameReadGroup(slotContentService.getBucketMemberSlots(world.readBucket), world.readSet);
         const patch: TGroupPatch = { group: '' };

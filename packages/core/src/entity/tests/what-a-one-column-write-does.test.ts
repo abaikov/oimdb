@@ -6,7 +6,7 @@ import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWrite
 import { oimGuardedPatchEntityColumn } from '../utils/oimGuardedPatchEntityColumn';
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMEntityWriterOptions } from '../types/TOIMEntityWriterOptions';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -15,7 +15,7 @@ type TCard = { id: string; title: string; rank: number };
 const openCards = (entityWriter: IOIMEntityWriter) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>({ entityWriter }) });
     const cards = cardsService.createStoreSlot(db);
     const slot = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 1 });
     db.flush();
@@ -114,7 +114,7 @@ describe('what a one-column write does to a single entity', () => {
     it('writes the column and wakes a reader of it once', () => {
         const db = new OIMDB();
         const effectService = OIMEffectService.INSTANCE;
-        const sessionService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<{ theme: string; locale: string }>() });
+        const sessionService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<{ theme: string; locale: string }>() });
         const session = sessionService.createStoreSlot(db);
         sessionService.writeSingleSlotContent(session, { theme: 'dark', locale: 'en' });
         let themeRuns = 0;

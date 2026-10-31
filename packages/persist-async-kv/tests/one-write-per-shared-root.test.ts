@@ -24,7 +24,7 @@ import {
 } from '@oimdb/persist';
 import type { TOIMPersistAsyncKVMultiStorage } from '../src';
 import { OIMPersistAsyncKVStorage } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
@@ -99,7 +99,7 @@ function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
         entityCollectionService: entityService,
@@ -116,7 +116,7 @@ function buildUsers(db: OIMDB) {
 }
 
 function buildSettings(db: OIMDB, settings: TSettings) {
-    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
     const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
     singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
     db.flush();

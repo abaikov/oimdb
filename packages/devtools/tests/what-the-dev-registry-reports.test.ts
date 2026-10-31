@@ -16,10 +16,10 @@ import type {
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
 import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter} from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotTreeStoreService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard, oimIsSlotEmpty, type IOIMEntityWriter} from '@oimdb/core';
 import { OIMDevRegistry } from '../src';
 import { createOIMSlotCollectionService } from '@oimdb/core';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 
 type TUser = { id: string; name: string; role: string };
 type TRoom = { id: string; label: string };
@@ -44,11 +44,11 @@ const delivering = (): IOIMEntityWriter =>
  * hand and its hold given back, which is what lets the bucket collection unfile
  * the bucket.
  */
-const createRoleBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+const createRoleBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
 
 function buildUsers() {
     const db = new OIMDB();
-    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: delivering() }) });
     const users = usersService.createStoreSlot(db);
 
     const byRoleService = createRoleBucketService();
@@ -110,11 +110,11 @@ function buildUsers() {
 
 function buildEnrollments() {
     const db = new OIMDB();
-    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
+    const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: delivering() }) });
     const users = usersService.createStoreSlot(db);
-    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRoom>({ entityWriter: delivering() }) });
+    const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRoom>({ entityWriter: delivering() }) });
     const rooms = roomsService.createStoreSlot(db);
-    const enrollmentsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEnrollment, readonly TOIMEntitySlot[]>({ entityWriter: delivering() }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TEnrollmentSlot>(
+    const enrollmentsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TEnrollment, readonly TOIMEntitySlot[]>({ entityWriter: delivering() }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TEnrollmentSlot>(
             OIMCompositeKeyTreeWalk.INSTANCE,
         ) });
     const enrollments = enrollmentsService.createStoreSlot(db);
@@ -307,7 +307,7 @@ describe('OIMDevRegistry — populations', () => {
 
     test('collection() is chainable and keeps registration order', () => {
         const { db, usersService, users } = buildUsers();
-        const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRoom>({ entityWriter: delivering() }) });
+        const roomsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRoom>({ entityWriter: delivering() }) });
         const rooms = roomsService.createStoreSlot(db);
         const reg = new OIMDevRegistry();
 
@@ -387,7 +387,7 @@ describe('OIMDevRegistry — frames and errors', () => {
     test('recordError() surfaces what a subscriber threw during a frame', () => {
         const reg = new OIMDevRegistry();
         const db = new OIMDB({ errorPolicy: { onErrorCaught: (error: unknown) => { reg.recordError(error); } } });
-        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: delivering() }) });
+        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: delivering() }) });
         const users = usersService.createStoreSlot(db);
 
         const heldSlot = usersService.holdSlotByKey(users, 'u1');

@@ -95,7 +95,7 @@ function useUser(id: string) {
 }`;
 
 const CODE_OIMDB = `const userService = createOIMSlotCollectionService({
-  slotContentService: createOIMSlotContentEntityService<User>(),
+  slotContentService: createOIMEntityContentService<User>(),
   slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
 });
 const users = userService.createStoreSlot(db);

@@ -6,10 +6,11 @@ import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 import type { TOIMComputedContentSlot } from '../../computed/types/TOIMComputedContentSlot';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; title: string; n: number };
 type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
@@ -20,7 +21,7 @@ const createDoubledService = () => createOIMSingleComputedService<number>({ same
 
 /** A collection over a db this test flushes by hand. */
 function collectionOver(db: OIMDB) {
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     return { rowsService, rows: rowsService.createStoreSlot(db) };
 }
 
@@ -184,9 +185,7 @@ describe('what a frame promises through a real collection', () => {
         armed[0]();
         // The effect settled the derivation on its way to deciding whether to
         // run, so the value is this frame's.
-        expect(((doubledService.computedSingleSlotService.getSingleSlot(doubled)) as TOIMComputedContentSlot<unknown>).computedValueService.getValueForSlot(
-            doubledService.computedSingleSlotService.getSingleSlot(doubled),
-        )).toBe(10);
+        expect(readValueWithoutTracking(doubledService.computedSingleSlotService.getSingleSlot(doubled) as TOIMComputedContentSlot<unknown>)).toBe(10);
         expect(seen).toBe(1);
     });
 

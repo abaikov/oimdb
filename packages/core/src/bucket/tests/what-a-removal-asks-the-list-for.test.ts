@@ -1,5 +1,5 @@
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
-import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
+import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../db/OIMDB';
 import { OIM_NOTHING_WAS_REMOVED } from '../constants/OIM_NOTHING_WAS_REMOVED';
@@ -8,7 +8,7 @@ import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -16,7 +16,7 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 type TOrderedSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 type TUnorderedSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 
-class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMSlotContentPositionalArrayBucketService<TCardSlot> {
+class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMPositionalArrayBucketContentService<TCardSlot> {
     public positionsAsked = 0;
 
     public override getBucketMemberSlotPosition(
@@ -31,7 +31,7 @@ class OIMSlotContentBucketServiceArrayDrivenCounted extends OIMSlotContentPositi
     }
 }
 
-class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSlotContentSetBucketService<TCardSlot> {
+class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSetBucketContentService<TCardSlot> {
     public override removeSlot(bucketSlot: TOIMBucketSlot<TUnorderedSlots>, slot: TCardSlot): number {
         return super.removeSlot(bucketSlot, slot);
     }
@@ -39,7 +39,7 @@ class OIMSlotContentBucketServiceSetDrivenExposed extends OIMSlotContentSetBucke
 
 const buildOrdered = (withCommands: boolean) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentBucketServiceArrayDrivenCounted({
         bucketCommands: withCommands ? new OIMBucketCommands({}) : undefined,
@@ -64,7 +64,7 @@ const buildOrdered = (withCommands: boolean) => {
 
 const buildUnordered = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const membersService = new OIMSlotContentBucketServiceSetDrivenExposed({ bucketCommands: new OIMBucketCommands({}) });
     const bagService = createOIMSlotCollectionService({ slotContentService: membersService });

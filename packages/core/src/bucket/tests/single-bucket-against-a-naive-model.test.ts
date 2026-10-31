@@ -2,15 +2,15 @@ import { OIMDB, OIMEffectService, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMBucketContentSlot, TOIMEntitySlot } from '../../index';
 import { assertConsistent, entitiesUnderTest } from '../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../tests/support/assertConsistent';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type TRow = { id: string; rank: number; label: string };
 type TRowSlot = TOIMEntitySlot<TRow, string>;
-type TSingleBucketService = ReturnType<typeof createOIMSingleSlotService<OIMSlotContentPositionalArrayBucketService<TRowSlot>>>;
+type TSingleBucketService = ReturnType<typeof createOIMSingleSlotService<OIMPositionalArrayBucketContentService<TRowSlot>>>;
 type TSingleBucket = ReturnType<TSingleBucketService['createStoreSlot']>;
 
 const KEYS = 10;
@@ -26,11 +26,11 @@ const makeRandom = (seed: number): (() => number) => {
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const rows = rowsService.createStoreSlot(db);
     // No sorter: the caller places the slots, so their order is part of
     // what the bucket holds and the model is simply the last list sent.
-    const singleService: TSingleBucketService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const singleService: TSingleBucketService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TRowSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const single = singleService.createStoreSlot(db);
     return { db, effectService, rowsService, rows, singleService, single };
 };

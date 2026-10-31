@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
@@ -62,7 +63,7 @@ const channelService = OIMChannelService.INSTANCE;
 const writerObject: TRung = (fixture, trackedFrame, patch, upTo) => {
     const slots = fixture.slots;
     for (let i = 0; i < upTo; i++) {
-        if (shippedWriter.patchEntity(slots[i], patch, undefined)) priceQueueOnce(trackedFrame, i);
+        if (shippedWriter.patchEntity(slots[i] as unknown as OIMEntitySlot, patch, undefined)) priceQueueOnce(trackedFrame, i);
     }
 };
 
@@ -82,7 +83,7 @@ const assertHandOneChannelWrite = (slot: TLadderSlot): void => {
 };
 
 const writeAndAnnounce = (fixture: TLadderFixture, slot: TLadderSlot, patch: TTitlePatch): boolean => {
-    if (!shippedWriter.patchEntity(slot, patch, undefined)) return false;
+    if (!shippedWriter.patchEntity(slot as unknown as OIMEntitySlot, patch, undefined)) return false;
     channelService.writeWithoutFlushCheck(fixture.db.defaultChannelSlot, slot);
     return true;
 };

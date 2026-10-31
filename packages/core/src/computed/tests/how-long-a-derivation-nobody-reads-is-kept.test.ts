@@ -4,8 +4,9 @@ import { OIMSlotAfterIdleReleasePolicy } from '../../collector/OIMSlotAfterIdleR
 import { oimMintAfterIdleSlotReleaseWheel } from '../../collector/utils/oimMintAfterIdleSlotReleaseWheel';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -18,7 +19,7 @@ const createFixture =(keepAfterIdleMs?: number) => {
     const cooling = {
         flush: (): void => oimMintAfterIdleSlotReleaseWheel(db.collectorSlot).flush(),
     };
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ranksService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
@@ -37,7 +38,7 @@ describe('a derivation the last reader let go of', () => {
     it('goes at once when no cooling was asked for', () => {
         const fixture = createFixture();
         const held = fixture.ranksService.holdSlotByKey(fixture.ranks, 'a');
-        void held.computedValueService.getValueForSlot(held);
+        void readValueWithoutTracking(held);
 
         held.owner.unholdSlot(held);
 
@@ -48,7 +49,7 @@ describe('a derivation the last reader let go of', () => {
     it('is kept for the cooling window, so the next reader gets the same derivation', () => {
         const fixture = createFixture(WINDOW);
         const held = fixture.ranksService.holdSlotByKey(fixture.ranks, 'a');
-        void held.computedValueService.getValueForSlot(held);
+        void readValueWithoutTracking(held);
 
         held.owner.unholdSlot(held);
 
@@ -59,7 +60,7 @@ describe('a derivation the last reader let go of', () => {
     it('goes once the window runs out with nobody having come back', () => {
         const fixture = createFixture(WINDOW);
         const held = fixture.ranksService.holdSlotByKey(fixture.ranks, 'a');
-        void held.computedValueService.getValueForSlot(held);
+        void readValueWithoutTracking(held);
         held.owner.unholdSlot(held);
 
         fixture.at(START + WINDOW + 1_000);

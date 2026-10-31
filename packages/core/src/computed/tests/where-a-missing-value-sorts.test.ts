@@ -8,7 +8,7 @@ const sortedIds = (cards: TCard[], compare: (left: TCard, right: TCard) => numbe
     cards.slice().sort(compare).map(card => card.id);
 
 const slotOf = (entity: TCard | undefined): TOIMEntitySlot<TCard> =>
-    ({ entity } as TOIMEntitySlot<TCard>);
+    ({ content: entity } as unknown as TOIMEntitySlot<TCard>);
 
 describe('where a missing value sorts', () => {
     const cards: TCard[] = [

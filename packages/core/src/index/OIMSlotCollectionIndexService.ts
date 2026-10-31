@@ -1,4 +1,5 @@
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMEntitySlot } from '../entity/OIMEntitySlot';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { IOIMSlotContentChangeListener } from '../slot/interfaces/IOIMSlotContentChangeListener';
 import type { IOIMIndexKeysService } from './interfaces/IOIMIndexKeysService';
 import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
@@ -20,18 +21,18 @@ import { OIMSlotCollectionIndexStoreAggregate } from './OIMSlotCollectionIndexSt
 export class OIMSlotCollectionIndexService<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots,
     TSourceKey extends NonNullable<unknown> = NonNullable<unknown>, TSourceStore = unknown,
-    TSlotContentService extends OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>
-        = OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>
+        = OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
     TBucketSlot extends TOIMBucketSlot<TSlots, TKey> = TOIMBucketSlot<TSlots, TKey>,
     TStore = Map<TKey, TBucketSlot>,
 > extends OIMSlotCollectionService<
     TKey, TBucketSlot, TStore,
-    Pick<TSlotContentService, Extract<keyof TSlotContentService,
+    Pick<TBucketContentService, Extract<keyof TBucketContentService,
         'getBucketMemberSlots' | 'getBucketMemberSlotCount' | 'hasBucketMemberSlot' | 'getBucketMemberSlotAt' | 'getBucketMemberSlotPosition'
     >>,
     string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TOIMEntitySlot<TEntity>[]
 > {
-    protected readonly slotContentBucketService: TSlotContentService;
+    protected readonly bucketContentService: TBucketContentService;
 
     private readonly keyOf: (entity: TEntity) => TKey;
 
@@ -42,9 +43,9 @@ export class OIMSlotCollectionIndexService<
 
     private readonly indexKeysService: IOIMIndexKeysService;
 
-    public constructor(options: TOIMSlotCollectionIndexServiceOptions<TKey, TEntity, TBucketSlot, TStore, TSlotContentService, TSourceKey, TSourceStore>) {
+    public constructor(options: TOIMSlotCollectionIndexServiceOptions<TKey, TEntity, TBucketSlot, TStore, TBucketContentService, TSourceKey, TSourceStore>) {
         super(options);
-        this.slotContentBucketService = options.slotContentService;
+        this.bucketContentService = options.slotContentService;
         this.keyOf = options.keyOf;
         this.keyColumns = options.columns;
         this.sourceSlotCollectionService = options.sourceSlotCollectionService;
@@ -98,7 +99,7 @@ export class OIMSlotCollectionIndexService<
                 indexKeysPositions, indexStoreSlot.indexKeysPosition, this.sourceSlotCollectionService.getSlots(sourceStoreSlot),
             );
         }
-        const slotContentService = this.slotContentBucketService;
+        const slotContentService = this.bucketContentService;
         const bucketSlots = Array.from(this.getSlots(indexStoreSlot));
         for (let i = 0; i < bucketSlots.length; i++) {
             if (oimIsSlotReleased(bucketSlots[i])) continue;
@@ -121,8 +122,8 @@ export class OIMSlotCollectionIndexService<
         indexStoreSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[]>, key: TKey,
     ): (TEntity | undefined)[] {
         const entities: (TEntity | undefined)[] = [];
-        for (const entitySlot of this.slotContentBucketService.getBucketMemberSlots(this.getSlotByKey(indexStoreSlot, key))) {
-            entities.push(entitySlot.entity);
+        for (const entitySlot of this.bucketContentService.getBucketMemberSlots(this.getSlotByKey(indexStoreSlot, key))) {
+            entities.push((entitySlot as unknown as OIMEntitySlot<TEntity>).content);
         }
         return entities;
     }
@@ -260,7 +261,7 @@ export class OIMSlotCollectionIndexService<
             const bucketSlot = this.findSlotByKey(indexStoreSlot, nextKey);
             if (bucketSlot !== undefined) entitySlotsByMintedBucketSlot.get(bucketSlot)?.push(entitySlot);
         }
-        const slotContentService = this.slotContentBucketService;
+        const slotContentService = this.bucketContentService;
         const slotOwnerService = this.slotOwnerService;
         for (const [bucketSlot, entitySlots] of entitySlotsByMintedBucketSlot) {
             this.fillBucketSlotWithSourceSlots(indexStoreSlot, bucketSlot, entitySlots);
@@ -269,7 +270,7 @@ export class OIMSlotCollectionIndexService<
     }
 
     private nextKeyOf(entitySlot: TOIMEntitySlot<TEntity, TSourceKey>): TKey | undefined {
-        const entity = entitySlot.entity;
+        const entity = (entitySlot as unknown as OIMEntitySlot<TEntity>).content;
         return entity === undefined ? undefined : this.keyOf(entity);
     }
 
@@ -313,7 +314,7 @@ export class OIMSlotCollectionIndexService<
         }
         const nextKey = indexKeysService.get<TKey>(entitySlot, indexKeysPosition);
         if (nextKey !== prevKey) {
-            const slotContentService = this.slotContentBucketService;
+            const slotContentService = this.bucketContentService;
             if (nextKey !== undefined) {
                 const nextBucketSlot = this.findSlotByKey(indexStoreSlot, nextKey);
                 if (nextBucketSlot !== undefined) slotContentService.addBucketMemberSlot(nextBucketSlot, entitySlot);
@@ -357,7 +358,7 @@ export class OIMSlotCollectionIndexService<
                 this.groupUnderMintedBucketKey(indexStoreSlot, bucketSlotsByKey, leavingByKey ??= new Map(), prevKey, entitySlot);
             }
         }
-        const slotContentService = this.slotContentBucketService;
+        const slotContentService = this.bucketContentService;
         if (arrivingByKey !== undefined) {
             for (const [key, arriving] of arrivingByKey) {
                 if (arriving !== null) slotContentService.addBucketMemberSlots(bucketSlotsByKey.get(key) as TBucketSlot, arriving);
@@ -413,7 +414,7 @@ export class OIMSlotCollectionIndexService<
             if (nextKey === undefined || !isBucketColumnChanged) return;
             const bucketSlot = this.findSlotByKey(indexStoreSlot, nextKey);
             if (bucketSlot === undefined) return;
-            this.slotContentBucketService.markBucketColumnsChanged(bucketSlot, patch, changedColumns);
+            this.bucketContentService.markBucketColumnsChanged(bucketSlot, patch, changedColumns);
             this.onBucketColumnsChanged(indexStoreSlot, bucketSlot, entitySlot, changedColumns);
             return;
         }
@@ -455,10 +456,10 @@ export class OIMSlotCollectionIndexService<
             prevKeys.push(prevKey);
             movingEntitySlots.push(entitySlot);
         }
-        this.slotContentBucketService.fillBucketMemberSlots(bucketSlot, fillingEntitySlots);
+        this.bucketContentService.fillBucketMemberSlots(bucketSlot, fillingEntitySlots);
         for (let i = 0; i < movingEntitySlots.length; i++) {
             const prevBucketSlot = this.findSlotByKey(indexStoreSlot, prevKeys[i]);
-            if (prevBucketSlot !== undefined) this.slotContentBucketService.removeBucketMemberSlot(prevBucketSlot, movingEntitySlots[i]);
+            if (prevBucketSlot !== undefined) this.bucketContentService.removeBucketMemberSlot(prevBucketSlot, movingEntitySlots[i]);
         }
     }
 }

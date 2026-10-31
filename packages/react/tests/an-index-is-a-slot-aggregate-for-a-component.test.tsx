@@ -2,7 +2,7 @@ import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { OIMDB, createOIMSlotCollectionIndexService } from '@oimdb/core';
 import { OIMDBProvider, useOIMSlotsByKeys, useOIMValue } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TCard = { id: string; deck: string };
@@ -10,7 +10,7 @@ type TCard = { id: string; deck: string };
 describe('an index passed to useOIMSlotsByKeys', () => {
     it('holds the bucket while mounted and renders its members', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const deckIndexService = createOIMSlotCollectionIndexService({ entityService: cardsService, columns: ['deck'] });
         const deckIndex = deckIndexService.createIndexStoreSlot(cards);

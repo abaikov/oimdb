@@ -1,11 +1,11 @@
-import type { OIMSlotContentBucketService } from '../OIMSlotContentBucketService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
-import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
+import type { OIMBucketContentService } from '../OIMBucketContentService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
+import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number };
@@ -13,9 +13,9 @@ type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const PAGE = 1000;
 
-const openDeck = <TSlots>(membersService: OIMSlotContentBucketService<TCardSlot, TSlots>) => {
+const openDeck = <TSlots>(membersService: OIMBucketContentService<TCardSlot, TSlots>) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const deckService = createOIMSlotCollectionService({ slotContentService: membersService });
     const deck = deckService.createStoreSlot(db);
@@ -29,9 +29,9 @@ const openDeck = <TSlots>(membersService: OIMSlotContentBucketService<TCardSlot,
     return { db, membersService, bucket, slots, wakesSoFar: () => wakes };
 };
 
-const arrayDeck = () => new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+const arrayDeck = () => new OIMPositionalArrayBucketContentService<TCardSlot>();
 
-const setDeck = () => new OIMSlotContentSetBucketService<TCardSlot>();
+const setDeck = () => new OIMSetBucketContentService<TCardSlot>();
 
 const holdCountsOf = (slots: readonly TCardSlot[]): number[] => slots.map(slot => slot.holdCount);
 

@@ -22,17 +22,17 @@ derived value all come through it. Every bridge here takes that same `db` as its
 The examples on this page share this store:
 
 ```typescript setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMEntityContentService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 const cards = cardService.createStoreSlot(db);
-const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 const byDeck = byDeckService.createStoreSlot(db);
-const boardService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const boardService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
@@ -58,19 +58,19 @@ const entity = exoBinding(db, {
 });
 
 const deckCards = exoBinding(db, {
-    sourceSlots: [bucket], derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)),
+    sourceSlots: [bucket], derive: () => Array.from(bucket.getBucketMemberSlots()),
 });
 
 const deck = orderService.computedCollectionService.holdSlotByKey(order, 'spades');
 const ordered = exoBinding(db, {
-    sourceComputeds: [deck], derive: () => deck.computedValueService.getValueForSlot(deck),
+    sourceComputeds: [deck], derive: () => deck.value,
 });
 ```
 
 ### Why it takes the engine's arguments and not a wrapper
 
 The core publishes no `{ getValue, onChange }` object for an entity, a field, a bucket or a
-derivation. Reading is `slot.entity`, or `computedSlot.computedValueService.getValueForSlot(computedSlot)`, and watching is
+derivation. Reading is `slot.entity`, or `computedSlot.value`, and watching is
 an effect. Both halves have to be *constructed*, so such a type declared here would have
 exactly one producer (a constructor of ours) and exactly one consumer (a translator of
 ours, one line later). It would be a rename, not a layer.
@@ -80,14 +80,14 @@ get right, and each of them fails **silently**:
 
 | | what goes wrong without it |
 |---|---|
-| settles every derivation before the read | nothing in a frame walks to a computed slot, and only `computedValueService.getValueForSlot` produces its value, so a `derive` that reaches a derivation's result any other way sees whatever the last produce left there |
+| settles every derivation before the read | nothing in a frame walks to a computed slot, and only reading `computedSlot.value` produces its value, so a `derive` that reaches a derivation's result any other way sees whatever the last produce left there |
 | one effect per bindable, none while nobody listens | a second subscriber arming a second effect doubles the cost of every write to that entity |
 
 ### Lifetime is the caller's, and it is not optional
 
 `exoBinding` **holds nothing**. A bindable is lazy: its effect exists only while somebody
 is subscribed, so the bindable outlives its own subscriptions, and a hold scoped to one of them
-buys nothing. The give-back, `slot.owner.unholdSlot(slot)`, ends in `releaseSlotIfUnheld`, so
+buys nothing. The give-back, `slot.unholdSlot()`, ends in `releaseSlotIfUnheld`, so
 returning it at teardown leaves exactly the state the teardown would have left anyway.
 
 So whoever **resolved** the identity holds it for as long as the bindable lives, and signals
@@ -100,9 +100,9 @@ const groupFor = (deckId: string) => {
     const held = orderService.computedCollectionService.holdSlotByKey(order, deckId);   // a hold is what mints one
     return Object.assign(
         exoBinding(db, {
-            sourceComputeds: [held], derive: () => held.computedValueService.getValueForSlot(held),
+            sourceComputeds: [held], derive: () => held.value,
         }),
-        { dispose: () => held.owner.unholdSlot(held) },
+        { dispose: () => held.unholdSlot() },
     );
 };
 ```
@@ -153,7 +153,7 @@ const board = exoPositionalList(db, boardService.slotContentService, bucket, ren
 `oimOrderedListCommandsOfTransition` per frame that moved the list: one pass over both lists,
 one longest-increasing-subsequence pass, and `common − LIS` moves, which is the optimum.
 
-`exoPositionalList(db, slotContentBucketService, bucketSlot, render)` pays nothing at all. It
+`exoPositionalList(db, bucketContentService, bucketSlot, render)` pays nothing at all. It
 takes the bucket collection's **content service** (`bucketService.slotContentService`), the
 object that holds the bucket's slots and its reads. `OIMBucketCommands` records
 `insertBucketMemberSlotAt`, `moveBucketMemberSlotToPosition`, `removeBucketMemberSlotRange` and

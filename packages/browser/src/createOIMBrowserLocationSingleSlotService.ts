@@ -5,5 +5,5 @@ import { OIMBrowserLocationSlotSubscriptionListener } from './OIMBrowserLocation
 import { createOIMBrowserSingleSlotService } from './createOIMBrowserSingleSlotService';
 
 export function createOIMBrowserLocationSingleSlotService(options: TOIMBrowserSingleSlotServiceOptions = {}): TOIMBrowserSingleSlotService<TOIMBrowserLocationEntity> {
-    return createOIMBrowserSingleSlotService<TOIMBrowserLocationEntity>(slotContentEntityService => new OIMBrowserLocationSlotSubscriptionListener(slotContentEntityService), options);
+    return createOIMBrowserSingleSlotService<TOIMBrowserLocationEntity>(entityContentService => new OIMBrowserLocationSlotSubscriptionListener(entityContentService), options);
 }

@@ -4,7 +4,7 @@ import { OIMSlotTreeStoreService } from '../OIMSlotTreeStoreService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { userId: string; day: string; note: string };
@@ -12,7 +12,7 @@ type TRowSlot = TOIMEntitySlot<TRow, readonly TOIMStoreKey[]>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, readonly TOIMStoreKey[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TRowSlot>(new OIMScalarKeyTreeWalk()) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, readonly TOIMStoreKey[]>(), slotStoreService: new OIMSlotTreeStoreService<TOIMStoreKey, TRowSlot>(new OIMScalarKeyTreeWalk()) });
     const rows = rowsService.createStoreSlot(db);
     return { db, rowsService, rows };
 };

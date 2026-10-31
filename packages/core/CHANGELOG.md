@@ -3,6 +3,42 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.4.0
+
+4.x collects feedback; 5.0 freezes the interface.
+
+### Added
+
+
+- `entitySlot.readEntity(columnGroup)`: a tracked read that makes only the group's columns a source.
+
+- Methods on an entity slot (`TOIMEntitySlot`): `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`, `getColumn`, `holdColumn`, `getAnyColumn`, `holdAnyColumn`, `getColumnGroupSlot`, `holdColumnGroup`, `holdSlot`, `unholdSlot`.
+- Methods on a bucket slot (`TOIMBucketSlot`): `getBucketMemberSlots`, `getBucketMemberSlotCount`, `hasBucketMemberSlot`, `getBucketMemberSlotsMissingFrom`, `writeSlotContent`, `addBucketMemberSlot`, `addBucketMemberSlots`, `removeBucketMemberSlot`, `removeBucketMemberSlots`, `clearSlotContent`, `markContentChanged`, `holdSlot`, `unholdSlot`.
+- `holdSlot`, `unholdSlot` on a computed slot (`TOIMComputedSlot`) and a column slot (`TOIMColumnSlot`).
+- `slot.entity` and `computedSlot.value` are getters; read inside a source-tracking body, they make the slot a source. So do a bucket slot's membership reads.
+- `OIMColumnSlotService.getColumnGroupSlot(slot, columnGroup)`.
+
+### Changed
+
+- `TOIMSourceTrackingEffectBody` and `TOIMSourceTrackingComputedDerive` take no `sourceTracker`; no `onSlotRead` hook: slots register their reads with the tracker themselves.
+
+
+- Removed from the public slot types: `content` (entity, computed), `computedValueService` (computed), `bucketSlotsStore` (bucket). Read `slot.entity` / `slot.value`. `IOIMEntityWriter` and `TOIMEntityInserter` take `OIMEntitySlot` (type-only export), whose base is `OIMSlot` (type-only export).
+- A custom `IOIMEntityWriter` or `IOIMSlotStamp` writes the slot's `content`, not `entity`.
+
+### Renamed
+
+- `OIMSlotOwnerService` → `OIMSlotOwnerService`; `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`; `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`; `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
+
+- `OIMSlotContentEntityService` → `OIMEntityContentService`; `createOIMSlotContentEntityService` → `createOIMEntityContentService`; `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`.
+- `OIMSlotContentBucketService` → `OIMBucketContentService`; `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`; `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`; `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`; `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`; `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`; `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`; `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`.
+- `OIMSlotContentComputedService` → `OIMComputedContentService`; `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`; `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`.
+- The old names stay exported as deprecated aliases until 5.0.
+
+### Deprecated
+
+- `OIMEntityContentService`: `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`; `OIMBucketContentService` (and subclasses): `getBucketMemberSlots`, `getBucketMemberSlotCount`, `hasBucketMemberSlot`, `getBucketMemberSlotsMissingFrom`, `writeSlotContent`, `addBucketMemberSlot(s)`, `removeBucketMemberSlot(s)`, `clearSlotContent`, `markContentChanged` → the same method on the slot, without the slot argument.
+
 ## 4.3.0
 
 ### Added

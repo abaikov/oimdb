@@ -2,11 +2,10 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
 import type { TOIMEntityColumnName } from '../types/TOIMEntityColumnName';
-import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
-import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 type TCard = { id: string; title: string; rank: number };
 
@@ -15,7 +14,7 @@ const KEEP_AFTER_WRITE_MS = 60_000;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
     db.flush();
@@ -109,7 +108,7 @@ describe('what a hand mutation has to say to wake anyone', () => {
     it('defers the after-write deadline, so the clock does not evict a row somebody just edited', () => {
         let nowMs = 1_000;
         const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: () => () => undefined });
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: KEEP_AFTER_WRITE_MS }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
         db.flush();
@@ -125,7 +124,7 @@ describe('what a hand mutation has to say to wake anyone', () => {
 
     it('re-stamps emptiness, so a hand mutation that emptied the row does not leave isEmpty lying', () => {
         const { db, cardsService, card } = createFixture();
-        (card as TOIMEditable<TOIMEntitySlot<TCard, string>>).entity = undefined;
+        entitySlotOf(card).content = undefined;
 
         cardsService.slotContentService.markEntityChanged(card);
         db.flush();

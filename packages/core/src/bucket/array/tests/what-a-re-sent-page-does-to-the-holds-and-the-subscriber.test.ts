@@ -1,8 +1,8 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import { OIMEffectService } from '../../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; rank: number };
@@ -16,7 +16,7 @@ const idsOf = (slots: Iterable<TCardSlot>): string[] => Array.from(slots, s => s
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     const makeSlot = (id: string, rank: number): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, rank });
     const shuffledPage = (): TCardSlot[] => {
@@ -24,7 +24,7 @@ const createFixture =() => {
         for (let i = 0; i < PAGE; i++) slots.push(makeSlot(`c${i}`, (i * 7919) % PAGE));
         return slots;
     };
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot>();
     const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
     const decks = decksService.createStoreSlot(db);
     return { db, effectService, makeSlot, shuffledPage, membersService, decksService, decks };

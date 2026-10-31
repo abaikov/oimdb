@@ -34,7 +34,7 @@ Both are snapshot strategies, so every resource here is an `OIMPersistSnapshotRe
 A collection stored as one entry, and a single entity stored at a path of a shared key.
 
 ```ts
-import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistKeyValueEntrySnapshotService, OIMPersistKeyValuePathSnapshotService,
@@ -53,9 +53,9 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TTodo, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const todoCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTodo>({ entityWriter: persistEntityWriter }) });
+const todoCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TTodo>({ entityWriter: persistEntityWriter }) });
 const todoEntityStoreSlot = todoCollectionService.createStoreSlot(db);
-const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'light' });
 
@@ -97,9 +97,7 @@ settingsPersistor.start();
 todoCollectionService.writeSlotContentByKey(todoEntityStoreSlot, 't1', { id: 't1', title: 'write the docs', done: false });
 await todoPersistor.persist();
 
-settingsSingleEntityService.slotContentService.updateEntity(
-    settingsSingleEntityService.getSingleSlot(settingsEntityStoreSlot), { theme: 'dark' },
-);
+settingsSingleEntityService.getSingleSlot(settingsEntityStoreSlot).updateEntity({ theme: 'dark' });
 db.flush();
 await settingsPersistor.whenIdle();
 ```

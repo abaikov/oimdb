@@ -1,5 +1,5 @@
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService } from '@oimdb/core';
 import type { OIMPersistKeyValueWriteBatch, TOIMPersistRecords } from '../src';
 import {
     OIMPersistIdentityCodec,
@@ -11,7 +11,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestKeyValueItemStorage } from './shared/OIMTestKeyValueItemStorage';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
@@ -21,9 +21,9 @@ type TUserPersistRecords = TOIMPersistRecords<TOIMStoreKey, TUser>;
 
 function buildPersistor() {
     const db = new OIMDB();
-    const userEntityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+    const userEntityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
     const userEntityStoreSlot = userEntityCollectionService.createStoreSlot(db);
-    const userBucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const userBucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
     const userBucketStoreSlot = userBucketCollectionService.createStoreSlot(db);
     const bucketSlot = userBucketCollectionService.holdSlotByKey(userBucketStoreSlot, 'all');
     const testKeyValueItemStorage = new OIMTestKeyValueItemStorage();
@@ -45,7 +45,7 @@ function buildPersistor() {
                 channelMap: db,
                 entityCollectionService: userEntityCollectionService,
                 entityStoreSlot: userEntityStoreSlot,
-                slotContentBucketService: userBucketCollectionService.slotContentService,
+                bucketContentService: userBucketCollectionService.slotContentService,
                 bucketSlot,
             }),
             persistSnapshotService: new OIMPersistKeyValueEntrySnapshotService<TUserPersistRecords>({ storageKey }),

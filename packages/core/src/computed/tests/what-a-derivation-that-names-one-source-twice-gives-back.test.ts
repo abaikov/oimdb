@@ -2,14 +2,15 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const doubledComputedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => {
@@ -33,7 +34,7 @@ describe('a derivation that names one ROW twice', () => {
         const card = cardsService.getSlotByKey(cards, 'c1')!;
 
         expect(card.holdCount).toBe(2);
-        expect(derived.computedValueService.getValueForSlot(derived)).toBe(6);
+        expect(readValueWithoutTracking(derived)).toBe(6);
 
         derived.owner.unholdSlot(derived);
 
@@ -65,14 +66,14 @@ describe('a derivation that names one DERIVATION twice', () => {
 
         const readersComputedService = createOIMComputedService<string, number>({
             createSources: () => ({ sourceComputeds: [base, base] }),
-            derive: () => base.computedValueService.getValueForSlot(base) * 2,
+            derive: () => readValueWithoutTracking(base) * 2,
             sameValueGuard: oimSameValueZeroGuard,
         });
         const readers = readersComputedService.createComputedStoreSlot(db);
         const reader = readersComputedService.computedCollectionService.holdSlotByKey(readers, 'r');
 
         expect(base.holdCount).toBe(3);
-        expect(reader.computedValueService.getValueForSlot(reader)).toBe(12);
+        expect(readValueWithoutTracking(reader)).toBe(12);
 
         base.owner.unholdSlot(base);
         expect(doubledService.getSlotByKey(doubled, 'c1')).toBe(base);

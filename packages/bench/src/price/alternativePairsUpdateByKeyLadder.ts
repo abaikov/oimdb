@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
 import { EPricePath } from './EPricePath';
@@ -61,7 +62,7 @@ const writerColumn: TByKeyRung = (fixture, trackedFrame, title, upTo) => {
     const rows = fixture.rows;
     const { entityService, entityStoreSlot } = fixture;
     for (let i = 0; i < upTo; i++) {
-        if (shippedWriter.patchColumn(entityService.getSlotByKey(entityStoreSlot, rows[i].id), 'title', title, undefined)) priceQueueOnce(trackedFrame, i);
+        if (shippedWriter.patchColumn((entityService.getSlotByKey(entityStoreSlot, rows[i].id) as unknown as OIMEntitySlot), 'title', title, undefined)) priceQueueOnce(trackedFrame, i);
     }
 };
 
@@ -71,7 +72,7 @@ const writerColumnAndChannel: TByKeyRung = (fixture, _trackedFrame, title, upTo)
     const channelSlot = fixture.db.defaultChannelSlot;
     for (let i = 0; i < upTo; i++) {
         const slot = entityService.getSlotByKey(entityStoreSlot, rows[i].id);
-        if (shippedWriter.patchColumn(slot, 'title', title, undefined)) channelService.writeWithoutFlushCheck(channelSlot, slot);
+        if (shippedWriter.patchColumn(slot as unknown as OIMEntitySlot, 'title', title, undefined)) channelService.writeWithoutFlushCheck(channelSlot, slot);
     }
 };
 
@@ -84,7 +85,7 @@ const handDoorChecks: TByKeyRung = (fixture, _trackedFrame, title, upTo) => {
         channelService.assertNotFlushing(channelSlot);
         if ((slot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) throw new Error('released');
         if (slot.columnSlotStore !== undefined) throw new Error('column readers');
-        if (!shippedWriter.patchColumn(slot, 'title', title, undefined)) continue;
+        if (!shippedWriter.patchColumn(slot as unknown as OIMEntitySlot, 'title', title, undefined)) continue;
         channelService.writeWithoutFlushCheck(channelSlot, slot);
         slot.owner.releaseSlotIfUnheld(slot);
     }
@@ -112,7 +113,7 @@ const compareWithoutRevision: TByKeyRung = (fixture, _trackedFrame, title, upTo)
     for (let i = 0; i < upTo; i++) {
         const slot = entityService.getSlotByKey(entityStoreSlot, rows[i].id);
         channelService.assertNotFlushing(channelSlot);
-        if (!shippedWriter.patchColumn(slot, 'title', title, undefined)) continue;
+        if (!shippedWriter.patchColumn(slot as unknown as OIMEntitySlot, 'title', title, undefined)) continue;
         const effects = slot.effects;
         if (effects !== undefined && effects.length !== 0) channelService.writeWithoutFlushCheck(channelSlot, slot);
     }
@@ -130,7 +131,7 @@ const storeWhenUnwatched: TByKeyRung = (fixture, _trackedFrame, title, upTo) => 
             (slot.entity as Record<string, unknown>).title = title;
             continue;
         }
-        if (shippedWriter.patchColumn(slot, 'title', title, undefined)) channelService.writeWithoutFlushCheck(channelSlot, slot);
+        if (shippedWriter.patchColumn(slot as unknown as OIMEntitySlot, 'title', title, undefined)) channelService.writeWithoutFlushCheck(channelSlot, slot);
     }
 };
 

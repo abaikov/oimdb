@@ -1,3 +1,4 @@
+import { OIMSlotOwner } from './OIMSlotOwner';
 import type { IOIMSlotStamp } from './interfaces/IOIMSlotStamp';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
@@ -14,7 +15,7 @@ import type { TOIMEditable } from './types/TOIMEditable';
 import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSlotOwnerServiceOptions } from './types/TOIMSlotOwnerServiceOptions';
-import { OIMSlotOwner } from './OIMSlotOwner';
+import { OIMColumnSlotService } from '../column/OIMColumnSlotService';
 import { OIMSlotAtEmptyReleasePolicy } from '../collector/OIMSlotAtEmptyReleasePolicy';
 import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
 import { oimGetChannelSlot } from './utils/oimGetChannelSlot';
@@ -29,7 +30,7 @@ export class OIMSlotOwnerService<
     TSlot extends TOIMSlot, TStore, TColumnName extends string, TColumnSlot extends TOIMKeyedSlot<string>,
     TColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TColumnSlot>, TPatch = unknown,
 > extends OIMSlotOwner {
-    private readonly slotContentService: IOIMSlotContentService<TSlot>;
+    public readonly slotContentService: IOIMSlotContentService<TSlot>;
 
     private readonly slotFilingService: IOIMSlotFilingService<TSlot, TStore>;
 
@@ -47,6 +48,8 @@ export class OIMSlotOwnerService<
 
     public readonly columnSlotOwner: TColumnSlotOwner;
 
+    public readonly columnSlotService: OIMColumnSlotService<TSlot, TColumnName, TColumnSlot, TColumnSlotOwner>;
+
     public constructor(
         options: TOIMSlotOwnerServiceOptions<TSlot, TStore, TColumnName, TColumnSlot, TColumnSlotOwner>,
     ) {
@@ -61,6 +64,7 @@ export class OIMSlotOwnerService<
         this.settlesWrittenSlots = this.releasesWrittenSlots || this.schedulesReleaseOnWrite || options.slotStamp !== undefined;
         this.slotSubscriptionListener = options.slotSubscriptionListener ?? OIMNoSlotSubscriptionListener.INSTANCE;
         this.columnSlotOwner = options.createColumnSlotOwner(options.columnSlotOwnerOptions);
+        this.columnSlotService = new OIMColumnSlotService<TSlot, TColumnName, TColumnSlot, TColumnSlotOwner>(this.columnSlotOwner);
     }
 
     public isSlotEmpty(slot: TSlot): boolean {

@@ -37,7 +37,7 @@ export class OIMPersistCollectionWriteRecordSource<
 
     public writeSnapshot(persistRecords: TOIMPersistRecords<TKey, TEntity>): void {
         const entityCollectionService = this.entityCollectionService;
-        const slotContentEntityService = entityCollectionService.slotContentService;
+        const entityContentService = entityCollectionService.slotContentService;
         const entityStoreSlot = this.entityStoreSlot;
         entityCollectionService.writeInBatch(entityStoreSlot, () => {
             const restoredEntitySlots = new Set<TOIMEntitySlot<TEntity, TKey>>(
@@ -46,7 +46,7 @@ export class OIMPersistCollectionWriteRecordSource<
             const entitySlots = Array.from(entityCollectionService.getSlots(entityStoreSlot));
             for (let i = 0; i < entitySlots.length; i++) {
                 const entitySlot = entitySlots[i];
-                if (entitySlot.entity !== undefined && !restoredEntitySlots.has(entitySlot)) slotContentEntityService.clearSlotContent(entitySlot);
+                if (entitySlot.entity !== undefined && !restoredEntitySlots.has(entitySlot)) entityContentService.clearSlotContent(entitySlot);
             }
         });
     }

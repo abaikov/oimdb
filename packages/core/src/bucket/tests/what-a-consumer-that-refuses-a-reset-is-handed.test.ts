@@ -1,11 +1,11 @@
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../db/OIMDB';
 import { OIM_MAX_COMMANDS_PER_SLOT } from '../commands/constants/OIM_MAX_COMMANDS_PER_SLOT';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../tests/support/orderedListConsumer';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../commands/types/TOIMOrderedListCommand';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string };
@@ -24,9 +24,9 @@ type TFixture = {
 
 const aConsumerDrawnUpToTheFrameBeforeItsEdits = (maxCommandsPerSlot?: number): TFixture => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
+    const membersService = new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({
         bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot }),
     });
     const listService = createOIMSlotCollectionService({ slotContentService: membersService });

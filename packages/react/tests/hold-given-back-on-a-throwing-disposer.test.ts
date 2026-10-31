@@ -21,12 +21,12 @@
  * where React logs the error and carries on. Nothing else notices.
  */
 import type { TOIMDisposer, TOIMSlot, TOIMEditable, TOIMStoreSlot } from '@oimdb/core';
-import { OIMDB, OIMSlotOwner, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
+import { OIMDB, OIMSlotOwner, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
 import { holdWhileSubscribed } from '../src/holdWhileSubscribed';
 
 function countingOwnerSlot(): TOIMSlot {
     const db = new OIMDB();
-    const storeSlot = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ id: string }>() })
+    const storeSlot = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<{ id: string }>() })
         .createStoreSlot(db) as TOIMStoreSlot;
     const slot: TOIMSlot = {
         effects: undefined,

@@ -16,7 +16,7 @@ import type { OIMPersistMemoryBackend, OIMPersistMemoryWriteBatch } from '@oimdb
 import { OIMPersistMemoryRecordsService, OIMPersistMemorySnapshotService } from '@oimdb/persist-memory';
 import type { TOIMPersistJsonDump } from '../src';
 import { OIMPersistJsonMemoryBackend } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
@@ -32,7 +32,7 @@ function buildQuestions(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TQuestion, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TQuestion>({ entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TQuestion>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TQuestion>({
         entityCollectionService: entityService,
@@ -191,7 +191,7 @@ describe('@oimdb/persist-json', () => {
 
     test('a single entity survives the JSON transport', async () => {
         const buildSettings = (db: OIMDB, settings: TSettings) => {
-            const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+            const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
             const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
             singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
             db.flush();

@@ -1,13 +1,13 @@
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import type { TOIMEffect } from '../../effect/types/TOIMEffect';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; title: string; draft: boolean };
@@ -21,7 +21,7 @@ type TSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<TCard>>;
 function mirrorBucket(
     db: OIMDB,
     effectService: OIMEffectService,
-    collection: OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>,
+    collection: OIMSetBucketContentService<TOIMEntitySlot<TCard>>,
     bucket: TOIMBucketSlot<TSlots, TOIMStoreKey>,
     onFrame: (written: TOIMEntitySlot<TCard>[], deleted: TOIMEntitySlot<TCard>[]) => void,
 ): () => void {
@@ -73,9 +73,9 @@ function mirrorBucket(
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>() });
     const cards = cardsService.createStoreSlot(db);
-    const viewService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>() });
+    const viewService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>() });
     const view = viewService.createStoreSlot(db);
     const bucketAt =(key: TOIMStoreKey): TOIMBucketSlot<TSlots, TOIMStoreKey> => {
         return viewService.holdSlotByKey(view, key);

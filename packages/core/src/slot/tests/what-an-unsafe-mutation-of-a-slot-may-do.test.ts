@@ -2,7 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotOwner } from '../OIMSlotOwner';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEditable } from '../types/TOIMEditable';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TRow = { id: string };
@@ -12,7 +12,7 @@ const LIBRARY_SLOT_FLAG = 32;
 describe('what an unsafe mutation of a slot may do', () => {
     it('runs the mutation on the slot itself, so a library can set a bit of its own', () => {
         const db = new OIMDB();
-        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+        const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
         const slot = rowsService.writeSlotContentByKey(rowsService.createStoreSlot(db), 'r', { id: 'r' });
 
         slot.owner.unsafeMutateSlot(slot, editableSlot => { editableSlot.slotFlags |= LIBRARY_SLOT_FLAG; });

@@ -2,9 +2,9 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { OIMDB } from '../src/index';
 import type { TOIMStoreKey } from '../src/index';
-import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
-import type { OIMSlotContentEntityService } from '../src/entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../src/entity/OIMEntityContentService';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -17,8 +17,8 @@ const deriveMiddle = (item: TSource): TMiddle =>
 
 /** Every row a collection is actually holding, keyed by its own key. */
 const rowsOf = <TEntity extends object>(
-    entityService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TEntity>>>,
-    storeSlot: Parameters<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TEntity>>>['getSlots']>[0],
+    entityService: ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TEntity>>>,
+    storeSlot: Parameters<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TEntity>>>['getSlots']>[0],
 ): Map<TOIMStoreKey, TEntity> => {
     const found = new Map<TOIMStoreKey, TEntity>();
     for (const slot of entityService.getSlots(storeSlot)) {
@@ -31,11 +31,11 @@ const rowsOf = <TEntity extends object>(
     return found;
 };
 
-const sourceServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TSource>>> =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TSource>() });
+const sourceServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TSource>>> =>
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TSource>() });
 
-const middleServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TMiddle>>> =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TMiddle>() });
+const middleServiceOn = (): ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TMiddle>>> =>
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TMiddle>() });
 
 const everySourceFile = (dir: string): string[] => {
     const found: string[] = [];

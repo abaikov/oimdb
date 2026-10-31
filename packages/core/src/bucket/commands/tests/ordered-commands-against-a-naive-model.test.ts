@@ -1,8 +1,8 @@
-import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, oimOrderedListCommandsOfTransition } from '../../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, oimOrderedListCommandsOfTransition } from '../../../index';
 import type { TOIMEntitySlot, TOIMOrderedListCommand, TOIMBucketSlotsArrayStore, TOIMSlot } from '../../../index';
 import { assertConsistent, entitiesUnderTest } from '../../../../tests/support/assertConsistent';
 import type { TBucketsUnderTest } from '../../../../tests/support/assertConsistent';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../../slot/createOIMSingleSlotService';
 import type { TOIMBucketContentSlot } from '../../types/TOIMBucketContentSlot';
@@ -72,7 +72,7 @@ type TFollower = {
  * helper makes about a bucket's slots would otherwise be skipped.
  */
 const asCollectionOfOne = (
-    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+    membersService: OIMPositionalArrayBucketContentService<TCardSlot>,
     bucket: TOIMBucketContentSlot<TSlots>,
 ): TBucketsUnderTest => ({
     bucketSlots: [bucket],
@@ -85,9 +85,9 @@ const run = (seed: number, steps: number): void => {
     const random = makeRandom(seed);
 
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>();
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot>();
     const singleBucketService = createOIMSingleSlotService({ slotContentService: membersService });
     const singleBucket = singleBucketService.createStoreSlot(db);
     const bucket = singleBucketService.getSingleSlot(singleBucket);

@@ -31,17 +31,17 @@ entity it has not seen before. Each entity it has already seen reports itself.
 The examples on this page share this setup:
 
 ```typescript setup
-import { OIMDB, OIMSlotContentSetBucketService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotCollectionService, OIMSlotContentEntityService, type TOIMSlotStoreTree, type TOIMStoreSlot, OIMWritableSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotCollectionService, createOIMEntityContentService, OIMSlotCollectionService, OIMEntityContentService, type TOIMSlotStoreTree, type TOIMStoreSlot, OIMWritableSlotCollectionService } from '@oimdb/core';
 import { OIMReduxAdapter } from '@oimdb/redux-adapter';
 
 type TUser = { id: string; name: string; teamId: string };
 type TUserSlot = TOIMEntitySlot<TUser>;
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
 const users = userService.createStoreSlot(db);
 
-const createTeamBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+const createTeamBucketService = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
 
 const adapter = new OIMReduxAdapter({ channelMap: db });
 ```
@@ -119,13 +119,13 @@ function saveUser(user: TUser, everyone: readonly TUser[]): void {
     const team = everyone.filter(u => u.teamId === user.teamId)
         .map(u => userService.holdSlotByKey(users, u.id));
     const teamBucket = byTeamService.holdSlotByKey(byTeam, user.teamId);
-    byTeamService.slotContentService.writeSlotContent(teamBucket, team);
-    teamBucket.owner.unholdSlot(teamBucket);
-    for (const one of team) one.owner.unholdSlot(one);
+    teamBucket.writeSlotContent(team);
+    teamBucket.unholdSlot();
+    for (const one of team) one.unholdSlot();
 
     const all = everyone.map(u => userService.holdSlotByKey(users, u.id));
-    everyUserService.slotContentService.writeSlotContent(everyUser, all);
-    for (const one of all) one.owner.unholdSlot(one);
+    everyUser.writeSlotContent(all);
+    for (const one of all) one.unholdSlot();
 }
 
 const keyedIndex: TOIMReduxKeyedIndex<string, string, TUser> = {
@@ -146,11 +146,11 @@ const everyUserReducer = adapter.createGlobalIndexReducer<
 ```
 
 A bucket collection is **built by the caller**, with `createOIMSlotCollectionService(options)`.
-Its `slotContentService` decides how the slots are held: `OIMSlotContentSetBucketService`
-in a set, `OIMSlotContentPositionalArrayBucketService` (the default) at positions the caller places,
-`OIMSlotContentSortedArrayBucketService` in a sorter's order. A `bucketSlotStoreService`
+Its `slotContentService` decides how the slots are held: `OIMSetBucketContentService`
+in a set, `OIMPositionalArrayBucketContentService` (the default) at positions the caller places,
+`OIMSortedArrayBucketContentService` in a sorter's order. A `bucketSlotStoreService`
 option fixes a non-scalar address type. A bucket's slots are always written with
-`bucketService.slotContentService.writeSlotContent(bucketSlot, slots)`, so a bucket
+`bucketSlot.writeSlotContent(slots)`, so a bucket
 collection has nothing left to derive.
 
 **An auto-index cannot be registered here, and the types say so.** The keyed and global
@@ -168,7 +168,7 @@ is the instance and carries its store; only the service reads that store, throug
 touches `bucketStoreSlot.store`, so no registration can name a store its service does not answer for.
 
 **The Global registration names the bucket slot apart from its service, and that split comes from the engine.** The call that
-writes a bucket is `bucketService.slotContentService.writeSlotContent(bucketSlot, slots)`, which is handed the bucket it is about
+writes a bucket is `bucketSlot.writeSlotContent(slots)`, which is handed the bucket it is about
 and looks nothing up. So the writer (`bucketService`) and the identity (`bucketSlot`)
 are named separately.
 
@@ -263,12 +263,12 @@ type TFlatState = TOIMReduxDefaultCollectionState<TFlatProgress, string>;
 // `progress` is addressed by
 // [userService.holdSlotByKey(users, userId), cardService.holdSlotByKey(cards, cardId)] — no scalar key of its own.
 declare const progressService: OIMWritableSlotCollectionService<
-    TProgressKey, TProgressSlot, TProgressStore, TProgress, OIMSlotContentEntityService<TProgress, TProgressKey>
+    TProgressKey, TProgressSlot, TProgressStore, TProgress, OIMEntityContentService<TProgress, TProgressKey>
 >;
 declare function progressKeyOf(item: TProgress): TProgressKey;
 declare const progress: TOIMStoreSlot<TProgressStore, TProgressSlot, Partial<TProgress>>;
 
-const flatService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TFlatProgress>() });
+const flatService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TFlatProgress>() });
 const flat = flatService.createStoreSlot(db);
 
 function saveProgress(item: TProgress): void {
@@ -317,7 +317,7 @@ are `bucketService` and `bucketStoreSlot`, `linkedEntityService` and `linkedEnti
 `fieldName`. Its constructor takes one **required** argument, `keyOf: (entity: TEntity) =>
 TOIMStoreKey`, and its two methods are `updateLinkedIndexesForEntities(linkedIndexes,
 updatedEntities)` and `removeLinkedIndexesByKeys(linkedIndexes, removedPks)`. Each writes a
-bucket with `bucketService.slotContentService.writeSlotContent(bucketService.getSlotByKey(bucketStoreSlot, key), slots)`.
+bucket with `bucketService.getSlotByKey(bucketStoreSlot, key).writeSlotContent(slots)`.
 
 The first takes **entities, not keys**, and keys are what it must not take: the caller
 has the keys of a plain Redux record, which are always strings, even for a numerically keyed

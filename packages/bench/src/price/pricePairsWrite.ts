@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
+import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService, oimInsertEntityWithoutCopy } from '../../../core/src/index';
 import type {
     IOIMEntityWriter,
     TOIMEntitySlot,
@@ -14,7 +14,7 @@ import type { TPriceSide } from './TPriceSide';
 import { priceRoundSide } from './priceRoundSide';
 import { priceCloseTrackedFrame, priceQueueOnce, priceTrackedFrame } from './priceTrackedFrame';
 import type { TPriceTrackedFrame } from './priceTrackedFrame';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 const strictEquality = (a: unknown, b: unknown): boolean => a === b;
@@ -190,7 +190,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
             return {
@@ -238,7 +238,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
             const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithoutCopy });
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter }) });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter }) });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let map = new Map<string, TPriceDataRow>();
             return {
@@ -286,7 +286,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             let entityStoreSlot = entityService.createStoreSlot(db);
             let store = makeTrackedStore();
             return {
@@ -489,7 +489,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         caveat:
             'THE TWO "IS ANYBODY LISTENING" GUARDS, PUT ON THE FLOOR. A write that moves a column ' +
             'asks two questions before it can skip the routing: ' +
-            '`OIMSlotContentEntityService.isOnFastPath` tests `entitySlot.columnSlotStore !== ' +
+            '`OIMEntityContentService.isOnFastPath` tests `entitySlot.columnSlotStore !== ' +
             'undefined` (no column of this row was ever subscribed to), and ' +
             'the content change listener check reads `slot.storeSlot` and then that store slot\'s ' +
             '`contentChangeListeners` and tests `length !== 0` (no index hears this ' +
@@ -599,7 +599,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const side = (strategy: IOIMEntityWriter | undefined): TPriceSide => {
                 const rows = priceDataset.makeRows(priceDataset.batch);
                 const db = new OIMDB();
-                const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter: strategy }) });
+                const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter: strategy }) });
                 const slotContentService = entityService.slotContentService;
                 const entityStoreSlot = entityService.createStoreSlot(db);
                 const slots = entityService.writeInBatch(entityStoreSlot, () => rows.map(row => entityService.writeSlotContentByKey(entityStoreSlot, row.id, row)));
@@ -940,7 +940,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             '`hasOwnProperty` probe of the caller\'s row per name, and its floor makes neither — so the walk sits ' +
             'inside that row\'s residual with the marking, the routing and four extra columns of ' +
             'comparison, and nothing separates it from them. Here the floor makes the identical ' +
-            'walk, to the line of `OIMSlotContentEntityService.writeEntity`, and stores five columns after ' +
+            'walk, to the line of `OIMEntityContentService.writeEntity`, and stores five columns after ' +
             'it. THE ITEM IS THE DIFFERENCE BETWEEN THIS ROW\'S GAP AND THAT ROW\'S GAP, and ' +
             'nothing else about either arm changes. ' +
             'OUR ARM IS THAT ROW\'S ARM TO THE CHARACTER — the same fixture, the same two ' +
@@ -1052,7 +1052,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const fixture = priceFixture(priceDataset.batch);
             const indexService = createOIMSlotCollectionIndexService({
                 entityService: fixture.entityService,
-                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
+                slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
             });
             const names = priceDataset.groupNames();
@@ -1145,7 +1145,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(priceDataset.batch);
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             const slotContentService = entityService.slotContentService;
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
             let map = new Map<string, TPriceDataRow>();
@@ -1195,11 +1195,11 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const rows = priceDataset.makeRows(priceDataset.batch);
             const names = priceDataset.groupNames();
             const db = new OIMDB();
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             const slotContentService = entityService.slotContentService;
             const indexService = createOIMSlotCollectionIndexService({
                 entityService,
-                slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TPriceDataRow>>(),
+                slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
                 keyOf: (row: TPriceDataRow) => row.group,
             });
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];

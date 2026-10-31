@@ -7,10 +7,10 @@ import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 
 export type TOIMSlotCollectionIndexServiceOptions<
-    TKey extends NonNullable<unknown>, TEntity extends object, TBucketSlot extends TOIMKeyedSlot<TKey>, TStore, TSlotContentService,
+    TKey extends NonNullable<unknown>, TEntity extends object, TBucketSlot extends TOIMKeyedSlot<TKey>, TStore, TBucketContentService,
     TSourceKey extends NonNullable<unknown>, TSourceStore,
 > = TOIMSlotCollectionServiceOptions<
-    TKey, TBucketSlot, TStore, TSlotContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner
+    TKey, TBucketSlot, TStore, TBucketContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner
 > & {
     keyOf: (entity: TEntity) => TKey;
     columns?: readonly string[] | undefined;

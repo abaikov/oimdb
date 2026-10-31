@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { IOIMEntityWriter, TOIMColumnSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_RELEASED } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_RELEASED';
@@ -11,7 +12,7 @@ import { priceRoundSide } from './priceRoundSide';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TDoorSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
@@ -40,7 +41,7 @@ class UpdateDoorProbe {
         const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
-        if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
+        if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
         slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
@@ -49,7 +50,7 @@ class UpdateDoorProbe {
         const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
-        if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
+        if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
     }
 
@@ -57,14 +58,14 @@ class UpdateDoorProbe {
         const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         slotOwnerService.assertWritable(entitySlot);
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
-        if (!probeWriter.patchEntity(entitySlot, patch, undefined)) return;
+        if (!probeWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
     }
 
     public updateOneChannelUnasserted(entitySlot: TDoorSlot, patch: Partial<TPriceDataRow>): void {
         const slotOwnerService = entitySlot.owner as TDoorSlotOwnerService;
         if (!this.doorInternals.isOnFastPath(entitySlot)) throw new Error('column readers');
-        if (!this.entityWriter.patchEntity(entitySlot, patch, undefined)) return;
+        if (!this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, undefined)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(entitySlot), entitySlot);
         slotOwnerService.releaseWrittenSlotIfUnheld(entitySlot);
     }
@@ -74,7 +75,7 @@ type TDoorWrite = (updateDoorProbe: UpdateDoorProbe, slot: TDoorSlot, patch: Par
 
 const doorSide = (write: TDoorWrite): TPriceSide => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TPriceDataRow> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter: probeWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TPriceDataRow> = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter: probeWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const updateDoorProbe = new UpdateDoorProbe(entityService.slotContentService);
     const fixture = priceLoadedCollection(db, entityService, entityService.createStoreSlot(db), priceDataset.makeRows(priceDataset.batch));
     const patch: { title: string } = { title: '' };
@@ -95,7 +96,7 @@ const functionDoor: TDoorWrite = (_updateDoorProbe, slot, patch) => {
     OIMChannelService.INSTANCE.assertNotFlushing(channelSlot);
     if ((slot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) throw new Error('released');
     if (slot.columnSlotStore !== undefined) throw new Error('column readers');
-    if (!probeWriter.patchEntity(slot, patch, undefined)) return;
+    if (!probeWriter.patchEntity(slot as unknown as OIMEntitySlot, patch, undefined)) return;
     OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, slot);
 };
 
@@ -116,7 +117,7 @@ const doorPair = (step: string, ours: TDoorWrite, oursText: string, floor: TDoor
 export const alternativePairsUpdateDoor: readonly TPricePair[] = [
     doorPair('shipped-vs-one-channel-method', shippedDoor, 'entityService.slotContentService.updateEntity(slot, patch) — the shipped door',
         oneChannelDoor, 'a probe method doing only the one-channel path: assert, column-reader check, writer, channel, release',
-        'the shipped OIMSlotContentEntityService.updateEntity against one probe method, and releaseWrittenSlotIfUnheld — a no-op under the default AtEmpty policy — on the shipped side against the full releaseSlotIfUnheld the method runs; both sides read isOnFastPath.'),
+        'the shipped OIMEntityContentService.updateEntity against one probe method, and releaseWrittenSlotIfUnheld — a no-op under the default AtEmpty policy — on the shipped side against the full releaseSlotIfUnheld the method runs; both sides read isOnFastPath.'),
     doorPair('release-check', oneChannelDoor, 'the one-channel method with releaseSlotIfUnheld',
         unreleasedDoor, 'the same method without releaseSlotIfUnheld',
         'a full releaseSlotIfUnheld after a landed write, which the shipped updateEntity does not run by default: it calls releaseWrittenSlotIfUnheld, a no-op unless the release policy releases written slots.'),

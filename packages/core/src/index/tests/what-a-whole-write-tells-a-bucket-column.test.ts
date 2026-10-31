@@ -1,7 +1,7 @@
 import { OIMDefaults } from '../../index';
 import { OIMDB, OIMEffectService, createOIMInPlaceEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
 import type { IOIMEntityWriter, TOIMEntityColumnName, TOIMEntitySlot, TOIMStoreKey } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; rank?: number | undefined; title: string };
@@ -9,7 +9,7 @@ type TCard = { id: string; deck: string; rank?: number | undefined; title: strin
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
@@ -61,7 +61,7 @@ describe('what a whole write tells a bucket column', () => {
         };
         const defaults = new OIMDefaults({ entityWriter });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', rank: 1, title: 't' });
 

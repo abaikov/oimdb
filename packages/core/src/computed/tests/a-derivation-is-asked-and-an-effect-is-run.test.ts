@@ -1,21 +1,22 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TRow = { id: string; title: string; n: number };
 
 const createFixture =() => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -52,7 +53,7 @@ const createDerived = (
         getSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof derived) => {
             const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
     return { derivedService, derived };
@@ -317,7 +318,7 @@ describe('when a node was born decides which frames it hears about', () => {
 describe('what a write reaches, and what only the caller reaches', () => {
     it('wakes the slot and the column a write moved, and never a bucket', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
+        const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TRow, TOIMStoreKey>>() });
 
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', title: 'gamma', n: 0 });
         db.flush();

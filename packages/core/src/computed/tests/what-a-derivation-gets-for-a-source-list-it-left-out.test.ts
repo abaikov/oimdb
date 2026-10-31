@@ -1,7 +1,8 @@
 import { OIMDB } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../index';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; n: number };
 
@@ -14,7 +15,7 @@ const createNumberService = () => {
         getSingleSlot: (storeSlot: TStoreSlot) => collectionService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
 };
@@ -35,7 +36,7 @@ describe('what a derivation gets for a source list it left out', () => {
 
     it('derives again when a named source slot moves, with no source computeds named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();
@@ -49,7 +50,7 @@ describe('what a derivation gets for a source list it left out', () => {
 
     it('derives again when a named source computed moves, with no source slots named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();

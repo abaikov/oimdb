@@ -1,13 +1,13 @@
 import { OIMDB, OIMSlotAfterWriteReleasePolicy } from '../../index';
 import type { IOIMSlotReleasePolicy, TOIMDBOptions } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
 const cardsWith = (slotReleasePolicy?: IOIMSlotReleasePolicy, dbOptions?: TOIMDBOptions) => {
     const db = new OIMDB(dbOptions);
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy });
     const cards = cardsService.createStoreSlot(db);
     return { db, cards, cardsService };
 };

@@ -1,4 +1,3 @@
-import type { TOIMEditable } from '../src/slot/types/TOIMEditable';
 /**
  * A slot is one plain struct six subsystems reach into, and each of them can be
  * right on its own: `slot.entity` was assigned at six correct sites and the
@@ -30,8 +29,9 @@ import { join, sep } from 'node:path';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../src/index';
 import type { TOIMColumnSlot } from '../src/column/types/TOIMColumnSlot';
 import { OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, oimIsSlotReleased } from '../src/index';
-import { createOIMSlotContentEntityService } from '../src/index';
+import { createOIMEntityContentService } from '../src/index';
 import { createOIMSlotCollectionService } from '../src/index';
+import { entitySlotOf } from './support/entitySlotOf';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -110,11 +110,13 @@ const fileAt = (path: string): TFile => files.find(file => file.path === path) a
 const SLOT_TYPES = [
     'slot/types/TOIMSlot.ts',
     'entity/types/TOIMEntityContentSlot.ts',
+    'entity/OIMEntitySlot.ts',
+    'slot/OIMSlot.ts',
     'slot/types/TOIMKeyedSlot.ts',
     'slot/types/TOIMIndexableSlot.ts',
 ] as const;
 
-const FIELD_LINE = /^ {4}(?:readonly )?([A-Za-z_$][\w$]*)\??\s*:/gm;
+const FIELD_LINE = /^ {4}(?:public )?(?:readonly )?([A-Za-z_$][\w$]*)\??\s*:/gm;
 
 const fieldsOf = (path: string): string[] => {
     const text = fileAt(path).lines.join('\n');
@@ -207,11 +209,11 @@ const writerFiles = [...new Set(writes.map(write => write.path))].sort();
 const SIDES: Record<string, readonly string[]> = {
     /** `createOIMInPlaceEntityWriter` is absent because it writes the record's fields and never the field holding it. */
     value: [
-        'entity/utils/oimClearEntity.ts entity×1',
-        'entity/utils/oimInsertEntityWithCopy.ts entity×1',
-        'entity/utils/oimInsertEntityWithSanitizedCopy.ts entity×1',
-        'entity/utils/oimInsertEntityWithoutCopy.ts entity×1',
-        'entity/createOIMReplacingEntityWriter.ts entity×2',
+        'entity/utils/oimClearEntity.ts content×1',
+        'entity/utils/oimInsertEntityWithCopy.ts content×1',
+        'entity/utils/oimInsertEntityWithSanitizedCopy.ts content×1',
+        'entity/utils/oimInsertEntityWithoutCopy.ts content×1',
+        'entity/createOIMReplacingEntityWriter.ts content×2',
     ],
     /**
      * `holdCount` summarises nothing, which is why the field exists: a caller
@@ -220,7 +222,7 @@ const SIDES: Record<string, readonly string[]> = {
      * `++` latched by a structure and a `--` beside the line that drops it.
      */
     hold: [
-        'slot/OIMSlotOwner.ts effectEdges×1 effects×1 holdCount×2',
+        'slot/OIMSlotOwner.ts effectEdges×1 effects×1 holdCount×2 slotFlags×2',
     ],
     /**
      * `OIMChannelService.writeWithoutFlushCheck` stamps a bare struct it was handed without knowing
@@ -230,7 +232,7 @@ const SIDES: Record<string, readonly string[]> = {
      */
     frame: [
         'channel/OIMChannelService.ts changedAtEpoch×1 changedAtRevision×1',
-        'computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1',
+        'computed/utils/oimRefreshComputedSlot.ts changedAtEpoch×1 changedAtRevision×1 content×1',
     ],
     /**
      * `OIMSlotTreeStoreService` NORMALISES a key rather than only filing
@@ -258,7 +260,14 @@ const SIDES: Record<string, readonly string[]> = {
     ],
 };
 
-const EXEMPT: readonly string[] = [];
+const EXEMPT: readonly string[] = [
+    'slot/OIMSlot.ts changedAtEpoch×1 changedAtRevision×1 columnSlotStore×1 effectEdges×1 effects×1 holdCount×1 '
+        + 'owner×1 releaseDueAfterIdleMs×1 releaseDueAfterUnholdMs×1 releaseDueAfterWriteMs×1 slotFlags×1 storeSlot×1',
+    'entity/OIMEntitySlot.ts content×1 data×1 indexKeys×1 key×1',
+    'computed/OIMComputedSlot.ts content×1 indexKeys×1 key×1',
+    'bucket/OIMBucketSlot.ts indexKeys×1 key×1',
+    'column/OIMColumnSlot.ts changedAtEpoch×1 changedAtRevision×1 key×1',
+];
 
 const sideNames = Object.keys(SIDES).sort();
 const filesOf = (entries: readonly string[]): string[] =>
@@ -273,18 +282,18 @@ describe('which side of a slot owns which part', () => {
         expect(writes.filter(write => write.path === 'entity/createOIMReplacingEntityWriter.ts').length).toBe(2);
     });
 
-    it('a slot has the sixteen fields the four types declare', () => {
+    it('a slot has the seventeen fields the four types declare', () => {
         expect(FIELDS).toEqual([
-            'changedAtEpoch', 'changedAtRevision', 'columnSlotStore',
+            'changedAtEpoch', 'changedAtRevision', 'columnSlotStore', 'content',
             'data', 'effectEdges', 'effects', 'entity', 'holdCount', 'indexKeys',
             'key', 'owner', 'releaseDueAfterIdleMs', 'releaseDueAfterUnholdMs', 'releaseDueAfterWriteMs', 'slotFlags',
             'storeSlot',
         ]);
         // `[,:]` because two of them are shorthand (`key,` and `owner,`), which
         // is a spelling and not a difference: both put the name in the literal.
-        const minted = fileAt('entity/utils/createOIMEntitySlot.ts').lines.join('\n');
+        const minted = [fileAt('slot/OIMSlot.ts'), fileAt('entity/OIMEntitySlot.ts')].map(file => file.lines.join('\n')).join('\n');
         for (const field of FIELDS) {
-            expect({ field, minted: new RegExp(String.raw`^ {8}${field}\s*[,:]`, 'm').test(minted) })
+            expect({ field, minted: new RegExp(String.raw`^( {8}this\.${field} = | {4}public get ${field}\(\))`, 'm').test(minted) })
                 .toEqual({ field, minted: true });
         }
     });
@@ -377,7 +386,7 @@ describe('a population writes its rows through the strategy it was given', () =>
 
     const collectionOver = (write: IOIMEntityWriter) => {
         const db = new OIMDB();
-        const rowCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+        const rowCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>({ entityWriter: write }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
         const rowEntityService = {
             upsertEntity: (storeSlot: TRowStoreSlot, row: TRow) => rowCollectionService.writeSlotContentByKey(storeSlot, row.id, row),
             updateEntityByKey: (storeSlot: TRowStoreSlot, key: string, patch: Partial<TRow>) => {
@@ -421,7 +430,7 @@ describe('a population writes its rows through the strategy it was given', () =>
         const freezing: IOIMEntityWriter = {
             ...createOIMInPlaceEntityWriter(),
             fillEntity: (slot, item) => {
-                (slot as TOIMEditable<typeof slot>).entity = Object.freeze({ ...item });
+                entitySlotOf(slot).content = Object.freeze({ ...item });
             },
         };
         const [rowEntityService, rows, channel] = collectionOver(freezing);

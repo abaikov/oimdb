@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from '../../../core/src/computed/OIMComputedSlot';
 import { OIMSlotMapStoreService, createOIMComputedService } from '../../../core/src/index';
 import type { TOIMComputedColumnSlot, TOIMComputedSlot, TOIMEntitySlot, TOIMStoreKey } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
@@ -41,7 +42,7 @@ import type { TPricePair } from './TPricePair';
  * traversal. Both arms below dedup, and they dedup in DIFFERENT PLACES; that is
  * the whole content of the pair.
  *
- * WHICH ARM IS THE REAL CODE. Ours is: the slots are a real entity service's (`createOIMSlotCollectionService` with `createOIMSlotContentEntityService`),
+ * WHICH ARM IS THE REAL CODE. Ours is: the slots are a real entity service's (`createOIMSlotCollectionService` with `createOIMEntityContentService`),
  * the writes go through the shipped `OIMChannelService.write` by way of `entityService.slotContentService.updateEntity`,
  * and the derivations are held slots of a real `OIMComputedService` store slot. The
  * floor arm writes THROUGH THE SAME COLLECTION AND CHANNEL — so the write path is
@@ -108,7 +109,7 @@ const buildDedupPlaceAgainstEachOther = (readsPerFrame: number, timesEachRead: n
     );
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
     for (let d = 0; d < DERIVATIONS; d++) sumSlots.push(sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, d));
-    const computedValueService = sumSlots[0].computedValueService;
+    const computedValueService = (sumSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
 
     /* ── floor: the channel decides ──────────────────────────────────────── */
     const floorFixture = priceFixture(rowCount);

@@ -19,13 +19,13 @@ This page describes where the engine spends work. The measured cost of each call
 ## The identity path and the key path
 
 ```ts setup
-import { OIMDB, OIMEffectService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; title: string; deck: string };
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const entityService = cardService.slotContentService;
 const cards = cardService.createStoreSlot(db);
 const slot = cardService.getSlotByKey(cards, 'c1');
@@ -39,7 +39,7 @@ const found = cardService.findSlotByKey(cards, 'c1');   // one Map read
 if (found !== undefined) entityService.updateEntity(found, patch);
 ```
 
-Every write door takes the slot. There are no by-key write doors, so the map read is
+Every write but the whole-value `writeSlotContentByKey` takes the slot, so the map read is
 always a call you can see: `findSlotByKey` or `getSlotByKey`. If a key arrives from outside (a
 route param, a server payload), the read is unavoidable. If you already hold the slot, from the
 return value of `writeSlotContentByKey` or from an earlier `getSlotByKey`, going back through the key is
@@ -55,7 +55,7 @@ A write reports the columns it moved, and each column anybody has subscribed to
 is a slot with its own dependent list:
 
 ```typescript
-const deckColumn = cardService.columnSlotService.getColumn(slot, 'deck');
+const deckColumn = slot.getColumn('deck');
 effectService.createEffect(db, handler, [deckColumn]);
 entityService.updateEntity(slot, { title: 'ACE' });   // never reaches handler
 entityService.updateEntity(slot, { deck: 'hearts' }); // reaches handler
@@ -157,8 +157,8 @@ price on this engine.** The guidance below rests on architecture, not measuremen
 | Fork | Pick the first strategy when | Pick the second when |
 |---|---|---|
 | `createOIMInPlaceEntityWriter` / `createOIMReplacingEntityWriter` | consumers are subscription-driven | something downstream compares by reference |
-| `OIMSlotContentSetBucketService` / `OIMSlotContentPositionalArrayBucketService` | you never render this bucket in the caller's order | you do, and you want the reorder commands |
-| `OIMSlotContentPositionalArrayBucketService` / `OIMBucketUniqueMemberSlotsArrayService` | duplicates in a bucket are meaningful | a slot must appear once |
+| `OIMSetBucketContentService` / `OIMPositionalArrayBucketContentService` | you never render this bucket in the caller's order | you do, and you want the reorder commands |
+| `OIMPositionalArrayBucketContentService` / `OIMBucketUniqueMemberSlotsArrayService` | duplicates in a bucket are meaningful | a slot must appear once |
 | `createOIMSortedComputedService` with `sortColumns` / with only a `comparator` | the order is a function of named columns | the comparator reads what no column list can name, so any member write re-sorts |
 | `createOIMSortedComputedService` / `createOIMSlotCollectionSortedArrayIndexService` | the list is read less often than it is written | the list is read on every frame, so the order is kept at the write |
 | `createOIMSlotCollectionService` / `createOIMSlotCollectionIndexService` | what a bucket holds is a fact about a response | belonging really is a function of the entity |

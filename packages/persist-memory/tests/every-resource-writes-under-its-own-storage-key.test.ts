@@ -19,10 +19,10 @@ import {
 } from '@oimdb/persist';
 import type { OIMPersistMemoryWriteBatch } from '../src';
 import { OIMPersistMemoryBackend, OIMPersistMemoryRecordsService, OIMPersistMemorySnapshotService } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
@@ -37,7 +37,7 @@ function buildUsers(db: OIMDB) {
     const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
         entityWriter: createOIMInPlaceEntityWriter(),
     });
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: persistEntityWriter }) });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const persistRecordSource = new OIMPersistCollectionChangeWriteRecordSource<TOIMStoreKey, TUser>({
         entityCollectionService: entityService,
@@ -48,7 +48,7 @@ function buildUsers(db: OIMDB) {
 }
 
 function buildSettings(db: OIMDB, settings: TSettings) {
-    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
     const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
     singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, settings);
     db.flush();
@@ -200,16 +200,16 @@ describe('@oimdb/persist-memory', () => {
     test('a single entity and a keyed bucket both round-trip', async () => {
         const persistMemoryBackend = new OIMPersistMemoryBackend();
         const buildAdmins = (db: OIMDB) => {
-            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+            const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
             const entityStoreSlot = entityService.createStoreSlot(db);
-            const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TUser, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+            const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TUser, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
             const bucketStoreSlot = bucketService.createStoreSlot(db);
             const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'admin');
             const persistRecordSource = new OIMPersistBucketRecordSource({
                 channelMap: db,
                 entityCollectionService: entityService,
                 entityStoreSlot,
-                slotContentBucketService: bucketService.slotContentService,
+                bucketContentService: bucketService.slotContentService,
                 bucketSlot,
             });
             const persistSnapshotResource = new OIMPersistSnapshotResource<

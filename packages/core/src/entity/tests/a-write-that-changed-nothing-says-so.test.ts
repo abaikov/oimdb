@@ -1,10 +1,10 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number; note?: string };
@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<Card, TOIMStoreKey>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     const cards = cardsService.createStoreSlot(db);
     /** Allocated once and reused — the whole of the shape. */
     const changed: TCardSlot[] = [];
@@ -126,7 +126,7 @@ describe('a write that changed nothing says so', () => {
      */
     it('hands back a bucket it minted even when the slots it wrote changed nothing', () => {
         const db = new OIMDB();
-        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
         const decks = decksService.createStoreSlot(db);
 
         const bucket = decksService.getSlotByKey(decks, 'd1');

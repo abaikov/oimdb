@@ -1,7 +1,7 @@
-import { OIMDB, OIMSlotContentSetBucketService } from '../../index';
+import { OIMDB, OIMSetBucketContentService } from '../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string };
@@ -9,9 +9,9 @@ type TCardSlot = TOIMEntitySlot<Card, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentSetBucketService<TCardSlot>();
+    const membersService = new OIMSetBucketContentService<TCardSlot>();
     const byDeckService = createOIMSlotCollectionService({ slotContentService: membersService });
     const byDeck = byDeckService.createStoreSlot(db);
     const card = (id: string): TCardSlot => cardsService.writeSlotContentByKey(cards, id, { id, title: id.toUpperCase() });

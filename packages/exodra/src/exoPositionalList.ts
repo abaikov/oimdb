@@ -1,6 +1,6 @@
 import type { TExoListOp } from '@exodra/reactivity-types';
 import type {
-    IOIMChannelMap, OIMSlotContentBucketService, TOIMBucketSlot, TOIMEffect, TOIMOrderedListCommand, TOIMSlot,
+    IOIMChannelMap, OIMBucketContentService, TOIMBucketSlot, TOIMEffect, TOIMOrderedListCommand, TOIMSlot,
 } from '@oimdb/core';
 import { OIMChannelService, OIMEffectService } from '@oimdb/core';
 import { OIMExoListSchemas } from './OIMExoListSchemas';
@@ -10,7 +10,7 @@ import type { TOIMExoList } from './types/TOIMExoList';
 
 export function exoPositionalList<TBucketMemberSlot extends TOIMSlot, TSlots, TSchema>(
     channelMap: IOIMChannelMap,
-    slotContentBucketService: OIMSlotContentBucketService<TBucketMemberSlot, TSlots>,
+    bucketContentService: OIMBucketContentService<TBucketMemberSlot, TSlots>,
     bucketSlot: TOIMBucketSlot<TSlots>,
     render: (slot: TBucketMemberSlot) => TSchema,
 ): TOIMExoList<TSchema> {
@@ -19,7 +19,7 @@ export function exoPositionalList<TBucketMemberSlot extends TOIMSlot, TSlots, TS
 
     // Mutated in place, never replaced: this list and the consumer's advance
     // through the same commands, which is what makes an index address both.
-    const applied: TBucketMemberSlot[] = Array.from(slotContentBucketService.getBucketMemberSlots(bucketSlot));
+    const applied: TBucketMemberSlot[] = Array.from(bucketContentService.getBucketMemberSlots(bucketSlot));
 
     // Read INSIDE the frame: the bucket's commands are emptied once the flush has
     // fully ended, so an effect body is the only place the script still exists.
@@ -31,7 +31,7 @@ export function exoPositionalList<TBucketMemberSlot extends TOIMSlot, TSlots, TS
     try {
         effect = OIMEffectService.INSTANCE.createEffect(channelMap, () => {
             const script: readonly TOIMOrderedListCommand[] = bucketSlot.isWholeListRecorded
-                ? [{ type: 'reset', slots: Array.from(slotContentBucketService.getBucketMemberSlots(bucketSlot)) }]
+                ? [{ type: 'reset', slots: Array.from(bucketContentService.getBucketMemberSlots(bucketSlot)) }]
                 : bucketSlot.commands ?? [];
             const from = bucketSlot.isWholeListRecorded ? 0 : appliedCommandCount;
             appliedCommandCount = bucketSlot.isWholeListRecorded ? 0 : script.length;

@@ -1,4 +1,4 @@
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
@@ -6,7 +6,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../commands/types/TOIMOrderedListCommand';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -24,7 +24,7 @@ const replay = (rendered: TOIMSlot[], commands: readonly TOIMOrderedListCommand[
 describe('a script a renderer already read', () => {
     it('is not replayed when a write lands after the flush ahead of the recorder\'s own reset', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', title: 'ace' });
         const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', title: 'two' });
@@ -34,7 +34,7 @@ describe('a script a renderer already read', () => {
             insertTwoOnce = undefined;
             insertTwo?.();
         });
-        const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
+        const membersService = new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({}) });
         const decksService = createOIMSlotCollectionService({ slotContentService: membersService });
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd1');

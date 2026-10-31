@@ -7,7 +7,7 @@ import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMSlotOwner } from './interfaces/IOIMSlotOwner';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import { OIMSlotContentChangeDeliveryService } from './OIMSlotContentChangeDeliveryService';
-import { OIMColumnSlotService } from '../column/OIMColumnSlotService';
+import type { OIMColumnSlotService } from '../column/OIMColumnSlotService';
 import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
@@ -38,7 +38,7 @@ export class OIMSlotCollectionService<
     ) {
         const slotOwnerService = new OIMSlotOwnerService<TSlot, TStore, TColumnName, TColumnSlot, TColumnSlotOwner, TPatch>({ ...options, slotFilingService: options.slotStoreService });
         this.slotOwnerService = slotOwnerService;
-        this.columnSlotService = new OIMColumnSlotService<TSlot, TColumnName, TColumnSlot, TColumnSlotOwner>(slotOwnerService.columnSlotOwner);
+        this.columnSlotService = slotOwnerService.columnSlotService;
         this.slotStoreService = options.slotStoreService;
         this.keyedSlotCreator = options.slotContentService;
         this.slotContentService = options.slotContentService;

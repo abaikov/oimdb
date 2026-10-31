@@ -1,12 +1,12 @@
-import { OIMDB, createOIMComputedService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotContentEntityService } from '../../index';
+import { OIMDB, createOIMComputedService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMEntityContentService } from '../../index';
 
 type TSettings = { theme: string };
 type TCard = { id: string };
 
 export function aStoreSlotFitsOnlyItsOwnStore(): void {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
-    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
+    const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
     const cards = cardsService.createStoreSlot(db);
     const settings = settingsService.createStoreSlot(db);
 

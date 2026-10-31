@@ -1,5 +1,5 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
@@ -8,7 +8,7 @@ type TCard = { id: string; title: string };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>>() });
     const byDeck = byDeckService.createStoreSlot(db);
     return { db, byDeck, byDeckService };
 };

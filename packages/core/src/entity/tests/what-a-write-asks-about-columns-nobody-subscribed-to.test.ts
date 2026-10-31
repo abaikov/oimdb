@@ -2,12 +2,12 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../OIMEntityContentService';
 
 type TCard = { id: string; title: string; deckId: string; rank: number };
-type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 const asked = { columns: 0 };
 
@@ -20,7 +20,7 @@ const createFixture =(): {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     asked.columns = 0;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>({ entityWriter: createOIMInPlaceEntityWriter({
             sameValueGuard: (prev, next) => {
                 asked.columns++;
                 return prev === next;

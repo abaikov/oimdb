@@ -1,5 +1,5 @@
 import { OIMBucketCommands } from '../src/bucket/OIMBucketCommands';
-import { OIMSlotContentPositionalArrayBucketService } from '../src/bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../src/bucket/OIMPositionalArrayBucketContentService';
 import { OIMChannelService } from '../src/channel/OIMChannelService';
 import { OIMEffectService } from '../src/effect/OIMEffectService';
 import { OIMSlotOwner } from '../src/slot/OIMSlotOwner';
@@ -9,9 +9,10 @@ import { oimSameValueZeroGuard } from '../src/slot/utils/oimSameValueZeroGuard';
 import type { TOIMChannelSlot } from '../src/channel/types/TOIMChannelSlot';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMSlot } from '../src/slot/types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
+import { readValueWithoutTracking } from './support/readValueWithoutTracking';
 
 /**
  * HOW MANY HIDDEN CLASSES REACH THE WRITE DOOR, AND WHERE THE THREE FIELDS IT
@@ -91,13 +92,13 @@ const spyOnTheDoor = (defaultChannelSlot: TOIMChannelSlot) => {
 
 /** Every door of the engine driven once, so no arrival depends on which call the test happened to make. */
 const driveEveryDoor = (db: OIMDB) => {
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const deckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({
+    const deckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({
             bucketCommands: new OIMBucketCommands({}),
         }) });
     const deck = deckService.createStoreSlot(db);
-    const singleService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const singleService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TCard>() });
     const single = singleService.createStoreSlot(db);
     singleService.writeSingleSlotContent(single, { id: 'solo', title: 'solo', rank: 0 });
     const singleSlot = singleService.holdSingleSlot(single);
@@ -133,7 +134,7 @@ const driveEveryDoor = (db: OIMDB) => {
 
     const derived = doubledCollectionService.holdSlotByKey(doubled, 'a');
     doubledCollectionService.columnSlotService.holdAnyColumn(derived);
-    OIMEffectService.INSTANCE.createEffect(db, () => { void derived.computedValueService.getValueForSlot(derived); }, [], [derived]);
+    OIMEffectService.INSTANCE.createEffect(db, () => { void readValueWithoutTracking(derived); }, [], [derived]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void cardsService.getSlotCount(cards); }, [cardsService.getSlotByKey(cards, 'b')]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void singleSlot.entity; }, [singleSlot]);
     db.flush();
@@ -146,22 +147,21 @@ const driveEveryDoor = (db: OIMDB) => {
 const V8_POLYMORPHIC_CEILING = 4;
 
 const THREE_SLOT_LITERALS: TArrivingShape[] = [
-    { label: 'literal{effectEdges,columnSlotStore,carrierSlot}', keyCount: 14, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
+    { label: 'OIMColumnSlot', keyCount: 14, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
     {
-        label: 'literal{effectEdges,columnSlotStore,indexKeys,bucketSlotsStore,commands,isWholeListRecorded,commandsStartedAtRevision,commandsStartedAtEpoch}',
+        label: 'OIMBucketSlot',
         keyCount: 19,
         whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
     },
     {
-        label: 'literal{effectEdges,entity,columnSlotStore,data,indexKeys}',
+        label: 'OIMEntitySlot',
         keyCount: 16,
         whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
     },
 ];
 
 const COMPUTED_SLOT_LITERAL: TArrivingShape = {
-    label: 'literal{effectEdges,columnSlotStore,computedValueService,indexKeys,sourceSlots,sourceComputeds,value,'
-        + 'ranAtRevision,ranAtEpoch,checkedAtRevision,checkedAtEpoch,isDeriving,allRootSlots,sourceTracker}',
+    label: 'OIMComputedSlot',
     keyCount: 25,
     whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
 };

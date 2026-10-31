@@ -1,13 +1,13 @@
-import { OIMDB, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../index';
+import { OIMDB, OIMSetBucketContentService, createOIMSlotCollectionIndexService } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byTitleService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -15,7 +15,7 @@ const createFixture = () => {
             if (card.title === 'bad') throw new Error('keyOf refused this row');
             return card.title;
         },
-        slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
+        slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
     });
     const byTitle = byTitleService.createIndexStoreSlot(cards);
     byTitleService.holdSlotByKey(byTitle, 'good');

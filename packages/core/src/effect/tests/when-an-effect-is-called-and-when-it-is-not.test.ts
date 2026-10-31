@@ -1,10 +1,10 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../OIMEffectService';
 import type { TOIMEffect } from '../types/TOIMEffect';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; title: string; n: number };
@@ -13,7 +13,7 @@ type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
     const rows = rowsService.createStoreSlot(db);
     const updateRow = (key: string, patch: Partial<TRow>): void => {
         const rowSlot = rowsService.findSlotByKey(rows, key);
@@ -303,7 +303,7 @@ describe('when an effect is called and when it is not', () => {
      */
     it('wakes a slot and a bucket alike, and answers for both from one list', () => {
         const { db, effectService, rowsService, rows, updateRow } = createFixture();
-        const byTitleService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TRowSlot>() });
+        const byTitleService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TRowSlot>() });
         const byTitle = byTitleService.createStoreSlot(db);
         // The shape a screen holds: the bucket at a key, minted through a door
         // that leaves a counted reference behind.

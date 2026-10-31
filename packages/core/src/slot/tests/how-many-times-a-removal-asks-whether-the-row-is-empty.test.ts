@@ -5,7 +5,7 @@ import { OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY } from '../../db/constants/OIM
 import type { IOIMSlotEmptinessPolicy } from '../interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -20,7 +20,7 @@ const createFixture = () => {
             return OIM_DEFAULT_ENTITY_SLOT_EMPTINESS_POLICY.getValue().isEmpty(slot);
         },
     };
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ slotEmptinessPolicy: emptiness }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ slotEmptinessPolicy: emptiness }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, asked: () => asked };
 };

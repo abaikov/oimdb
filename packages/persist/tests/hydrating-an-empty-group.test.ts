@@ -8,9 +8,9 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string };
@@ -19,9 +19,9 @@ type TCardSlots = TOIMBucketSlotsArrayStore<TCardSlot>;
 
 const buildManual = () => {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const firstEntitySlot = entityService.writeSlotContentByKey(entityStoreSlot, 'c1', { id: 'c1', deckId: 'd1', title: 'alpha' });
     const secondEntitySlot = entityService.writeSlotContentByKey(entityStoreSlot, 'c2', { id: 'c2', deckId: 'd1', title: 'beta' });
@@ -33,7 +33,7 @@ const buildManual = () => {
         channelMap: db,
         entityCollectionService: entityService,
         entityStoreSlot,
-        slotContentBucketService: bucketService.slotContentService,
+        bucketContentService: bucketService.slotContentService,
         bucketSlot,
     });
     const readBucketKeys = (): unknown[] =>

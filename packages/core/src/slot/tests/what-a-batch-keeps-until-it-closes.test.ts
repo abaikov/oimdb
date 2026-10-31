@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { OIMSlotAtUnholdReleasePolicy } from '../../collector/OIMSlotAtUnholdReleasePolicy';
 
@@ -9,7 +9,7 @@ type TCard = { id: string; deck: string; title: string };
 function setUp() {
     const db = new OIMDB();
     const cardsService = createOIMSlotCollectionService({
-        slotContentService: createOIMSlotContentEntityService<TCard>(),
+        slotContentService: createOIMEntityContentService<TCard>(),
         slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
     });
     const cards = cardsService.createStoreSlot(db);

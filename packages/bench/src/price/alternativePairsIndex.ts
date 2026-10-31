@@ -1,5 +1,6 @@
+import type { OIMBucketSlot } from '../../../core/src/bucket/OIMBucketSlot';
 // Prose: ./README.md#alternativepairsindex
-import { OIMBucketMemberSlotsArrayService, OIMBucketUniqueMemberSlotsArrayService, OIMSlotContentPositionalArrayBucketService, OIMSlotMapStoreService, OIM_NOTHING_WAS_INSERTED, OIM_NOTHING_WAS_REMOVED } from '../../../core/src/index';
+import { OIMBucketMemberSlotsArrayService, OIMBucketUniqueMemberSlotsArrayService, OIMPositionalArrayBucketContentService, OIMSlotMapStoreService, OIM_NOTHING_WAS_INSERTED, OIM_NOTHING_WAS_REMOVED } from '../../../core/src/index';
 import type {
     OIMChannelQueue,
     TOIMSlot,
@@ -114,7 +115,7 @@ class PositionsMapMemberSlotsArrayService extends OIMBucketMemberSlotsArrayServi
     }
 }
 
-class PositionsMapPositionalArrayBucketService extends OIMSlotContentPositionalArrayBucketService<TRowSlot> {
+class PositionsMapPositionalArrayBucketService extends OIMPositionalArrayBucketContentService<TRowSlot> {
     public constructor() {
         super({ bucketMemberSlotsArrayService: new PositionsMapMemberSlotsArrayService() });
     }
@@ -122,7 +123,7 @@ class PositionsMapPositionalArrayBucketService extends OIMSlotContentPositionalA
     public override getBucketMemberSlotPosition(
         bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsArrayStore<TRowSlot>>, slot: TRowSlot,
     ): number {
-        const at = positionsOf(bucketSlot.bucketSlotsStore).get(slot);
+        const at = positionsOf((bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>>).bucketSlotsStore).get(slot);
         return at === undefined ? -1 : at;
     }
 }
@@ -131,12 +132,12 @@ const LIST_SIZE = 1024;
 
 type TListWorld = {
     readonly fixture: ReturnType<typeof priceFixture>;
-    readonly slotContentService: OIMSlotContentPositionalArrayBucketService<TRowSlot>;
+    readonly slotContentService: OIMPositionalArrayBucketContentService<TRowSlot>;
     readonly bucket: TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>;
     spare: TRowSlot;
 };
 
-const listWorld = (slotContentService: OIMSlotContentPositionalArrayBucketService<TRowSlot>): TListWorld => {
+const listWorld = (slotContentService: OIMPositionalArrayBucketContentService<TRowSlot>): TListWorld => {
     const fixture = priceFixture(LIST_SIZE + 1);
     const bucketService = createOIMSlotCollectionService({ slotContentService, slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsArrayStore<TRowSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(fixture.db);
@@ -185,7 +186,7 @@ const positionSide = (world: TListWorld) => ({
     },
 });
 
-const uniqueService = () => new OIMSlotContentPositionalArrayBucketService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService<TRowSlot>() });
+const uniqueService = () => new OIMPositionalArrayBucketContentService<TRowSlot>({ bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService<TRowSlot>() });
 
 const listPairs: readonly TPricePair[] = [
     {
@@ -199,7 +200,7 @@ const listPairs: readonly TPricePair[] = [
             `\`list.length - at\` map writes, so ${LIST_SIZE + 1} of them here, against one memmove ` +
             'and one `Set.add` on our side. EACH OPERATION IS A PREPEND AND A REMOVAL OF THE TAIL, ' +
             'so the list stays the length it is named for; the removal renumbers nothing on either ' +
-            'design. Ours is `OIMSlotContentPositionalArrayBucketService` with `OIMBucketUniqueMemberSlotsArrayService`; ' +
+            'design. Ours is `OIMPositionalArrayBucketContentService` with `OIMBucketUniqueMemberSlotsArrayService`; ' +
             'the floor is the same bucket with a member slots service that keeps a positions map. ' +
             'DIRECTION: the bucket collection\'s own epilogue — the hold, the unhold, the ' +
             '`OIMChannelService.writeWithoutFlushCheck` and the emptiness update — is identical on both halves ' +

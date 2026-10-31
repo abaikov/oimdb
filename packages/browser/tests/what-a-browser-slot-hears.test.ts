@@ -108,7 +108,7 @@ describe('what a browser slot hears', () => {
         const isOfflineSlot = isOfflineService.computedSingleSlotService.getSingleSlot(isOffline);
         const seen: boolean[] = [];
         const effect = effectService.createEffect(db, () => {
-            seen.push(isOfflineSlot.computedValueService.getValueForSlot(isOfflineSlot));
+            seen.push(isOfflineSlot.value);
         }, [], [isOfflineSlot]);
         db.flush();
 

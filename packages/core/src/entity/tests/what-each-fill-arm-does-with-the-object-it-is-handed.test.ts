@@ -4,14 +4,14 @@ import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWrite
 import { oimInsertEntityWithoutCopy } from '../utils/oimInsertEntityWithoutCopy';
 import { oimInsertEntityWithCopy } from '../utils/oimInsertEntityWithCopy';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 
 const collectionWith = (entityInserter: TOIMEntityInserter) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>({ entityWriter: createOIMInPlaceEntityWriter({ entityInserter }) }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
@@ -61,7 +61,7 @@ describe('what each fill arm does with the object it is handed', () => {
                 ? a.toLowerCase() === b.toLowerCase()
                 : a === b;
         const writer = createOIMInPlaceEntityWriter({ sameValueGuard: caseless, entityInserter: oimInsertEntityWithoutCopy });
-        const slot = { entity: { id: 'c1', title: 'one' } } as unknown as Parameters<
+        const slot = { content: { id: 'c1', title: 'one' } } as unknown as Parameters<
             typeof writer.patchEntity
         >[0];
 

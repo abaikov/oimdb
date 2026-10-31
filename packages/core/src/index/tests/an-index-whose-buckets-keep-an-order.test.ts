@@ -1,11 +1,12 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../computed/createOIMSortedComputedService';
-import type { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import type { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMSortColumn } from '../../computed/types/TOIMSortColumn';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
@@ -16,11 +17,11 @@ type TSorter = {
 };
 
 const createFixture = (
-    slotContentService?: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+    slotContentService?: OIMPositionalArrayBucketContentService<TCardSlot>,
     sorter?: TSorter,
 ) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -59,7 +60,7 @@ describe('an index whose buckets are array-driven', () => {
             { id: 'c2', deck: 'spades', rank: 2 },
         ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
         db.flush();
-        expect(order.computedValueService.getValueForSlot(order).map(slot => slot.entity?.id)).toEqual(['c1', 'c2', 'c3']);
+        expect(readValueWithoutTracking(order).map(slot => slot.entity?.id)).toEqual(['c1', 'c2', 'c3']);
         expect(idsIn('spades')).toEqual(['c3', 'c1', 'c2']);
         order.owner.unholdSlot(order);
     });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Changed
+
+- README: examples use the `@oimdb/core` 4.4 names and slot methods.
+
 ## 1.1.0
 
 ### Changed

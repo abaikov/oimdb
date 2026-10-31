@@ -5,7 +5,7 @@
  * assert. An ordered service decides the order itself, which would be a fact
  * about the sorter rather than about the adapter.
  */
-import { OIMSlotContentSetBucketService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type IOIMEntityWriter, type OIMDB } from '@oimdb/core';
+import { OIMSetBucketContentService, OIMSlotMapStoreService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, type IOIMEntityWriter, type OIMDB } from '@oimdb/core';
 import type {
     TOIMBucketSlot,
     TOIMColumnSlot,
@@ -14,14 +14,14 @@ import type {
     TOIMSlot,
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 const createEntityService = <TEntity extends object>(
     _keyOf: (entity: TEntity) => TOIMStoreKey, entityWriter: IOIMEntityWriter,
-) => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+) => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TEntity>({ entityWriter }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createBucketService = <TEntity extends object>() => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TEntity>>() });
+const createBucketService = <TEntity extends object>() => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TEntity>>() });
 
 export type TEntityService<TEntity extends object> = ReturnType<typeof createEntityService<TEntity>>;
 

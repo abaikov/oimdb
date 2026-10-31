@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; n: number };
@@ -8,7 +8,7 @@ type TCard = { id: string; n: number };
 const createFixture = () => {
     const hostQueue: (() => void)[] = [];
     const db = new OIMDB({ channelScheduler: run => { hostQueue.push(run); } });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 0 });
     let runs = 0;

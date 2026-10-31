@@ -1,4 +1,4 @@
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMBucketCommands, OIMSlotMapStoreService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '@oimdb/core';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMBucketCommands, OIMSlotMapStoreService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '@oimdb/core';
 import type {
     TOIMBucketSlot,
     TOIMColumnSlot,
@@ -6,20 +6,20 @@ import type {
     TOIMStoreKey,
     TOIMBucketSlotsArrayStore,
 } from '@oimdb/core';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 export type TCard = { id: string; deckId: string; rank: number; title: string };
 
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 
-const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createByDeckService = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
-const createRankedService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+const createRankedService = () => createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>() });
 
-const createBoardService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({
+const createBoardService = () => createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({
         bucketCommands: new OIMBucketCommands({}),
     }) });
 

@@ -1,16 +1,17 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSingleSourceTrackingComputedService } from '../createOIMSingleSourceTrackingComputedService';
 import { createOIMSourceTrackingComputedService } from '../createOIMSourceTrackingComputedService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; title: string; isOn: boolean };
 
 function setUp() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const write = (id: string, card: Partial<TCard>) => {
         cardsService.writeSlotContentByKey(cards, id, { id, title: id, isOn: false, ...card });
@@ -22,9 +23,9 @@ function setUp() {
     const a = cardsService.holdSlotByKey(cards, 'a');
     const b = cardsService.holdSlotByKey(cards, 'b');
     const titleService = createOIMSingleSourceTrackingComputedService<string>({
-        derive: (_slot, sourceTracker) => sourceTracker.readSourceSlot(flag).entity?.isOn === true
-            ? sourceTracker.readSourceSlot(a).entity?.title ?? ''
-            : sourceTracker.readSourceSlot(b).entity?.title ?? '',
+        derive: () => flag.entity?.isOn === true
+            ? a.entity?.title ?? ''
+            : b.entity?.title ?? '',
         initialValue: '',
     });
     const titleStoreSlot = titleService.createComputedStoreSlot(db);
@@ -37,7 +38,7 @@ describe('what a source-tracking computed depends on', () => {
     it('derives from the sources it read and holds them, and only them', () => {
         const { title, flag, a, b } = setUp();
 
-        expect(title.computedValueService.getValueForSlot(title)).toBe('A');
+        expect(readValueWithoutTracking(title)).toBe('A');
         expect(title.sourceSlots).toEqual([flag, a]);
         expect(flag.holdCount).toBe(2);
         expect(a.holdCount).toBe(2);
@@ -46,12 +47,12 @@ describe('what a source-tracking computed depends on', () => {
 
     it('follows a switch of branch: holds the new source, lets the old one go, derives the new value', () => {
         const { db, write, title, flag, a, b } = setUp();
-        title.computedValueService.getValueForSlot(title);
+        readValueWithoutTracking(title);
 
         write('flag', { isOn: false });
         db.flush();
 
-        expect(title.computedValueService.getValueForSlot(title)).toBe('B');
+        expect(readValueWithoutTracking(title)).toBe('B');
         expect(title.sourceSlots).toEqual([flag, b]);
         expect(a.holdCount).toBe(1);
         expect(b.holdCount).toBe(2);
@@ -60,8 +61,8 @@ describe('what a source-tracking computed depends on', () => {
     it('wakes a source-tracking effect on the source it switched to', () => {
         const { db, write, title } = setUp();
         const seen: string[] = [];
-        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, sourceTracker => {
-            seen.push(sourceTracker.readSourceComputedValue(title));
+        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
+            seen.push(title.value);
         });
 
         write('flag', { isOn: false });
@@ -80,8 +81,8 @@ describe('what a source-tracking computed depends on', () => {
         write('b', { title: 'A' });
         db.flush();
         const seen: string[] = [];
-        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, sourceTracker => {
-            seen.push(sourceTracker.readSourceComputedValue(title));
+        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
+            seen.push(title.value);
         });
 
         write('flag', { isOn: false });
@@ -98,13 +99,13 @@ describe('what a source-tracking computed depends on', () => {
     it('carries a switch through a source-tracking computed that reads it', () => {
         const { db, write, title } = setUp();
         const loudService = createOIMSingleSourceTrackingComputedService<string>({
-            derive: (_slot, sourceTracker) => sourceTracker.readSourceComputedValue(title).toUpperCase(),
+            derive: () => title.value.toUpperCase(),
             initialValue: '',
         });
         const loud = loudService.computedSingleSlotService.holdSingleSlot(loudService.createComputedStoreSlot(db));
         const seen: string[] = [];
-        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, sourceTracker => {
-            seen.push(sourceTracker.readSourceComputedValue(loud));
+        const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
+            seen.push(loud.value);
         });
 
         write('b', { title: 'A' });
@@ -120,7 +121,7 @@ describe('what a source-tracking computed depends on', () => {
 
     it('gives back every source hold when it is released', () => {
         const { title, flag, a, b } = setUp();
-        title.computedValueService.getValueForSlot(title);
+        readValueWithoutTracking(title);
 
         title.owner.unholdSlot(title);
 
@@ -130,14 +131,14 @@ describe('what a source-tracking computed depends on', () => {
     it('keys one tracker per slot, so two keys read different sources', () => {
         const { db, a, b } = setUp();
         const pickService = createOIMSourceTrackingComputedService<string, string>({
-            derive: (slot, sourceTracker) => sourceTracker.readSourceSlot(slot.key === 'a' ? a : b).entity?.title ?? '',
+            derive: slot => (slot.key === 'a' ? a : b).entity?.title ?? '',
             initialValue: '',
         });
         const picks = pickService.createComputedStoreSlot(db);
         const pickA = pickService.computedCollectionService.holdSlotByKey(picks, 'a');
         const pickB = pickService.computedCollectionService.holdSlotByKey(picks, 'b');
 
-        expect([pickA.computedValueService.getValueForSlot(pickA), pickB.computedValueService.getValueForSlot(pickB)]).toEqual(['A', 'B']);
+        expect([readValueWithoutTracking(pickA), readValueWithoutTracking(pickB)]).toEqual(['A', 'B']);
         expect(pickA.sourceSlots).toEqual([a]);
         expect(pickB.sourceSlots).toEqual([b]);
     });

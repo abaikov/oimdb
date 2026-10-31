@@ -2,14 +2,14 @@ import * as React from 'react';
 import { render, screen, act } from '@testing-library/react';
 import { OIMDB, createOIMComputedService, oimSameValueZeroGuard } from '@oimdb/core';
 import { OIMDBProvider, useOIMComputedValue } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 
 type TCard = { id: string; title: string; rank: number };
 
 function build() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const ranksService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),

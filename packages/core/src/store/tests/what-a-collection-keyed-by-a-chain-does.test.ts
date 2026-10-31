@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotTreeStoreService } from '../OIMSlotTreeStoreService';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
@@ -11,14 +11,14 @@ import type { TOIMStoreKey } from '../types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TProgress = { userId: string; cardId: string; box: number };
 type TNamed = { id: string };
 type TChain = readonly TOIMEntitySlot[];
 type TProgressSlot = TOIMEntitySlot<TProgress, TChain>;
-const createNamedService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TNamed>() });
+const createNamedService = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TNamed>() });
 type TNamedService = ReturnType<typeof createNamedService>;
 type TNamedStoreSlot = ReturnType<TNamedService['createStoreSlot']>;
 
@@ -35,7 +35,7 @@ function createFixture() {
         collectionService: TNamedService, collection: TNamedStoreSlot, id: string,
     ): TOIMEntitySlot<TNamed, TOIMStoreKey> => collectionService.holdSlotByKey(collection, id);
     const progressKeyOf = (item: TProgress): TChain => [segment(usersService, users, item.userId), segment(cardsService, cards, item.cardId)];
-    const progressService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TProgress, TChain>({ entityWriter: write }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(
+    const progressService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TProgress, TChain>({ entityWriter: write }), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TProgressSlot>(
                 OIMCompositeKeyTreeWalk.INSTANCE,
             ) });
     const progress = progressService.createStoreSlot(db);
@@ -176,7 +176,7 @@ describe('a collection keyed by a combination of identities', () => {
         ]).map(entity => progressService.writeSlotContentByKey(progress, progressKeyOf(entity), entity)));
         db.flush();
 
-        const byUserService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TProgress, TChain>>() });
+        const byUserService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TProgress, TChain>>() });
         const byUser = byUserService.createStoreSlot(db);
         // KEPT for the reason `segment` is: this is called again on the assertion
         // lines, and a bucket nothing holds would be a fresh empty one every time.

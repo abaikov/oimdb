@@ -6,7 +6,7 @@ import { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
 import { OIMChannelService } from '../channel/OIMChannelService';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
 import { oimColumnSlotStoreServiceOfColumnSlotOwnerOptions } from './utils/oimColumnSlotStoreServiceOfColumnSlotOwnerOptions';
-import { OIM_SLOT_FLAG_EMPTY } from '../slot/constants/OIM_SLOT_FLAG_EMPTY';
+import { OIMColumnSlot } from './OIMColumnSlot';
 
 const hasValueColumn = (value: object, columnName: string): boolean =>
     Object.prototype.hasOwnProperty.call(value, columnName)
@@ -18,22 +18,7 @@ export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMCol
     }
 
     protected createColumnSlot(carrierSlot: TOIMSlot, key: string): TOIMColumnSlot {
-        return {
-            effects: undefined,
-            changedAtRevision: carrierSlot.changedAtRevision,
-            changedAtEpoch: carrierSlot.changedAtEpoch,
-            effectEdges: undefined,
-            holdCount: 0,
-            releaseDueAfterWriteMs: -1,
-            releaseDueAfterIdleMs: -1,
-            releaseDueAfterUnholdMs: -1,
-            slotFlags: OIM_SLOT_FLAG_EMPTY,
-            columnSlotStore: undefined,
-            storeSlot: carrierSlot.storeSlot,
-            owner: this,
-            key,
-            carrierSlot,
-        };
+        return new OIMColumnSlot(key, this, carrierSlot);
     }
 
     protected carrierSlotOf(columnSlot: TOIMColumnSlot): TOIMSlot {

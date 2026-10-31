@@ -36,7 +36,7 @@ describe('exoBinding', () => {
         );
         const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
         const shouted = exoBinding(world.db, {
-            sourceComputeds: [titleSlot], derive: () => titleSlot.computedValueService.getValueForSlot(titleSlot),
+            sourceComputeds: [titleSlot], derive: () => titleSlot.value,
         });
 
         expect(row.getValue()?.title).toBe('alpha');
@@ -62,7 +62,7 @@ describe('exoBinding', () => {
         );
         const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
         const bound = exoBinding(world.db, {
-            sourceComputeds: [titleSlot], derive: () => titleSlot.computedValueService.getValueForSlot(titleSlot),
+            sourceComputeds: [titleSlot], derive: () => titleSlot.value,
         });
 
         expect(bound.getValue()).toBe('alpha');
@@ -182,7 +182,7 @@ describe('exoBinding', () => {
         world.db.flush();
 
         const bound = exoBinding(world.db, {
-            sourceComputeds: [deckSlot], derive: () => deckSlot.computedValueService.getValueForSlot(deckSlot),
+            sourceComputeds: [deckSlot], derive: () => deckSlot.value,
         });
 
         const first = bound.getValue();

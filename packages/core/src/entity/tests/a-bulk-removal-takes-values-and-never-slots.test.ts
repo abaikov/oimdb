@@ -1,7 +1,7 @@
 /** Reading many keys, removing many slots, emptying a collection. */
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
@@ -11,7 +11,7 @@ import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 
@@ -23,15 +23,15 @@ type TDeck = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>;
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     // A bucket collection is a store of buckets plus a bucket service, built by
     // the caller. Those two ARE the collection; the channel is what it tells.
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
     const byDeck = byDeckService.createStoreSlot(db);
     const deck = (key: TOIMStoreKey): TDeck => byDeckService.getSlotByKey(byDeck, key) as TDeck;
     // The hold spans the write: once the bucket holds slots the emptiness
-    // `OIMSlotContentBucketService.isSlotEmpty` answers reads false, so `unhold` leaves it filed.
+    // `OIMBucketContentService.isSlotEmpty` answers reads false, so `unhold` leaves it filed.
     const file = (key: TOIMStoreKey, cardIds: readonly string[]): void => {
         const heldSlot = byDeckService.holdSlotByKey(byDeck, key);
         byDeckService.slotContentService.writeSlotContent(heldSlot, cardIds.map(id => cardsService.getSlotByKey(cards,id) as TOIMEntitySlot<TCard, TOIMStoreKey>));

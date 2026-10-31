@@ -1,9 +1,9 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService } from '../../index';
 import type { TOIMBucketSlot } from '../types/TOIMBucketSlot';
 import type { TOIMBucketSlotsSetStore } from '../types/TOIMBucketSlotsSetStore';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
@@ -12,13 +12,13 @@ type TDeck = TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, string>;
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };
 
 const unorderedIndex = (db: OIMDB) => {
-    const membersService = new OIMSlotContentSetBucketService<TCardSlot, string>();
+    const membersService = new OIMSetBucketContentService<TCardSlot, string>();
     const indexService = createOIMSlotCollectionService({ slotContentService: membersService });
     const index = indexService.createStoreSlot(db);
     // See {@link reservations}: whatever the previous case is still holding is a

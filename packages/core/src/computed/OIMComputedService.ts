@@ -7,13 +7,13 @@ import type { TOIMComputedServiceOptions } from './types/TOIMComputedServiceOpti
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import { OIMComputedValueService } from './OIMComputedValueService';
 import type { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
-import { OIMSlotContentComputedService } from './OIMSlotContentComputedService';
+import { OIMComputedContentService } from './OIMComputedContentService';
 import { createOIMComputedSlotCollectionService } from './utils/createOIMComputedSlotCollectionService';
 import { oimAttachComputedDerivation } from './utils/oimAttachComputedDerivation';
 
 export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComputedStore> {
     public readonly computedCollectionService: OIMSlotCollectionService<
-        TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore, OIMSlotContentComputedService<TValue, TOIMComputedSlot<TValue, TKey>>,
+        TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore, OIMComputedContentService<TValue, TOIMComputedSlot<TValue, TKey>>,
         Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
     >;
 
@@ -25,7 +25,7 @@ export class OIMComputedService<TKey extends NonNullable<unknown>, TValue, TComp
         this.computedCollectionService = createOIMComputedSlotCollectionService<
             TKey, TValue, TOIMComputedSlot<TValue, TKey>, TComputedStore, Extract<keyof TValue, string>
         >({
-            slotContentService: new OIMSlotContentComputedService<TValue, TOIMComputedSlot<TValue, TKey>>({
+            slotContentService: new OIMComputedContentService<TValue, TOIMComputedSlot<TValue, TKey>>({
                 computedValueService: new OIMComputedValueService<TValue, TOIMComputedSlot<TValue, TKey>>({
                     derive: options.derive,
                     sameValueGuard: options.sameValueGuard,

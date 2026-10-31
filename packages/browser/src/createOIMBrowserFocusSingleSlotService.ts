@@ -5,5 +5,5 @@ import { OIMBrowserFocusSlotSubscriptionListener } from './OIMBrowserFocusSlotSu
 import { createOIMBrowserSingleSlotService } from './createOIMBrowserSingleSlotService';
 
 export function createOIMBrowserFocusSingleSlotService(options: TOIMBrowserSingleSlotServiceOptions = {}): TOIMBrowserSingleSlotService<TOIMBrowserFocusEntity> {
-    return createOIMBrowserSingleSlotService<TOIMBrowserFocusEntity>(slotContentEntityService => new OIMBrowserFocusSlotSubscriptionListener(slotContentEntityService), options);
+    return createOIMBrowserSingleSlotService<TOIMBrowserFocusEntity>(entityContentService => new OIMBrowserFocusSlotSubscriptionListener(entityContentService), options);
 }

@@ -5,5 +5,5 @@ import { OIMBrowserOnlineSlotSubscriptionListener } from './OIMBrowserOnlineSlot
 import { createOIMBrowserSingleSlotService } from './createOIMBrowserSingleSlotService';
 
 export function createOIMBrowserOnlineSingleSlotService(options: TOIMBrowserSingleSlotServiceOptions = {}): TOIMBrowserSingleSlotService<TOIMBrowserOnlineEntity> {
-    return createOIMBrowserSingleSlotService<TOIMBrowserOnlineEntity>(slotContentEntityService => new OIMBrowserOnlineSlotSubscriptionListener(slotContentEntityService), options);
+    return createOIMBrowserSingleSlotService<TOIMBrowserOnlineEntity>(entityContentService => new OIMBrowserOnlineSlotSubscriptionListener(entityContentService), options);
 }

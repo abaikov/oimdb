@@ -14,7 +14,7 @@ delivery of every write made since the previous one (see the
 [glossary](/docs/core/model#glossary)).
 
 ```ts setup
-import { OIMChannelService, OIMDB, OIMEffectService, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService, createOIMSingleComputedService, createOIMSlotCollectionIndexService, createOIMComputedService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotContentChangeListenerService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMEffectService, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleComputedService, createOIMSlotCollectionIndexService, createOIMComputedService, OIMLogAndContinueErrorPolicy, OIMThrowAtOnceErrorPolicy, OIMSlotContentChangeListenerService, type IOIMSlotContentChangeListener, type TOIMEntitySlot } from '@oimdb/core';
 
 type Card = { id: string; deckId: string; title: string; rank: number };
 
@@ -24,7 +24,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 ```
@@ -72,17 +72,17 @@ runs its body on every column.
 ```ts
 const kingSlot = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', deckId: 'hearts', title: 'King', rank: 13 });
 
-const rankColumn = cardService.columnSlotService.holdColumn(kingSlot, 'rank');
+const rankColumn = kingSlot.holdColumn('rank');
 const rankEffect = effectService.createEffect(db, () => {
     render(kingSlot.entity?.rank);
 }, [rankColumn]);
 
-cardContentService.updateEntity(kingSlot, { title: 'King of hearts' });
-cardContentService.updateEntity(kingSlot, { rank: 12 });
+kingSlot.updateEntity({ title: 'King of hearts' });
+kingSlot.updateEntity({ rank: 12 });
 db.flush();
 
 effectService.disposeEffect(rankEffect);
-cardService.columnSlotService.unholdColumn(rankColumn);
+rankColumn.unholdSlot();
 ```
 
 Why this way: a column slot is its own identity, filed under its carrier
@@ -101,7 +101,7 @@ Take: `createOIMComputedService<void, V, …>` with `OIMSingleSlotStoreService.I
 its `computedSlotStoreService`, and its `createComputedStoreSlot(db, derive, createSources)`, for one value
 with no key; `createOIMComputedService<K, V>` and its `createComputedStoreSlot(db)` for one value per key.
 Both are read through `computedCollectionService`, the single one with the key `undefined`, and the value through
-the slot — `slot.computedValueService.getValueForSlot(slot)`. Outside an effect body,
+the slot — `slot.value`. Outside an effect body,
 `computedSlot.value` is whatever the last read left there and settles nothing.
 
 ```ts
@@ -116,13 +116,13 @@ const spadesCountService = createOIMSingleComputedService<number>({
 });
 const spadesCount = spadesCountService.createComputedStoreSlot(
     db,
-    () => cardsByDeckService.slotContentService.getBucketMemberSlotCount(spades),
+    () => spades.getBucketMemberSlotCount(),
     () => ({ sourceSlots: [spades] }),
 );
 
 const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
 const countEffect = effectService.createAndRunEffect(db, () => {
-    render(spadesCountSlot.computedValueService.getValueForSlot(spadesCountSlot));
+    render(spadesCountSlot.value);
 }, [], [spadesCountSlot]);
 
 const cardLabelService = createOIMComputedService<TOIMStoreKey, string>({
@@ -136,11 +136,11 @@ const cardLabelService = createOIMComputedService<TOIMStoreKey, string>({
 const cardLabels = cardLabelService.createComputedStoreSlot(db);
 
 const aceLabel = cardLabelService.computedCollectionService.getSlotByKey(cardLabels, 'c1');
-render(aceLabel.computedValueService.getValueForSlot(aceLabel));
+render(aceLabel.value);
 
 effectService.disposeEffect(countEffect);
-spadesCountSlot.owner.unholdSlot(spadesCountSlot);
-spades.owner.unholdSlot(spades);
+spadesCountSlot.unholdSlot();
+spades.unholdSlot();
 ```
 
 Why this way: a computed is pulled. A write marks only root
@@ -168,12 +168,12 @@ let runs = 0;
 const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', deckId: 'clubs', title: 'Jack', rank: 11 });
 const jackEffect = effectService.createEffect(db, () => { runs++; }, [jack]);
 
-cardContentService.updateEntity(jack, { title: 'Jack of clubs' });
-cardContentService.updateEntity(jack, { rank: 10 });
+jack.updateEntity({ title: 'Jack of clubs' });
+jack.updateEntity({ rank: 10 });
 db.flush();
 
 cardService.writeInBatch(cards, () => {
-    cardContentService.updateEntity(jack, { rank: 11 });
+    jack.updateEntity({ rank: 11 });
     cardService.writeSlotContentByKey(cards, 't', { id: 't', deckId: 'clubs', title: 'Ten', rank: 10 });
 });
 db.flush();
@@ -235,7 +235,7 @@ const queenEffect = effectService.createEffect(db, () => {
 
 const stopArchiving = channelService.subscribeAfterEachFlush(channelSlot, () => {
     const archived = [...toArchive].flatMap((key) => cardService.findSlotByKey(cards, key) ?? []);
-    cardService.writeInBatch(cards, () => { for (const entitySlot of archived) cardService.slotContentService.clearSlotContent(entitySlot); });
+    cardService.writeInBatch(cards, () => { for (const entitySlot of archived) entitySlot.clearSlotContent(); });
     toArchive.clear();
 });
 

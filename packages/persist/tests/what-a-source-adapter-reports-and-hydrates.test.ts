@@ -5,13 +5,13 @@ import type {
     TOIMEntitySlot,
     TOIMStoreKey,
 } from '@oimdb/core';
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService } from '@oimdb/core';
 import type { TOIMPersistRecord } from '../src';
 import { OIMPersistBucketRecordSource, OIMPersistSingleEntitySnapshotSource } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; draft: boolean };
@@ -20,7 +20,7 @@ type TCardSlots = TOIMBucketSlotsSetStore<TCardSlot>;
 
 const buildCards = () => {
     const db = new OIMDB();
-    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     return { db, entityCollectionService, entityStoreSlot: entityCollectionService.createStoreSlot(db) };
 };
 
@@ -28,7 +28,7 @@ type TCardCollectionService = ReturnType<typeof buildCards>['entityCollectionSer
 type TCardStoreSlot = ReturnType<typeof buildCards>['entityStoreSlot'];
 
 const createCardBucketCollectionService = () =>
-    createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 type TFiling = {
     bucketCollectionService: ReturnType<typeof createCardBucketCollectionService>;
@@ -94,7 +94,7 @@ const sourceOf = (
         channelMap: db,
         entityCollectionService,
         entityStoreSlot,
-        slotContentBucketService: filing.bucketCollectionService.slotContentService,
+        bucketContentService: filing.bucketCollectionService.slotContentService,
         bucketSlot: filing.bucketSlot,
     });
 
@@ -247,7 +247,7 @@ describe('OIMPersistBucketRecordSource', () => {
 describe('OIMPersistSingleEntitySnapshotSource', () => {
     const buildSession = <TEntity extends object>(entity: TEntity) => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TEntity>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TEntity>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, entity);
         db.flush();
@@ -450,16 +450,16 @@ describe('hydrating a list of members nothing but the snapshot knows', () => {
         type TDocSlots = TOIMBucketSlotsArrayStore<TDocSlot>;
         const buildSearch = () => {
             const db = new OIMDB();
-            const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDoc>() });
+            const entityCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TDoc>() });
             const entityStoreSlot = entityCollectionService.createStoreSlot(db);
-            const bucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TDocSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+            const bucketCollectionService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TDocSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
             const bucketStoreSlot = bucketCollectionService.createStoreSlot(db);
             const bucketSlot = bucketCollectionService.holdSlotByKey(bucketStoreSlot, 'results');
             const persistBucketRecordSource = new OIMPersistBucketRecordSource<TOIMStoreKey, TDoc, TDocSlots>({
                 channelMap: db,
                 entityCollectionService,
                 entityStoreSlot,
-                slotContentBucketService: bucketCollectionService.slotContentService,
+                bucketContentService: bucketCollectionService.slotContentService,
                 bucketSlot,
             });
             return {

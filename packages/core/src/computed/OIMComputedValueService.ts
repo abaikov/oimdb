@@ -1,3 +1,4 @@
+import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { TOIMSameValueGuard } from '../slot/types/TOIMSameValueGuard';
 import type { IOIMComputedValueService } from './interfaces/IOIMComputedValueService';
 import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
@@ -7,8 +8,8 @@ import type { TOIMComputedValueReleaser } from './types/TOIMComputedValueRelease
 import { oimRefreshComputedSlot } from './utils/oimRefreshComputedSlot';
 import { oimAssertSlotNotReleased } from '../slot/utils/oimAssertSlotNotReleased';
 import { oimReleaseNoValue } from './utils/oimReleaseNoValue';
-import type { OIMSourceTracker } from './OIMSourceTracker';
 
+import type { OIMSourceTracker } from './OIMSourceTracker';
 export class OIMComputedValueService<
     TValue, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined> = TOIMComputedContentSlot<TValue>,
 >
@@ -33,10 +34,10 @@ implements IOIMComputedValueService<TValue> {
             computedSlot, derive as (computedSlot: TComputedSlot) => TValue, this.sameValueGuard, this.releaseValue,
             computedStoreSlot.channelSlot.clock,
         );
-        return computedSlot.value;
+        return (computedSlot as unknown as OIMComputedSlot<TValue>).content;
     }
 
     public releaseSlotValue(computedSlot: TComputedSlot): void {
-        if (computedSlot.ranAtRevision !== -1) this.releaseValue(computedSlot.value);
+        if (computedSlot.ranAtRevision !== -1) this.releaseValue((computedSlot as unknown as OIMComputedSlot<TValue>).content);
     }
 }

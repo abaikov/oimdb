@@ -1,5 +1,5 @@
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../computed/createOIMSortedComputedService';
@@ -9,11 +9,12 @@ import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMBucketSlotsArrayStore } from '../../bucket/array/types/TOIMBucketSlotsArrayStore';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deckId: string; rank: number };
 
@@ -28,8 +29,8 @@ const byRankRefusingANegative = (left: TCard, right: TCard): number => {
 };
 
 const updateEntityByKey = (
-    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>,
-    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>['createStoreSlot']>,
+    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>,
+    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>['createStoreSlot']>,
     key: string, patch: Partial<TCard>,
 ): void => {
     const slot = cardsService.findSlotByKey(cards, key);
@@ -38,7 +39,7 @@ const updateEntityByKey = (
 
 function orderedByDeck(options?: TOIMDBOptions) {
     const db = new OIMDB(options);
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
@@ -56,9 +57,9 @@ function orderedByDeck(options?: TOIMDBOptions) {
 
 function filedByDeck(options?: TOIMDBOptions) {
     const db = new OIMDB(options);
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const byDeck = byDeckService.createStoreSlot(db);
 
     const heldDecks = new Map<string, TDeck>();
@@ -81,7 +82,7 @@ function filedByDeck(options?: TOIMDBOptions) {
 
 function setDrivenDecks() {
     const db = new OIMDB();
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
     return { db, byDeckService, byDeck: byDeckService.createStoreSlot(db) };
 }
 
@@ -92,10 +93,10 @@ describe('a sorter that throws', () => {
         cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', rank: 1 }, { id: 'c2', deckId: 'd1', rank: 2 },
         ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
-        expect(order.computedValueService.getValueForSlot(order).length).toBe(2);
+        expect(readValueWithoutTracking(order).length).toBe(2);
         updateEntityByKey(cardsService, cards, 'c1', { rank: -1 });
         const effect = effectService.createEffect(db, () => undefined, [], [order]);
-        expect(() => order.computedValueService.getValueForSlot(order)).toThrow('sorter: rank is not comparable');
+        expect(() => readValueWithoutTracking(order)).toThrow('sorter: rank is not comparable');
         effectService.disposeEffect(effect);
         order.owner.unholdSlot(order);
     });
@@ -110,8 +111,8 @@ describe('a sorter that throws', () => {
             { id: 'b1', deckId: 'd1', rank: 1 }, { id: 'b2', deckId: 'd1', rank: 2 },
             { id: 'a1', deckId: 'd2', rank: 1 }, { id: 'a2', deckId: 'd2', rank: 2 },
         ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
-        expect(d1Order.computedValueService.getValueForSlot(d1Order).length).toBe(2);
-        expect(d2Order.computedValueService.getValueForSlot(d2Order).length).toBe(2);
+        expect(readValueWithoutTracking(d1Order).length).toBe(2);
+        expect(readValueWithoutTracking(d2Order).length).toBe(2);
         db.flush();
 
         let wokeGood = 0;
@@ -121,11 +122,11 @@ describe('a sorter that throws', () => {
         updateEntityByKey(cardsService, cards, 'b1', { rank: -1 });
         updateEntityByKey(cardsService, cards, 'a1', { rank: 3 });
 
-        expect(() => d1Order.computedValueService.getValueForSlot(d1Order)).toThrow(/sorter/);
+        expect(() => readValueWithoutTracking(d1Order)).toThrow(/sorter/);
         db.flush();
 
         expect(wokeGood).toBe(1);
-        expect(d2Order.computedValueService.getValueForSlot(d2Order).map(slot => slot.entity?.id)).toEqual(['a2', 'a1']);
+        expect(readValueWithoutTracking(d2Order).map(slot => slot.entity?.id)).toEqual(['a2', 'a1']);
         expect(errors).toHaveLength(0);
     });
 
@@ -136,13 +137,13 @@ describe('a sorter that throws', () => {
         for (const id of ['c1', 'c2', 'c3', 'c4']) {
             cardsService.writeSlotContentByKey(cards, id, { id, deckId: 'd1', rank: Number(id.slice(1)) });
         }
-        expect(order.computedValueService.getValueForSlot(order).length).toBe(4);
+        expect(readValueWithoutTracking(order).length).toBe(4);
 
         cardsService.writeSlotContentByKey(cards, 'c5', { id: 'c5', deckId: 'd1', rank: -1 });
 
-        expect(() => order.computedValueService.getValueForSlot(order)).toThrow('sorter: rank is not comparable');
+        expect(() => readValueWithoutTracking(order)).toThrow('sorter: rank is not comparable');
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deck)).toBe(5);
-        expect(() => order.computedValueService.getValueForSlot(order)).toThrow('sorter: rank is not comparable');
+        expect(() => readValueWithoutTracking(order)).toThrow('sorter: rank is not comparable');
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deck)).toBe(5);
     });
 
@@ -153,13 +154,13 @@ describe('a sorter that throws', () => {
         for (const id of ['c1', 'c2', 'c3', 'c4']) {
             cardsService.writeSlotContentByKey(cards, id, { id, deckId: 'd1', rank: Number(id.slice(1)) });
         }
-        expect(order.computedValueService.getValueForSlot(order).length).toBe(4);
+        expect(readValueWithoutTracking(order).length).toBe(4);
 
         updateEntityByKey(cardsService, cards, 'c2', { rank: -1 });
 
-        expect(() => order.computedValueService.getValueForSlot(order)).toThrow('sorter: rank is not comparable');
+        expect(() => readValueWithoutTracking(order)).toThrow('sorter: rank is not comparable');
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deck)).toBe(4);
-        expect(() => order.computedValueService.getValueForSlot(order)).toThrow('sorter: rank is not comparable');
+        expect(() => readValueWithoutTracking(order)).toThrow('sorter: rank is not comparable');
         expect(byDeckService.slotContentService.getBucketMemberSlotCount(deck)).toBe(4);
     });
 });

@@ -9,6 +9,34 @@ owns a lifetime and takes no subscription at all, for the derivations a componen
 npm install @oimdb/react @oimdb/core
 ```
 
+## In one minute
+
+```tsx file=todos.tsx
+import { OIMDB, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
+import { OIMDBProvider, useOIMEntity } from '@oimdb/react';
+
+type TTodo = { id: string; title: string; done: boolean };
+
+const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
+const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TTodo>() });
+
+todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
+
+function Todo({ id }: { id: string }) {
+    const todo = useOIMEntity(todos.storeSlot, id);
+    if (todo === undefined) return null;
+    return <li onClick={() => todos.writeSlotContentByKey(id, { ...todo, done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+}
+
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+```
+
+Clicking a todo re-renders that one `Todo` and nothing else. The `channelScheduler` delivers every write of a
+turn in one flush on a microtask, so nothing calls `db.flush()` by hand.
+
+The rest of this page is what the hooks do and what else they take.
+
 ## Why one binding
 
 Subscribing in this engine is one call: `OIMEffectService.INSTANCE.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)`.
@@ -35,18 +63,18 @@ instance, a store slot, and every store door of the service takes that store slo
 Whatever a read mints is swept at the end of the frame unless something took a real reference to it.
 
 ```ts setup
-import { OIMDB, type TOIMEntitySlot, createOIMSlotCollectionService, createOIMSlotContentEntityService, OIMSlotContentPositionalArrayBucketService, OIMBucketCommands, createOIMSingleComputedService, OIMSingleSlotStoreService, createOIMSingleSlotService, createOIMComputedService, oimSameValueZeroGuard, type TOIMComputedSlot } from '@oimdb/core';
+import { OIMDB, type TOIMEntitySlot, createOIMSlotCollectionService, createOIMEntityContentService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleComputedService, OIMSingleSlotStoreService, createOIMSingleSlotService, createOIMComputedService, oimSameValueZeroGuard, type TOIMComputedSlot } from '@oimdb/core';
 
 type TCard = { id: string; deckId: string; title: string; rank: number };
 
 export const db = new OIMDB();
 
-export const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+export const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 export const cards = cardService.createStoreSlot(db);
 
 // A bucket keeps the order the caller writes; a sorted list is
 // `createOIMSortedComputedService` over an index.
-export const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+export const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 export const byDeck = byDeckService.createStoreSlot(db);
 
 // A BUCKET'S SLOTS ARE YOURS. A write moves the card's value and files nothing, so the
@@ -56,10 +84,8 @@ export const byDeck = byDeckService.createStoreSlot(db);
 export function setDeck(deckId: string, cardsInDeck: readonly TCard[]): void {
     cardService.writeInBatch(cards, () => (cardsInDeck).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
     const bucket = byDeckService.holdSlotByKey(byDeck, deckId);
-    byDeckService.slotContentService.writeSlotContent(
-        bucket, cardsInDeck.map((card) => cardService.getSlotByKey(cards, card.id)),
-    );
-    bucket.owner.unholdSlot(bucket);
+    bucket.writeSlotContent(cardsInDeck.map((card) => cardService.getSlotByKey(cards, card.id)));
+    bucket.unholdSlot();
 }
 ```
 
@@ -110,6 +136,18 @@ A store aggregate passes its `storeSlot`.
   every read, and re-renders when the effect fires. **The binding must keep its identity across renders.** See
   [the requirement](#the-binding-you-hand-useoimvalue-must-keep-its-identity); breaking it
   causes a hang, not a slow path.
+- **`useOIMSourceTrackingValue(read, deps)`**: the value `read` returns, with no source list. Every
+  `slot.entity`, `slot.readEntity(group)`, `computed.value` and bucket membership read inside `read` becomes a source,
+  and the component re-renders when one changes. `deps` lists what `read` closes over, as for `useMemo`.
+
+  ```tsx
+  import { useOIMSourceTrackingValue } from '@oimdb/react';
+
+  function CardTitle({ cardSlot }: { cardSlot: TOIMEntitySlot<TCard> }) {
+      const title = useOIMSourceTrackingValue(() => cardSlot.entity?.title, [cardSlot]);
+      return <span>{title}</span>;
+  }
+  ```
 - **`useOIMComputedValue(computedSlot)`**: the value of ONE computed slot, re-rendering
   when it changes. It is `useOIMValue` over `sourceComputeds: [computedSlot]`, with the
   value read off `computedSlot.value` after `useOIMValue` settles it.
@@ -141,7 +179,7 @@ A store aggregate passes its `storeSlot`.
 - **`useOIMComputedValueByKey(computedStoreSlot, key)`**: the value of one key of a
   computed store slot. It has the same body as `useOIMEntity`:
   it resolves with `holdSlotByKey` on commit, subscribes over that computed slot, gives the resolve-hold straight
-  back, and reads the value through `computedSlot.computedValueService.getValueForSlot`.
+  back, and reads the value through `computedSlot.value`.
 - **`useOIMComputedCollection(computedService, derive, createSources, deps)`**: a keyed computed store slot the
   component owns. The SERVICE is yours, built once at module scope with `createOIMComputedService(options)`; the hook
   only calls `computedService.createComputedStoreSlot(db, derive, createSources)` in a `useMemo` keyed on `deps`, and
@@ -189,10 +227,10 @@ import { useOIMSingleBucketSlots, useOIMSingleEntity } from '@oimdb/react';
 
 type TSettings = { theme: string };
 
-const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
 const settings = settingsService.createStoreSlot(db);
 
-const pickedService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const pickedService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const picked = pickedService.createStoreSlot(db);
 
 function Toolbar() {
@@ -212,8 +250,8 @@ whose store slot holds them. You can either hold the key where the lifetime is (
 it with `useOIMValue`, or let the component own the lifetime with `useOIMSlotsByKeys`.
 
 `useOIMValue` produces the binding's derivations before every read, because a derivation is
-asked and never woken. Only a computed slot's `computedValueService.getValueForSlot` produces its value, so a
-`derive` that reaches a derivation's result any other way would show whatever the last produce left there.
+asked and never woken. A computed slot's value is produced by its value service, which `computedSlot.value`
+asks, so a `derive` reads `computedSlot.value` and never the stored field.
 
 **No wake is owed for what happened before the subscription.** An effect is stamped with the channel clock at
 birth (`ranAtRevision` / `ranAtEpoch`), so a frame runs the body only when a source moved *after* the subscription.
@@ -238,7 +276,7 @@ const ranks = rankService.createComputedStoreSlot(db);
 
 function Hand({ ids }: { ids: readonly string[] }) {
     const slots = useOIMSlotsByKeys(ranks, ids);
-    return <ul>{slots.map((s) => <li key={String(s.key)}>{s.computedValueService.getValueForSlot(s)}</li>)}</ul>;
+    return <ul>{slots.map((s) => <li key={String(s.key)}>{s.value}</li>)}</ul>;
 }
 ```
 
@@ -263,12 +301,12 @@ import { useOIMValue } from '@oimdb/react';
 function Deck({ bucket }: { bucket: ReturnType<typeof byDeckService.getSlotByKey> }) {
     // DO NOT. A new binding every render, and this never stops rendering.
     const unstable = useOIMValue({ sourceSlots: [bucket],
-                                   derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)) });
+                                   derive: () => Array.from(bucket.getBucketMemberSlots()) });
 
     // Do. The binding is memoised on what it was built from.
     const stable = useOIMValue(useMemo(() => ({
         sourceSlots: [bucket],
-        derive: () => Array.from(byDeckService.slotContentService.getBucketMemberSlots(bucket)),
+        derive: () => Array.from(bucket.getBucketMemberSlots()),
     }), [bucket]));
 
     return <span>{unstable.length + stable.length}</span>;

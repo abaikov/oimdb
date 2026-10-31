@@ -1,9 +1,9 @@
 import type {
-    OIMPushColumnSlotOwner, OIMSlotCollectionService, OIMSlotContentBucketService, TOIMBucketSlot, TOIMColumnSlot,
+    OIMPushColumnSlotOwner, OIMSlotCollectionService, OIMBucketContentService, TOIMBucketSlot, TOIMColumnSlot,
     TOIMEntitySlot, TOIMStoreKey,
 } from '@oimdb/core';
 
 export type TOIMReduxBucketCollectionService<TBucketStore> = OIMSlotCollectionService<
-    TOIMStoreKey, TOIMBucketSlot<unknown, TOIMStoreKey>, TBucketStore, OIMSlotContentBucketService<TOIMEntitySlot, unknown>,
+    TOIMStoreKey, TOIMBucketSlot<unknown, TOIMStoreKey>, TBucketStore, OIMBucketContentService<TOIMEntitySlot, unknown>,
     string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TOIMEntitySlot[]
 >;

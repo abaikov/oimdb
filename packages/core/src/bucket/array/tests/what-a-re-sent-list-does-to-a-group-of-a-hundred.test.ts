@@ -1,16 +1,16 @@
 import { OIMDB } from '../../../db/OIMDB';
-import { OIMSlotContentPositionalArrayBucketService } from '../../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../OIMPositionalArrayBucketContentService';
 import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
 
-const cardsOf = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+const cardsOf = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
 
 const groupsOf = () => {
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot, string>();
     const groupsService = createOIMSlotCollectionService({ slotContentService: membersService });
     return { groupsService, membersService };
 };

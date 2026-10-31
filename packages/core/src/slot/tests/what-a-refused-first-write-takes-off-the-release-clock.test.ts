@@ -3,7 +3,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { oimIsSlotReleased } from '../utils/oimIsSlotReleased';
 import { OIMSlotAfterWriteReleasePolicy } from '../../collector/OIMSlotAfterWriteReleasePolicy';
 import { oimMintAfterWriteSlotReleaseWheel } from '../../collector/utils/oimMintAfterWriteSlotReleaseWheel';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -20,9 +20,9 @@ const createFixture =() => {
         releaseTimer: () => () => undefined,
     });
     const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
-    const triggersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>() });
+    const triggersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>() });
     const triggers = triggersService.createStoreSlot(db);
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: WINDOW }) });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: WINDOW }) });
     const rows = rowsService.createStoreSlot(db);
     triggersService.writeSlotContentByKey(triggers, 't', { id: 't', n: 0 });
     db.flush();

@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../createOIMSingleSlotService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
 type TCard = { id: string; title: string };
@@ -12,7 +12,7 @@ describe('the collection factory', () => {
     it('takes the key, the slot and the content from the content service it is handed', () => {
         const db = new OIMDB();
         const cardsService = createOIMSlotCollectionService({
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
+            slotContentService: createOIMEntityContentService<TCard, string>(),
         });
         const cards = cardsService.createStoreSlot(db);
 
@@ -25,11 +25,11 @@ describe('the collection factory', () => {
     it('builds a collection of buckets from a bucket content service the same way', () => {
         const db = new OIMDB();
         const cardsService = createOIMSlotCollectionService({
-            slotContentService: createOIMSlotContentEntityService<TCard, string>(),
+            slotContentService: createOIMEntityContentService<TCard, string>(),
         });
         const cards = cardsService.createStoreSlot(db);
         const decksService = createOIMSlotCollectionService({
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard, string>, string>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, string>, string>(),
         });
         const decks = decksService.createStoreSlot(db);
         const c1 = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace' });
@@ -44,7 +44,7 @@ describe('the single slot factory', () => {
     it('takes the slot and the content from the content service it is handed', () => {
         const db = new OIMDB();
         const settingsService = createOIMSingleSlotService({
-            slotContentService: createOIMSlotContentEntityService<TSettings>(),
+            slotContentService: createOIMEntityContentService<TSettings>(),
         });
         const settings = settingsService.createStoreSlot(db);
 

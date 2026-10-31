@@ -10,14 +10,14 @@ import { OIMPushColumnSlotOwner } from '../src/column/OIMPushColumnSlotOwner';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../src/store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../src/slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const cardServiceOn = () =>
-    createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 
 const filedCard = (
     cardService: ReturnType<typeof cardServiceOn>, db: OIMDB,

@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService } from '@oimdb/core';
+import { OIMDB, OIMPositionalArrayBucketContentService, OIMSetBucketContentService } from '@oimdb/core';
 import type { TOIMPersistRecords } from '../src';
 import {
     OIMPersistBucketRecordSource,
@@ -9,7 +9,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
@@ -21,9 +21,9 @@ const tick = (): Promise<void> => new Promise(resolve => { setTimeout(resolve, 0
 
 function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TUserSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TUserSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'all');
     const testPersistBackend = new OIMTestPersistBackend<TOIMStoreKey, TUser>();
@@ -37,7 +37,7 @@ function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
             channelMap: db,
             entityCollectionService: entityService,
             entityStoreSlot,
-            slotContentBucketService: bucketService.slotContentService,
+            bucketContentService: bucketService.slotContentService,
             bucketSlot,
         }),
         persistRecordsService: testPersistBackend.createRecordsStrategy(),
@@ -57,10 +57,10 @@ function build(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
 
 function buildNonUniqueArrayDriven(storedRecords: TOIMPersistRecords<TOIMStoreKey, TUser>) {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const bucketServiceArrayDriven = createOIMSlotCollectionService({
-        slotContentService: new OIMSlotContentPositionalArrayBucketService<TUserSlot>(),
+        slotContentService: new OIMPositionalArrayBucketContentService<TUserSlot>(),
     });
     const bucketStoreSlot = bucketServiceArrayDriven.createStoreSlot(db);
     const bucketSlot = bucketServiceArrayDriven.holdSlotByKey(bucketStoreSlot, 'all');
@@ -74,7 +74,7 @@ function buildNonUniqueArrayDriven(storedRecords: TOIMPersistRecords<TOIMStoreKe
         channelMap: db,
         entityCollectionService: entityService,
         entityStoreSlot,
-        slotContentBucketService: bucketServiceArrayDriven.slotContentService,
+        bucketContentService: bucketServiceArrayDriven.slotContentService,
         bucketSlot,
     });
     const persistRecordsResource = persistor.addPersistResource(new OIMPersistRecordsResource({
@@ -463,7 +463,7 @@ describe('an unload on a stopped persistor', () => {
 describe('the single entity source', () => {
     it('keeps a matched restore until a different value is seen, then forgets it', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();
@@ -491,7 +491,7 @@ describe('the single entity source', () => {
 
     it('reports a change made in the batch its restore wrote in', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();
@@ -514,7 +514,7 @@ describe('the single entity source', () => {
 
     it('and still says nothing when its restore lands on top of a change', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TUserSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TUserSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { userId: 'u1', theme: 'dark' });
         db.flush();

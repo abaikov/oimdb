@@ -32,7 +32,7 @@ built over an `OIMPersistEntityWriter`, which is what lets a collection source
 learn what changed:
 
 ```ts setup
-import { OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMSlotContentEntityService, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMEntityContentService, createOIMSingleSlotService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistBucketRecordSource,
@@ -53,14 +53,14 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TCard, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>({ entityWriter: persistEntityWriter }) });
+const cardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>({ entityWriter: persistEntityWriter }) });
 const cardEntityStoreSlot = cardCollectionService.createStoreSlot(db);
 
-const deckBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const deckBucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 const deckBucketStoreSlot = deckBucketService.createStoreSlot(db);
 const keptBucketSlot = deckBucketService.holdSlotByKey(deckBucketStoreSlot, 'kept');
 
-const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+const settingsSingleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
 const settingsEntityStoreSlot = settingsSingleEntityService.createStoreSlot(db);
 settingsSingleEntityService.writeSingleSlotContent(settingsEntityStoreSlot, { theme: 'dark' });
 ```
@@ -221,7 +221,7 @@ collection type, not to one store slot, so the source keeps only the writes whos
 store slot it was given.
 
 The writer does not see an edit made to an entity object in place and then
-announced with `slotContentService.markEntityChanged(entitySlot, changedColumns?)`.
+announced with `entitySlot.markEntityChanged(changedColumns?)`.
 Whether such an edit is persisted is a choice of source, made at construction.
 Both take the same options object, `TOIMPersistRecordSourceCollectionOptions`
 (`{ entityCollectionService, entityStoreSlot, persistEntityWriter }`). The collection service is anything with
@@ -276,7 +276,7 @@ persistor.addPersistResource(new OIMPersistRecordsResource({
     channelMap: db,
     entityCollectionService: cardCollectionService,
     entityStoreSlot: cardEntityStoreSlot,
-    slotContentBucketService: deckBucketService.slotContentService,
+    bucketContentService: deckBucketService.slotContentService,
     bucketSlot: keptBucketSlot,
   }),
   persistRecordsService: new OIMPersistMemoryRecordsService<TOIMStoreKey, TCard>({ storageKey: 'kept-cards' }),
@@ -284,7 +284,7 @@ persistor.addPersistResource(new OIMPersistRecordsResource({
 persistor.start();
 
 const cardSlot = cardCollectionService.writeSlotContentByKey(cardEntityStoreSlot, 'c1', { id: 'c1', title: 'Ace' });
-deckBucketService.slotContentService.writeSlotContent(keptBucketSlot, [cardSlot]);
+keptBucketSlot.writeSlotContent([cardSlot]);
 db.flush();
 await persistor.whenIdle();
 ```
@@ -334,8 +334,8 @@ persistor.addPersistResource(new OIMPersistSnapshotResource({
 
 The snapshot is the entity itself, read with `singleSlotService.findSingleSlot(entityStoreSlot)?.entity`;
 reading it before the entity was ever upserted throws, so give the single its first value with
-`writeSlotContentByKey` before the persistor reads it. A hydrate writes it back through
-`singleSlotService.slotContentService.writeSlotContentByKey(entityStoreSlot, entity)`, a whole-value write, so a column
+`writeSingleSlotContent` before the persistor reads it. A hydrate writes it back through
+`singleSlotService.writeSingleSlotContent(entityStoreSlot, entity)`, a whole-value write, so a column
 deleted before the snapshot was taken does not come back on load. When the resource subscribes, the
 source reports the current value unless it is the value a hydrate restored, so
 the first drain after `start()` writes it.

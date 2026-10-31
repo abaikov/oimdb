@@ -1,5 +1,5 @@
 import type {
-    OIMSingleSlotService, OIMSlotContentBucketService, TOIMBucketContentSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreSlot,
+    OIMSingleSlotService, OIMBucketContentService, TOIMBucketContentSlot, TOIMEntitySlot, TOIMSingleSlotStore, TOIMStoreSlot,
 } from '@oimdb/core';
 import { useOIMSingleSlot } from './useOIMSingleSlot';
 
@@ -9,7 +9,7 @@ export function useOIMSingleBucketSlots<TEntity extends object, TSlots = unknown
         Pick<
             OIMSingleSlotService<
                 TOIMBucketContentSlot<TSlots>,
-                Pick<OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>
+                Pick<OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots>, 'getBucketMemberSlots'>
             >,
             'getSingleSlot' | 'holdSingleSlot' | 'slotContentService'
         >

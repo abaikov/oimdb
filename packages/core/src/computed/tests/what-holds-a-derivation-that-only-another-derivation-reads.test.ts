@@ -3,14 +3,15 @@ import { createOIMComputedService } from '../createOIMComputedService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import { oimSameValueZeroGuard } from '../../slot/utils/oimSameValueZeroGuard';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ranksComputedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
@@ -25,7 +26,7 @@ const createFixture =() => {
     // the shared derivation — every consumer with a derivation already in scope.
     const relativeComputedService = createOIMComputedService<string, number>({
         createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)], sourceComputeds: [baselineSlot] }),
-        derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) - baselineSlot.computedValueService.getValueForSlot(baselineSlot),
+        derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) - readValueWithoutTracking(baselineSlot),
         sameValueGuard: oimSameValueZeroGuard,
     });
     const relative = relativeComputedService.createComputedStoreSlot(db);
@@ -57,8 +58,8 @@ describe('what holds a derivation that only another derivation reads', () => {
         expect(againSlot).toBe(baselineSlot);
         againSlot.owner.unholdSlot(againSlot);
 
-        readerSlot.computedValueService.getValueForSlot(readerSlot);
-        expect(readerSlot.computedValueService.getValueForSlot(readerSlot)).toBe(3);
+        readValueWithoutTracking(readerSlot);
+        expect(readValueWithoutTracking(readerSlot)).toBe(3);
     });
 
     it('takes one hold on the source and gives it back when the reader goes', () => {

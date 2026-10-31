@@ -3,7 +3,7 @@ import { OIMChannelService } from '../OIMChannelService';
 import type { TOIMEntitySlot, TOIMDisposer } from '../../index';
 import { OIMEffectService } from '../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number; label: string };
@@ -31,7 +31,7 @@ const makeRandom = (seed: number): (() => number) => {
     };
 };
 
-const makeCollection = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TRow>() });
+const makeCollection = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
 
 type TRowsService = ReturnType<typeof makeCollection>;
 type TRowsStoreSlot = ReturnType<TRowsService['createStoreSlot']>;

@@ -1,14 +1,14 @@
 import { computed, effect, endBatch, signal, startBatch } from 'alien-signals';
 import { OIMDB, OIMEffectService, OIM_FROZEN_EMPTY_SLOTS, createOIMSingleComputedService } from '../../../core/src/index';
 import type {
-    OIMSingleComputedService, OIMSourceTracker,
+    OIMSingleComputedService,
     TOIMComputedContentSlot, TOIMComputedStoreSlot, TOIMEntityContentSlot, TOIMSingleSlotStore,
 } from '../../../core/src/index';
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSingleSlotService } from '../../../core/src/index';
 
 type TGraphRoot = { value: number };
@@ -34,7 +34,7 @@ type TGraphComputedStoreSlot = TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMCom
 type TGraphComputedService = OIMSingleComputedService<number>;
 
 const createRootEntityService = <TRoot extends object = TGraphRoot>() =>
-    createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TRoot>() });
+    createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TRoot>() });
 
 type TGraphRootEntityService<TRoot extends object> = ReturnType<typeof createRootEntityService<TRoot>>;
 
@@ -50,7 +50,7 @@ const createGraphComputedService = (): TGraphComputedService => createOIMSingleC
 
 const valueOfComputedStoreSlot = (computedService: TGraphComputedService, computedStoreSlot: TGraphComputedStoreSlot): number => {
     const computedSlot = computedService.computedSingleSlotService.getSingleSlot(computedStoreSlot);
-    return computedSlot.computedValueService.getValueForSlot(computedSlot);
+    return computedSlot.value;
 };
 
 const createHeadOfComputedChain = (
@@ -81,13 +81,12 @@ const createHeadOfAlienChain = (rootSignal: TAlienSignal, depth: number): (() =>
     return head;
 };
 
-type TGraphSourceReader = { readSourceSlot: (rootSlot: TGraphRootSlot) => TGraphRootSlot };
 
 type TGraphHeadComputedSlot = TOIMComputedContentSlot<number>;
 
 type TGraphEffectStrategy = {
     createRootsEffect: (
-        db: OIMDB, body: (graphSourceReader: TGraphSourceReader) => void, declaredRootSlots: readonly TGraphRootSlot[],
+        db: OIMDB, body: () => void, declaredRootSlots: readonly TGraphRootSlot[],
     ) => object;
     createHeadEffect: (
         db: OIMDB, headComputedSlot: TGraphHeadComputedSlot, body: (headValue: number) => void,
@@ -95,26 +94,23 @@ type TGraphEffectStrategy = {
     ) => object;
 };
 
-const declaredGraphSourceReader: TGraphSourceReader = { readSourceSlot: rootSlot => rootSlot };
 
 const declaredGraphEffectStrategy: TGraphEffectStrategy = {
     createRootsEffect: (db, body, declaredRootSlots) => OIMEffectService.INSTANCE
-        .createAndRunEffect(db, () => body(declaredGraphSourceReader), declaredRootSlots),
+        .createAndRunEffect(db, body, declaredRootSlots),
     createHeadEffect: (db, headComputedSlot, body, computedService, headComputedStoreSlot) => OIMEffectService.INSTANCE
         .createAndRunEffect(db, () => body(valueOfComputedStoreSlot(computedService, headComputedStoreSlot)), OIM_FROZEN_EMPTY_SLOTS, [headComputedSlot]),
 };
 
 const trackedGraphEffectStrategy: TGraphEffectStrategy = {
     createRootsEffect: (db, body) => OIMEffectService.INSTANCE
-        .createSourceTrackingEffect(db, (sourceTracker: OIMSourceTracker) => body(sourceTracker)),
+        .createSourceTrackingEffect(db, body),
     createHeadEffect: (db, headComputedSlot, body) => OIMEffectService.INSTANCE
-        .createSourceTrackingEffect(db, (sourceTracker: OIMSourceTracker) => {
-            body(sourceTracker.readSourceComputedValue(headComputedSlot));
+        .createSourceTrackingEffect(db, () => {
+            body(headComputedSlot.value);
         }),
 };
 
-const readRootValue = (graphSourceReader: TGraphSourceReader, rootSlot: TGraphRootSlot): number =>
-    valueOfRoot(graphSourceReader.readSourceSlot(rootSlot));
 
 const oursStandingChain = (depth: number, writesPerFrame: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
     const db = new OIMDB();
@@ -223,9 +219,9 @@ const oursReadsPerRun = (rootCount: number, graphEffectStrategy: TGraphEffectStr
     const slotContentService = rootEntityService.slotContentService;
     const rootSlots: TGraphRootSlot[] = [];
     for (let r = 0; r < rootCount; r++) rootSlots.push(createRootSlot(db, rootEntityService, { value: 0 }));
-    const sumEffect = graphEffectStrategy.createRootsEffect(db, graphSourceReader => {
+    const sumEffect = graphEffectStrategy.createRootsEffect(db, () => {
         let total = 0;
-        for (let r = 0; r < rootSlots.length; r++) total += readRootValue(graphSourceReader, rootSlots[r]);
+        for (let r = 0; r < rootSlots.length; r++) total += valueOfRoot(rootSlots[r]);
         priceSink.number = total;
     }, rootSlots);
     db.flush();
@@ -276,11 +272,11 @@ const oursInactiveBranchWrite = (graphEffectStrategy: TGraphEffectStrategy): TPr
     const activeSlot = createRootSlot(db, rootEntityService, { value: 0 });
     const inactiveSlot = createRootSlot(db, rootEntityService, { value: 0 });
     let bodyRunCount = 0;
-    const branchEffect = graphEffectStrategy.createRootsEffect(db, graphSourceReader => {
+    const branchEffect = graphEffectStrategy.createRootsEffect(db, () => {
         bodyRunCount++;
-        priceSink.number = readRootValue(graphSourceReader, flagSlot) === 1
-            ? readRootValue(graphSourceReader, activeSlot)
-            : readRootValue(graphSourceReader, inactiveSlot);
+        priceSink.number = valueOfRoot(flagSlot) === 1
+            ? valueOfRoot(activeSlot)
+            : valueOfRoot(inactiveSlot);
     }, [flagSlot, activeSlot, inactiveSlot]);
     db.flush();
     let written = 0;
@@ -322,8 +318,8 @@ const oursCoalescedWrites = (writesPerFrame: number, graphEffectStrategy: TGraph
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
-    const rootEffect = graphEffectStrategy.createRootsEffect(db, graphSourceReader => {
-        priceSink.number = readRootValue(graphSourceReader, rootSlot);
+    const rootEffect = graphEffectStrategy.createRootsEffect(db, () => {
+        priceSink.number = valueOfRoot(rootSlot);
     }, [rootSlot]);
     db.flush();
     let written = 0;
@@ -376,8 +372,8 @@ const floorBatchedDelivery = (writesPerFrame: number): TPriceSide => {
 };
 
 const BOTH_ARMS = [
-    'Ours is @oimdb/core from source: a single entity store slot root (createStoreSlot, writeSingleSlotContent, holdSingleSlot) from createOIMSingleSlotService with createOIMSlotContentEntityService, written through slotContentService.updateEntityColumn,',
-    'single computed store slots (createComputedStoreSlot, getSingleSlot, computedValueService.getValueForSlot) of an OIMSingleComputedService for anything derived, one effect from OIMEffectService, and db.flush() as the settle.',
+    'Ours is @oimdb/core from source: a single entity store slot root (createStoreSlot, writeSingleSlotContent, holdSingleSlot) from createOIMSingleSlotService with createOIMEntityContentService, written through slotContentService.updateEntityColumn,',
+    'single computed store slots (createComputedStoreSlot, getSingleSlot, computedSlot.value) of an OIMSingleComputedService for anything derived, one effect from OIMEffectService, and db.flush() as the settle.',
     'The floor is alien-signals 3.2: signal, computed, effect, and startBatch/endBatch where the row says so.',
     'Every write stores a new number from a counter, so no write on either arm is stopped by a same-value check.',
     'Each arm runs in its own process.',
@@ -389,7 +385,7 @@ const trackedTwinCaveat = (declaredPairId: string, sentences: readonly string[])
     ...sentences,
     `THIS IS THE SAME TASK AS ${declaredPairId}, with the same floor builder; only the ours effect differs.`,
     'The effect comes from OIMEffectService.createSourceTrackingEffect instead of createAndRunEffect, and its dependencies are tracked at run time:',
-    'each run reads its sources through sourceTracker (readSourceSlot for a root, readSourceComputedValue for a computed)',
+    'each run reads its sources through the slots themselves (slot.entity for a root, computedSlot.value for a computed)',
     'instead of the root and computed lists declared once at build.',
     `Read this row against ${declaredPairId}: the difference between the two is the price of tracking against declaring on this task.`,
 ]);
@@ -520,11 +516,11 @@ const subscriptionRunPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
 const subscriptionRunTrackedPairs: readonly TPricePair[] = DEPTHS.map(depth => ({
     id: `graph.subscription-tracked.run.d${depth}`,
     path: EPricePath.PerWrite,
-    ours: `one updateEntityColumn on the root, then db.flush(), under a standing chain of ${depth} computed single-slot store slots and one OIMEffectService.createSourceTrackingEffect effect reading the head through readSourceComputedValue`,
+    ours: `one updateEntityColumn on the root, then db.flush(), under a standing chain of ${depth} computed single-slot store slots and one OIMEffectService.createSourceTrackingEffect effect reading the head through headComputedSlot.value`,
     floor: `one root(v) with no batch, under a standing chain of ${depth} alien computeds and one alien effect`,
     caveat: trackedTwinCaveat(`graph.subscription.run.d${depth}`, [
         `ONE OPERATION IS ONE WRITE TO THE ROOT AND ONE SETTLE, under a standing chain of ${depth} derived nodes and one effect over the head.`,
-        'The tracked effect reads the head through sourceTracker.readSourceComputedValue, so the head computed is the one source it tracks.',
+        'The tracked effect reads the head through headComputedSlot.value, so the head computed is the one source it tracks.',
     ]),
     isolate: true,
     build: wanted => ({
@@ -549,11 +545,11 @@ const readsPerRunPairs: readonly TPricePair[] = ROOTS_READ_PER_RUN.map(rootCount
 const readsPerRunTrackedPairs: readonly TPricePair[] = ROOTS_READ_PER_RUN.map(rootCount => ({
     id: `graph.dependencies-tracked.reads-per-run.r${rootCount}`,
     path: EPricePath.PerWrite,
-    ours: `updateEntityColumn on one of ${rootCount} roots, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reads all ${rootCount} root slots through readSourceSlot and sums them`,
+    ours: `updateEntityColumn on one of ${rootCount} roots, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reads all ${rootCount} root slots through slot.entity and sums them`,
     floor: `one of ${rootCount} alien signals written with no batch; one alien effect reads and sums all of them`,
     caveat: trackedTwinCaveat(`graph.dependencies.reads-per-run.r${rootCount}`, [
         `ONE OPERATION IS ONE WRITE TO ONE OF ${rootCount} ROOTS, chosen round-robin, AND ONE SETTLE; one effect reads every root and sums them.`,
-        `Each run reads the ${rootCount} roots through sourceTracker.readSourceSlot, so both arms re-track on every run.`,
+        `Each run reads the ${rootCount} roots through slot.entity, so both arms re-track on every run.`,
     ]),
     isolate: true,
     build: wanted => ({
@@ -578,7 +574,7 @@ const inactiveBranchPair: TPricePair = {
 const inactiveBranchTrackedPair: TPricePair = {
     id: 'graph.dependencies-tracked.inactive-branch.s3',
     path: EPricePath.PerWrite,
-    ours: 'updateEntityColumn on the unread branch value, then db.flush(); the OIMEffectService.createSourceTrackingEffect effect reads flag and then active only, through readSourceSlot',
+    ours: 'updateEntityColumn on the unread branch value, then db.flush(); the OIMEffectService.createSourceTrackingEffect effect reads flag and then active only, through slot.entity',
     floor: 'inactive(v) with no batch; the alien effect reads flag() and then active() only',
     caveat: trackedTwinCaveat('graph.dependencies.inactive-branch.s3', [
         'ONE OPERATION IS ONE WRITE TO THE INACTIVE BRANCH AND ONE SETTLE.',
@@ -610,7 +606,7 @@ const coalescingPairs: readonly TPricePair[] = WRITES_PER_COALESCED_FRAME.map(wr
 const coalescingTrackedPairs: readonly TPricePair[] = WRITES_PER_COALESCED_FRAME.map(writesPerFrame => ({
     id: `graph.coalescing-tracked.unbatched.k${writesPerFrame}`,
     path: EPricePath.PerFrame,
-    ours: `${writesPerFrame}× updateEntityColumn on one root, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reading the root through readSourceSlot runs once`,
+    ours: `${writesPerFrame}× updateEntityColumn on one root, then db.flush(); one OIMEffectService.createSourceTrackingEffect effect reading the root through slot.entity runs once`,
     floor: `${writesPerFrame}× root(v) with no batch; the alien effect on the root runs after every write`,
     caveat: trackedTwinCaveat(`graph.coalescing.unbatched.k${writesPerFrame}`, [
         `ONE OPERATION IS ${writesPerFrame} WRITES TO ONE ROOT AND ONE SETTLE, with one effect reading the root.`,

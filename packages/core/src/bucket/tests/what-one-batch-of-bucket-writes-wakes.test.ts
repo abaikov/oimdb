@@ -1,8 +1,8 @@
-import { OIMDB, OIMSlotAtEmptyReleasePolicy, OIMChannelService, OIMSlotContentSetBucketService } from '../../index';
+import { OIMDB, OIMSlotAtEmptyReleasePolicy, OIMChannelService, OIMSetBucketContentService } from '../../index';
 import type { IOIMSlotReleasePolicy, TOIMEntitySlot, TOIMSlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 
 type TCard = { id: string };
@@ -35,9 +35,9 @@ class OIMSlotReleasePolicyAtEmptyCounted implements IOIMSlotReleasePolicy {
 const createFixture = () => {
     const slotReleasePolicy = new OIMSlotReleasePolicyAtEmptyCounted();
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const pageService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }), slotReleasePolicy });
+    const pageService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }), slotReleasePolicy });
     const page = pageService.createStoreSlot(db);
     const bucket = pageService.holdSlotByKey(page, 'p');
     const [a, b, c] = ['a', 'b', 'c'].map(id => cardsService.writeSlotContentByKey(cards, id, { id }));
@@ -68,9 +68,9 @@ describe('what one batch of bucket writes wakes', () => {
     it('tells the release policy nothing about a door that changed nothing', () => {
         const slotReleasePolicy = new OIMSlotReleasePolicyAtEmptyCounted();
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>(), slotReleasePolicy });
         const decks = decksService.createStoreSlot(db);
         const deck = decksService.holdSlotByKey(decks, 'd');
         const a = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a' });

@@ -1,8 +1,8 @@
-import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService } from '../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService } from '../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     for (const id of ['a', 'b', 'c']) cardsService.writeSlotContentByKey(cards, id, { id });
     db.flush();
@@ -20,7 +20,7 @@ const createFixture = () => {
     return { db, effectService, slot };
 };
 
-const createSetDeckService = () => createOIMSingleSlotService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createSetDeckService = () => createOIMSingleSlotService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 const idsOf = (slots: Iterable<TCardSlot>): string[] => Array.from(slots, cardSlot => cardSlot.key);
 
@@ -78,7 +78,7 @@ describe('a set-driven bucket under no key', () => {
 describe('an array-driven bucket under no key', () => {
     it('keeps the order its positional doors give it, and holds what they bring in', () => {
         const { db, slot } = createFixture();
-        const deckService = createOIMSingleSlotService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+        const deckService = createOIMSingleSlotService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>() });
         const deckContentService = deckService.slotContentService;
         const deck = deckService.createStoreSlot(db);
         const deckSlot = deckService.getSingleSlot(deck);

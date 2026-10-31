@@ -6,9 +6,9 @@ import type { IOIMSlotSubscriptionListener } from '../interfaces/IOIMSlotSubscri
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
 
 type TCard = { id: string; deck: string; title: string };
@@ -31,7 +31,7 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
     it('tells the entity collection once at the first subscriber and once at the last, not per subscription', () => {
         const db = new OIMDB();
         const { told, listener } = createRecordingListener();
-        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotSubscriptionListener: listener });
+        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotSubscriptionListener: listener });
         const cards = cardService.createStoreSlot(db);
         const card = cardService.holdSlotByKey(cards, 'c1');
 
@@ -48,9 +48,9 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
     it('does not tell anybody about a hold, a read or bucket membership without a subscriber', () => {
         const db = new OIMDB();
         const { told, listener } = createRecordingListener();
-        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotSubscriptionListener: listener });
+        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotSubscriptionListener: listener });
         const cards = cardService.createStoreSlot(db);
-        const deckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const deckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const decks = deckService.createStoreSlot(db);
 
         const card = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'd1', title: 'Ace' });
@@ -68,7 +68,7 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
     it('hands the column slot to the listener of its entity collection when a column gets its first subscriber', () => {
         const db = new OIMDB();
         const { told, listener } = createRecordingListener();
-        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotSubscriptionListener: listener });
+        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotSubscriptionListener: listener });
         const cards = cardService.createStoreSlot(db);
         const card = cardService.holdSlotByKey(cards, 'c1');
         const title = cardService.columnSlotService.holdColumn(card, 'title');
@@ -84,7 +84,7 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
     it('tells the root collection when an effect reaches the root through a derivation', () => {
         const db = new OIMDB();
         const { told, listener } = createRecordingListener();
-        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotSubscriptionListener: listener });
+        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotSubscriptionListener: listener });
         const cards = cardService.createStoreSlot(db);
         const titleLengthService = createOIMComputedService<string, number>({});
         const titleLengths = titleLengthService.createComputedStoreSlot(
@@ -106,9 +106,9 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
         const db = new OIMDB();
         const { told: bucketTold, listener: bucketListener } = createRecordingListener();
         const { told: indexTold, listener: indexListener } = createRecordingListener();
-        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardService.createStoreSlot(db);
-        const deckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }), slotSubscriptionListener: bucketListener });
+        const deckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }), slotSubscriptionListener: bucketListener });
         const decks = deckService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardService,

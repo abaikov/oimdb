@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMReplacingEntityWriter } from '../createOIMReplacingEntityWriter';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type Blob = Record<string, unknown>;
@@ -9,7 +9,7 @@ type Blob = Record<string, unknown>;
 describe('a removal that names a name only the prototype has', () => {
     it('wakes nobody, because nothing was removed', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Blob>() });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Blob>() });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         let runCount = 0;
@@ -27,7 +27,7 @@ describe('a removal that names a name only the prototype has', () => {
 
     it('does not hand a reference-comparing reader a new record for a removal that removed nothing', () => {
         const db = new OIMDB();
-        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Blob>({ entityWriter: createOIMReplacingEntityWriter() }) });
+        const settingsService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Blob>({ entityWriter: createOIMReplacingEntityWriter() }) });
         const settings = settingsService.createStoreSlot(db);
         settingsService.writeSingleSlotContent(settings, { theme: 'dark', zoom: 1 });
         const before = settingsService.getSingleSlot(settings).entity;

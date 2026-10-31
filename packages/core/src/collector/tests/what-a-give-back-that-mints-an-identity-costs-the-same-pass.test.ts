@@ -1,3 +1,4 @@
+import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import { OIMSlotCollectionService } from '../../slot/OIMSlotCollectionService';
 import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { OIMUnusedSlotCollectorService } from '../OIMUnusedSlotCollectorService';
@@ -8,14 +9,13 @@ import { OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE } from '../../db/constants/OIM_DE
 
 import type { IOIMSlotContentService } from '../../slot/interfaces/IOIMSlotContentService';
 import type { IOIMKeyedSlotCreator } from '../../slot/interfaces/IOIMKeyedSlotCreator';
-import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { entitySlotOf } from '../../../tests/support/entitySlotOf';
 
 type TToken = { id: TOIMStoreKey; value: string };
 type TTokenSlot = TOIMEntitySlot<TToken, TOIMStoreKey>;
@@ -29,7 +29,7 @@ class OIMTokenContentService implements IOIMSlotContentService<TTokenSlot>, IOIM
     }
 
     public isSlotEmpty(slot: TTokenSlot): boolean {
-        return slot.entity === undefined;
+        return (slot as unknown as { content: unknown }).content === undefined;
     }
 
     public hasReference(): boolean {
@@ -37,7 +37,7 @@ class OIMTokenContentService implements IOIMSlotContentService<TTokenSlot>, IOIM
     }
 
     public releaseSlotContent(slot: TTokenSlot): void {
-        (slot as TOIMEditable<TTokenSlot>).entity = undefined;
+        entitySlotOf(slot).content = undefined;
         this.whenReleased();
     }
 }

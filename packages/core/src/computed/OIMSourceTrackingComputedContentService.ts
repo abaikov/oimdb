@@ -1,10 +1,10 @@
 import type { TOIMSourceTrackingComputedContentSlot } from './types/TOIMSourceTrackingComputedContentSlot';
-import { OIMSlotContentComputedService } from './OIMSlotContentComputedService';
+import { OIMComputedContentService } from './OIMComputedContentService';
 import { OIMSourceTracker } from './OIMSourceTracker';
 
-export class OIMSlotContentSourceTrackingComputedService<
+export class OIMSourceTrackingComputedContentService<
     TValue, TComputedSlot extends TOIMSourceTrackingComputedContentSlot<TValue> = TOIMSourceTrackingComputedContentSlot<TValue>,
-> extends OIMSlotContentComputedService<TValue, TComputedSlot> {
+> extends OIMComputedContentService<TValue, TComputedSlot> {
     protected override createSourceTracker(): OIMSourceTracker {
         return new OIMSourceTracker();
     }

@@ -77,7 +77,7 @@ export class OIMDevRegistry implements IOIMStoreSlotListener {
             const liveComputedStoreSlot = computedStoreSlotWeakRef.deref();
             if (liveComputedStoreSlot === undefined) return undefined;
             const computedSlot = computedService.computedSingleSlotService.getSingleSlot(liveComputedStoreSlot);
-            return { currentValue: computedSlot.computedValueService.getValueForSlot(computedSlot) };
+            return { currentValue: computedSlot.value };
         });
         return this;
     }

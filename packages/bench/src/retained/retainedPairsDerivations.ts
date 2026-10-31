@@ -4,7 +4,7 @@ import type { TPriceEntityService } from '../price/priceFixture';
 import { ERetainedPath } from './ERetainedPath';
 import type { TRetainedPair } from './TRetainedPair';
 import type { TRetainedPopulation } from './TRetainedPopulation';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 // Prose: ./README.md#retainedpairsderivations
@@ -58,7 +58,7 @@ const populatedEntityService = (): {
     slots: TRowSlot[];
 } => {
     const db = new OIMDB();
-    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDerivationRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService: TPriceEntityService<TDerivationRow> = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TDerivationRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
     const groups = groupNames();
     const slots: TRowSlot[] = new Array<TRowSlot>(ROWS);
@@ -113,7 +113,7 @@ const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations =>
     const rankSumSlots: TOIMComputedSlot<number, number>[] = new Array<TOIMComputedSlot<number, number>>(DERIVATIONS);
     for (let i = 0; i < DERIVATIONS; i++) {
         const rankSumSlot = rankSumComputedCollectionService.holdSlotByKey(rankSumComputedStoreSlot, i);
-        rankSumSlot.computedValueService.getValueForSlot(rankSumSlot);
+        rankSumSlot.value;
         rankSumSlots[i] = rankSumSlot;
     }
     return { rankSumComputedService, rankSumComputedStoreSlot, rankSumSlots };

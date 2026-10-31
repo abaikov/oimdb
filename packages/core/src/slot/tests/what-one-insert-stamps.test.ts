@@ -5,7 +5,7 @@ import type { IOIMSlotStamp } from '../interfaces/IOIMSlotStamp';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMSlot } from '../types/TOIMSlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -21,7 +21,7 @@ const createFixture = () => {
     };
     const defaults = new OIMDefaults({ slotStamp });
     const db = new OIMDB();
-    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow>({ defaults, slotEmptinessPolicy: emptiness }) });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TRow>({ defaults, slotEmptinessPolicy: emptiness }) });
     const rows = rowsService.createStoreSlot(db);
     return { rowsService, rows, stamps: () => stamped, emptinessAsks: () => asked };
 };

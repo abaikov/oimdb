@@ -7,14 +7,14 @@ import { OIMSlotMapStoreService } from '../../store/OIMSlotMapStoreService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; title: string; rank: number };
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>(), slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), slotStoreService: new OIMSlotMapStoreService<TOIMEntitySlot<Card, TOIMStoreKey>>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

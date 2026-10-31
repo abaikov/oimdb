@@ -1,11 +1,11 @@
 import { OIMDefaults } from '../../db/OIMDefaults';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotAtUnholdReleasePolicy } from '../OIMSlotAtUnholdReleasePolicy';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
@@ -14,12 +14,12 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 function setUp() {
     const defaults = new OIMDefaults({ slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({ defaults,
         entityService: cardsService,
         keyOf: (card: TCard) => card.deck,
-        slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(),
+        slotContentService: new OIMSetBucketContentService<TCardSlot>(),
     });
     return { db, cards, cardsService, byDeckService };
 }
@@ -67,7 +67,7 @@ describe('a write into a row nobody holds, under the at-unhold policy', () => {
 
     it('still keeps every row when no policy is named', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
 
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'one' });

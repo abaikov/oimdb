@@ -1,4 +1,4 @@
-import type { OIMSlotContentBucketService } from '../bucket/OIMSlotContentBucketService';
+import type { OIMBucketContentService } from '../bucket/OIMBucketContentService';
 import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
@@ -10,7 +10,7 @@ export class OIMSlotCollectionIndexStoreAggregate<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
     TBucketSlot extends TOIMBucketSlot<TSlots, TKey>, TStore,
     TSlotService extends OIMSlotCollectionIndexService<
-        TKey, TEntity, TSlots, TSourceKey, TSourceStore, OIMSlotContentBucketService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TBucketSlot, TStore
+        TKey, TEntity, TSlots, TSourceKey, TSourceStore, OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TBucketSlot, TStore
     >,
 > extends OIMSlotCollectionStoreAggregate<TKey, TBucketSlot, TStore, readonly TOIMEntitySlot<TEntity>[], TSlotService> {
     declare public readonly storeSlot: TOIMIndexStoreSlot<

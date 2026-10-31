@@ -6,7 +6,7 @@ import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy
 import { createOIMInPlaceEntityWriter } from '../createOIMInPlaceEntityWriter';
 import type { IOIMEntityWriter } from '../interfaces/IOIMEntityWriter';
 import type { TOIMChannelScheduler } from '../../channel/types/TOIMChannelScheduler';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; title: string };
@@ -27,7 +27,7 @@ const countingDb = (): { db: OIMDB; armed: () => number; framesEnded: () => numb
 };
 
 const collectionOn = (db: OIMDB, write: IOIMEntityWriter) => {
-    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>({ entityWriter: write }) });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>({ entityWriter: write }) });
     return { collectionService, collection: collectionService.createStoreSlot(db) };
 };
 

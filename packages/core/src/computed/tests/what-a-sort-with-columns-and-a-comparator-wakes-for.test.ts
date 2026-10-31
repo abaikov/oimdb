@@ -1,12 +1,13 @@
 import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; a: number; b: number };
 
 const createFixture = (columns: readonly ('a' | 'b')[]) => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -19,7 +20,7 @@ const createFixture = (columns: readonly ('a' | 'b')[]) => {
     cardsService.writeSlotContentByKey(cards, 'x', { id: 'x', deck: 'd', a: 1, b: 1 });
     cardsService.writeSlotContentByKey(cards, 'y', { id: 'y', deck: 'd', a: 1, b: 2 });
     const sortedSlot = sortedService.computedCollectionService.holdSlotByKey(sorted, 'd');
-    const order = (): string => sortedSlot.computedValueService.getValueForSlot(sortedSlot).map(entitySlot => String(entitySlot.key)).join(',');
+    const order = (): string => readValueWithoutTracking(sortedSlot).map(entitySlot => String(entitySlot.key)).join(',');
     order();
     const updateCard = (id: string, patch: Partial<TCard>): void => {
         const cardSlot = cardsService.findSlotByKey(cards, id);

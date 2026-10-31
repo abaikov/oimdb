@@ -3,12 +3,12 @@ import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionI
 import type { TOIMEntityColumnName } from '../../entity/types/TOIMEntityColumnName';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TCard = { id: string; deck: string };
-type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>;
+type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 
 const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMEntityColumnName<TCard>[], string,
@@ -18,7 +18,7 @@ const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollec
 describe('an array-driven index', () => {
     it('answers a member by its arrival position and a position by its member', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -36,7 +36,7 @@ describe('an array-driven index', () => {
 
     it('answers undefined for a position and -1 for a member once disposed, because dispose emptied its buckets', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createByDeckService(cardsService);
         const byDeck = byDeckService.createIndexStoreSlot(cards);

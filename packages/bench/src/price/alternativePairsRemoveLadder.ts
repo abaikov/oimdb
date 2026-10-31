@@ -1,3 +1,4 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, OIMDB, OIMSlotMapStoreService, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type { TOIMEntitySlot, TOIMEditable, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
 import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_FLAG_EMPTY';
@@ -9,7 +10,7 @@ import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 
 type TRemoveSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
@@ -45,7 +46,7 @@ const storeServiceRemove: TRemoveRung = (fixture, _rows, times) => {
 };
 
 const clearAndUnfile = (fixture: TRemoveFixture, slot: TRemoveSlot): void => {
-    shippedWriter.clearEntity(slot);
+    shippedWriter.clearEntity(slot as unknown as OIMEntitySlot);
     const editableSlot = slot as TOIMEditable<TRemoveSlot>;
     editableSlot.slotFlags |= OIM_SLOT_FLAG_EMPTY;
     slotStoreService.remove(fixture.handStore, slot.key);
@@ -88,7 +89,7 @@ const flatDoorCandidate: TRemoveRung = (fixture, _rows, times) => {
         assertHandWritable(fixture, slot);
         if (slot.entity === undefined) continue;
         channelService.writeWithoutFlushCheck(channelSlot, slot);
-        shippedWriter.clearEntity(slot);
+        shippedWriter.clearEntity(slot as unknown as OIMEntitySlot);
         (slot as TOIMEditable<TRemoveSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
         slot.owner.releaseSlotIfUnheld(slot);
     }
@@ -103,7 +104,7 @@ const entityServiceDoor: TRemoveRung = (fixture, _rows, times) => {
 const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     const rows = priceDataset.makeRows(priceDataset.batch);
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
     const fixture: TRemoveFixture = {
         db,
         entityService,
@@ -115,7 +116,7 @@ const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     return {
         operationsPerPass: rows.length,
         reset: () => {
-            fixture.entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>() });
+            fixture.entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             fixture.entityStoreSlot = fixture.entityService.createStoreSlot(db);
             fixture.slots = fixture.entityService.writeInBatch(fixture.entityStoreSlot, () => (rows).map(entity => fixture.entityService.writeSlotContentByKey(fixture.entityStoreSlot, entity.id, entity)));
             db.flush();

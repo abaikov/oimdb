@@ -1,6 +1,6 @@
 import { OIMDB, OIMEffectService, OIMSlotAfterWriteReleasePolicy, oimMintAfterWriteSlotReleaseWheel } from '../../index';
 import type { TOIMDisposer } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -35,7 +35,7 @@ const flushAfterWrite = (db: OIMDB): void => {
 const inactiveWorld = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };
@@ -44,7 +44,7 @@ const inactiveWorld = (after: number) => {
 const createAgingFixture = (after: number) => {
     const clock = countingClock();
     const db = new OIMDB({ getNowMs: clock.now, releaseTimer: (): TOIMDisposer => () => undefined });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterWriteReleasePolicy({ keepAfterWriteMs: after }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards, clock };
 };

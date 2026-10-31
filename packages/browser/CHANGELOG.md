@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Changed
+
+- Requires `@oimdb/core` 4.4.0 (renamed content services).
+
 ## 1.1.0
 
 ### Changed

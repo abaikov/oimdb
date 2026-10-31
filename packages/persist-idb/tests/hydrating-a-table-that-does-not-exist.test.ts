@@ -9,18 +9,18 @@ import {
 } from '@oimdb/persist';
 import type { OIMPersistIndexedDbWriteBatch } from '../src';
 import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TCard = { id: string; title: string };
 
 function buildSeededSearch() {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const cardSlots = entityService.writeInBatch(entityStoreSlot, () => ([{ id: 'c1', title: 'alpha' }, { id: 'c2', title: 'beta' }]).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));
     db.flush();
@@ -34,7 +34,7 @@ function buildSeededSearch() {
             channelMap: db,
             entityCollectionService: entityService,
             entityStoreSlot,
-            slotContentBucketService: bucketService.slotContentService,
+            bucketContentService: bucketService.slotContentService,
             bucketSlot,
         }),
         persistRecordsService: new OIMPersistIndexedDbRecordsService<TOIMStoreKey, TCard>({ tableName: 'cards' }),

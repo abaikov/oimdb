@@ -4,7 +4,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../../computed/createOIMComputedService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
@@ -12,16 +12,16 @@ import { oimSameValueZeroGuard } from '../utils/oimSameValueZeroGuard';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../../bucket/OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../../bucket/OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../../bucket/OIMBucketCommands';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
 const createFixture =(db = new OIMDB()) => {
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     const reserve = (id: string): TOIMEntitySlot<TCard, TOIMStoreKey> => {
         const heldSlot = cardsService.holdSlotByKey(cards, id);
@@ -35,7 +35,7 @@ const createFixture =(db = new OIMDB()) => {
 };
 
 const unorderedBuckets = () =>
-    createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 const reservations: (() => void)[] = [];
 
@@ -129,7 +129,7 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('a bucket emptied and refilled by two write in one frame keeps ONE identity, if something holds it', () => {
         const { db, cardsService, cards, reserve } = createFixture();
-        const listService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const listService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
         const ghost = reserve('ghost');
@@ -152,7 +152,7 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('the same through the position writes: clear then insertSlotAt', () => {
         const { db, cardsService, cards, reserve } = createFixture();
-        const listService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const listService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
         const ghost = reserve('ghost');
@@ -172,7 +172,7 @@ describe('a hold is what carries an identity across a batch that empties it', ()
 
     it('a slot nothing holds and nothing refilled is let go where the last bucket let it go', () => {
         const { db, cardsService, cards, reserve, handBack } = createFixture();
-        const listService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const listService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const list = listService.createStoreSlot(db);
         const page = bucketAt(listService, list, 'page');
         listService.slotContentService.writeSlotContent(page, [reserve('ghost')]);
@@ -212,14 +212,14 @@ describe('a stale identity does not take the live one under its key with it', ()
 
     it('composite key', () => {
         const db = new OIMDB();
-        const tagsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<{ id: string }>() });
+        const tagsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<{ id: string }>() });
         const tags = tagsService.createStoreSlot(db);
         type TPair = { a: string; b: string };
         type TChain = readonly TOIMEntitySlot[];
         type TPairSlot = TOIMEntitySlot<TPair, TChain>;
                 const tag = (id: string): TOIMEntitySlot<{ id: string }, TOIMStoreKey> =>
             tagsService.holdSlotByKey(tags, id);
-        const pairsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPair, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(
+        const pairsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPair, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TPairSlot>(
                     OIMCompositeKeyTreeWalk.INSTANCE,
                 ) });
         const pairs = pairsService.createStoreSlot(db);

@@ -3,7 +3,7 @@ import { oimMintAfterIdleSlotReleaseWheel } from '../utils/oimMintAfterIdleSlotR
 import { OIMDB } from '../../db/OIMDB';
 import type { TOIMDisposer } from '../../schedule/types/TOIMDisposer';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
@@ -18,7 +18,7 @@ const createFixtureAt = () => {
         getNowMs: () => ms,
         releaseTimer: (run): TOIMDisposer => { armed = run; return () => { armed = undefined; }; },
     });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>(), slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: WINDOW }) });
     const cards = cardsService.createStoreSlot(db);
     return {
         db,

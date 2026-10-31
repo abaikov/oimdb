@@ -136,7 +136,7 @@ const signatureOf = (word: string): string[] => {
  *
  * A file arriving here is a decision somebody made on purpose. A file arriving
  * here with a `write` is a SECOND mutator of a field that has one, and the answer
- * to it is a method on {@link OIMSlotContentPositionalArrayBucketService} rather than an entry below.
+ * to it is a method on {@link OIMPositionalArrayBucketContentService} rather than an entry below.
  */
 const PINNED: Record<string, readonly string[] | undefined> = {
     // An empty list, not an absent key: the word may not appear in code anywhere under `src`,
@@ -156,7 +156,7 @@ describe('who may say a bucket is in order', () => {
     /** The reader is checking a real tree, not an empty one. */
     it('reads a tree with something in it', () => {
         expect(files.length).toBeGreaterThan(50);
-        expect(files.some(file => file.path === 'bucket/OIMSlotContentPositionalArrayBucketService.ts')).toBe(true);
+        expect(files.some(file => file.path === 'bucket/OIMPositionalArrayBucketContentService.ts')).toBe(true);
     });
 
     /**

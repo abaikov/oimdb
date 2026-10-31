@@ -1,14 +1,14 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
 import type { TOIMBucketSlotsArrayStore } from '../../bucket/array/types/TOIMBucketSlotsArrayStore';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlotsSetStore';
@@ -30,7 +30,7 @@ type TDeckAndSuitBucket = TOIMBucketSlot<TOIMBucketSlotsArrayStore<TCardSlot>, T
 
 const createCards = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => ([
         { id: 'c1', deck: 'red', suit: 'hearts', title: 'ace' },
@@ -42,7 +42,7 @@ const createCards = () => {
     const byDeckAndSuitService = createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService<TOIMBucketSlotsSetStore<TCardSlot>>(),
         entityService: cardsService,
         keyOf: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
-        slotContentService: new OIMSlotContentSetBucketService<TCardSlot, readonly [string, string]>(),
+        slotContentService: new OIMSetBucketContentService<TCardSlot, readonly [string, string]>(),
     });
     const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
     return { db, cardsService, cards, byDeckAndSuitService, byDeckAndSuit };

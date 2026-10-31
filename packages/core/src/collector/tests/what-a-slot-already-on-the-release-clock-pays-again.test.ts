@@ -8,7 +8,7 @@ import { OIMSlotEarliestReleasePolicy } from '../OIMSlotEarliestReleasePolicy';
 import type { IOIMSlotReleasePolicy } from '../interfaces/IOIMSlotReleasePolicy';
 import type { TOIMTimer } from '../../schedule/types/TOIMTimer';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TRow = { id: string; n: number };
@@ -29,7 +29,7 @@ const createWorld = (withIdle = true) => {
         : afterWritePolicy;
     const defaults = new OIMDefaults({ slotReleasePolicy });
     const db = new OIMDB({ getNowMs, releaseTimer });
-    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TRow, string>({ defaults }) });
+    const rowsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TRow, string>({ defaults }) });
     const rows = rowsService.createStoreSlot(db);
     const afterWriteSlotReleaseWheel = oimMintAfterWriteSlotReleaseWheel(db.collectorSlot);
     const afterIdleSlotReleaseWheel = oimMintAfterIdleSlotReleaseWheel(db.collectorSlot);

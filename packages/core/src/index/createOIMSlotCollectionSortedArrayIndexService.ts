@@ -9,7 +9,7 @@ import type { TOIMIndexKey } from './types/TOIMIndexKey';
 import type { TOIMIndexKeyOptions } from './types/TOIMIndexKeyOptions';
 import type { TOIMSortColumn } from '../computed/types/TOIMSortColumn';
 import { OIMSlotCollectionSortedArrayIndexService } from './OIMSlotCollectionSortedArrayIndexService';
-import { OIMSlotContentSortedArrayBucketService } from '../bucket/OIMSlotContentSortedArrayBucketService';
+import { OIMSortedArrayBucketContentService } from '../bucket/OIMSortedArrayBucketContentService';
 import { oimColumnsComparator } from '../computed/utils/oimColumnsComparator';
 import { oimEntitySlotsComparator } from '../computed/utils/oimEntitySlotsComparator';
 import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreService';
@@ -34,7 +34,7 @@ export function createOIMSlotCollectionSortedArrayIndexService<
     TKey, TEntity, TSourceKey, TSourceStore,
     TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TKey>, TStore
 > {
-    const slotContentService = new OIMSlotContentSortedArrayBucketService<TOIMEntitySlot<TEntity>, TKey>({
+    const slotContentService = new OIMSortedArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>({
         compareBucketMemberSlots: oimEntitySlotsComparator<TEntity>(oimColumnsComparator(options.sortColumns)),
     });
     return new OIMSlotCollectionSortedArrayIndexService({

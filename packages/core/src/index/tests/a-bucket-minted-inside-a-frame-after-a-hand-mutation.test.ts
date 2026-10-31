@@ -1,6 +1,6 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMSlotCollectionIndexService } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMSlotCollectionIndexService } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
@@ -8,12 +8,12 @@ type TCard = { id: string; deck: string };
 describe('a bucket minted inside a frame after a hand mutation', () => {
     it('leaves the row in one bucket, and the announced change moves it', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');

@@ -3,6 +3,14 @@
 All notable changes to `@oimdb/persist` are recorded here. This file starts at 4.1.0; releases
 before it were not changelogged.
 
+## 4.2.0
+
+Requires `@oimdb/core` 4.4.0.
+
+### Renamed
+
+- `TOIMPersistRecordSourceBucketDrivenOptions.slotContentBucketService` → `bucketContentService`.
+
 ## 4.1.0
 
 Breaking: exports renamed, source options changed. Requires `@oimdb/core` 4.2.0.

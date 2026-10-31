@@ -12,7 +12,7 @@ the client, an optimistic update that rolls back on failure, applying a patch
 pushed by the server, and keeping a Redux store in step with an entity store slot.
 
 ```ts setup
-import { OIMChannelService, OIMDB, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import {
   OIMPersistIdentityCodec, OIMPersistEntityWriter, OIMPersistCollectionChangeWriteRecordSource,
@@ -28,11 +28,11 @@ declare function hydrateApp(): void;
 declare function report(error: unknown): void;
 
 function createDeckService(deckDb: OIMDB) {
-  return createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+  return createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 }
 
 const db = new OIMDB({ channelScheduler: (flush) => { void Promise.resolve().then(flush); } });
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 const deckService = createDeckService(db);
@@ -59,7 +59,7 @@ type TCardRecords = TOIMPersistRecords<TOIMStoreKey, Card>;
 const savedCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const savedCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: savedCardPersistEntityWriter }) });
+const savedCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>({ entityWriter: savedCardPersistEntityWriter }) });
 const savedCardEntityStoreSlot = savedCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
@@ -119,7 +119,7 @@ import { OIMPersistIndexedDbBackend, OIMPersistIndexedDbRecordsService } from '@
 const offlineCardPersistEntityWriter = new OIMPersistEntityWriter<Card, TOIMStoreKey>({
   entityWriter: createOIMInPlaceEntityWriter(),
 });
-const offlineCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>({ entityWriter: offlineCardPersistEntityWriter }) });
+const offlineCardCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>({ entityWriter: offlineCardPersistEntityWriter }) });
 const offlineCardEntityStoreSlot = offlineCardCollectionService.createStoreSlot(db);
 
 const persistor = new OIMPersistor({
@@ -171,16 +171,14 @@ with one: an SSR fill is two ordinary writes on each side.
 ```ts
 function renderDeckPage(deckCards: readonly Card[]): string {
   const requestDb = new OIMDB();
-  const requestCardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+  const requestCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
   const requestCards = requestCardService.createStoreSlot(requestDb);
   const requestDeckService = createDeckService(requestDb);
   const requestDecks = requestDeckService.createStoreSlot(requestDb);
 
   requestCardService.writeInBatch(requestCards, () => (deckCards).map(entity => requestCardService.writeSlotContentByKey(requestCards, entity.id, entity)));
   const deck = requestDeckService.holdSlotByKey(requestDecks, 'current');
-  requestDeckService.slotContentService.writeSlotContent(
-    deck, deckCards.map((card) => requestCardService.getSlotByKey(requestCards, card.id)),
-  );
+  deck.writeSlotContent(deckCards.map((card) => requestCardService.getSlotByKey(requestCards, card.id)));
   requestDb.flush();
 
   const html = renderApp(requestDb);
@@ -195,7 +193,7 @@ const state = (window as unknown as { __OIM__: { cards: Card[]; deckCardIds: str
 
 cardService.writeInBatch(cards, () => (state.cards).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
 const currentDeck = deckService.holdSlotByKey(decks, 'current');
-deckService.slotContentService.writeSlotContent(currentDeck, state.deckCardIds.map((id) => cardService.getSlotByKey(cards, id)));
+currentDeck.writeSlotContent(state.deckCardIds.map((id) => cardService.getSlotByKey(cards, id)));
 db.flush();
 
 hydrateApp();
@@ -231,11 +229,11 @@ async function renameCard(cardId: string, title: string): Promise<void> {
   if (cardSlot === undefined || current === undefined) return;
   const previousTitle = current.title;
 
-  cardContentService.updateEntity(cardSlot, { title });
+  cardSlot.updateEntity({ title });
   try {
     await saveTitle(cardId, title);
   } catch (error) {
-    if (cardSlot.entity !== undefined) cardContentService.updateEntity(cardSlot, { title: previousTitle });
+    if (cardSlot.entity !== undefined) cardSlot.updateEntity({ title: previousTitle });
     report(error);
   }
 }
@@ -274,11 +272,11 @@ function applyServerMessages(messages: readonly CardsMessage[]): void {
         for (const card of message.cards) cardService.writeSlotContentByKey(cards, card.id, card);
       } else if (message.type === 'patch') {
         const patched = cardService.findSlotByKey(cards, message.id);
-        if (patched !== undefined) cardContentService.updateEntity(patched, message.patch);
+        if (patched !== undefined) patched.updateEntity(message.patch);
       } else {
         for (const id of message.ids) {
           const deleted = cardService.findSlotByKey(cards, id);
-          if (deleted !== undefined) cardContentService.clearSlotContent(deleted);
+          if (deleted !== undefined) deleted.clearSlotContent();
         }
       }
     }

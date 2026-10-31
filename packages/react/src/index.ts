@@ -3,6 +3,7 @@ export { OIMDBProvider } from './OIMDBProvider';
 export { useOIMDB } from './useOIMDB';
 export type { TOIMBinding } from './types/TOIMBinding';
 export { useOIMValue } from './useOIMValue';
+export { useOIMSourceTrackingValue } from './useOIMSourceTrackingValue';
 export { useOIMComputedValue } from './useOIMComputedValue';
 export { useOIMEntity } from './useOIMEntity';
 export { useOIMSingleEntity } from './useOIMSingleEntity';

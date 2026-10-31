@@ -1,5 +1,5 @@
 import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
-import { OIMDB, OIMThrowAtOnceErrorPolicy, OIMSlotContentSetBucketService, oimIsSlotReleased } from '@oimdb/core';
+import { OIMDB, OIMThrowAtOnceErrorPolicy, OIMSetBucketContentService, oimIsSlotReleased } from '@oimdb/core';
 import {
     OIMPersistBucketRecordSource,
     OIMPersistRecordsResource,
@@ -8,7 +8,7 @@ import {
     OIMPersistor,
 } from '../src';
 import { OIMTestPersistBackend } from './shared/OIMTestPersistBackend';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
@@ -19,16 +19,16 @@ type TSettings = { theme: string };
 const ignoreChange = (): void => undefined;
 
 function build(db = new OIMDB()) {
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const entityStoreSlot = entityService.createStoreSlot(db);
-    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+    const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
     const bucketStoreSlot = bucketService.createStoreSlot(db);
     const bucketSlot = bucketService.holdSlotByKey(bucketStoreSlot, 'inbox');
     const persistBucketRecordSource = new OIMPersistBucketRecordSource({
         channelMap: db,
         entityCollectionService: entityService,
         entityStoreSlot,
-        slotContentBucketService: bucketService.slotContentService,
+        bucketContentService: bucketService.slotContentService,
         bucketSlot,
     });
     return {
@@ -43,7 +43,7 @@ describe('a source handed a channel map of another OIMDB', () => {
             channelMap: new OIMDB(),
             entityCollectionService: entityService,
             entityStoreSlot,
-            slotContentBucketService: bucketService.slotContentService,
+            bucketContentService: bucketService.slotContentService,
             bucketSlot,
         })).toThrow(/another OIMDB/);
     });
@@ -166,7 +166,7 @@ describe('a bucket the source was handed, and a mirror that is torn down', () =>
 describe('the single entity source, which is not in that position', () => {
     it('risks nothing: a written single entity stays filed after its subscription is disposed', () => {
         const db = new OIMDB();
-        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+        const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
         const singleEntityStoreSlot = singleEntityService.createStoreSlot(db);
         const singleEntitySlot = singleEntityService.writeSingleSlotContent(singleEntityStoreSlot, { theme: 'dark' });
         db.flush();

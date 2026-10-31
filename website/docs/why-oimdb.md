@@ -354,7 +354,7 @@ and is never told.
 ### OIMDB
 
 ```tsx
-import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 import {
     OIMDBProvider,
     useOIMComputedValue,
@@ -365,7 +365,7 @@ import {
 type Card = { id: string; deck: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 
 const cardsByDeckService = createOIMSlotCollectionIndexService({
@@ -407,20 +407,19 @@ cardService.writeInBatch(cards, () => ([
 ]).map(entity => cardService.writeSlotContentByKey(cards, entity.id, entity)));
 db.flush();
 
-cardContentService.updateEntity(cardService.getSlotByKey(cards, 'c1'), { title: 'Ace of hearts' });
+cardService.getSlotByKey(cards, 'c1').updateEntity({ title: 'Ace of hearts' });
 db.flush();
 
-cardContentService.updateEntity(cardService.getSlotByKey(cards, 'c2'), { deck: 'black' });
+cardService.getSlotByKey(cards, 'c2').updateEntity({ deck: 'black' });
 db.flush();
 
-cardService.slotContentService.clearSlotContent(cardService.getSlotByKey(cards, 'c3'));
+cardService.getSlotByKey(cards, 'c3').clearSlotContent();
 db.flush();
 ```
 
 The components sit under `<OIMDBProvider>` because every subscription is an effect on that db's
 channel slot. `useOIMSlotsByKeys` holds the sorted derivation for `deck` while `Deck` is mounted,
-and `useOIMComputedValue` subscribes to it and reads it through its value service
-(`computedValueService.getValueForSlot`). Taking the six steps in turn:
+and `useOIMComputedValue` subscribes to it and reads it as `computedSlot.value`. Taking the six steps in turn:
 
 1. The load is a loop of `writeSlotContentByKey` in one `writeInBatch`: every entity lands, and then the **frame**
    (the delivery of every write since the previous one, see the
@@ -570,11 +569,11 @@ tree-shaken:
 {/* bundle-size:begin */}
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 105563 B | 25051 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMSlotContentEntityService`, `writeSlotContentByKey`, `getSlotByKey` | 36382 B | 9314 B |
-| The same, plus one effect and `db.flush()` | 46546 B | 11711 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 67554 B | 16458 B |
-| An ordered bucket with commands: `OIMSlotContentPositionalArrayBucketService`, `OIMBucketCommands` | 49435 B | 12310 B |
+| Everything `@oimdb/core` exports | 112156 B | 26533 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 44316 B | 10915 B |
+| The same, plus one effect and `db.flush()` | 52068 B | 12996 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 74009 B | 17843 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 58333 B | 14066 B |
 {/* bundle-size:end */}
 
 ## Next steps

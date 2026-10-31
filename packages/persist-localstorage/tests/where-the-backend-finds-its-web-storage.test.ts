@@ -14,7 +14,7 @@ import {
     OIMPersistor,
 } from '@oimdb/persist';
 import { OIMPersistLocalStorageKeyValueBackend } from '../src';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSingleSlotService } from '@oimdb/core';
 
 type TSettings = { theme: string };
@@ -36,7 +36,7 @@ function createPersistKeyValueItemStorage(): TOIMPersistKeyValueItemStorage & { 
 
 function createSettingsPersistor(persistLocalStorageKeyValueBackend: OIMPersistLocalStorageKeyValueBackend, settings: TSettings) {
     const db = new OIMDB();
-    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<TSettings>() });
+    const singleEntityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<TSettings>() });
     const entityStoreSlot = singleEntityService.createStoreSlot(db);
     singleEntityService.writeSingleSlotContent(entityStoreSlot, settings);
     db.flush();

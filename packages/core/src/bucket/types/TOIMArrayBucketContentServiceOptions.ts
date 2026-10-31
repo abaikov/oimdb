@@ -1,7 +1,7 @@
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { IOIMBucketMemberSlotsArrayService } from '../array/interfaces/IOIMBucketMemberSlotsArrayService';
-import type { TOIMSlotContentBucketServiceOptions } from './TOIMSlotContentBucketServiceOptions';
+import type { TOIMBucketContentServiceOptions } from './TOIMBucketContentServiceOptions';
 
-export type TOIMSlotContentArrayBucketServiceOptions<TBucketMemberSlot extends TOIMSlot = TOIMSlot> = TOIMSlotContentBucketServiceOptions & {
+export type TOIMArrayBucketContentServiceOptions<TBucketMemberSlot extends TOIMSlot = TOIMSlot> = TOIMBucketContentServiceOptions & {
     bucketMemberSlotsArrayService?: IOIMBucketMemberSlotsArrayService<TBucketMemberSlot> | undefined;
 };

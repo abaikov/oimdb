@@ -1,4 +1,4 @@
-import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService } from '../../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService } from '../../../index';
 import { oimOrderedListCommandsOfTransition } from '../utils/oimOrderedListCommandsOfTransition';
 import type { TOIMEffect } from '../../../effect/types/TOIMEffect';
 import type { TOIMBucketSlot } from '../../types/TOIMBucketSlot';
@@ -6,7 +6,7 @@ import type { TOIMEntitySlot } from '../../../entity/types/TOIMEntitySlot';
 import type { TOIMOrderedListCommand } from '../types/TOIMOrderedListCommand';
 import type { TOIMBucketSlotsArrayStore } from '../../array/types/TOIMBucketSlotsArrayStore';
 import { applyOrderedListCommands, sameEntitySlotSequence } from '../../../../tests/support/orderedListConsumer';
-import { createOIMSlotContentEntityService } from '../../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; rank: number; label: string };
@@ -17,9 +17,9 @@ const byRank = (a: TCardSlot, b: TCardSlot): number => (a.entity?.rank ?? 0) - (
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>();
+    const membersService = new OIMPositionalArrayBucketContentService<TCardSlot, string>();
     const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     cardsService.writeInBatch(cards, () => ([
@@ -57,7 +57,7 @@ function createFixture() {
  */
 function orderedCommandsOf(
     db: OIMDB,
-    membersService: OIMSlotContentPositionalArrayBucketService<TCardSlot>,
+    membersService: OIMPositionalArrayBucketContentService<TCardSlot>,
     bucket: TOIMBucketSlot<TSlots, string>,
     maxCommandsPerSlot?: number,
 ) {

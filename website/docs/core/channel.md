@@ -24,7 +24,7 @@ channel slot first. `db.defaultChannelSlot` is the one every `createStoreSlot(db
 </InShort>
 
 ```typescript setup
-import { OIMChannelService, OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, type TOIMEntitySlot, type TOIMStoreKey, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMChannelService, OIMDB, OIMEffectService, OIMLogAndContinueErrorPolicy, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -32,7 +32,7 @@ const db = new OIMDB();
 const channelSlot = db.defaultChannelSlot;
 const channelService = OIMChannelService.INSTANCE;
 const effectService = OIMEffectService.INSTANCE;
-const cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
 const cards = cardService.createStoreSlot(db);
 const cardContentService = cardService.slotContentService;
 
@@ -140,8 +140,8 @@ order holds across a wrap.
 let runs = 0;
 const king = cardService.writeSlotContentByKey(cards, 'k', { id: 'k', title: 'King', rank: 13 });
 const kingEffect = effectService.createEffect(db, () => { runs++; }, [king]);
-cardContentService.updateEntity(king, { title: 'Queen' });
-cardContentService.updateEntity(king, { title: 'Jack' });
+king.updateEntity({ title: 'Queen' });
+king.updateEntity({ title: 'Jack' });
 db.flush();
 effectService.disposeEffect(kingEffect);
 ```
@@ -228,7 +228,7 @@ collection queues the writes on the store slot and hands an index on the collect
 ```ts
 const jack = cardService.writeSlotContentByKey(cards, 'j', { id: 'j', title: 'Jack', rank: 11 });
 cardService.writeInBatch(cards, () => {
-    cardContentService.updateEntity(jack, { title: 'Jack of clubs' });
+    jack.updateEntity({ title: 'Jack of clubs' });
     cardService.writeSlotContentByKey(cards, 't', { id: 't', title: 'Ten', rank: 10 });
 });
 db.flush();

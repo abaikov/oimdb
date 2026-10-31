@@ -1,12 +1,12 @@
 import { OIMDB } from '../src/db/OIMDB';
 import type { TOIMEntitySlot } from '../src/entity/types/TOIMEntitySlot';
-import { createOIMSlotContentEntityService } from '../src/entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../src/entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string; rank: number };
 
 const db = new OIMDB();
-const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 const cards = cardsService.createStoreSlot(db);
 const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'one', rank: 1 });
 

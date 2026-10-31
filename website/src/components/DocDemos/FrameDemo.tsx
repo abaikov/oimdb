@@ -5,7 +5,7 @@ import {
     OIMDB,
     OIMEffectService,
     createOIMSlotCollectionService,
-    createOIMSlotContentEntityService,
+    createOIMEntityContentService,
     type TOIMEntitySlot,
     type TOIMStoreKey,
 } from '@oimdb/core';
@@ -13,9 +13,9 @@ import styles from './styles.module.css';
 
 type TCard = { id: string; title: string };
 
-type TSlotRow = { id: string; changedAtRevision: number; isChangedInCurrentFrame: boolean; runs: number; ranLastFrame: boolean };
+type TSlotView = { id: string; changedAtRevision: number; isChangedInCurrentFrame: boolean; runs: number; ranLastFrame: boolean };
 
-type TView = { revision: number; rows: TSlotRow[]; writesSinceFlush: number; lastFrameRuns: number };
+type TView = { revision: number; slotViews: TSlotView[]; writesSinceFlush: number; lastFrameRuns: number };
 
 const IDS = ['a', 'b', 'c'];
 
@@ -24,7 +24,7 @@ class FrameModel {
 
     private readonly effectService = OIMEffectService.INSTANCE;
 
-    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 
@@ -57,7 +57,7 @@ class FrameModel {
 
     public write(index: number): void {
         const slot = this.slots[index];
-        this.cardService.slotContentService.updateEntity(slot, { title: `${IDS[index].toUpperCase()}${this.db.defaultChannelSlot.clock.revision}` });
+        slot.updateEntity({ title: `${IDS[index].toUpperCase()}${this.db.defaultChannelSlot.clock.revision}` });
         this.writesSinceFlush++;
         this.emit();
     }
@@ -80,7 +80,7 @@ class FrameModel {
             revision: channelSlot.clock.revision,
             writesSinceFlush: this.writesSinceFlush,
             lastFrameRuns: this.ranLastFrame.size,
-            rows: this.slots.map((slot, i) => ({
+            slotViews: this.slots.map((slot, i) => ({
                 id: IDS[i],
                 changedAtRevision: slot.changedAtRevision,
                 isChangedInCurrentFrame: OIMChannelService.INSTANCE.isChangedInCurrentFrame(channelSlot, slot),
@@ -130,21 +130,21 @@ export default function FrameDemo(): ReactNode {
                     <tr><th>slot</th><th>changedAtRevision</th><th>isChangedInCurrentFrame</th><th>effect runs</th></tr>
                 </thead>
                 <tbody>
-                    {view.rows.map((row) => (
-                        <tr key={`${row.id}-${row.ranLastFrame ? flushes : 'still'}`} className={clsx(row.ranLastFrame && styles.woke)}>
-                            <td><code>{row.id}</code></td>
-                            <td className={styles.mono}>{row.changedAtRevision}</td>
-                            <td className={row.isChangedInCurrentFrame ? styles.yes : styles.no}>
-                                {row.isChangedInCurrentFrame ? 'true — enlisted' : 'false'}
+                    {view.slotViews.map((slotView) => (
+                        <tr key={`${slotView.id}-${slotView.ranLastFrame ? flushes : 'still'}`} className={clsx(slotView.ranLastFrame && styles.woke)}>
+                            <td><code>{slotView.id}</code></td>
+                            <td className={styles.mono}>{slotView.changedAtRevision}</td>
+                            <td className={slotView.isChangedInCurrentFrame ? styles.yes : styles.no}>
+                                {slotView.isChangedInCurrentFrame ? 'true — enlisted' : 'false'}
                             </td>
-                            <td className={styles.mono}>{row.runs}</td>
+                            <td className={styles.mono}>{slotView.runs}</td>
                         </tr>
                     ))}
                 </tbody>
             </table>
             <p className={styles.note}>
                 Write the same slot three times: the clock moves three times, the slot is enlisted once,
-                and one flush runs its effect once. Last frame ran {view.lastFrameRuns} of {view.rows.length} effects.
+                and one flush runs its effect once. Last frame ran {view.lastFrameRuns} of {view.slotViews.length} effects.
             </p>
         </div>
     );

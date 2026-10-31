@@ -78,7 +78,7 @@ const ourDerivations = (
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
     for (let k = 0; k < DERIVATIONS; k++) {
         const sumSlot = sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, k);
-        priceSink.number = sumSlot.computedValueService.getValueForSlot(sumSlot);
+        priceSink.number = sumSlot.value;
         sumSlots.push(sumSlot);
     }
     return { sumComputedService, sumSlots };
@@ -97,7 +97,7 @@ const floorDerivations = (slots: readonly TRowSlot[], fanIn: number): PerSlotDer
 const assertSameAnswers = (ours: TOurDerivations, floor: readonly PerSlotDerived[]): void => {
     const { sumSlots } = ours;
     for (let k = 0; k < sumSlots.length; k++) {
-        const ourSum = sumSlots[k].computedValueService.getValueForSlot(sumSlots[k]);
+        const ourSum = sumSlots[k].value;
         if (ourSum === floor[k].value) continue;
         throw new Error(
             `alternativePairsClock: derivation ${k} reads ${ourSum} on the shipped clock ` +
@@ -138,10 +138,9 @@ const buildRead = (fanIn: number, writesUnrelatedRow: boolean) => {
     };
 
     const { sumSlots } = ours;
-    const computedValueService = sumSlots[0].computedValueService;
     const oursSide: TPriceSide = {
         reset: () => undefined,
-        run: pass(ourFixture, at => computedValueService.getValueForSlot(sumSlots[at])),
+        run: pass(ourFixture, at => sumSlots[at].value),
     };
     const floorSide: TPriceSide = {
         reset: () => undefined,

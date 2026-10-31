@@ -9,26 +9,26 @@ import type {
     TOIMBucketSlotsSetStore,
 } from '@oimdb/core';
 import { OIMCompositeKeyTreeWalk } from '@oimdb/core';
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard} from '@oimdb/core';
-import { OIMSlotContentPositionalArrayBucketService } from '@oimdb/core';
+import { OIMDB, OIMSetBucketContentService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMSingleComputedService, createOIMInPlaceEntityWriter, oimSameValueZeroGuard} from '@oimdb/core';
+import { OIMPositionalArrayBucketContentService } from '@oimdb/core';
 import type { TOIMBinding } from '../src/index';
 import {
     OIMDBProvider, useOIMEntity, useOIMField, useOIMBucketSlotsByKey, useOIMBucketSlots, useOIMValue,
 } from '../src/index';
-import { createOIMSlotContentEntityService } from '@oimdb/core';
+import { createOIMEntityContentService } from '@oimdb/core';
 import { createOIMSlotCollectionService } from '@oimdb/core';
 import { OIMBucketCommands } from '@oimdb/core';
 
 type TDeck = { id: string };
 type TCard = { id: string; deckId: string; title: string; rank: number };
 type TCardSlot = TOIMEntitySlot<TCard>;
-const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+const createCardsService = () => createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 type TCardsService = ReturnType<typeof createCardsService>;
 type TCards = ReturnType<TCardsService['createStoreSlot']>;
 
-const createByDeckArrayService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+const createByDeckArrayService = () => createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 
-const createByDeckSetService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createByDeckSetService = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 function build(): { db: OIMDB; cardsService: TCardsService; cards: TCards } {
     const db = new OIMDB();
@@ -417,13 +417,13 @@ describe('a composite key, rebuilt inline on every render', () => {
     const setup = () => {
         const db = new OIMDB();
         const write = createOIMInPlaceEntityWriter();
-        const decksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDeck>() });
+        const decksService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TDeck>() });
         const decks = decksService.createStoreSlot(db);
-        const daysService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDay>() });
+        const daysService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TDay>() });
         const days = daysService.createStoreSlot(db);
-        const datedService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TDated>({ entityWriter: write }) });
+        const datedService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TDated>({ entityWriter: write }) });
         const dated = datedService.createStoreSlot(db);
-        const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
+        const byDeckAndDayService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TDatedSlot, TChain>(), slotStoreService: new OIMSlotTreeStoreService<TOIMEntitySlot, TByDeckAndDaySlot>(
                 OIMCompositeKeyTreeWalk.INSTANCE,
             ) });
         const byDeckAndDay = byDeckAndDayService.createStoreSlot(db);
@@ -556,7 +556,7 @@ describe('binding a derived value', () => {
         const lengthSlot = lengthService.computedSingleSlotService.holdSingleSlot(length);
         const binding: TOIMBinding<number> = {
             sourceComputeds: [lengthSlot],
-            derive: () => lengthSlot.computedValueService.getValueForSlot(lengthSlot),
+            derive: () => lengthSlot.value,
         };
 
         let renders = 0;

@@ -3,10 +3,10 @@
 // UPPER BOUND; the set of MODULES is not over-stated.
 import { OIMDB, OIMEffectService, OIMSlotMapStoreService } from '../../../../core/src/index';
 import type { TOIMBucketSlot, TOIMColumnSlot, TOIMStoreKey } from '../../../../core/src/index';
-import { OIMSlotContentSetBucketService } from '../../../../core/src/index';
+import { OIMSetBucketContentService } from '../../../../core/src/index';
 import type { TOIMBucketSlotsSetStore, TOIMEntitySlot } from '../../../../core/src/index';
 import { OIMSlotTreeStoreService } from '../../../../core/src/index';
-import { createOIMSlotContentEntityService } from '../../../../core/src/index';
+import { createOIMEntityContentService } from '../../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../../core/src/index';
 
 type TCard = { id: string; deckId: string; rank: number; title: string };
@@ -17,7 +17,7 @@ export const held: unknown[] = [];
 
 const db = new OIMDB();
 const effectService = OIMEffectService.INSTANCE;
-const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const entityStoreSlot = entityService.createStoreSlot(db);
 
 // `writeSlotContentByKey` mints and hands the slot back; a getter never mints.
@@ -33,7 +33,7 @@ held.push(db, entityService, entityStoreSlot);
 
 /* ── one index, addressed by key, filled, subscribed and read ──────────── */
 
-const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+const bucketService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>(), slotStoreService: new OIMSlotMapStoreService<TOIMBucketSlot<TOIMBucketSlotsSetStore<TCardSlot>, TOIMStoreKey>, TOIMStoreKey>(), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
 const bucketStoreSlot = bucketService.createStoreSlot(db);
 // `holdSlotByKey` is the door and the hold is KEPT: a bucket nothing holds is unfiled
 // the moment it empties, and this program is subscribed to the object.

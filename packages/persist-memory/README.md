@@ -35,7 +35,7 @@ answers an empty list.
 ## Example
 
 ```ts
-import { OIMDB, createOIMInPlaceEntityWriter, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService } from '@oimdb/core';
 import type { TOIMStoreKey } from '@oimdb/core';
 import {
     OIMPersistEntityWriter, OIMPersistCollectionWriteRecordSource, OIMPersistRecordsResource,
@@ -49,7 +49,7 @@ const db = new OIMDB();
 const persistEntityWriter = new OIMPersistEntityWriter<TUser, TOIMStoreKey>({
     entityWriter: createOIMInPlaceEntityWriter(),
 });
-const userCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>({ entityWriter: persistEntityWriter }) });
+const userCollectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>({ entityWriter: persistEntityWriter }) });
 const userEntityStoreSlot = userCollectionService.createStoreSlot(db);
 
 const persistMemoryBackend = new OIMPersistMemoryBackend();

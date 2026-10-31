@@ -14,28 +14,54 @@ hand-written code on plain `Map`s and arrays.
 ## Install
 
 ```bash
-npm install @oimdb/core
+npm install @oimdb/core @oimdb/react
 ```
 
 ## Example
 
+```tsx file=todos.tsx
+import { OIMDB, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
+import { OIMDBProvider, useOIMEntity } from '@oimdb/react';
+
+type TTodo = { id: string; title: string; done: boolean };
+
+const db = new OIMDB({ channelScheduler: (flush) => queueMicrotask(flush) });
+const todos = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TTodo>() });
+
+todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
+
+function Todo({ id }: { id: string }) {
+    const todo = useOIMEntity(todos.storeSlot, id);
+    if (todo === undefined) return null;
+    return <li onClick={() => todos.writeSlotContentByKey(id, { ...todo, done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+}
+
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+```
+
+Clicking a todo re-renders that one `Todo` and nothing else. The `channelScheduler` delivers every write of a
+turn in one flush on a microtask, so nothing calls `db.flush()` by hand.
+
+Indexes, sorted views, computed values and persistence build on the same collection: see the
+[Quick Start](https://oimdb.org/docs/getting-started/quick-start).
+
+### Without React
+
 ```typescript
-import { OIMDB, OIMEffectService, createOIMSlotContentEntityService, createOIMSlotCollectionService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSlotCollectionStoreAggregate, createOIMEntityContentService } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 
 const db = new OIMDB();
-const userService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
-const users = userService.createStoreSlot(db);
+const users = createOIMSlotCollectionStoreAggregate(db, { slotContentService: createOIMEntityContentService<TUser>() });
 
-userService.writeInBatch(users, () => ([{ id: 'u1', name: 'Ann' }]).map(entity => userService.writeSlotContentByKey(users, entity.id, entity)));
-
-const ann = userService.getSlotByKey(users, 'u1');
+const ann = users.writeSlotContentByKey('u1', { id: 'u1', name: 'Ann' });
 const watching = OIMEffectService.INSTANCE.createEffect(db, () => {
     console.log('Ann changed');
 }, [ann]);
 
-userService.slotContentService.updateEntity(ann, { name: 'Ann B.' });
+ann.updateEntity({ name: 'Ann B.' });
 db.flush();   // → Ann changed
 
 OIMEffectService.INSTANCE.disposeEffect(watching);

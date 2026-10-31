@@ -1,7 +1,8 @@
+import type { OIMEntitySlot } from '../OIMEntitySlot';
 import { OIMDefaults } from '../../index';
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService } from '../../index';
 import type { IOIMEntityWriter, TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
@@ -25,14 +26,14 @@ describe('a patch names its columns only for someone who reads them', () => {
     ])('the %s writer answers whether anything changed, and names nothing when handed no list', (_arm, writer) => {
         const defaults = new OIMDefaults({ entityWriter: writer });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 }) as TOIMEntitySlot;
 
-        expect(writer.patchEntity(card, { title: 'two', rank: 1 }, undefined)).toBe(true);
-        expect(writer.patchEntity(card, { title: 'two' }, undefined)).toBe(false);
+        expect(writer.patchEntity(card as unknown as OIMEntitySlot, { title: 'two', rank: 1 }, undefined)).toBe(true);
+        expect(writer.patchEntity(card as unknown as OIMEntitySlot, { title: 'two' }, undefined)).toBe(false);
         const named: string[] = [];
-        expect(writer.patchEntity(card, { title: 'three', rank: 2, deck: 'x' }, named)).toBe(true);
+        expect(writer.patchEntity(card as unknown as OIMEntitySlot, { title: 'three', rank: 2, deck: 'x' }, named)).toBe(true);
         expect(named).toEqual(['title', 'rank']);
         expect(card.entity).toEqual({ id: 'a', deck: 'x', title: 'three', rank: 2 });
     });
@@ -41,7 +42,7 @@ describe('a patch names its columns only for someone who reads them', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
         const defaults = new OIMDefaults({ entityWriter });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
 
@@ -54,7 +55,7 @@ describe('a patch names its columns only for someone who reads them', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
         const defaults = new OIMDefaults({ entityWriter });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });
         const title = cardsService.columnSlotService.holdColumn(card, 'title');
@@ -74,12 +75,12 @@ describe('a patch names its columns only for someone who reads them', () => {
         const { entityWriter, namesHanded } = watchingWriter(createOIMInPlaceEntityWriter());
         const defaults = new OIMDefaults({ entityWriter });
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard>({ defaults }) });
+        const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }) });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         byDeckService.createIndexStoreSlot(cards);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'x', title: 'ace', rank: 1 });

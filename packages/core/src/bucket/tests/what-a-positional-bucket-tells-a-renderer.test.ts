@@ -1,4 +1,4 @@
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
@@ -8,22 +8,22 @@ import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMOrderedListCommand } from '../commands/types/TOIMOrderedListCommand';
 import type { TOIMBucketSlotsArrayStore } from '../array/types/TOIMBucketSlotsArrayStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; title: string };
 type TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TCard>>;
 type TBucket = TOIMBucketSlot<TSlots, TOIMStoreKey>;
-type TMembersService = OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>;
+type TMembersService = OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>;
 
 const held = (membersService: TMembersService, bucket: TBucket): TOIMEntitySlot<TCard>[] =>
     Array.from(membersService.getBucketMemberSlots(bucket));
 
 const createFixture =() => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     const cards = cardsService.createStoreSlot(db);
-    const membersService = new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({}) });
+    const membersService = new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>>({ bucketCommands: new OIMBucketCommands({}) });
     const listService = createOIMSlotCollectionService({ slotContentService: membersService });
     const list = listService.createStoreSlot(db);
     const bucket = listService.holdSlotByKey(list, 'deck');

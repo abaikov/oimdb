@@ -6,7 +6,7 @@ description: An index of every name exported by @oimdb/core, grouped by domain, 
 
 # API reference
 
-This page indexes every export of `@oimdb/core`: all 230 names that the package entry point exports, and nothing else. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
+This page indexes every export of `@oimdb/core`: all 239 names that the package entry point exports, and nothing else, plus the 14 deprecated aliases listed at the end. Each entry says what the export is, as read from its source, and links to the section of these docs that explains it. The full typed signatures ship with the package in `node_modules/@oimdb/core/llms.txt`.
 
 ## Root and defaults
 
@@ -23,7 +23,7 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
-| `OIMColumnSlotService` | class | Abstract base of both slot services: the column doors `getColumn`, `holdColumn`, `getAnyColumn`, `holdAnyColumn`, `getColumnGroup`, `holdColumnGroup`, `unholdColumn`, over the column owner it is built with. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
+| `OIMColumnSlotService` | class | Abstract base of both slot services: the column doors `getColumn`, `holdColumn`, `getAnyColumn`, `holdAnyColumn`, `getColumnGroup`, `getColumnGroupSlot`, `holdColumnGroup`, `unholdColumn`, over the column owner it is built with. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
 | `OIMSlotCollectionService` | class | The read doors of a keyed collection over a content service: `createStoreSlot(channelMap)`, `createStoreSlotFrom`, `findSlotByKey`, `hasSlotContentByKey`, `getSlotByKey`, `holdSlotByKey`, `getSlots`, `getSlotCount`, `isSameKey`, and the column doors inherited from `OIMColumnSlotService`; `slotContentService` is the content service. | [Every collection is a content service, a collection service and a store slot](./model.md#every-collection-is-a-content-service-a-collection-service-and-a-store-slot) |
 | `TOIMSlotCollectionServiceOptions` | type | Constructor options of `OIMSlotCollectionService`: the slot owner, the store service, the content service, the store slot listener. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `createOIMSlotCollectionService` | function | Builds an `OIMWritableSlotCollectionService` over a keyed content service (entity or bucket): `{ slotContentService, slotStoreService?, … }`. | [Building one](./collections.md#building-one) |
@@ -58,11 +58,13 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
-| `OIMSlotContentEntityService` | class | The entity content service: the slot writes `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`; `createSlot`, `createSingleSlot`, `insertSlotContent`, `isSlotEmpty`, `hasReference` and `releaseSlotContent` for the collection service and the slot owner. | [The writes](./writing.md#the-writes) |
-| `TOIMSlotContentEntityServiceOptions` | type | Constructor options of `OIMSlotContentEntityService`: `keyOf`, `entityWriter`, `slotEmptinessPolicy`, `slotStamp`, `slotReleasePolicy`, `slotStoreService`, the column owner options. | [Building one](./collections.md#building-one) |
+| `OIMEntityContentService` | class | The entity content service: the slot writes `writeSlotContent`, `updateEntity`, `updateEntityColumn`, `deleteEntityColumns`, `markEntityChanged`, `clearSlotContent`; `createSlot`, `createSingleSlot`, `insertSlotContent`, `isSlotEmpty`, `hasReference` and `releaseSlotContent` for the collection service and the slot owner. | [The writes](./writing.md#the-writes) |
+| `TOIMEntityContentServiceOptions` | type | Constructor options of `OIMEntityContentService`: `keyOf`, `entityWriter`, `slotEmptinessPolicy`, `slotStamp`, `slotReleasePolicy`, `slotStoreService`, the column owner options. | [Building one](./collections.md#building-one) |
 | `TOIMEntitySlotOwnerService` | type | The slot owner type of an entity collection. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
-| `createOIMSlotContentEntityService` | function | Builds an `OIMSlotContentEntityService` and its slot owner on an `OIMDB`; a Map store unless `slotStoreService` is passed, and no `keyOf` for a single. | [Building one](./collections.md#building-one) |
+| `createOIMEntityContentService` | function | Builds an `OIMEntityContentService` and its slot owner on an `OIMDB`; a Map store unless `slotStoreService` is passed, and no `keyOf` for a single. | [Building one](./collections.md#building-one) |
 | `TOIMEntitySlot` | type | An indexable slot that carries an entity (or nothing) and its data. | [A slot](./architecture.md#a-slot) |
+| `OIMEntitySlot` | class (type-only export) | The engine's entity slot class; the type a custom entity writer or inserter receives, and the only one that carries the stored object `content`. | [Writing](./writing.md) |
+| `OIMSlot` | class (type-only export) | The base of every slot class: the fields the engine keeps on any slot (subscribers, change stamps, holds, release deadlines, flags, owner, store slot) and `holdSlot` / `unholdSlot`. | [A slot](./architecture.md#a-slot) |
 | `TOIMEntityContentSlot` | type | An entity slot without a key: what a single holds and what the writer and content service take. | [Writing](./writing.md) |
 | `TOIMEntityColumnName` | type | The string column names of an entity type, or any string when the entity type is a bare object. | [Writing a standalone record](./writing.md#writing-a-standalone-record) |
 | `TOIMEntityColumnValue` | type | The value type of one column of an entity type, or unknown when the entity type is a bare object. | [useOIMField — one field of one identity](../packages/react.md#useoimfield--one-field-of-one-identity) |
@@ -85,15 +87,15 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 
 | Export | Kind | What it is | Documented at |
 |---|---|---|---|
-| `OIMSlotContentBucketService` | abstract class | The bucket content service every strategy extends: `writeSlotContent`, `addBucketMemberSlot(s)`, `removeBucketMemberSlot(s)`, `clearSlotContent`, `fillBucketMemberSlots`, `markContentChanged`, `markBucketColumnsChanged`, `getBucketMemberSlots`, `getBucketMemberSlotCount`, `hasBucketMemberSlot`. | [How a bucket holds its slots](./indexes.md#how-a-bucket-holds-its-slots-the-content-services) |
-| `OIMSlotContentSetBucketService` | class | Bucket content service over a `Set`; no positions. | [How a bucket holds its slots](./indexes.md#how-a-bucket-holds-its-slots-the-content-services) |
-| `OIMSlotContentArrayBucketService` | abstract class | The array-based bucket content services: the positional reads `getBucketMemberSlotAt`, `getBucketMemberSlotPosition`. | [The doors](./indexes.md#the-doors) |
-| `OIMSlotContentPositionalArrayBucketService` | class | Bucket content service over an array whose positions are the caller's: the five positional writes; one entry per mention. | [Positions the caller decides](./indexes.md#positions-the-caller-decides) |
+| `OIMBucketContentService` | abstract class | The bucket content service every strategy extends: `writeSlotContent`, `addBucketMemberSlot(s)`, `removeBucketMemberSlot(s)`, `clearSlotContent`, `fillBucketMemberSlots`, `markContentChanged`, `markBucketColumnsChanged`, `getBucketMemberSlots`, `getBucketMemberSlotCount`, `hasBucketMemberSlot`. | [How a bucket holds its slots](./indexes.md#how-a-bucket-holds-its-slots-the-content-services) |
+| `OIMSetBucketContentService` | class | Bucket content service over a `Set`; no positions. | [How a bucket holds its slots](./indexes.md#how-a-bucket-holds-its-slots-the-content-services) |
+| `OIMArrayBucketContentService` | abstract class | The array-based bucket content services: the positional reads `getBucketMemberSlotAt`, `getBucketMemberSlotPosition`. | [The doors](./indexes.md#the-doors) |
+| `OIMPositionalArrayBucketContentService` | class | Bucket content service over an array whose positions are the caller's: the five positional writes; one entry per mention. | [Positions the caller decides](./indexes.md#positions-the-caller-decides) |
 | `OIMBucketUniqueMemberSlotsArrayService` | class | The array-driven service with one entry per slot: the list and a `Set` beside it, both written by every write. | [And what naming a slot records](./indexes.md#and-what-naming-a-slot-records-one-per-mention-or-one-per-slot) |
-| `OIMSlotContentSortedArrayBucketService` | class | Bucket content service whose array is kept sorted; `repositionBucketMemberSlot`; no positional writes. | [Sorted at write](./oimindex.md#sorted-at-write) |
-| `TOIMSlotContentBucketServiceOptions` | type | Options of the bucket content services: `bucketCommands`. | [The commands, on the bucket slot](./indexes.md#the-commands-on-the-bucket-slot) |
-| `TOIMSlotContentSortedArrayBucketServiceOptions` | type | Options of the sorted bucket content service: `compareBucketMemberSlots`. | [Sorted at write](./oimindex.md#sorted-at-write) |
-| `TOIMSlotContentArrayBucketServiceOptions` | type | Options of the array bucket content services: `bucketCommands?`, `bucketMemberSlotsArrayService?`. | [Buckets](./indexes.md) |
+| `OIMSortedArrayBucketContentService` | class | Bucket content service whose array is kept sorted; `repositionBucketMemberSlot`; no positional writes. | [Sorted at write](./oimindex.md#sorted-at-write) |
+| `TOIMBucketContentServiceOptions` | type | Options of the bucket content services: `bucketCommands`. | [The commands, on the bucket slot](./indexes.md#the-commands-on-the-bucket-slot) |
+| `TOIMSortedArrayBucketContentServiceOptions` | type | Options of the sorted bucket content service: `compareBucketMemberSlots`. | [Sorted at write](./oimindex.md#sorted-at-write) |
+| `TOIMArrayBucketContentServiceOptions` | type | Options of the array bucket content services: `bucketCommands?`, `bucketMemberSlotsArrayService?`. | [Buckets](./indexes.md) |
 | `TOIMBucketSlotOwnerService` | type | The slot owner type of a bucket collection. | [Collection types and store slots](./architecture.md#collection-types-and-store-slots) |
 | `OIMBucketCommands` | class | Records ordered-list commands on bucket slots written in the current frame, capped per slot, and clears them after each flush. | [The commands, on the bucket slot](./indexes.md#the-commands-on-the-bucket-slot) |
 | `IOIMBucketMemberSlotsArrayService` | interface | The only writer of an array bucket's member list and the `Set` beside it. | [Buckets](./indexes.md) |
@@ -151,10 +153,10 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 | `createOIMSingleSourceTrackingComputedService` | function | Builds an `OIMSingleSourceTrackingComputedService`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMSourceTrackingComputedSlot` | type | A keyed source-tracking derivation slot; read only through a source tracker. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMSourceTrackingComputedContentSlot` | type | The slot of one source-tracking derivation; read only through a source tracker. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
-| `OIMSlotContentSourceTrackingComputedService` | type only | The content service of a source-tracking derivation collection. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `OIMSourceTrackingComputedContentService` | type only | The content service of a source-tracking derivation collection. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMSourceTrackingComputedDerivationOptions` | type | The derivation options a source-tracking computed service takes: `derive`, `sameValueGuard`, `releaseValue`, `initialValue`. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMComputedServiceFactoryOptions` | type | The options every computed factory shares: `sameValueGuard`, `releaseValue`, `initialValue`, `slotReleasePolicy`, `columnSlotStoreService`, `columnNames`. | [The compute graph](./computed-effects.md) |
-| `TOIMSourceTrackingComputedDerive` | type | `(computedSlot, sourceTracker) => value`, the `derive` of a source-tracking derivation. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
+| `TOIMSourceTrackingComputedDerive` | type | `(computedSlot) => value`, the `derive` of a source-tracking derivation. | [A derivation that finds its sources as it reads](./computed-effects.md#a-derivation-that-finds-its-sources-as-it-reads) |
 | `TOIMComputedDerivationOptions` | type | The derivation options a computed service takes: `createSources`, `derive`, `sameValueGuard`, `initialValue`. | [The compute graph](./computed-effects.md) |
 | `TOIMComputedSlot` | type | A slot whose value is derived, with its value service, sources and stamps. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `TOIMComputedSources` | type | `{ sourceSlots, sourceComputeds }`, what `createSources` returns. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
@@ -162,8 +164,8 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 | `IOIMComputedValueService` | interface | `getValueForSlot(computedSlot)`, the one read that settles a computed. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `OIMComputedValueService` | class | The value service of a computed collection: holds the `sameValueGuard` and serves the value. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `TOIMComputedContentSlot` | type | A computed slot without a key: what a single computed holds. | [The compute graph](./computed-effects.md) |
-| `OIMSlotContentComputedService` | type only | The content service of a computed collection. | [The compute graph](./computed-effects.md) |
-| `TOIMSlotContentComputedServiceOptions` | type | Its options. | [The compute graph](./computed-effects.md) |
+| `OIMComputedContentService` | type only | The content service of a computed collection. | [The compute graph](./computed-effects.md) |
+| `TOIMComputedContentServiceOptions` | type | Its options. | [The compute graph](./computed-effects.md) |
 | `TOIMComputedValueServiceOptions` | type | Constructor options of `OIMComputedValueService`. | [A derivation is a slot that nothing marks](./computed-effects.md#a-derivation-is-a-slot-that-nothing-marks) |
 | `oimRefreshSourceComputeds` | function | Brings every computed of a list current; a binding read outside an effect calls it before its derive. | [Reading a computed from an effect](./reading-subscribing.md#reading-a-computed-from-an-effect) |
 | `TOIMComputedDerivation` | type | What a computed slot and an effect share: their sources and the stamp of their last run. | [Why a computed is pulled](./computed-effects.md#why-a-computed-is-pulled) |
@@ -207,7 +209,7 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 | `TOIMEffect` | type | A plain effect object; built only by the effect service. | [Subscribing is building an effect](./reading-subscribing.md#subscribing-is-building-an-effect) |
 | `TOIMEffectBody` | type | `() => (() => void) \| void`; a returned function is the undo. | [A body may hand back its own undo](./reading-subscribing.md#a-body-may-hand-back-its-own-undo) |
 | `TOIMSourceTrackingEffectBody` | type | The body of a tracked effect, handed an `OIMSourceTracker`. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
-| `OIMSourceTracker` | type only | `readSourceSlot`, `readSourceComputedValue`: what a tracked body reads through. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
+| `OIMSourceTracker` | type only | The tracker of a running tracked body; it appears in the computed slot types' generics. A read of `slot.entity`, `slot.readEntity(columnGroup)`, `computed.value` or a bucket slot's membership is filed into it. | [An effect that finds its sources as it reads](./computed-effects.md#an-effect-that-finds-its-sources-as-it-reads) |
 | `OIMFlushSchedulerService` | abstract class | The base of what a timer fires: the schedule and cancel of one standing callback on a `TOIMFlushSchedulerSlot`. | [Source layout](./architecture.md#source-layout) |
 | `TOIMFlushSchedulerSlot` | type | `{ timer, scheduledCallback, timerDisposer }`. | [Source layout](./architecture.md#source-layout) |
 | `IOIMFlushSchedulerListener` | interface | What a flush scheduler calls when its timer fires. | [The channel](./channel.md) |
@@ -304,3 +306,7 @@ This page indexes every export of `@oimdb/core`: all 230 names that the package 
 | `OIM_NOTHING_WAS_REMOVED` | const | -1: a remove that removed nothing. | [The doors](./indexes.md#the-doors) |
 | `OIM_REMOVED_WITHOUT_A_POSITION` | const | -2: a remove from a store that has no positions. | [The doors](./indexes.md#the-doors) |
 | `OIM_FROZEN_EMPTY_SLOTS` | const | A frozen empty array, the initial value of the bucket memo and sorted computeds. | [The order of a bucket is a derivation](./computed-effects.md#the-order-of-a-bucket-is-a-derivation) |
+
+## Deprecated, removed in 5.0
+
+Renamed in 4.4.0; the old names stay exported as aliases of the new ones: `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.

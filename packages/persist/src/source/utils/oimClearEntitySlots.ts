@@ -6,8 +6,8 @@ export function oimClearEntitySlots<TKey extends TOIMStoreKey, TEntity extends o
     entityStoreSlot: TOIMStoreSlot<TStore, TOIMEntitySlot<TEntity, TKey>, Partial<TEntity>>,
     entitySlots: Iterable<TOIMEntitySlot<TEntity, TKey>>,
 ): void {
-    const slotContentEntityService = entityCollectionService.slotContentService;
+    const entityContentService = entityCollectionService.slotContentService;
     entityCollectionService.writeInBatch(entityStoreSlot, () => {
-        for (const entitySlot of entitySlots) slotContentEntityService.clearSlotContent(entitySlot);
+        for (const entitySlot of entitySlots) entityContentService.clearSlotContent(entitySlot);
     });
 }

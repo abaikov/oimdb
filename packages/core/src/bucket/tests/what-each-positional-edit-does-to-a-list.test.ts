@@ -1,13 +1,13 @@
-import { OIMSlotContentSetBucketService } from '../OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMUnusedSlotCollectorService } from '../../collector/OIMUnusedSlotCollectorService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 
 type TCard = { id: string };
@@ -16,8 +16,8 @@ type TCardSlot = TOIMEntitySlot<TCard>;
 function createFixture() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
-    const listService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>() });
+    const listService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
     const listContentService = listService.slotContentService;
     const cards = cardsService.createStoreSlot(db);
     const list = listService.createStoreSlot(db);
@@ -177,8 +177,8 @@ describe('what each positional edit does to a list', () => {
 describe('emptying is not a positional act', () => {
     it('an unordered bucket clears through the base collection', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>() });
-        const searchService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>() });
+        const searchService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
         const searchContentService = searchService.slotContentService;
         const cards = cardsService.createStoreSlot(db);
         const search = searchService.createStoreSlot(db);
@@ -203,8 +203,8 @@ describe('a list whose slots and order are both the caller\'s answers every posi
 
     it('a list nobody sorts answers every one of them', () => {
         const db = new OIMDB();
-        const tasksService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTask, TOIMStoreKey>() });
-        const myDayService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TOIMEntitySlot<TTask>, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const tasksService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TTask, TOIMStoreKey>() });
+        const myDayService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TTask>, TOIMStoreKey>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const myDayContentService = myDayService.slotContentService;
         const tasks = tasksService.createStoreSlot(db);
         const myDay = myDayService.createStoreSlot(db);

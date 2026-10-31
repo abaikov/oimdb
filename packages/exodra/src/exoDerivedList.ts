@@ -15,12 +15,10 @@ export function exoDerivedList<TEntity extends object, TSchema>(
     const schemas = new OIMExoListSchemas<TSchema>(render);
     const subscribers = new OIMExoListSubscribers<TSchema>();
 
-    const computedValueService = computedSlot.computedValueService;
-
-    let applied: readonly TOIMEntitySlot<TEntity>[] = computedValueService.getValueForSlot(computedSlot);
+    let applied: readonly TOIMEntitySlot<TEntity>[] = computedSlot.value;
 
     const effect = OIMEffectService.INSTANCE.createEffect(channelMap, () => {
-        const next = computedValueService.getValueForSlot(computedSlot);
+        const next = computedSlot.value;
         // `prev === next` is the one reading `oimOrderedListCommandsOfTransition` cannot be asked about.
         if (next === applied) return;
         const script = oimOrderedListCommandsOfTransition(applied, next, maxCommandsPerSlot);

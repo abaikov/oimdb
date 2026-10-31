@@ -1,6 +1,6 @@
-import { OIMDB, OIMEffectService, OIMSlotContentSetBucketService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotAfterIdleReleasePolicy, oimMintAfterIdleSlotReleaseWheel, oimIsSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
@@ -14,8 +14,8 @@ const createFixture =(after: number) => {
     let ms = 1_000_000;
     const db = new OIMDB({ getNowMs: () => ms, releaseTimer: () => () => undefined });
     const slotReleasePolicy = new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: after });
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy });
-    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>(), slotReleasePolicy });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotReleasePolicy });
+    const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>(), slotReleasePolicy });
     const cards = cardsService.createStoreSlot(db);
     const byDeck = byDeckService.createStoreSlot(db);
     return {

@@ -1,5 +1,6 @@
+import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import type { TOIMStoreSlot } from '../../../core/src/index';
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMInPlaceEntityWriter } from '../../../core/src/index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotMapStoreService, oimInsertEntityWithSanitizedCopy, createOIMInPlaceEntityWriter } from '../../../core/src/index';
 import type {
     TOIMBucketContentSlot,
     TOIMBucketSlotsSetStore,
@@ -14,7 +15,7 @@ import { priceDataset } from './priceDataset';
 import { priceSink } from './priceSink';
 import type { TPriceDataRow } from './TPriceDataRow';
 import type { TPricePair } from './TPricePair';
-import { createOIMSlotContentEntityService } from '../../../core/src/index';
+import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
 import { createOIMSingleSlotService } from '../../../core/src/index';
 
@@ -59,7 +60,7 @@ type TRowSlotEditable = TOIMEditable<TRowSlot>;
 
 const reportingEntityFixture = () => {
     const db = new OIMDB();
-    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TPriceDataRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
+    const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
 
@@ -71,7 +72,7 @@ const { slotOwner, ownerEntityStoreSlot } = (() => {
 type TRowBucketSlots = TOIMBucketSlotsSetStore<TRowSlot>;
 
 const holdSingleBucketSlot = (
-    db: OIMDB, slotContentService: OIMSlotContentSetBucketService<TRowSlot>,
+    db: OIMDB, slotContentService: OIMSetBucketContentService<TRowSlot>,
 ): TOIMBucketContentSlot<TRowBucketSlots> => {
     const singleBucketService = createOIMSingleSlotService({ slotContentService, columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return singleBucketService.holdSingleSlot(singleBucketService.createStoreSlot(db));
@@ -158,7 +159,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                         for (let i = 0; i < times; i++) {
                             const row = rows[i];
                             const slot = mintSlot(row.id);
-                            slot.entity = { ...row };
+                            (slot as unknown as OIMEntitySlot<TPriceDataRow>).content = { ...row };
                             mine.set(row.id, slot);
                             priceSink.ours = slot;
                         }
@@ -182,7 +183,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
     {
         id: 'insert-gap.the-bucket-join',
         path: EPricePath.PerRowPerWrite,
-        ours: 'slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSlotContentSetBucketService',
+        ours: 'slotContentService.addBucketMemberSlot(bucket, slot) per inserted slot, on OIMSetBucketContentService',
         floor: 'the same loop with no row set kept at all',
         caveat:
             'WHAT A ROW SET OF EVERY INSERTED SLOT COSTS TO MAINTAIN, and it is charged to us '
@@ -198,7 +199,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
             + 'consumer keeping one.',
         build: () => {
             const rows = rowsOf();
-            const slotContentService = new OIMSlotContentSetBucketService<TRowSlot>();
+            const slotContentService = new OIMSetBucketContentService<TRowSlot>();
             let joinedStore = new Map<string, TRowSlot>();
             const db = new OIMDB();
             let bucketSlot = holdSingleBucketSlot(db, slotContentService);
@@ -214,7 +215,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                         for (let i = 0; i < times; i++) {
                             const row = rows[i];
                             const slot = mintSlot(row.id);
-                            slot.entity = { ...row };
+                            (slot as unknown as OIMEntitySlot<TPriceDataRow>).content = { ...row };
                             joinedStore.set(row.id, slot);
                             slotContentService.addBucketMemberSlot(bucketSlot, slot);
                             priceSink.ours = slot;
@@ -228,7 +229,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                         for (let i = 0; i < times; i++) {
                             const row = rows[i];
                             const slot = mintSlot(row.id);
-                            slot.entity = { ...row };
+                            (slot as unknown as OIMEntitySlot<TPriceDataRow>).content = { ...row };
                             loneStore.set(row.id, slot);
                             priceSink.floor = slot;
                         }
@@ -241,7 +242,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
         id: 'insert-gap.the-copying-strategy-beyond-the-spread',
         path: EPricePath.PerRowPerWrite,
         ours: 'oimInsertEntityWithSanitizedCopy(slot, row) — the spread, then the `__proto__` own-key probe',
-        floor: 'slot.entity = { ...row } — the spread alone',
+        floor: 'slot.content = { ...row } — the spread alone',
         caveat:
             'THE ONE PART OF THE COPY THE FLOOR DOES NOT PAY. `baseline-array` allocates '
             + '`{ ...row }` per inserted row exactly as `oimInsertEntityWithSanitizedCopy` does, so the '
@@ -254,7 +255,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
             const rows = rowsOf();
             const slots: TRowSlotEditable[] = rows.map(row => mintSlot(row.id));
             const clear = (): void => {
-                for (let i = 0; i < slots.length; i++) slots[i].entity = undefined;
+                for (let i = 0; i < slots.length; i++) (slots[i] as unknown as OIMEntitySlot<TPriceDataRow>).content = undefined;
             };
             return {
                 ours: {
@@ -262,7 +263,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                     operationsPerPass: ROWS,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            oimInsertEntityWithSanitizedCopy(slots[i], rows[i]);
+                            oimInsertEntityWithSanitizedCopy(slots[i] as unknown as OIMEntitySlot<TPriceDataRow>, rows[i]);
                             priceSink.ours = slots[i];
                         }
                     },
@@ -272,7 +273,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
                     operationsPerPass: ROWS,
                     run: times => {
                         for (let i = 0; i < times; i++) {
-                            slots[i].entity = { ...rows[i] };
+                            (slots[i] as unknown as OIMEntitySlot<TPriceDataRow>).content = { ...rows[i] };
                             priceSink.floor = slots[i];
                         }
                     },

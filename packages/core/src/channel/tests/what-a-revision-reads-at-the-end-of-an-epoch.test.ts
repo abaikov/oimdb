@@ -3,9 +3,9 @@ import { OIMChannelService } from '../OIMChannelService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIM_REVISIONS_PER_EPOCH } from '../constants/OIM_REVISIONS_PER_EPOCH';
 import { oimIsRevisionAfter } from '../utils/oimIsRevisionAfter';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import type { OIMSlotContentEntityService } from '../../entity/OIMSlotContentEntityService';
+import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TCard = { id: string; n: number };
 
@@ -14,8 +14,8 @@ const LARGEST_SMALL_INTEGER_UNDER_POINTER_COMPRESSION = 2 ** 30 - 1;
 const channelService = OIMChannelService.INSTANCE;
 
 const updateEntityByKey = (
-    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>,
-    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMSlotContentEntityService<TCard>>>['createStoreSlot']>,
+    cardsService: ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>,
+    cards: ReturnType<ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>['createStoreSlot']>,
     key: string, patch: Partial<TCard>,
 ): void => {
     const slot = cardsService.findSlotByKey(cards, key);
@@ -25,7 +25,7 @@ const updateEntityByKey = (
 const openCards = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', n: 0 });
     const held = cardsService.holdSlotByKey(cards, 'c1');

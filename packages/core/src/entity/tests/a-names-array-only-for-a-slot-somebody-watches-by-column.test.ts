@@ -4,7 +4,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMSlotOwnerService } from '../../slot/OIMSlotOwnerService';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string; title: string; rank: number; note: string };
@@ -21,7 +21,7 @@ const cards = (count: number): TCard[] => {
 
 const createFixture =() => {
     const db = new OIMDB();
-    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const collectionService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const collection = collectionService.createStoreSlot(db);
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
         const slot = collectionService.findSlotByKey(collection, key);

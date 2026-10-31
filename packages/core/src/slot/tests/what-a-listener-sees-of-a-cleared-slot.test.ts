@@ -1,6 +1,6 @@
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtEmptyReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotAtEmptyReleasePolicy, createOIMSlotCollectionIndexService, oimIsSlotReleased } from '../../index';
 import type { TOIMEntitySlot } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string };
@@ -23,12 +23,12 @@ describe('what a listener sees of a cleared slot', () => {
     it('lets the release policy be asked only about an empty slot, once a clear has emptied it', () => {
         const slotReleasePolicy = new OIMSlotReleasePolicyAtEmptyAsked();
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotReleasePolicy });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             keyOf: (card: TCard) => card.deck,
-            slotContentService: new OIMSlotContentSetBucketService<TOIMEntitySlot<TCard>>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'x');

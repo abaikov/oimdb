@@ -1,9 +1,9 @@
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
 
-import { OIMDB, OIMEffectService, OIMSlotContentPositionalArrayBucketService, OIMSlotContentSetBucketService, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
+import { OIMDB, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotTreeStoreService, oimIsSlotEmpty, oimIsSlotReleased } from '../../index';
 import type { TOIMBucketSlot, TOIMEntitySlot, TOIMBucketSlotsSetStore, TOIMSlot } from '../../index';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 
 type TCard = { id: string; deckId: string };
@@ -13,7 +13,7 @@ type TChain = readonly TOIMEntitySlot[];
 
 function createFixture() {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
     // See {@link bucketHolds}: anything still recorded is a hold on a collection
     // the previous case has already dropped.
     bucketHolds.length = 0;
@@ -38,14 +38,14 @@ const unhold = (): void => {
     bucketHolds.length = 0;
 };
 
-function byDeckIndex(db: OIMDB, slotContentService = new OIMSlotContentSetBucketService<TCardSlot>()) {
+function byDeckIndex(db: OIMDB, slotContentService = new OIMSetBucketContentService<TCardSlot>()) {
     const byDeckService = createOIMSlotCollectionService({ slotContentService });
     return { byDeckService, byDeck: byDeckService.createStoreSlot(db) };
 }
 
 /** A positional list: the caller places the slots, so the service sorts nothing. */
 function listOver(db: OIMDB) {
-    const listService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot>() });
+    const listService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot>() });
     return { listService, list: listService.createStoreSlot(db) };
 }
 
@@ -156,7 +156,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
     it('two collections over one bucket service do not disturb each other', () => {
         const { db, cardsService, cards } = createFixture();
         // ONE service, TWO collections — the construction the latch refused.
-        const service = new OIMSlotContentSetBucketService<TCardSlot>();
+        const service = new OIMSetBucketContentService<TCardSlot>();
         const { byDeckService: leftService, byDeck: left } = byDeckIndex(db, service);
         const { byDeckService: rightService, byDeck: right } = byDeckIndex(db, service);
         cardsService.writeInBatch(cards, () => ([{ id: 'c1', deckId: 'd1' }, { id: 'c2', deckId: 'd1' }]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
@@ -191,7 +191,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
 
     it('a composite bucket takes its chain levels with it', () => {
         const { db, cardsService, cards } = createFixture();
-        const tagsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TTag, string>() });
+        const tagsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TTag, string>() });
         const tags = tagsService.createStoreSlot(db);
         let madeStore: { rootCompositeKeyNode: { childNodes: Map<unknown, unknown> } } | undefined;
         class CapturingTreeStore extends OIMSlotTreeStoreService<
@@ -204,7 +204,7 @@ describe('a bucket nobody holds does not outlive its last slot', () => {
             }
         }
         const chainStore = new CapturingTreeStore(OIMCompositeKeyTreeWalk.INSTANCE);
-        const compositeService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot, TChain>(), slotStoreService: chainStore });
+        const compositeService = createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot, TChain>(), slotStoreService: chainStore });
         const composite = compositeService.createStoreSlot(db);
         tagsService.writeSlotContentByKey(tags, 'd1', { id: 'd1' });
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'd1' });

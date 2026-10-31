@@ -34,6 +34,10 @@ export class OIMColumnSlotService<
         return this.columnSlotOwner.getColumnGroup(columnNames);
     }
 
+    public getColumnGroupSlot(slot: TSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
+        return this.columnSlotOwner.getColumnGroupSlot(slot, columnGroup, oimGetChannelSlot(slot).collectorSlot.unusedSlotCollectorSlot);
+    }
+
     public holdColumnGroup(slot: TSlot, columnGroup: TOIMColumnGroup): TColumnSlot {
         return this.columnSlotOwner.holdColumnGroup(slot, columnGroup);
     }

@@ -1,21 +1,21 @@
 import { OIMDB } from '../OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { OIMChannelService } from '../../channel/OIMChannelService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 
 type TCard = { id: string; title: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const decksOn = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const decksOn = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 describe('the root a caller gets with no wiring of their own', () => {
     it('hands every collection it mints the same channel and the same collector', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const decksService = decksOn();
         const cards = cardsService.createStoreSlot(db);
         const decks = decksService.createStoreSlot(db);
@@ -28,7 +28,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('wakes an effect on a collection it minted, with nothing else wired', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -44,7 +44,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('settles the frame and sweeps what nobody took, in one call', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const decksService = decksOn();
         const decks = decksService.createStoreSlot(db);
@@ -60,7 +60,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('sweeps what a body read while the frame was running', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const held = cardsService.holdSlotByKey(cards, 'c1');
 
@@ -76,7 +76,7 @@ describe('the root a caller gets with no wiring of their own', () => {
 
     it('runs one frame and no more, because nothing may write another one into being', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.holdSlotByKey(cards, 'c1');
 

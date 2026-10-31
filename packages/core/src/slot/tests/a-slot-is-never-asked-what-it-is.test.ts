@@ -3,10 +3,11 @@ import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 import { createOIMSortedComputedService } from '../../computed/createOIMSortedComputedService';
 import { OIM_SLOT_FLAG_EMPTY } from '../constants/OIM_SLOT_FLAG_EMPTY';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 import { createOIMStoreSlot } from '../utils/createOIMStoreSlot';
 import { OIMSlotOwner } from '../OIMSlotOwner';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -45,7 +46,7 @@ describe('subscribing to an identity the engine did not mint', () => {
 
     it('throws the sorter at the read that asks for the order, not at the subscribe', () => {
         const db = new OIMDB();
-        const entitiesService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TEntity, string>() });
+        const entitiesService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TEntity, string>() });
         const entities = entitiesService.createStoreSlot(db);
         const byQueueService = createOIMSlotCollectionIndexService({
             entityService: entitiesService,
@@ -62,7 +63,7 @@ describe('subscribing to an identity the engine did not mint', () => {
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { /* never reached */ }, [], [heldSlot]);
 
-        expect(() => heldSlot.computedValueService.getValueForSlot(heldSlot)).toThrow(/cannot rank these/);
+        expect(() => readValueWithoutTracking(heldSlot)).toThrow(/cannot rank these/);
 
         OIMEffectService.INSTANCE.disposeEffect(effect);
         heldSlot.owner.unholdSlot(heldSlot);

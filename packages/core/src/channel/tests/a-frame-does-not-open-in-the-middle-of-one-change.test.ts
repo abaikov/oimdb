@@ -1,6 +1,6 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
-import { OIMSlotContentSetBucketService } from '../../bucket/OIMSlotContentSetBucketService';
+import { OIMSetBucketContentService } from '../../bucket/OIMSetBucketContentService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import type { TOIMBucketSlot } from '../../bucket/types/TOIMBucketSlot';
@@ -8,7 +8,7 @@ import type { TOIMBucketSlotsSetStore } from '../../bucket/types/TOIMBucketSlots
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import type { TOIMDefaultSlotStore } from '../../store/types/TOIMDefaultSlotStore';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
@@ -20,7 +20,7 @@ type TCardStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMEntitySlot<Card, TOIMSt
 const effectService = OIMEffectService.INSTANCE;
 
 const makeCards = (db: OIMDB) => {
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<Card>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     return { cardsService, cards: cardsService.createStoreSlot(db) };
 };
 
@@ -31,10 +31,10 @@ const makeIndex = (
 ) => {
     const byDeckService = createOIMSlotCollectionIndexService<
         Card, TOIMStoreKey, readonly ('id' | 'deck' | 'rank')[], string, TCardStore, TDeckSlots,
-        OIMSlotContentSetBucketService<TCardRow, string>
+        OIMSetBucketContentService<TCardRow, string>
     >({
         entityService: cardsService,
-        slotContentService: new OIMSlotContentSetBucketService<TCardRow, string>(),
+        slotContentService: new OIMSetBucketContentService<TCardRow, string>(),
         keyOf: card => card.deck,
     });
     return { byDeckService, byDeck: byDeckService.createIndexStoreSlot(cards) };

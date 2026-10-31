@@ -1,6 +1,7 @@
 import { OIMDB, createOIMSortedComputedService, createOIMSlotCollectionIndexService } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; rank: number };
 
@@ -8,7 +9,7 @@ const MEMBER_COUNT = 200;
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -23,7 +24,7 @@ const createFixture = () => {
     cardsService.writeSlotContentByKey(cards, 'away', { id: 'away', deck: 'other', rank: 0 });
     db.flush();
     const sortedSlot = sortedService.computedCollectionService.holdSlotByKey(sorted, 'd');
-    const order = (): string[] => sortedSlot.computedValueService.getValueForSlot(sortedSlot).map(entitySlot => String(entitySlot.key));
+    const order = (): string[] => readValueWithoutTracking(sortedSlot).map(entitySlot => String(entitySlot.key));
     order();
     const hasBucketMemberSlot = jest.spyOn(byDeckService.slotContentService, 'hasBucketMemberSlot');
     const updateCard = (id: string, patch: Partial<TCard>): void => {

@@ -1,18 +1,18 @@
-import { OIMDB, OIMSlotContentSetBucketService, OIMSlotAtUnholdReleasePolicy } from '../../index';
+import { OIMDB, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy } from '../../index';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
 import { OIMBucketCommands } from '../OIMBucketCommands';
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard>;
 
-const createDecksService = () => createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSetBucketService<TCardSlot>() });
+const createDecksService = () => createOIMSlotCollectionService({ slotContentService: new OIMSetBucketContentService<TCardSlot>() });
 
 const createFixture = () => {
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>(), slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), slotReleasePolicy: new OIMSlotAtUnholdReleasePolicy() });
     const cards = cardsService.createStoreSlot(db);
     const two = cardsService.holdSlotByKey(cards, 'two');
     cardsService.writeSlotContentByKey(cards, 'two', { id: 'two' });
@@ -66,7 +66,7 @@ describe('a released slot handed to a bucket', () => {
 
     it('is refused by a positional insert before the list changes', () => {
         const { db, two, ace } = createFixture();
-        const pageService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
+        const pageService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, string>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
         const page = pageService.createStoreSlot(db);
         const bucket = pageService.holdSlotByKey(page, 'p');
         pageService.slotContentService.insertBucketMemberSlotAt(bucket, 0, two);

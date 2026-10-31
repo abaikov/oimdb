@@ -1,8 +1,9 @@
 import { OIMDB } from '../../index';
 import type { TOIMSameValueGuard } from '../../index';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../index';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; n: number };
 
@@ -14,7 +15,7 @@ const createNumberService = (sameValueGuard?: TOIMSameValueGuard<number>) => {
         createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
-            return computedSlot.computedValueService.getValueForSlot(computedSlot);
+            return readValueWithoutTracking(computedSlot);
         },
     };
 };
@@ -23,7 +24,7 @@ describe('what a derivation answers on its first read', () => {
 
     it('takes the new value again after a comparison that threw, instead of keeping the old one as fresh', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         let refuse = true;

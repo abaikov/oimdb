@@ -1,12 +1,12 @@
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
 type Rec = { n: number };
 
 const recordOn = (db: OIMDB) => {
-    const recordService = createOIMSingleSlotService({ slotContentService: createOIMSlotContentEntityService<Rec>() });
+    const recordService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<Rec>() });
     const record = recordService.createStoreSlot(db);
     recordService.writeSingleSlotContent(record, { n: 0 });
     return { recordService, record };

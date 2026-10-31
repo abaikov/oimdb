@@ -3,7 +3,7 @@ import clsx from 'clsx';
 import {
     OIMDB,
     createOIMSlotCollectionService,
-    createOIMSlotContentEntityService,
+    createOIMEntityContentService,
     oimIsSlotEmpty,
     oimIsSlotReleased,
     type TOIMEntitySlot,
@@ -26,7 +26,7 @@ const KEY = 'ace';
 class LifecycleModel {
     private readonly db = new OIMDB();
 
-    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard>() });
+    private readonly cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
 
     private readonly cards = this.cardService.createStoreSlot(this.db);
 
@@ -52,7 +52,7 @@ class LifecycleModel {
         const slot = this.slot;
         if (slot === undefined || oimIsSlotReleased(slot) || slot.holdCount === 0) return this.note('nothing to give back');
         try {
-            slot.owner.unholdSlot(slot);
+            slot.unholdSlot();
             this.note('unholdSlot — one reference fewer');
         } catch (error) {
             this.note(`unholdSlot threw: ${(error as Error).message.split('.')[0]}`);
@@ -68,7 +68,7 @@ class LifecycleModel {
 
     public remove(): void {
         const slot = this.cardService.findSlotByKey(this.cards, KEY);
-        if (slot !== undefined) this.cardService.slotContentService.clearSlotContent(slot);
+        if (slot !== undefined) slot.clearSlotContent();
         this.note('clearSlotContent — the value leaves; the identity stays while something keeps it');
     }
 

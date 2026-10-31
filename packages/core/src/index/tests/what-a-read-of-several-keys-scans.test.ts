@@ -1,7 +1,7 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionIndexService } from '../createOIMSlotCollectionIndexService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMScalarKeyTreeWalk } from '../../key/OIMScalarKeyTreeWalk';
@@ -26,7 +26,7 @@ const byDeckAndSuitBucketStoreService = <TSlots = TOIMBucketSlotsArrayStore<TOIM
 describe('what a read of several keys scans', () => {
     it('fills every composite bucket it mints from one pass over the source', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'red', suit: 'hearts' },
@@ -55,7 +55,7 @@ describe('what a read of several keys scans', () => {
 
     it('inside a frame, after a hand mutation, fills the minted buckets and leaves the mutated entity where the index filed it', () => {
         const db = new OIMDB();
-        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+        const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
         const byDeck = byDeckService.createIndexStoreSlot(cards);

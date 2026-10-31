@@ -1,7 +1,7 @@
+import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { IOIMSlotContentService } from '../slot/interfaces/IOIMSlotContentService';
 import type { IOIMKeyedSlotCreator } from '../slot/interfaces/IOIMKeyedSlotCreator';
 import type { IOIMSingleSlotCreator } from '../slot/interfaces/IOIMSingleSlotCreator';
-import type { IOIMSlotOwner } from '../slot/interfaces/IOIMSlotOwner';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { OIMComputedValueService } from './OIMComputedValueService';
@@ -9,7 +9,7 @@ import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
 import type { TOIMIndexableSlot } from '../slot/types/TOIMIndexableSlot';
 import type { TOIMComputedSources } from './types/TOIMComputedSources';
 import type { TOIMComputedStoreSlot } from './types/TOIMComputedStoreSlot';
-import type { TOIMSlotContentComputedServiceOptions } from './types/TOIMSlotContentComputedServiceOptions';
+import type { TOIMComputedContentServiceOptions } from './types/TOIMComputedContentServiceOptions';
 import { OIMComputedSourcesService } from './OIMComputedSourcesService';
 import { OIM_FROZEN_EMPTY_COMPUTED_SLOTS } from './constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS';
 import { createOIMComputedSlot } from './utils/createOIMComputedSlot';
@@ -17,7 +17,7 @@ import { createOIMComputedContentSlot } from './utils/createOIMComputedContentSl
 import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
 import type { OIMSourceTracker } from './OIMSourceTracker';
 
-export class OIMSlotContentComputedService<
+export class OIMComputedContentService<
     TValue, TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined> = TOIMComputedContentSlot<TValue>,
 >
 implements IOIMSlotContentService<TComputedSlot>,
@@ -28,7 +28,7 @@ implements IOIMSlotContentService<TComputedSlot>,
 
     private readonly initialValue: TValue;
 
-    public constructor(options: TOIMSlotContentComputedServiceOptions<TValue, TComputedSlot>) {
+    public constructor(options: TOIMComputedContentServiceOptions<TValue, TComputedSlot>) {
         this.computedValueService = options.computedValueService;
         this.createSources = options.createSources;
         this.initialValue = options.initialValue as TValue;

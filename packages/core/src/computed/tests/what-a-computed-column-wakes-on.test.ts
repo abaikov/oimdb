@@ -2,10 +2,11 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMComputedService } from '../createOIMComputedService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
+import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; rank: number; title: string };
 type TSummary = { topRank: number; titles: string };
@@ -13,7 +14,7 @@ type TSummary = { topRank: number; titles: string };
 function setUp() {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TCard, string>() });
+    const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
     const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1, title: 'Ace' });
     const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', deck: 'spades', rank: 2, title: 'Two' });
@@ -39,7 +40,7 @@ describe('a column of a computed value', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
         const topRank = summaryService.columnSlotService.holdColumn(summaryService.getSingleSlot(summary), 'topRank');
         const seen: unknown[] = [];
-        effectService.createAndRunEffect(db, () => { seen.push(((summaryService.getSingleSlot(summary)) as TOIMComputedContentSlot<TSummary>).computedValueService.getValueForSlot(summaryService.getSingleSlot(summary)).topRank); }, [], [topRank]);
+        effectService.createAndRunEffect(db, () => { seen.push(readValueWithoutTracking(summaryService.getSingleSlot(summary) as TOIMComputedContentSlot<TSummary>).topRank); }, [], [topRank]);
 
         updateCard('two', { rank: 5 });
         db.flush();

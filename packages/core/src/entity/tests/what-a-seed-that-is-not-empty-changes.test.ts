@@ -6,14 +6,14 @@ import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import type { TOIMStoreKey } from '../../store/types/TOIMStoreKey';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
-import { createOIMSlotContentEntityService } from '../createOIMSlotContentEntityService';
+import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 type TCard = { id: string; title?: string };
 type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const plantTheKey = {
-    stamp(slot: { entity: TCard | undefined; readonly key: TOIMStoreKey }): void {
-        slot.entity ??= { id: String(slot.key) };
+    stamp(slot: { content: TCard | undefined; readonly key: TOIMStoreKey }): void {
+        slot.content ??= { id: String(slot.key) };
     },
 };
 
@@ -25,7 +25,7 @@ const onlyTheKeyIsLeft = {
 const createFixture = () => {
     const defaults = new OIMDefaults({ slotStamp: plantTheKey as unknown as IOIMSlotStamp<TOIMSlot> });
     const db = new OIMDB();
-    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMSlotContentEntityService<TCard, TOIMStoreKey>({ defaults, slotEmptinessPolicy: onlyTheKeyIsLeft }) });
+    const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard, TOIMStoreKey>({ defaults, slotEmptinessPolicy: onlyTheKeyIsLeft }) });
     const cards = cardsService.createStoreSlot(db);
     return { db, cardsService, cards };
 };

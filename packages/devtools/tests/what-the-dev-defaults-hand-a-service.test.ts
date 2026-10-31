@@ -1,4 +1,4 @@
-import { OIMDB, OIMDefaults, createOIMSlotCollectionService, createOIMSlotContentEntityService } from '@oimdb/core';
+import { OIMDB, OIMDefaults, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
 import { oimDevDefaults, oimDevRegistry } from '../src';
 
 type TUser = { id: string; name: string };
@@ -8,7 +8,7 @@ describe('what the dev defaults hand a service', () => {
         const heard = jest.spyOn(oimDevRegistry, 'onStoreSlotCreated');
         const usersService = createOIMSlotCollectionService({
             defaults: oimDevDefaults,
-            slotContentService: createOIMSlotContentEntityService<TUser>({ defaults: oimDevDefaults }),
+            slotContentService: createOIMEntityContentService<TUser>({ defaults: oimDevDefaults }),
         });
 
         const users = usersService.createStoreSlot(new OIMDB());
@@ -19,7 +19,7 @@ describe('what the dev defaults hand a service', () => {
 
     it('leave a service built without them unheard', () => {
         const heard = jest.spyOn(oimDevRegistry, 'onStoreSlotCreated');
-        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMSlotContentEntityService<TUser>() });
+        const usersService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TUser>() });
 
         usersService.createStoreSlot(new OIMDB());
 
@@ -30,7 +30,7 @@ describe('what the dev defaults hand a service', () => {
 
     it('report a store slot registered with the registry', () => {
         const db = new OIMDB();
-        const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMSlotContentEntityService<TUser>() });
+        const usersService = createOIMSlotCollectionService({ defaults: oimDevDefaults, slotContentService: createOIMEntityContentService<TUser>() });
         const users = usersService.createStoreSlot(db);
         usersService.writeSlotContentByKey(users, 'u1', { id: 'u1', name: 'Ada' });
 

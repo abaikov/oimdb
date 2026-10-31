@@ -1,8 +1,8 @@
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
-import { createOIMSlotContentEntityService } from '../../entity/createOIMSlotContentEntityService';
-import { OIMSlotContentPositionalArrayBucketService } from '../OIMSlotContentPositionalArrayBucketService';
-import { OIMSlotContentSortedArrayBucketService } from '../OIMSlotContentSortedArrayBucketService';
+import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
+import { OIMPositionalArrayBucketContentService } from '../OIMPositionalArrayBucketContentService';
+import { OIMSortedArrayBucketContentService } from '../OIMSortedArrayBucketContentService';
 import { OIMBucketUniqueMemberSlotsArrayService } from '../array/OIMBucketUniqueMemberSlotsArrayService';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 
@@ -12,7 +12,7 @@ type TCardSlot = TOIMEntitySlot<TCard, string>;
 function setUp() {
     const db = new OIMDB();
     const cardsService = createOIMSlotCollectionService({
-        slotContentService: createOIMSlotContentEntityService<TCard, string>(),
+        slotContentService: createOIMEntityContentService<TCard, string>(),
     });
     const cards = cardsService.createStoreSlot(db);
     const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', rank: 1 });
@@ -23,7 +23,7 @@ function setUp() {
 describe('a positional array bucket', () => {
     it('keeps every mention when handed nothing', () => {
         const { db, ace } = setUp();
-        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>() });
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, string>() });
         const decks = decksService.createStoreSlot(db);
 
         const spades = decksService.writeSlotContentByKey(decks, 'spades', [ace, ace]);
@@ -33,7 +33,7 @@ describe('a positional array bucket', () => {
 
     it('keeps each slot once when handed the unique member slots service', () => {
         const { db, ace, king } = setUp();
-        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentPositionalArrayBucketService<TCardSlot, string>({
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TCardSlot, string>({
             bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
         }) });
         const decks = decksService.createStoreSlot(db);
@@ -49,7 +49,7 @@ describe('a positional array bucket', () => {
 describe('a sorted array bucket', () => {
     it('is unique and sorted at once when handed the unique member slots service', () => {
         const { db, ace, king } = setUp();
-        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSlotContentSortedArrayBucketService<TCardSlot, string>({
+        const decksService = createOIMSlotCollectionService({ slotContentService: new OIMSortedArrayBucketContentService<TCardSlot, string>({
             compareBucketMemberSlots: (left, right) => (right.entity?.rank ?? 0) - (left.entity?.rank ?? 0),
             bucketMemberSlotsArrayService: new OIMBucketUniqueMemberSlotsArrayService(),
         }) });
