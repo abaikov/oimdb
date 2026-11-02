@@ -178,12 +178,12 @@ those computeds; `disposeEffect(effect)` gives each back.
 
 ```typescript
 const rankService = createOIMSingleComputedService<number>();
-const rankOf = rankService.createComputedStoreSlot(
+const rankOf = rankService.createStoreSlot(
     db,
     () => slot.entity?.rank ?? 0,
     () => ({ sourceSlots: [slot] }),
 );
-const rankSlot = rankService.computedSingleSlotService.holdSingleSlot(rankOf);
+const rankSlot = rankService.holdSingleSlot(rankOf);
 
 const rankEffect = effectService.createEffect(db, () => {
     show(rankSlot.value);
@@ -263,7 +263,7 @@ collection or of a single alike, or
 `holdBucketColumnByKey(indexStoreSlot, key, columnName)` on an index service for a column across a bucket's
 members. Each has its give-back — `unholdColumn(columnSlot)` on the same service.
 
-A computed has columns too: `computedCollectionService.holdColumn(computedSlot, 'field')` returns a
+A computed has columns too: `computedService.holdColumn(computedSlot, 'field')` returns a
 `TOIMComputedColumnSlot`, which goes in the `sourceComputeds` list and wakes the effect only when that
 field of the derived value changes (see
 [Computed columns](/docs/core/computed-effects#computed-columns)). Every collection service also has

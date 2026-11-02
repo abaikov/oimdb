@@ -10,10 +10,10 @@ export function useOIMComputedCollection<TKey extends NonNullable<unknown>, TVal
     derive: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined,
     createSources: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined,
     dependencyList: DependencyList,
-): TOIMComputedStoreSlot<TStore, TValue, TOIMComputedSlot<TValue, TKey>, OIMComputedService<TKey, TValue, TStore>['computedCollectionService']> {
+): TOIMComputedStoreSlot<TStore, TValue, TOIMComputedSlot<TValue, TKey>, OIMComputedService<TKey, TValue, TStore>> {
     const db = useOIMDB();
     return useMemo(
-        () => computedService.createComputedStoreSlot(db, derive, createSources),
+        () => computedService.createStoreSlot(db, derive, createSources),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- the caller's list is checked at the call site
         [db, computedService, ...dependencyList],
     );

@@ -13,7 +13,7 @@ export function oimResolveComputedDerivationOptions<TValue>(
     const defaults = options.defaults ?? OIMDefaults.INSTANCE;
     return {
         columnSlotOwnerOptions: oimResolveColumnSlotOwnerOptions(
-            options.columnSlotStoreService, options.columnNames,
+            options.columnSlotStoreService, options.columnNames, options.columnGroups,
             defaults.computedColumnSlotStoreService ?? OIM_DEFAULT_COMPUTED_COLUMN_SLOT_STORE_SERVICE.getValue(),
         ),
         slotReleasePolicy: options.slotReleasePolicy ?? OIMSlotAtUnholdReleasePolicy.INSTANCE,

@@ -82,8 +82,6 @@ const literalEffectService: IOIMEffectService = {
             runLiteralEffectIfSourcesChanged(effect);
         }
     },
-    runEffect,
-    runEffectIfSourcesChanged: runLiteralEffectIfSourcesChanged,
     setPositionInSubscribedSlot,
 };
 
@@ -219,7 +217,7 @@ const SHAPE_CAVEAT =
     'THE SHIPPED SERVICE AGAINST THE BENCH\'S OWN LITERAL COPY OF ITS ALGORITHM. Ours is the shipped '
     + '`OIMEffectService`, whose effects are plain `TOIMEffect` objects carrying an `effectService` reference. '
     + 'The floor is a literal copy of the same fields and the same run and dispose steps, kept in this file as '
-    + 'module-level functions and a small literal service object (`runEffectIfSourcesChanged`, '
+    + 'module-level functions and a small literal service object (`markEffectRunScheduled`, `runScheduledEffect`, '
     + '`setPositionInSubscribedSlot`) because the channel and `OIMSlotOwner.unsubscribeFromSlot` call those through '
     + 'the effect. Both subscribe through the same `OIMSlotOwner.subscribeToSlot`, so `isolate` keeps '
     + 'each arm in its own process. Each arm keeps ONE resident effect alive for the whole process, so the '

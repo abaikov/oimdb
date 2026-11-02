@@ -1,5 +1,5 @@
 import { OIMCompositeKeyTreeWalk } from '../../../core/dist/index.js';
-import { OIMChannelService, OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMColumnGroup, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, oimInsertEntityWithCopy, oimSameValueZeroGuard} from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
@@ -61,10 +61,10 @@ type TEntityService<
 type TRowEntityService = TEntityService<TOIMStoreKey, TRow, TRowStore, TRowColumnName>;
 type TRowStoreSlot = TOIMStoreSlot<TRowStore, TRowSlot, Partial<TRow>>;
 const ROW_COLUMNS: readonly TRowColumnName[] = ['rank', 'label', 'note'];
-type TGroupSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow>>;
-type TSortedGroupSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TRow>>;
+type TGroupSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<TRow, TOIMStoreKey>>;
+type TSortedGroupSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TRow, TOIMStoreKey>>;
 type TSortedGroupIndexStore = Map<TOIMStoreKey, TOIMBucketSlot<TSortedGroupSlots, TOIMStoreKey>>;
-type TGroupOrderComputedSlot = TOIMComputedSlot<readonly TOIMEntitySlot<TRow>[], TOIMStoreKey>;
+type TGroupOrderComputedSlot = TOIMComputedSlot<readonly TOIMEntitySlot<TRow, TOIMStoreKey>[], TOIMStoreKey>;
 
 type TGroupOrders<TGroupOrder, TOrderedSlots> = {
     holdGroupOrder: (group: string) => TGroupOrder;
@@ -108,15 +108,15 @@ const createRowEntityService = (): TRowEntityService =>
 // THE GROUP FILING IS THE LIBRARY'S: on a write that changed one of the index's
 // columns the collection reads the key again, compares it with the key the row was
 // last filed under, and moves the row between buckets itself.
-const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, readonly TOIMEntitySlot<TRow>[]> = {
+const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, readonly TOIMEntitySlot<TRow, TOIMStoreKey>[]> = {
     createGroupOrders: (entityService, entityStoreSlot, indexKeyOptions, slotReleasePolicy) => {
         const indexService = createOIMSlotCollectionIndexService<
             TRow, TOIMStoreKey, readonly TOIMEntityColumnName<TRow>[], TOIMStoreKey, TRowStore, TGroupSlots,
-            OIMSetBucketContentService<TOIMEntitySlot<TRow>>
+            OIMSetBucketContentService<TOIMEntitySlot<TRow, TOIMStoreKey>>
         >({
             ...indexKeyOptions,
             entityService,
-            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TRow>>(),
+            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TRow, TOIMStoreKey>>(),
             slotReleasePolicy,
         });
         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
@@ -126,9 +126,8 @@ const GROUP_ORDER_SORTED_AT_READ: TGroupOrderStrategy<TGroupOrderComputedSlot, r
             slotReleasePolicy,
         });
         const sortedComputedStoreSlot = sortedComputedService.createSortedStoreSlot(indexStoreSlot);
-        const computedCollectionService = sortedComputedService.computedCollectionService;
         return {
-            holdGroupOrder: group => computedCollectionService.holdSlotByKey(sortedComputedStoreSlot, group),
+            holdGroupOrder: group => sortedComputedService.holdSlotByKey(sortedComputedStoreSlot, group),
             unholdGroupOrder: groupOrder => {
                 groupOrder.owner.unholdSlot(groupOrder);
             },
@@ -282,7 +281,6 @@ type TWindowViewFactory<TGroupOrder, TOrderedSlots> = {
 
 type TWindowViewsCreator = <TGroupOrder, TOrderedSlots>(
     db: OIMDB,
-    entityService: TRowEntityService,
     windowSize: number,
     deliverView: (consumer: BenchConsumer, visible: readonly TRow[]) => void,
 ) => TWindowViewFactory<TGroupOrder, TOrderedSlots>;
@@ -291,13 +289,11 @@ type TPageOffset = { offset: number };
 
 const createWindowViews: TWindowViewsCreator = <TGroupOrder, TOrderedSlots>(
     db: OIMDB,
-    entityService: TRowEntityService,
     windowSize: number,
     deliverView: (consumer: BenchConsumer, visible: readonly TRow[]) => void
 ): TWindowViewFactory<TGroupOrder, TOrderedSlots> => {
     const effectService = OIMEffectService.INSTANCE;
-    const columnSlotService = entityService.columnSlotService;
-    const renderedColumns = columnSlotService.getColumnGroup(['rank', 'label']);
+    const renderedColumns = createOIMColumnGroup<TRowColumnName>(['rank', 'label']);
     const offsetService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPageOffset>() });
     const offsetStoreSlot = offsetService.createStoreSlot(db);
     let viewCount = 0;
@@ -376,7 +372,7 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
     const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
     const orderByGroup = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, GROUP_COLUMN);
-    const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, entityService, view.window, (consumer, visible) => {
+    const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, view.window, (consumer, visible) => {
         deliver(consumer, visible, view.window);
     });
     const views = bindings.map(bound => windows.makeView(orderByGroup, bound.group, bound.consumer));
@@ -483,7 +479,7 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
             entityService.slotContentService.markEntityChanged(rowSlot, NOTE_COLUMN);
         },
         dispose: () => {
-            OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);
+            db.dispose();
             windowsWired = false;
             cellsWired = false;
             labelPending = false;
@@ -535,7 +531,7 @@ const createChurnMounts = (
             const level = key % CHAIN_KEYS_PER_SUBSCRIBER;
             return level === 1
                 ? { sourceSlots: rootSlotsBySubscriber[(key - level) / CHAIN_KEYS_PER_SUBSCRIBER] }
-                : { sourceComputeds: [chainComputedService.computedCollectionService.getSlotByKey(chainComputedStoreSlot, key - 1)] };
+                : { sourceComputeds: [chainComputedService.getSlotByKey(chainComputedStoreSlot, key - 1)] };
         },
         derive: computedSlot => {
             const level = computedSlot.key % CHAIN_KEYS_PER_SUBSCRIBER;
@@ -545,14 +541,13 @@ const createChurnMounts = (
         },
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const chainComputedStoreSlot: TChurnComputedStoreSlot = chainComputedService.createComputedStoreSlot(db);
+    const chainComputedStoreSlot: TChurnComputedStoreSlot = chainComputedService.createStoreSlot(db);
 
     const diamondComputedService: TChurnComputedService = createOIMComputedService<number, string, Map<number, TChurnDerivationSlot>>({
         createSources: ({ key }) => {
             const node = key % DIAMOND_KEYS_PER_SUBSCRIBER;
-            const diamondCollectionService = diamondComputedService.computedCollectionService;
             return node === DIAMOND_JOIN
-                ? { sourceComputeds: [diamondCollectionService.getSlotByKey(diamondComputedStoreSlot, key - 2), diamondCollectionService.getSlotByKey(diamondComputedStoreSlot, key - 1)] }
+                ? { sourceComputeds: [diamondComputedService.getSlotByKey(diamondComputedStoreSlot, key - 2), diamondComputedService.getSlotByKey(diamondComputedStoreSlot, key - 1)] }
                 : { sourceSlots: rootSlotsBySubscriber[(key - node) / DIAMOND_KEYS_PER_SUBSCRIBER] };
         },
         derive: computedSlot => {
@@ -571,7 +566,7 @@ const createChurnMounts = (
         },
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const diamondComputedStoreSlot: TChurnComputedStoreSlot = diamondComputedService.createComputedStoreSlot(db);
+    const diamondComputedStoreSlot: TChurnComputedStoreSlot = diamondComputedService.createStoreSlot(db);
 
     const subscribeHead = (
         at: number,
@@ -580,15 +575,14 @@ const createChurnMounts = (
         firstKey: number,
         keyCount: number,
     ): string => {
-        const computedCollectionService = computedService.computedCollectionService;
         const headKey = firstKey + keyCount - 1;
-        for (let key = firstKey; key < headKey; key++) computedCollectionService.holdSlotByKey(computedStoreSlot, key);
-        const head = computedCollectionService.holdSlotByKey(computedStoreSlot, headKey);
+        for (let key = firstKey; key < headKey; key++) computedService.holdSlotByKey(computedStoreSlot, key);
+        const head = computedService.holdSlotByKey(computedStoreSlot, headKey);
         effects[at] = OIMEffectService.INSTANCE.createEffect(db, () => {
             readHead(at, head.value);
         }, NO_ROOT_SLOTS, [head]);
         for (let key = firstKey; key <= headKey; key++) {
-            const derivationSlot = computedCollectionService.getSlotByKey(computedStoreSlot, key);
+            const derivationSlot = computedService.getSlotByKey(computedStoreSlot, key);
             derivationSlot.owner.unholdSlot(derivationSlot);
         }
         return head.value;
@@ -702,7 +696,7 @@ const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
             churnRead[at] = undefined;
         },
         dispose: () => {
-            OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);
+            db.dispose();
             churnPending = false;
             churnEffects.length = 0;
             churnSlots.length = 0;
@@ -741,7 +735,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
         columns: ['id', 'group'],
         keyOf: row => (onSecondAxis(row.id) ? row.group : OFF_THE_SECOND_AXIS),
     });
-    const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, entityService, view.window, (consumer, visible) => {
+    const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, view.window, (consumer, visible) => {
         deliverPage(consumer, visible, 0, view.window);
     });
 
@@ -786,7 +780,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
         // THE GROUP INDEX AND NOT THE AXIS ONE: the audit asks for a whole group.
         groupOrder: group => groupOrderOf(orderByGroup, group),
         dispose: () => {
-            OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);
+            db.dispose();
             found.length = 0;
             views.length = 0;
         },
@@ -948,7 +942,7 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
             return held;
         },
         dispose: () => {
-            OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);
+            db.dispose();
             namesPending = false;
             marksPending = false;
             pairSlots.length = 0;
@@ -1101,7 +1095,7 @@ const OIMDB_DEPARTURE =
     'fifty-view binding holds all fifty and files into all fifty; and on the wide mount shape the ' +
     'subscriber is registered over every churn row it is asked for while its body reads the first ' +
     'of them alone. Every binding with entity collections tears down with one ' +
-    'OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot) and clears its own arrays: no effect is detached and no hold ' +
+    'db.dispose() and clears its own arrays: no effect is detached and no hold ' +
     'given back one at a time, because a dropped channel neither schedules nor runs a frame, so no ' +
     'effect body runs again. The single binding disposes its two effects and keeps its channel.';
 

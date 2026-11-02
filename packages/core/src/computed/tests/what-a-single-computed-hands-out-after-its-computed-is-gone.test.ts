@@ -18,7 +18,7 @@ const createFixture = () => {
     const cards = cardsService.createStoreSlot(db);
     const sourceSlots: TOIMEntitySlot<Card, TOIMStoreKey>[] = [];
     const topRankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const topRank = topRankComputedService.createComputedStoreSlot(
+    const topRank = topRankComputedService.createStoreSlot(
         db,
         () => cardsService.getSlotByKey(cards, 'a').entity?.rank ?? -1,
         () => {
@@ -28,7 +28,7 @@ const createFixture = () => {
         },
     );
     return {
-        db, effectService, cardsService, cards, topRankService: topRankComputedService.computedSingleSlotService, topRank,
+        db, effectService, cardsService, cards, topRankService: topRankComputedService, topRank,
         sourceSlots, builds: () => sourceSlots.length,
     };
 };

@@ -273,8 +273,8 @@ a bucket that was resolved before its slots arrived. The cost is that the bucket
 empty the bucket. That is the same thing as saying "a slot in a bucket is a
 reference".
 
-`slot.data` belongs to the consumer: the core never reads or writes it, and clearing or
-removing the slot (`clearSlotContent(slot)`) does not reset it. The identity survives a
+`slot.data` belongs to the consumer, on every slot (entity, bucket, computed, column), and is writable:
+the core never reads or writes it, and clearing or removing the slot (`clearSlotContent(slot)`) does not reset it. The identity survives a
 removal, so whatever you wrote there is handed to the first reader after a
 re-`writeSlotContentByKey` unless you clear it yourself. `slot.indexKeys` belongs to the indexes; do not
 write it.

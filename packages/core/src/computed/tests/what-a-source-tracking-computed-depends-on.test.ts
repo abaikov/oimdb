@@ -28,8 +28,8 @@ function setUp() {
             : b.entity?.title ?? '',
         initialValue: '',
     });
-    const titleStoreSlot = titleService.createComputedStoreSlot(db);
-    const title = titleService.computedSingleSlotService.holdSingleSlot(titleStoreSlot);
+    const titleStoreSlot = titleService.createStoreSlot(db);
+    const title = titleService.holdSingleSlot(titleStoreSlot);
     db.flush();
     return { db, write, flag, a, b, title };
 }
@@ -102,7 +102,7 @@ describe('what a source-tracking computed depends on', () => {
             derive: () => title.value.toUpperCase(),
             initialValue: '',
         });
-        const loud = loudService.computedSingleSlotService.holdSingleSlot(loudService.createComputedStoreSlot(db));
+        const loud = loudService.holdSingleSlot(loudService.createStoreSlot(db));
         const seen: string[] = [];
         const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             seen.push(loud.value);
@@ -134,9 +134,9 @@ describe('what a source-tracking computed depends on', () => {
             derive: slot => (slot.key === 'a' ? a : b).entity?.title ?? '',
             initialValue: '',
         });
-        const picks = pickService.createComputedStoreSlot(db);
-        const pickA = pickService.computedCollectionService.holdSlotByKey(picks, 'a');
-        const pickB = pickService.computedCollectionService.holdSlotByKey(picks, 'b');
+        const picks = pickService.createStoreSlot(db);
+        const pickA = pickService.holdSlotByKey(picks, 'a');
+        const pickB = pickService.holdSlotByKey(picks, 'b');
 
         expect([readValueWithoutTracking(pickA), readValueWithoutTracking(pickB)]).toEqual(['A', 'B']);
         expect(pickA.sourceSlots).toEqual([a]);
@@ -187,7 +187,7 @@ describe('what a source-tracking computed depends on', () => {
         // @ts-expect-error a source-tracking computed is read only through a source tracker
         OIMEffectService.INSTANCE.createEffect(db, () => undefined, [], [title]);
         // @ts-expect-error a source-tracking computed is read only through a source tracker
-        declaredService.createComputedStoreSlot(db, () => 0, () => ({ sourceComputeds: [title] }));
+        declaredService.createStoreSlot(db, () => 0, () => ({ sourceComputeds: [title] }));
 
         expect(title.sourceTracker).toBeDefined();
     });

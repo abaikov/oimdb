@@ -68,14 +68,14 @@ describe('what a frame promises through a real collection', () => {
         db.flush();
         const slot = slotOf(rowsService, rows, 'r1');
         const titleLengthService = createDoubledService();
-        const titleLength = titleLengthService.createComputedStoreSlot(
+        const titleLength = titleLengthService.createStoreSlot(
             db,
             () => (slot.entity?.title ?? '').length,
             () => ({ sourceSlots: [slot] }),
         );
         let goodRuns = 0;
-        effectService.createEffect(db, () => { throw new Error('bad reader'); }, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)]);
-        effectService.createEffect(db, () => { goodRuns++; }, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)]);
+        effectService.createEffect(db, () => { throw new Error('bad reader'); }, [], [titleLengthService.getSingleSlot(titleLength)]);
+        effectService.createEffect(db, () => { goodRuns++; }, [], [titleLengthService.getSingleSlot(titleLength)]);
         updateEntityByKey(rowsService, rows, 'r1', { title: 'z' });
         const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
         try {
@@ -105,14 +105,14 @@ describe('what a frame promises through a real collection', () => {
         const slot = slotOf(rowsService, rows, 'r1');
         effectService.createEffect(db, () => { /* an ordinary whole-slot reader */ }, [slot]);
         const titleLengthService = createDoubledService();
-        const titleLength = titleLengthService.createComputedStoreSlot(
+        const titleLength = titleLengthService.createStoreSlot(
             db,
             () => (slot.entity?.title ?? '').length,
             () => ({ sourceSlots: [slot] }),
         );
         // The derivation has a reader, so the settle the frame's pass takes runs
         // inside the frame -- which is where the second frame came from.
-        effectService.createEffect(db, () => { /* reads the derived value */ }, [], [titleLengthService.computedSingleSlotService.getSingleSlot(titleLength)]);
+        effectService.createEffect(db, () => { /* reads the derived value */ }, [], [titleLengthService.getSingleSlot(titleLength)]);
         let framesEnded = 0;
         OIMChannelService.INSTANCE.subscribeAfterEachFrame(db.defaultChannelSlot, () => { framesEnded++; });
         beforeFlushRuns = 0;
@@ -170,13 +170,13 @@ describe('what a frame promises through a real collection', () => {
 
         const slot = slotOf(rowsService, rows, 'r1');
         const doubledService = createDoubledService();
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [slot] }),
         );
         let seen = 0;
-        effectService.createEffect(db, () => { seen++; }, [], [doubledService.computedSingleSlotService.getSingleSlot(doubled)]);
+        effectService.createEffect(db, () => { seen++; }, [], [doubledService.getSingleSlot(doubled)]);
 
         // Nobody is subscribed to the slot itself -- only the derivation is read.
         updateEntityByKey(rowsService, rows, 'r1', { n: 5 });
@@ -185,7 +185,7 @@ describe('what a frame promises through a real collection', () => {
         armed[0]();
         // The effect settled the derivation on its way to deciding whether to
         // run, so the value is this frame's.
-        expect(readValueWithoutTracking(doubledService.computedSingleSlotService.getSingleSlot(doubled) as TOIMComputedContentSlot<unknown>)).toBe(10);
+        expect(readValueWithoutTracking(doubledService.getSingleSlot(doubled) as TOIMComputedContentSlot<unknown>)).toBe(10);
         expect(seen).toBe(1);
     });
 

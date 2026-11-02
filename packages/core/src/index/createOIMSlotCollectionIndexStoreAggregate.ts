@@ -19,17 +19,17 @@ export function createOIMSlotCollectionIndexStoreAggregate<
     const TColumns extends readonly TOIMEntityColumnName<TEntity>[] = readonly TOIMEntityColumnName<TEntity>[],
     TKey extends TOIMStoreKey = [TOIMIndexKey<TEntity, TColumns>] extends [TOIMStoreKey]
         ? Extract<TOIMIndexKey<TEntity, TColumns>, TOIMStoreKey> : never,
-    TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>,
-    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>
-        = OIMPositionalArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>
-            & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
+    TSlots = TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>
+        = OIMPositionalArrayBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TKey>
+            & OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>,
 >(
     slotCollectionStoreAggregate: OIMSlotCollectionStoreAggregate<
         TSourceKey, TOIMEntitySlot<TEntity, TSourceKey>, TSourceStore, Partial<TEntity>,
         OIMSlotCollectionService<TSourceKey, TOIMEntitySlot<TEntity, TSourceKey>, TSourceStore, unknown>
     >,
     options: Omit<TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore>, 'entityService'> & {
-        slotContentService?: (TBucketContentService & OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>) | undefined;
+        slotContentService?: (TBucketContentService & OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>) | undefined;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
 ): OIMSlotCollectionIndexStoreAggregate<
     TKey, TEntity, TSlots, TSourceKey, TSourceStore, TOIMBucketSlot<TSlots, TKey>, Map<TKey, TOIMBucketSlot<TSlots, TKey>>,

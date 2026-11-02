@@ -48,7 +48,7 @@ describe('what the single and by-key hooks render', () => {
             createSources: ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
             derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         });
-        const ranks = ranksService.createComputedStoreSlot(db);
+        const ranks = ranksService.createStoreSlot(db);
         function Rank(): React.ReactElement {
             return <span data-testid="rank">{useOIMComputedValueByKey(ranks, 'c1')}</span>;
         }

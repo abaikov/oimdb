@@ -1,3 +1,4 @@
+import { OIMThrowAtOnceErrorPolicy } from '../../error/OIMThrowAtOnceErrorPolicy';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMComputedService } from '../../computed/createOIMComputedService';
 import { OIMEffectService } from '../../effect/OIMEffectService';
@@ -116,6 +117,7 @@ describe('a throw out of the scheduler', () => {
         const armed: (() => void)[] = [];
         const failing = { now: false };
         const db = new OIMDB({
+            errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             channelScheduler: flush => {
                 if (failing.now) throw new Error('scheduler blew up');
                 armed.push(flush);
@@ -191,12 +193,12 @@ describe('an effect a released source refuses part-way', () => {
         const { db, rowsService, rows } = createFixture();
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard, columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>() });
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [slot] }),
         );
-        const doubledSlot = doubledService.computedSingleSlotService.holdSingleSlot(doubled);
+        const doubledSlot = doubledService.holdSingleSlot(doubled);
         const derivationsService = createOIMComputedService<TOIMStoreKey, number>({
             computedSlotStoreService: new OIMSlotMapStoreService<TOIMComputedSlot<number, TOIMStoreKey>>(),
             columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
@@ -204,8 +206,8 @@ describe('an effect a released source refuses part-way', () => {
             derive: () => 0,
             sameValueGuard: oimSameValueZeroGuard,
         });
-        const derivations = derivationsService.createComputedStoreSlot(db);
-        const gone = derivationsService.computedCollectionService.holdSlotByKey(derivations, 'gone');
+        const derivations = derivationsService.createStoreSlot(db);
+        const gone = derivationsService.holdSlotByKey(derivations, 'gone');
         gone.owner.unholdSlot(gone);
         expect(oimIsSlotReleased(gone)).toBe(true);
 

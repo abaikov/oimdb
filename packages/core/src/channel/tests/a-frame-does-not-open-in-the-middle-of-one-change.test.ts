@@ -12,8 +12,8 @@ import { createOIMEntityContentService } from '../../entity/createOIMEntityConte
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type Card = { id: string; deck: string; rank: number };
-type TCardRow = TOIMEntitySlot<Card>;
-type TDeckSlots = TOIMBucketSlotsSetStore<TOIMEntitySlot<Card>>;
+type TCardRow = TOIMEntitySlot<Card, TOIMStoreKey>;
+type TDeckSlots = TOIMBucketSlotsSetStore<TCardRow>;
 type TDeckBucket = TOIMBucketSlot<TDeckSlots, string>;
 type TCardStore = TOIMDefaultSlotStore<TOIMStoreKey, TOIMEntitySlot<Card, TOIMStoreKey>>;
 

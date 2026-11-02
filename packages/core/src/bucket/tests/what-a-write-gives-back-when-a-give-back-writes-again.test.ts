@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMSetBucketContentService } from '../OIMSetBucketContentService';
 import { OIMDB } from '../../db/OIMDB';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
@@ -8,13 +7,15 @@ import type { TOIMStoreSlot } from '../../slot/types/TOIMStoreSlot';
 import type { OIMChannelQueue } from '../../channel/OIMChannelQueue';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TCard = { id: string };
 type TCardSlot = TOIMEntitySlot<TCard, string>;
 
-class RowOwnerThatCanWriteWhileGivingBack extends OIMSlotOwner {
+class RowOwnerThatCanWriteWhileGivingBack extends TestSlotOwner {
+
     public readonly givenBack: string[] = [];
 
     public writeOnNextGiveBack: (() => void) | undefined = undefined;

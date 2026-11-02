@@ -1,31 +1,26 @@
-import type { OIMPullColumnSlotOwner } from '../column/OIMPullColumnSlotOwner';
-import type { TOIMComputedColumnSlot } from '../column/types/TOIMComputedColumnSlot';
 import type { TOIMSourceTrackingComputedSlot } from './types/TOIMSourceTrackingComputedSlot';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreService';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMSourceTrackingComputedDerivationOptions } from './types/TOIMSourceTrackingComputedDerivationOptions';
-import type { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
+import { OIMSlotCollectionService } from '../slot/OIMSlotCollectionService';
+import { OIMSlotCollectionStoreAggregate } from '../slot/OIMSlotCollectionStoreAggregate';
+import { createOIMPullColumnSlotOwner } from '../column/utils/createOIMPullColumnSlotOwner';
+import type { OIMPullColumnSlotOwner } from '../column/OIMPullColumnSlotOwner';
+import type { TOIMComputedColumnSlot } from '../column/types/TOIMComputedColumnSlot';
 import { OIMSourceTrackingComputedValueService } from './OIMSourceTrackingComputedValueService';
 import { OIMSourceTrackingComputedContentService } from './OIMSourceTrackingComputedContentService';
-import { createOIMComputedSlotCollectionService } from './utils/createOIMComputedSlotCollectionService';
 
-export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>, TValue, TComputedStore> {
-    public readonly computedCollectionService: OIMSlotCollectionService<
-        TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore,
-        OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>,
-        Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
-    >;
-
+export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>, TValue, TComputedStore> extends OIMSlotCollectionService<
+    TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore,
+    OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>, Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
+> {
     public constructor(
         options: TOIMSourceTrackingComputedDerivationOptions<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>> & {
             computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore>;
         },
     ) {
-        this.computedCollectionService = createOIMComputedSlotCollectionService<
-            TKey, TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore, Extract<keyof TValue, string>,
-            OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>
-        >({
+        super({
             slotContentService: new OIMSourceTrackingComputedContentService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>({
                 computedValueService: new OIMSourceTrackingComputedValueService<TValue, TOIMSourceTrackingComputedSlot<TValue, TKey>>({
                     derive: options.derive,
@@ -35,15 +30,22 @@ export class OIMSourceTrackingComputedService<TKey extends NonNullable<unknown>,
                 initialValue: options.initialValue,
             }),
             slotReleasePolicy: options.slotReleasePolicy,
-            computedSlotStoreService: options.computedSlotStoreService,
+            slotStoreService: options.computedSlotStoreService,
+            createColumnSlotOwner: createOIMPullColumnSlotOwner,
             columnSlotOwnerOptions: options.columnSlotOwnerOptions,
             storeSlotListener: options.storeSlotListener,
         });
     }
 
-    public createComputedStoreSlot(
+    public createStoreSlot(
         channelMap: IOIMChannelMap,
-    ): TOIMStoreSlot<TComputedStore, TOIMSourceTrackingComputedSlot<TValue, TKey>, unknown, this['computedCollectionService']> {
-        return this.computedCollectionService.createStoreSlot(channelMap);
+    ): TOIMStoreSlot<TComputedStore, TOIMSourceTrackingComputedSlot<TValue, TKey>, unknown, this> {
+        return this.createStoreSlotOnChannel(channelMap.defaultChannelSlot);
+    }
+
+    public createStoreAggregate(
+        storeSlot: TOIMStoreSlot<TComputedStore, TOIMSourceTrackingComputedSlot<TValue, TKey>, unknown, this>,
+    ): OIMSlotCollectionStoreAggregate<TKey, TOIMSourceTrackingComputedSlot<TValue, TKey>, TComputedStore, unknown, this> {
+        return new OIMSlotCollectionStoreAggregate(this, storeSlot);
     }
 }

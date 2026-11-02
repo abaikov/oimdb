@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/exodra",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Exodra reactivity bridge over @oimdb/core: channel-backed bindables and O(delta) bindable lists.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -54,7 +54,7 @@
     "state-management"
   ],
   "peerDependencies": {
-    "@oimdb/core": "^4.4.0"
+    "@oimdb/core": "^4.8.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.8",

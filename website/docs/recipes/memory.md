@@ -165,12 +165,12 @@ const spadesNameService = createOIMSingleComputedService<string>({
     initialValue: '',
     slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE,
 });
-const spadesName = spadesNameService.createComputedStoreSlot(
+const spadesName = spadesNameService.createStoreSlot(
     db,
     () => spadesSlot.entity?.name ?? '',
     () => ({ sourceSlots: [spadesSlot] }),
 );
-const spadesNameSlot = spadesNameService.computedSingleSlotService.getSingleSlot(spadesName);
+const spadesNameSlot = spadesNameService.getSingleSlot(spadesName);
 render(spadesNameSlot.value);
 ```
 
@@ -186,7 +186,7 @@ Reference: [Asked to go — the release policy answers](/docs/core/lifecycle#ask
 
 ## Drop everything on logout
 
-Take: `OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot)`, then drop every reference to that
+Take: `db.dispose()`, then drop every reference to that
 `OIMDB`, its services, their store slots and their slots, and build a new `OIMDB` for the next
 session. Do not call `clearSlotContent` over every
 slot: it takes values away one by one and leaves every identity something keeps.
@@ -198,7 +198,7 @@ let sessionCardService = createOIMSlotCollectionService({ slotContentService: cr
 let sessionCards = sessionCardService.createStoreSlot(sessionDb);
 
 function logOut(): void {
-    OIMChannelService.INSTANCE.dropChannelSlot(sessionDb.defaultChannelSlot);
+    sessionDb.dispose();
     sessionDb = new OIMDB();
     sessionCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>() });
     sessionCards = sessionCardService.createStoreSlot(sessionDb);

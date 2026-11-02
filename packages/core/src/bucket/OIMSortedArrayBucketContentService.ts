@@ -4,7 +4,6 @@ import type { TOIMBucketContentSlot } from './types/TOIMBucketContentSlot';
 import type { TOIMBucketSlotOwnerService } from './types/TOIMBucketSlotOwnerService';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
-import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
 import type { TOIMSortedArrayBucketContentServiceOptions } from './types/TOIMSortedArrayBucketContentServiceOptions';
 import { OIMArrayBucketContentService } from './OIMArrayBucketContentService';
 import { OIM_NOTHING_WAS_REMOVED } from './constants/OIM_NOTHING_WAS_REMOVED';
@@ -15,15 +14,8 @@ export class OIMSortedArrayBucketContentService<
     private readonly compareBucketMemberSlots: (left: TBucketMemberSlot, right: TBucketMemberSlot) => number;
 
     public constructor(options: TOIMSortedArrayBucketContentServiceOptions<TBucketMemberSlot>) {
-        super(options);
+        super({ bucketMemberSlotsArrayService: options.bucketMemberSlotsArrayService });
         this.compareBucketMemberSlots = options.compareBucketMemberSlots;
-    }
-
-    protected override drainSlots(
-        bucketSlot: TOIMBucketContentSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>, departedChannelQueue: OIMChannelQueue<TOIMSlot>,
-    ): void {
-        this.bucketMemberSlotsArrayService.sortBucketMemberSlots((bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>).bucketSlotsStore, this.compareBucketMemberSlots);
-        super.drainSlots(bucketSlot, departedChannelQueue);
     }
 
     public override getBucketMemberSlots(
@@ -54,6 +46,6 @@ export class OIMSortedArrayBucketContentService<
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TOIMBucketSlotsArrayStore<TBucketMemberSlot>>;
         slotOwnerService.assertWritable(bucketSlot);
         if (this.removeSlot(bucketSlot, bucketMemberSlot) === OIM_NOTHING_WAS_REMOVED) return;
-        if (this.addSlot(bucketSlot, bucketMemberSlot)) this.markBucketSlotChanged(bucketSlot);
+        if (this.addSlot(bucketSlot, bucketMemberSlot)) this.announceBucketSlotChanged(bucketSlot);
     }
 }

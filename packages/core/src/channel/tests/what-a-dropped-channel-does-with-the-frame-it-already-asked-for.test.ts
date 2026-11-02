@@ -4,7 +4,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -29,7 +29,8 @@ const makeSlot = (): TOIMSlot => ({
         releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
     storeSlot: testStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new TestSlotOwner(),
+    data: undefined,
 });
 
 describe('what a dropped channel does with the frame it already asked for', () => {

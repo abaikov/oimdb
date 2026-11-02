@@ -32,25 +32,27 @@ class OIMTokenContentService implements IOIMSlotContentService<TTokenSlot>, IOIM
         return (slot as unknown as { content: unknown }).content === undefined;
     }
 
-    public hasReference(): boolean {
-        return false;
-    }
-
     public releaseSlotContent(slot: TTokenSlot): void {
         entitySlotOf(slot).content = undefined;
         this.whenReleased();
     }
 }
 
+class TokenSlotCollectionService extends OIMSlotCollectionService<
+    TOIMStoreKey, TTokenSlot, TTokenStore, OIMTokenContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner, TToken
+> {
+    public createStoreSlot(db: OIMDB): TOIMStoreSlot<TTokenStore, TTokenSlot, TToken, this> {
+        return this.createStoreSlotOnChannel(db.defaultChannelSlot);
+    }
+}
+
 class OIMTokenCollection {
-    private readonly slotCollectionService: OIMSlotCollectionService<
-        TOIMStoreKey, TTokenSlot, TTokenStore, OIMTokenContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner, TToken
-    >;
+    private readonly slotCollectionService: TokenSlotCollectionService;
 
     private readonly storeSlot: TOIMStoreSlot<TTokenStore, TTokenSlot, TToken>;
 
     public constructor(db: OIMDB, whenReleased: () => void) {
-        this.slotCollectionService = new OIMSlotCollectionService({
+        this.slotCollectionService = new TokenSlotCollectionService({
             slotStoreService: new OIMSlotMapStoreService<TTokenSlot>(),
             slotContentService: new OIMTokenContentService(whenReleased),
             columnSlotOwnerOptions: { columnSlotStoreService: OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue() },

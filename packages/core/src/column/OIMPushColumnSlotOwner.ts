@@ -1,11 +1,12 @@
+import type { IOIMSlotSubscriptionListener } from '../slot/interfaces/IOIMSlotSubscriptionListener';
 import type { TOIMColumnSlot } from './types/TOIMColumnSlot';
 import type { TOIMColumnSlotOwnerOptions } from './types/TOIMColumnSlotOwnerOptions';
+import type { TOIMColumnGroup } from './types/TOIMColumnGroup';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
 import { OIMChannelService } from '../channel/OIMChannelService';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
-import { oimColumnSlotStoreServiceOfColumnSlotOwnerOptions } from './utils/oimColumnSlotStoreServiceOfColumnSlotOwnerOptions';
 import { OIMColumnSlot } from './OIMColumnSlot';
 
 const hasValueColumn = (value: object, columnName: string): boolean =>
@@ -13,8 +14,19 @@ const hasValueColumn = (value: object, columnName: string): boolean =>
     && (value as Record<string, unknown>)[columnName] !== undefined;
 
 export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMColumnSlot> {
-    public constructor(options: TOIMColumnSlotOwnerOptions<TOIMColumnSlot>) {
-        super(oimColumnSlotStoreServiceOfColumnSlotOwnerOptions(options));
+    private readonly columnGroupsByColumnName: ReadonlyMap<string, readonly TOIMColumnGroup[]>;
+
+    public constructor(columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot>, slotSubscriptionListener?: IOIMSlotSubscriptionListener) {
+        super(columnSlotOwnerOptions, slotSubscriptionListener);
+        const columnGroupsByColumnName = new Map<string, TOIMColumnGroup[]>();
+        for (const columnGroup of this.columnGroupsByKey.values()) {
+            for (const columnName of columnGroup.columnNames) {
+                const columnGroups = columnGroupsByColumnName.get(columnName);
+                if (columnGroups === undefined) columnGroupsByColumnName.set(columnName, [columnGroup]);
+                else columnGroups.push(columnGroup);
+            }
+        }
+        this.columnGroupsByColumnName = columnGroupsByColumnName;
     }
 
     protected createColumnSlot(carrierSlot: TOIMSlot, key: string): TOIMColumnSlot {
@@ -40,21 +52,16 @@ export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMCol
         const columnSlotStore = carrierSlot.columnSlotStore;
         if (columnSlotStore === undefined || changed.length === 0) return;
         const columnSlotStoreService = this.columnSlotStoreService;
-        const columnReadersByColumnName = this.getColumnReadersOf(carrierSlot);
-        if (columnReadersByColumnName !== undefined) {
-            for (let i = 0; i < changed.length; i++) {
-                const columnName = changed[i];
-                const columnReaders = columnReadersByColumnName.get(columnName);
-                if (columnReaders === undefined) continue;
-                if (columnReaders.columnSlotCount !== 0) {
-                    const slot = columnSlotStoreService.get(columnSlotStore, columnName);
-                    if (slot !== undefined) OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, slot);
-                }
-                const columnGroups = columnReaders.columnGroups;
-                for (let j = 0; j < columnGroups.length; j++) {
-                    const columnGroupSlot = columnSlotStoreService.get(columnSlotStore, columnGroups[j].key);
-                    if (columnGroupSlot !== undefined) OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, columnGroupSlot);
-                }
+        const columnGroupsByColumnName = this.columnGroupsByColumnName;
+        for (let i = 0; i < changed.length; i++) {
+            const columnName = changed[i];
+            const columnSlot = columnSlotStoreService.get(columnSlotStore, columnName);
+            if (columnSlot !== undefined) OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, columnSlot);
+            const columnGroups = columnGroupsByColumnName.get(columnName);
+            if (columnGroups === undefined) continue;
+            for (let j = 0; j < columnGroups.length; j++) {
+                const columnGroupSlot = columnSlotStoreService.get(columnSlotStore, columnGroups[j].key);
+                if (columnGroupSlot !== undefined) OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, columnGroupSlot);
             }
         }
         const anyColumnSlot = columnSlotStoreService.get(columnSlotStore, OIM_ANY_COLUMN_KEY);
@@ -74,13 +81,13 @@ export class OIMPushColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TOIMCol
         const columnSlotStore = carrierSlot.columnSlotStore;
         if (columnSlotStore === undefined) return;
         const columnSlots = this.columnSlotStoreService.getSlots(columnSlotStore);
-        const columnGroupsByKey = this.getColumnGroupsByKeyOf(carrierSlot);
+        const columnGroupsByKey = this.columnGroupsByKey;
         for (const columnSlot of columnSlots) {
             if (columnSlot.key === OIM_ANY_COLUMN_KEY) {
                 OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, columnSlot);
                 continue;
             }
-            const columnGroup = columnGroupsByKey?.get(columnSlot.key);
+            const columnGroup = columnGroupsByKey.get(columnSlot.key);
             if (columnGroup === undefined) {
                 if (hasValueColumn(value, columnSlot.key)) OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, columnSlot);
                 continue;

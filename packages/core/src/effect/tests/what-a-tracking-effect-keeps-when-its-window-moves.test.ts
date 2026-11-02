@@ -111,8 +111,8 @@ describe('what a tracking effect keeps when its window moves', () => {
                 return labels;
             },
         });
-        const pages = pageService.createComputedStoreSlot(db);
-        const page = pageService.computedCollectionService.holdSlotByKey(pages, 0);
+        const pages = pageService.createStoreSlot(db);
+        const page = pageService.holdSlotByKey(pages, 0);
         const shown: (readonly string[])[] = [];
         OIMEffectService.INSTANCE.createAndRunEffect(db, () => {
             shown.push(readValueWithoutTracking(page));

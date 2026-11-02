@@ -53,7 +53,7 @@ function ordered(entities: readonly TRanked[]) {
         },
     });
     const orders = ordersService.createSortedStoreSlot(byAll);
-    const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'all');
+    const order = ordersService.holdSlotByKey(orders, 'all');
     const ids = (): string[] => readValueWithoutTracking(order)
         .map(slot => (slot.entity as TRanked).id);
     const upsertEntities = (batch: readonly TRanked[]): void => {

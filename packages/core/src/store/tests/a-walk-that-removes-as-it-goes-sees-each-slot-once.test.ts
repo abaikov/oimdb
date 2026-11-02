@@ -13,11 +13,11 @@ const walkRemovingEachVisited = <TKey extends NonNullable<unknown>, TStore>(
 ): { filed: TOIMKeyedSlot<TKey>[]; visited: TOIMKeyedSlot<TKey>[]; leftCount: number } => {
     const store = slotStoreService.createStore();
     const filed = keys.map(key => slotUnder(key));
-    for (const slot of filed) slotStoreService.set(store, slot.key, slot);
+    for (const slot of filed) slotStoreService.set(store, slot);
     const visited: TOIMKeyedSlot<TKey>[] = [];
     for (const slot of slotStoreService.getSlots(store)) {
         visited.push(slot);
-        slotStoreService.remove(store, slot.key);
+        slotStoreService.delete(store, slot);
     }
     return { filed, visited, leftCount: slotStoreService.getSlotCount(store) };
 };
@@ -44,7 +44,7 @@ describe('a walk over a store that removes the slot it is on', () => {
 
     it('visits every slot of an ordinal column store once and leaves it empty', () => {
         expectEachOnceAndNoneLeft(walkRemovingEachVisited(
-            new OIMColumnSlotOrdinalStoreService<TOIMKeyedSlot<string>>({ columnNames: ['a', 'b', 'c', 'd'] }),
+            new OIMColumnSlotOrdinalStoreService<TOIMKeyedSlot<string>>({ columnNames: ['a', 'b', 'c', 'd'], columnGroups: [] }),
             ['a', 'b', 'c', 'd'],
         ));
     });

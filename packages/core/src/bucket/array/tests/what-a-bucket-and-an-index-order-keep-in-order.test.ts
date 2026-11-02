@@ -90,7 +90,7 @@ function makeIndexOrder() {
         },
     });
     const orders = ordersService.createSortedStoreSlot(byGroup);
-    const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'group');
+    const order = ordersService.holdSlotByKey(orders, 'group');
     const getOrderValue = () => readValueWithoutTracking(order);
     const ids = (): (string | undefined)[] => getOrderValue().map(slot => slot.entity?.id);
     const upsertEntities = (entities: readonly Card[]): void => {

@@ -155,11 +155,11 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         const { db, posts, postsService, upsertHeld } = openPosts(makeWriter());
         const byDeckService = createOIMSlotCollectionIndexService<
             TPost, TOIMStoreKey, readonly TOIMEntityColumnName<TPost>[], string,
-            Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TOIMEntitySlot<TPost>>,
-            OIMSetBucketContentService<TOIMEntitySlot<TPost>, string>
+            Map<TOIMStoreKey, TPostSlot>, TOIMBucketSlotsSetStore<TPostSlot>,
+            OIMSetBucketContentService<TPostSlot, string>
         >({
             entityService: postsService,
-            slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPost>, string>(),
+            slotContentService: new OIMSetBucketContentService<TPostSlot, string>(),
             keyOf: (post: TPost) => post.deck ?? 'none',
         });
         const byDeck = byDeckService.createIndexStoreSlot(posts);

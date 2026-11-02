@@ -12,7 +12,7 @@ import { oimKeyOfColumns } from './oimKeyOfColumns';
 
 export function oimResolveSlotCollectionIndexServiceOptions<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
-    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TStore,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>, TStore,
 >(
     defaults: OIMDefaults,
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {

@@ -12,3 +12,5 @@ export function useOIMDB(): OIMDB {
     }
     return db;
 }
+
+useOIMDB.withTypes = <TDB extends OIMDB>(): (() => TDB) => useOIMDB as unknown as () => TDB;

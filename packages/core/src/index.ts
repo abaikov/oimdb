@@ -7,6 +7,9 @@ export type { TOIMStoreKey } from './store/types/TOIMStoreKey';
 export type { TOIMDisposer } from './schedule/types/TOIMDisposer';
 export type { TOIMSlot } from './slot/types/TOIMSlot';
 export type { TOIMStoreSlot } from './slot/types/TOIMStoreSlot';
+export type { TOIMSlotContentChangeListenerReadColumns } from './slot/types/TOIMSlotContentChangeListenerReadColumns';
+export { oimIsAnyAddedColumnRead } from './slot/utils/oimIsAnyAddedColumnRead';
+export { oimMarkBucketColumnsChanged } from './bucket/utils/oimMarkBucketColumnsChanged';
 export type { TOIMSingleSlotStoreSlot } from './slot/types/TOIMSingleSlotStoreSlot';
 export type { IOIMStoreSlotListener } from './slot/interfaces/IOIMStoreSlotListener';
 export { OIMNoStoreSlotListener } from './slot/OIMNoStoreSlotListener';
@@ -21,11 +24,11 @@ export type { TOIMEntityContentSlot } from './entity/types/TOIMEntityContentSlot
 export type { TOIMColumnSlot } from './column/types/TOIMColumnSlot';
 export type { TOIMComputedColumnSlot } from './column/types/TOIMComputedColumnSlot';
 export type { TOIMColumnGroup } from './column/types/TOIMColumnGroup';
-export type { TOIMColumnReaders } from './column/types/TOIMColumnReaders';
 export { OIMColumnSlotOwner } from './column/OIMColumnSlotOwner';
 export type { OIMPushColumnSlotOwner } from './column/OIMPushColumnSlotOwner';
 export { OIMPullColumnSlotOwner } from './column/OIMPullColumnSlotOwner';
 export type { TOIMColumnSlotOwnerOptions } from './column/types/TOIMColumnSlotOwnerOptions';
+export { createOIMColumnGroup } from './column/utils/createOIMColumnGroup';
 export type { TOIMKeyedSlot } from './slot/types/TOIMKeyedSlot';
 export type { TOIMIndexableSlot } from './slot/types/TOIMIndexableSlot';
 export type { TOIMEditable } from './slot/types/TOIMEditable';
@@ -70,6 +73,8 @@ export type { IOIMComputedValueService } from './computed/interfaces/IOIMCompute
 export { OIMComputedValueService } from './computed/OIMComputedValueService';
 export type { OIMComputedContentService } from './computed/OIMComputedContentService';
 export type { TOIMComputedContentServiceOptions } from './computed/types/TOIMComputedContentServiceOptions';
+export { OIMExplicitSourceComputedContentService } from './computed/OIMExplicitSourceComputedContentService';
+export type { TOIMExplicitSourceComputedContentServiceOptions } from './computed/types/TOIMExplicitSourceComputedContentServiceOptions';
 export type { TOIMComputedValueServiceOptions } from './computed/types/TOIMComputedValueServiceOptions';
 export { oimRefreshSourceComputeds } from './computed/utils/oimRefreshSourceComputeds';
 
@@ -112,6 +117,12 @@ export { createOIMSlotCollectionStoreAggregate } from './slot/createOIMSlotColle
 export { createOIMSingleSlotStoreAggregate } from './slot/createOIMSingleSlotStoreAggregate';
 export { createOIMEntityContentService } from './entity/createOIMEntityContentService';
 export { createOIMEntitySlotCollectionStoreAggregate } from './entity/createOIMEntitySlotCollectionStoreAggregate';
+export { OIMEntitySlotCollectionStoreAggregate } from './entity/OIMEntitySlotCollectionStoreAggregate';
+export { OIMSlotCollectionBucketService } from './bucket/OIMSlotCollectionBucketService';
+export type { OIMCollectionSetBucketContentService } from './bucket/OIMCollectionSetBucketContentService';
+export type { TOIMCollectionBucketSlot } from './bucket/types/TOIMCollectionBucketSlot';
+export type { TOIMSlotCollectionStoreSlot } from './bucket/types/TOIMSlotCollectionStoreSlot';
+export { oimGetBucketMemberSlotEntities } from './bucket/utils/oimGetBucketMemberSlotEntities';
 
 export { OIMBucketContentService } from './bucket/OIMBucketContentService';
 export { OIMSetBucketContentService } from './bucket/OIMSetBucketContentService';
@@ -157,6 +168,7 @@ export { OIMSortedComputedService } from './computed/OIMSortedComputedService';
 export type { TOIMSortedComputedServiceOptions } from './computed/types/TOIMSortedComputedServiceOptions';
 export type { TOIMSortedComputedSlot } from './computed/types/TOIMSortedComputedSlot';
 export { createOIMSortedComputedService } from './computed/createOIMSortedComputedService';
+export { createOIMSortedCollectionSingleSlotStoreAggregate } from './computed/createOIMSortedCollectionSingleSlotStoreAggregate';
 export { OIMBucketMemoComputedService } from './computed/OIMBucketMemoComputedService';
 export type { TOIMBucketMemoComputedServiceOptions } from './computed/types/TOIMBucketMemoComputedServiceOptions';
 export type { TOIMBucketMemoComputedSlot } from './computed/types/TOIMBucketMemoComputedSlot';

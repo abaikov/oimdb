@@ -43,19 +43,20 @@ const settingsSlot = settingsService.getSingleSlot(settings);
 ```
 
 The service is built once, and each `createStoreSlot(db)` is one record. It mints nothing: the
-record's first value arrives through `writeSlotContentByKey(storeSlot, entity)`, an ordinary write that is
+record's first value arrives through `writeSingleSlotContent(storeSlot, entity)`, an ordinary write that is
 announced to the channel like any other, and until then `findSingleSlot(storeSlot)`
 answers `undefined`.
 
-`createOIMSingleSlotService(options?)` takes `entityWriter`, `slotEmptinessPolicy`, `slotReleasePolicy`,
-`columnSlotStoreService` and `columnNames`, each optional and coming from `defaults` and the built-in defaults when you
-leave them out. `columnNames` names the columns, files their slots in the ordinal store
-`OIMColumnSlotOrdinalStoreService` and types `getColumn`, `holdColumn` and `getColumnGroup` on those names.
-The base layer it assembles is
-`createOIMSingleSlotService({ slotContentService: createOIMEntityContentService({ slotStoreService: OIMSingleSlotStoreService.INSTANCE }) })`.
-The column doors are the single slot service's: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
-`getColumnGroup(names)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
-`unholdColumn(columnSlot)` — with the record's slot as the slot.
+`createOIMSingleSlotService(options)` takes a required `slotContentService` and the optional `defaults`,
+`slotReleasePolicy`, `slotSubscriptionListener`, `columnSlotStoreService`, `columnNames` and `columnGroups`; an option left out comes
+from `defaults` and then the built-in defaults. `entityWriter` and `slotEmptinessPolicy` are options of the content
+service, `createOIMEntityContentService<Settings>({ entityWriter, slotEmptinessPolicy })`. `columnNames` names the
+columns, files their slots in the ordinal store `OIMColumnSlotOrdinalStoreService` and types the column doors on
+those names; `columnGroups` declares the groups (from `createOIMColumnGroup`) its group doors accept. The column doors are on the slot — `settingsSlot.getColumn(columnName)`, `holdColumn(columnName)`,
+`getColumnGroupSlot(group)`, `holdColumnGroup(group)`, `getAnyColumn()`, `holdAnyColumn()` — and on the service's
+`columnSlotService`: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
+`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `getAnyColumn(slot)`, `holdAnyColumn(slot)` and
+`unholdColumn(columnSlot)`.
 
 The record owns one slot, and it is read through the single doors:
 `settingsService.getSingleSlot(settings)` hands it back, and mints it if none is filed;
@@ -78,12 +79,12 @@ effectService.createEffect(db, () => {
 }, [settingsSlot.holdColumn('fontSize')]);
 
 const fontLabelService = createOIMSingleComputedService<string>();
-const fontLabel = fontLabelService.createComputedStoreSlot(
+const fontLabel = fontLabelService.createStoreSlot(
     db,
     () => `${settingsSlot.entity?.fontSize ?? 0}px`,
     () => ({ sourceSlots: [settingsSlot] }),
 );
-const fontLabelSlot = fontLabelService.computedSingleSlotService.getSingleSlot(fontLabel);
+const fontLabelSlot = fontLabelService.getSingleSlot(fontLabel);
 fontLabelSlot.value;
 ```
 

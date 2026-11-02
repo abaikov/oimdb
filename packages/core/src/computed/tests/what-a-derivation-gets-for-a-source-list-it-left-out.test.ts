@@ -8,10 +8,10 @@ type TCard = { id: string; n: number };
 
 const createNumberService = () => {
     const computedService = createOIMSingleComputedService<number>();
-    const collectionService = computedService.computedSingleSlotService;
+    const collectionService = computedService;
     type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
-        createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
+        createStoreSlot: computedService.createStoreSlot.bind(computedService),
         getSingleSlot: (storeSlot: TStoreSlot) => collectionService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
@@ -24,7 +24,7 @@ describe('what a derivation gets for a source list it left out', () => {
     it('reads no sources at all when createSources names neither list', () => {
         const db = new OIMDB();
         const constantService = createNumberService();
-        const constant = constantService.createComputedStoreSlot(db, () => 42, () => ({}));
+        const constant = constantService.createStoreSlot(db, () => 42, () => ({}));
         const computedSlot = constantService.getSingleSlot(constant);
 
         expect(constantService.getSingleValue(constant)).toBe(42);
@@ -40,7 +40,7 @@ describe('what a derivation gets for a source list it left out', () => {
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();
-        const doubled = doubledService.createComputedStoreSlot(db, () => (card.entity?.n ?? 0) * 2, () => ({ sourceSlots: [card] }));
+        const doubled = doubledService.createStoreSlot(db, () => (card.entity?.n ?? 0) * 2, () => ({ sourceSlots: [card] }));
 
         expect(doubledService.getSingleValue(doubled)).toBe(2);
         cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 'a')!, { n: 5 });
@@ -54,9 +54,9 @@ describe('what a derivation gets for a source list it left out', () => {
         const cards = cardsService.createStoreSlot(db);
         const card = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', n: 1 });
         const doubledService = createNumberService();
-        const doubled = doubledService.createComputedStoreSlot(db, () => (card.entity?.n ?? 0) * 2, () => ({ sourceSlots: [card] }));
+        const doubled = doubledService.createStoreSlot(db, () => (card.entity?.n ?? 0) * 2, () => ({ sourceSlots: [card] }));
         const plusOneService = createNumberService();
-        const plusOne = plusOneService.createComputedStoreSlot(
+        const plusOne = plusOneService.createStoreSlot(
             db,
             () => doubledService.getSingleValue(doubled) + 1,
             () => ({ sourceComputeds: [doubledService.getSingleSlot(doubled)] }),

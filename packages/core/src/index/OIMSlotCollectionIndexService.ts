@@ -8,6 +8,7 @@ import type { OIMPushColumnSlotOwner } from '../column/OIMPushColumnSlotOwner';
 import type { TOIMColumnSlot } from '../column/types/TOIMColumnSlot';
 import type { TOIMBucketSlot } from '../bucket/types/TOIMBucketSlot';
 import type { TOIMEntitySlot } from '../entity/types/TOIMEntitySlot';
+import { oimGetBucketMemberSlotEntities } from '../bucket/utils/oimGetBucketMemberSlotEntities';
 import type { TOIMIndexStoreSlot } from './types/TOIMIndexStoreSlot';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
@@ -17,12 +18,16 @@ import { createOIMIndexStoreSlot } from './utils/createOIMIndexStoreSlot';
 import { OIMSlotContentChangeListenerService } from '../slot/OIMSlotContentChangeListenerService';
 import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
 import { OIMSlotCollectionIndexStoreAggregate } from './OIMSlotCollectionIndexStoreAggregate';
+import type { TOIMSlotContentChangeListenerReadColumns } from '../slot/types/TOIMSlotContentChangeListenerReadColumns';
+import { oimIsAnyAddedColumnRead } from '../slot/utils/oimIsAnyAddedColumnRead';
+import type { TOIMBucketContentSlot } from '../bucket/types/TOIMBucketContentSlot';
+import { oimMarkBucketColumnsChanged } from '../bucket/utils/oimMarkBucketColumnsChanged';
 
 export class OIMSlotCollectionIndexService<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots,
     TSourceKey extends NonNullable<unknown> = NonNullable<unknown>, TSourceStore = unknown,
-    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>
-        = OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>,
+    TBucketContentService extends OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>
+        = OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>,
     TBucketSlot extends TOIMBucketSlot<TSlots, TKey> = TOIMBucketSlot<TSlots, TKey>,
     TStore = Map<TKey, TBucketSlot>,
 > extends OIMSlotCollectionService<
@@ -30,7 +35,7 @@ export class OIMSlotCollectionIndexService<
     Pick<TBucketContentService, Extract<keyof TBucketContentService,
         'getBucketMemberSlots' | 'getBucketMemberSlotCount' | 'hasBucketMemberSlot' | 'getBucketMemberSlotAt' | 'getBucketMemberSlotPosition'
     >>,
-    string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TOIMEntitySlot<TEntity>[]
+    string, TOIMColumnSlot, OIMPushColumnSlotOwner, readonly TOIMEntitySlot<TEntity, TSourceKey>[]
 > {
     protected readonly bucketContentService: TBucketContentService;
 
@@ -54,7 +59,7 @@ export class OIMSlotCollectionIndexService<
 
     public createIndexStoreSlot(
         sourceStoreSlot: TOIMStoreSlot<TSourceStore, TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>>,
-    ): TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this> {
+    ): TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this> {
         const contentChangeListener: IOIMSlotContentChangeListener<TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>> = {
             onContentChanged: (entitySlot, patch, changedColumns) => {
                 this.updateIndexKeyForSlot(indexStoreSlot, entitySlot, patch, changedColumns);
@@ -64,35 +69,32 @@ export class OIMSlotCollectionIndexService<
             },
         };
         const indexStoreSlot = this.createStoreSlotOverNewStore(store => createOIMIndexStoreSlot<
-            TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this
+            TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this
         >(store, this, sourceStoreSlot, contentChangeListener));
         const indexKeysService = this.indexKeysService;
         const indexKeysPositions = ((sourceStoreSlot as TOIMEditable<typeof sourceStoreSlot>).indexKeysPositions
             ??= indexKeysService.createPositions());
         (indexStoreSlot as TOIMEditable<typeof indexStoreSlot>).indexKeysPosition = indexKeysService.allocatePosition(indexKeysPositions);
-        OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(sourceStoreSlot, contentChangeListener, this.keyColumns);
+        (indexStoreSlot as TOIMEditable<typeof indexStoreSlot>).slotContentChangeListenerReadColumns = OIMSlotContentChangeListenerService.INSTANCE
+            .addContentChangeListener(sourceStoreSlot, contentChangeListener, this.keyColumns);
         return indexStoreSlot;
     }
 
-    public override createStoreAggregate(
+    public createStoreAggregate(
         indexStoreSlot: TOIMIndexStoreSlot<
-            TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this
+            TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, this
         >,
     ): OIMSlotCollectionIndexStoreAggregate<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TBucketSlot, TStore, this> {
         return new OIMSlotCollectionIndexStoreAggregate(this, indexStoreSlot);
     }
 
     public disposeIndexStoreSlot(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
     ): void {
         this.assertNotDisposed(indexStoreSlot);
         OIMChannelService.INSTANCE.assertNotFlushing(indexStoreSlot.channelSlot);
         const sourceStoreSlot = indexStoreSlot.sourceStoreSlot;
         OIMSlotContentChangeListenerService.INSTANCE.removeContentChangeListener(sourceStoreSlot, indexStoreSlot.contentChangeListener);
-        for (const bucketColumnName of indexStoreSlot.bucketColumnNames) {
-            OIMSlotContentChangeListenerService.INSTANCE.removeReadColumn(sourceStoreSlot, bucketColumnName);
-        }
-        if (indexStoreSlot.isAnyBucketColumnRead) OIMSlotContentChangeListenerService.INSTANCE.removeReadAnyColumn(sourceStoreSlot);
         const indexKeysPositions = sourceStoreSlot.indexKeysPositions;
         if (indexKeysPositions !== undefined) {
             this.indexKeysService.releasePosition(
@@ -108,35 +110,31 @@ export class OIMSlotCollectionIndexService<
         (indexStoreSlot as TOIMEditable<typeof indexStoreSlot>).isDisposed = true;
     }
 
-    public override getSlotByKey(storeSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[]>, key: TKey): TBucketSlot {
+    public override getSlotByKey(storeSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[]>, key: TKey): TBucketSlot {
         this.assertNotDisposed(storeSlot);
         return super.getSlotByKey(storeSlot, key);
     }
 
-    public override holdSlotByKey(storeSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[]>, key: TKey): TBucketSlot {
+    public override holdSlotByKey(storeSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[]>, key: TKey): TBucketSlot {
         this.assertNotDisposed(storeSlot);
         return super.holdSlotByKey(storeSlot, key);
     }
 
     public getEntitiesByKey(
-        indexStoreSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[]>, key: TKey,
-    ): (TEntity | undefined)[] {
-        const entities: (TEntity | undefined)[] = [];
-        for (const entitySlot of this.bucketContentService.getBucketMemberSlots(this.getSlotByKey(indexStoreSlot, key))) {
-            entities.push((entitySlot as unknown as OIMEntitySlot<TEntity>).content);
-        }
-        return entities;
+        indexStoreSlot: TOIMStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[]>, key: TKey,
+    ): TEntity[] {
+        return oimGetBucketMemberSlotEntities(this.getSlotByKey(indexStoreSlot, key).getBucketMemberSlots() as Iterable<TOIMEntitySlot<TEntity, TSourceKey>>);
     }
 
     public getSlotsByKeys(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         keys: readonly TKey[],
     ): TBucketSlot[] {
         return this.walkSlotsByKeys(indexStoreSlot, keys, takeNothing, key => super.getSlotByKey(indexStoreSlot, key));
     }
 
     public holdSlotsByKeys(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         keys: readonly TKey[],
     ): TBucketSlot[] {
         return this.walkSlotsByKeys(
@@ -147,7 +145,7 @@ export class OIMSlotCollectionIndexService<
     }
 
     private walkSlotsByKeys(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         keys: readonly TKey[],
         takeFoundSlot: (foundBucketSlot: TBucketSlot) => void,
         slotByKeyDoor: (key: TKey) => TBucketSlot,
@@ -177,58 +175,54 @@ export class OIMSlotCollectionIndexService<
     }
 
     public getAnyBucketColumnByKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         key: TKey,
     ): TOIMColumnSlot {
         this.addAnyBucketColumnRead(indexStoreSlot);
-        return this.slotOwnerService.columnSlotOwner.getAnyColumn(
-            this.getSlotByKey(indexStoreSlot, key), indexStoreSlot.channelSlot.collectorSlot.unusedSlotCollectorSlot,
-        );
+        return this.columnSlotService.getAnyColumn(this.getSlotByKey(indexStoreSlot, key));
     }
 
     public holdAnyBucketColumnByKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         key: TKey,
     ): TOIMColumnSlot {
         this.addAnyBucketColumnRead(indexStoreSlot);
-        return this.slotOwnerService.columnSlotOwner.holdAnyColumn(this.getSlotByKey(indexStoreSlot, key));
+        return this.columnSlotService.holdAnyColumn(this.getSlotByKey(indexStoreSlot, key));
     }
 
     public getBucketColumnByKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         key: TKey, columnName: string,
     ): TOIMColumnSlot {
         this.addBucketColumnName(indexStoreSlot, columnName);
-        return this.slotOwnerService.columnSlotOwner.getColumn(
-            this.getSlotByKey(indexStoreSlot, key), columnName, indexStoreSlot.channelSlot.collectorSlot.unusedSlotCollectorSlot,
-        );
+        return this.columnSlotService.getColumn(this.getSlotByKey(indexStoreSlot, key), columnName);
     }
 
     public holdBucketColumnByKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         key: TKey, columnName: string,
     ): TOIMColumnSlot {
         this.addBucketColumnName(indexStoreSlot, columnName);
-        return this.slotOwnerService.columnSlotOwner.holdColumn(this.getSlotByKey(indexStoreSlot, key), columnName);
+        return this.columnSlotService.holdColumn(this.getSlotByKey(indexStoreSlot, key), columnName);
     }
 
-    protected addBucketColumnName(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+    private addBucketColumnName(
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         columnName: string,
     ): void {
-        const bucketColumnNames = indexStoreSlot.bucketColumnNames;
-        if (bucketColumnNames.has(columnName)) return;
-        bucketColumnNames.add(columnName);
-        OIMSlotContentChangeListenerService.INSTANCE.addReadColumn(indexStoreSlot.sourceStoreSlot, columnName);
+        this.assertNotDisposed(indexStoreSlot);
+        OIMSlotContentChangeListenerService.INSTANCE.addListenerReadColumn(
+            indexStoreSlot.sourceStoreSlot, indexStoreSlot.contentChangeListener, columnName,
+        );
     }
 
     protected onBucketColumnsChanged(
-        _indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        _indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         _bucketSlot: TBucketSlot, _entitySlot: TOIMEntitySlot<TEntity, TSourceKey>, _changedColumns: readonly string[] | undefined,
     ): void { return; }
 
     protected override onSlotMinted(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         bucketSlot: TBucketSlot,
     ): void {
         if (indexStoreSlot.requestedKeys !== undefined) return;
@@ -244,15 +238,14 @@ export class OIMSlotCollectionIndexService<
     }
 
     private addAnyBucketColumnRead(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
     ): void {
-        if (indexStoreSlot.isAnyBucketColumnRead) return;
-        (indexStoreSlot as TOIMEditable<typeof indexStoreSlot>).isAnyBucketColumnRead = true;
-        OIMSlotContentChangeListenerService.INSTANCE.addReadAnyColumn(indexStoreSlot.sourceStoreSlot);
+        this.assertNotDisposed(indexStoreSlot);
+        OIMSlotContentChangeListenerService.INSTANCE.addListenerReadAnyColumn(indexStoreSlot.sourceStoreSlot, indexStoreSlot.contentChangeListener);
     }
 
     private fillMintedBucketSlots(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         entitySlotsByMintedBucketSlot: Map<TBucketSlot, TOIMEntitySlot<TEntity, TSourceKey>[]>,
     ): void {
         for (const entitySlot of this.sourceSlotCollectionService.getSlots(indexStoreSlot.sourceStoreSlot)) {
@@ -283,22 +276,8 @@ export class OIMSlotCollectionIndexService<
         return false;
     }
 
-    private isBucketColumnChanged(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
-        changedColumns: readonly string[] | undefined,
-    ): boolean {
-        if (indexStoreSlot.isAnyBucketColumnRead) return true;
-        const bucketColumnNames = indexStoreSlot.bucketColumnNames;
-        if (bucketColumnNames.size === 0) return false;
-        if (changedColumns === undefined) return true;
-        for (let i = 0; i < changedColumns.length; i++) {
-            if (bucketColumnNames.has(changedColumns[i])) return true;
-        }
-        return false;
-    }
-
     private updateIndexKeyForSlot(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         entitySlot: TOIMEntitySlot<TEntity, TSourceKey>, patch: Partial<TEntity> | undefined, changedColumns: readonly string[] | undefined,
     ): void {
         const indexKeysService = this.indexKeysService;
@@ -328,15 +307,15 @@ export class OIMSlotCollectionIndexService<
     }
 
     private updateIndexKeysForSlots(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         entitySlotChannelQueue: OIMChannelQueue<TOIMEntitySlot<TEntity, TSourceKey>>,
         patchChannelQueue: OIMChannelQueue<Partial<TEntity> | undefined>,
         changedColumnsChannelQueue: OIMChannelQueue<readonly string[] | undefined>,
     ): void {
         const indexKeysService = this.indexKeysService;
         const indexKeysPosition = indexStoreSlot.indexKeysPosition;
-        let arrivingByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null> | undefined;
-        let leavingByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null> | undefined;
+        let arrivingByKey: Map<TKey, TOIMEntitySlot<TEntity, TSourceKey>[] | null> | undefined;
+        let leavingByKey: Map<TKey, TOIMEntitySlot<TEntity, TSourceKey>[] | null> | undefined;
         const bucketSlotsByKey = new Map<TKey, TBucketSlot>();
         let isRefused = false;
         let refusal: unknown;
@@ -373,9 +352,9 @@ export class OIMSlotCollectionIndexService<
     }
 
     private groupUnderMintedBucketKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
-        bucketSlotsByKey: Map<TKey, TBucketSlot>, entitySlotsByKey: Map<TKey, TOIMEntitySlot<TEntity>[] | null>,
-        key: TKey, entitySlot: TOIMEntitySlot<TEntity>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        bucketSlotsByKey: Map<TKey, TBucketSlot>, entitySlotsByKey: Map<TKey, TOIMEntitySlot<TEntity, TSourceKey>[] | null>,
+        key: TKey, entitySlot: TOIMEntitySlot<TEntity, TSourceKey>,
     ): void {
         const grouped = entitySlotsByKey.get(key);
         if (grouped === null) return;
@@ -393,12 +372,14 @@ export class OIMSlotCollectionIndexService<
     }
 
     private decideIndexKeyForSlot(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         entitySlot: TOIMEntitySlot<TEntity, TSourceKey>, patch: Partial<TEntity> | undefined, changedColumns: readonly string[] | undefined,
     ): void {
         if (oimIsSlotReleased(entitySlot)) return;
         const isKeyColumnChanged = this.isKeyColumnChanged(changedColumns);
-        const isBucketColumnChanged = this.isBucketColumnChanged(indexStoreSlot, changedColumns);
+        const isBucketColumnChanged = oimIsAnyAddedColumnRead(
+            indexStoreSlot.slotContentChangeListenerReadColumns as TOIMSlotContentChangeListenerReadColumns, changedColumns,
+        );
         if (!isKeyColumnChanged && !isBucketColumnChanged) return;
         const indexKeysService = this.indexKeysService;
         const indexKeysPosition = indexStoreSlot.indexKeysPosition;
@@ -414,7 +395,7 @@ export class OIMSlotCollectionIndexService<
             if (nextKey === undefined || !isBucketColumnChanged) return;
             const bucketSlot = this.findSlotByKey(indexStoreSlot, nextKey);
             if (bucketSlot === undefined) return;
-            this.bucketContentService.markBucketColumnsChanged(bucketSlot, patch, changedColumns);
+            oimMarkBucketColumnsChanged(bucketSlot as unknown as TOIMBucketContentSlot<TSlots>, patch, changedColumns);
             this.onBucketColumnsChanged(indexStoreSlot, bucketSlot, entitySlot, changedColumns);
             return;
         }
@@ -422,7 +403,7 @@ export class OIMSlotCollectionIndexService<
     }
 
     private collectSourceSlotsForKey(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         key: TKey,
     ): TOIMEntitySlot<TEntity, TSourceKey>[] {
         const matchingEntitySlots: TOIMEntitySlot<TEntity, TSourceKey>[] = [];
@@ -435,7 +416,7 @@ export class OIMSlotCollectionIndexService<
     }
 
     private fillBucketSlotWithSourceSlots(
-        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
+        indexStoreSlot: TOIMIndexStoreSlot<TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore>,
         bucketSlot: TBucketSlot, entitySlots: TOIMEntitySlot<TEntity, TSourceKey>[],
     ): void {
         const indexKeysService = this.indexKeysService;

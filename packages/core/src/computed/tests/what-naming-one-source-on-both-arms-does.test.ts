@@ -16,12 +16,12 @@ function createFixture() {
     db.flush();
     const card = cardsService.getSlotByKey(cards, 'c1');
     const doubledService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const doubledStore = doubledService.createComputedStoreSlot(
+    const doubledStore = doubledService.createStoreSlot(
         db,
         () => (card.entity?.rank ?? 0) * 2,
         () => ({ sourceSlots: [card] }),
     );
-    const doubled = doubledService.computedSingleSlotService.holdSingleSlot(doubledStore);
+    const doubled = doubledService.holdSingleSlot(doubledStore);
     return { db, effectService, cardsService, cards, card, doubled };
 }
 

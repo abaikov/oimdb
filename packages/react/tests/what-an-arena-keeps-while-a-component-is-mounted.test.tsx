@@ -20,7 +20,7 @@ function build() {
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = ranksService.createComputedStoreSlot(db);
+    const ranks = ranksService.createStoreSlot(db);
     return {
         cardsService,
         cards,
@@ -66,7 +66,7 @@ describe('a component wrapped in an arena', () => {
 
         act(() => { w.settle(); });
 
-        expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(3);
+        expect(w.ranksService.getSlotCount(w.ranks)).toBe(3);
         expect(w.builtCount()).toBe(3);
     });
 
@@ -82,7 +82,7 @@ describe('a component wrapped in an arena', () => {
 
         // Asking for one by key would REBUILD it — the very thing this file counts — so the
         // population is what says they went.
-        expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(0);
+        expect(w.ranksService.getSlotCount(w.ranks)).toBe(0);
         expect(w.builtCount()).toBe(3);
     });
 
@@ -107,12 +107,12 @@ describe('a component wrapped in an arena', () => {
         const view = render(
             <React.StrictMode><Ranks ranks={w.ranks} ids={['a', 'b', 'c']} /></React.StrictMode>);
         act(() => { w.settle(); });
-        expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(3);
+        expect(w.ranksService.getSlotCount(w.ranks)).toBe(3);
 
         view.unmount();
         w.settle();
 
-        expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(0);
+        expect(w.ranksService.getSlotCount(w.ranks)).toBe(0);
     });
 
     it('neither rebuilds nor stacks a second hold when a render hands it an equal key list', () => {
@@ -127,8 +127,8 @@ describe('a component wrapped in an arena', () => {
         act(() => { w.settle(); });
 
         expect(w.builtCount()).toBe(3);
-        expect(w.ranksService.computedCollectionService.getSlotByKey(w.ranks, 'a').holdCount).toBe(1);
-        expect(w.ranksService.computedCollectionService.getSlotByKey(w.ranks, 'c').holdCount).toBe(1);
+        expect(w.ranksService.getSlotByKey(w.ranks, 'a').holdCount).toBe(1);
+        expect(w.ranksService.getSlotByKey(w.ranks, 'c').holdCount).toBe(1);
     });
 
     it('ends the whole arena when the key list moves, so the keys it still names are rebuilt', () => {
@@ -141,9 +141,9 @@ describe('a component wrapped in an arena', () => {
         act(() => { view.rerender(<Ranks ranks={w.ranks} ids={['a', 'b']} />); });
         act(() => { w.settle(); });
 
-        expect(w.ranksService.computedCollectionService.getSlotCount(w.ranks)).toBe(2);
-        expect(w.ranksService.computedCollectionService.getSlotByKey(w.ranks, 'a').holdCount).toBe(1);
-        expect(w.ranksService.computedCollectionService.getSlotByKey(w.ranks, 'b').holdCount).toBe(1);
+        expect(w.ranksService.getSlotCount(w.ranks)).toBe(2);
+        expect(w.ranksService.getSlotByKey(w.ranks, 'a').holdCount).toBe(1);
+        expect(w.ranksService.getSlotByKey(w.ranks, 'b').holdCount).toBe(1);
         expect(w.builtCount()).toBe(5);
         expect(view.container.textContent).toBe('1,2');
     });

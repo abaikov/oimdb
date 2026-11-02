@@ -94,7 +94,7 @@ describe('what a bucket slot does through its own methods', () => {
         expect(oimIsSlotReleased(title)).toBe(true);
 
         const countService = createOIMSingleComputedService<number>({ createSources: () => ({}), derive: () => 1, initialValue: 0 });
-        const count = countService.computedSingleSlotService.getSingleSlot(countService.createComputedStoreSlot(db));
+        const count = countService.getSingleSlot(countService.createStoreSlot(db));
         count.holdSlot();
         db.flush();
         expect(oimIsSlotReleased(count)).toBe(false);

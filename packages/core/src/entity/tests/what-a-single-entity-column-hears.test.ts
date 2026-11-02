@@ -4,13 +4,18 @@ import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSingleSlotService } from '../../slot/createOIMSingleSlotService';
 
+import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
+
 type TSession = { userId: string; theme: string; locale: string };
+
+const themeAndLocale = createOIMColumnGroup<'theme' | 'locale'>(['theme', 'locale']);
 
 const createFixture = (columns?: readonly ('theme' | 'locale')[]) => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
     const sessionService = createOIMSingleSlotService({
         slotContentService: createOIMEntityContentService<TSession>(),
+        columnGroups: columns === undefined || columns.includes('locale') ? [themeAndLocale] : [],
         ...(columns !== undefined ? { columnNames: columns } : {}),
     });
     const session = sessionService.createStoreSlot(db);
@@ -29,7 +34,7 @@ describe('what a single entity column hears', () => {
             effectService.createEffect(db, () => { themeRuns++; }, [sessionService.columnSlotService.holdColumn(sessionService.getSingleSlot(session), 'theme')]);
             effectService.createEffect(db, () => {
                 groupRuns++;
-            }, [sessionService.columnSlotService.holdColumnGroup(sessionService.getSingleSlot(session), sessionService.columnSlotService.getColumnGroup(['theme', 'locale']))]);
+            }, [sessionService.columnSlotService.holdColumnGroup(sessionService.getSingleSlot(session), themeAndLocale)]);
             db.flush();
             sessionService.slotContentService.updateEntity(sessionService.getSingleSlot(session), { userId: 'u2' });
             db.flush();

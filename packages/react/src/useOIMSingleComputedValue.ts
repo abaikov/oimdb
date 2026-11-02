@@ -18,7 +18,7 @@ export function useOIMSingleComputedValue<TValue>(
 ): TValue {
     const db = useOIMDB();
     const computedStoreSlot = useMemo(
-        () => computedService.createComputedStoreSlot(db, derive, createSources),
+        () => computedService.createStoreSlot(db, derive, createSources),
         // eslint-disable-next-line react-hooks/exhaustive-deps -- the caller's list is checked at the call site
         [db, computedService, ...dependencyList],
     );

@@ -22,19 +22,19 @@ export function createOIMSlotCollectionSortedArrayIndexService<
     TKey extends TOIMStoreKey = [TOIMIndexKey<TEntity, TColumns>] extends [TOIMStoreKey]
         ? Extract<TOIMIndexKey<TEntity, TColumns>, TOIMStoreKey> : never,
     TSourceStore = unknown,
-    TStore = Map<TKey, TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TKey>>,
+    TStore = Map<TKey, TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>, TKey>>,
 >(
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
         sortColumns: readonly TOIMSortColumn<TEntity>[];
         bucketSlotStoreService?: IOIMSlotStoreService<
-            TKey, TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TKey>, TStore
+            TKey, TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>, TKey>, TStore
         > | undefined;
     } & TOIMIndexKeyOptions<TKey, TEntity, TColumns>,
 ): OIMSlotCollectionSortedArrayIndexService<
     TKey, TEntity, TSourceKey, TSourceStore,
-    TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity>>, TKey>, TStore
+    TOIMBucketSlot<TOIMBucketSlotsArrayStore<TOIMEntitySlot<TEntity, TSourceKey>>, TKey>, TStore
 > {
-    const slotContentService = new OIMSortedArrayBucketContentService<TOIMEntitySlot<TEntity>, TKey>({
+    const slotContentService = new OIMSortedArrayBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TKey>({
         compareBucketMemberSlots: oimEntitySlotsComparator<TEntity>(oimColumnsComparator(options.sortColumns)),
     });
     return new OIMSlotCollectionSortedArrayIndexService({

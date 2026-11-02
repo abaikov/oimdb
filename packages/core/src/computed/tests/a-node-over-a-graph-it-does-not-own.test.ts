@@ -13,11 +13,11 @@ const rowsOn = () => createOIMSlotCollectionService({ slotContentService: create
 
 const numberComputedOn = (db: OIMDB, derive: () => number, createSources: () => Partial<TOIMComputedSources>) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const computed = computedService.createComputedStoreSlot(db, derive, createSources);
+    const computed = computedService.createStoreSlot(db, derive, createSources);
     const computedReads = {
-        getSingleSlot: (storeSlot: typeof computed) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
+        getSingleSlot: (storeSlot: typeof computed) => computedService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof computed) => {
-            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
+            const computedSlot = computedService.getSingleSlot(storeSlot);
             return readValueWithoutTracking(computedSlot);
         },
     };

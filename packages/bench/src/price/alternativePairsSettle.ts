@@ -11,8 +11,8 @@ import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_F
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
-import { OIMSlotOwner } from '../../../core/src/index';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
+import { PriceSlotOwner } from './priceFixture';
 
 const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -84,7 +84,8 @@ const makeRoot = (): TChainRoot => ({
     slotFlags: OIM_SLOT_FLAG_EMPTY,
     columnSlotStore: undefined,
     storeSlot: priceStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new PriceSlotOwner(),
+    data: undefined,
     value: 0,
     dependents: undefined,
 });
@@ -155,7 +156,7 @@ const rootLevelComputedService = (
         sameValueGuard: oimSameValueZeroGuard,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
-    const computedStoreSlot = computedService.createComputedStoreSlot(
+    const computedStoreSlot = computedService.createStoreSlot(
         db,
         computedSlot => sumForPull(rootsByNode[computedSlot.key]),
         ({ key: j }) => ({ sourceSlots: rootsByNode[j] }),
@@ -172,7 +173,7 @@ const computedLevelComputedService = (
         sameValueGuard: oimSameValueZeroGuard,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
-    const computedStoreSlot = computedService.createComputedStoreSlot(
+    const computedStoreSlot = computedService.createStoreSlot(
         db,
         computedSlot => sumOfComputedsForPull(sourceComputedsByNode[computedSlot.key]),
         ({ key: j }) => ({ sourceComputeds: sourceComputedsByNode[j] }),
@@ -190,8 +191,7 @@ const buildPullChain = (depth: number) => {
     for (let level = 0; level < depth; level++) {
         if (level > 0) top = computedLevelComputedService(db, below);
         const built: TOIMComputedSlot<number, number>[] = [];
-        const computedCollectionService = top.computedService.computedCollectionService;
-        for (let j = 0; j < NODES_PER_LEVEL; j++) built.push(computedCollectionService.holdSlotByKey(top.computedStoreSlot, j));
+        for (let j = 0; j < NODES_PER_LEVEL; j++) built.push(top.computedService.holdSlotByKey(top.computedStoreSlot, j));
         below = built;
     }
 

@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../../core/src/index';
 import type { OIMEntitySlot } from '../../../core/src/entity/OIMEntitySlot';
 import { OIMChannelService, OIMDB, OIMDefaults, OIMSlotAtEmptyReleasePolicy, OIMSlotMapStoreService, OIMUnusedSlotCollectorService, createOIMInPlaceEntityWriter, oimInsertEntityWithSanitizedCopy } from '../../../core/src/index';
 import type { TOIMEntitySlot, TOIMStoreKey, TOIMStoreSlot } from '../../../core/src/index';
@@ -16,6 +15,7 @@ import type { TPricePair } from './TPricePair';
 import type { TPriceSide } from './TPriceSide';
 import { createOIMEntityContentService } from '../../../core/src/index';
 import { createOIMSlotCollectionService } from '../../../core/src/index';
+import { PriceSlotOwner } from './priceFixture';
 
 type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 
@@ -33,7 +33,7 @@ type TRung = (world: TWorld, rows: readonly TPriceDataRow[], times: number) => v
 const storeService = new OIMSlotMapStoreService<TRowSlot>();
 const entityWriter = createOIMInPlaceEntityWriter({ entityInserter: oimInsertEntityWithSanitizedCopy });
 const slotReleasePolicy = new OIMSlotAtEmptyReleasePolicy();
-const slotOwner = new OIMSlotOwner();
+const slotOwner = new PriceSlotOwner();
 const channelService = OIMChannelService.INSTANCE;
 const contentChangeListeners: unknown[] = [];
 
@@ -98,14 +98,14 @@ const contentChanged = (): void => {
     throw new Error('the ladder runs with no content listener');
 };
 
-const releaseSlotIfUnheldAfterListeners = (slot: TRowSlot): void => {
+const releaseSlotIfUnheld = (slot: TRowSlot): void => {
     if (slot.holdCount > 0 || (slot.slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0 || slot.owner !== slotOwner || slot.columnSlotStore !== undefined) return;
     if (!slotReleasePolicy.isSlotReleasable()) return;
     throw new Error('the ladder never releases a written slot');
 };
 
-const fileWritten = (world: TWorld, slot: TRowSlot, key: string): void => {
-    storeService.set(world.store, key, slot);
+const fileWritten = (world: TWorld, slot: TRowSlot): void => {
+    storeService.set(world.store, slot);
 };
 
 const spreadIntoMap: TRung = (world, rows, times) => {
@@ -155,7 +155,7 @@ const slotIntoStore: TRung = (world, rows, times) => {
         if (storeService.get(world.store, row.id) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(row.id), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as unknown as { content: TPriceDataRow | undefined }).content = oimSanitizedCopyEntity(row) as TPriceDataRow;
-        storeService.set(world.store, row.id, slot);
+        storeService.set(world.store, slot);
     }
     priceSink.number = world.store.size;
 };
@@ -167,7 +167,7 @@ const keyedSlotIntoStore: TRung = (world, rows, times) => {
         if (storeService.get(world.store, key) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as unknown as { content: TPriceDataRow | undefined }).content = oimSanitizedCopyEntity(row) as TPriceDataRow;
-        storeService.set(world.store, key, slot);
+        storeService.set(world.store, slot);
     }
     priceSink.number = world.store.size;
 };
@@ -179,7 +179,7 @@ const writerAndChannel: TRung = (world, rows, times) => {
         const slot = mint(world, key);
         if (slot === undefined) continue;
         fill(world, slot, row);
-        fileWritten(world, slot, key);
+        fileWritten(world, slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
@@ -193,7 +193,7 @@ const withAssert: TRung = (world, rows, times) => {
         if (slot === undefined) continue;
         assertWritable(world, slot);
         fill(world, slot, row);
-        fileWritten(world, slot, key);
+        fileWritten(world, slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
@@ -208,7 +208,7 @@ const withEmptiness: TRung = (world, rows, times) => {
         assertWritable(world, slot);
         fill(world, slot, row);
         updateEmptiness(world, slot);
-        fileWritten(world, slot, key);
+        fileWritten(world, slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
@@ -224,7 +224,7 @@ const withContentChanged: TRung = (world, rows, times) => {
         fill(world, slot, row);
         updateEmptiness(world, slot);
         contentChanged();
-        fileWritten(world, slot, key);
+        fileWritten(world, slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
@@ -240,9 +240,9 @@ const withReleaseCheck: TRung = (world, rows, times) => {
         fill(world, slot, row);
         updateEmptiness(world, slot);
         contentChanged();
-        fileWritten(world, slot, key);
+        fileWritten(world, slot);
         if ((slot.slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0) OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(world.db.collectorSlot.unusedSlotCollectorSlot, slot);
-        else releaseSlotIfUnheldAfterListeners(slot);
+        else releaseSlotIfUnheld(slot);
     }
     world.db.flush();
     priceSink.number = world.store.size;
@@ -313,7 +313,7 @@ export const alternativePairsInsertLadder: readonly TPricePair[] = [
         'dispatchContentChange, which returns at once when the collection has no listener. The shipped insert calls it only off its fast path, not on the fast path this fixture takes.'),
     ladderPair('10-release-check', withReleaseCheck, 'the release check after filing',
         withContentChanged, 'the steps below without it',
-        'releaseSlotIfUnheldAfterListeners: isReleasable and the policy question. The shipped insert runs no release check on its fast path.'),
+        'releaseSlotIfUnheld: isReleasable and the policy question. The shipped insert runs no release check on its fast path.'),
     ladderPair('12-collection-door', entityServiceDoor, 'entityService.writeSlotContentByKey(entityStoreSlot, id, entity); db.flush() per pass',
         withReleaseCheck, 'the same steps written by hand around the shipped pieces',
         'the shipped door, which on this fixture takes its fast path: no dispatchContentChange and no release check, so the floor carries two steps the door does not run.'),

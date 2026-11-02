@@ -10,6 +10,4 @@ export interface IOIMSlotOwner {
     unsafeMutateSlot(slot: TOIMSlot, mutateSlot: (editableSlot: TOIMEditable<TOIMSlot>) => void): void;
     subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number, columnGroup?: TOIMColumnGroup): number;
     unsubscribeFromSlot(slot: TOIMSlot, positionInSlot: number, effect: TOIMEffect): boolean;
-    onSlotFirstSubscribed(slot: TOIMSlot): void;
-    onSlotLastUnsubscribed(slot: TOIMSlot): void;
 }

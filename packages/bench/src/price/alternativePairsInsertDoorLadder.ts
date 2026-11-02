@@ -118,7 +118,7 @@ const chainOf = (steps: TSteps): TRung => (world, rows, times) => {
         steps.assertWritable(world, slot);
         steps.write(world, slot, row);
         steps.updateEmptiness(world, slot);
-        storeService.set(world.store, key, slot);
+        storeService.set(world.store, slot);
         steps.contentChanged(world, slot, row);
         steps.release(world, slot);
     }
@@ -145,7 +145,7 @@ const withContentChanged: TSteps = {
 };
 const withRelease: TSteps = {
     ...withContentChanged,
-    release: (world, slot) => world.probeInternals.slotOwnerService.releaseSlotIfUnheldAfterListeners(slot),
+    release: (world, slot) => world.probeInternals.slotOwnerService.releaseSlotIfUnheld(slot),
 };
 const withMint: TSteps = { ...withRelease, mint: probeMint };
 
@@ -214,7 +214,7 @@ export const alternativePairsInsertDoorLadder: readonly TPricePair[] = [
         writeChain, 'the step by hand', 'the slot owner service\'s settleEmptiness and settleWrite.'),
     ladderPair('5-content-changed', contentChangedChain, 'dispatchContentChange through the slot owner service',
         emptinessChain, 'no content-change call', 'the slot owner service\'s dispatchContentChange with no listener.'),
-    ladderPair('6-release-check', releaseChain, 'releaseSlotIfUnheldAfterListeners through the slot owner service',
+    ladderPair('6-release-check', releaseChain, 'releaseSlotIfUnheld through the slot owner service',
         contentChangedChain, 'the check by hand', 'the slot owner service\'s release check after the write.'),
     ladderPair('7-create-slot', mintChain, 'slotContentService.createSlot',
         releaseChain, 'createOIMEntitySlot called by hand', 'slotContentService.createSlot.'),

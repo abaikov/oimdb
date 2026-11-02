@@ -183,7 +183,7 @@ function renderDeckPage(deckCards: readonly Card[]): string {
 
   const html = renderApp(requestDb);
   const state = JSON.stringify({ cards: deckCards, deckCardIds: deckCards.map((card) => card.id) });
-  OIMChannelService.INSTANCE.dropChannelSlot(requestDb.defaultChannelSlot);
+  requestDb.dispose();
   return `${html}<script>window.__OIM__ = ${state.replace(/</g, '\\u003c')}</script>`;
 }
 ```
@@ -204,7 +204,7 @@ in which bucket, because a bucket's list is a fact about the response and no
 column can express it. The same `writeSlotContentByKey` loop fits both sides: a new key gets an identity,
 a key the client already holds is brought to the value sent. `writeSlotContent` states the whole list,
 so restating it evicts what the snapshot does not name. The hold keeps a bucket filed even when
-it is empty, and `dropChannelSlot` ends a per-request channel that
+it is empty, and `requestDb.dispose()` ends a per-request database that
 nothing subscribes to without walking a slot; it does not check that
 precondition, so do not call it on a channel something subscribes to. Escape
 `<` before inlining the state, or a `</script>` inside the data ends the tag.

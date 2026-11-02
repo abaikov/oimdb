@@ -1,6 +1,6 @@
 {
     "name": "@oimdb/core",
-    "version": "4.7.0",
+    "version": "4.8.0",
     "description": "Identity-addressed reactive in-memory store: entities, indexes, computed values and effects batched into frames.",
     "type": "module",
     "main": "./dist/index.cjs",
@@ -15,29 +15,13 @@
                 "types": "./dist/index.d.cts",
                 "default": "./dist/index.cjs"
             }
-        },
-        "./oimdb": {
-            "types": "./dist/oimdb.d.ts",
-            "import": "./dist/oimdb.js",
-            "require": {
-                "types": "./dist/oimdb.d.cts",
-                "default": "./dist/oimdb.cjs"
-            }
-        },
-        "./soimdb": {
-            "types": "./dist/soimdb.d.ts",
-            "import": "./dist/soimdb.js",
-            "require": {
-                "types": "./dist/soimdb.d.cts",
-                "default": "./dist/soimdb.cjs"
-            }
         }
     },
     "oimdbRelease": {
         "publish": true
     },
     "scripts": {
-        "build": "tsup src/index.ts --dts --format esm,cjs --clean && tsup src/oimdb/oimdb.ts --dts --format esm,cjs --external @oimdb/core && tsup src/soimdb/soimdb.ts --dts --format esm,cjs --external @oimdb/core && node scripts/mark-type-only-exports.mjs",
+        "build": "tsup src/index.ts --dts --format esm,cjs --clean && node scripts/mark-type-only-exports.mjs",
         "test": "jest",
         "type-check": "tsc --noEmit -p tsconfig.all.json",
         "check-structure": "node scripts/check-structure.mjs",

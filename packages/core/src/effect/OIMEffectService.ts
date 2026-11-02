@@ -1,4 +1,3 @@
-import { OIM_ACTIVE_SOURCE_TRACKER } from '../computed/constants/OIM_ACTIVE_SOURCE_TRACKER';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMEffectService } from './interfaces/IOIMEffectService';
 import type { TOIMComputedContentSlot } from '../computed/types/TOIMComputedContentSlot';
@@ -21,6 +20,7 @@ import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
 import { OIM_EFFECT_FLAG_DISPOSED } from './constants/OIM_EFFECT_FLAG_DISPOSED';
 import { OIM_EFFECT_FLAG_RUN_SCHEDULED } from './constants/OIM_EFFECT_FLAG_RUN_SCHEDULED';
 import { OIM_EFFECT_FLAG_SOURCE_CHECK_OWED } from './constants/OIM_EFFECT_FLAG_SOURCE_CHECK_OWED';
+import { oimSwapActiveSourceTracker } from '../computed/utils/oimSwapActiveSourceTracker';
 
 export class OIMEffectService implements IOIMEffectService {
     public static readonly INSTANCE = new OIMEffectService();
@@ -132,9 +132,14 @@ export class OIMEffectService implements IOIMEffectService {
         const effect = this.createEffectOverSourceTracker(channelMap, sourceTracker, body);
         try {
             sourceTracker.openSourceTracking();
-            for (let i = 0; i < sourceSlots.length; i++) sourceTracker.readSourceSlot(sourceSlots[i]);
-            for (let i = 0; i < sourceComputeds.length; i++) sourceTracker.readSourceComputedValue(sourceComputeds[i]);
-            for (let i = 0; i < sourceTrackingComputeds.length; i++) sourceTracker.readSourceComputedValue(sourceTrackingComputeds[i]);
+            for (let i = 0; i < sourceSlots.length; i++) sourceTracker.trackSourceSlot(sourceSlots[i]);
+            const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
+            try {
+                for (let i = 0; i < sourceComputeds.length; i++) void sourceComputeds[i].value;
+                for (let i = 0; i < sourceTrackingComputeds.length; i++) void sourceTrackingComputeds[i].value;
+            } finally {
+                oimSwapActiveSourceTracker(outerSourceTracker);
+            }
             if (sourceTracker.closeSourceTracking()) this.resubscribeToTrackedSources(effect, sourceTracker);
         } catch (failure) {
             this.disposeEffect(effect);
@@ -262,13 +267,12 @@ export class OIMEffectService implements IOIMEffectService {
         sourceTrackingEffectBody: TOIMSourceTrackingEffectBody,
     ): (() => void) | void {
         sourceTracker.openSourceTracking();
-        const outerSourceTracker = OIM_ACTIVE_SOURCE_TRACKER.sourceTracker;
-        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = sourceTracker;
+        const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
         try {
             const undo = sourceTrackingEffectBody();
-            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = outerSourceTracker;
+            oimSwapActiveSourceTracker(outerSourceTracker);
             try {
-                if (sourceTracker.closeSourceTracking()) this.resubscribeToTrackedSources(effect, sourceTracker);
+                if (sourceTracker.closeSourceTracking() && !oimIsEffectDisposed(effect)) this.resubscribeToTrackedSources(effect, sourceTracker);
             } catch (failure) {
                 this.disposeEffect(effect);
                 if (typeof undo === 'function') undo();
@@ -276,7 +280,7 @@ export class OIMEffectService implements IOIMEffectService {
             }
             return undo;
         } finally {
-            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = outerSourceTracker;
+            oimSwapActiveSourceTracker(outerSourceTracker);
         }
     }
 
@@ -406,20 +410,16 @@ export class OIMEffectService implements IOIMEffectService {
                 const addedSlot = addedSlots[heldSlotCount];
                 addedSlot.owner.holdSlot(addedSlot);
             }
-            const channelSlot = effect.channelSlot;
-            const isFrameRunning = channelSlot.frame.isRunning;
+            const addedEdges: number[] = new Array(addedSlots.length);
             let added = 0;
             for (let edge = 0; edge < rootSlotCount && added < addedSlots.length; edge++) {
                 if (nextAllRootSlots[edge] !== undefined) continue;
                 const committedSlot = committedAllRootSlots[edge];
                 if (oimIsSlotReleased(committedSlot)) this.setPositionInSubscribedSlot(effect, edge, -1);
                 else this.unsubscribeFrom(effect, committedSlot, edge);
-                const addedColumnGroup = addedColumnGroups[added];
-                const addedSlot = addedSlots[added++];
-                nextAllRootSlots[edge] = addedSlot;
-                nextColumnGroups[edge] = addedColumnGroup;
-                this.setPositionInSubscribedSlot(effect, edge, addedSlot.owner.subscribeToSlot(addedSlot, effect, edge, addedColumnGroup));
-                if (!isFrameRunning && OIMChannelService.INSTANCE.isChangedInCurrentFrame(channelSlot, addedSlot)) isRunOwed = true;
+                nextAllRootSlots[edge] = addedSlots[added];
+                nextColumnGroups[edge] = addedColumnGroups[added];
+                addedEdges[added++] = edge;
             }
             const editableEffect = effect as TOIMEditable<TOIMEffect>;
             editableEffect.sourceSlots = sourceTracker.getTrackedSourceSlots();
@@ -427,6 +427,14 @@ export class OIMEffectService implements IOIMEffectService {
             editableEffect.allRootSlots = nextAllRootSlots as TOIMSlot[];
             effect.columnGroupsByEdge = this.createColumnGroupsByEdge(nextColumnGroups);
             sourceTracker.commitTrackedSources();
+            const channelSlot = effect.channelSlot;
+            const isFrameRunning = channelSlot.frame.isRunning;
+            for (let i = 0; i < added; i++) {
+                const edge = addedEdges[i];
+                const addedSlot = addedSlots[i];
+                this.setPositionInSubscribedSlot(effect, edge, addedSlot.owner.subscribeToSlot(addedSlot, effect, edge, addedColumnGroups[i]));
+                if (!isFrameRunning && OIMChannelService.INSTANCE.isChangedInCurrentFrame(channelSlot, addedSlot)) isRunOwed = true;
+            }
         } finally {
             for (let i = 0; i < heldSlotCount; i++) {
                 const addedSlot = addedSlots[i];

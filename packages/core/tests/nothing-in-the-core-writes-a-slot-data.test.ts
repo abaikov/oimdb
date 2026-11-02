@@ -126,7 +126,7 @@ describe('nothing in the core writes a slot data', () => {
     });
 
     it('no non-test file under src assigns to or mutates .data', () => {
-        const found = files.flatMap(file => writesToSlotData(file.source, file.path === 'entity/OIMEntitySlot.ts')
+        const found = files.flatMap(file => writesToSlotData(file.source, file.path === 'slot/OIMSlot.ts')
             .map(site => `${file.path}:${site.line} ${site.text}`));
         expect(found).toEqual([]);
     });

@@ -13,6 +13,7 @@ import { createOIMEntityContentService } from '../src/entity/createOIMEntityCont
 import { createOIMSlotCollectionService } from '../src/slot/createOIMSlotCollectionService';
 import { createOIMSingleSlotService } from '../src/slot/createOIMSingleSlotService';
 import type { TOIMEntityContentSlot } from '../src/entity/types/TOIMEntityContentSlot';
+import { oimMarkBucketColumnsChanged } from '../src/bucket/utils/oimMarkBucketColumnsChanged';
 
 const SRC = join(__dirname, '..', 'src');
 
@@ -43,7 +44,7 @@ const filesNaming = (word: string): string[] => SOURCE_FILES
     .map(path => `${path} ${occurrencesOf(word, codeOf(path))}`)
     .filter(line => !line.endsWith(' 0'));
 
-const PUBLIC_MEMBER = /^ {4}public (?:override )?(?:readonly )?([A-Za-z_$][\w$]*)\s*(?:<[\s\S]*?>)?\s*(?:\(|=\s*\(|:\s*\()/gm;
+const PUBLIC_MEMBER = /^ {4}public (?:abstract )?(?:override )?(?:readonly )?([A-Za-z_$][\w$]*)\s*(?:<[\s\S]*?>)?\s*(?:\(|=\s*\(|:\s*\()/gm;
 
 const PUBLIC_FIELD = /^ {4}(?:declare )?public (?:abstract )?readonly ([A-Za-z_$][\w$]*)\s*[:=]/gm;
 
@@ -86,7 +87,7 @@ const ENTITY_COMPOSITION: TComposition = {
 };
 
 const BUCKET_COMPOSITION: TComposition = {
-    service: ['slot/OIMSlotCollectionService.ts'],
+    service: ['slot/OIMWritableSlotCollectionService.ts', 'slot/OIMSlotCollectionService.ts'],
     parts: {
         slotContentService: [
             'bucket/OIMBucketContentService.ts',
@@ -156,17 +157,17 @@ const namedInPart = (part: string, members: readonly string[]): string[] => memb
 
 const SLOT_OWNER_DOORS_THAT_WRITE_NOTHING = namedInPart('owner', [
     'holdSlot', 'unholdSlot', 'subscribeToSlot', 'unsubscribeFromSlot', 'releaseSlotIfUnheld',
-    'onSlotFirstSubscribed', 'onSlotLastUnsubscribed', 'unsafeMutateSlot',
+    'unsafeMutateSlot',
 ]);
 
 const COLUMN_DOORS = [
-    'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroup', 'getColumnGroupSlot', 'holdColumnGroup', 'unholdColumn',
+    'getColumn', 'holdColumn', 'getAnyColumn', 'holdAnyColumn', 'getColumnGroupSlot', 'holdColumnGroup', 'unholdColumn',
 ] as const;
 
 const BATCH_DOORS = ['openBatch', 'closeBatch', 'writeInBatch'] as const;
 
 const STORE_SLOT_DOORS_THAT_WRITE_NOTHING = [
-    'createStoreSlot', 'createStoreSlotFrom', 'createStoreAggregate',
+    'createStoreSlot', 'createStoreAggregate',
     'isSameKey', 'getSlotCount', 'getSlots', 'findSlotByKey', 'hasSlotContentByKey', 'getSlotByKey', 'holdSlotByKey',
     ...namedInPart('columnSlotService', COLUMN_DOORS),
 ] as const;
@@ -231,7 +232,7 @@ const ENTITY_WRITE_DOORS: Record<string, (subject: TEntitySubject) => void> = {
 
 const ENTITY_DOORS_THAT_WRITE_NOTHING = [
     'slotContentService.createSlot', 'slotContentService.createSingleSlot',
-    'slotContentService.hasReference', 'slotContentService.isSlotEmpty',
+    'slotContentService.isSlotEmpty',
     ...BATCH_DOORS,
     ...STORE_SLOT_DOORS_THAT_WRITE_NOTHING,
     ...SLOT_OWNER_DOORS_THAT_WRITE_NOTHING,
@@ -266,8 +267,8 @@ const bucketWorld = (): TFixture<TBucketSubject> => madeInAFlush(db => {
 });
 
 const BUCKET_WRITE_DOORS: Record<string, (subject: TBucketSubject) => void> = {
+    writeSlotContentByKey: s => { s.bucketService.writeSlotContentByKey(s.searchStoreSlot, 'spare', [s.card]); },
     'slotContentService.markContentChanged': s => { s.membersService.markContentChanged(s.bucket); },
-    'slotContentService.markBucketColumnsChanged': s => { s.membersService.markBucketColumnsChanged(s.bucket, undefined, ['title']); },
     'slotContentService.addBucketMemberSlot': s => { s.membersService.addBucketMemberSlot(s.bucket, s.card); },
     'slotContentService.removeBucketMemberSlot': s => { s.membersService.removeBucketMemberSlot(s.bucket, s.card); },
     'slotContentService.addBucketMemberSlots': s => { s.membersService.addBucketMemberSlots(s.bucket, [s.card]); },
@@ -297,7 +298,7 @@ const reachesNoHookTheOwnerCalls = (s: TBucketSubject): void => {
 
 const BUCKET_DOORS_THAT_WRITE_NOTHING = [
     'slotContentService.createSlot', 'slotContentService.createSingleSlot',
-    'slotContentService.hasReference', 'slotContentService.isSlotEmpty',
+    'slotContentService.isSlotEmpty',
     'slotContentService.getBucketMemberSlotsMissingFrom',
     ...BATCH_DOORS,
     'slotContentService.fillBucketMemberSlots',
@@ -381,8 +382,15 @@ describe('who may say a write is refused', () => {
             'bucket/OIMBucketContentService.ts',
             'bucket/OIMPositionalArrayBucketContentService.ts',
             'bucket/OIMSortedArrayBucketContentService.ts',
+            'bucket/utils/oimMarkBucketColumnsChanged.ts',
             'entity/OIMEntityContentService.ts',
         ]);
+    });
+
+    it('refuses to mark the columns of a bucket inside a flush', () => {
+        expect(doorsThatDoNotRefuse(bucketWorld, {
+            oimMarkBucketColumnsChanged: s => { oimMarkBucketColumnsChanged(s.bucket, undefined, ['title']); },
+        })).toEqual([]);
     });
 
     it('holds exactly the parts it walks in every service', () => {
@@ -422,14 +430,14 @@ describe('who may say a write is refused', () => {
         expect(reachesNoHookTheOwnerCalls).toBeInstanceOf(Function);
     });
 
-    it('hands a caller of the entity content service its owner only as IOIMSlotOwner, with no write door on it', () => {
-        const writeDoorsOf = (slotContentService: TCardEntityService['slotContentService']): unknown[] => [
+    it('hands a caller of an entity slot its owner only as IOIMSlotOwner, with no write door on it', () => {
+        const writeDoorsOf = (entitySlot: TOIMEntitySlot<TCard, TOIMStoreKey>): unknown[] => [
             // @ts-expect-error assertWritable is not on IOIMSlotOwner
-            slotContentService.slotOwner.assertWritable,
+            entitySlot.owner.assertWritable,
             // @ts-expect-error fileSlot is not on IOIMSlotOwner
-            slotContentService.slotOwner.fileSlot,
+            entitySlot.owner.fileSlot,
             // @ts-expect-error columnSlotOwner is not on IOIMSlotOwner
-            slotContentService.slotOwner.columnSlotOwner,
+            entitySlot.owner.columnSlotOwner,
         ];
         expect(writeDoorsOf).toBeInstanceOf(Function);
     });

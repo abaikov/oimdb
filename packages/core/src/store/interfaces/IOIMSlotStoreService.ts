@@ -8,6 +8,6 @@ export interface IOIMSlotStoreService<
     ownKey<TOwnedKey extends TKey>(key: TOwnedKey): TOwnedKey;
     isSameKey(key: TKey, otherKey: TKey): boolean;
     get(store: TStore, key: TKey): TSlot | undefined;
-    set(store: TStore, key: TKey, slot: TSlot): void;
-    remove(store: TStore, key: TKey): void;
+    getSlots(store: TStore): IterableIterator<TSlot>;
+    getSlotCount(store: TStore): number;
 }

@@ -112,12 +112,12 @@ const allMethods = (): TMethod[] => {
  * the object and `slotStoreService.set` files it; either alone is not a mint, so
  * both spellings count and the pin below says which method is which.
  */
-const MINT_PRIMITIVE = /\bmintSlotByKey\(|\bmintSingleSlot\(|\bmintUnfiledColumnSlot\(|\bcreateSlot(?:<[^>(]*>)?(?::\s*)?\(/;
+const MINT_PRIMITIVE = /\bmintSlotByKey\(|\bmintEmptySlotByKey\(|\bmintSingleSlot\(|\bmintEmptySingleSlot\(|\bmintColumnSlot\(|\bcreateSlot(?:<[^>(]*>)?(?::\s*)?\(/;
 const TRACKS = /\.holdSlotUntilFlush\(/;
 const GETTER_SHAPED = /^(?:get|find|resolve|peek|read|at)(?:[A-Z].*)?$/;
 
 /** A getter that mints nothing itself but asks one of these, which mints and tracks. */
-const TRACKED_DOOR = /\.getSlotByKey\(|\bgetColumn\(/;
+const TRACKED_DOOR = /\.getSlotByKey\(|\bget(?:Any)?Column\(|\.getBucketSlot\(/;
 
 const signature = (method: TMethod): string => `${method.file} ${method.name}`;
 
@@ -130,14 +130,17 @@ describe('what a getter hands to the collector', () => {
             'bucket/OIMBucketContentService.ts createSlot',
             'column/OIMColumnSlotOwner.ts getColumn',
             'column/OIMColumnSlotOwner.ts holdColumn',
-            'column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
+            'column/OIMColumnSlotOwner.ts mintColumnSlot',
             'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts getSingleSlot',
             'slot/OIMSingleSlotService.ts holdSingleSlot',
+            'slot/OIMSingleSlotService.ts mintEmptySingleSlot',
             'slot/OIMSingleSlotService.ts mintSingleSlot',
             'slot/OIMSlotCollectionService.ts getSlotByKey',
             'slot/OIMSlotCollectionService.ts holdSlotByKey',
+            'slot/OIMSlotCollectionService.ts mintEmptySlotByKey',
             'slot/OIMSlotCollectionService.ts mintSlotByKey',
+            'slot/OIMWritableSingleSlotService.ts writeSingleSlotContent',
             'slot/OIMWritableSlotCollectionService.ts writeSlotContentByKey',
         ]);
     });
@@ -164,12 +167,15 @@ describe('what a getter hands to the collector', () => {
         expect(unnamed).toEqual([
             'bucket/OIMBucketContentService.ts createSlot',
             'column/OIMColumnSlotOwner.ts holdColumn',
-            'column/OIMColumnSlotOwner.ts mintUnfiledColumnSlot',
+            'column/OIMColumnSlotOwner.ts mintColumnSlot',
             'entity/OIMEntityContentService.ts createSlot',
             'slot/OIMSingleSlotService.ts holdSingleSlot',
+            'slot/OIMSingleSlotService.ts mintEmptySingleSlot',
             'slot/OIMSingleSlotService.ts mintSingleSlot',
             'slot/OIMSlotCollectionService.ts holdSlotByKey',
+            'slot/OIMSlotCollectionService.ts mintEmptySlotByKey',
             'slot/OIMSlotCollectionService.ts mintSlotByKey',
+            'slot/OIMWritableSingleSlotService.ts writeSingleSlotContent',
             'slot/OIMWritableSlotCollectionService.ts writeSlotContentByKey',
         ]);
     });
@@ -183,21 +189,21 @@ describe('what a getter hands to the collector', () => {
             .sort();
 
         expect(borrowers).toEqual([
+            'bucket/OIMSlotCollectionBucketService.ts getAnyBucketColumn',
+            'bucket/OIMSlotCollectionBucketService.ts getBucketColumn',
             'column/OIMColumnSlotOwner.ts getAnyColumn',
+            'column/OIMColumnSlotOwner.ts getColumnGroupSlot',
+            'column/OIMColumnSlotService.ts getAnyColumn',
             'column/OIMColumnSlotService.ts getColumn',
+            'entity/OIMEntitySlot.ts getAnyColumn',
             'entity/OIMEntitySlot.ts getColumn',
+            'entity/OIMEntitySlotCollectionStoreAggregate.ts getEntities',
+            'entity/OIMEntitySlotCollectionStoreAggregate.ts getEntityCount',
             'index/OIMSlotCollectionIndexService.ts getAnyBucketColumnByKey',
             'index/OIMSlotCollectionIndexService.ts getBucketColumnByKey',
             'index/OIMSlotCollectionIndexService.ts getEntitiesByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotByKey',
             'index/OIMSlotCollectionIndexService.ts getSlotsByKeys',
-            'oimdb/OIMEntityCollection.ts getEntityByKey',
-            'oimdb/OIMEntityCollection.ts getSlotByKey',
-            'oimdb/OIMEntityIndex.ts getEntitiesByKey',
-            'oimdb/OIMEntityIndex.ts getEntityCountByKey',
-            'oimdb/OIMEntityIndex.ts getSlotByKey',
-            'oimdb/OIMSortedEntityIndex.ts getEntitiesByKey',
-            'oimdb/OIMSortedEntityIndex.ts getSlotByKey',
             'slot/OIMSlotCollectionStoreAggregate.ts getSlotByKey',
         ]);
     });

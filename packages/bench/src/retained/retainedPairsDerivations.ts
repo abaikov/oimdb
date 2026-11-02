@@ -93,8 +93,7 @@ const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations =>
         sameValueGuard: oimSameValueZeroGuard,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
-    const rankSumComputedCollectionService = rankSumComputedService.computedCollectionService;
-    const rankSumComputedStoreSlot = rankSumComputedService.createComputedStoreSlot(
+    const rankSumComputedStoreSlot = rankSumComputedService.createStoreSlot(
         db,
         computedSlot => {
             let total = 0;
@@ -112,7 +111,7 @@ const derivationsOver = (slots: readonly TRowSlot[], db: OIMDB): TDerivations =>
     );
     const rankSumSlots: TOIMComputedSlot<number, number>[] = new Array<TOIMComputedSlot<number, number>>(DERIVATIONS);
     for (let i = 0; i < DERIVATIONS; i++) {
-        const rankSumSlot = rankSumComputedCollectionService.holdSlotByKey(rankSumComputedStoreSlot, i);
+        const rankSumSlot = rankSumComputedService.holdSlotByKey(rankSumComputedStoreSlot, i);
         rankSumSlot.value;
         rankSumSlots[i] = rankSumSlot;
     }

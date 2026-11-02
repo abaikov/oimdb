@@ -153,7 +153,7 @@ const cardsByRankService = createOIMSortedComputedService({
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 
-const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
+const red = cardsByRankService.holdSlotByKey(cardsByRank, 'red');
 effectService.createAndRunEffect(db, () => render(red.value), [], [red]);
 ```
 

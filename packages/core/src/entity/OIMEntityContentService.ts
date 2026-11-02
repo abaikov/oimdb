@@ -13,6 +13,7 @@ import type { TOIMEntitySlotOwnerService } from './types/TOIMEntitySlotOwnerServ
 import type { TOIMEntityContentServiceOptions } from './types/TOIMEntityContentServiceOptions';
 import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMStoreKey } from '../store/types/TOIMStoreKey';
+import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import { oimIsSlotEmpty } from '../slot/utils/oimIsSlotEmpty';
 import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
 import { OIMChannelService } from '../channel/OIMChannelService';
@@ -39,8 +40,8 @@ export class OIMEntityContentService<
         this.isSlotEmptinessCustom = options.slotEmptinessPolicy !== OIMSlotEntityPresenceEmptinessPolicy.INSTANCE;
     }
 
-    public createSlot(key: TKey, storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TOIMEntitySlot<TEntity, TKey> {
-        return createOIMEntitySlot<TEntity, TKey>(key, slotOwner, storeSlot);
+    public createSlot(key: TKey, storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TOIMEntitySlot<TEntity, TKey, Extract<TColumnName, TOIMEntityColumnName<TEntity>>> {
+        return createOIMEntitySlot<TEntity, TKey, Extract<TColumnName, TOIMEntityColumnName<TEntity>>>(key, slotOwner, storeSlot);
     }
 
     public createSingleSlot(storeSlot: TOIMStoreSlot, slotOwner: IOIMSlotOwner): TOIMEntityContentSlot<TEntity> {
@@ -51,12 +52,20 @@ export class OIMEntityContentService<
         return this.slotEmptinessPolicy.isEmpty(entitySlot);
     }
 
-    public hasReference(): boolean {
-        return false;
-    }
-
     private updatesEmptinessOnColumnWriteOf(entitySlot: TOIMEntityContentSlot<TEntity>): boolean {
         return this.isSlotEmptinessCustom || this.slotOwnerServiceOf(entitySlot).settlesWrittenSlots;
+    }
+
+    private isAnyColumnReferenced(entitySlot: TOIMEntityContentSlot<TEntity>, changedColumns: readonly string[]): boolean {
+        return (entitySlot.columnSlotStore !== undefined && changedColumns.length !== 0)
+            || this.slotOwnerServiceOf(entitySlot).isAnyColumnRead(entitySlot.storeSlot, changedColumns);
+    }
+
+    private takeChangedColumnNames(channelSlot: TOIMChannelSlot): string[] {
+        const changedColumnNames = channelSlot.changedColumnNames;
+        if (changedColumnNames === undefined) return (channelSlot.changedColumnNames = []);
+        if (changedColumnNames.length !== 0) changedColumnNames.length = 0;
+        return changedColumnNames;
     }
 
     private slotOwnerServiceOf(
@@ -81,7 +90,6 @@ export class OIMEntityContentService<
             slotOwnerService.assertWritable(entitySlot);
             this.entityWriter.fillEntity(entitySlot as unknown as OIMEntitySlot, entity);
             this.updateEntitySlotEmptiness(entitySlot);
-            slotOwnerService.fileSlot(entitySlot);
             const channelSlot = oimGetChannelSlot(entitySlot);
             if (oimIsSlotEmpty(entitySlot)) OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(channelSlot.collectorSlot.unusedSlotCollectorSlot, entitySlot);
             OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, entitySlot);
@@ -101,7 +109,6 @@ export class OIMEntityContentService<
             slotOwnerService.assertWritable(entitySlot);
             isLanded = this.writeEntityToSlot(entitySlot, entity, undefined);
             this.updateEntitySlotEmptiness(entitySlot);
-            slotOwnerService.fileSlot(entitySlot);
         } catch (refusal) {
             slotOwnerService.releaseSlotIfUnheld(entitySlot);
             throw refusal;
@@ -127,9 +134,9 @@ export class OIMEntityContentService<
         }
         if ((entitySlot as unknown as OIMEntitySlot<TEntity>).content !== undefined && !this.updatesEmptinessOnColumnWriteOf(entitySlot)) {
             const channelSlot = oimGetChannelSlot(entitySlot);
-            const changedColumnNames = slotOwnerService.takeChangedColumnNames(channelSlot);
+            const changedColumnNames = this.takeChangedColumnNames(channelSlot);
             if (!this.entityWriter.putEntity(entitySlot as unknown as OIMEntitySlot, entity, changedColumnNames)) return false;
-            if (!slotOwnerService.isAnyColumnReferenced(entitySlot, changedColumnNames) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0) {
+            if (!this.isAnyColumnReferenced(entitySlot, changedColumnNames) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0) {
                 this.writeSlotToChannelAndReleaseIfUnheld(entitySlot);
                 return true;
             }
@@ -144,7 +151,7 @@ export class OIMEntityContentService<
         const channelSlot = oimGetChannelSlot(entitySlot);
         const wasEmpty = oimIsSlotEmpty(entitySlot);
         const changedColumnNames = this.hasChangedColumnReaders(entitySlot)
-            ? slotOwnerService.takeChangedColumnNames(channelSlot)
+            ? this.takeChangedColumnNames(channelSlot)
             : undefined;
         const isLanded = this.writeEntityToSlot(entitySlot, entity, changedColumnNames);
         if (isLanded) {
@@ -195,14 +202,14 @@ export class OIMEntityContentService<
         if (changedColumns !== undefined && changedColumns.length === 0) return;
         if (
             changedColumns !== undefined && !this.updatesEmptinessOnColumnWriteOf(entitySlot) && (entitySlot as unknown as OIMEntitySlot<TEntity>).content !== undefined
-            && !slotOwnerService.isAnyColumnReferenced(entitySlot, changedColumns) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0
+            && !this.isAnyColumnReferenced(entitySlot, changedColumns) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0
         ) {
             this.writeSlotToChannelAndReleaseIfUnheld(entitySlot);
             return;
         }
         const channelSlot = oimGetChannelSlot(entitySlot);
         const hasColumnSlots = slotOwnerService.hasColumnSlots(entitySlot);
-        const isObserved = changedColumns === undefined || !hasColumnSlots || slotOwnerService.isAnyColumnReferenced(entitySlot, changedColumns);
+        const isObserved = changedColumns === undefined || !hasColumnSlots || this.isAnyColumnReferenced(entitySlot, changedColumns);
         if (hasColumnSlots && isObserved) {
             slotOwnerService.columnSlotOwner.markColumnsChanged(entitySlot, undefined, changedColumns, channelSlot);
         }
@@ -214,7 +221,7 @@ export class OIMEntityContentService<
             this.updateEntitySlotEmptiness(entitySlot);
         }
         if (isObserved) slotOwnerService.dispatchContentChange(entitySlot, undefined, changedColumns);
-        slotOwnerService.releaseSlotIfUnheldAfterListeners(entitySlot);
+        slotOwnerService.releaseSlotIfUnheld(entitySlot);
     }
 
     /** @deprecated Use `slot.clearSlotContent(…)`; removed in 5.0. */
@@ -226,7 +233,7 @@ export class OIMEntityContentService<
             this.clearEntityAndMarkColumns(entitySlot);
             slotOwnerService.settleEmptiness(entitySlot, this.slotEmptinessPolicy.isEmpty(entitySlot));
             slotOwnerService.dispatchContentChange(entitySlot);
-            slotOwnerService.releaseSlotIfUnheldAfterListeners(entitySlot);
+            slotOwnerService.releaseSlotIfUnheld(entitySlot);
             return;
         }
         if ((entitySlot as unknown as OIMEntitySlot<TEntity>).content !== undefined) {
@@ -239,7 +246,7 @@ export class OIMEntityContentService<
 
     private updateEntityOffFastPath<TEntitySlot extends TOIMEntityContentSlot<TEntity>>(entitySlot: TEntitySlot, patch: Partial<TEntity>): TEntitySlot {
         const changedColumnNames = this.hasChangedColumnReaders(entitySlot)
-            ? this.slotOwnerServiceOf(entitySlot).takeChangedColumnNames(oimGetChannelSlot(entitySlot))
+            ? this.takeChangedColumnNames(oimGetChannelSlot(entitySlot))
             : undefined;
         if (this.entityWriter.patchEntity(entitySlot as unknown as OIMEntitySlot, patch, changedColumnNames)) {
             this.dispatchPatchWritten(entitySlot, patch, changedColumnNames);
@@ -255,9 +262,9 @@ export class OIMEntityContentService<
         }
         const slotOwnerService = this.slotOwnerServiceOf(entitySlot);
         const channelSlot = oimGetChannelSlot(entitySlot);
-        const columnNames = slotOwnerService.takeChangedColumnNames(channelSlot);
+        const columnNames = this.takeChangedColumnNames(channelSlot);
         columnNames.push(columnName);
-        if (!slotOwnerService.isAnyColumnReferenced(entitySlot, columnNames) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0) {
+        if (!this.isAnyColumnReferenced(entitySlot, columnNames) && (entitySlot.slotFlags & OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS) === 0) {
             if (!this.entityWriter.patchColumn(entitySlot as unknown as OIMEntitySlot, columnName, value, undefined)) return entitySlot;
             this.writeSlotToChannelAndReleaseIfUnheld(entitySlot);
             return entitySlot;
@@ -275,7 +282,7 @@ export class OIMEntityContentService<
         entitySlot: TEntitySlot, columnName: TColumn, value: TEntity[TColumn],
     ): TEntitySlot {
         const changedColumnNames = this.hasChangedColumnReaders(entitySlot)
-            ? this.slotOwnerServiceOf(entitySlot).takeChangedColumnNames(oimGetChannelSlot(entitySlot))
+            ? this.takeChangedColumnNames(oimGetChannelSlot(entitySlot))
             : undefined;
         if (this.entityWriter.patchColumn(entitySlot as unknown as OIMEntitySlot, columnName, value, changedColumnNames)) {
             this.dispatchPatchWritten(entitySlot, undefined, changedColumnNames);
@@ -301,7 +308,7 @@ export class OIMEntityContentService<
     ): void {
         const slotOwnerService = this.slotOwnerServiceOf(entitySlot);
         slotOwnerService.dispatchContentChange(entitySlot, patch, changedColumnNames);
-        slotOwnerService.releaseSlotIfUnheldAfterListeners(entitySlot);
+        slotOwnerService.releaseSlotIfUnheld(entitySlot);
     }
 
     public releaseSlotContent(entitySlot: TOIMEntityContentSlot<TEntity>): void {

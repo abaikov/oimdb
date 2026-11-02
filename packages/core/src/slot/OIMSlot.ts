@@ -28,6 +28,8 @@ export abstract class OIMSlot {
 
     public owner: IOIMSlotOwner;
 
+    public data: unknown[] | undefined;
+
     protected constructor(owner: IOIMSlotOwner, storeSlot: TOIMStoreSlot) {
         this.effects = undefined;
         this.changedAtRevision = 0;
@@ -41,6 +43,7 @@ export abstract class OIMSlot {
         this.columnSlotStore = undefined;
         this.storeSlot = storeSlot;
         this.owner = owner;
+        this.data = undefined;
     }
 
     public holdSlot(): void {

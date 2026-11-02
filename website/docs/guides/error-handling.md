@@ -94,7 +94,7 @@ and the db is built with one. The flush loop then calls
 `errorPolicy` is passed, the db is built with `OIMLogAndContinueErrorPolicy.INSTANCE`.
 
 **One policy for the whole database.** `new OIMDB({ errorPolicy })` hands the same policy to the channel slot
-and to every release collector of that db, so every error lands in one place:
+and to every release collector of that db and every `OIMSlotRefetchWheel` built on it, so every error lands in one place:
 
 ```typescript
 const oneSinkDb = new OIMDB({ errorPolicy: new OIMThrowAtOnceErrorPolicy() });
@@ -112,6 +112,10 @@ normally. A throw never leaves the runtime mid-frame.
 
 A `subscribeOnceAfterFrame` handler comes off **before** its body runs, so one
 that throws is not left standing for the next frame.
+
+A `channelScheduler` that throws when a write asks it for a flush goes through the db's error policy too:
+`OIMLogAndContinueErrorPolicy` logs it and the write completes (the next write asks again);
+`OIMThrowAtOnceErrorPolicy` throws it out of the write.
 
 If `flush()` runs from a `channelScheduler` callback, `OIMThrowAtOnceErrorPolicy`
 has no synchronous caller to throw to, so the throw becomes an uncaught exception in

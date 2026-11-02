@@ -117,14 +117,18 @@ export class OIMChannelService implements IOIMFlushSchedulerListener<TOIMChannel
             OIMFlushSchedulerService.INSTANCE.schedule(channelSlot, 0, this);
         } catch (failure) {
             channelSlot.flushRequested = false;
-            throw failure;
+            channelSlot.errorPolicy.onErrorCaught(failure);
         }
     }
 
     public dropChannelSlot(channelSlot: TOIMChannelSlot): void {
         channelSlot.dropped = true;
         OIMFlushSchedulerService.INSTANCE.cancelSchedule(channelSlot);
-        if (!channelSlot.isFlushing) OIMUnusedSlotCollectorService.INSTANCE.flush(channelSlot.collectorSlot.unusedSlotCollectorSlot);
+        const collectorSlot = channelSlot.collectorSlot;
+        if (!channelSlot.isFlushing) OIMUnusedSlotCollectorService.INSTANCE.flush(collectorSlot.unusedSlotCollectorSlot);
+        collectorSlot.afterWriteSlotReleaseWheel?.cancelAllSlots();
+        collectorSlot.afterIdleSlotReleaseWheel?.cancelAllSlots();
+        collectorSlot.afterUnholdSlotReleaseWheel?.cancelAllSlots();
         channelSlot.effectChannelQueue.keepFirstEntries(0);
         channelSlot.frame.afterEachFrame.clear();
         channelSlot.afterEachFlush.clear();

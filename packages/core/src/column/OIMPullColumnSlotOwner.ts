@@ -1,10 +1,10 @@
+import type { IOIMSlotSubscriptionListener } from '../slot/interfaces/IOIMSlotSubscriptionListener';
 import type { OIMComputedSlot } from '../computed/OIMComputedSlot';
 import type { TOIMComputedContentSlot } from '../computed/types/TOIMComputedContentSlot';
 import type { IOIMComputedValueService } from '../computed/interfaces/IOIMComputedValueService';
 import type { TOIMComputedColumnSlot } from './types/TOIMComputedColumnSlot';
 import type { TOIMColumnSlotOwnerOptions } from './types/TOIMColumnSlotOwnerOptions';
 import { OIMColumnSlotOwner } from './OIMColumnSlotOwner';
-import { oimColumnSlotStoreServiceOfColumnSlotOwnerOptions } from './utils/oimColumnSlotStoreServiceOfColumnSlotOwnerOptions';
 import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
 import type { TOIMEditable } from '../slot/types/TOIMEditable';
 import { createOIMComputedSlot } from '../computed/utils/createOIMComputedSlot';
@@ -26,12 +26,12 @@ const isSameColumnValues = (prevColumnValues: unknown, nextColumnValues: unknown
 export class OIMPullColumnSlotOwner
     extends OIMColumnSlotOwner<TOIMComputedContentSlot, TOIMComputedColumnSlot>
     implements IOIMComputedValueService {
-    public constructor(options: TOIMColumnSlotOwnerOptions<TOIMComputedColumnSlot>) {
-        super(oimColumnSlotStoreServiceOfColumnSlotOwnerOptions(options));
+    public constructor(columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMComputedColumnSlot>, slotSubscriptionListener?: IOIMSlotSubscriptionListener) {
+        super(columnSlotOwnerOptions, slotSubscriptionListener);
     }
 
     private readonly deriveColumnSlotValue = (columnSlot: TOIMComputedColumnSlot): unknown => {
-        const columnGroup = this.getColumnGroupsByKeyOf(this.carrierSlotOf(columnSlot))?.get(columnSlot.key);
+        const columnGroup = this.columnGroupsByKey.get(columnSlot.key);
         return columnGroup === undefined
             ? this.deriveColumnValue(columnSlot)
             : this.deriveColumnValues(columnSlot, columnGroup.columnNames);
@@ -40,13 +40,12 @@ export class OIMPullColumnSlotOwner
     public getValueForSlot(computedSlot: TOIMComputedContentSlot): unknown {
         this.assertNotReleased(computedSlot);
         const columnSlot = computedSlot as TOIMComputedColumnSlot;
-        const carrierStoreSlot = columnSlot.storeSlot;
         oimRefreshComputedSlot(
             columnSlot,
             this.deriveColumnSlotValue,
-            carrierStoreSlot.columnGroupsByKey?.has(columnSlot.key) === true ? isSameColumnValues : Object.is,
+            this.columnGroupsByKey.has(columnSlot.key) ? isSameColumnValues : Object.is,
             oimReleaseNoValue,
-            carrierStoreSlot.channelSlot.clock,
+            columnSlot.storeSlot.channelSlot.clock,
         );
         return (columnSlot as unknown as OIMComputedSlot<unknown>).content;
     }

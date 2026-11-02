@@ -140,7 +140,7 @@ function countOf(
     const countService = createOIMSingleComputedService<number>({
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const count = countService.createComputedStoreSlot(db, nonEmptyRows, () => ({ sourceSlots: [everyUserBucket] }));
+    const count = countService.createStoreSlot(db, nonEmptyRows, () => ({ sourceSlots: [everyUserBucket] }));
     return { countService, count };
 }
 

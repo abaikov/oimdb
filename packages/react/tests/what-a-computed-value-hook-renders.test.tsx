@@ -16,7 +16,7 @@ function build() {
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = ranksService.createComputedStoreSlot(db);
+    const ranks = ranksService.createStoreSlot(db);
     return { db, cardsService, cards, ranksService, ranks };
 }
 
@@ -34,7 +34,7 @@ describe('useOIMComputedValue', () => {
 
         let renders = 0;
         function Rank(): React.ReactElement {
-            const rank = useOIMComputedValue(ranksService.computedCollectionService.getSlotByKey(ranks, 'c1'));
+            const rank = useOIMComputedValue(ranksService.getSlotByKey(ranks, 'c1'));
             renders++;
             return <span data-testid="rank">{rank}</span>;
         }
@@ -58,7 +58,7 @@ describe('useOIMComputedValue', () => {
 
         let renders = 0;
         function Rank(): React.ReactElement {
-            const rank = useOIMComputedValue(ranksService.computedCollectionService.getSlotByKey(ranks, 'c1'));
+            const rank = useOIMComputedValue(ranksService.getSlotByKey(ranks, 'c1'));
             renders++;
             return <span data-testid="rank">{rank}</span>;
         }

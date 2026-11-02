@@ -25,7 +25,7 @@ const createFixture = (sorter: TSorter) => {
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const ordersService = createOIMSortedComputedService({ indexService: byDeckService, ...sorter });
     const orders = ordersService.createSortedStoreSlot(byDeck);
-    const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'spades');
+    const order = ordersService.holdSlotByKey(orders, 'spades');
     const idsInOrder = (): string[] => readValueWithoutTracking(order).map(slot => slot.entity?.id ?? '');
     const updateEntityByKey = (key: string, patch: Partial<TCard>): void => {
         const slot = cardsService.findSlotByKey(cards, key);

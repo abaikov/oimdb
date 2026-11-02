@@ -97,10 +97,10 @@ Reference: [Subscribing to one column](/docs/core/reading-subscribing#subscribin
 
 ## A derived value
 
-Take: `createOIMComputedService<void, V, …>` with `OIMSingleSlotStoreService.INSTANCE` as
-its `computedSlotStoreService`, and its `createComputedStoreSlot(db, derive, createSources)`, for one value
-with no key; `createOIMComputedService<K, V>` and its `createComputedStoreSlot(db)` for one value per key.
-Both are read through `computedCollectionService`, the single one with the key `undefined`, and the value through
+Take: `createOIMSingleComputedService<V>` and its `createStoreSlot(db, derive, createSources)`, for one
+value with no key; `createOIMComputedService<K, V>` and its `createStoreSlot(db)` for one value per key.
+The single one is read through the service itself (`getSingleSlot` / `holdSingleSlot`), the keyed one
+through the service's own `getSlotByKey` / `holdSlotByKey`, and the value through
 the slot — `slot.value`. Outside an effect body,
 `computedSlot.value` is whatever the last read left there and settles nothing.
 
@@ -114,13 +114,13 @@ const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');
 const spadesCountService = createOIMSingleComputedService<number>({
     initialValue: 0,
 });
-const spadesCount = spadesCountService.createComputedStoreSlot(
+const spadesCount = spadesCountService.createStoreSlot(
     db,
     () => spades.getBucketMemberSlotCount(),
     () => ({ sourceSlots: [spades] }),
 );
 
-const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
+const spadesCountSlot = spadesCountService.holdSingleSlot(spadesCount);
 const countEffect = effectService.createAndRunEffect(db, () => {
     render(spadesCountSlot.value);
 }, [], [spadesCountSlot]);
@@ -133,9 +133,9 @@ const cardLabelService = createOIMComputedService<TOIMStoreKey, string>({
     },
     initialValue: '',
 });
-const cardLabels = cardLabelService.createComputedStoreSlot(db);
+const cardLabels = cardLabelService.createStoreSlot(db);
 
-const aceLabel = cardLabelService.computedCollectionService.getSlotByKey(cardLabels, 'c1');
+const aceLabel = cardLabelService.getSlotByKey(cardLabels, 'c1');
 render(aceLabel.value);
 
 effectService.disposeEffect(countEffect);

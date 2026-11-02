@@ -20,17 +20,11 @@ implements IOIMSlotStoreService<TKey, TSlot, Map<TKey, TSlot>> {
         return store.get(key);
     }
 
-    public set(store: Map<TKey, TSlot>, key: TKey, slot: TSlot): void {
-        store.set(key, slot);
-    }
-
-    public remove(store: Map<TKey, TSlot>, key: TKey): void { store.delete(key); }
-
-    public fileSlot(store: Map<TKey, TSlot>, slot: TSlot): void {
+    public set(store: Map<TKey, TSlot>, slot: TSlot): void {
         store.set(slot.key, slot);
     }
 
-    public unfileSlot(store: Map<TKey, TSlot>, slot: TSlot): void { store.delete(slot.key); }
+    public delete(store: Map<TKey, TSlot>, slot: TSlot): void { store.delete(slot.key); }
 
     public getSlots(store: Map<TKey, TSlot>): IterableIterator<TSlot> { return store.values(); }
 

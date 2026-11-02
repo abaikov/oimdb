@@ -16,4 +16,5 @@ export type TOIMSlot = {
     readonly storeSlot: TOIMStoreSlot;
 
     readonly owner: IOIMSlotOwner;
+    data: unknown[] | undefined;
 };

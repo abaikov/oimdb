@@ -9,7 +9,7 @@ import { createOIMEntityContentService } from '../../entity/createOIMEntityConte
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
 type TCard = { id: string; deck: string; title: string };
-type TCardSlot = TOIMEntitySlot<TCard>;
+type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 
 const createFixture = () => {
     const db = new OIMDB();

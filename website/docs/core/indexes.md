@@ -422,9 +422,9 @@ effectService.createEffect(db, () => {
 }, [searchResultSlot]);
 ```
 
-Every door of the content service takes the single bucket slot as it takes a keyed one, including
-`markBucketColumnsChanged(bucketSlot, patch, changedColumns)`. Nothing marks a single bucket's columns
-for you: whoever changes its members calls `markBucketColumnsChanged`, as the index does
+Every door of the content service takes the single bucket slot as it takes a keyed one, and so does the util
+`oimMarkBucketColumnsChanged(bucketSlot, patch, changedColumns)`. Nothing marks a single bucket's columns
+for you: whoever changes its members calls `oimMarkBucketColumnsChanged`, as the index does
 for its buckets.
 
 The single bucket slot is what an effect subscribes to. It lives under the release policy like any bucket:

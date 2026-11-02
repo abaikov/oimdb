@@ -10,7 +10,5 @@ export type TOIMIndexStoreSlot<
     readonly indexKeysPosition: number;
     readonly contentChangeListener: IOIMSlotContentChangeListener<TSourceSlot, TSourcePatch>;
     readonly requestedKeys: readonly TKey[] | undefined;
-    readonly bucketColumnNames: Set<string>;
-    readonly isAnyBucketColumnRead: boolean;
     readonly isDisposed: boolean;
 };

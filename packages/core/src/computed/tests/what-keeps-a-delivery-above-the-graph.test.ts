@@ -19,9 +19,9 @@ type TSingleComputedStoreSlot = TOIMComputedStoreSlot<TSingleComputedStore, numb
 const createSingleComputedService = (): TSingleComputedService => createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
 
 const readsOf = (service: TSingleComputedService) => ({
-    getSingleSlot: (storeSlot: TSingleComputedStoreSlot) => service.computedSingleSlotService.getSingleSlot(storeSlot),
+    getSingleSlot: (storeSlot: TSingleComputedStoreSlot) => service.getSingleSlot(storeSlot),
     getSingleValue: (storeSlot: TSingleComputedStoreSlot) => {
-        const computedSlot = service.computedSingleSlotService.getSingleSlot(storeSlot);
+        const computedSlot = service.getSingleSlot(storeSlot);
         return readValueWithoutTracking(computedSlot);
     },
 });
@@ -64,12 +64,12 @@ const chainOver = (
         const below = nodes[nodes.length - 1];
         const service = createSingleComputedService();
         services.push(service);
-        nodes.push(service.createComputedStoreSlot(
+        nodes.push(service.createStoreSlot(
             db,
             body,
             () => below === undefined
                 ? { sourceSlots: [source] }
-                : { sourceComputeds: [belowService.computedSingleSlotService.getSingleSlot(below)] },
+                : { sourceComputeds: [belowService.getSingleSlot(below)] },
         ));
     }
     if (nodes.length === 0) throw new Error('chainOver: depth must be at least 1');
@@ -177,7 +177,7 @@ describe('a body runs on a settled graph and never on a half-built one', () => {
         let shallowValue = 0;
         const shallowComputedService = createSingleComputedService();
         const shallowService = readsOf(shallowComputedService);
-        const shallow = shallowComputedService.createComputedStoreSlot(
+        const shallow = shallowComputedService.createStoreSlot(
             db,
             () => { shallowRan++; shallowValue++; return shallowValue; },
             () => ({ sourceSlots: [slot] }),

@@ -89,7 +89,7 @@ function setDrivenDecks() {
 describe('a sorter that throws', () => {
     it('is raised at a read of the order, and a subscribe to the order says nothing', () => {
         const { db, cardsService, cards, ordersService, orders } = orderedByDeck();
-        const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'd1');
+        const order = ordersService.holdSlotByKey(orders, 'd1');
         cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deckId: 'd1', rank: 1 }, { id: 'c2', deckId: 'd1', rank: 2 },
         ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
@@ -104,8 +104,8 @@ describe('a sorter that throws', () => {
     it('costs one key its wake-up and not the keys after it', () => {
         const errors: unknown[] = [];
         const { db, cardsService, cards, byDeckService, byDeck, ordersService, orders } = orderedByDeck({ errorPolicy: { onErrorCaught: (e) => { errors.push(e); } } });
-        const d1Order = ordersService.computedCollectionService.holdSlotByKey(orders, 'd1');
-        const d2Order = ordersService.computedCollectionService.holdSlotByKey(orders, 'd2');
+        const d1Order = ordersService.holdSlotByKey(orders, 'd1');
+        const d2Order = ordersService.holdSlotByKey(orders, 'd2');
         const d1 = byDeckService.holdSlotByKey(byDeck, 'd1');
         cardsService.writeInBatch(cards, () => ([
             { id: 'b1', deckId: 'd1', rank: 1 }, { id: 'b2', deckId: 'd1', rank: 2 },
@@ -132,7 +132,7 @@ describe('a sorter that throws', () => {
 
     it('leaves the key holding every entity slot, when the newcomer is the one it cannot rank', () => {
         const { cardsService, cards, byDeckService, byDeck, ordersService, orders } = orderedByDeck();
-        const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'd1');
+        const order = ordersService.holdSlotByKey(orders, 'd1');
         const deck = byDeckService.holdSlotByKey(byDeck, 'd1');
         for (const id of ['c1', 'c2', 'c3', 'c4']) {
             cardsService.writeSlotContentByKey(cards, id, { id, deckId: 'd1', rank: Number(id.slice(1)) });
@@ -149,7 +149,7 @@ describe('a sorter that throws', () => {
 
     it('leaves the key holding every entity slot, when a mover is the one it cannot rank', () => {
         const { cardsService, cards, byDeckService, byDeck, ordersService, orders } = orderedByDeck();
-        const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'd1');
+        const order = ordersService.holdSlotByKey(orders, 'd1');
         const deck = byDeckService.holdSlotByKey(byDeck, 'd1');
         for (const id of ['c1', 'c2', 'c3', 'c4']) {
             cardsService.writeSlotContentByKey(cards, id, { id, deckId: 'd1', rank: Number(id.slice(1)) });

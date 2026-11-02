@@ -4,20 +4,15 @@ import type { TOIMSlotRefetchWheelOptions } from './types/TOIMSlotRefetchWheelOp
 import { OIMSlotWheel } from './OIMSlotWheel';
 import { oimSliceOfMs } from './utils/oimSliceOfMs';
 import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
-import { OIM_TIMER_ON_TIMEOUT } from '../schedule/constants/OIM_TIMER_ON_TIMEOUT';
-import { OIMLogAndContinueErrorPolicy } from '../error/OIMLogAndContinueErrorPolicy';
+import type { OIMDB } from '../db/OIMDB';
 
 export class OIMSlotRefetchWheel extends OIMSlotWheel {
     private readonly slotRefetchListener: IOIMSlotRefetchListener;
 
     private readonly refetchDueSlots: TOIMSlot[] = [];
 
-    public constructor(options: TOIMSlotRefetchWheelOptions) {
-        super({
-            getNowMs: options.getNowMs ?? Date.now,
-            timer: options.timer ?? OIM_TIMER_ON_TIMEOUT,
-            errorPolicy: options.errorPolicy ?? OIMLogAndContinueErrorPolicy.INSTANCE,
-        });
+    public constructor(db: OIMDB, options: TOIMSlotRefetchWheelOptions) {
+        super(db.collectorSlot.slotWheelOptions);
         this.slotRefetchListener = options.slotRefetchListener;
     }
 

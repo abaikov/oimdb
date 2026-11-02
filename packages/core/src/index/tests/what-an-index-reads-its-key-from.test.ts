@@ -10,7 +10,7 @@ import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollecti
 import type { OIMEntityContentService } from '../../entity/OIMEntityContentService';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
-type TCardSlot = TOIMEntitySlot<TCard>;
+type TCardSlot = TOIMEntitySlot<TCard, TOIMStoreKey>;
 type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityContentService<TCard>>>;
 type TCardsStore = Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>;
 

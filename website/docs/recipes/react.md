@@ -226,10 +226,9 @@ component is mounted; it owns a lifetime, not a subscription, which is why
 
 ## Show a derived value
 
-**Take:** a void-keyed computed service from `createOIMComputedService<void, V, …>` with a
-`sameValueGuard` and `OIMSingleSlotStoreService.INSTANCE` as its `computedSlotStoreService`,
-the store slot from its `createComputedStoreSlot(db, derive, createSources)`, its slot held in a module with
-`computedCollectionService.holdSlotByKey(storeSlot, undefined)`, and `useOIMComputedValue` with that
+**Take:** a single computed service from `createOIMSingleComputedService<V>` with a
+`sameValueGuard`, the store slot from its `createStoreSlot(db, derive, createSources)`, its slot held in a
+module with the service's `holdSingleSlot(storeSlot)`, and `useOIMComputedValue` with that
 slot. Not a value computed in the render from the raw data: the component would have to subscribe to every input
 and re-render on each of them.
 
@@ -238,12 +237,12 @@ const hearts = cardsByDeckService.holdSlotByKey(cardsByDeck, 'hearts');
 const heartsCountService = createOIMSingleComputedService<number>({
   sameValueGuard: oimSameValueZeroGuard,
 });
-const heartsCount = heartsCountService.createComputedStoreSlot(
+const heartsCount = heartsCountService.createStoreSlot(
   db,
   () => hearts.getBucketMemberSlotCount(),
   () => ({ sourceSlots: [hearts] }),
 );
-const heartsCountSlot = heartsCountService.computedSingleSlotService.holdSingleSlot(heartsCount);
+const heartsCountSlot = heartsCountService.holdSingleSlot(heartsCount);
 
 function HeartsBadge() {
   const count = useOIMComputedValue(heartsCountSlot);

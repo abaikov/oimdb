@@ -558,8 +558,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             const titleLengthComputedService = createOIMComputedService<number, number>({
                 sameValueGuard: oimSameValueZeroGuard,
             });
-            const titleLengthComputedCollectionService = titleLengthComputedService.computedCollectionService;
-            const titleLengthComputedStoreSlot = titleLengthComputedService.createComputedStoreSlot(
+            const titleLengthComputedStoreSlot = titleLengthComputedService.createStoreSlot(
                 fixture.db,
                 computedSlot => {
                     const entity = entitySlots[computedSlot.key].entity;
@@ -569,7 +568,7 @@ export const pricePairsFrame: readonly TPricePair[] = [
             );
             const titleLengthSlots: TOIMComputedSlot<number, number>[] = [];
             for (let i = 0; i < entitySlots.length; i++) {
-                titleLengthSlots.push(titleLengthComputedCollectionService.holdSlotByKey(titleLengthComputedStoreSlot, i));
+                titleLengthSlots.push(titleLengthComputedService.holdSlotByKey(titleLengthComputedStoreSlot, i));
             }
             const memos: TFloorMemo[] = [];
             for (let i = 0; i < fixture.held.length; i++) {

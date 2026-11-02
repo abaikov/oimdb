@@ -34,6 +34,10 @@ export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushS
 
     private nextSliceNumberNeedsRescan = false;
 
+    private deferredSlots: TOIMSlot[] | undefined = undefined;
+
+    private deferredSliceNumbers: number[] | undefined = undefined;
+
     public constructor(options: TOIMSlotWheelOptions) {
         this.timer = options.timer;
         this.getNowMs = options.getNowMs;
@@ -56,6 +60,10 @@ export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushS
         const nextSliceNumber = this.getNextSliceNumber();
         if (nextSliceNumber === undefined || nextSliceNumber > upToSliceNumber) return;
         const outerFloor = this.floorSliceNumber;
+        const outerDeferredSlots = this.deferredSlots;
+        const outerDeferredSliceNumbers = this.deferredSliceNumbers;
+        this.deferredSlots = undefined;
+        this.deferredSliceNumbers = undefined;
         this.floorSliceNumber = upToSliceNumber + 1;
         const slotsBySliceNumber = this.slotsBySliceNumber;
         try {
@@ -71,8 +79,18 @@ export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushS
             }
         } finally {
             this.floorSliceNumber = outerFloor;
+            this.fileDeferredSlots(outerDeferredSlots, outerDeferredSliceNumbers);
         }
         this.onSweepFinished();
+    }
+
+    private fileDeferredSlots(outerDeferredSlots: TOIMSlot[] | undefined, outerDeferredSliceNumbers: number[] | undefined): void {
+        const deferredSlots = this.deferredSlots;
+        const deferredSliceNumbers = this.deferredSliceNumbers;
+        this.deferredSlots = outerDeferredSlots;
+        this.deferredSliceNumbers = outerDeferredSliceNumbers;
+        if (deferredSlots === undefined || deferredSliceNumbers === undefined) return;
+        for (let i = 0; i < deferredSlots.length; i++) this.fileSlot(deferredSliceNumbers[i], deferredSlots[i]);
     }
 
     public flush(): void {
@@ -90,22 +108,28 @@ export abstract class OIMSlotWheel implements TOIMFlushSchedulerSlot, IOIMFlushS
             for (let index = 0; index < sliceSlots.length; index++) this.onSlotDropped(sliceSlots[index]);
         }
         this.slotsBySliceNumber.clear();
+        this.deferredSlots = undefined;
+        this.deferredSliceNumbers = undefined;
         this.lastFiledSliceSlots = undefined;
         this.nextSliceNumber = undefined;
         this.nextSliceNumberNeedsRescan = false;
     }
 
     protected fileSlot(sliceNumber: number, slot: TOIMSlot): void {
-        const flooredSliceNumber = Math.max(sliceNumber, this.floorSliceNumber);
-        let sliceSlots = flooredSliceNumber === this.lastFiledSliceNumber ? this.lastFiledSliceSlots : undefined;
+        if (sliceNumber < this.floorSliceNumber) {
+            (this.deferredSlots ??= []).push(slot);
+            (this.deferredSliceNumbers ??= []).push(sliceNumber);
+            return;
+        }
+        let sliceSlots = sliceNumber === this.lastFiledSliceNumber ? this.lastFiledSliceSlots : undefined;
         if (sliceSlots === undefined) {
-            sliceSlots = this.slotsBySliceNumber.get(flooredSliceNumber);
-            if (sliceSlots === undefined) { sliceSlots = []; this.slotsBySliceNumber.set(flooredSliceNumber, sliceSlots); }
-            this.lastFiledSliceNumber = flooredSliceNumber;
+            sliceSlots = this.slotsBySliceNumber.get(sliceNumber);
+            if (sliceSlots === undefined) { sliceSlots = []; this.slotsBySliceNumber.set(sliceNumber, sliceSlots); }
+            this.lastFiledSliceNumber = sliceNumber;
             this.lastFiledSliceSlots = sliceSlots;
         }
         sliceSlots.push(slot);
-        this.lowerNextSliceNumber(flooredSliceNumber);
+        this.lowerNextSliceNumber(sliceNumber);
     }
 
     protected scheduleNextSweep(): void {

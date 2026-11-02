@@ -24,19 +24,18 @@ const createFixture =() => {
         derive: (computedSlot) => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = ranksService.createComputedStoreSlot(db);
-    const ranksCollectionService = ranksService.computedCollectionService;
+    const ranks = ranksService.createStoreSlot(db);
     return {
         db,
         cardsService,
         cards,
-        ranksCollectionService,
+        ranksService,
         ranks,
         builtCount: (): number => built,
         flushUnusedSlotCollector: (): void => {
             OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         },
-        readValueByKey: (key: string): number => readValueWithoutTracking(ranksCollectionService.getSlotByKey(ranks, key) as TOIMComputedContentSlot<number>),
+        readValueByKey: (key: string): number => readValueWithoutTracking(ranksService.getSlotByKey(ranks, key) as TOIMComputedContentSlot<number>),
     };
 };
 
@@ -47,12 +46,12 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
-        const derived = fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a');
+        const derived = fixture.ranksService.getSlotByKey(fixture.ranks, 'a');
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(arena, derived);
         fixture.db.flush();
         fixture.flushUnusedSlotCollector();
 
-        expect(fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
+        expect(fixture.ranksService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
         expect(fixture.builtCount()).toBe(1);
 
         void fixture.readValueByKey('a');
@@ -67,16 +66,16 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
-        const derived = fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a');
+        const derived = fixture.ranksService.getSlotByKey(fixture.ranks, 'a');
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(arena, derived);
         fixture.db.flush();
         fixture.flushUnusedSlotCollector();
-        expect(fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
+        expect(fixture.ranksService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(arena);
 
         expect(oimIsSlotReleased(derived)).toBe(true);
-        expect(fixture.ranksCollectionService.getSlotCount(fixture.ranks)).toBe(0);
+        expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 
     it('is rebuilt once the arena let it go, which is what proves the arena was the cache', () => {
@@ -85,7 +84,7 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
         fixture.db.flush();
 
         const arena = createOIMUnusedSlotCollectorSlot();
-        OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(arena, fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a'));
+        OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(arena, fixture.ranksService.getSlotByKey(fixture.ranks, 'a'));
         fixture.db.flush();
         fixture.flushUnusedSlotCollector();
         OIMUnusedSlotCollectorService.INSTANCE.flush(arena);
@@ -101,16 +100,16 @@ describe('an arena is a collector of its own, and its lifetime is the caller\'s'
 
         const arena = createOIMUnusedSlotCollectorSlot();
         OIMUnusedSlotCollectorService.INSTANCE.open(arena);
-        const derived = fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a');
+        const derived = fixture.ranksService.getSlotByKey(fixture.ranks, 'a');
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(arena, derived);
         OIMUnusedSlotCollectorService.INSTANCE.run(arena, () => undefined);
 
-        expect(fixture.ranksCollectionService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
+        expect(fixture.ranksService.getSlotByKey(fixture.ranks, 'a')).toBe(derived);
 
         OIMUnusedSlotCollectorService.INSTANCE.close(arena);
 
         fixture.flushUnusedSlotCollector();
         expect(oimIsSlotReleased(derived)).toBe(true);
-        expect(fixture.ranksCollectionService.getSlotCount(fixture.ranks)).toBe(0);
+        expect(fixture.ranksService.getSlotCount(fixture.ranks)).toBe(0);
     });
 });

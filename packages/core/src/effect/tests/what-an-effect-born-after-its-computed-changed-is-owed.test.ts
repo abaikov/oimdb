@@ -14,10 +14,10 @@ const runsOfAnEffectBornAfterTheChange = (writeSomethingElseFirst: boolean): num
     const source = cardsService.writeSlotContentByKey(cards, 's', { id: 's', n: 0 });
     cardsService.writeSlotContentByKey(cards, 'o', { id: 'o', n: 0 });
     const valueOfSourceService = createOIMSingleComputedService<number>();
-    const valueOfSource = valueOfSourceService.createComputedStoreSlot(
+    const valueOfSource = valueOfSourceService.createStoreSlot(
         db, () => source.entity?.n ?? -1, () => ({ sourceSlots: [source] }),
     );
-    const computedSlot = valueOfSourceService.computedSingleSlotService.holdSingleSlot(valueOfSource);
+    const computedSlot = valueOfSourceService.holdSingleSlot(valueOfSource);
     readValueWithoutTracking(computedSlot);
     db.flush();
     cardsService.slotContentService.updateEntity(cardsService.findSlotByKey(cards, 's')!, { n: 1 });

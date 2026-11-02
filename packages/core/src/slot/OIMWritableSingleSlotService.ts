@@ -29,7 +29,7 @@ export class OIMWritableSingleSlotService<
             if (this.slotContentService.writeSlotContent(filed, content) && changedSlots !== undefined) changedSlots.push(filed);
             return filed;
         }
-        const slot = this.slotContentService.createSingleSlot(storeSlot as TOIMStoreSlot, this.slotOwnerService);
+        const slot = this.mintSingleSlot(storeSlot);
         this.slotContentService.insertSlotContent(slot, content, changedSlots);
         return slot;
     }

@@ -18,8 +18,6 @@ export function createOIMIndexStoreSlot<
         indexKeysPosition: -1,
         contentChangeListener,
         requestedKeys: undefined,
-        bucketColumnNames: new Set<string>(),
-        isAnyBucketColumnRead: false,
         isDisposed: false,
     };
 }

@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import type { TOIMEditable } from '../../slot/types/TOIMEditable';
 import type { TOIMEntityInserter } from '../types/TOIMEntityInserter';
 
@@ -21,6 +20,7 @@ import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
 import type { OIMEntitySlot } from '../OIMEntitySlot';
 import { entitySlotOf } from '../../../tests/support/entitySlotOf';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -38,7 +38,7 @@ type TRecord = Record<string, unknown>;
 type TRecordSlot = TOIMEntitySlot<TRecord, string>;
 
 function emptySlot(): TRecordSlot {
-    return createOIMEntitySlot<TRecord, string>('k1', new OIMSlotOwner(), testStoreSlot);
+    return createOIMEntitySlot<TRecord, string>('k1', new TestSlotOwner(), testStoreSlot);
 }
 
 /** A slot already holding a record, filed through the strategy under test. */

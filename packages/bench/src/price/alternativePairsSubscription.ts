@@ -6,8 +6,8 @@ import { OIMEventQueue, createOIMCollectionKit } from '../../../core-legacy/src/
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
-import { OIMSlotOwner } from '../../../core/src/index';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
+import { PriceSlotOwner } from './priceFixture';
 
 const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -27,7 +27,8 @@ const makeSlot = (): TOIMSlot => ({
     slotFlags: OIM_SLOT_FLAG_EMPTY,
     columnSlotStore: undefined,
     storeSlot: priceStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new PriceSlotOwner(),
+    data: undefined,
 });
 
 /**

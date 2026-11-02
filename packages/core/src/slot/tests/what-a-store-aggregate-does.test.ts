@@ -6,6 +6,10 @@ import { createOIMSlotCollectionStoreAggregate } from '../createOIMSlotCollectio
 import { createOIMSingleSlotStoreAggregate } from '../createOIMSingleSlotStoreAggregate';
 import { OIMWritableSlotCollectionStoreAggregate } from '../OIMWritableSlotCollectionStoreAggregate';
 import { OIMWritableSingleSlotStoreAggregate } from '../OIMWritableSingleSlotStoreAggregate';
+import { OIMSlotCollectionStoreAggregate } from '../OIMSlotCollectionStoreAggregate';
+import { OIMWritableSlotCollectionService } from '../OIMWritableSlotCollectionService';
+import { createOIMSortedComputedService } from '../../computed/createOIMSortedComputedService';
+import { createOIMSlotCollectionIndexService } from '../../index/createOIMSlotCollectionIndexService';
 
 type TCard = { id: string; title: string };
 type TSession = { userId: string };
@@ -87,5 +91,22 @@ describe('what a store aggregate does', () => {
         expect(session.holdCount).toBe(1);
         expect(sessionStoreAggregate.slotContentService).toBe(sessionStoreAggregate.slotService.slotContentService);
     });
-});
 
+    it('offers a batch only where it can write: a computed collection has none', () => {
+        const sortedService = createOIMSortedComputedService({
+            indexService: createOIMSlotCollectionIndexService({
+                entityService: createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<{ id: string; rank: number }>() }),
+                columns: ['rank'],
+            }),
+            sortColumns: [{ columnName: 'rank', direction: 'asc' }],
+        });
+        const sortedServiceObject: object = sortedService;
+        const readOnlyAggregatePrototype: object = OIMSlotCollectionStoreAggregate.prototype;
+        for (const batchDoor of ['openBatch', 'closeBatch', 'writeInBatch']) {
+            expect(batchDoor in sortedServiceObject).toBe(false);
+            expect(batchDoor in readOnlyAggregatePrototype).toBe(false);
+            expect(batchDoor in OIMWritableSlotCollectionStoreAggregate.prototype).toBe(true);
+            expect(batchDoor in OIMWritableSlotCollectionService.prototype).toBe(true);
+        }
+    });
+});

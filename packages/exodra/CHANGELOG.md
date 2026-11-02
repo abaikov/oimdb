@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.2
+
+### Changed
+
+- Requires `@oimdb/core` 4.8.0; the README reads a computed through the service itself.
+
 ## 1.1.1
 
 ### Changed

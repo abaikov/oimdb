@@ -1,16 +1,14 @@
 import { OIMSlotOwner } from './OIMSlotOwner';
 import type { IOIMSlotStamp } from './interfaces/IOIMSlotStamp';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
-import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotContentService } from './interfaces/IOIMSlotContentService';
 import type { IOIMSlotFilingService } from '../store/interfaces/IOIMSlotFilingService';
-import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import { OIMChannelService } from '../channel/OIMChannelService';
-import { OIMNoSlotSubscriptionListener } from './OIMNoSlotSubscriptionListener';
 import { OIMSlotContentChangeDeliveryService } from './OIMSlotContentChangeDeliveryService';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import type { OIMColumnSlotOwner } from '../column/OIMColumnSlotOwner';
 import type { TOIMSlot } from './types/TOIMSlot';
+import type { IOIMSlotOwner } from './interfaces/IOIMSlotOwner';
 import type { TOIMEditable } from './types/TOIMEditable';
 import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
@@ -20,11 +18,14 @@ import { OIMSlotAtEmptyReleasePolicy } from '../collector/OIMSlotAtEmptyReleaseP
 import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
 import { oimGetChannelSlot } from './utils/oimGetChannelSlot';
 import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
+import { oimIsSlotReleased } from './utils/oimIsSlotReleased';
+import type { OIMCollectionSetBucketContentService } from '../bucket/OIMCollectionSetBucketContentService';
 import { oimMarkSlotReleased } from './utils/oimMarkSlotReleased';
 import { OIM_SLOT_FLAG_QUEUED_IN_BATCH } from './constants/OIM_SLOT_FLAG_QUEUED_IN_BATCH';
 import { OIM_SLOT_FLAG_EMPTY } from './constants/OIM_SLOT_FLAG_EMPTY';
 import { OIM_SLOT_FLAG_RELEASED } from './constants/OIM_SLOT_FLAG_RELEASED';
 
+type TOIMCollectionBucketSlotOwner<TSlot extends TOIMSlot> = { readonly slotContentService: OIMCollectionSetBucketContentService<TSlot> };
 
 export class OIMSlotOwnerService<
     TSlot extends TOIMSlot, TStore, TColumnName extends string, TColumnSlot extends TOIMKeyedSlot<string>,
@@ -44,8 +45,6 @@ export class OIMSlotOwnerService<
 
     public readonly settlesWrittenSlots: boolean;
 
-    private readonly slotSubscriptionListener: IOIMSlotSubscriptionListener;
-
     public readonly columnSlotOwner: TColumnSlotOwner;
 
     public readonly columnSlotService: OIMColumnSlotService<TSlot, TColumnName, TColumnSlot, TColumnSlotOwner>;
@@ -53,7 +52,7 @@ export class OIMSlotOwnerService<
     public constructor(
         options: TOIMSlotOwnerServiceOptions<TSlot, TStore, TColumnName, TColumnSlot, TColumnSlotOwner>,
     ) {
-        super();
+        super(options.slotSubscriptionListener);
         this.slotContentService = options.slotContentService;
         this.slotFilingService = options.slotFilingService;
         this.slotStamp = options.slotStamp;
@@ -62,8 +61,7 @@ export class OIMSlotOwnerService<
         this.releasesWrittenSlots = slotReleasePolicy.releasesWrittenSlots;
         this.schedulesReleaseOnWrite = slotReleasePolicy.schedulesReleaseOnWrite;
         this.settlesWrittenSlots = this.releasesWrittenSlots || this.schedulesReleaseOnWrite || options.slotStamp !== undefined;
-        this.slotSubscriptionListener = options.slotSubscriptionListener ?? OIMNoSlotSubscriptionListener.INSTANCE;
-        this.columnSlotOwner = options.createColumnSlotOwner(options.columnSlotOwnerOptions);
+        this.columnSlotOwner = options.createColumnSlotOwner(options.columnSlotOwnerOptions, options.slotSubscriptionListener);
         this.columnSlotService = new OIMColumnSlotService<TSlot, TColumnName, TColumnSlot, TColumnSlotOwner>(this.columnSlotOwner);
     }
 
@@ -92,13 +90,7 @@ export class OIMSlotOwnerService<
         for (let i = 0; i < listeners.length; i++) listeners[i].onContentChanged(slot, patch, changedColumns);
     }
 
-    public isAnyColumnReferenced(slot: TOIMSlot, changedColumns: readonly string[]): boolean {
-        const storeSlot = slot.storeSlot;
-        return (slot.columnSlotStore !== undefined && this.columnSlotOwner.isAnyColumnReferenced(storeSlot, changedColumns))
-            || this.isAnyColumnRead(storeSlot, changedColumns);
-    }
-
-    private isAnyColumnRead(storeSlot: TOIMStoreSlot, changedColumns: readonly string[]): boolean {
+    public isAnyColumnRead(storeSlot: TOIMStoreSlot, changedColumns: readonly string[]): boolean {
         if (storeSlot.allColumnsListenerCount !== 0) return true;
         const columnListenerCountsByColumnName = storeSlot.columnListenerCountsByColumnName;
         if (columnListenerCountsByColumnName === undefined || columnListenerCountsByColumnName.size === 0) return false;
@@ -108,20 +100,8 @@ export class OIMSlotOwnerService<
         return false;
     }
 
-    public takeChangedColumnNames(channelSlot: TOIMChannelSlot): string[] {
-        const changedColumnNames = channelSlot.changedColumnNames;
-        if (changedColumnNames === undefined) return (channelSlot.changedColumnNames = []);
-        if (changedColumnNames.length !== 0) changedColumnNames.length = 0;
-        return changedColumnNames;
-    }
-
-    public releaseSlotIfUnheldAfterListeners(slot: TSlot): void {
-        if ((slot.slotFlags & OIM_SLOT_FLAG_QUEUED_IN_BATCH) !== 0) return;
-        this.releaseSlotIfUnheld(slot);
-    }
-
     public releaseWrittenSlotIfUnheld(slot: TSlot): void {
-        if (this.releasesWrittenSlots) this.releaseSlotIfUnheldAfterListeners(slot);
+        if (this.releasesWrittenSlots) this.releaseSlotIfUnheld(slot);
     }
 
     public assertWritable(slot: TOIMSlot): void {
@@ -130,13 +110,19 @@ export class OIMSlotOwnerService<
     }
 
     public fileSlot(slot: TSlot): void {
-        this.slotFilingService.fileSlot((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
+        this.slotFilingService.set((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
     }
 
-    public writeSlotToChannelAndSettle(slot: TSlot, wasEmpty: boolean): void {
+    public markSlotContentChanged(slot: TSlot, isEmpty: boolean): void {
+        const wasEmpty = oimIsSlotEmpty(slot);
+        this.markEmptiness(slot, isEmpty);
+        if (oimIsSlotReleased(slot)) return;
         OIMChannelService.INSTANCE.writeWithoutFlushCheck(oimGetChannelSlot(slot), slot);
         this.settleWrite(slot, wasEmpty);
+        this.dispatchContentChange(slot);
+        this.releaseSlotIfUnheld(slot);
     }
+
 
     public settleEmptiness(slot: TSlot, isEmpty: boolean): void {
         const wasEmpty = (slot.slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0;
@@ -147,6 +133,12 @@ export class OIMSlotOwnerService<
     public markEmptiness(slot: TSlot, isEmpty: boolean): void {
         const slotFlags = slot.slotFlags;
         (slot as TOIMEditable<TSlot>).slotFlags = isEmpty ? slotFlags | OIM_SLOT_FLAG_EMPTY : slotFlags & ~OIM_SLOT_FLAG_EMPTY;
+        if (((slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0) === isEmpty) return;
+        const collectionBucketSlot = (slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).collectionBucketSlot;
+        if (collectionBucketSlot === undefined || oimIsSlotReleased(collectionBucketSlot)) return;
+        const collectionSetBucketContentService = (collectionBucketSlot.owner as IOIMSlotOwner & TOIMCollectionBucketSlotOwner<TSlot>).slotContentService;
+        if (isEmpty) collectionSetBucketContentService.onCollectionSlotEmptied(collectionBucketSlot, slot);
+        else collectionSetBucketContentService.onCollectionSlotFilled(collectionBucketSlot, slot);
     }
 
     private settleWrite(slot: TSlot, wasEmpty: boolean): void {
@@ -162,27 +154,20 @@ export class OIMSlotOwnerService<
         }
     }
 
-    protected override onSlotIdle(slot: TSlot): void {
-        if (oimIsSlotEmpty(slot)) return;
-        this.slotReleasePolicy.onSlotIdle(slot);
-    }
-
-    public override onSlotFirstSubscribed(slot: TOIMSlot): void {
-        this.slotSubscriptionListener.onSlotFirstSubscribed(slot);
-    }
-
-    public override onSlotLastUnsubscribed(slot: TOIMSlot): void {
-        this.slotSubscriptionListener.onSlotLastUnsubscribed(slot);
+    protected override onSlotLastUnsubscribed(slot: TOIMSlot): void {
+        if (!oimIsSlotEmpty(slot)) this.slotReleasePolicy.onSlotIdle(slot);
+        super.onSlotLastUnsubscribed(slot);
     }
 
     protected override onSlotUnheld(slot: TSlot): void {
         this.slotReleasePolicy.onSlotUnheld(slot);
+        super.onSlotUnheld(slot);
     }
 
     public override releaseSlotIfUnheld(slot: TOIMSlot): void {
         const ownSlot = slot as TSlot;
         const slotFlags = ownSlot.slotFlags;
-        if ((slotFlags & OIM_SLOT_FLAG_RELEASED) !== 0) return;
+        if ((slotFlags & (OIM_SLOT_FLAG_RELEASED | OIM_SLOT_FLAG_QUEUED_IN_BATCH)) !== 0) return;
         const isEmpty = (slotFlags & OIM_SLOT_FLAG_EMPTY) !== 0;
         if (!isEmpty && !this.releasesWrittenSlots) return;
         if (!this.isReleasable(ownSlot)) return;
@@ -195,15 +180,14 @@ export class OIMSlotOwnerService<
     private isReleasable(slot: TSlot): boolean {
         if (slot.holdCount > 0) return false;
         if (slot.owner !== this) return false;
-        if (slot.columnSlotStore !== undefined) return false;
-        return !this.slotContentService.hasReference(slot);
+        return slot.columnSlotStore === undefined;
     }
 
     private releaseSlot(slot: TSlot): void {
         this.slotContentService.releaseSlotContent(slot);
-        (slot as TOIMEditable<TSlot>).slotFlags |= OIM_SLOT_FLAG_EMPTY;
         this.slotReleasePolicy.cancelSlotRelease(slot);
-        this.slotFilingService.unfileSlot((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
+        this.slotFilingService.delete((slot.storeSlot as TOIMStoreSlot<TStore, TSlot>).store, slot);
         oimMarkSlotReleased(slot);
+        this.markEmptiness(slot, true);
     }
 }

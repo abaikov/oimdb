@@ -2,6 +2,7 @@ import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../OIMEffectService';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
 import { OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS } from '../../slot/constants/OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS';
 
 type TCard = { id: string; rank: number; label: string; note: string };
@@ -13,7 +14,7 @@ const createFixture = () => {
     const cards = cardService.createStoreSlot(db);
     const cardSlots = Array.from({ length: 8 }, (_, i) =>
         cardService.writeSlotContentByKey(cards, `r${i}`, { id: `r${i}`, rank: i, label: `l${i}`, note: '' }));
-    const rendered = cardService.columnSlotService.getColumnGroup(['rank', 'label']);
+    const rendered = createOIMColumnGroup<keyof TCard>(['rank', 'label']);
     db.flush();
     const content = cardService.slotContentService;
     const write = (run: () => void): void => {
@@ -133,9 +134,9 @@ describe('what a tracking effect hears of the columns it named', () => {
     });
 
     it('treats one card read through two column groups as two sources', () => {
-        const { db, cardService, cardSlots, rendered, content, write } = createFixture();
+        const { db, cardSlots, rendered, content, write } = createFixture();
         const card = cardSlots[4];
-        const noteOnly = cardService.columnSlotService.getColumnGroup(['note']);
+        const noteOnly = createOIMColumnGroup<keyof TCard>(['note']);
         let runs = 0;
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             void card.readEntity(rendered);

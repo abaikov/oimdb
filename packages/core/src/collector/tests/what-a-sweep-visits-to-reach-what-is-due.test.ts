@@ -12,7 +12,7 @@ import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -30,7 +30,8 @@ const slotDueAt = (dueMs: number): TOIMEditable<TOIMSlot> => ({
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
     storeSlot: testStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new TestSlotOwner(),
+    data: undefined,
 });
 
 const ownerThatOnRelease = (released: () => void): IOIMSlotOwner => ({
@@ -40,8 +41,6 @@ const ownerThatOnRelease = (released: () => void): IOIMSlotOwner => ({
     unsafeMutateSlot: () => undefined,
     subscribeToSlot: () => 0,
     unsubscribeFromSlot: () => false,
-    onSlotFirstSubscribed: () => undefined,
-    onSlotLastUnsubscribed: () => undefined,
 });
 
 const takenOffTheClock = (slot: TOIMEditable<TOIMSlot>): void => {
@@ -172,6 +171,6 @@ describe('what a sweep visits to reach what is due', () => {
 
         expect(oimIsSlotReleased(condemned)).toBe(true);
         expect(oimIsSlotReleased(refiled)).toBe(false);
-        expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(1);
+        expect(fixture.slotReleaseWheel.getNextSliceNumber()).toBe(0);
     });
 });

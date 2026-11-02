@@ -1,3 +1,4 @@
+import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
 import type { IOIMSlotContentWriter } from './interfaces/IOIMSlotContentWriter';
@@ -31,6 +32,7 @@ export function createOIMSlotCollectionService<
         slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
         columnSlotStoreService?: IOIMSlotStoreService<string, TOIMColumnSlot> | undefined;
         columnNames?: readonly TColumnName[] | undefined;
+        columnGroups?: readonly TOIMColumnGroup<TColumnName>[] | undefined;
     } & (TOIMSlotContentServiceKey<TSlotContentService> extends readonly unknown[] ? {
         slotStoreService: IOIMSlotStoreService<
             TOIMSlotContentServiceKey<TSlotContentService>, TOIMSlotContentServiceSlot<TSlotContentService>, TStore

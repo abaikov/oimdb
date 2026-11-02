@@ -23,7 +23,7 @@ const createFixture = () => {
     cardsService.writeInBatch(cards, () => (cardsToInsert).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)));
     cardsService.writeSlotContentByKey(cards, 'away', { id: 'away', deck: 'other', rank: 0 });
     db.flush();
-    const sortedSlot = sortedService.computedCollectionService.holdSlotByKey(sorted, 'd');
+    const sortedSlot = sortedService.holdSlotByKey(sorted, 'd');
     const order = (): string[] => readValueWithoutTracking(sortedSlot).map(entitySlot => String(entitySlot.key));
     order();
     const hasBucketMemberSlot = jest.spyOn(byDeckService.slotContentService, 'hasBucketMemberSlot');

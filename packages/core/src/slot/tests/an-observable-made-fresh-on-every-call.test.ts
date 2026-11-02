@@ -33,7 +33,7 @@ const createFixture =() => {
         derive: (computedSlot) => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.title ?? '').length,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const titleLengths = titleLengthsService.createComputedStoreSlot(db);
+    const titleLengths = titleLengthsService.createStoreSlot(db);
 
     cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deckId: 'spades', title: 'ace' });
     db.flush();
@@ -82,14 +82,14 @@ describe('a graph node is built fresh per call, and could not be otherwise', () 
         const derive = (): number => { runs++; return 1; };
         const createDerivation = () => {
             const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-            const derivation = derivationService.createComputedStoreSlot(db, derive, () => ({ sourceSlots: [slot] }));
+            const derivation = derivationService.createStoreSlot(db, derive, () => ({ sourceSlots: [slot] }));
             return { derivationService, derivation };
         };
         const first = createDerivation();
         const second = createDerivation();
 
-        expect(first.derivationService.computedSingleSlotService.getSingleSlot(first.derivation))
-            .not.toBe(second.derivationService.computedSingleSlotService.getSingleSlot(second.derivation));
+        expect(first.derivationService.getSingleSlot(first.derivation))
+            .not.toBe(second.derivationService.getSingleSlot(second.derivation));
         expect(runs).toBe(0);
     });
 });

@@ -3,13 +3,17 @@ import type { TOIMBucketSlotsSetStore, TOIMEntityColumnName, TOIMEntitySlot, TOI
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 
+import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
+
 type TRow = { id: string; group: string; rank: number; label: string; note: string };
-type TRowSlot = TOIMEntitySlot<TRow>;
+type TRowSlot = TOIMEntitySlot<TRow, TOIMStoreKey>;
+
+const rankAndLabel = createOIMColumnGroup<TOIMEntityColumnName<TRow>>(['rank', 'label']);
 
 const createFixture = () => {
     const db = new OIMDB();
     const effectService = OIMEffectService.INSTANCE;
-    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>() });
+    const rowsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TRow>(), columnGroups: [rankAndLabel] });
     const rows = rowsService.createStoreSlot(db);
     for (let i = 0; i < 10; i++) rowsService.writeSlotContentByKey(rows, `e${i}`, { id: `e${i}`, group: `g${i % 3}`, rank: i, label: `l${i}`, note: '' });
     const byGroupService = createOIMSlotCollectionIndexService<
@@ -26,10 +30,10 @@ const createFixture = () => {
         sortColumns: [{ columnName: 'rank', direction: 'asc' }, { columnName: 'id', direction: 'asc' }],
     });
     const orders = ordersService.createSortedStoreSlot(byGroup);
-    const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'g1');
+    const order = ordersService.holdSlotByKey(orders, 'g1');
     effectService.createEffect(db, () => undefined, [], [order]);
     const slot = rowsService.getSlotByKey(rows, 'e4');
-    const groupSlot = rowsService.columnSlotService.holdColumnGroup(slot, rowsService.columnSlotService.getColumnGroup(['rank', 'label'] as TOIMEntityColumnName<TRow>[]));
+    const groupSlot = rowsService.columnSlotService.holdColumnGroup(slot, rankAndLabel);
     effectService.createEffect(db, () => undefined, [groupSlot]);
     db.flush();
     const listenerCalls: string[] = [];

@@ -80,7 +80,7 @@ key. The store service decides which: a single is built over
 |---|---|---|
 | entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `findSingleSlot` | `createOIMSlotCollectionService({ keyOf })`: `getSlotByKey`, `holdSlotByKey`, `findSlotByKey` |
 | bucket | `createOIMSingleSlotService()` | `createOIMSlotCollectionService()`, or an index |
-| computed | `createOIMComputedService({ computedSlotStoreService: OIMSingleSlotStoreService.INSTANCE, … })`, read by the key `undefined` | `createOIMComputedService({ … })` |
+| computed | `createOIMSingleComputedService({ … })`, read through the service itself (`getSingleSlot`, `holdSingleSlot`) | `createOIMComputedService({ … })` |
 
 `createStoreSlot` mints nothing. A single's slot is minted on the first
 `getSingleSlot(storeSlot)` or `holdSingleSlot(storeSlot)`, exactly as a
@@ -104,10 +104,10 @@ A collection type is two stateless objects:
 - the **content service** — what one slot holds and how it is written:
   `OIMEntityContentService` (built by `createOIMEntityContentService()`),
   `OIMPositionalArrayBucketContentService` / `OIMSetBucketContentService` / `OIMSortedArrayBucketContentService`, or a computed's
-  `OIMComputedValueService`. It is the strategy, and it owns the slot owner (`slotOwner`) that holds,
-  subscribes and releases the slots of every store slot of that type;
+  `OIMComputedValueService`. It is the strategy, and it owns no slot owner;
 - the **collection service** over it — `OIMSlotCollectionService` (or `OIMSingleSlotService` for a
-  single), the read doors by key and the column doors. Its `slotContentService` is the content service.
+  single), the read doors by key and the column doors. It builds the slot owner, an `OIMSlotOwnerService`, that
+  holds, subscribes and releases the slots of every store slot of that type. Its `slotContentService` is the content service.
 
 A store slot (`TOIMStoreSlot`) is one collection, the state the two services work on. It is not a slot:
 it has no owner, no hold count and no effects, so it is never held or subscribed.
@@ -124,7 +124,7 @@ const cards = cardService.createStoreSlot(db);
 const byDeckService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const byDeck = byDeckService.createStoreSlot(db);
 const rankService = createOIMComputedService<TOIMStoreKey, number>({});
-const ranks = rankService.createComputedStoreSlot(
+const ranks = rankService.createStoreSlot(
     db,
     (computedSlot) => cardService.findSlotByKey(cards, computedSlot.key)?.entity?.title.length ?? 0,
     ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
@@ -140,7 +140,7 @@ declare const body: () => void;
 ```typescript
 cardService.getSlotByKey(cards, pk)                             // an entity collection
 byDeckService.holdSlotByKey(byDeck, key)                        // a bucket collection
-rankService.computedCollectionService.getSlotByKey(ranks, key)  // a computed collection
+rankService.getSlotByKey(ranks, key)  // a computed collection
 ```
 
 What a content service adds is its own vocabulary for its own content: `writeSlotContentByKey`, `updateEntity`
@@ -152,7 +152,7 @@ and `getBucketMemberSlots` on a bucket content service; `getValueForSlot` on a c
 `OIMDB` is what every `create…` factory that builds a collection type takes, and what every
 `createStoreSlot(db)` takes. The computed factories (`createOIMComputedService`,
 `createOIMSortedComputedService`, `createOIMBucketMemoComputedService`) take no db: a computed store
-slot gets its channel slot from `createComputedStoreSlot(db, …)` or from the store slot it reads.
+slot gets its channel slot from `createStoreSlot(db, …)` or from the store slot it reads.
 The root holds what every collection in one program must share, and the defaults you want to state once:
 
 | Property | What it is |
@@ -160,11 +160,14 @@ The root holds what every collection in one program must share, and the defaults
 | `defaultChannelSlot` | the `TOIMChannelSlot` every store slot made with `createStoreSlot(db)` delivers through |
 | `clock` | the revision and epoch every write is stamped with |
 | `collectorSlot` | the collector slots: the unused-slot collector that holds what getters mint, and the three release collectors |
+| `schemas` | what the `createSchemas` option returned, called once at the end of the constructor; `undefined` without it (see [A database with schemas](../getting-started/oimdb.md)) |
 
 Its constructor takes the channel's options (`channelScheduler`, `errorPolicy`,
-`onBeforeFlush`) and the clock and timer (`getNowMs`, `releaseTimer`) in one object. The strategies a
+`onBeforeFlush`), the clock and timer (`getNowMs`, `releaseTimer`) and `createSchemas` in one object. The strategies a
 factory falls back on are not the root's: they are an `OIMDefaults` passed as `defaults`.
-`db.flush()` flushes its default channel slot.
+`db.flush()` flushes its default channel slot, and `db.createEffect(body, sourceSlots?, { lazy? })` creates an
+effect on it and returns the disposer. `db.dispose()` drops the database: no later flush delivers, its effects stop and its release wheels are
+cancelled.
 
 ```typescript
 const appDb = new OIMDB({
@@ -283,7 +286,7 @@ makes "nothing refers to it" checkable in one place.
 
 `releaseSlotIfUnheld(slot)` is public on `IOIMSlotOwner`, because the release
 queue reaches it through `slot.owner`. It is not a release command: it is
-a guard that returns having done nothing unless the slot is unheld, unreferenced,
+a guard that returns having done nothing unless the slot is unheld, carries no column slots,
 still owned by the object asked and allowed to go by the release
 policy. It returns silently on a slot something else already released,
 where every door that tries to work with a released slot throws.
@@ -334,7 +337,7 @@ Ending the whole channel is a different level and has its own call. Every
 term above is per identity, which suits one subscription ending but not
 everything ending: walking every bucket and every slot to unfile each one is
 bookkeeping for a future that never arrives, because the moment you drop the
-channel all of it is garbage together. `OIMChannelService.INSTANCE.dropChannelSlot(channelSlot)` ends
+channel all of it is garbage together. `db.dispose()` ends
 it without walking your graph, on your word that nothing is subscribed to
 anything on that channel slot — the engine does not check that, because checking
 means asking every slot for its `effects` list, which is the walk the call exists

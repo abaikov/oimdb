@@ -1,6 +1,6 @@
 {
   "name": "@oimdb/react",
-  "version": "3.3.2",
+  "version": "3.4.0",
   "description": "React bindings for @oimdb/core: hooks that subscribe through OIMChannel and read the slots it wakes.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -30,7 +30,7 @@
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
-    "@oimdb/core": "^4.4.0"
+    "@oimdb/core": "^4.8.0"
   },
   "license": "MIT",
   "author": "Andrei Baikov",

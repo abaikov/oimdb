@@ -51,7 +51,7 @@ describe('what a source-tracking value hook renders', () => {
     it('reads a computed through its value and re-renders when the computed changes', () => {
         const { db, ace } = build();
         const rankService = createOIMSingleComputedService<number>({ createSources: () => ({ sourceSlots: [ace] }), derive: () => ace.entity?.rank ?? 0, initialValue: 0 });
-        const rank = rankService.computedSingleSlotService.holdSingleSlot(rankService.createComputedStoreSlot(db));
+        const rank = rankService.holdSingleSlot(rankService.createStoreSlot(db));
         function Rank() { return <span data-testid="rank">{useOIMSourceTrackingValue(() => rank.value * 10, [])}</span>; }
         render(<OIMDBProvider db={db}><Rank /></OIMDBProvider>);
         expect(screen.getByTestId('rank').textContent).toBe('10');

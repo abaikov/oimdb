@@ -42,14 +42,14 @@ const mapDeleteBySlotKey: TRemoveRung = (fixture, _rows, times) => {
 const storeServiceRemove: TRemoveRung = (fixture, _rows, times) => {
     const slots = fixture.slots;
     const handStore = fixture.handStore;
-    for (let i = 0; i < times; i++) slotStoreService.remove(handStore, slots[i].key);
+    for (let i = 0; i < times; i++) slotStoreService.delete(handStore, slots[i]);
 };
 
 const clearAndUnfile = (fixture: TRemoveFixture, slot: TRemoveSlot): void => {
     shippedWriter.clearEntity(slot as unknown as OIMEntitySlot);
     const editableSlot = slot as TOIMEditable<TRemoveSlot>;
     editableSlot.slotFlags |= OIM_SLOT_FLAG_EMPTY;
-    slotStoreService.remove(fixture.handStore, slot.key);
+    slotStoreService.delete(fixture.handStore, slot);
     editableSlot.slotFlags |= OIM_SLOT_FLAG_RELEASED;
 };
 
@@ -156,11 +156,11 @@ export const alternativePairsRemoveLadder: readonly TPricePair[] = [
     removePair('1-slot-key', mapDeleteBySlotKey, 'handStore.delete(slot.key) on a Map of slots',
         mapDeleteById, 'map.delete(row.id) on a Map of row copies',
         'reaching the key through the slot instead of the row; the key strings are the same objects.'),
-    removePair('2-store-service', storeServiceRemove, 'slotStoreService.remove(store, slot.key)',
+    removePair('2-store-service', storeServiceRemove, 'slotStoreService.delete(store, slot)',
         mapDeleteBySlotKey, 'handStore.delete(slot.key)',
         'the call through the shipped Map-driven slot store service.'),
     removePair('3-writer-clear', writerClear, 'writer.clearEntity(slot), isEmpty = true, slotStoreService.remove, isReleased = true',
-        storeServiceRemove, 'slotStoreService.remove(store, slot.key)',
+        storeServiceRemove, 'slotStoreService.delete(store, slot)',
         'clearing the value through the shipped in-place writer and marking the slot empty and released.'),
     removePair('4-channel', writerClearAndChannel, 'OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, slot), then the clear and unfile',
         writerClear, 'the clear and unfile',

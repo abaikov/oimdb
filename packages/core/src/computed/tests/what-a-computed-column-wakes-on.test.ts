@@ -4,12 +4,15 @@ import { createOIMComputedService } from '../createOIMComputedService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
+import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
 import { createOIMSingleComputedService } from '../createOIMSingleComputedService';
 import type { TOIMComputedContentSlot } from '../types/TOIMComputedContentSlot';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 
 type TCard = { id: string; deck: string; rank: number; title: string };
 type TSummary = { topRank: number; titles: string };
+
+const summaryColumns = createOIMColumnGroup<keyof TSummary>(['topRank', 'titles']);
 
 function setUp() {
     const db = new OIMDB();
@@ -18,8 +21,8 @@ function setUp() {
     const cards = cardsService.createStoreSlot(db);
     const ace = cardsService.writeSlotContentByKey(cards, 'ace', { id: 'ace', deck: 'spades', rank: 1, title: 'Ace' });
     const two = cardsService.writeSlotContentByKey(cards, 'two', { id: 'two', deck: 'spades', rank: 2, title: 'Two' });
-    const summaryComputedService = createOIMSingleComputedService<TSummary>();
-    const summary = summaryComputedService.createComputedStoreSlot(
+    const summaryComputedService = createOIMSingleComputedService<TSummary>({ columnGroups: [summaryColumns] });
+    const summary = summaryComputedService.createStoreSlot(
         db,
         () => ({
             topRank: Math.max(ace.entity?.rank ?? 0, two.entity?.rank ?? 0),
@@ -32,7 +35,7 @@ function setUp() {
         const cardSlot = cardsService.findSlotByKey(cards, id);
         if (cardSlot !== undefined) cardsService.slotContentService.updateEntity(cardSlot, patch);
     };
-    return { db, effectService, cardsService, cards, summaryService: summaryComputedService.computedSingleSlotService, summary, updateCard };
+    return { db, effectService, cardsService, cards, summaryService: summaryComputedService, summary, updateCard };
 }
 
 describe('a column of a computed value', () => {
@@ -61,9 +64,15 @@ describe('a column of a computed value', () => {
         expect(topRank.value).toBe(2);
     });
 
+    it('hands a new column group slot its value at once', () => {
+        const { summaryService, summary } = setUp();
+        const group = summaryService.columnSlotService.holdColumnGroup(summaryService.getSingleSlot(summary), summaryColumns);
+        expect(group.value).toBeDefined();
+    });
+
     it('wakes a column group once when any of its fields changes, and not for the others', () => {
         const { db, effectService, updateCard, summaryService, summary } = setUp();
-        const group = summaryService.columnSlotService.holdColumnGroup(summaryService.getSingleSlot(summary), summaryService.columnSlotService.getColumnGroup(['topRank', 'titles']));
+        const group = summaryService.columnSlotService.holdColumnGroup(summaryService.getSingleSlot(summary), summaryColumns);
         let runs = 0;
         effectService.createAndRunEffect(db, () => { runs++; }, [], [group]);
 
@@ -119,9 +128,8 @@ describe('a column of a computed value', () => {
             createSources: ({ key: deck }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, deck === 'spades' ? 'ace' : 'two')] }),
             derive: computedSlot => ({ size: (cardsService.getSlotByKey(cards, computedSlot.key === 'spades' ? 'ace' : 'two').entity?.rank ?? 0) * 10 }),
         });
-        const ranksByDeckService = ranksByDeckComputedService.computedCollectionService;
-        const ranksByDeck = ranksByDeckComputedService.createComputedStoreSlot(db);
-        const spadesSize = ranksByDeckService.columnSlotService.holdColumn(ranksByDeckService.holdSlotByKey(ranksByDeck, 'spades'), 'size');
+        const ranksByDeck = ranksByDeckComputedService.createStoreSlot(db);
+        const spadesSize = ranksByDeckComputedService.columnSlotService.holdColumn(ranksByDeckComputedService.holdSlotByKey(ranksByDeck, 'spades'), 'size');
         const seen: number[] = [];
         effectService.createAndRunEffect(db, () => { seen.push(spadesSize.value as number); }, [], [spadesSize]);
 

@@ -20,49 +20,61 @@ npm install @oimdb/core @oimdb/react
 ## Example
 
 ```tsx file=todos.tsx
-import * as oimdb from '@oimdb/core/oimdb';
-import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
+import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oimdb.entities<TTodo>();
+const createTodoSchema = (db: OIMDB) => ({ todos: createOIMEntitySlotCollectionStoreAggregate<TTodo>(db) });
+const createAppDB = () => new OIMDB({ createSchemas: (db) => ({ default: createTodoSchema(db) }) });
+const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
 
-todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
+const db = createAppDB();
+
+db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
 
 function Todo({ id }: { id: string }) {
-    const todo = useOIMSourceTrackingValue(() => todos.getEntityByKey(id), [todos, id]);
+    const db = useAppDB();
+    const { todos } = db.schemas.default;
+    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
     if (todo === undefined) return null;
-    return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+    const toggle = () => {
+        todos.getSlotByKey(id).updateEntity({ done: !todo.done });
+        db.flush();
+    };
+    return <li onClick={toggle}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
-flush on a microtask, so nothing calls `db.flush()` by hand.
+Clicking a todo re-renders that one `Todo` and nothing else, at the `db.flush()` the handler calls: a
+database delivers only when it is flushed, every write since the last flush at once.
 
-`@oimdb/core/oimdb` is the short API: collections, single entities, indexes, sorted indexes, computed values and
-effects over one default database ([The short API](https://oimdb.org/docs/getting-started/oimdb)). Release policies
-and persistence are on the full API under it: see the [Quick Start](https://oimdb.org/docs/getting-started/quick-start).
+The database is built once with its schemas: collections, single entities, indexes, computed values, each a store
+aggregate ([A database with schemas](https://oimdb.org/docs/getting-started/oimdb)). Release policies
+and persistence are on the services under them: see the [Quick Start](https://oimdb.org/docs/getting-started/quick-start).
 
 ### Without React
 
 ```typescript
-import * as oimdb from '@oimdb/core/oimdb';
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
 
 type TUser = { id: string; name: string };
 
-const users = oimdb.entities<TUser>();
-users.upsertEntityByKey('u1', { id: 'u1', name: 'Ann' });
+const db = new OIMDB({ createSchemas: (db) => ({ users: createOIMEntitySlotCollectionStoreAggregate<TUser>(db) }) });
+const { users } = db.schemas;
+users.writeSlotContentByKey('u1', { id: 'u1', name: 'Ann' });
 
-const stop = oimdb.effect(() => {
-    console.log('Ann is', users.getEntityByKey('u1')?.name);
+const stop = db.createEffect(() => {
+    console.log('Ann is', users.getSlotByKey('u1').entity?.name);
 });
 // → Ann is Ann
 
-users.updateEntityByKey('u1', { name: 'Ann B.' });
-// → Ann is Ann B., on the next microtask
+users.getSlotByKey('u1').updateEntity({ name: 'Ann B.' });
+db.flush();
+// → Ann is Ann B.
 
 stop();
 ```

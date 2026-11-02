@@ -241,27 +241,26 @@ describe('a column that is not equal to itself', () => {
 
         let runs = 0;
         const scoreService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-        const scoreCollectionService = scoreService.computedSingleSlotService;
-        const score = scoreService.createComputedStoreSlot(
+        const score = scoreService.createStoreSlot(
             db,
             () => { runs++; return Number(slot.entity?.label); },
             () => ({ sourceSlots: [slot], sourceComputeds: [] }),
         );
         const scoreValue = (): number => {
-            const scoreSlot = scoreCollectionService.getSingleSlot(score);
+            const scoreSlot = scoreService.getSingleSlot(score);
             return readValueWithoutTracking(scoreSlot);
         };
         const belowRuns: number[] = [];
         const belowService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-        const below = belowService.createComputedStoreSlot(
+        const below = belowService.createStoreSlot(
             db,
             () => { belowRuns.push(scoreValue()); return 0; },
-            () => ({ sourceSlots: [], sourceComputeds: [scoreCollectionService.getSingleSlot(score)] }),
+            () => ({ sourceSlots: [], sourceComputeds: [scoreService.getSingleSlot(score)] }),
         );
 
         let runCount = 0;
-        const reader = effectService.createEffect(db, () => { runCount++; }, [], [scoreCollectionService.getSingleSlot(score)]);
-        const readerBelow = effectService.createEffect(db, () => { /* keeps the lower level asked */ }, [], [belowService.computedSingleSlotService.getSingleSlot(below)]);
+        const reader = effectService.createEffect(db, () => { runCount++; }, [], [scoreService.getSingleSlot(score)]);
+        const readerBelow = effectService.createEffect(db, () => { /* keeps the lower level asked */ }, [], [belowService.getSingleSlot(below)]);
         readingsService.writeSlotContentByKey(readings, 'r1', { id: 'r1', score: 1, label: 'x' });
         db.flush();
         expect(Number.isNaN(scoreValue())).toBe(true);

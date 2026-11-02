@@ -102,10 +102,10 @@ describe('what a browser slot hears', () => {
         const online = onlineService.createStoreSlot(db);
         const onlineSlot = onlineService.holdSingleSlot(online);
         const isOfflineService = createOIMSingleComputedService<boolean>();
-        const isOffline = isOfflineService.createComputedStoreSlot(
+        const isOffline = isOfflineService.createStoreSlot(
             db, () => onlineSlot.entity?.isOnline === false, () => ({ sourceSlots: [onlineSlot] }),
         );
-        const isOfflineSlot = isOfflineService.computedSingleSlotService.getSingleSlot(isOffline);
+        const isOfflineSlot = isOfflineService.getSingleSlot(isOffline);
         const seen: boolean[] = [];
         const effect = effectService.createEffect(db, () => {
             seen.push(isOfflineSlot.value);

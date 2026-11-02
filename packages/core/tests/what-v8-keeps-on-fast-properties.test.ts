@@ -37,13 +37,13 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     const cardSlot = cardsService.holdSlotByKey(cards, 'c1');
     cardSlot.owner.unholdSlot(cardSlot);
     const topService = createOIMSingleComputedService<number>();
-    const top = topService.createComputedStoreSlot(
+    const top = topService.createStoreSlot(
         db,
         () => cardsService.getSlotByKey(cards, 'c2').entity?.rank ?? 0,
         () => ({ sourceSlots: [cardsService.getSlotByKey(cards, 'c2')], sourceComputeds: [] }),
     );
     const effect = effectService.createEffect(
-        db, () => undefined, [cardsService.getSlotByKey(cards, 'c3'), byDeckService.getSlotByKey(byDeck, 'd0')], [topService.computedSingleSlotService.getSingleSlot(top)],
+        db, () => undefined, [cardsService.getSlotByKey(cards, 'c3'), byDeckService.getSlotByKey(byDeck, 'd0')], [topService.getSingleSlot(top)],
     );
     db.flush();
     cardsService.writeSlotContentByKey(cards, 'c3', { id: 'c3', deck: 'd1', rank: 1.5 });
@@ -94,8 +94,8 @@ describe.each(dbOptionsByPolicy)('what V8 keeps on fast properties, under %s', (
     it('the computed slot, the channel, the collection, the index and the root stay on fast properties', () => {
         const { db, cards, cardsService, byDeck, byDeckService, top, topService } = exercise(dbOptionsFor());
         for (const object of [
-            topService.computedSingleSlotService.getSingleSlot(top), db.defaultChannelSlot, db, top,
-            slotOwnerServiceOf(topService.computedSingleSlotService), topService.computedSingleSlotService.slotContentService,
+            topService.getSingleSlot(top), db.defaultChannelSlot, db, top,
+            slotOwnerServiceOf(topService), topService.slotContentService,
             cards, cardsService, slotOwnerServiceOf(cardsService),
             byDeck, byDeckService, byDeckService.slotContentService, slotOwnerServiceOf(byDeckService),
         ]) {

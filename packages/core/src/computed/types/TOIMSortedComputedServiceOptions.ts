@@ -11,7 +11,7 @@ export type TOIMSortedComputedServiceOptions<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore, TComputedStore,
 > = {
     indexService: OIMSlotCollectionIndexService<TKey, TEntity, TSlots, TSourceKey, TSourceStore>;
-    computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>, TComputedStore>;
+    computedSlotStoreService: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity, TSourceKey>[], TKey>, TComputedStore>;
     columnSlotStoreService: IOIMSlotStoreService<string, TOIMComputedColumnSlot>;
     sortColumns?: readonly TOIMSortColumn<TEntity>[] | undefined;
     comparator?: ((left: TEntity, right: TEntity) => number) | undefined;

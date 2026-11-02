@@ -217,14 +217,30 @@ describe('what an import retains', () => {
         'bucket/OIMPositionalArrayBucketContentService.ts',
         'bucket/OIMSetBucketContentService.ts',
         'bucket/commands/utils/oimOrderedListCommandsOfTransition.ts',
-    ])('the root does not retain %s — a door is a module, not a method', module => {
+    ])('the root does not retain %s — a collection or bucket door is a module, not a method', module => {
         expect(retains(ROOT, module)).toBe(false);
     });
 
-    it('the root retains the runtime, the data it mints and their defaults, and nothing else', () => {
+    it('the root retains the runtime, the data it mints, their defaults and the effect door, and nothing else', () => {
         expect(relative(retainedBy(ROOT))).toEqual([
             ROOT,
             ...relative(retainedBy(RUNTIME)),
+            'channel/utils/oimIsAnySlotChangedAfter.ts',
+            'computed/OIMSourceList.ts',
+            'computed/OIMSourceTracker.ts',
+            'computed/constants/OIM_ACTIVE_SOURCE_TRACKER.ts',
+            'computed/constants/OIM_FROZEN_EMPTY_COMPUTED_SLOTS.ts',
+            'computed/utils/oimGetAllRootSlots.ts',
+            'computed/utils/oimHasSourceChangedSinceLastRun.ts',
+            'computed/utils/oimMergeRootSlots.ts',
+            'computed/utils/oimRefreshSourceComputeds.ts',
+            'computed/utils/oimSwapActiveSourceTracker.ts',
+            'effect/OIMEffectService.ts',
+            'effect/constants/OIM_EFFECT_FLAG_DISPOSED.ts',
+            'effect/constants/OIM_EFFECT_FLAG_RUN_SCHEDULED.ts',
+            'effect/constants/OIM_EFFECT_FLAG_SOURCE_CHECK_OWED.ts',
+            'effect/utils/oimIsEffectDisposed.ts',
+            'slot/utils/oimIsSlotReleased.ts',
             'channel/OIMChannelQueue.ts',
             'channel/utils/createOIMChannelSlot.ts',
             'collector/utils/createOIMCollectorSlot.ts',

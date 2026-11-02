@@ -3,10 +3,8 @@ import type { IOIMStoreSlotListener } from './interfaces/IOIMStoreSlotListener';
 import type { IOIMKeyedSlotCreator } from './interfaces/IOIMKeyedSlotCreator';
 import { OIMSlotOwnerService } from './OIMSlotOwnerService';
 import type { OIMColumnSlotOwner } from '../column/OIMColumnSlotOwner';
-import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
-import type { IOIMSlotOwner } from './interfaces/IOIMSlotOwner';
+import type { TOIMChannelSlot } from '../channel/types/TOIMChannelSlot';
 import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
-import { OIMSlotContentChangeDeliveryService } from './OIMSlotContentChangeDeliveryService';
 import type { OIMColumnSlotService } from '../column/OIMColumnSlotService';
 import type { TOIMKeyedSlot } from './types/TOIMKeyedSlot';
 import type { TOIMSlot } from './types/TOIMSlot';
@@ -14,9 +12,8 @@ import type { TOIMStoreSlot } from './types/TOIMStoreSlot';
 import type { TOIMSlotCollectionServiceOptions } from './types/TOIMSlotCollectionServiceOptions';
 import { createOIMStoreSlot } from './utils/createOIMStoreSlot';
 import { oimIsSlotEmpty } from './utils/oimIsSlotEmpty';
-import { OIMSlotCollectionStoreAggregate } from './OIMSlotCollectionStoreAggregate';
 
-export class OIMSlotCollectionService<
+export abstract class OIMSlotCollectionService<
     TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey>, TStore, TSlotContentService,
     TColumnName extends string = string, TColumnSlot extends TOIMKeyedSlot<string> = TOIMKeyedSlot<string>,
     TColumnSlotOwner extends OIMColumnSlotOwner<TOIMSlot, TColumnSlot> = OIMColumnSlotOwner<TOIMSlot, TColumnSlot>, TPatch = unknown,
@@ -45,25 +42,8 @@ export class OIMSlotCollectionService<
         this.storeSlotListener = options.storeSlotListener;
     }
 
-    public get slotOwner(): IOIMSlotOwner {
-        return this.slotOwnerService;
-    }
-
-    public createStoreSlot(channelMap: IOIMChannelMap): TOIMStoreSlot<TStore, TSlot, TPatch, this> {
-        const channelSlot = channelMap.defaultChannelSlot;
-        return this.createStoreSlotOverNewStore(store => createOIMStoreSlot<TStore, TSlot, TPatch, this>(store, channelSlot, this));
-    }
-
-    public createStoreSlotFrom(sourceStoreSlot: TOIMStoreSlot): TOIMStoreSlot<TStore, TSlot, TPatch, this> {
-        return this.createStoreSlotOverNewStore(store => createOIMStoreSlot<TStore, TSlot, TPatch, this>(
-            store, sourceStoreSlot.channelSlot, this, sourceStoreSlot,
-        ));
-    }
-
-    public createStoreAggregate(
-        storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch, this>,
-    ): OIMSlotCollectionStoreAggregate<TKey, TSlot, TStore, TPatch, this> {
-        return new OIMSlotCollectionStoreAggregate(this, storeSlot);
+    protected createStoreSlotOnChannel(channelSlot: TOIMChannelSlot, sourceStoreSlot?: TOIMStoreSlot): TOIMStoreSlot<TStore, TSlot, TPatch, this> {
+        return this.createStoreSlotOverNewStore(store => createOIMStoreSlot<TStore, TSlot, TPatch, this>(store, channelSlot, this, sourceStoreSlot));
     }
 
     protected createStoreSlotOverNewStore<TStoreSlot extends TOIMStoreSlot<TStore, TSlot, TPatch>>(
@@ -86,13 +66,13 @@ export class OIMSlotCollectionService<
     public getSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {
         const found = this.slotStoreService.get(storeSlot.store, key);
         if (found !== undefined) return found;
-        const slot = this.mintSlotByKey(storeSlot, key);
+        const slot = this.mintEmptySlotByKey(storeSlot, key);
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(storeSlot.channelSlot.collectorSlot.unusedSlotCollectorSlot, slot);
         return slot;
     }
 
     public holdSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {
-        const slot = this.slotStoreService.get(storeSlot.store, key) ?? this.mintSlotByKey(storeSlot, key);
+        const slot = this.slotStoreService.get(storeSlot.store, key) ?? this.mintEmptySlotByKey(storeSlot, key);
         this.slotOwnerService.holdSlot(slot);
         return slot;
     }
@@ -109,32 +89,19 @@ export class OIMSlotCollectionService<
         return this.slotStoreService.isSameKey(key, otherKey);
     }
 
-    public openBatch(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>): void {
-        OIMSlotContentChangeDeliveryService.INSTANCE.openBatch(storeSlot as TOIMStoreSlot);
-    }
-
-    public closeBatch(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>): void {
-        OIMSlotContentChangeDeliveryService.INSTANCE.closeBatch(storeSlot as TOIMStoreSlot);
-    }
-
-    public writeInBatch<TResult>(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, write: () => TResult): TResult {
-        const contentChangeDeliveryService = OIMSlotContentChangeDeliveryService.INSTANCE;
-        contentChangeDeliveryService.openBatch(storeSlot as TOIMStoreSlot);
-        try {
-            return write();
-        } finally {
-            contentChangeDeliveryService.closeBatch(storeSlot as TOIMStoreSlot);
-        }
-    }
-
     protected onSlotMinted(_storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, _slot: TSlot): void { return; }
 
-    private mintSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {
-        const slotOwnerService = this.slotOwnerService;
-        const slot = this.keyedSlotCreator.createSlot(this.slotStoreService.ownKey(key), storeSlot as TOIMStoreSlot, slotOwnerService);
+    protected mintSlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {
+        const slot = this.keyedSlotCreator.createSlot(this.slotStoreService.ownKey(key), storeSlot as TOIMStoreSlot, this.slotOwnerService);
         this.onSlotMinted(storeSlot, slot);
+        this.slotOwnerService.fileSlot(slot);
+        return slot;
+    }
+
+    private mintEmptySlotByKey(storeSlot: TOIMStoreSlot<TStore, TSlot, TPatch>, key: TKey): TSlot {
+        const slotOwnerService = this.slotOwnerService;
+        const slot = this.mintSlotByKey(storeSlot, key);
         slotOwnerService.settleEmptiness(slot, slotOwnerService.isSlotEmpty(slot));
-        slotOwnerService.fileSlot(slot);
         return slot;
     }
 }

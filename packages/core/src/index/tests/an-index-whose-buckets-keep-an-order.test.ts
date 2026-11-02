@@ -53,7 +53,7 @@ describe('an index whose buckets are array-driven', () => {
         const { db, cards, cardsService, ordersService, orders, idsIn } = createFixture(undefined, {
             comparator: (left, right) => left.rank - right.rank,
         });
-        const order = ordersService.computedCollectionService.holdSlotByKey(orders, 'spades');
+        const order = ordersService.holdSlotByKey(orders, 'spades');
         cardsService.writeInBatch(cards, () => ([
             { id: 'c3', deck: 'spades', rank: 3 },
             { id: 'c1', deck: 'spades', rank: 1 },

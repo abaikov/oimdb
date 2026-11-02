@@ -15,7 +15,7 @@ const src = join(root, 'src');
 
 const EXPORT = /^export\s+(?:(abstract)\s+)?(class|interface|type|function|const|enum)\s+(\w+)/gm;
 const PREFIX = { class: 'OIM', interface: 'IOIM', type: 'TOIM', enum: 'EOIM' };
-const DOMAINS = ['bucket', 'channel', 'collector', 'column', 'computed', 'db', 'effect', 'entity', 'error', 'index', 'key', 'oimdb', 'schedule', 'soimdb', 'slot', 'store'];
+const DOMAINS = ['bucket', 'channel', 'collector', 'column', 'computed', 'db', 'effect', 'entity', 'error', 'index', 'key', 'schedule', 'slot', 'store'];
 
 function walk(dir) {
     const found = [];
@@ -33,7 +33,7 @@ const files = walk(src);
 
 for (const file of files) {
     const rel = relative(root, file);
-    if (rel === join('src', 'index.ts') || rel === join('src', 'oimdb', 'oimdb.ts') || rel === join('src', 'soimdb', 'soimdb.ts')) continue;
+    if (rel === join('src', 'index.ts')) continue;
 
     const text = readFileSync(file, 'utf8');
     const exports = [...text.matchAll(EXPORT)]

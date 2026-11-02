@@ -52,7 +52,7 @@ const idsOf = (slots: readonly TCardSlotInBucket[]): (string | undefined)[] =>
 describe('the order of a key is derived, and the read is what derives it', () => {
     it('hands back the slots in the sorter\'s order', () => {
         const { ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
         put({ id: 'c', rank: 30 }, { id: 'a', rank: 10 }, { id: 'b', rank: 20 });
 
         expect(idsOf(readValueWithoutTracking(heldSlot))).toEqual(['a', 'b', 'c']);
@@ -62,7 +62,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
 
     it('derives nothing at all while nobody reads it', () => {
         const { ordersService, orders, put, comparisons } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
         put({ id: 'c', rank: 30 }, { id: 'a', rank: 10 }, { id: 'b', rank: 20 });
 
         expect(comparisons()).toBe(0);
@@ -72,7 +72,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
 
     it('keeps the same list, by identity, for as long as the order holds', () => {
         const { ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
         put({ id: 'a', rank: 10 }, { id: 'b', rank: 20 });
 
         const first = readValueWithoutTracking(heldSlot);
@@ -85,7 +85,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
 
     it('reads the bucket and its sort column, and those sources do not grow with the bucket\'s slots', () => {
         const { byDeck, byDeckService, ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
         const bucketSlot = byDeckService.getSlotByKey(byDeck, 'deck');
         const bucketRankColumnSlot = byDeckService.getBucketColumnByKey(byDeck, 'deck', 'rank');
 
@@ -107,7 +107,7 @@ describe('the order of a key is derived, and the read is what derives it', () =>
 describe('a subscriber is woken by the bucket and run only when the list changed', () => {
     it('does not run the body for a sort key that changed without changing the list', () => {
         const { db, updateEntityByKey, ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
 
         let ran = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { ran++; }, [], [heldSlot]);
@@ -128,7 +128,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 
     it('runs the body when the same write does change the list', () => {
         const { db, updateEntityByKey, ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
 
         let ran = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { ran++; }, [], [heldSlot]);
@@ -148,7 +148,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 
     it('runs the body when the key\'s entity slots changed, and not when they did not', () => {
         const { db, ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
 
         let ran = 0;
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { ran++; }, [], [heldSlot]);
@@ -171,7 +171,7 @@ describe('a subscriber is woken by the bucket and run only when the list changed
 
     it('says nothing to a subscriber that arrived after the write, and still reads sorted', () => {
         const { db, ordersService, orders, put } = createFixture();
-        const heldSlot = ordersService.computedCollectionService.holdSlotByKey(orders, 'deck');
+        const heldSlot = ordersService.holdSlotByKey(orders, 'deck');
 
         put({ id: 'c', rank: 30 }, { id: 'a', rank: 10 }, { id: 'b', rank: 20 });
         let ran = 0;
@@ -195,7 +195,7 @@ describe('what a derivation lets go of', () => {
         const ranked = rankedService.createStoreSlot(db);
         const orderService = createOIMBucketMemoComputedService({ bucketCollectionService: rankedService });
         const order = orderService.createBucketMemoStoreSlot(ranked);
-        const heldSlot = orderService.computedCollectionService.holdSlotByKey(order, 'deck');
+        const heldSlot = orderService.holdSlotByKey(order, 'deck');
         const bucket = rankedService.getSlotByKey(ranked, 'deck');
         rankedService.slotContentService.writeSlotContent(
             bucket, [cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'deck', rank: 10 })],
@@ -204,14 +204,14 @@ describe('what a derivation lets go of', () => {
 
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
         expect(bucket.holdCount).toBeGreaterThan(0);
-        expect(orderService.computedCollectionService.getSlotByKey(order, 'deck')).toBe(heldSlot);
+        expect(orderService.getSlotByKey(order, 'deck')).toBe(heldSlot);
 
         rankedService.slotContentService.clearSlotContent(bucket);
         heldSlot.owner.unholdSlot(heldSlot);
 
         expect(oimIsSlotReleased(heldSlot)).toBe(true);
         expect(oimIsSlotReleased(bucket)).toBe(true);
-        expect(orderService.computedCollectionService.getSlotCount(order)).toBe(0);
+        expect(orderService.getSlotCount(order)).toBe(0);
         expect(rankedService.getSlotCount(ranked)).toBe(0);
     });
 });

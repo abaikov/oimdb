@@ -32,11 +32,11 @@ describe('a last unhold inside a flush', () => {
     it('releases a computed slot at once', () => {
         const db = new OIMDB();
         const queriesService = createOIMComputedService<string, number>({ derive: slot => slot.key.length, createSources: () => ({}), initialValue: 0 });
-        const queries = queriesService.createComputedStoreSlot(db);
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const queries = queriesService.createStoreSlot(db);
+        const query = queriesService.holdSlotByKey(queries, 'q');
 
         expect(releaseInsideAFlush(db, query).isReleasedInsideTheFlush).toBe(true);
-        expect(queriesService.computedCollectionService.findSlotByKey(queries, 'q')).toBeUndefined();
+        expect(queriesService.findSlotByKey(queries, 'q')).toBeUndefined();
     });
 
     it('releases an entity slot with a value at once, under a policy that releases it at its last unhold', () => {

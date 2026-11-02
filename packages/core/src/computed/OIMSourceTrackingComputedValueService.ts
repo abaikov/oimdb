@@ -1,4 +1,3 @@
-import { OIM_ACTIVE_SOURCE_TRACKER } from './constants/OIM_ACTIVE_SOURCE_TRACKER';
 import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { TOIMSourceTrackingComputedContentSlot } from './types/TOIMSourceTrackingComputedContentSlot';
 import type { TOIMSourceTrackingComputedDerive } from './types/TOIMSourceTrackingComputedDerive';
@@ -12,6 +11,7 @@ import { oimRefreshComputedSlot } from './utils/oimRefreshComputedSlot';
 import { oimAssertSlotNotReleased } from '../slot/utils/oimAssertSlotNotReleased';
 import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
 import { oimHoldSlots } from '../slot/utils/oimHoldSlots';
+import { oimSwapActiveSourceTracker } from './utils/oimSwapActiveSourceTracker';
 
 export class OIMSourceTrackingComputedValueService<
     TValue, TComputedSlot extends TOIMSourceTrackingComputedContentSlot<TValue> = TOIMSourceTrackingComputedContentSlot<TValue>,
@@ -41,12 +41,12 @@ export class OIMSourceTrackingComputedValueService<
     private readonly deriveTrackingSources = (computedSlot: TComputedSlot): TValue => {
         const sourceTracker = computedSlot.sourceTracker;
         sourceTracker.openSourceTracking();
-        OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = sourceTracker;
+        const outerSourceTracker = oimSwapActiveSourceTracker(sourceTracker);
         let value: TValue;
         try {
             value = this.sourceTrackingDerive(computedSlot);
         } finally {
-            OIM_ACTIVE_SOURCE_TRACKER.sourceTracker = undefined;
+            oimSwapActiveSourceTracker(outerSourceTracker);
         }
         if (sourceTracker.closeSourceTracking() && !oimIsSlotReleased(computedSlot)) this.replaceSources(computedSlot, sourceTracker);
         return value;

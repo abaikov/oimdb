@@ -7,30 +7,26 @@ import type { TOIMSingleSlotStore } from '../store/types/TOIMSingleSlotStore';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { TOIMComputedDerivationOptions } from './types/TOIMComputedDerivationOptions';
 import { OIMComputedValueService } from './OIMComputedValueService';
-import { OIMComputedContentService } from './OIMComputedContentService';
+import type { OIMComputedContentService } from './OIMComputedContentService';
+import { OIMExplicitSourceComputedContentService } from './OIMExplicitSourceComputedContentService';
 import { OIMSingleSlotStoreService } from '../store/OIMSingleSlotStoreService';
 import { createOIMPullColumnSlotOwner } from '../column/utils/createOIMPullColumnSlotOwner';
 import { OIMSingleSlotService } from '../slot/OIMSingleSlotService';
 import { oimAttachComputedDerivation } from './utils/oimAttachComputedDerivation';
 
-export class OIMSingleComputedService<TValue> {
-    public readonly computedSingleSlotService: OIMSingleSlotService<
-        TOIMComputedContentSlot<TValue>, OIMComputedContentService<TValue>,
-        Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
-    >;
-
+export class OIMSingleComputedService<TValue> extends OIMSingleSlotService<
+    TOIMComputedContentSlot<TValue>, OIMComputedContentService<TValue>,
+    Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
+> {
     private readonly hasDerive: boolean;
 
     private readonly hasCreateSources: boolean;
 
     public constructor(options: TOIMComputedDerivationOptions<TValue, TOIMComputedContentSlot<TValue>>) {
-        this.computedSingleSlotService = new OIMSingleSlotService<
-            TOIMComputedContentSlot<TValue>, OIMComputedContentService<TValue>,
-            Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner
-        >({
+        super({
             slotReleasePolicy: options.slotReleasePolicy,
             slotStoreService: OIMSingleSlotStoreService.INSTANCE as OIMSingleSlotStoreService<TOIMComputedContentSlot<TValue>>,
-            slotContentService: new OIMComputedContentService<TValue>({
+            slotContentService: new OIMExplicitSourceComputedContentService<TValue>({
                 computedValueService: new OIMComputedValueService<TValue>({
                     derive: options.derive,
                     sameValueGuard: options.sameValueGuard,
@@ -47,14 +43,14 @@ export class OIMSingleComputedService<TValue> {
         this.hasCreateSources = options.createSources !== undefined;
     }
 
-    public createComputedStoreSlot(
+    public override createStoreSlot(
         channelMap: IOIMChannelMap,
         derive?: ((computedSlot: TOIMComputedContentSlot<TValue>) => TValue) | undefined,
         createSources?: ((computedSlot: TOIMComputedContentSlot<TValue>) => Partial<TOIMComputedSources>) | undefined,
-    ): TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this['computedSingleSlotService']> {
+    ): TOIMComputedStoreSlot<TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this> {
         return oimAttachComputedDerivation(
-            this.computedSingleSlotService.createStoreSlot(channelMap) as TOIMComputedStoreSlot<
-                TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this['computedSingleSlotService']
+            super.createStoreSlot(channelMap) as TOIMComputedStoreSlot<
+                TOIMSingleSlotStore<TOIMComputedContentSlot<TValue>>, TValue, TOIMComputedContentSlot<TValue>, this
             >,
             this.hasDerive, this.hasCreateSources, derive, createSources,
         );

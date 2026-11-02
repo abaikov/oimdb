@@ -15,32 +15,42 @@ The comment after a call shows what it logs.
 
 ## The short version
 
-With React and the short API, [`@oimdb/core/oimdb`](./oimdb.md), a collection and a component that renders one of its entities:
+With React and [a database with schemas](./oimdb.md), a collection and a component that renders one of its entities:
 
 ```tsx file=todos.tsx
-import * as oimdb from '@oimdb/core/oimdb';
-import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
+import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oimdb.entities<TTodo>();
+const createTodoSchema = (db: OIMDB) => ({ todos: createOIMEntitySlotCollectionStoreAggregate<TTodo>(db) });
+const createAppDB = () => new OIMDB({ createSchemas: (db) => ({ default: createTodoSchema(db) }) });
+const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
 
-todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
+const db = createAppDB();
+
+db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
 
 function Todo({ id }: { id: string }) {
-    const todo = useOIMSourceTrackingValue(() => todos.getEntityByKey(id), [todos, id]);
+    const db = useAppDB();
+    const { todos } = db.schemas.default;
+    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
     if (todo === undefined) return null;
-    return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+    const toggle = () => {
+        todos.getSlotByKey(id).updateEntity({ done: !todo.done });
+        db.flush();
+    };
+    return <li onClick={toggle}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
-flush on a microtask, so nothing calls `db.flush()` by hand.
+Clicking a todo re-renders that one `Todo` and nothing else, at the `db.flush()` the handler calls: a
+database delivers only when it is flushed, every write since the last flush at once.
 
-The steps below take the same engine apart without `oimdb`: the runtime, the collection service under the
+The steps below take the same engine apart: the runtime, the collection service under the
 aggregate, subscriptions, indexes and sorted views.
 
 ## 1. The runtime
@@ -269,7 +279,7 @@ const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsByDeck);
 ```
 
 ```typescript
-const sortedDeckOne = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'd1');
+const sortedDeckOne = cardsByRankService.holdSlotByKey(cardsByRank, 'd1');
 const onSorted = effectService.createAndRunEffect(db, () => {
     console.log(sortedDeckOne.value.map((slot) => slot.entity?.title));
 }, [], [sortedDeckOne]);

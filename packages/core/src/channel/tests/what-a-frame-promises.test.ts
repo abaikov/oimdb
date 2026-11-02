@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../OIMChannelService';
@@ -7,6 +6,7 @@ import { OIMEffectService } from '../../effect/OIMEffectService';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -18,7 +18,7 @@ const effectService = OIMEffectService.INSTANCE;
 // A root slot and nothing else — no store, no maintainer. That is what a slot
 // is at birth (`createOIMEntitySlot.ts:8-23`); every promise here is the frame's.
 const makeSlot = (key: string): TOIMEntitySlot<Row, string> =>
-    createOIMEntitySlot<Row, string>(key, new OIMSlotOwner(), testStoreSlot);
+    createOIMEntitySlot<Row, string>(key, new TestSlotOwner(), testStoreSlot);
 
 /** The message of a throw, without asking what kind of throw it was. */
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -378,6 +378,7 @@ describe('a channel given a scheduler asks it for a frame instead of running one
         let failNext = true;
         const asked: (() => void)[] = [];
         const db = new OIMDB({
+            errorPolicy: new OIMThrowAtOnceErrorPolicy(),
             channelScheduler: (flush) => {
                 if (failNext) throw new Error('the scheduler refused');
                 asked.push(flush);

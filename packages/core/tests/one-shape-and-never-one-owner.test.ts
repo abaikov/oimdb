@@ -179,22 +179,18 @@ describe('a shared shape is not a shared domain', () => {
  */
 describe('what naming the shape was not allowed to cost', () => {
     /**
-     * "TWO CALLS" IS THE PROPERTY: the shape is the whole reason there is no base
-     * class under this interface, and an inherited `add` routed through an
-     * `ensure(carrier)` that owns the lazy write would make it three, on the path
-     * a bucket collection takes for every slot it files.
-     *
-     * `add` also answers a question — did the set record this mention — so it
-     * reads the size either side of the insert, which is one more field read and
-     * is not an indirection. What is pinned is therefore the property rather than
-     * a character count: the body reaches ITS OWN field through the private
-     * accessor, and nothing in the file routes through an `ensure`.
+     * The add of a set bucket goes from the content service to the set service, the sole
+     * writer of the set, and from there straight to the set: one monomorphic call more than
+     * when the content service wrote the set itself, and never through an `ensure(carrier)`
+     * that would own a lazy write.
      */
-    it('the unordered add reaches its own field directly, with no ensure between', () => {
-        const source = sourceOf('bucket/OIMSetBucketContentService.ts');
-        expect(source).toContain('const bucketMemberSlotsSetStore = (bucketSlot as unknown as OIMBucketSlot<TOIMBucketSlotsSetStore<TBucketMemberSlot>>).bucketSlotsStore;');
-        expect(source).toContain('bucketMemberSlotsSetStore.add(bucketMemberSlot);');
-        expect(source).not.toContain('ensure(');
+    it('the unordered add reaches the set through the set service, with no ensure between', () => {
+        const contentSource = sourceOf('bucket/OIMSetBucketContentService.ts');
+        const setSource = sourceOf('bucket/set/OIMBucketMemberSlotsSetService.ts');
+                expect(contentSource).toContain('return this.bucketMemberSlotsSetService.addBucketMemberSlot(oimGetBucketSlotsSetStore(bucketSlot), bucketMemberSlot);');
+        expect(setSource).toContain('(bucketSlotsSetStore as Set<TBucketMemberSlot>).add(bucketMemberSlot);');
+        expect(contentSource).not.toContain('ensure(');
+        expect(setSource).not.toContain('ensure(');
     });
 
     /**

@@ -162,8 +162,8 @@ describe('what a bulk removal leaves for the watchers to count', () => {
         // A derivation over the same slot, read by nobody: it is asked, never
         // woken, so it is in no root's list.
         const computedService = createOIMSingleComputedService<number>({ columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(), sameValueGuard: oimSameValueZeroGuard });
-        const computed = computedService.createComputedStoreSlot(db, () => 1, () => ({ sourceSlots: [slot] }));
-        const computedSlot = computedService.computedSingleSlotService.holdSingleSlot(computed);
+        const computed = computedService.createStoreSlot(db, () => 1, () => ({ sourceSlots: [slot] }));
+        const computedSlot = computedService.holdSingleSlot(computed);
         expect(slot.effects?.length).toBe(1);
 
         // And its reader IS, because the walk that collects an effect's roots

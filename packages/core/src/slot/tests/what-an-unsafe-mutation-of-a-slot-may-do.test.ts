@@ -1,9 +1,9 @@
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotOwner } from '../OIMSlotOwner';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import type { TOIMEditable } from '../types/TOIMEditable';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 type TRow = { id: string };
 
@@ -22,7 +22,8 @@ describe('what an unsafe mutation of a slot may do', () => {
 
     it('goes through the owner, so a subclass can hook every unsafe mutation', () => {
         const mutatedSlots: TOIMSlot[] = [];
-        class OIMSlotOwnerThatSeesUnsafeMutations extends OIMSlotOwner {
+        class OIMSlotOwnerThatSeesUnsafeMutations extends TestSlotOwner {
+
             public override unsafeMutateSlot(slot: TOIMSlot, mutateSlot: (editableSlot: TOIMEditable<TOIMSlot>) => void): void {
                 mutatedSlots.push(slot);
                 super.unsafeMutateSlot(slot, mutateSlot);

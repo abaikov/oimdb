@@ -32,28 +32,38 @@ off the slots afterwards.
 ## Minimal usage
 
 ```tsx file=minimal.tsx
-import * as oimdb from '@oimdb/core/oimdb';
-import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
+import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oimdb.entities<TTodo>();
+const createTodoSchema = (db: OIMDB) => ({ todos: createOIMEntitySlotCollectionStoreAggregate<TTodo>(db) });
+const createAppDB = () => new OIMDB({ createSchemas: (db) => ({ default: createTodoSchema(db) }) });
+const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
 
-todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
+const db = createAppDB();
+
+db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
 
 function Todo({ id }: { id: string }) {
-    const todo = useOIMSourceTrackingValue(() => todos.getEntityByKey(id), [todos, id]);
+    const db = useAppDB();
+    const { todos } = db.schemas.default;
+    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
     if (todo === undefined) return null;
-    return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+    const toggle = () => {
+        todos.getSlotByKey(id).updateEntity({ done: !todo.done });
+        db.flush();
+    };
+    return <li onClick={toggle}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every
-write of a turn in one flush on a microtask, so nothing calls `db.flush()` by hand. `todos` is an
-`oimdb` collection ([The short API](../getting-started/oimdb.md)); `useOIMSourceTrackingValue` re-renders on
+Clicking a todo re-renders that one `Todo` and nothing else, at the `db.flush()` the handler calls: a
+database delivers only when it is flushed, every write since the last flush at once. `todos` is a
+collection of the database's schema ([A database with schemas](../getting-started/oimdb.md)); `useOIMSourceTrackingValue` re-renders on
 whatever its function read, here the one entity.
 
 ## Which hook to take
@@ -357,7 +367,7 @@ resubscribe on every render.
 ## `useOIMComputedValue` — one computed value
 
 ```tsx
-const spadesInOrder = byRankService.computedCollectionService.holdSlotByKey(byRank, 'spades');
+const spadesInOrder = byRankService.holdSlotByKey(byRank, 'spades');
 
 function SpadesInOrder() {
   const ranked = useOIMComputedValue(spadesInOrder);
@@ -404,7 +414,7 @@ function DoubledRank({ cardId }: { cardId: string }) {
 **What for:** a keyed derivation scoped to one component, read by key with
 `useOIMComputedValueByKey`. The computed SERVICE is yours, built once at module scope with
 `createOIMComputedService(options)`, which takes no db; the hook only calls
-`computedService.createComputedStoreSlot(db, derive, createSources)` with the `OIMDB` from the provider, in a
+`computedService.createStoreSlot(db, derive, createSources)` with the `OIMDB` from the provider, in a
 `useMemo` keyed on `deps`, and returns that store slot. `derive` and `createSources` may be `undefined` when the
 service already has them. The store slot is rebuilt when `deps` change, and React may also rebuild it. Slots of
 the old store slot go back when their effects are disposed, so nothing is kept. Each key's computed slot lives as
@@ -509,12 +519,12 @@ For one computed slot, hand it to `useOIMComputedValue`, which does exactly that
 const spadesCountService = createOIMSingleComputedService<number>({
   sameValueGuard: oimSameValueZeroGuard,
 });
-const spadesCount = spadesCountService.createComputedStoreSlot(
+const spadesCount = spadesCountService.createStoreSlot(
   db,
   () => deckIndexService.getSlotByKey(deckIndex, 'spades').getBucketMemberSlotCount(),
   () => ({ sourceSlots: [deckIndexService.getSlotByKey(deckIndex, 'spades')] }),
 );
-const spadesCountSlot = spadesCountService.computedSingleSlotService.holdSingleSlot(spadesCount);
+const spadesCountSlot = spadesCountService.holdSingleSlot(spadesCount);
 
 function SpadesCount() {
   const count = useOIMComputedValue(spadesCountSlot);
@@ -566,6 +576,27 @@ The `OIMDB` from context, for a component that flushes or builds a store slot. I
 `<OIMDBProvider>` above: `useOIMDB: no <OIMDBProvider db={...}> above this component.` The same throw has one
 other cause: `@oimdb/react` loaded twice, once through `import` and once through `require`. A context is identified
 by its object, so the provider of one copy is invisible to the hooks of the other.
+
+`useOIMDB()` is typed `OIMDB`, so it does not know the application's schemas. `useOIMDB.withTypes<TDB>()` returns
+the same hook typed as `() => TDB`, the pattern react-redux uses for its typed hooks. Make it once, next to the
+function that builds the database, and a component reads its schemas without a cast:
+
+```tsx file=typed-db-hook.tsx
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
+import { useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
+
+const createAppDB = () => new OIMDB({
+  createSchemas: (db) => ({ default: { todos: createOIMEntitySlotCollectionStoreAggregate<{ id: string; title: string }>(db) } }),
+});
+export const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
+
+export function TodoCount() {
+  const { todos } = useAppDB().schemas.default;
+  return <span>{useOIMSourceTrackingValue(() => todos.getEntityCount(), [todos])}</span>;
+}
+```
+
+At run time `useAppDB` is `useOIMDB`; only the type differs.
 
 ## Notes
 

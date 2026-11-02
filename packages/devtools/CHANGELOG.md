@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.2.2
+
+### Changed
+
+- Requires `@oimdb/core` 4.8.0; reads a single computed through `computedService.getSingleSlot`.
+
 ## 2.2.1
 
 ### Changed

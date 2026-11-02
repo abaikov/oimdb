@@ -18,5 +18,7 @@ export type TOIMSlotOwnerServiceOptions<
     slotFilingService: IOIMSlotFilingService<TSlot, TStore>;
     slotContentService: IOIMSlotContentService<TSlot>;
     columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot, TColumnName>;
-    createColumnSlotOwner: (columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot, TColumnName>) => TColumnSlotOwner;
+    createColumnSlotOwner: (
+        columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot, TColumnName>, slotSubscriptionListener: IOIMSlotSubscriptionListener | undefined,
+    ) => TColumnSlotOwner;
 };

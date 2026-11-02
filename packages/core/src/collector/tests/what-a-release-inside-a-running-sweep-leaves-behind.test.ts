@@ -12,7 +12,7 @@ import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -31,7 +31,8 @@ const anIdentity = (): TOIMEditable<TOIMSlot> => ({
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
     storeSlot: testStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new TestSlotOwner(),
+    data: undefined,
 });
 
 const ownerThatWhenAsked = (asked: () => void): IOIMSlotOwner => ({
@@ -41,8 +42,6 @@ const ownerThatWhenAsked = (asked: () => void): IOIMSlotOwner => ({
     unsafeMutateSlot: () => undefined,
     subscribeToSlot: () => 0,
     unsubscribeFromSlot: () => false,
-    onSlotFirstSubscribed: () => undefined,
-    onSlotLastUnsubscribed: () => undefined,
 });
 
 const createFixture =() => {

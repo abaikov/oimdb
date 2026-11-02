@@ -19,8 +19,8 @@ const createRankService = () => createOIMSingleComputedService<number>({ sameVal
 
 type TRankService = ReturnType<typeof createRankService>;
 
-const valueOf = (service: TRankService, storeSlot: ReturnType<TRankService['createComputedStoreSlot']>): number =>
-    readValueWithoutTracking(service.computedSingleSlotService.getSingleSlot(storeSlot) as TOIMComputedContentSlot<number>);
+const valueOf = (service: TRankService, storeSlot: ReturnType<TRankService['createStoreSlot']>): number =>
+    readValueWithoutTracking(service.getSingleSlot(storeSlot) as TOIMComputedContentSlot<number>);
 
 const createFixture =() => {
     const db = new OIMDB();
@@ -118,14 +118,14 @@ describe('a computed absorbs a move its consumer does not have to hear about', (
 
         let derivations = 0;
         const rankService = createRankService();
-        const rank = rankService.createComputedStoreSlot(
+        const rank = rankService.createStoreSlot(
             db,
             () => { derivations++; return slot.entity?.rank ?? -1; },
             () => ({ sourceSlots: [slot] }),
         );
 
         let runs = 0;
-        effectService.createEffect(db, () => { runs++; }, [], [rankService.computedSingleSlotService.getSingleSlot(rank)]);
+        effectService.createEffect(db, () => { runs++; }, [], [rankService.getSingleSlot(rank)]);
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 2 });
         db.flush();
@@ -151,20 +151,20 @@ describe('a computed absorbs a move its consumer does not have to hear about', (
         const slot = cardsService.getSlotByKey(cards, 'a')!;
 
         const rankService = createRankService();
-        const rank = rankService.createComputedStoreSlot(
+        const rank = rankService.createStoreSlot(
             db,
             () => slot.entity?.rank ?? -1,
             () => ({ sourceSlots: [slot] }),
         );
         const doubledService = createRankService();
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => valueOf(rankService, rank) * 2,
-            () => ({ sourceComputeds: [rankService.computedSingleSlotService.getSingleSlot(rank)] }),
+            () => ({ sourceComputeds: [rankService.getSingleSlot(rank)] }),
         );
 
         let seen = -1;
-        effectService.createEffect(db, () => { seen = valueOf(doubledService, doubled); }, [], [doubledService.computedSingleSlotService.getSingleSlot(doubled)]);
+        effectService.createEffect(db, () => { seen = valueOf(doubledService, doubled); }, [], [doubledService.getSingleSlot(doubled)]);
 
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'A', rank: 2 });
         db.flush();

@@ -69,15 +69,14 @@ const ourDerivations = (
         initialValue: 0,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
-    const sumComputedCollectionService = sumComputedService.computedCollectionService;
-    const sumComputedStoreSlot = sumComputedService.createComputedStoreSlot(
+    const sumComputedStoreSlot = sumComputedService.createStoreSlot(
         db,
         computedSlot => sumOfRanks(sourcesByDerivation[computedSlot.key]),
         ({ key: k }) => ({ sourceSlots: sourcesByDerivation[k] }),
     );
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
     for (let k = 0; k < DERIVATIONS; k++) {
-        const sumSlot = sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, k);
+        const sumSlot = sumComputedService.holdSlotByKey(sumComputedStoreSlot, k);
         priceSink.number = sumSlot.value;
         sumSlots.push(sumSlot);
     }

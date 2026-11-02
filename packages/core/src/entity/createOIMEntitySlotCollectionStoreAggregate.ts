@@ -1,3 +1,4 @@
+import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { IOIMChannelMap } from '../channel/interfaces/IOIMChannelMap';
 import type { IOIMSlotReleasePolicy } from '../collector/interfaces/IOIMSlotReleasePolicy';
 import type { IOIMSlotSubscriptionListener } from '../slot/interfaces/IOIMSlotSubscriptionListener';
@@ -12,7 +13,8 @@ import type { IOIMEntityWriter } from './interfaces/IOIMEntityWriter';
 import type { IOIMSlotEmptinessPolicy } from '../slot/interfaces/IOIMSlotEmptinessPolicy';
 import type { TOIMEntityContentSlot } from './types/TOIMEntityContentSlot';
 import { createOIMEntityContentService } from './createOIMEntityContentService';
-import { createOIMSlotCollectionStoreAggregate } from '../slot/createOIMSlotCollectionStoreAggregate';
+import { createOIMSlotCollectionService } from '../slot/createOIMSlotCollectionService';
+import { OIMEntitySlotCollectionStoreAggregate } from './OIMEntitySlotCollectionStoreAggregate';
 
 export function createOIMEntitySlotCollectionStoreAggregate<
     TEntity extends object,
@@ -27,18 +29,19 @@ export function createOIMEntitySlotCollectionStoreAggregate<
         slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
         columnSlotStoreService?: IOIMSlotStoreService<string, TOIMColumnSlot> | undefined;
         columnNames?: readonly TColumnName[] | undefined;
+        columnGroups?: readonly TOIMColumnGroup<TColumnName>[] | undefined;
     } = {},
-): ReturnType<typeof createOIMSlotCollectionStoreAggregate<
-    OIMEntityContentService<TEntity, TOIMStoreKey, TColumnName>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TColumnName
->> {
-    return createOIMSlotCollectionStoreAggregate<
-        OIMEntityContentService<TEntity, TOIMStoreKey, TColumnName>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey>>, TColumnName
-    >(channelMap, {
+): OIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName> {
+    const slotCollectionService = createOIMSlotCollectionService<
+        OIMEntityContentService<TEntity, TOIMStoreKey, TColumnName>, Map<TOIMStoreKey, TOIMEntitySlot<TEntity, TOIMStoreKey, TColumnName>>, TColumnName
+    >({
         defaults: options.defaults,
         slotContentService: createOIMEntityContentService<TEntity, TOIMStoreKey, TColumnName>(options),
         slotReleasePolicy: options.slotReleasePolicy,
         slotSubscriptionListener: options.slotSubscriptionListener,
         columnSlotStoreService: options.columnSlotStoreService,
         columnNames: options.columnNames,
+        columnGroups: options.columnGroups,
     });
+    return new OIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName>(slotCollectionService, slotCollectionService.createStoreSlot(channelMap));
 }

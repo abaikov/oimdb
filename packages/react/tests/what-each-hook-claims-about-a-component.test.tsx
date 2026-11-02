@@ -548,12 +548,12 @@ describe('binding a derived value', () => {
         const lengthService = createOIMSingleComputedService<number>({
             sameValueGuard: oimSameValueZeroGuard,
         });
-        const length = lengthService.createComputedStoreSlot(
+        const length = lengthService.createStoreSlot(
             db,
             () => (cardSlot.entity?.title ?? '').length,
             () => ({ sourceSlots: [cardSlot] }),
         );
-        const lengthSlot = lengthService.computedSingleSlotService.holdSingleSlot(length);
+        const lengthSlot = lengthService.holdSingleSlot(length);
         const binding: TOIMBinding<number> = {
             sourceComputeds: [lengthSlot],
             derive: () => lengthSlot.value,

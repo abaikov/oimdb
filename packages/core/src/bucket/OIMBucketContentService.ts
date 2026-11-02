@@ -14,15 +14,15 @@ import type { TOIMStoreSlot } from '../slot/types/TOIMStoreSlot';
 import type { TOIMBucketContentServiceOptions } from './types/TOIMBucketContentServiceOptions';
 import { createOIMBucketContentSlot } from './utils/createOIMBucketContentSlot';
 import { OIMNoBucketCommands } from './commands/OIMNoBucketCommands';
+import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
 import type { OIMChannelQueue } from '../channel/OIMChannelQueue';
 import { OIM_NOTHING_WAS_REMOVED } from './constants/OIM_NOTHING_WAS_REMOVED';
 import { OIM_REMOVED_WITHOUT_A_POSITION } from './constants/OIM_REMOVED_WITHOUT_A_POSITION';
 import { createOIMBucketSlot } from './utils/createOIMBucketSlot';
 import { oimGetChannelQueueAtDepth } from '../channel/utils/oimGetChannelQueueAtDepth';
-import { oimIsSlotEmpty } from '../slot/utils/oimIsSlotEmpty';
 import { oimIsSlotReleased } from '../slot/utils/oimIsSlotReleased';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
 import { oimGetChannelSlot } from '../slot/utils/oimGetChannelSlot';
+import { OIMUnusedSlotCollectorService } from '../collector/OIMUnusedSlotCollectorService';
 import { oimAssertSlotUnheld } from '../slot/utils/oimAssertSlotUnheld';
 
 export abstract class OIMBucketContentService<
@@ -92,10 +92,6 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         return this.getBucketMemberSlotCount(bucketSlot) === 0;
     }
 
-    public hasReference(): boolean {
-        return false;
-    }
-
     public releaseSlotContent(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         oimAssertSlotUnheld(bucketSlot);
         this.unholdAllBucketMemberSlots(bucketSlot);
@@ -104,17 +100,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     /** @deprecated Use `slot.markContentChanged(…)`; removed in 5.0. */
     public markContentChanged(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         (bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>).assertWritable(bucketSlot);
-        this.markBucketSlotChanged(bucketSlot);
-    }
-
-    public markBucketColumnsChanged(
-        bucketSlot: TOIMBucketContentSlot<TSlots>,
-        patch: object | undefined, changedColumns: readonly string[] | undefined,
-    ): void {
-        const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
-        slotOwnerService.assertWritable(bucketSlot);
-        if (!slotOwnerService.hasColumnSlots(bucketSlot)) return;
-        slotOwnerService.columnSlotOwner.markColumnsChanged(bucketSlot, patch, changedColumns, oimGetChannelSlot(bucketSlot));
+        this.announceBucketSlotChanged(bucketSlot);
     }
 
     /** @deprecated Use `slot.addBucketMemberSlot(…)`; removed in 5.0. */
@@ -125,7 +111,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         this.assertBucketMemberSlotNotReleased(bucketMemberSlot);
-        if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlot)) this.markBucketSlotChanged(bucketSlot);
+        this.addBucketMemberSlotAnnounced(bucketSlot, bucketMemberSlot);
     }
 
     /** @deprecated Use `slot.removeBucketMemberSlot(…)`; removed in 5.0. */
@@ -135,10 +121,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
-        const at = this.removeSlot(bucketSlot, bucketMemberSlot);
-        if (at === OIM_NOTHING_WAS_REMOVED) return;
-        this.letGoOfRemovedBucketMemberSlot(bucketSlot, bucketMemberSlot, at);
-        this.markBucketSlotChanged(bucketSlot);
+        this.removeBucketMemberSlotAnnounced(bucketSlot, bucketMemberSlot);
     }
 
     /** @deprecated Use `slot.addBucketMemberSlots(…)`; removed in 5.0. */
@@ -153,7 +136,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         for (let i = 0; i < bucketMemberSlots.length; i++) {
             if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlots[i])) isAnyAdded = true;
         }
-        if (isAnyAdded) this.markBucketSlotChanged(bucketSlot);
+        if (isAnyAdded) this.announceBucketSlotChanged(bucketSlot);
     }
 
     /** @deprecated Use `slot.removeBucketMemberSlots(…)`; removed in 5.0. */
@@ -173,7 +156,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
             for (let i = 0; i < removedCount; i++) {
                 this.letGoOfRemovedBucketMemberSlot(bucketSlot, removedChannelQueue.getEntryAt(i), removedAtChannelQueue.getEntryAt(i));
             }
-            if (removedCount !== 0) this.markBucketSlotChanged(bucketSlot);
+            if (removedCount !== 0) this.announceBucketSlotChanged(bucketSlot);
         } finally {
             removedChannelQueue.keepFirstEntries(0);
             removedAtChannelQueue.keepFirstEntries(0);
@@ -186,7 +169,6 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         changedBucketSlots?: TOIMBucketContentSlot<TSlots>[],
     ): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
-        slotOwnerService.fileSlot(bucketSlot);
         let isWritten: boolean;
         try {
             isWritten = this.writeSlotContent(bucketSlot, bucketMemberSlots);
@@ -194,8 +176,9 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
             slotOwnerService.releaseSlotIfUnheld(bucketSlot);
             throw refusal;
         }
-        if (!isWritten) slotOwnerService.releaseSlotIfUnheld(bucketSlot);
-        else if (changedBucketSlots !== undefined) changedBucketSlots.push(bucketSlot);
+        if (!isWritten) {
+            OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(oimGetChannelSlot(bucketSlot).collectorSlot.unusedSlotCollectorSlot, bucketSlot);
+        } else if (changedBucketSlots !== undefined) changedBucketSlots.push(bucketSlot);
     }
 
     /** @deprecated Use `slot.writeSlotContent(…)`; removed in 5.0. */
@@ -206,7 +189,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
         if (!this.reconcileBucketMemberSlots(bucketSlot, bucketMemberSlots)) return false;
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
         return true;
     }
 
@@ -214,7 +197,7 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
     public clearSlotContent(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
         const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
         slotOwnerService.assertWritable(bucketSlot);
-        if (this.drainBucketMemberSlots(bucketSlot)) this.markBucketSlotChanged(bucketSlot);
+        if (this.drainBucketMemberSlots(bucketSlot)) this.announceBucketSlotChanged(bucketSlot);
         else slotOwnerService.releaseSlotIfUnheld(bucketSlot);
     }
 
@@ -235,16 +218,19 @@ implements IOIMSlotContentService<TOIMBucketContentSlot<TSlots>>,
         }
     }
 
-    protected markBucketSlotChanged(
-        bucketSlot: TOIMBucketContentSlot<TSlots>,
-    ): void {
-        const slotOwnerService = bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>;
-        const wasEmpty = oimIsSlotEmpty(bucketSlot);
-        slotOwnerService.markEmptiness(bucketSlot, this.isSlotEmpty(bucketSlot));
-        if (oimIsSlotReleased(bucketSlot)) return;
-        slotOwnerService.writeSlotToChannelAndSettle(bucketSlot, wasEmpty);
-        slotOwnerService.dispatchContentChange(bucketSlot);
-        slotOwnerService.releaseSlotIfUnheldAfterListeners(bucketSlot);
+    protected addBucketMemberSlotAnnounced(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): void {
+        if (this.addBucketMemberSlotUnannounced(bucketSlot, bucketMemberSlot)) this.announceBucketSlotChanged(bucketSlot);
+    }
+
+    protected removeBucketMemberSlotAnnounced(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TBucketMemberSlot): void {
+        const at = this.removeSlot(bucketSlot, bucketMemberSlot);
+        if (at === OIM_NOTHING_WAS_REMOVED) return;
+        this.letGoOfRemovedBucketMemberSlot(bucketSlot, bucketMemberSlot, at);
+        this.announceBucketSlotChanged(bucketSlot);
+    }
+
+    protected announceBucketSlotChanged(bucketSlot: TOIMBucketContentSlot<TSlots>): void {
+        (bucketSlot.owner as TOIMBucketSlotOwnerService<TSlots>).markSlotContentChanged(bucketSlot, this.isSlotEmpty(bucketSlot));
     }
 
     protected letGoOfRemovedBucketMemberSlot(bucketSlot: TOIMBucketContentSlot<TSlots>, bucketMemberSlot: TOIMSlot, at: number): void {

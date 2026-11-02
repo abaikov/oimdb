@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.4.0
+
+### Added
+
+- `useOIMDB.withTypes<TDB>()`.
+
+### Changed
+
+- Requires `@oimdb/core` 4.8.0.
+
 ## 3.3.2
 
 ### Changed

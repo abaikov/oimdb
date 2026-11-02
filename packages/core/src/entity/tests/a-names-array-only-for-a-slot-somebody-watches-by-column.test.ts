@@ -2,7 +2,7 @@ import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 
 import { OIMDB } from '../../db/OIMDB';
 import { OIMEffectService } from '../../effect/OIMEffectService';
-import { OIMSlotOwnerService } from '../../slot/OIMSlotOwnerService';
+import { OIMEntityContentService } from '../OIMEntityContentService';
 import { oimIsSlotEmpty } from '../../slot/utils/oimIsSlotEmpty';
 import { createOIMEntityContentService } from '../createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
@@ -35,7 +35,7 @@ const createFixture =() => {
 };
 
 const namesAskedFor = (body: () => void): number => {
-    const takeChangedColumnNames = jest.spyOn(OIMSlotOwnerService.prototype, 'takeChangedColumnNames');
+    const takeChangedColumnNames = jest.spyOn(OIMEntityContentService.prototype as unknown as { takeChangedColumnNames(): string[] }, 'takeChangedColumnNames');
     try {
         body();
         return takeChangedColumnNames.mock.calls.length;

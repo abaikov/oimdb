@@ -13,7 +13,7 @@ a selection, drag-and-drop reordering, a count or a sum per group, and minting s
 groups in one call.
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleSlotService } from '@oimdb/core';
+import { OIMDB, OIMEffectService, createOIMSortedCollectionSingleSlotStoreAggregate, OIMSetBucketContentService, OIMSlotAtUnholdReleasePolicy, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMBucketSlotsSetStore, type TOIMEntitySlot, type TOIMOrderedListCommand, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands, createOIMSingleSlotService, OIMSlotCollectionBucketService, oimGetBucketMemberSlotEntities } from '@oimdb/core';
 
 type Card = {
     id: string;
@@ -109,10 +109,10 @@ const byTitleService = createOIMSortedComputedService({
 });
 const byTitle = byTitleService.createSortedStoreSlot(cardsByDeck);
 
-const redByRank = byRankService.computedCollectionService.holdSlotByKey(byRank, 'red');
+const redByRank = byRankService.holdSlotByKey(byRank, 'red');
 effectService.createAndRunEffect(db, () => render(redByRank.value), [], [redByRank]);
 
-const redByTitle = byTitleService.computedCollectionService.getSlotByKey(byTitle, 'red');
+const redByTitle = byTitleService.getSlotByKey(byTitle, 'red');
 redByTitle.value;
 ```
 
@@ -134,36 +134,36 @@ Reference: [Ordering](/docs/core/oimindex#ordering),
 
 ## A list that is a whole entity store slot
 
-Take: an index whose `keyOf` returns one constant. Do not iterate the entity
+Take: the collection's list, `OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(cards)`. Do not iterate the entity
 store slot's `getSlots` for a list: nothing tells you when that iteration would read
 differently, and it can include slots that were minted by a read and hold no entity.
 
 ```ts
-const everyCardService = createOIMSlotCollectionIndexService({
-    entityService: cardService,
-    keyOf: () => 'all',
-});
-const everyCard = everyCardService.createIndexStoreSlot(cards);
-
-const all = everyCardService.holdSlotByKey(everyCard, 'all');
-effectService.createAndRunEffect(db, () => render(all.getBucketMemberSlotCount()), [all]);
-
-const allByRankService = createOIMSortedComputedService({
-    indexService: everyCardService,
-    sortColumns: [{ columnName: 'rank', direction: 'desc' }],
-});
-const allByRank = allByRankService.createSortedStoreSlot(everyCard);
-const allByRankSlot = allByRankService.computedCollectionService.getSlotByKey(allByRank, 'all');
-allByRankSlot.value;
+const all = OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(cards);
+effectService.createAndRunEffect(db, () => render(oimGetBucketMemberSlotEntities(all.getBucketMemberSlots())), [all]);
 ```
 
-Why this way: a constant key is one bucket that every entity is filed into on
-arrival and taken out of when its entity is gone (a slot with no entity is filed
-under no bucket). The bucket slot is the thing to subscribe to for "a card arrived or
-left", and it is also a valid source for a sorted view, a count or any other
-computed over the whole store slot.
+Why this way: the list has every slot that holds an entity, in no strict order (sort it
+for one; see [Reading the whole population](/docs/core/collections#reading-the-whole-population)); a slot joins it when its entity arrives and leaves when its entity is gone. It is built
+on the first call and kept in step while it is held, so it is the thing to subscribe to for "a card arrived or left". With
+`createOIMEntitySlotCollectionStoreAggregate` the same is `getEntities()` / `getEntityCount()` on the
+aggregate.
 
-Reference: [Indexes](/docs/core/oimindex),
+For the whole store slot sorted, take `createOIMSortedCollectionSingleSlotStoreAggregate`: it sorts the collection's
+list with no index, and its single slot's `value` is every entity slot in order.
+
+```ts
+const allByRank = createOIMSortedCollectionSingleSlotStoreAggregate(cardService.createStoreAggregate(cards), {
+    sortColumns: [{ columnName: 'rank', direction: 'desc' }],
+});
+allByRank.getSingleSlot().value;
+```
+
+It re-sorts when a card arrives or leaves or its `rank` is written, and a write to another column does not wake
+its reader. While nobody reads it, the collection pays nothing for it.
+
+Reference: [Reading the whole population](/docs/core/collections#reading-the-whole-population),
+[Indexes](/docs/core/oimindex),
 [The order of a bucket is a derivation](/docs/core/computed-effects#the-order-of-a-bucket-is-a-derivation).
 
 ## A filtered list
@@ -192,7 +192,7 @@ const activeRedByRankService = createOIMSortedComputedService({
     sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const activeRedByRank = activeRedByRankService.createSortedStoreSlot(cardsByDeckAndStatus);
-const activeRed = activeRedByRankService.computedCollectionService.getSlotByKey(activeRedByRank, 'red:active');
+const activeRed = activeRedByRankService.getSlotByKey(activeRedByRank, 'red:active');
 activeRed.value;
 ```
 
@@ -240,7 +240,7 @@ const feedOrderService = createOIMBucketMemoComputedService({
     bucketCollectionService: feedService,
 });
 const feedOrder = feedOrderService.createBucketMemoStoreSlot(feed);
-const inboxOrder = feedOrderService.computedCollectionService.holdSlotByKey(feedOrder, 'inbox');
+const inboxOrder = feedOrderService.holdSlotByKey(feedOrder, 'inbox');
 effectService.createAndRunEffect(db, () => render(inboxOrder.value), [], [inboxOrder]);
 ```
 
@@ -396,7 +396,7 @@ Reference: [Positions the caller decides](/docs/core/indexes#positions-the-calle
 
 Take: `createOIMComputedService` keyed by the group, whose sources are the index
 bucket of that key, plus the bucket column slot of the summed column for a sum, and
-one `createComputedStoreSlot(db)` of it. Read it through the slot's value service,
+one `createStoreSlot(db)` of it. Read it through the slot's value service,
 `slot.value`. Do not keep a counter of your own updated in an effect: an
 effect's result has no slot, so nothing else in the graph can name it as a source.
 
@@ -416,7 +416,7 @@ const cardCountByDeckService = createOIMComputedService<string, number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: 0,
 });
-const cardCountByDeck = cardCountByDeckService.createComputedStoreSlot(db);
+const cardCountByDeck = cardCountByDeckService.createStoreSlot(db);
 
 const pointsByDeckService = createOIMComputedService<string, number>({
     createSources: ({ key: deck }) => ({
@@ -437,11 +437,11 @@ const pointsByDeckService = createOIMComputedService<string, number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: 0,
 });
-const pointsByDeck = pointsByDeckService.createComputedStoreSlot(db);
+const pointsByDeck = pointsByDeckService.createStoreSlot(db);
 
-const redPoints = pointsByDeckService.computedCollectionService.holdSlotByKey(pointsByDeck, 'red');
+const redPoints = pointsByDeckService.holdSlotByKey(pointsByDeck, 'red');
 effectService.createAndRunEffect(db, () => render(redPoints.value), [], [redPoints]);
-const redCount = cardCountByDeckService.computedCollectionService.getSlotByKey(cardCountByDeck, 'red');
+const redCount = cardCountByDeckService.getSlotByKey(cardCountByDeck, 'red');
 redCount.value;
 ```
 

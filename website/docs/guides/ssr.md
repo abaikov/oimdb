@@ -174,13 +174,13 @@ The db above is built per request and nothing on the server subscribes to
 its channel, which is the precondition of the one call that ends a channel whole:
 
 ```typescript
-OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);   // nothing is subscribed to anything in it
+db.dispose();   // nothing is subscribed to anything in it
 ```
 
 It sets a flag that makes every later `flush()` and flush request a no-op,
 cancels a scheduled flush, hands back the mints the unused-slot collector took for
 the frame it will now never run, empties the list of pending effects and the
-after-each-frame and after-each-flush handlers, and returns. Nothing walks a slot to ask who is subscribed to it, and
+after-each-frame and after-each-flush handlers, cancels the db's three release wheels, and returns. Nothing walks a slot to ask who is subscribed to it, and
 the request's services and store slots go when your own references to them do. The engine does not verify
 the precondition, because that check would be the walk the call exists to skip. So on a
 server that *does* subscribe, keep that guarantee yourself or do not call it. See

@@ -12,30 +12,39 @@ npm install @oimdb/react @oimdb/core
 ## In one minute
 
 ```tsx file=todos.tsx
-import * as oimdb from '@oimdb/core/oimdb';
-import { OIMDBProvider, useOIMSourceTrackingValue } from '@oimdb/react';
+import { OIMDB, createOIMEntitySlotCollectionStoreAggregate } from '@oimdb/core';
+import { OIMDBProvider, useOIMDB, useOIMSourceTrackingValue } from '@oimdb/react';
 
 type TTodo = { id: string; title: string; done: boolean };
 
-const todos = oimdb.entities<TTodo>();
+const createTodoSchema = (db: OIMDB) => ({ todos: createOIMEntitySlotCollectionStoreAggregate<TTodo>(db) });
+const createAppDB = () => new OIMDB({ createSchemas: (db) => ({ default: createTodoSchema(db) }) });
+const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();
 
-todos.upsertEntityByKey('t1', { id: 't1', title: 'Buy milk', done: false });
-todos.upsertEntityByKey('t2', { id: 't2', title: 'Call mum', done: false });
+const db = createAppDB();
+
+db.schemas.default.todos.writeSlotContentByKey('t1', { id: 't1', title: 'Buy milk', done: false });
+db.schemas.default.todos.writeSlotContentByKey('t2', { id: 't2', title: 'Call mum', done: false });
 
 function Todo({ id }: { id: string }) {
-    const todo = useOIMSourceTrackingValue(() => todos.getEntityByKey(id), [todos, id]);
+    const db = useAppDB();
+    const { todos } = db.schemas.default;
+    const todo = useOIMSourceTrackingValue(() => todos.getSlotByKey(id).entity, [todos, id]);
     if (todo === undefined) return null;
-    return <li onClick={() => todos.updateEntityByKey(id, { done: !todo.done })}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
+    const toggle = () => {
+        todos.getSlotByKey(id).updateEntity({ done: !todo.done });
+        db.flush();
+    };
+    return <li onClick={toggle}>{todo.done ? '✓ ' : ''}{todo.title}</li>;
 }
 
-export const App = () => <OIMDBProvider db={oimdb.db()}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
+export const App = () => <OIMDBProvider db={db}><ul><Todo id="t1" /><Todo id="t2" /></ul></OIMDBProvider>;
 ```
 
-Clicking a todo re-renders that one `Todo` and nothing else. `oimdb.db()` delivers every write of a turn in one
-flush on a microtask, so nothing calls `db.flush()` by hand. `@oimdb/core/oimdb` is the short API of the core
-([The short API](https://oimdb.org/docs/getting-started/oimdb)). `useOIMSourceTrackingValue` re-renders on
-whatever its function read, here the one entity. Without `oimdb`, the same collection is
-`createOIMEntitySlotCollectionStoreAggregate<TTodo>(db)`, and `useOIMEntity(todos.storeSlot, id)` reads it by key.
+Clicking a todo re-renders that one `Todo` and nothing else, at the `db.flush()` the handler calls: a
+database delivers only when it is flushed, every write since the last flush at once. The database and its schemas are
+[A database with schemas](https://oimdb.org/docs/getting-started/oimdb). `useOIMSourceTrackingValue` re-renders on
+whatever its function read, here the one entity; `useOIMEntity(todos.storeSlot, id)` reads the same entity by key.
 
 The rest of this page is what the hooks do and what else they take.
 
@@ -184,18 +193,21 @@ A store aggregate passes its `storeSlot`.
   back, and reads the value through `computedSlot.value`.
 - **`useOIMComputedCollection(computedService, derive, createSources, deps)`**: a keyed computed store slot the
   component owns. The SERVICE is yours, built once at module scope with `createOIMComputedService(options)`; the hook
-  only calls `computedService.createComputedStoreSlot(db, derive, createSources)` in a `useMemo` keyed on `deps`, and
+  only calls `computedService.createStoreSlot(db, derive, createSources)` in a `useMemo` keyed on `deps`, and
   returns that store slot. `derive` and `createSources` may be `undefined` when the service already has them.
   Read it by key with `useOIMComputedValueByKey(computedStoreSlot, key)`.
 - **`useOIMSingleComputedValue(computedService, derive, createSources, deps)`**: a single computed the
   component owns. The service is `createOIMSingleComputedService<V>()`, built once at module scope; `derive` and
   `createSources` receive the computed slot. Per mount the hook builds one store slot and reads its slot through
-  `computedSingleSlotService`, so a flush between render and subscribe, which releases the slot the render minted,
+  the service's `getSingleSlot`, so a flush between render and subscribe, which releases the slot the render minted,
   is safe.
 - **`useOIMSingleEntity(singleSlotStoreSlot)`** and
   **`useOIMSingleBucketSlots(singleSlotStoreSlot)`**: the single entity and the single bucket.
   See [Singles](#singles).
 - **`useOIMDB()`**: the `OIMDB` from `OIMDBContext`. It throws if used outside `<OIMDBProvider>`.
+  `useOIMDB.withTypes<TDB>()` returns the same hook typed as `() => TDB`, the react-redux pattern: make it once,
+  `export const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();`, and a component reads
+  `useAppDB().schemas.default.todos` without a cast.
 
 ```tsx
 import { useOIMSingleComputedValue } from '@oimdb/react';
@@ -274,7 +286,7 @@ const rankService = createOIMComputedService<string, number>({
     derive: (computedSlot) => cardService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
     sameValueGuard: oimSameValueZeroGuard,
 });
-const ranks = rankService.createComputedStoreSlot(db);
+const ranks = rankService.createStoreSlot(db);
 
 function Hand({ ids }: { ids: readonly string[] }) {
     const slots = useOIMSlotsByKeys(ranks, ids);

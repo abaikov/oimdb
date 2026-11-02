@@ -21,15 +21,15 @@ There are two kinds of node:
 
 | You want | Take | Not |
 |---|---|---|
-| one derived value with no key (a total, a flag, a summary) | `createOIMSingleComputedService<V>({ … })` and its `createComputedStoreSlot(db, derive, createSources)`, read through `computedSingleSlotService` | a Map computed store slot read under a constant key |
-| one derived value per key (per card, per deck, per user) | `createOIMComputedService<K, V>({ … })` and its `createComputedStoreSlot(db, derive, createSources)` | one single computed per key held in a `Map` of your own |
+| one derived value with no key (a total, a flag, a summary) | `createOIMSingleComputedService<V>({ … })` and its `createStoreSlot(db, derive, createSources)`, read through the service itself | a Map computed store slot read under a constant key |
+| one derived value per key (per card, per deck, per user) | `createOIMComputedService<K, V>({ … })` and its `createStoreSlot(db, derive, createSources)` | one single computed per key held in a `Map` of your own |
 | a bucket's members as an array, in the order the caller wrote | `createOIMBucketMemoComputedService` and its `createBucketMemoStoreSlot(bucketStoreSlot)` | a computed that copies the bucket by hand |
 | an index's members sorted | `createOIMSortedComputedService` and its `createSortedStoreSlot(indexStoreSlot)` | sorting inside an effect body on every run |
 | something to happen when data moves (render, log, sync) | `effectService.createEffect` / `createAndRunEffect` | a computed whose `derive` has side effects |
 | something to happen when one column of one entity moves | `effectService.createEffect(db, [column], [], body)` | an effect over the whole entity slot |
 
 ```ts setup
-import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, createOIMComputedService, createOIMSingleComputedService, createOIMSingleSourceTrackingComputedService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
+import { OIMDB, OIMEffectService, OIMSlotNeverReleasePolicy, createOIMSortedCollectionSingleSlotStoreAggregate, createOIMComputedService, createOIMSingleComputedService, createOIMSingleSourceTrackingComputedService, createOIMBucketMemoComputedService, createOIMSortedComputedService, createOIMSlotCollectionIndexService, oimSameValueZeroGuard, type TOIMEntitySlot, type TOIMStoreKey, createOIMEntityContentService, createOIMSlotCollectionService, OIMPositionalArrayBucketContentService, OIMBucketCommands } from '@oimdb/core';
 
 type Card = { id: string; title: string; rank: number };
 
@@ -44,12 +44,12 @@ const slot = cardService.getSlotByKey(cards, 'c1');
 const other = cardService.getSlotByKey(cards, 'c2');
 
 const totalService = createOIMSingleComputedService<number>();
-const total = totalService.createComputedStoreSlot(
+const total = totalService.createStoreSlot(
     db,
     () => (slot.entity?.rank ?? 0) + (other.entity?.rank ?? 0),
     () => ({ sourceSlots: [slot, other] }),
 );
-const totalSlot = totalService.computedSingleSlotService.getSingleSlot(total);
+const totalSlot = totalService.getSingleSlot(total);
 ```
 
 ## A derivation is a slot that nothing marks
@@ -58,7 +58,7 @@ const totalSlot = totalService.computedSingleSlotService.getSingleSlot(total);
 const rankService = createOIMSingleComputedService<number>({
     sameValueGuard: oimSameValueZeroGuard,    // did the derived value move?
 });
-const rank = rankService.createComputedStoreSlot(
+const rank = rankService.createStoreSlot(
     db,
     () => slot.entity?.rank ?? 0,
     () => ({
@@ -66,7 +66,7 @@ const rank = rankService.createComputedStoreSlot(
     }),
 );
 
-const rankSlot = rankService.computedSingleSlotService.getSingleSlot(rank);
+const rankSlot = rankService.getSingleSlot(rank);
 rankSlot.value;      // settles, then answers
 ```
 
@@ -140,7 +140,7 @@ const idsService = createOIMSingleComputedService<readonly string[]>({
     sameValueGuard: (prev, next) => prev.length === next.length && prev.every((v, i) => v === next[i]),
     initialValue: [],
 });
-idsService.createComputedStoreSlot(
+idsService.createStoreSlot(
     db,
     () => [slot, other].flatMap((cardSlot) => (cardSlot.entity === undefined ? [] : [cardSlot.entity.id])),
     () => ({ sourceSlots: [slot, other] }),
@@ -164,10 +164,10 @@ as it is:
 effectService.createEffect(db, () => { use(totalSlot.value); }, [], [totalSlot]);
 
 const doubledService = createOIMSingleComputedService<number>();
-const doubled = doubledService.createComputedStoreSlot(
+const doubled = doubledService.createStoreSlot(
     db,
     () => totalSlot.value * 2,
-    () => ({ sourceComputeds: [totalService.computedSingleSlotService.getSingleSlot(total)] }),
+    () => ({ sourceComputeds: [totalService.getSingleSlot(total)] }),
 );
 ```
 
@@ -194,7 +194,7 @@ What follows for a caller:
 
 - Keep the store slot. A slot reference outlives the slot.
   `getValueForSlot`, `holdSlot` and `unholdSlot` on a released slot throw
-  ("This identity was released"). Ask the collection again — `computedCollectionService.getSlotByKey(storeSlot, key)` /
+  ("This identity was released"). Ask the service again — `computedService.getSlotByKey(storeSlot, key)` /
   `holdSlotByKey(storeSlot, key)`, with the key `undefined` for a single — and it hands back the live slot,
   or mints a new one.
 - `createSources` runs once per mint, and a store slot mints many times. A new slot
@@ -223,12 +223,12 @@ only read. The policies are listed in
 const pinnedTotalService = createOIMSingleComputedService<number>({
     slotReleasePolicy: OIMSlotNeverReleasePolicy.INSTANCE,
 });
-const pinnedTotal = pinnedTotalService.createComputedStoreSlot(
+const pinnedTotal = pinnedTotalService.createStoreSlot(
     db,
     () => (slot.entity?.rank ?? 0) + (other.entity?.rank ?? 0),
     () => ({ sourceSlots: [slot, other] }),
 );
-const pinnedTotalSlot = pinnedTotalService.computedSingleSlotService.getSingleSlot(pinnedTotal);
+const pinnedTotalSlot = pinnedTotalService.getSingleSlot(pinnedTotal);
 pinnedTotalSlot.value;
 ```
 
@@ -280,7 +280,7 @@ while the open frame already has writes is scheduled for
 that frame's flush, but it does not receive writes made before it was created. The
 effect service is stateless — there is one, `OIMEffectService.INSTANCE` — and each door takes the channel
 map (`db`) first; an effect is a plain `TOIMEffect` object with no methods. When all you keep is the way to
-stop it, `effectService.subscribeEffect(db, roots, computeds, body)` builds the same effect and returns
+stop it, `effectService.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)` builds the same effect and returns
 its `TOIMDisposer`.
 
 ```ts
@@ -351,13 +351,14 @@ effectService.createSourceTrackingEffect(db, () => {
   read through the slot.
 - A tracked read of `entity` makes the whole entity a source. To wake on some columns only, read
   `cardSlot.readEntity(columnGroup)`: the same entity, with only that group's columns as the source.
-  Build the group once, outside the body (`columnSlotService.getColumnGroup(names)`); a group is
-  compared by identity.
+  Build the group once, outside the body (`createOIMColumnGroup(names)`); a group is
+  compared by identity. `readEntity` takes any group; it need not be declared on the service.
 - The body runs once at creation, because the first run is what finds the sources.
 - After each run the effect is subscribed to exactly what that run read. A branch the run
   did not take is unsubscribed, and a slot read twice is subscribed once.
 - A run that reads the same sources in the same order as the run before compares each
-  read with the previous one and changes no subscription.
+  read with the previous one and changes no subscription. A run that diverges looks each read up
+  among its sources so far: a scan up to 16 distinct sources, a `Map` beyond.
 - `createEffect` is unchanged. The two are picked per effect, at creation: declared sources
   where the dependencies are known, tracked sources where they move with the data.
 - The body's type is `TOIMSourceTrackingEffectBody`
@@ -377,7 +378,7 @@ const shownTitleService = createOIMSingleSourceTrackingComputedService<string>({
         : other.entity?.title ?? '',
     initialValue: '',
 });
-const shownTitle = shownTitleService.computedSingleSlotService.holdSingleSlot(shownTitleService.createComputedStoreSlot(db));
+const shownTitle = shownTitleService.holdSingleSlot(shownTitleService.createStoreSlot(db));
 effectService.createSourceTrackingEffect(db, () => {
     render(shownTitle.value);
 });
@@ -400,7 +401,7 @@ effectService.createSourceTrackingEffect(db, () => {
   replaced. An effect without that list does none of this, which is why `sourceComputeds` refuses a
   source-tracking computed.
 - `sameValueGuard`, `releaseValue`, `initialValue`, `slotReleasePolicy` and the column options are the same
-  as for `createOIMSingleComputedService`. There is no `createSources`, and `createComputedStoreSlot(db)` takes
+  as for `createOIMSingleComputedService`. There is no `createSources`, and `createStoreSlot(db)` takes
   no per-store `derive`.
 
 ## One derivation, no key
@@ -410,7 +411,7 @@ const topRankService = createOIMSingleComputedService<number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: -1,
 });
-const topRank = topRankService.createComputedStoreSlot(
+const topRank = topRankService.createStoreSlot(
     db,
     () => cardService.getSlotByKey(cards, 'c1').entity?.rank ?? -1,
     () => ({ sourceSlots: [cardService.getSlotByKey(cards, 'c1')] }),
@@ -418,16 +419,16 @@ const topRank = topRankService.createComputedStoreSlot(
 ```
 
 ```ts
-const heldTopRank = topRankService.computedSingleSlotService.holdSingleSlot(topRank);   // minted once; the same slot while anything holds it
+const heldTopRank = topRankService.holdSingleSlot(topRank);   // minted once; the same slot while anything holds it
 heldTopRank.unholdSlot();                              // gone; the next holdSingleSlot(topRank) mints a new one
 ```
 
 `createOIMSingleComputedService<TValue>({ sameValueGuard?, initialValue?, slotReleasePolicy?, derive?, createSources?, columnSlotStoreService? | columnNames? })`
 builds an `OIMSingleComputedService`, whose store slots each hold at most one computed slot.
-`createComputedStoreSlot(db, derive?, createSources?)` creates one single computed and mints
+`createStoreSlot(db, derive?, createSources?)` creates one single computed and mints
 nothing; a `derive` or `createSources` given to the store slot is used in place of the
 service's, and each must come from one of the two.
-`sameValueGuard` defaults to `Object.is`. A single is read through `computedSingleSlotService` —
+`sameValueGuard` defaults to `Object.is`. A single is read through the service itself (it extends `OIMSingleSlotService`) —
 `getSingleSlot(storeSlot)` (a slot without a hold, so a fresh one is let go at the next flush
 unless something holds it), `holdSingleSlot(storeSlot)` and `findSingleSlot(storeSlot)`,
 which mints nothing. A slot's give-back is `slot.unholdSlot()`, and its value
@@ -443,12 +444,11 @@ const rankByIdService = createOIMComputedService<TOIMStoreKey, number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: -1,
 });
-const ranks = rankByIdService.createComputedStoreSlot(
+const ranks = rankByIdService.createStoreSlot(
     db,
     (computedSlot) => cardService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
     ({ key }) => ({ sourceSlots: [cardService.getSlotByKey(cards, key)] }),
 );
-const rankCollectionService = rankByIdService.computedCollectionService;
 ```
 
 `createOIMComputedService(options)` takes no db. On a keyed service every option is
@@ -457,7 +457,7 @@ none), `computedSlotStoreService` (the store the derivation slots are filed in; 
 and required for any other store), `sameValueGuard` (default `Object.is`),
 `initialValue`, `slotReleasePolicy` and `columnSlotStoreService` or
 `columnNames` (left out, a shared map-driven store); left out, a
-derivation goes at its last unhold (`OIMSlotAtUnholdReleasePolicy`). `createComputedStoreSlot(db, derive?, createSources?)`
+derivation goes at its last unhold (`OIMSlotAtUnholdReleasePolicy`). `createStoreSlot(db, derive?, createSources?)`
 refuses by name when neither it nor the service has a `derive` and a `createSources`.
 A last unhold that lands while the channel is
 flushing releases the derivation on the spot, as it does for every slot.
@@ -481,10 +481,10 @@ The computed collection service files a keyed store slot's derivations the way t
 collections file theirs, so it has the same keyed doors, each taking the store slot first:
 
 ```ts
-const heldRank = rankCollectionService.holdSlotByKey(ranks, 'c1');  // built once; the same object while anything holds it
-rankCollectionService.getSlotByKey(ranks, 'c9');                    // the derivation, built if 'c9' had none; the collector tracks the mint
-rankCollectionService.getSlotCount(ranks);
-for (const derivation of rankCollectionService.getSlots(ranks)) { use(derivation.value); }
+const heldRank = rankByIdService.holdSlotByKey(ranks, 'c1');  // built once; the same object while anything holds it
+rankByIdService.getSlotByKey(ranks, 'c9');                    // the derivation, built if 'c9' had none; the collector tracks the mint
+rankByIdService.getSlotCount(ranks);
+for (const derivation of rankByIdService.getSlots(ranks)) { use(derivation.value); }
 heldRank.value;            // settles, then answers
 heldRank.unholdSlot();                                // the give-back; there is no release call on a derivation
 ```
@@ -495,9 +495,9 @@ the effects on it, and the release policy.
 ## Computed columns
 
 A computed's value can be subscribed to by field. `getColumn(slot, columnName)`,
-`holdColumn(slot, columnName)`, `getColumnGroup(names)`,
-`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `unholdColumn(columnSlot)` and the any-column
-pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on `computedCollectionService`
+`holdColumn(slot, columnName)`,
+`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)` (a group named in the factory's `columnGroups`), `unholdColumn(columnSlot)` and the any-column
+pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on the computed service itself
 (so on the sorted and memo services too); for a single computed, the slot is the one
 `getSlotByKey(storeSlot, undefined)` hands out. Column names are typed as the keys of the value.
 
@@ -509,13 +509,12 @@ and bucket column slots go in the root list instead.
 ```ts
 type CardSummary = { top: number; count: number };
 const cardSummaryService = createOIMSingleComputedService<CardSummary>();
-const cardSummary = cardSummaryService.createComputedStoreSlot(
+const cardSummary = cardSummaryService.createStoreSlot(
     db,
     () => ({ top: Math.max(slot.entity?.rank ?? 0, other.entity?.rank ?? 0), count: cardService.getSlotCount(cards) }),
     () => ({ sourceSlots: [slot, other] }),
 );
-const cardSummarySingleSlotService = cardSummaryService.computedSingleSlotService;
-const topColumn = cardSummarySingleSlotService.columnSlotService.holdColumn(cardSummarySingleSlotService.getSingleSlot(cardSummary), 'top');
+const topColumn = cardSummaryService.columnSlotService.holdColumn(cardSummaryService.getSingleSlot(cardSummary), 'top');
 const onTop = effectService.createEffect(db, () => { render(topColumn.value); }, [], [topColumn]);
 effectService.disposeEffect(onTop);
 topColumn.unholdSlot();
@@ -540,7 +539,7 @@ const orderService = createOIMBucketMemoComputedService({
     bucketCollectionService: byDeckService,
 });
 const order = orderService.createBucketMemoStoreSlot(byDeck);
-const deck = orderService.computedCollectionService.holdSlotByKey(order, 'spades');       // mints and holds the bucket too
+const deck = orderService.holdSlotByKey(order, 'spades');       // mints and holds the bucket too
 effectService.createAndRunEffect(db, () => render(deck.value), [], [deck]);
 ```
 
@@ -560,15 +559,26 @@ bucket, and it never grows.
 A sorted list over an index: `createOIMSortedComputedService`.
 
 ```ts
-const everyCardService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: () => 'all' });
-const everyCard = everyCardService.createIndexStoreSlot(cards);
+const faceService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => (card.rank > 10 ? 'face' : 'number') });
+const byFace = faceService.createIndexStoreSlot(cards);
 const byRankService = createOIMSortedComputedService({
-    indexService: everyCardService,
+    indexService: faceService,
     sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
-const byRank = byRankService.createSortedStoreSlot(everyCard);
-const ranked = byRankService.computedCollectionService.holdSlotByKey(byRank, 'all');
-effectService.createAndRunEffect(db, () => render(ranked.value), [], [ranked]);
+const byRank = byRankService.createSortedStoreSlot(byFace);
+const faceCards = byRankService.holdSlotByKey(byRank, 'face');
+effectService.createAndRunEffect(db, () => render(faceCards.value), [], [faceCards]);
+```
+
+A whole collection sorted needs no index: `createOIMSortedCollectionSingleSlotStoreAggregate(entitySlotCollectionStoreAggregate, { sortColumns?, comparator? })`
+returns a single-slot aggregate whose `getSingleSlot().value` is every entity slot
+in order.
+
+```ts
+const everyCardByRank = createOIMSortedCollectionSingleSlotStoreAggregate(cardService.createStoreAggregate(cards), {
+    sortColumns: [{ columnName: 'rank', direction: 'asc' }],
+});
+db.createEffect(() => render(everyCardByRank.getSingleSlot().value));
 ```
 
 `indexService` is the `OIMSlotCollectionIndexService` the sorted list reads, and `createSortedStoreSlot(indexStoreSlot)`

@@ -29,9 +29,8 @@ const createFixture =(keepAfterIdleMs?: number) => {
             ? undefined
             : new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs }),
     });
-    const ranks = ranksService.createComputedStoreSlot(db);
-    const ranksCollectionService = ranksService.computedCollectionService;
-    return { db, cardsService, cards, ranksService: ranksCollectionService, ranks, cooling, at: (value: number): void => { ms = value; } };
+    const ranks = ranksService.createStoreSlot(db);
+    return { db, cardsService, cards, ranksService, ranks, cooling, at: (value: number): void => { ms = value; } };
 };
 
 describe('a derivation the last reader let go of', () => {

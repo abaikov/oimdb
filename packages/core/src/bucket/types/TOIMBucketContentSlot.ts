@@ -5,7 +5,7 @@ import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 
 export type TOIMBucketContentSlot<
     TSlots = unknown,
-    TBucketMemberSlot extends TOIMSlot = TSlots extends Set<infer TSetMember extends TOIMSlot> ? TSetMember
+    TBucketMemberSlot extends TOIMSlot = TSlots extends ReadonlySet<infer TSetMember extends TOIMSlot> ? TSetMember
         : TSlots extends { readonly bucketMemberSlots: readonly (infer TArrayMember extends TOIMSlot)[] } ? TArrayMember : TOIMSlot,
 > = TOIMSlot & {
     readonly owner: IOIMSlotOwner;

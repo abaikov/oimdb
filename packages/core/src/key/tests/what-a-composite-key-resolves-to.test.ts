@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 
 import { OIMSlotTreeStoreService } from '../../store/OIMSlotTreeStoreService';
 import { OIMCompositeKeyTreeWalk } from '../../key/OIMCompositeKeyTreeWalk';
@@ -8,6 +7,7 @@ import { oimMarkSlotReleased } from '../../slot/utils/oimMarkSlotReleased';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -15,13 +15,18 @@ type Segment = { id: string };
 
 /** A bare identity to be a KEY SEGMENT — it is addressed by nothing itself. */
 const segment = (id: string): TOIMEntitySlot =>
-    createOIMEntitySlot<Segment, string>(id, new OIMSlotOwner(), testStoreSlot) as TOIMEntitySlot;
+    createOIMEntitySlot<Segment, string>(id, new TestSlotOwner(), testStoreSlot) as TOIMEntitySlot;
 
 /** A slot to be FILED under a composite key. */
 const filed = (): TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]> =>
-    createOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>([], new OIMSlotOwner(), testStoreSlot);
+    createOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>([], new TestSlotOwner(), testStoreSlot);
 
 /** The identity arm of the chain store: the walk is the argument that picks it. */
+const filedAt = <TFiledSlot extends { key: readonly TOIMEntitySlot[] }>(key: readonly TOIMEntitySlot[], slot: TFiledSlot): TFiledSlot => {
+    (slot as { key: readonly TOIMEntitySlot[] }).key = key;
+    return slot;
+};
+
 const filedStore = () =>
     new OIMSlotTreeStoreService<
         TOIMEntitySlot, TOIMEntitySlot<Segment, readonly TOIMEntitySlot[]>
@@ -35,7 +40,7 @@ describe('a list of identities is one key', () => {
         const monday = segment('monday');
         const slot = filed();
 
-        service.set(store, [spades, monday], slot);
+        service.set(store, filedAt([spades, monday], slot));
         // A DIFFERENT ARRAY, the same two identities.
         expect(service.get(store, [spades, monday])).toBe(slot);
         expect(service.getSlotCount(store)).toBe(1);
@@ -49,8 +54,8 @@ describe('a list of identities is one key', () => {
         const pair = filed();
         const one = filed();
 
-        service.set(store, [spades, monday], pair);
-        service.set(store, [spades], one);
+        service.set(store, filedAt([spades, monday], pair));
+        service.set(store, filedAt([spades], one));
         // `[spades]` and `[spades, monday]` are two keys. A tree that held both
         // in one map would answer the shorter with the longer's slot.
         expect(service.get(store, [spades])).toBe(one);
@@ -80,8 +85,8 @@ describe('the key holds the identities it is made of', () => {
         const b = segment('b');
         const c = segment('c');
 
-        service.set(store, [a, b], filed());
-        service.set(store, [a, c], filed());
+        service.set(store, filedAt([a, b], filed()));
+        service.set(store, filedAt([a, c], filed()));
 
         // `a` is the first segment of both keys and is descended through twice,
         // but the edge under it was minted once — which is the whole reason the
@@ -98,13 +103,13 @@ describe('the key holds the identities it is made of', () => {
         const b = segment('b');
         const c = segment('c');
 
-        service.set(store, [a, b], filed());
-        service.set(store, [a, c], filed());
+        service.set(store, filedAt([a, b], filed()));
+        service.set(store, filedAt([a, c], filed()));
         expect(a.holdCount).toBe(1);
 
         // ONE OF TWO BRANCHES GOES. `a` is still reached by the other, so its
         // edge stays and so does its hold.
-        service.remove(store, [a, b]);
+        service.delete(store, filedAt([a, b], filed()));
         expect(service.getSlotCount(store)).toBe(1);
         expect(b.holdCount).toBe(0);
         expect(a.holdCount).toBe(1);
@@ -113,7 +118,7 @@ describe('the key holds the identities it is made of', () => {
         // only to reach it is pruned and the hold comes back — without which a
         // store keyed by identities would keep every segment ever used for the
         // life of the process.
-        service.remove(store, [a, c]);
+        service.delete(store, filedAt([a, c], filed()));
         expect(service.getSlotCount(store)).toBe(0);
         expect(c.holdCount).toBe(0);
         expect(a.holdCount).toBe(0);
@@ -130,7 +135,7 @@ describe('the key on the slot is the store\'s own copy', () => {
 
         const handedIn: TOIMEntitySlot[] = [a, b];
         const ownedKey = service.ownKey(handedIn);
-        service.set(store, handedIn, slot);
+        service.set(store, filedAt(handedIn, slot));
         // The caller keeps their array and is free to reuse it. A store that
         // aliased it would find the slot filed at a key that changed under it.
         handedIn.length = 0;
@@ -154,8 +159,8 @@ describe('a key naming a released identity', () => {
         const dead = released('dead');
         const slot = filed();
 
-        expect(() => { service.set(store, [live, dead], slot); }).toThrow(/released/);
-        expect(() => { service.set(store, [live, dead], slot); }).toThrow(/released/);
+        expect(() => { service.set(store, filedAt([live, dead], slot)); }).toThrow(/released/);
+        expect(() => { service.set(store, filedAt([live, dead], slot)); }).toThrow(/released/);
         expect(service.get(store, [live, dead])).toBeUndefined();
     });
 
@@ -165,7 +170,7 @@ describe('a key naming a released identity', () => {
         const live = segment('live');
         const dead = released('dead');
 
-        expect(() => { service.set(store, [live, dead], filed()); }).toThrow(/released/);
+        expect(() => { service.set(store, filedAt([live, dead], filed())); }).toThrow(/released/);
 
         expect(live.holdCount).toBe(0);
         expect(store.rootCompositeKeyNode.childNodes?.size ?? 0).toBe(0);

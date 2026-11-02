@@ -271,9 +271,10 @@ nowMs += 31_000;
 oimMintAfterIdleSlotReleaseWheel(testDb.collectorSlot).flush();
 ```
 
-`flush()` releases everything due up to now; `cancelAllSlots()` empties the wheel and disarms the timer. Deadlines are swept in slices of `OIM_SLICE_LENGTH_MS`
-(1024 ms), so a slot goes up to one slice after its deadline, never before, and many slots on one
-clock cost one timer.
+`flush()` releases every slot whose deadline has passed, up to now; `cancelAllSlots()` empties the wheel and disarms the timer. Deadlines are filed in slices of `OIM_SLICE_LENGTH_MS`
+(1024 ms) and the timer arms for the end of a slice, so on the timer alone a slot goes never before its
+deadline and at most one slice after it. Many slots on one clock cost one timer. The default timer caps a
+delay at `2^31 − 1` ms (about 24.8 days), so a longer window still fires.
 
 ### What restarts each window
 
@@ -331,12 +332,12 @@ frame moves its deadline a window ahead first. Nothing is written, so no effect 
 ### Refetching on a clock
 
 A release wheel decides when a slot may go. To refresh data while somebody is looking at it, create an
-`OIMSlotRefetchWheel` with a listener and file the slots at the moment they should be refetched:
+`OIMSlotRefetchWheel` on the db (it takes the db's clock, timer and error policy) with a listener and file the slots at the moment they should be refetched:
 
 ```ts
 
 const refetchDue: TOIMSlot[] = [];
-const refetchWheel = new OIMSlotRefetchWheel({
+const refetchWheel = new OIMSlotRefetchWheel(db, {
     slotRefetchListener: { onSlotsRefetchDue: slots => { refetchDue.push(...slots); } },
 });
 

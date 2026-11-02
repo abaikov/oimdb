@@ -2,7 +2,7 @@ import type { IOIMSlotStoreService } from '../store/interfaces/IOIMSlotStoreServ
 import type { TOIMKeyedSlot } from '../slot/types/TOIMKeyedSlot';
 import type { TOIMColumnSlot } from './types/TOIMColumnSlot';
 import type { TOIMColumnSlotOrdinalStoreServiceOptions } from './types/TOIMColumnSlotOrdinalStoreServiceOptions';
-import { oimColumnNamesOfKey } from './utils/oimColumnNamesOfKey';
+import { OIM_ANY_COLUMN_KEY } from './constants/OIM_ANY_COLUMN_KEY';
 
 type TOIMColumnSlotOrdinalStore<TColumnSlot> = {
     readonly columnSlots: (TColumnSlot | undefined)[];
@@ -11,15 +11,29 @@ type TOIMColumnSlotOrdinalStore<TColumnSlot> = {
 
 export class OIMColumnSlotOrdinalStoreService<TColumnSlot extends TOIMKeyedSlot<string> = TOIMColumnSlot>
 implements IOIMSlotStoreService<string, TColumnSlot, TOIMColumnSlotOrdinalStore<TColumnSlot>> {
-    private readonly ordinalsByColumnName = new Map<string, number>();
-
-    private readonly declaredColumnNames: ReadonlySet<string>;
+    private readonly ordinalsByColumnKey: ReadonlyMap<string, number>;
 
     public constructor(options: TOIMColumnSlotOrdinalStoreServiceOptions) {
-        this.declaredColumnNames = new Set(options.columnNames);
-        for (const columnName of this.declaredColumnNames) {
-            this.ordinalsByColumnName.set(columnName, this.ordinalsByColumnName.size);
+        const ordinalsByColumnKey = new Map<string, number>();
+        for (const columnName of options.columnNames) {
+            if (!ordinalsByColumnKey.has(columnName)) ordinalsByColumnKey.set(columnName, ordinalsByColumnKey.size);
         }
+        const declaredColumnCount = ordinalsByColumnKey.size;
+        ordinalsByColumnKey.set(OIM_ANY_COLUMN_KEY, declaredColumnCount);
+        const columnGroups = options.columnGroups;
+        for (let i = 0; i < columnGroups.length; i++) {
+            const columnGroup = columnGroups[i];
+            for (const columnName of columnGroup.columnNames) {
+                const ordinal = ordinalsByColumnKey.get(columnName);
+                if (ordinal !== undefined && ordinal < declaredColumnCount) continue;
+                throw new Error(
+                    `OIMColumnSlotOrdinalStoreService: the column "${columnName}" of a column group is not among the columns `
+                    + 'this collection was created with. Name it in `columnNames`.',
+                );
+            }
+            if (!ordinalsByColumnKey.has(columnGroup.key)) ordinalsByColumnKey.set(columnGroup.key, ordinalsByColumnKey.size);
+        }
+        this.ordinalsByColumnKey = ordinalsByColumnKey;
     }
 
     public createStore(): TOIMColumnSlotOrdinalStore<TColumnSlot> { return { columnSlots: [], slotCount: 0 }; }
@@ -29,32 +43,31 @@ implements IOIMSlotStoreService<string, TColumnSlot, TOIMColumnSlotOrdinalStore<
     public isSameKey(key: string, otherKey: string): boolean { return key === otherKey; }
 
     public get(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, key: string): TColumnSlot | undefined {
-        const ordinal = this.ordinalsByColumnName.get(key);
+        const ordinal = this.ordinalsByColumnKey.get(key);
         return ordinal === undefined ? undefined : store.columnSlots[ordinal];
     }
 
-    public set(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, key: string, slot: TColumnSlot): void {
-        const ordinal = this.ordinalsByColumnName.get(key) ?? this.assignColumnGroupOrdinal(key);
+    public set(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, slot: TColumnSlot): void {
+        const key = slot.key;
+        const ordinal = this.ordinalsByColumnKey.get(key);
+        if (ordinal === undefined) {
+            throw new Error(
+                `OIMColumnSlotOrdinalStoreService: the column "${key}" is not among the columns `
+                + 'this collection was created with, so no slot can be filed for it. Name it in `columnNames`.',
+            );
+        }
         const columnSlots = store.columnSlots;
         if (columnSlots[ordinal] === undefined) store.slotCount++;
         columnSlots[ordinal] = slot;
     }
 
-    public remove(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, key: string): void {
-        const ordinal = this.ordinalsByColumnName.get(key);
+    public delete(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, slot: TColumnSlot): void {
+        const ordinal = this.ordinalsByColumnKey.get(slot.key);
         if (ordinal === undefined) return;
         const columnSlots = store.columnSlots;
         if (columnSlots[ordinal] === undefined) return;
         columnSlots[ordinal] = undefined;
         store.slotCount--;
-    }
-
-    public fileSlot(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, slot: TColumnSlot): void {
-        this.set(store, slot.key, slot);
-    }
-
-    public unfileSlot(store: TOIMColumnSlotOrdinalStore<TColumnSlot>, slot: TColumnSlot): void {
-        this.remove(store, slot.key);
     }
 
     public *getSlots(store: TOIMColumnSlotOrdinalStore<TColumnSlot>): IterableIterator<TColumnSlot> {
@@ -67,19 +80,5 @@ implements IOIMSlotStoreService<string, TColumnSlot, TOIMColumnSlotOrdinalStore<
 
     public getSlotCount(store: TOIMColumnSlotOrdinalStore<TColumnSlot>): number {
         return store.slotCount;
-    }
-
-    private assignColumnGroupOrdinal(key: string): number {
-        const columnNames = oimColumnNamesOfKey(key);
-        for (let i = 0; i < columnNames.length; i++) {
-            if (this.declaredColumnNames.has(columnNames[i])) continue;
-            throw new Error(
-                `OIMColumnSlotOrdinalStoreService: the column "${columnNames[i]}" is not among the columns ` +
-                'this collection was created with, so no slot can be filed for it. Name it in `columns`.',
-            );
-        }
-        const ordinal = this.ordinalsByColumnName.size;
-        this.ordinalsByColumnName.set(key, ordinal);
-        return ordinal;
     }
 }

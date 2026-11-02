@@ -1,24 +1,21 @@
 import type { TOIMSlot } from './TOIMSlot';
+import type { TOIMSlotContentChangeListenerReadColumns } from './TOIMSlotContentChangeListenerReadColumns';
 import type { IOIMSlotContentChangeListener } from '../interfaces/IOIMSlotContentChangeListener';
 import type { OIMChannelQueue } from '../../channel/OIMChannelQueue';
 import type { TOIMChannelSlot } from '../../channel/types/TOIMChannelSlot';
 import type { TOIMIndexKeysPositions } from '../../index/types/TOIMIndexKeysPositions';
-import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
-import type { TOIMColumnReaders } from '../../column/types/TOIMColumnReaders';
+import type { TOIMCollectionBucketSlot } from '../../bucket/types/TOIMCollectionBucketSlot';
 
 export type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, TPatch = unknown, TSlotService = unknown> = {
     readonly store: TStore;
     readonly slotService: TSlotService;
     readonly channelSlot: TOIMChannelSlot;
     readonly contentChangeListeners: IOIMSlotContentChangeListener<TSlot, TPatch>[] | undefined;
-    readonly contentChangeListenerReadColumnNames: (readonly string[] | undefined)[] | undefined;
+    readonly contentChangeListenerReadColumns: TOIMSlotContentChangeListenerReadColumns[] | undefined;
+    readonly slotContentChangeListenerReadColumns: TOIMSlotContentChangeListenerReadColumns | undefined;
     readonly indexKeysPositions: TOIMIndexKeysPositions | undefined;
     readonly columnListenerCountsByColumnName: Map<string, number> | undefined;
     readonly allColumnsListenerCount: number;
-    readonly columnGroupsByKey: Map<string, TOIMColumnGroup> | undefined;
-    readonly columnGroupSlotCountsByKey: Map<string, number> | undefined;
-    readonly columnReadersByColumnName: Map<string, TOIMColumnReaders> | undefined;
-    readonly anyColumnSlotCount: number;
     readonly batchDepth: number;
     readonly batchSlotChannelQueue: OIMChannelQueue<TSlot> | undefined;
     readonly batchPatchChannelQueue: OIMChannelQueue<TPatch | undefined> | undefined;
@@ -29,13 +26,11 @@ export type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, T
     readonly writeDepth: number;
     readonly commandsBucketSlotChannelQueue: OIMChannelQueue<TSlot> | undefined;
     readonly sourceStoreSlot: TOIMStoreSlot | undefined;
-    readonly keptStampedEntitySlots: Set<TOIMSlot> | undefined;
     readonly derive: unknown;
     readonly createSources: unknown;
     readonly indexKeysPosition: number;
     readonly contentChangeListener: unknown;
     readonly requestedKeys: readonly unknown[] | undefined;
-    readonly bucketColumnNames: Set<string> | undefined;
-    readonly isAnyBucketColumnRead: boolean;
+    readonly collectionBucketSlot: TOIMCollectionBucketSlot<TSlot> | undefined;
     readonly isDisposed: boolean;
 };

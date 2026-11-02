@@ -25,7 +25,7 @@ describe('a comparator that reads a different index order', () => {
             sortColumns: [{ columnName: 'rank', direction: 'asc' }],
         });
         const otherByGroupOrders = otherByGroupOrdersService.createSortedStoreSlot(otherByGroup);
-        const otherOrder = otherByGroupOrdersService.computedCollectionService.holdSlotByKey(otherByGroupOrders, 'other');
+        const otherOrder = otherByGroupOrdersService.holdSlotByKey(otherByGroupOrders, 'other');
         const getOtherOrderValue = () =>
             readValueWithoutTracking(otherOrder);
 
@@ -48,7 +48,7 @@ describe('a comparator that reads a different index order', () => {
             },
         });
         const byGroupOrders = byGroupOrdersService.createSortedStoreSlot(byGroup);
-        const order = byGroupOrdersService.computedCollectionService.holdSlotByKey(byGroupOrders, 'group');
+        const order = byGroupOrdersService.holdSlotByKey(byGroupOrders, 'group');
         const getOrderValue = () => readValueWithoutTracking(order);
 
         othersService.writeInBatch(others, () => ([

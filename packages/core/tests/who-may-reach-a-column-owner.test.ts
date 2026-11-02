@@ -30,9 +30,12 @@ describe('who may reach a column owner', () => {
         ]);
         expect(filesMatching(/\bcreateOIMPullColumnSlotOwner\b/)).toEqual([
             'column/utils/createOIMPullColumnSlotOwner.ts',
+            'computed/OIMBucketMemoComputedService.ts',
+            'computed/OIMComputedService.ts',
             'computed/OIMSingleComputedService.ts',
             'computed/OIMSingleSourceTrackingComputedService.ts',
-            'computed/utils/createOIMComputedSlotCollectionService.ts',
+            'computed/OIMSortedComputedService.ts',
+            'computed/OIMSourceTrackingComputedService.ts',
         ]);
         expect(filesMatching(/\bcreateOIMPushColumnSlotOwner\b/)).toEqual([
             'column/utils/createOIMPushColumnSlotOwner.ts',
@@ -57,7 +60,6 @@ describe('who may reach a column owner', () => {
             'computed/OIMSourceTrackingComputedService.ts',
             'computed/createOIMBucketMemoComputedService.ts',
             'computed/types/TOIMBucketMemoComputedServiceOptions.ts',
-            'computed/utils/createOIMComputedSlotCollectionService.ts',
             'entity/types/TOIMEntitySlotOwnerService.ts',
             'index.ts',
             'index/OIMSlotCollectionIndexService.ts',

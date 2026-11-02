@@ -21,7 +21,7 @@
  * where React logs the error and carries on. Nothing else notices.
  */
 import type { TOIMDisposer, TOIMSlot, TOIMEditable, TOIMStoreSlot } from '@oimdb/core';
-import { OIMDB, OIMSlotOwner, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
+import { OIMDB, createOIMSlotCollectionService, createOIMEntityContentService } from '@oimdb/core';
 import { holdWhileSubscribed } from '../src/holdWhileSubscribed';
 
 function countingOwnerSlot(): TOIMSlot {
@@ -40,17 +40,15 @@ function countingOwnerSlot(): TOIMSlot {
         releaseDueAfterUnholdMs: -1,
         columnSlotStore: undefined,
         storeSlot,
-        owner: new OIMSlotOwner(),
-    };
-    (slot as TOIMEditable<TOIMSlot>).owner = {
-        holdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount++; },
-        unholdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount--; },
-        releaseSlotIfUnheld: (): void => undefined,
-        unsafeMutateSlot: (): void => undefined,
-        subscribeToSlot: (): number => 0,
-        unsubscribeFromSlot: (): boolean => true,
-        onSlotFirstSubscribed: (): void => undefined,
-        onSlotLastUnsubscribed: (): void => undefined,
+        owner: {
+            holdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount++; },
+            unholdSlot: (held: TOIMSlot): void => { (held as TOIMEditable<TOIMSlot>).holdCount--; },
+            releaseSlotIfUnheld: (): void => undefined,
+            unsafeMutateSlot: (): void => undefined,
+            subscribeToSlot: (): number => 0,
+            unsubscribeFromSlot: (): boolean => true,
+        },
+        data: undefined,
     };
     return slot;
 }

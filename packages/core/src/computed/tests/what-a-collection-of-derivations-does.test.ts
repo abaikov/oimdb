@@ -14,10 +14,10 @@ type Card = { id: string; title: string; rank: number };
 
 const createNumberService = () => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const collectionService = computedService.computedSingleSlotService;
+    const collectionService = computedService;
     type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
-        createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
+        createStoreSlot: computedService.createStoreSlot.bind(computedService),
         getSingleSlot: (storeSlot: TStoreSlot) => collectionService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
@@ -43,10 +43,10 @@ const createFixture =() => {
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = computedService.createComputedStoreSlot(db);
+    const ranks = computedService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
     return {
-        db, effectService, cardsService, cards, ranksService: computedService.computedCollectionService, ranks,
+        db, effectService, cardsService, cards, ranksService: computedService, ranks,
         flushUnusedSlots, builds: () => builds,
     };
 };
@@ -158,9 +158,9 @@ describe('every source of a reader is brought current, not only the first that m
 
         // TWO derivations over the SAME root, so one write changes both.
         const firstService = createNumberService();
-        const first = firstService.createComputedStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
+        const first = firstService.createStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
         const secondService = createNumberService();
-        const second = secondService.createComputedStoreSlot(db, () => (slot.entity?.rank ?? -1) * 10, () => ({ sourceSlots: [slot] }));
+        const second = secondService.createStoreSlot(db, () => (slot.entity?.rank ?? -1) * 10, () => ({ sourceSlots: [slot] }));
 
         let seenFirst = 0;
         let seenSecond = 0;

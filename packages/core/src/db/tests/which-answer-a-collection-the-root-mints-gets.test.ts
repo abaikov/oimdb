@@ -166,9 +166,9 @@ describe('which answer a collection the root mints gets', () => {
         expect(occurrencesOf(/OIM_DEFAULT_\w+|OIMDefaults\./g, codeOf(ROOT))).toBe(0);
     });
 
-    it('the root declares what it owns and not one door', () => {
+    it('the root declares what it owns, its schemas, the effect door and its disposal, and no other door', () => {
         expect(namesAfter(/^ {4}public (?:readonly )?(\w+)/gm, codeOf(ROOT))).toEqual([
-            'clock', 'collectorSlot', 'constructor', 'defaultChannelSlot', 'flush',
+            'clock', 'collectorSlot', 'constructor', 'createEffect', 'defaultChannelSlot', 'dispose', 'flush', 'schemas',
         ]);
     });
 

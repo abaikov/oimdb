@@ -13,21 +13,26 @@ import landingStyles from '@site/src/components/Landing/styles.module.css';
 
 import styles from './index.module.css';
 
-const HERO_CODE = `import * as oimdb from '@oimdb/core/oimdb';
+const HERO_CODE = `import { OIMDB, createOIMEntitySlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate } from '@oimdb/core';
 
 type Task = { id: string; column: string; title: string; priority: number };
 
-const tasks = oimdb.entities<Task>();
-const byColumn = oimdb.index(tasks, { columns: ['column'] });
-const byPriority = oimdb.sorted(byColumn, [{ columnName: 'priority', direction: 'asc' }]);
+const createTaskSchema = (db: OIMDB) => {
+    const tasks = createOIMEntitySlotCollectionStoreAggregate<Task>(db);
+    const byColumn = createOIMSlotCollectionIndexStoreAggregate(tasks, { keyOf: (task) => task.column });
+    return { tasks, byColumn };
+};
+const db = new OIMDB({ createSchemas: (db) => ({ default: createTaskSchema(db) }) });
+const { tasks, byColumn } = db.schemas.default;
 
-oimdb.effect(() => {
-    render(byPriority.getEntitiesByKey('todo').map((task) => task.title));
+db.createEffect(() => {
+    render(byColumn.getEntitiesByKey('todo').map((task) => task.title));
 });
 
-tasks.upsertEntityByKey('t1', { id: 't1', column: 'todo', title: 'Fix login redirect', priority: 2 });
-tasks.upsertEntityByKey('t2', { id: 't2', column: 'todo', title: 'Ship the release', priority: 1 });
-tasks.updateEntityByKey('t1', { priority: 0 });`;
+const login = tasks.writeSlotContentByKey('t1', { id: 't1', column: 'todo', title: 'Fix login redirect', priority: 2 });
+tasks.writeSlotContentByKey('t2', { id: 't2', column: 'todo', title: 'Ship the release', priority: 1 });
+login.updateEntity({ column: 'done' });
+db.flush();`;
 
 function HomepageHeader(): ReactNode {
     return (

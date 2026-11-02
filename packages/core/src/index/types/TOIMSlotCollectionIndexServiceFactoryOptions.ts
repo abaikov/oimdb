@@ -4,6 +4,7 @@ import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreS
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { OIMSlotCollectionService } from '../../slot/OIMSlotCollectionService';
+import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
 import type { OIMDefaults } from '../../db/OIMDefaults';
 
 export type TOIMSlotCollectionIndexServiceFactoryOptions<TEntity extends object, TSourceKey extends NonNullable<unknown>, TSourceStore> = {
@@ -13,4 +14,5 @@ export type TOIMSlotCollectionIndexServiceFactoryOptions<TEntity extends object,
     slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
     columnSlotStoreService?: IOIMSlotStoreService<string, TOIMColumnSlot> | undefined;
     columnNames?: readonly string[] | undefined;
+    columnGroups?: readonly TOIMColumnGroup[] | undefined;
 };

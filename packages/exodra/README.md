@@ -61,7 +61,7 @@ const deckCards = exoBinding(db, {
     sourceSlots: [bucket], derive: () => Array.from(bucket.getBucketMemberSlots()),
 });
 
-const deck = orderService.computedCollectionService.holdSlotByKey(order, 'spades');
+const deck = orderService.holdSlotByKey(order, 'spades');
 const ordered = exoBinding(db, {
     sourceComputeds: [deck], derive: () => deck.value,
 });
@@ -97,7 +97,7 @@ this by handing back a `TOIMExoDisposable`:
 import { exoBinding } from '@oimdb/exodra';
 
 const groupFor = (deckId: string) => {
-    const held = orderService.computedCollectionService.holdSlotByKey(order, deckId);   // a hold is what mints one
+    const held = orderService.holdSlotByKey(order, deckId);   // a hold is what mints one
     return Object.assign(
         exoBinding(db, {
             sourceComputeds: [held], derive: () => held.value,
@@ -139,7 +139,7 @@ the bridge.
 import { exoDerivedList, exoPositionalList } from '@oimdb/exodra';
 
 // The engine orders it: the script is DERIVED, by oimOrderedListCommandsOfTransition.
-const deck = orderService.computedCollectionService.holdSlotByKey(order, 'spades');
+const deck = orderService.holdSlotByKey(order, 'spades');
 const list = exoDerivedList(db, deck, slot => renderCard(slot));
 
 // You order it: the script is the one OIMBucketCommands already RECORDED.

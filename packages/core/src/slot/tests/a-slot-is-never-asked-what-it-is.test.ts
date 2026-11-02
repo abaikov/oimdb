@@ -6,8 +6,8 @@ import { OIM_SLOT_FLAG_EMPTY } from '../constants/OIM_SLOT_FLAG_EMPTY';
 import { createOIMEntityContentService } from '../../entity/createOIMEntityContentService';
 import { createOIMSlotCollectionService } from '../createOIMSlotCollectionService';
 import { createOIMStoreSlot } from '../utils/createOIMStoreSlot';
-import { OIMSlotOwner } from '../OIMSlotOwner';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -31,7 +31,8 @@ describe('subscribing to an identity the engine did not mint', () => {
         releaseDueAfterUnholdMs: -1,
             columnSlotStore: undefined,
             storeSlot: testStoreSlot,
-            owner: new OIMSlotOwner(),
+            owner: new TestSlotOwner(),
+            data: undefined,
             index: {
                 probe: () => { probed++; },
             },
@@ -58,7 +59,7 @@ describe('subscribing to an identity the engine did not mint', () => {
             comparator: () => { throw new Error('the sorter cannot rank these'); },
         });
         const byQueueOrders = byQueueOrdersService.createSortedStoreSlot(byQueue);
-        const heldSlot = byQueueOrdersService.computedCollectionService.holdSlotByKey(byQueueOrders, 'q0');
+        const heldSlot = byQueueOrdersService.holdSlotByKey(byQueueOrders, 'q0');
         entitiesService.writeInBatch(entities, () => ([{ id: 'k1', queue: 'q0', rank: 1 }, { id: 'k2', queue: 'q0', rank: 2 }]).map(entity => entitiesService.writeSlotContentByKey(entities, entity.id, entity)));
 
         const effect = OIMEffectService.INSTANCE.createEffect(db, () => { /* never reached */ }, [], [heldSlot]);

@@ -10,7 +10,7 @@ import type { OIMBucketContentService } from './OIMBucketContentService';
 
 export class OIMBucketSlot<
     TSlots = unknown, TKey extends NonNullable<unknown> = NonNullable<unknown>,
-    TBucketMemberSlot extends TOIMSlot = TSlots extends Set<infer TSetMember extends TOIMSlot> ? TSetMember
+    TBucketMemberSlot extends TOIMSlot = TSlots extends ReadonlySet<infer TSetMember extends TOIMSlot> ? TSetMember
         : TSlots extends { readonly bucketMemberSlots: readonly (infer TArrayMember extends TOIMSlot)[] } ? TArrayMember : TOIMSlot,
 > extends OIMSlot {
     declare public storeSlot: TOIMStoreSlot<unknown, TOIMBucketContentSlot<TSlots>>;

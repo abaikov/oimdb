@@ -248,7 +248,7 @@ const rankedInDeckService = createOIMComputedService<string, readonly TOIMEntity
     sameValueGuard: oimSameSlotSequence,
     initialValue: [],
 });
-const rankedInDeck = rankedInDeckService.createComputedStoreSlot(db);
+const rankedInDeck = rankedInDeckService.createStoreSlot(db);
 ```
 
 The bucket is named in `sourceSlots`, so the computed holds it for
@@ -307,7 +307,10 @@ write the way an index does, add your own with
 `OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)`
 and remove it with `removeContentChangeListener(storeSlot, listener)`. An `IOIMSlotContentChangeListener`
 has `onContentChanged(slot, patch, changedColumns)` and `onManyContentsChanged(...)`, which a batch
-write calls once. `readColumnNames` `undefined` means every column. Listeners on one store slot share
+write calls once. `readColumnNames` `undefined` means every column. `addContentChangeListener` returns the
+listener's `TOIMSlotContentChangeListenerReadColumns` (`declaredColumnNames`, `addedColumnNames`, `isAnyColumnAdded`);
+`addListenerReadColumn(storeSlot, listener, columnName)` and `addListenerReadAnyColumn(storeSlot, listener)` add reads
+to it later, and the util `oimIsAnyAddedColumnRead(listenerReadColumns, changedColumns)` tells whether a write hit one of them. Listeners on one store slot share
 one column filter, so a listener still checks `changedColumns` itself. Anything that can be pulled
 belongs in a computed instead.
 
@@ -351,7 +354,7 @@ const cardsByRankService = createOIMSortedComputedService({
 });
 const cardsByRank = cardsByRankService.createSortedStoreSlot(cardsInDeck);
 
-const red = cardsByRankService.computedCollectionService.holdSlotByKey(cardsByRank, 'red');
+const red = cardsByRankService.holdSlotByKey(cardsByRank, 'red');
 effectService.createAndRunEffect(db, () => { render(red.value); }, [], [red]);
 red.unholdSlot();
 ```

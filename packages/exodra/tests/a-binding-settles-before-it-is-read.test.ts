@@ -29,12 +29,12 @@ describe('exoBinding', () => {
             derive: () => Array.from(world.byDeckService.slotContentService.getBucketMemberSlots(bucket)),
         });
         const titleService = createTitleService();
-        const title = titleService.createComputedStoreSlot(
+        const title = titleService.createStoreSlot(
             world.db,
             () => (slot.entity?.title ?? '').toUpperCase(),
             () => ({ sourceSlots: [slot] }),
         );
-        const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
+        const titleSlot = titleService.holdSingleSlot(title);
         const shouted = exoBinding(world.db, {
             sourceComputeds: [titleSlot], derive: () => titleSlot.value,
         });
@@ -55,12 +55,12 @@ describe('exoBinding', () => {
         const slot = world.slotOf({ id: 'c1', deckId: 'd1', rank: 1, title: 'alpha' });
         let derivations = 0;
         const titleService = createTitleService();
-        const title = titleService.createComputedStoreSlot(
+        const title = titleService.createStoreSlot(
             world.db,
             () => { derivations++; return slot.entity?.title ?? ''; },
             () => ({ sourceSlots: [slot] }),
         );
-        const titleSlot = titleService.computedSingleSlotService.holdSingleSlot(title);
+        const titleSlot = titleService.holdSingleSlot(title);
         const bound = exoBinding(world.db, {
             sourceComputeds: [titleSlot], derive: () => titleSlot.value,
         });

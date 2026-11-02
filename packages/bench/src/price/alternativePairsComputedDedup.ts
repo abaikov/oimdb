@@ -101,14 +101,13 @@ const buildDedupPlaceAgainstEachOther = (readsPerFrame: number, timesEachRead: n
         initialValue: 0,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
     });
-    const sumComputedCollectionService = sumComputedService.computedCollectionService;
-    const sumComputedStoreSlot = sumComputedService.createComputedStoreSlot(
+    const sumComputedStoreSlot = sumComputedService.createStoreSlot(
         oursFixture.db,
         computedSlot => sumOfRanks(oursSourcesByDerivation[computedSlot.key]),
         ({ key: d }) => ({ sourceSlots: oursSourcesByDerivation[d] }),
     );
     const sumSlots: TOIMComputedSlot<number, number>[] = [];
-    for (let d = 0; d < DERIVATIONS; d++) sumSlots.push(sumComputedCollectionService.holdSlotByKey(sumComputedStoreSlot, d));
+    for (let d = 0; d < DERIVATIONS; d++) sumSlots.push(sumComputedService.holdSlotByKey(sumComputedStoreSlot, d));
     const computedValueService = (sumSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
 
     /* ── floor: the channel decides ──────────────────────────────────────── */

@@ -98,14 +98,14 @@ describe('what a source-tracking effect depends on', () => {
     it('wakes through a computed when its value moves, and not when it re-derives to the same value', () => {
         const { db, effectService, first, firstService } = createFixture();
         const textLengthService = createOIMSingleComputedService<number>();
-        const textLength = textLengthService.createComputedStoreSlot(
+        const textLength = textLengthService.createStoreSlot(
             db,
             () => firstService.getSingleSlot(first).entity?.text.length ?? 0,
             () => ({ sourceSlots: [firstService.getSingleSlot(first)] }),
         );
         const seen: number[] = [];
         effectService.createSourceTrackingEffect(db, () => {
-            seen.push(textLengthService.computedSingleSlotService.getSingleSlot(textLength).value);
+            seen.push(textLengthService.getSingleSlot(textLength).value);
         });
         writeText(db, firstService, first, 'blue');
         expect(seen).toEqual([4]);
@@ -116,12 +116,12 @@ describe('what a source-tracking effect depends on', () => {
     it('takes every subscription off on dispose', () => {
         const { db, effectService, first, firstService, second, secondService } = createFixture();
         const textLengthService = createOIMSingleComputedService<number>();
-        const textLength = textLengthService.createComputedStoreSlot(
+        const textLength = textLengthService.createStoreSlot(
             db,
             () => secondService.getSingleSlot(second).entity?.text.length ?? 0,
             () => ({ sourceSlots: [secondService.getSingleSlot(second)] }),
         );
-        const computedSlot = textLengthService.computedSingleSlotService.holdSingleSlot(textLength);
+        const computedSlot = textLengthService.holdSingleSlot(textLength);
         let runCount = 0;
         const effect = effectService.createSourceTrackingEffect(db, () => {
             void firstService.getSingleSlot(first).entity;

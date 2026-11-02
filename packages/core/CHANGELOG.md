@@ -3,6 +3,83 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.8.0
+
+### Added
+
+- `OIMEntitySlotCollectionStoreAggregate` with `getEntities()` / `getEntityCount()`, returned by `createOIMEntitySlotCollectionStoreAggregate`.
+- `OIMSlotCollectionBucketService.INSTANCE.getBucketSlot(storeSlot)` / `holdBucketSlot(storeSlot)`, `OIMCollectionSetBucketContentService`, `TOIMCollectionBucketSlot`, `TOIMSlotCollectionStoreSlot`.
+- `oimGetBucketMemberSlotEntities(bucketMemberSlots)`.
+- `OIMExplicitSourceComputedContentService`, `TOIMExplicitSourceComputedContentServiceOptions`.
+- `createOIMColumnGroup(columnNames)`.
+- `OIMDB` option `createSchemas: (db) => schemas` and field `db.schemas`; `OIMDB<TSchemas>`.
+- `db.createEffect(body, sourceSlots?, { lazy? })`, returns a disposer.
+- `db.dispose()`.
+- `createOIMSortedCollectionSingleSlotStoreAggregate(collection, { sortColumns?, comparator? })`.
+- `OIMSlotCollectionBucketService.INSTANCE.getBucketColumn` / `holdBucketColumn` / `getAnyBucketColumn` / `holdAnyBucketColumn`.
+- `OIMSlotContentChangeListenerService.addListenerReadColumn` / `addListenerReadAnyColumn`; `addContentChangeListener` returns `TOIMSlotContentChangeListenerReadColumns`; `oimIsAnyAddedColumnRead`; `TOIMStoreSlot.slotContentChangeListenerReadColumns`.
+- `columnGroups` option on the collection, single, index, entity aggregate and computed factories (`TOIMColumnSlotOwnerOptions.columnGroups`).
+
+### Changed
+
+- Index and sorted bucket member slots are typed with the collection key (`slot.key: TOIMStoreKey`, was `{}`).
+- `OIMSlotCollectionIndexService.getEntitiesByKey` / `OIMSlotCollectionIndexStoreAggregate.getEntitiesByKey` return `TEntity[]` (was `(TEntity | undefined)[]`) and track.
+- `OIMSortedArrayBucketContentService` options: `bucketCommands` removed.
+- A slot filed during a release sweep lands in its own slice after the sweep (was one slice above the sweep).
+- `new OIMSlotRefetchWheel(db, { slotRefetchListener })` (was `new OIMSlotRefetchWheel({ slotRefetchListener, getNowMs?, timer?, errorPolicy? })`).
+- `TOIMEntitySlot`, `TOIMEntityContentSlot`, `OIMEntitySlot`: third generic `TColumnName`; `getColumn` / `holdColumn` take it.
+- `data` (the user's cache, never touched by the core) is on every slot (`TOIMSlot`, `OIMSlot`), not only the entity slot.
+- A slot minted by a write is filed by the collection / single service before `insertSlotContent`, like one minted by a get or a hold; `insertSlotContent` no longer files.
+- `OIMComputedContentService` is abstract; `createSources` → `OIMExplicitSourceComputedContentService`.
+- A throwing `channelScheduler` goes through the error policy (logged by default; the next write asks again).
+- `holdColumnGroup` / `getColumnGroupSlot` take only a group named in `columnGroups`; a group read through `readEntity(columnGroup)` needs no declaration.
+- `TOIMColumnGroup<TColumnName>` is generic.
+- `openBatch` / `closeBatch` / `writeInBatch` are on `OIMWritableSlotCollectionService` / `OIMWritableSlotCollectionStoreAggregate` only (were on every collection service and aggregate).
+- `OIMSlotOwner` is abstract: `releaseSlotIfUnheld` is abstract.
+- `OIMSlotCollectionService` is abstract with no public store-slot door; `OIMWritableSlotCollectionService.createStoreSlot`. `OIMComputedService`, `OIMSourceTrackingComputedService`, `OIMSortedComputedService`, `OIMBucketMemoComputedService` extend `OIMSlotCollectionService`. `OIMSingleComputedService`, `OIMSingleSourceTrackingComputedService` extend `OIMSingleSlotService`.
+- `new OIMSlotOwner(slotSubscriptionListener?)`; `createColumnSlotOwner(columnSlotOwnerOptions, slotSubscriptionListener)`, `createOIMPushColumnSlotOwner(options, slotSubscriptionListener?)`, `createOIMPullColumnSlotOwner(options, slotSubscriptionListener?)`.
+
+### Renamed
+
+- `OIMComputedService.createComputedStoreSlot`, `OIMSourceTrackingComputedService.createComputedStoreSlot`, `OIMSingleComputedService.createComputedStoreSlot`, `OIMSingleSourceTrackingComputedService.createComputedStoreSlot` → `createStoreSlot`.
+- `IOIMSlotFilingService.fileSlot` / `unfileSlot` → `set` / `delete` (every store service).
+- `TOIMStoreSlot.contentChangeListenerReadColumnNames` → `contentChangeListenerReadColumns`.
+- `OIMBucketContentService.markBucketColumnsChanged` → `oimMarkBucketColumnsChanged`.
+
+### Removed
+
+- `computedCollectionService` on the four computed services; `computedSingleSlotService` on the two single computed services.
+- `IOIMSlotOwner.onSlotFirstSubscribed` / `onSlotLastUnsubscribed` (protected on `OIMSlotOwner`).
+- `OIMSlotCollectionService.slotOwner`, `OIMSingleSlotService.slotOwner`.
+- `OIMSlotCollectionService.createStoreSlot` / `createStoreSlotFrom` / `createStoreAggregate` → the subclass's own door.
+- `OIMSlotOwner.onSlotIdle`, `OIMSlotOwnerService.onSlotIdle`.
+- `OIMSlotOwnerService.releaseSlotIfUnheldAfterListeners` → `releaseSlotIfUnheld`.
+- `OIMSlotContentChangeDeliveryService.isBatchOpen`.
+- `IOIMSlotContentService.hasReference` and its implementations.
+- `OIMSourceTracker.readSourceSlot` → `trackSourceSlot`; `readSourceComputedValue` → the computed slot's `value` while the tracker is active.
+- `IOIMEffectService.runEffect`, `runEffectIfSourcesChanged`.
+- `IOIMSlotFilingService.getSlots` / `getSlotCount` → `IOIMSlotStoreService`; `OIMSingleSlotStoreService.getSlots` / `getSlotCount`.
+- `IOIMSlotStoreService.set(store, key, slot)` / `remove(store, key)` → `set(store, slot)` / `delete(store, slot)`.
+- `OIMColumnSlotService.getColumnGroup` / `OIMColumnSlotOwner.getColumnGroup` → `createOIMColumnGroup`.
+- `@oimdb/core/oimdb` (with `getInstance` / `db`) and `@oimdb/core/soimdb`; `OIMEntityCollection`, `OIMSingleEntity`, `OIMEntityIndex`, `OIMSortedEntityIndex` → the store aggregates in `createSchemas` and the slot methods; `effect` → `db.createEffect`.
+- `OIMColumnSlotOwner.isAnyColumnReferenced`, `OIMSlotOwnerService.isAnyColumnReferenced`.
+- `OIMSlotOwnerService.takeChangedColumnNames`.
+- `OIMSlotOwnerService.writeSlotToChannelAndSettle` → `markSlotContentChanged(slot, isEmpty)`.
+- `TOIMStoreSlot.bucketColumnNames` / `isAnyBucketColumnRead` (and on `TOIMIndexStoreSlot`); `TOIMStoreSlot.keptStampedEntitySlots`; `OIMSlotContentChangeListenerService.addReadColumn` / `removeReadColumn` / `addReadAnyColumn` / `removeReadAnyColumn` are private.
+- `TOIMColumnReaders`; `TOIMStoreSlot.columnGroupsByKey`, `columnGroupSlotCountsByKey`, `columnReadersByColumnName`, `anyColumnSlotCount`.
+
+### Fixed
+
+- A sorted computed sees a bucket member swapped by hand.
+- An effect that disposes itself during its run no longer resubscribes.
+- Moving a slot to a column-filtered edge keeps its column wakes.
+- A late bucket column read on a disposed index leaves no read registration on the source.
+- A column mint that throws leaves no column store behind.
+- An empty list written to a new bucket key keeps the slot until the flush.
+- `dropChannelSlot` cancels the release wheels.
+- The default release timer caps a delay at 2^31-1 ms.
+- A slot queued in a batch is not released before delivery; a nested batch on the same store slot is delivered once.
+
 ## 4.7.0
 
 ### Added

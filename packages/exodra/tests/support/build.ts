@@ -56,11 +56,11 @@ export type TExoTestWorld = {
     rankedService: TRankedService;
     ranked: ReturnType<TRankedService['createStoreSlot']>;
     /** The order of a `ranked` bucket, as one derivation per key. */
-    orderService: ReturnType<typeof createOrderService>['computedCollectionService'];
+    orderService: ReturnType<typeof createOrderService>;
     order: ReturnType<ReturnType<typeof createOrderService>['createBucketMemoStoreSlot']>;
     rankedByDeckService: TRankedByDeckService;
     rankedByDeck: ReturnType<TRankedByDeckService['createIndexStoreSlot']>;
-    rankedOrdersService: ReturnType<typeof createRankedOrdersService>['computedCollectionService'];
+    rankedOrdersService: ReturnType<typeof createRankedOrdersService>;
     rankedOrders: ReturnType<ReturnType<typeof createRankedOrdersService>['createSortedStoreSlot']>;
     /** Slots and positions the caller writes, with the engine recording the script. */
     boardService: ReturnType<typeof createBoardService>;
@@ -99,11 +99,11 @@ export function build(): TExoTestWorld {
         byDeck,
         rankedService,
         ranked,
-        orderService: orderService.computedCollectionService,
+        orderService,
         order,
         rankedByDeckService,
         rankedByDeck,
-        rankedOrdersService: rankedOrdersService.computedCollectionService,
+        rankedOrdersService,
         rankedOrders,
         boardService,
         board,

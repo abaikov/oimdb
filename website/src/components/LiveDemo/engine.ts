@@ -80,7 +80,7 @@ export class DemoEngine {
         const seeded = TITLES.map((title, i): TTask => ({ id: `t${i}`, column: COLUMNS[i % 3], title, priority: i + 1 }));
         for (const task of seeded) this.taskSlots.push(this.taskService.writeSlotContentByKey(this.tasks, task.id, task));
         for (const column of COLUMNS) {
-            const sortedSlot = this.tasksByPriorityService.computedCollectionService.holdSlotByKey(this.tasksByPriority, column);
+            const sortedSlot = this.tasksByPriorityService.holdSlotByKey(this.tasksByPriority, column);
             const effect = this.effectService.createAndRunEffect(this.db, () => {
                 const ordered = sortedSlot.value;
                 this.columns[column] = ordered.flatMap((slot) => (slot.entity === undefined ? [] : [{ ...slot.entity }]));

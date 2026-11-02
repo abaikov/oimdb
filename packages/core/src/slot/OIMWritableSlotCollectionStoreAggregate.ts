@@ -14,4 +14,16 @@ export class OIMWritableSlotCollectionStoreAggregate<
     public writeSlotContentByKey(key: TKey, content: TContent, changedSlots?: TSlot[]): TSlot {
         return this.slotService.writeSlotContentByKey(this.storeSlot, key, content, changedSlots);
     }
+
+    public openBatch(): void {
+        this.slotService.openBatch(this.storeSlot);
+    }
+
+    public closeBatch(): void {
+        this.slotService.closeBatch(this.storeSlot);
+    }
+
+    public writeInBatch<TResult>(write: () => TResult): TResult {
+        return this.slotService.writeInBatch(this.storeSlot, write);
+    }
 }

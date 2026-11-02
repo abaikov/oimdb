@@ -27,7 +27,7 @@ function setUp(sameValueGuard?: (prev: TQuery, next: TQuery) => boolean) {
         releaseValue: query => { released.push(query); },
         initialValue: { key: '', version: -1 },
     });
-    const queries = queriesService.createComputedStoreSlot(db);
+    const queries = queriesService.createStoreSlot(db);
     const correct = (key: string, version: number, note = '') => {
         correctionsService.writeSlotContentByKey(corrections, key, { id: key, version, note });
         db.flush();
@@ -38,7 +38,7 @@ function setUp(sameValueGuard?: (prev: TQuery, next: TQuery) => boolean) {
 describe('what a computed value is released for', () => {
     it('releases the previous value when derive produced a different one, and never the initial value', () => {
         const { queriesService, queries, correct, released } = setUp();
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
         const first = readValueWithoutTracking(query);
         expect(released).toEqual([]);
 
@@ -52,7 +52,7 @@ describe('what a computed value is released for', () => {
 
     it('releases nothing when derive answers with the value the slot already holds', () => {
         const { queriesService, queries, correct, released, derivedCount } = setUp((prev, next) => prev.version === next.version);
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
         correct('q', 1);
         const kept = readValueWithoutTracking(query);
         const derivedBefore = derivedCount();
@@ -66,7 +66,7 @@ describe('what a computed value is released for', () => {
 
     it('releases a new object the guard called equal, since it is dropped and the slot keeps the old one', () => {
         const { queriesService, queries, correct, released } = setUp((prev, next) => prev.version === next.version);
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
         correct('q', 1);
         const kept = readValueWithoutTracking(query);
         released.length = 0;
@@ -81,18 +81,18 @@ describe('what a computed value is released for', () => {
 
     it('releases the current value when the slot is released', () => {
         const { queriesService, queries, released } = setUp();
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
         const current = readValueWithoutTracking(query);
 
         query.owner.unholdSlot(query);
 
         expect(released).toEqual([current]);
-        expect(queriesService.computedCollectionService.findSlotByKey(queries, 'q')).toBeUndefined();
+        expect(queriesService.findSlotByKey(queries, 'q')).toBeUndefined();
     });
 
     it('releases nothing on the release of a slot that never derived', () => {
         const { queriesService, queries, released } = setUp();
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
 
         query.owner.unholdSlot(query);
 
@@ -109,8 +109,8 @@ describe('what a computed value is released for', () => {
             releaseValue: value => { released.push(value); },
             initialValue: 0,
         });
-        const count = countService.createComputedStoreSlot(db);
-        const slot = countService.computedSingleSlotService.holdSingleSlot(count);
+        const count = countService.createStoreSlot(db);
+        const slot = countService.holdSingleSlot(count);
         unholdDuringDerive = () => { unholdDuringDerive = undefined; slot.owner.unholdSlot(slot); };
 
         expect(() => readValueWithoutTracking(slot)).not.toThrow();
@@ -121,7 +121,7 @@ describe('what a computed value is released for', () => {
 
     it('releases on the release an effect causes when it lets the last hold go', () => {
         const { db, queriesService, queries, released } = setUp();
-        const query = queriesService.computedCollectionService.holdSlotByKey(queries, 'q');
+        const query = queriesService.holdSlotByKey(queries, 'q');
         const watching = OIMEffectService.INSTANCE.createEffect(db, () => undefined, [], [query]);
         query.owner.unholdSlot(query);
         const current = readValueWithoutTracking(query);

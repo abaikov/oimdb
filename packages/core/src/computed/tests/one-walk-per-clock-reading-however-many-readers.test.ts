@@ -23,16 +23,16 @@ const createDerived = (
     derive: () => number,
 ) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard: (a, b) => a === b, initialValue: 0 });
-    const derived = computedService.createComputedStoreSlot(
+    const derived = computedService.createStoreSlot(
         db,
         derive,
         () => ({ sourceSlots, sourceComputeds: sourceComputeds.map(source => source()) }),
     );
     const derivedService = {
-        getSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
-        holdSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.holdSingleSlot(storeSlot),
+        getSingleSlot: (storeSlot: typeof derived) => computedService.getSingleSlot(storeSlot),
+        holdSingleSlot: (storeSlot: typeof derived) => computedService.holdSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof derived) => {
-            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
+            const computedSlot = computedService.getSingleSlot(storeSlot);
             return readValueWithoutTracking(computedSlot);
         },
     };

@@ -15,7 +15,7 @@ its services, its slot types, its factories, its defaults' options — is in tha
 | `computed/` | computed value and sources services, every computed service and its factory, source trackers |
 | `entity/` | entity slots and content service, entity writers, column patching of an entity |
 | `column/` | column slots, column slot owners, `OIMColumnSlotService` |
-| `bucket/` | bucket content services, bucket commands; `array/` and `commands/` are its sub-domains |
+| `bucket/` | bucket content services, bucket commands, the collection list; `array/`, `set/` and `commands/` are its sub-domains |
 | `index/` | index services (plain and sorted), their factories and options, index keys |
 | `key/` | composite keys and key tree walks |
 | `collector/` | release policies, the release and refetch wheels, the unused slot collector |
@@ -54,14 +54,14 @@ Value imports between domain folders (types left out), outside tests:
 
 | Domain | imports values from |
 |---|---|
-| `bucket` | channel, slot |
+| `bucket` | channel, collector, computed, db, slot, store |
 | `channel` | collector, schedule |
 | `collector` | channel, error, schedule, slot |
 | `column` | channel, collector, computed, slot |
 | `computed` | bucket, channel, collector, column, db, slot, store |
 | `db` | channel, collector, entity, error, index, key, schedule, slot, store |
 | `effect` | channel, computed, slot |
-| `entity` | channel, collector, db, slot |
+| `entity` | bucket, channel, collector, computed, db, slot |
 | `index` | bucket, channel, computed, db, slot, store |
 | `key` | slot |
 | `slot` | channel, collector, column, db, store |

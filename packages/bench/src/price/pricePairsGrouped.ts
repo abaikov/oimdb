@@ -84,8 +84,7 @@ const orderPair: TPricePair = {
         });
         const sortedComputedStoreSlot = sortedComputedService.createSortedStoreSlot(indexStoreSlot);
         const names = priceDataset.groupNames();
-        const computedCollectionService = sortedComputedService.computedCollectionService;
-        const sortedComputeds = names.map(name => computedCollectionService.holdSlotByKey(sortedComputedStoreSlot, name));
+        const sortedComputeds = names.map(name => sortedComputedService.holdSlotByKey(sortedComputedStoreSlot, name));
         db.flush();
         const sortedByGroup: TPriceDataRow[][] = names.map(() => []);
         for (let i = 0; i < held.length; i++) sortedByGroup[i % names.length].push(held[i]);

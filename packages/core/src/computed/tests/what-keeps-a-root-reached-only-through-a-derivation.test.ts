@@ -34,12 +34,12 @@ const createFixture =() => {
 const derivationOver = (source: TOIMSlot, db: OIMDB): TOIMComputedContentSlot<number> => {
     let ran = 0;
     const derivationService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const derivationStore = derivationService.createComputedStoreSlot(
+    const derivationStore = derivationService.createStoreSlot(
         db,
         () => ++ran,
         () => ({ sourceSlots: [source] }),
     );
-    return derivationService.computedSingleSlotService.getSingleSlot(derivationStore);
+    return derivationService.getSingleSlot(derivationStore);
 };
 
 describe(`a root an effect reaches only through a derivation (${DO_NOT_EDIT_TO_MAKE_IT_PASS})`, () => {

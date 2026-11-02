@@ -10,14 +10,14 @@ export class OIMSlotCollectionIndexStoreAggregate<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
     TBucketSlot extends TOIMBucketSlot<TSlots, TKey>, TStore,
     TSlotService extends OIMSlotCollectionIndexService<
-        TKey, TEntity, TSlots, TSourceKey, TSourceStore, OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots, TKey>, TBucketSlot, TStore
+        TKey, TEntity, TSlots, TSourceKey, TSourceStore, OIMBucketContentService<TOIMEntitySlot<TEntity, TSourceKey>, TSlots, TKey>, TBucketSlot, TStore
     >,
-> extends OIMSlotCollectionStoreAggregate<TKey, TBucketSlot, TStore, readonly TOIMEntitySlot<TEntity>[], TSlotService> {
+> extends OIMSlotCollectionStoreAggregate<TKey, TBucketSlot, TStore, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TSlotService> {
     declare public readonly storeSlot: TOIMIndexStoreSlot<
-        TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, TSlotService
+        TStore, TBucketSlot, readonly TOIMEntitySlot<TEntity, TSourceKey>[], TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>, TKey, TSourceStore, TSlotService
     >;
 
-    public getEntitiesByKey(key: TKey): (TEntity | undefined)[] {
+    public getEntitiesByKey(key: TKey): TEntity[] {
         return this.slotService.getEntitiesByKey(this.storeSlot, key);
     }
 

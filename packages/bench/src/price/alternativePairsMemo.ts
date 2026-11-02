@@ -12,8 +12,8 @@ import { OIM_SLOT_FLAG_EMPTY } from '../../../core/src/slot/constants/OIM_SLOT_F
 import { EPricePath } from './EPricePath';
 import { priceSink } from './priceSink';
 import type { TPricePair } from './TPricePair';
-import { OIMSlotOwner } from '../../../core/src/index';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
+import { PriceSlotOwner } from './priceFixture';
 
 const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -40,7 +40,8 @@ const makeList = (seed: number): TListRoot => {
         slotFlags: OIM_SLOT_FLAG_EMPTY,
         columnSlotStore: undefined,
         storeSlot: priceStoreSlot,
-        owner: new OIMSlotOwner(),
+        owner: new PriceSlotOwner(),
+        data: undefined,
         rows,
     };
 };
@@ -82,14 +83,13 @@ const memoPair = (bodyName: string, body: TBody, readsPerWrite: number, caveat: 
             sameValueGuard: oimSameValueZeroGuard,
             columnSlotStoreService: new OIMSlotMapStoreService<TOIMComputedColumnSlot, string>(),
         });
-        const memoComputedCollectionService = memoComputedService.computedCollectionService;
-        const memoComputedStoreSlot = memoComputedService.createComputedStoreSlot(
+        const memoComputedStoreSlot = memoComputedService.createStoreSlot(
             db,
             computedSlot => body(lists[computedSlot.key].rows),
             ({ key: at }) => ({ sourceSlots: [lists[at]] }),
         );
         const memoSlots: TOIMComputedSlot<number, number>[] = [];
-        for (let i = 0; i < LISTS; i++) memoSlots.push(memoComputedCollectionService.holdSlotByKey(memoComputedStoreSlot, i));
+        for (let i = 0; i < LISTS; i++) memoSlots.push(memoComputedService.holdSlotByKey(memoComputedStoreSlot, i));
         const computedValueService = (memoSlots[0] as unknown as OIMComputedSlot<number>).computedValueService;
         for (let i = 0; i < LISTS; i++) {
             if (computedValueService.getValueForSlot(memoSlots[i]) === body(lists[i].rows)) continue;

@@ -1,6 +1,5 @@
 import type { IOIMStoreSlotListener } from './interfaces/IOIMStoreSlotListener';
 import type { IOIMSingleSlotCreator } from './interfaces/IOIMSingleSlotCreator';
-import type { IOIMSlotOwner } from './interfaces/IOIMSlotOwner';
 import { OIMSlotOwnerService } from './OIMSlotOwnerService';
 import type { OIMSingleSlotStoreService } from '../store/OIMSingleSlotStoreService';
 import type { OIMColumnSlotOwner } from '../column/OIMColumnSlotOwner';
@@ -49,10 +48,6 @@ export class OIMSingleSlotService<
         this.storeSlotListener = options.storeSlotListener;
     }
 
-    public get slotOwner(): IOIMSlotOwner {
-        return this.slotOwnerService;
-    }
-
     public createStoreSlot(channelMap: IOIMChannelMap): TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch, this> {
         const storeSlot = createOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch, this>(
             this.slotStoreService.createStore(), channelMap.defaultChannelSlot, this,
@@ -79,22 +74,27 @@ export class OIMSingleSlotService<
     public getSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {
         const found = this.slotStoreService.getSingleSlot(storeSlot.store);
         if (found !== undefined) return found;
-        const slot = this.mintSingleSlot(storeSlot);
+        const slot = this.mintEmptySingleSlot(storeSlot);
         OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(storeSlot.channelSlot.collectorSlot.unusedSlotCollectorSlot, slot);
         return slot;
     }
 
     public holdSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {
-        const slot = this.slotStoreService.getSingleSlot(storeSlot.store) ?? this.mintSingleSlot(storeSlot);
+        const slot = this.slotStoreService.getSingleSlot(storeSlot.store) ?? this.mintEmptySingleSlot(storeSlot);
         this.slotOwnerService.holdSlot(slot);
         return slot;
     }
 
-    private mintSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {
+    protected mintSingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {
+        const slot = this.singleSlotCreator.createSingleSlot(storeSlot as TOIMStoreSlot, this.slotOwnerService);
+        this.slotOwnerService.fileSlot(slot);
+        return slot;
+    }
+
+    private mintEmptySingleSlot(storeSlot: TOIMStoreSlot<TOIMSingleSlotStore<TSlot>, TSlot, TPatch>): TSlot {
         const slotOwnerService = this.slotOwnerService;
-        const slot = this.singleSlotCreator.createSingleSlot(storeSlot as TOIMStoreSlot, slotOwnerService);
+        const slot = this.mintSingleSlot(storeSlot);
         slotOwnerService.settleEmptiness(slot, slotOwnerService.isSlotEmpty(slot));
-        slotOwnerService.fileSlot(slot);
         return slot;
     }
 }

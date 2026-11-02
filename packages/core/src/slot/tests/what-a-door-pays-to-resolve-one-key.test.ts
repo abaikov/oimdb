@@ -26,16 +26,12 @@ implements IOIMSlotStoreService<string, TDeckBucket, Map<string, TDeckBucket>> {
         return store.get(key);
     }
 
-    public set(store: Map<string, TDeckBucket>, key: string, slot: TDeckBucket): void {
+    public set(store: Map<string, TDeckBucket>, slot: TDeckBucket): void {
         this.filings++;
-        store.set(key, slot);
+        store.set(slot.key, slot);
     }
 
-    public remove(store: Map<string, TDeckBucket>, key: string): void { store.delete(key); }
-
-    public fileSlot(store: Map<string, TDeckBucket>, slot: TDeckBucket): void { this.set(store, slot.key, slot); }
-
-    public unfileSlot(store: Map<string, TDeckBucket>, slot: TDeckBucket): void { this.remove(store, slot.key); }
+    public delete(store: Map<string, TDeckBucket>, slot: TDeckBucket): void { store.delete(slot.key); }
 
     public getSlots(store: Map<string, TDeckBucket>): IterableIterator<TDeckBucket> {
         return store.values();

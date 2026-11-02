@@ -105,12 +105,11 @@ const driveEveryDoor = (db: OIMDB) => {
     const doubledService = createOIMComputedService<string, number>({
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const doubled = doubledService.createComputedStoreSlot(
+    const doubled = doubledService.createStoreSlot(
         db,
         computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
         ({ key: id }) => ({ sourceSlots: [cardsService.getSlotByKey(cards, id)] }),
     );
-    const doubledCollectionService = doubledService.computedCollectionService;
 
     const bucket = deckService.holdSlotByKey(deck, 'deck');
 
@@ -132,8 +131,8 @@ const driveEveryDoor = (db: OIMDB) => {
     singleService.slotContentService.updateEntity(singleSlot, { title: 'renamed too' });
     db.flush();
 
-    const derived = doubledCollectionService.holdSlotByKey(doubled, 'a');
-    doubledCollectionService.columnSlotService.holdAnyColumn(derived);
+    const derived = doubledService.holdSlotByKey(doubled, 'a');
+    doubledService.columnSlotService.holdAnyColumn(derived);
     OIMEffectService.INSTANCE.createEffect(db, () => { void readValueWithoutTracking(derived); }, [], [derived]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void cardsService.getSlotCount(cards); }, [cardsService.getSlotByKey(cards, 'b')]);
     OIMEffectService.INSTANCE.createEffect(db, () => { void singleSlot.entity; }, [singleSlot]);
@@ -147,10 +146,10 @@ const driveEveryDoor = (db: OIMDB) => {
 const V8_POLYMORPHIC_CEILING = 4;
 
 const THREE_SLOT_LITERALS: TArrivingShape[] = [
-    { label: 'OIMColumnSlot', keyCount: 14, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
+    { label: 'OIMColumnSlot', keyCount: 15, whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT },
     {
         label: 'OIMBucketSlot',
-        keyCount: 19,
+        keyCount: 20,
         whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
     },
     {
@@ -162,7 +161,7 @@ const THREE_SLOT_LITERALS: TArrivingShape[] = [
 
 const COMPUTED_SLOT_LITERAL: TArrivingShape = {
     label: 'OIMComputedSlot',
-    keyCount: 25,
+    keyCount: 26,
     whereTheDoorsFieldsSit: WHERE_THE_DOORS_FIELDS_SIT,
 };
 

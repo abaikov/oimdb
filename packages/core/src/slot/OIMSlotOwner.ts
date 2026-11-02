@@ -3,9 +3,17 @@ import type { TOIMEffect } from '../effect/types/TOIMEffect';
 import type { TOIMSlot } from './types/TOIMSlot';
 import type { TOIMEditable } from './types/TOIMEditable';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
+import type { IOIMSlotSubscriptionListener } from './interfaces/IOIMSlotSubscriptionListener';
+import { OIMNoSlotSubscriptionListener } from './OIMNoSlotSubscriptionListener';
 import { oimAssertSlotNotReleased } from './utils/oimAssertSlotNotReleased';
 import { OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS } from './constants/OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS';
-export class OIMSlotOwner implements IOIMSlotOwner {
+export abstract class OIMSlotOwner implements IOIMSlotOwner {
+    private readonly slotSubscriptionListener: IOIMSlotSubscriptionListener;
+
+    public constructor(slotSubscriptionListener?: IOIMSlotSubscriptionListener) {
+        this.slotSubscriptionListener = slotSubscriptionListener ?? OIMNoSlotSubscriptionListener.INSTANCE;
+    }
+
     public holdSlot(slot: TOIMSlot): void {
         this.assertNotReleased(slot);
         (slot as TOIMEditable<TOIMSlot>).holdCount++;
@@ -23,7 +31,6 @@ export class OIMSlotOwner implements IOIMSlotOwner {
         (slot as TOIMEditable<TOIMSlot>).holdCount--;
         if (slot.holdCount !== 0) return;
         this.onSlotUnheld(slot);
-        this.releaseSlotIfUnheld(slot);
     }
 
     public subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number, columnGroup?: TOIMColumnGroup): number {
@@ -54,26 +61,29 @@ export class OIMSlotOwner implements IOIMSlotOwner {
             (slot as TOIMEditable<TOIMSlot>).slotFlags &= ~OIM_SLOT_FLAG_COLUMN_FILTERED_SUBSCRIBERS;
         }
         if (last === 0) {
-            this.onSlotIdle(slot);
             this.onSlotLastUnsubscribed(slot);
         }
         this.unholdSlot(slot);
         return true;
     }
 
-    public releaseSlotIfUnheld(_slot: TOIMSlot): void { return; }
+    public abstract releaseSlotIfUnheld(slot: TOIMSlot): void;
 
     public unsafeMutateSlot(slot: TOIMSlot, mutateSlot: (editableSlot: TOIMEditable<TOIMSlot>) => void): void {
         mutateSlot(slot as TOIMEditable<TOIMSlot>);
     }
 
-    public onSlotFirstSubscribed(_slot: TOIMSlot): void { return; }
+    protected onSlotFirstSubscribed(slot: TOIMSlot): void {
+        this.slotSubscriptionListener.onSlotFirstSubscribed(slot);
+    }
 
-    public onSlotLastUnsubscribed(_slot: TOIMSlot): void { return; }
+    protected onSlotLastUnsubscribed(slot: TOIMSlot): void {
+        this.slotSubscriptionListener.onSlotLastUnsubscribed(slot);
+    }
 
-    protected onSlotIdle(_slot: TOIMSlot): void { return; }
-
-    protected onSlotUnheld(_slot: TOIMSlot): void { return; }
+    protected onSlotUnheld(slot: TOIMSlot): void {
+        this.releaseSlotIfUnheld(slot);
+    }
 
     protected assertNotReleased(slot: TOIMSlot): void {
         oimAssertSlotNotReleased(slot);

@@ -21,7 +21,7 @@ const createFixture = () => {
     for (let i = 0; i < 8; i++) slots.push(rowsService.getSlotByKey(rows, `r${i}`) as TOIMSlot);
     const computedOver = (sourceSlots: readonly TOIMSlot[], sourceComputeds: readonly TOIMComputedContentSlot[]): TOIMComputedContentSlot<number> => {
         const computedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-        return computedService.computedSingleSlotService.getSingleSlot(computedService.createComputedStoreSlot(db, () => 0, () => ({ sourceSlots, sourceComputeds })));
+        return computedService.getSingleSlot(computedService.createStoreSlot(db, () => 0, () => ({ sourceSlots, sourceComputeds })));
     };
     return { db, effectService, slots, computedOver };
 };

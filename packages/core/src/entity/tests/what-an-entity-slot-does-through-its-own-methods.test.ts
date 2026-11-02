@@ -4,13 +4,16 @@ import { createOIMEntityContentService } from '../createOIMEntityContentService'
 import { createOIMSlotCollectionService } from '../../slot/createOIMSlotCollectionService';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 import { oimIsSlotReleased } from '../../slot/utils/oimIsSlotReleased';
+import { createOIMColumnGroup } from '../../column/utils/createOIMColumnGroup';
 import type { OIMEntitySlot } from '../OIMEntitySlot';
 
 type TCard = { id: string; title: string; rank: number; note?: string };
 
+const titleAndRank = createOIMColumnGroup<keyof TCard>(['title', 'rank']);
+
 const createFixture = () => {
     const db = new OIMDB();
-    const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
+    const cardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>(), columnGroups: [titleAndRank] });
     const cards = cardService.createStoreSlot(db);
     const card = cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace', rank: 1 }) as unknown as OIMEntitySlot<TCard, string>;
     db.flush();
@@ -45,7 +48,7 @@ describe('what an entity slot does through its own methods', () => {
     it('hands out the same column slots as the column doors of its collection', () => {
         const { cardService, card } = createFixture();
         const columnSlotService = cardService.columnSlotService;
-        const group = columnSlotService.getColumnGroup(['title', 'rank']);
+        const group = titleAndRank;
         expect(card.getColumn('title')).toBe(columnSlotService.getColumn(card, 'title'));
         expect(card.holdColumn('rank')).toBe(columnSlotService.getColumn(card, 'rank'));
         expect(card.getAnyColumn()).toBe(columnSlotService.getAnyColumn(card));
@@ -82,7 +85,7 @@ describe('what an entity slot does through its own methods', () => {
             derive: () => card.content?.rank ?? 0,
             initialValue: 0,
         });
-        const rank = rankService.computedSingleSlotService.holdSingleSlot(rankService.createComputedStoreSlot(db));
+        const rank = rankService.holdSingleSlot(rankService.createStoreSlot(db));
         const seen: number[] = [];
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             seen.push(rank.value);

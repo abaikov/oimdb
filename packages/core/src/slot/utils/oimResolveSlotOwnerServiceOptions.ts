@@ -5,6 +5,7 @@ import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreS
 import type { IOIMSlotStamp } from '../interfaces/IOIMSlotStamp';
 import type { TOIMColumnSlot } from '../../column/types/TOIMColumnSlot';
 import type { TOIMColumnSlotOwnerOptions } from '../../column/types/TOIMColumnSlotOwnerOptions';
+import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
 import type { OIMPushColumnSlotOwner } from '../../column/OIMPushColumnSlotOwner';
 import type { TOIMSlot } from '../types/TOIMSlot';
 import { createOIMPushColumnSlotOwner } from '../../column/utils/createOIMPushColumnSlotOwner';
@@ -18,20 +19,23 @@ export function oimResolveSlotOwnerServiceOptions<TColumnName extends string>(
         slotSubscriptionListener?: IOIMSlotSubscriptionListener | undefined;
         columnSlotStoreService?: IOIMSlotStoreService<string, TOIMColumnSlot> | undefined;
         columnNames?: readonly TColumnName[] | undefined;
+        columnGroups?: readonly TOIMColumnGroup<TColumnName>[] | undefined;
     },
 ): {
     slotStamp: IOIMSlotStamp<TOIMSlot> | undefined;
     slotReleasePolicy: IOIMSlotReleasePolicy | undefined;
     slotSubscriptionListener: IOIMSlotSubscriptionListener | undefined;
     columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot, TColumnName>;
-    createColumnSlotOwner: (columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot, TColumnName>) => OIMPushColumnSlotOwner;
+    createColumnSlotOwner: (
+        columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TOIMColumnSlot, TColumnName>, slotSubscriptionListener: IOIMSlotSubscriptionListener | undefined,
+    ) => OIMPushColumnSlotOwner;
 } {
     return {
         slotStamp: defaults.slotStamp,
         slotReleasePolicy: options.slotReleasePolicy ?? defaults.slotReleasePolicy,
         slotSubscriptionListener: options.slotSubscriptionListener,
         columnSlotOwnerOptions: oimResolveColumnSlotOwnerOptions(
-            options.columnSlotStoreService, options.columnNames,
+            options.columnSlotStoreService, options.columnNames, options.columnGroups,
             defaults.columnSlotStoreService ?? OIM_DEFAULT_COLUMN_SLOT_STORE_SERVICE.getValue(),
         ),
         createColumnSlotOwner: createOIMPushColumnSlotOwner,

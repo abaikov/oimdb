@@ -1,3 +1,4 @@
+import { OIMDB } from '../../db/OIMDB';
 import { OIMSlotRefetchWheel } from '../OIMSlotRefetchWheel';
 import { OIM_SLICE_LENGTH_MS } from '../constants/OIM_SLICE_LENGTH_MS';
 import { OIM_SLOT_FLAG_RELEASED } from '../../slot/constants/OIM_SLOT_FLAG_RELEASED';
@@ -13,9 +14,8 @@ const createFixture = () => {
     let nowMs = START;
     const batches: TOIMSlot[][] = [];
     let handedArray: readonly TOIMSlot[] | undefined;
-    const refetchWheel = new OIMSlotRefetchWheel({
-        getNowMs: () => nowMs,
-        timer: () => () => undefined,
+    const db = new OIMDB({ getNowMs: () => nowMs, releaseTimer: () => () => undefined });
+    const refetchWheel = new OIMSlotRefetchWheel(db, {
         slotRefetchListener: {
             onSlotsRefetchDue: slots => {
                 handedArray = slots;

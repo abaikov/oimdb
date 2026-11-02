@@ -17,9 +17,9 @@ const createFixture =() => {
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = computedService.createComputedStoreSlot(db);
+    const ranks = computedService.createStoreSlot(db);
     const flushUnusedSlots = (): void => OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
-    return { flushUnusedSlots, cardsService, cards, ranksService: computedService.computedCollectionService, ranks };
+    return { flushUnusedSlots, cardsService, cards, ranksService: computedService, ranks };
 };
 
 describe('the holds a derivation took on its roots', () => {

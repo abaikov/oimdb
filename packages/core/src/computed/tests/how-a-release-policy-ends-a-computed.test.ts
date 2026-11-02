@@ -36,7 +36,7 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
     let builds = 0;
     let derives = 0;
     const rankComputedService = createOIMSingleComputedService<number>({ slotReleasePolicy: slotReleasePolicyFor?.(clock) });
-    const rank = rankComputedService.createComputedStoreSlot(
+    const rank = rankComputedService.createStoreSlot(
         db,
         () => {
             derives++;
@@ -47,12 +47,11 @@ const createFixture = (slotReleasePolicyFor?: (clock: TClock) => IOIMSlotRelease
             return { sourceSlots: [cardsService.getSlotByKey(cards, 'a')] };
         },
     );
-    const rankCollectionService = rankComputedService.computedSingleSlotService;
     const rankService = {
-        holdSingleSlot: (storeSlot: typeof rank) => rankCollectionService.holdSingleSlot(storeSlot),
-        getSingleSlot: (storeSlot: typeof rank) => rankCollectionService.getSingleSlot(storeSlot),
+        holdSingleSlot: (storeSlot: typeof rank) => rankComputedService.holdSingleSlot(storeSlot),
+        getSingleSlot: (storeSlot: typeof rank) => rankComputedService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof rank) => {
-            const computedSlot = rankCollectionService.getSingleSlot(storeSlot);
+            const computedSlot = rankComputedService.getSingleSlot(storeSlot);
             return readValueWithoutTracking(computedSlot);
         },
     };

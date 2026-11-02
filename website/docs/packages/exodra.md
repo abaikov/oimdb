@@ -70,7 +70,6 @@ const orderService = createOIMBucketMemoComputedService({
     bucketCollectionService: byDeckService,
 });
 const order = orderService.createBucketMemoStoreSlot(byDeck);
-const orders = orderService.computedCollectionService;
 const boardService = createOIMSlotCollectionService({ slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<Card>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }) });
 const boards = boardService.createStoreSlot(db);
 
@@ -107,7 +106,7 @@ const deckCards = exoBinding(db, {
 });
 
 // A derivation — the order of a bucket, a filtered page, an auto index.
-const deck = orders.holdSlotByKey(order, 'spades');
+const deck = orderService.holdSlotByKey(order, 'spades');
 const ordered = exoBinding(db, {
     sourceComputeds: [deck],
     derive: () => deck.value,
@@ -126,8 +125,7 @@ export type TOIMExoBinding<TValue> = {
 };
 ```
 
-`sourceComputeds` is `readonly TOIMComputedSlot[]`: slots taken from a computed service's
-`computedCollectionService`, e.g. `orders.holdSlotByKey(order, 'spades')`.
+`sourceComputeds` is `readonly TOIMComputedSlot[]`: slots taken from a computed service, e.g. `orderService.holdSlotByKey(order, 'spades')`.
 
 `exoBinding(db, binding)` takes the same arguments as `createEffect` and returns a `TExoBindable`.
 There is no intermediate observable type.
@@ -149,7 +147,7 @@ lives, and says so by handing back a `TOIMExoDisposable<TValue>`, which is
 
 ```typescript
 const groupFor = (deckId: TOIMStoreKey) => {
-    const held = orders.holdSlotByKey(order, deckId);     // a hold is what mints one
+    const held = orderService.holdSlotByKey(order, deckId);     // a hold is what mints one
     return Object.assign(
         exoBinding(db, {
             sourceComputeds: [held], derive: () => held.value,
@@ -171,7 +169,7 @@ holds. That is why every example above holds the computed it binds.
 
 ```typescript
 const selected = exoFollowKey(selectedDeck, (deckId) => {
-    const held = orders.holdSlotByKey(order, deckId);
+    const held = orderService.holdSlotByKey(order, deckId);
     return Object.assign(
         exoBinding(db, {
             sourceComputeds: [held], derive: () => held.value,
@@ -213,7 +211,7 @@ deduped by `Object.is`.
 
 ```typescript
 const rows = exoRows(deckIds, (deckId) => {
-    const held = orders.holdSlotByKey(order, deckId);
+    const held = orderService.holdSlotByKey(order, deckId);
     const deckCards = exoBinding(db, {
         sourceComputeds: [held], derive: () => held.value,
     });
@@ -245,7 +243,7 @@ depends on which of the two you hand the bridge.
 
 ```typescript
 // The ENGINE orders it: the script is DERIVED, by oimOrderedListCommandsOfTransition.
-const deck = orders.holdSlotByKey(order, 'spades');
+const deck = orderService.holdSlotByKey(order, 'spades');
 const list = exoDerivedList(db, deck, renderCard);
 
 // YOU order it: the script is the one OIMBucketCommands already RECORDED.

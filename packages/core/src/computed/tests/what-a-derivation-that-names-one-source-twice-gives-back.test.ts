@@ -20,8 +20,8 @@ const createFixture =() => {
         derive: computedSlot => (cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? 0) * 2,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const doubled = doubledComputedService.createComputedStoreSlot(db);
-    return { db, cardsService, cards, doubledService: doubledComputedService.computedCollectionService, doubled };
+    const doubled = doubledComputedService.createStoreSlot(db);
+    return { db, cardsService, cards, doubledService: doubledComputedService, doubled };
 };
 
 describe('a derivation that names one ROW twice', () => {
@@ -69,8 +69,8 @@ describe('a derivation that names one DERIVATION twice', () => {
             derive: () => readValueWithoutTracking(base) * 2,
             sameValueGuard: oimSameValueZeroGuard,
         });
-        const readers = readersComputedService.createComputedStoreSlot(db);
-        const reader = readersComputedService.computedCollectionService.holdSlotByKey(readers, 'r');
+        const readers = readersComputedService.createStoreSlot(db);
+        const reader = readersComputedService.holdSlotByKey(readers, 'r');
 
         expect(base.holdCount).toBe(3);
         expect(readValueWithoutTracking(reader)).toBe(12);

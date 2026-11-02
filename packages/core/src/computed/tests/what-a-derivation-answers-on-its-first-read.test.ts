@@ -9,10 +9,10 @@ type TCard = { id: string; n: number };
 
 const createNumberService = (sameValueGuard?: TOIMSameValueGuard<number>) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard });
-    const collectionService = computedService.computedSingleSlotService;
+    const collectionService = computedService;
     type TStoreSlot = Parameters<typeof collectionService.getSingleSlot>[0];
     return {
-        createComputedStoreSlot: computedService.createComputedStoreSlot.bind(computedService),
+        createStoreSlot: computedService.createStoreSlot.bind(computedService),
         getSingleValue: (storeSlot: TStoreSlot) => {
             const computedSlot = collectionService.getSingleSlot(storeSlot);
             return readValueWithoutTracking(computedSlot);
@@ -32,7 +32,7 @@ describe('what a derivation answers on its first read', () => {
             if (refuse && next === 4) throw new Error('the comparison threw');
             return prev === next;
         });
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => (card.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [card] }),

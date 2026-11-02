@@ -11,7 +11,7 @@ import type { IOIMSlotOwner } from '../../slot/interfaces/IOIMSlotOwner';
 import { OIM_SLOT_FLAG_EMPTY } from '../../slot/constants/OIM_SLOT_FLAG_EMPTY';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
@@ -32,7 +32,8 @@ const slot = (): TOIMSlot => ({
     releaseDueAfterUnholdMs: -1,
     columnSlotStore: undefined,
     storeSlot: testStoreSlot,
-    owner: new OIMSlotOwner(),
+    owner: new TestSlotOwner(),
+    data: undefined,
 });
 
 const ownerThatOnGiveBack = (giveBack: () => void): IOIMSlotOwner => ({
@@ -42,8 +43,6 @@ const ownerThatOnGiveBack = (giveBack: () => void): IOIMSlotOwner => ({
     unsafeMutateSlot: () => undefined,
     subscribeToSlot: () => 0,
     unsubscribeFromSlot: () => false,
-    onSlotFirstSubscribed: () => undefined,
-    onSlotLastUnsubscribed: () => undefined,
 });
 
 const createFixture =() => {
@@ -100,7 +99,7 @@ describe('an identity admitted from inside a running sweep', () => {
         expect(fixture.slotReleaseQueue.isSlotReleaseScheduled(minted)).toBe(true);
     });
 
-    it('is filed above the slice that pass was walking, and not merely left alone', () => {
+    it('is filed in its own slice once the pass is over, and not inside the pass', () => {
         const fixture = createFixture();
         const doomed = slot();
         const minted = slot();
@@ -112,9 +111,7 @@ describe('an identity admitted from inside a running sweep', () => {
         const upTo = oimSliceOfMs(fixture.nowMs());
         fixture.slotReleaseQueue.releaseDueUpToSliceNumber(upTo);
 
-        // The earliest thing on the clock is the admission, and it sits one slice
-        // above the pass — the earliest slice that pass cannot reach.
-        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(upTo + 1);
+        expect(fixture.slotReleaseQueue.nextReleaseSliceNumber).toBe(upTo);
     });
 
     it('and the next sweep does take it, so nothing has been made immortal', () => {

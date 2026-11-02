@@ -17,8 +17,8 @@ const createFixture =() => {
     db.flush();
     const slot = cardsService.getSlotByKey(cards, 'c1');
     const rankComputedService = createOIMSingleComputedService<number>({ sameValueGuard: oimSameValueZeroGuard });
-    const rank = rankComputedService.createComputedStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
-    const rankSlot = rankComputedService.computedSingleSlotService.getSingleSlot(rank);
+    const rank = rankComputedService.createStoreSlot(db, () => slot.entity?.rank ?? -1, () => ({ sourceSlots: [slot] }));
+    const rankSlot = rankComputedService.getSingleSlot(rank);
     return { db, effectService, cardsService, cards, slot, rankSlot };
 };
 

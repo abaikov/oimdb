@@ -9,12 +9,12 @@ import type { OIMEntityContentService } from './OIMEntityContentService';
 import type { TOIMEntitySlot } from './types/TOIMEntitySlot';
 import type { TOIMEntitySlotOwnerService } from './types/TOIMEntitySlotOwnerService';
 
-export class OIMEntitySlot<TEntity extends object = object, TKey extends NonNullable<unknown> = NonNullable<unknown>> extends OIMSlot {
+export class OIMEntitySlot<
+    TEntity extends object = object, TKey extends NonNullable<unknown> = NonNullable<unknown>, TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>,
+> extends OIMSlot {
     public key: TKey;
 
     public content: TEntity | undefined;
-
-    public data: unknown[] | undefined;
 
     public indexKeys: unknown[] | undefined;
 
@@ -22,7 +22,6 @@ export class OIMEntitySlot<TEntity extends object = object, TKey extends NonNull
         super(owner, storeSlot);
         this.key = key;
         this.content = undefined;
-        this.data = undefined;
         this.indexKeys = undefined;
     }
 
@@ -60,11 +59,11 @@ export class OIMEntitySlot<TEntity extends object = object, TKey extends NonNull
         this.entityContentService().clearSlotContent(this);
     }
 
-    public getColumn(columnName: keyof TEntity & string): TOIMColumnSlot {
+    public getColumn(columnName: TColumnName): TOIMColumnSlot {
         return this.entitySlotOwnerService().columnSlotService.getColumn(this, columnName);
     }
 
-    public holdColumn(columnName: keyof TEntity & string): TOIMColumnSlot {
+    public holdColumn(columnName: TColumnName): TOIMColumnSlot {
         return this.entitySlotOwnerService().columnSlotService.holdColumn(this, columnName);
     }
 
@@ -84,11 +83,11 @@ export class OIMEntitySlot<TEntity extends object = object, TKey extends NonNull
         return this.entitySlotOwnerService().columnSlotService.holdColumnGroup(this, columnGroup);
     }
 
-    private entitySlotOwnerService(): TOIMEntitySlotOwnerService<TEntity, TOIMEntitySlot<TEntity, TKey>, unknown, keyof TEntity & string> {
-        return this.owner as TOIMEntitySlotOwnerService<TEntity, TOIMEntitySlot<TEntity, TKey>, unknown, keyof TEntity & string>;
+    private entitySlotOwnerService(): TOIMEntitySlotOwnerService<TEntity, TOIMEntitySlot<TEntity, TKey>, unknown, TColumnName> {
+        return this.owner as TOIMEntitySlotOwnerService<TEntity, TOIMEntitySlot<TEntity, TKey>, unknown, TColumnName>;
     }
 
-    private entityContentService(): OIMEntityContentService<TEntity, TKey, keyof TEntity & string> {
-        return this.entitySlotOwnerService().slotContentService as OIMEntityContentService<TEntity, TKey, keyof TEntity & string>;
+    private entityContentService(): OIMEntityContentService<TEntity, TKey, TColumnName> {
+        return this.entitySlotOwnerService().slotContentService as OIMEntityContentService<TEntity, TKey, TColumnName>;
     }
 }

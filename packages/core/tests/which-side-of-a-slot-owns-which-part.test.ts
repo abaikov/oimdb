@@ -242,7 +242,7 @@ const SIDES: Record<string, readonly string[]> = {
      * enforcement — the field is bare on a shared struct.
      */
     filing: [
-        'slot/OIMSlotOwnerService.ts slotFlags×2',
+        'slot/OIMSlotOwnerService.ts slotFlags×1',
         'slot/utils/oimMarkSlotReleased.ts slotFlags×1',
         'column/OIMColumnSlotOwner.ts columnSlotStore×2',
     ],
@@ -261,9 +261,9 @@ const SIDES: Record<string, readonly string[]> = {
 };
 
 const EXEMPT: readonly string[] = [
-    'slot/OIMSlot.ts changedAtEpoch×1 changedAtRevision×1 columnSlotStore×1 effectEdges×1 effects×1 holdCount×1 '
+    'slot/OIMSlot.ts changedAtEpoch×1 changedAtRevision×1 columnSlotStore×1 data×1 effectEdges×1 effects×1 holdCount×1 '
         + 'owner×1 releaseDueAfterIdleMs×1 releaseDueAfterUnholdMs×1 releaseDueAfterWriteMs×1 slotFlags×1 storeSlot×1',
-    'entity/OIMEntitySlot.ts content×1 data×1 indexKeys×1 key×1',
+    'entity/OIMEntitySlot.ts content×1 indexKeys×1 key×1',
     'computed/OIMComputedSlot.ts content×1 indexKeys×1 key×1',
     'bucket/OIMBucketSlot.ts indexKeys×1 key×1',
     'column/OIMColumnSlot.ts changedAtEpoch×1 changedAtRevision×1 key×1',

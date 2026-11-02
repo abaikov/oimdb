@@ -28,29 +28,17 @@ implements IOIMSlotStoreService<readonly TCompositeKeyPart[], TSlot, TOIMSlotSto
         return this.keyTreeWalk.nodeAt(slotStoreTree.rootCompositeKeyNode, compositeKey)?.atThisKey;
     }
 
-    public set(
-        slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, compositeKey: readonly TCompositeKeyPart[], slot: TSlot,
-    ): void {
-        const compositeKeyNode = this.keyTreeWalk.mintNodeAt(slotStoreTree.rootCompositeKeyNode, compositeKey);
+    public set(slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, slot: TSlot): void {
+        const compositeKeyNode = this.keyTreeWalk.mintNodeAt(slotStoreTree.rootCompositeKeyNode, slot.key);
         const filedSlot = compositeKeyNode.atThisKey;
         if (filedSlot !== undefined && filedSlot !== slot) slotStoreTree.slots.delete(filedSlot);
         compositeKeyNode.atThisKey = slot;
         slotStoreTree.slots.add(slot);
     }
 
-    public remove(
-        slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, compositeKey: readonly TCompositeKeyPart[],
-    ): void {
-        const slot = this.keyTreeWalk.deleteKey(slotStoreTree.rootCompositeKeyNode, compositeKey);
-        if (slot !== undefined) slotStoreTree.slots.delete(slot);
-    }
-
-    public fileSlot(slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, slot: TSlot): void {
-        this.set(slotStoreTree, slot.key, slot);
-    }
-
-    public unfileSlot(slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, slot: TSlot): void {
-        this.remove(slotStoreTree, slot.key);
+    public delete(slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>, slot: TSlot): void {
+        const filedSlot = this.keyTreeWalk.deleteKey(slotStoreTree.rootCompositeKeyNode, slot.key);
+        if (filedSlot !== undefined) slotStoreTree.slots.delete(filedSlot);
     }
 
     public getSlots(slotStoreTree: TOIMSlotStoreTree<TSlot, TCompositeKeyPart>): IterableIterator<TSlot> {

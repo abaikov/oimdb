@@ -309,14 +309,18 @@ subscription is. When everything ends, for example when the screen closes or the
 been answered, the whole channel goes at once:
 
 ```typescript
-channelService.dropChannelSlot(channelSlot);
+db.dispose();
 // then drop your own references; every slot, store and derivation goes with them
 ```
+
+`db.dispose()` is `channelService.dropChannelSlot(db.defaultChannelSlot)`; a channel slot made by hand with
+`createOIMChannelSlot` is dropped with `dropChannelSlot` itself.
 
 The precondition is yours to hold: nothing may still be subscribed on this channel
 slot. The engine does not check it, because checking would walk every slot, which is
 what this call skips. It empties the pending effects and every handler list, gives
-back the unused-slot collector's holds, and stops the channel from asking for frames;
+back the unused-slot collector's holds, cancels the db's three release wheels so no release timer stays
+armed, and stops the channel from asking for frames;
 a flush already scheduled arrives and does nothing.
 
 A write after the call is not refused, but nothing it schedules is ever delivered.

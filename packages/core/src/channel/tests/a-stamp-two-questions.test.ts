@@ -110,7 +110,7 @@ describe('an effect hears nothing of a change that preceded it', () => {
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const doubledService = createDoubledService();
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [slot] }),
@@ -120,7 +120,7 @@ describe('an effect hears nothing of a change that preceded it', () => {
         rowsService.slotContentService.updateEntity(slot,{ n: 5 });
 
         let runCount = 0;
-        effectService.createEffect(db, () => { runCount++; }, [], [doubledService.computedSingleSlotService.getSingleSlot(doubled)]);
+        effectService.createEffect(db, () => { runCount++; }, [], [doubledService.getSingleSlot(doubled)]);
         db.flush();
         expect(runCount).toBe(0);
 
@@ -189,7 +189,7 @@ describe('effectImmediate is the door onto a value the batch has already written
         rowsService.writeSlotContentByKey(rows, 'r1', { id: 'r1', n: 1 });
         const slot = rowsService.getSlotByKey(rows, 'r1')!;
         const doubledService = createDoubledService();
-        const doubled = doubledService.createComputedStoreSlot(
+        const doubled = doubledService.createStoreSlot(
             db,
             () => (slot.entity?.n ?? 0) * 2,
             () => ({ sourceSlots: [slot] }),
@@ -199,7 +199,7 @@ describe('effectImmediate is the door onto a value the batch has already written
         rowsService.slotContentService.updateEntity(slot,{ n: 5 });
 
         const seen: number[] = [];
-        const doubledSlot = doubledService.computedSingleSlotService.getSingleSlot(doubled);
+        const doubledSlot = doubledService.getSingleSlot(doubled);
         const effect = effectService.createAndRunEffect(db, () => {
             seen.push(readValueWithoutTracking(doubledSlot));
         }, [], [doubledSlot]);

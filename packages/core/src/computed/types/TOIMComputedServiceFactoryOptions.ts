@@ -3,6 +3,7 @@ import type { IOIMSlotStoreService } from '../../store/interfaces/IOIMSlotStoreS
 import type { TOIMComputedColumnSlot } from '../../column/types/TOIMComputedColumnSlot';
 import type { TOIMSameValueGuard } from '../../slot/types/TOIMSameValueGuard';
 import type { TOIMComputedValueReleaser } from './TOIMComputedValueReleaser';
+import type { TOIMColumnGroup } from '../../column/types/TOIMColumnGroup';
 import type { OIMDefaults } from '../../db/OIMDefaults';
 
 export type TOIMComputedServiceFactoryOptions<TValue> = {
@@ -13,4 +14,5 @@ export type TOIMComputedServiceFactoryOptions<TValue> = {
     slotReleasePolicy?: IOIMSlotReleasePolicy | undefined;
     columnSlotStoreService?: IOIMSlotStoreService<string, TOIMComputedColumnSlot> | undefined;
     columnNames?: readonly Extract<keyof TValue, string>[] | undefined;
+    columnGroups?: readonly TOIMColumnGroup<Extract<keyof TValue, string>>[] | undefined;
 };

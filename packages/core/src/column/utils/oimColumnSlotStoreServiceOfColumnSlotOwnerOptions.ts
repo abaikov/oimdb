@@ -7,7 +7,9 @@ export function oimColumnSlotStoreServiceOfColumnSlotOwnerOptions<TColumnSlot ex
     columnSlotOwnerOptions: TOIMColumnSlotOwnerOptions<TColumnSlot>,
 ): IOIMSlotStoreService<string, TColumnSlot> {
     if (columnSlotOwnerOptions.columnNames !== undefined) {
-        return new OIMColumnSlotOrdinalStoreService<TColumnSlot>({ columnNames: columnSlotOwnerOptions.columnNames });
+        return new OIMColumnSlotOrdinalStoreService<TColumnSlot>({
+            columnNames: columnSlotOwnerOptions.columnNames, columnGroups: columnSlotOwnerOptions.columnGroups ?? [],
+        });
     }
     return columnSlotOwnerOptions.columnSlotStoreService;
 }

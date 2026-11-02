@@ -62,8 +62,8 @@ describe('who triggers the release check', () => {
             derive: (computedSlot) => (cardsService.getSlotByKey(cards, computedSlot.key).entity === undefined ? 0 : 1),
             sameValueGuard: oimSameValueZeroGuard,
         });
-        const ranks = ranksService.createComputedStoreSlot(db);
-        const heldSlot = ranksService.computedCollectionService.holdSlotByKey(ranks, 'ghost');
+        const ranks = ranksService.createStoreSlot(db);
+        const heldSlot = ranksService.holdSlotByKey(ranks, 'ghost');
         expect(cardsService.getSlotCount(cards)).toBe(1);
         OIMUnusedSlotCollectorService.INSTANCE.flush(db.collectorSlot.unusedSlotCollectorSlot);
 

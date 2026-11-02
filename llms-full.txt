@@ -7,23 +7,28 @@
 
 > **For AI assistants: read this file before writing any OIMDB code.**
 >
-> **WHICH API TO WRITE — decide this first.** Three levels over one engine; pick by who owns the database:
+> **WHICH API TO WRITE — decide this first.** One engine, one database per application:
 >
-> | you are writing | import | the database |
+> | you are writing | what you call | the database |
 > |---|---|---|
-> | an app with one store (the common case) | `import * as oimdb from '@oimdb/core/oimdb'` | `oimdb.db()` (same as `oimdb.getInstance()`): made on first use, flushes itself in a microtask. Never pass a db, never call `flush()`. |
-> | a library, SSR (a db per request), tests that need isolated dbs | `import * as soimdb from '@oimdb/core/soimdb'` | yours: `new OIMDB()`, the FIRST argument of `entities`, `entity`, `computed`, `effect`; `index` and `sorted` take it from the collection. Call `db.flush()` yourself unless the `OIMDB` was given a `channelScheduler`. |
-> | what neither layer covers: set / sorted-at-write / custom bucket stores, composite or tree keys, positional bucket writes, column slots and column-group reads (`readEntity(group)`), custom writers, persist or devtools wiring | `@oimdb/core` services (`createOIMSlotCollectionService` …), the rest of this file | yours |
+> | an application (the common case) | the store aggregates inside `createSchemas`, then slot methods and `db.createEffect` | `new OIMDB({ createSchemas })`, built once; call `db.flush()` after a batch of writes — nothing is delivered before it, unless the `OIMDB` was given a `channelScheduler`. |
+> | a library, SSR (a database per request), tests that need isolated databases | the same: call the function that builds the database once per request or test | one per request or test; two databases never share a flush |
+> | what the aggregates do not cover: set / sorted-at-write / custom bucket stores, composite or tree keys, positional bucket writes, column slots and column-group reads (`readEntity(group)`), custom writers, persist or devtools wiring | `@oimdb/core` services (`createOIMSlotCollectionService` …), the rest of this file | the same `OIMDB` |
 >
-> The two short layers have the same names and return the same objects (`OIMEntityCollection`, `OIMSingleEntity`,
-> `OIMEntityIndex`, `OIMSortedEntityIndex`); each object carries the full-API aggregate it wraps
-> (`slotCollectionStoreAggregate`, `singleSlotStoreAggregate`, `indexStoreAggregate`) for the one call the layer
-> lacks. Do not mix `oimdb` with a db of your own in one app: `oimdb` always uses `oimdb.db()`, and two dbs never share a
-> flush. In React: `<OIMDBProvider db={oimdb.db()}>` (or your db) and
-> `useOIMSourceTrackingValue(() => cards.getEntityByKey(id), [cards, id])`.
-> Write `oimdb.entities(...)` or `import { entities } from '@oimdb/core/oimdb'` — both tree-shake; passing `oimdb` as a value,
-> `oimdb[name]` or `Object.keys(oimdb)` keeps the whole layer (about 7 KB gzip more).
-> Everything below the short-API section is the full API.
+> There is no global database and no second entry point: `@oimdb/core` is the whole package.
+> `new OIMDB({ createSchemas: (db) => ({ default: createCardSchema(db) }) })` calls `createSchemas` once, at the
+> end of its constructor, and `db.schemas` is what it returned. A schema is a plain object built from the store
+> aggregates (`createOIMEntitySlotCollectionStoreAggregate`, `createOIMSlotCollectionIndexStoreAggregate`,
+> `createOIMSingleSlotStoreAggregate`, a computed service's `createStoreAggregate`); schemas are namespaces only —
+> one channel and one flush per database. The collection writes the whole entity under a key
+> (`cards.writeSlotContentByKey(key, entity)`) and hands out slots (`getSlotByKey`, `holdSlotByKey`); every other
+> act is a slot method: `slot.entity`, `slot.updateEntity(patch)`, `slot.writeSlotContent(entity)`,
+> `slot.clearSlotContent()`, a bucket slot's `getBucketMemberSlotCount()`, a computed slot's `value`. Effects are
+> `db.createEffect(body, sourceSlots?, { lazy? })`, which returns the disposer. In React:
+> `<OIMDBProvider db={db}>` and `useOIMSourceTrackingValue(() => cards.getSlotByKey(id).entity, [id])`; a handler
+> that writes calls `db.flush()` when it is done, and the components re-render at that flush. A list of every
+> entity needs no index: `cards.getEntities()` (no strict order; a sorted computed for one) and
+> `cards.getEntityCount()`, both tracked.
 >
 > `@oimdb/core` is an in-memory reactive engine. This file is its API reference,
 > written against the current source.
@@ -69,78 +74,99 @@
 >
 > Install: `npm install @oimdb/core` (4.x). The 3.x line is the previous engine with a different API.
 >
-> `packages/core/src/index.ts` is the entire public surface of `@oimdb/core`; `@oimdb/core/oimdb` is a second entry
-> of the same package, the short API over it (see [The short API](#the-short-api-oimdbcoreoimdb-and-oimdbcoresoimdb)); `@oimdb/core/soimdb` is the same with the db first.
+> `packages/core/src/index.ts` is the entire public surface of `@oimdb/core`. Start with
+> [A database with schemas](#a-database-with-schemas).
 
-## The short API: `@oimdb/core/oimdb` and `@oimdb/core/soimdb`
+## A database with schemas
 
-The shortest way in, and the one to write first for an application that needs nothing the full API picks.
-Exports over one default database, `oimdb.db()`, made on first use, which delivers every write of a turn in
-one flush on a microtask. It imports `@oimdb/core`, so one copy of the engine is loaded.
+The shortest way in, and the one to write first for an application. Build one `OIMDB` with `createSchemas`; every
+collection, index and computed in its schemas runs on it. A `new OIMDB()` with no `channelScheduler` delivers
+nothing until `db.flush()`, which delivers every write since the last flush once: call it where a batch of writes
+ends (after applying a response, at the end of an event handler).
 
-```ts file=oimdb-short-api.ts
-import * as oimdb from '@oimdb/core/oimdb';
-import * as soimdb from '@oimdb/core/soimdb';
-import { OIMDB } from '@oimdb/core';
+```ts file=oimdb-schemas.ts
+import {
+    OIMDB, createOIMEntitySlotCollectionStoreAggregate, createOIMSlotCollectionIndexStoreAggregate,
+    createOIMSortedComputedService, createOIMSingleSourceTrackingComputedService, createOIMSingleSlotStoreAggregate,
+    createOIMEntityContentService,
+} from '@oimdb/core';
 
 type TCard = { id: string; deck: string; title: string; rank: number };
+type TConnection = { isOnline: boolean };
 
-const cards = oimdb.entities<TCard>();                                  // OIMEntityCollection<TCard>
-const ace = cards.upsertEntityByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 1 });   // the slot
-cards.updateEntityByKey('c1', { rank: 14 });      // boolean: false when the key has no entity
-cards.getEntityByKey('c1');                        // TCard | undefined; tracked inside computed / effect
-cards.deleteEntityByKey('c1');                     // boolean; a slot nothing holds goes with its entity
-cards.getSlotByKey('c2');                          // the slot, for writes without a lookup: slot.updateEntity(patch)
+const createConnectionSchema = (db: OIMDB) => ({
+    connections: createOIMEntitySlotCollectionStoreAggregate<TConnection>(db),
+    settings: createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<{ theme: string }>() }),
+});
 
-const settings = oimdb.entity<{ theme: string }>(); // OIMSingleEntity: upsertEntity, updateEntity, getEntity, deleteEntity, getSlot
-settings.upsertEntity({ theme: 'dark' });
+const createCardSchema = (db: OIMDB, connectionSchema: ReturnType<typeof createConnectionSchema>) => {
+    const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);                 // keyed by string | number
+    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });   // or { columns: ['deck'] }
+    const byRankService = createOIMSortedComputedService({ indexService: byDeck.slotService, sortColumns: [{ columnName: 'rank', direction: 'asc' }] });
+    const byRank = byRankService.createStoreAggregate(byRankService.createSortedStoreSlot(byDeck.storeSlot));
+    const visibleSpadeCountService = createOIMSingleSourceTrackingComputedService<number>({
+        derive: () => (connectionSchema.connections.getSlotByKey('self').entity?.isOnline === true
+            ? byDeck.getSlotByKey('spades').getBucketMemberSlotCount() : 0),
+        initialValue: 0,
+    });
+    const visibleSpadeCount = visibleSpadeCountService
+        .createStoreAggregate(visibleSpadeCountService.createStoreSlot(db));
+    return { cards, byDeck, byRank, visibleSpadeCount };
+};
 
-const byDeck = oimdb.index(cards, { keyOf: (card) => card.deck });     // OIMEntityIndex; or { columns: ['deck'] }
-byDeck.getEntitiesByKey('spades');                                     // TCard[], tracked: membership and member edits
-byDeck.getEntityCountByKey('spades');                                  // number, tracked
-const byRank = oimdb.sorted(byDeck, [{ columnName: 'rank', direction: 'asc' }]);   // OIMSortedEntityIndex
-byRank.getEntitiesByKey('spades');                                     // TCard[] in rank order, tracked
+const createAppDB = () => new OIMDB({
+    createSchemas: (db) => {
+        const connection = createConnectionSchema(db);                 // a schema another one reads: build it first
+        return { connection, default: createCardSchema(db, connection) };
+    },
+});
 
-const spadeCount = oimdb.computed(() => byDeck.getEntityCountByKey('spades'));     // sources found by reading
-const doubledAce = oimdb.computed(() => (ace.entity?.rank ?? 0) * 2, [ace]);        // only the slots named
-const stop = oimdb.effect(() => console.log(spadeCount.value, doubledAce.value)); // runs at once; returns stop
-const stopNamed = oimdb.effect(() => () => console.log('cleanup'), [ace], { lazy: true });   // waits for a change
+const db = createAppDB();
+const { cards, byDeck, byRank, visibleSpadeCount } = db.schemas.default;
+const ace = cards.writeSlotContentByKey('c1', { id: 'c1', deck: 'spades', title: 'Ace', rank: 14 });  // the slot
+cards.getSlotByKey('c1') === ace;                  // true: the slot is the entity's identity
+ace.updateEntity({ rank: 1 });                     // every other write is a slot method
+ace.entity;                                        // TCard | undefined; tracked inside a computed / effect
+cards.getSlotByKey('c9').clearSlotContent();       // delete; a slot nothing holds goes with it
+cards.getEntities();                               // TCard[], no index, no strict order; tracked: adds, edits, deletes
+cards.getEntityCount();                            // number; tracked: adds and deletes
+byDeck.getEntitiesByKey('spades');                 // TCard[], tracked: membership and member edits
+byDeck.getSlotByKey('spades').getBucketMemberSlotCount();   // number, tracked
+byRank.getSlotByKey('spades').value;               // the member slots in rank order, tracked
+db.schemas.connection.settings.writeSingleSlotContent({ theme: 'dark' });
+db.schemas.connection.connections.writeSlotContentByKey('self', { isOnline: true });
 
-const testDb = new OIMDB();                                            // @oimdb/core/soimdb: same names, db first
-const testCards = soimdb.entities<TCard>(testDb);
-const stopTest = soimdb.effect(testDb, () => { testCards.getEntityByKey('c1'); });
-testDb.flush();                                                        // no scheduler: flush by hand
-stopTest();
+const stop = db.createEffect(() => console.log(visibleSpadeCount.getSingleSlot().value));   // tracking: runs at once
+const stopNamed = db.createEffect(() => () => console.log('cleanup'), [ace], { lazy: true });  // named: waits for a change
+db.flush();                                        // effects run here, once per flush
+
+const testDb = createAppDB();                      // a test, a request: its own database, its own flush
+testDb.schemas.default.cards.writeSlotContentByKey('c1', { id: 'c1', deck: 'hearts', title: 'Two', rank: 2 });
+testDb.flush();
 stop(); stopNamed();
 ```
 
-| Export | Signature | Underneath |
+| Call | Signature | Notes |
 |---|---|---|
-| `db` | `(): OIMDB` | `new OIMDB({ channelScheduler: queueMicrotask(flush) })`, once |
-| `entities` | `<TEntity, TColumnName?>(options?: options of createOIMEntitySlotCollectionStoreAggregate): OIMEntityCollection` | `createOIMEntitySlotCollectionStoreAggregate`; `.slotCollectionStoreAggregate` |
-| `OIMEntityCollection` | `upsertEntityByKey(key, entity): TOIMEntitySlot`, `updateEntityByKey(key, patch): boolean`, `getEntityByKey(key): TEntity \| undefined`, `deleteEntityByKey(key): boolean`, `getSlotByKey(key): TOIMEntitySlot` | key is `TOIMStoreKey` |
-| `entity` | `<TEntity>(): OIMSingleEntity` | a single slot store aggregate; `.singleSlotStoreAggregate` |
-| `OIMSingleEntity` | `upsertEntity(entity)`, `updateEntity(patch): boolean`, `getEntity()`, `deleteEntity(): boolean`, `getSlot()` | |
-| `index` | `(collection, { keyOf } \| { columns }, plus the other options of createOIMSlotCollectionIndexStoreAggregate): OIMEntityIndex` | `createOIMSlotCollectionIndexStoreAggregate`, on the collection's db; `.indexStoreAggregate` |
-| `OIMEntityIndex` | `getEntitiesByKey(key): TEntity[]` and `getEntityCountByKey(key): number`, both tracked (membership and member edits); `getSlotByKey(key)`: the bucket slot | |
-| `sorted` | `(entityIndex, sortColumns: { columnName, direction: 'asc' \| 'desc' }[]): OIMSortedEntityIndex` | `createOIMSortedComputedService`; `.sortedComputedService`, `.sortedStoreSlot` |
-| `OIMSortedEntityIndex` | `getEntitiesByKey(key): TEntity[]` in sort order, tracked; re-sorts on membership or a sort column; `getSlotByKey(key)`: the sorted computed slot | |
-| `computed` | `<TValue>(derive, sourceSlots?): TOIMComputedContentSlot` — read `.value` | no list: `createOIMSingleSourceTrackingComputedService`; a list: `createOIMSingleComputedService`. Held until `computedSlot.unholdSlot()`: make it once at module scope, or give it back |
-| `effect` | `(body: () => void \| (() => void), sourceSlots?, options?: { lazy? }): TOIMDisposer` | no list: `createSourceTrackingEffect`, runs at once; a list: `createAndRunEffect`, or `createEffect` with `lazy`; `[]`: runs once, its cleanup on stop |
+| `new OIMDB(options?)` | `OIMDB<TSchemas>`; options `createSchemas?: (db: OIMDB) => TSchemas`, `channelScheduler`, `errorPolicy`, `onBeforeFlush`, `getNowMs`, `releaseTimer` | `createSchemas` is called once, at the end of the constructor; `db.schemas` is its result, `undefined` without the option |
+| `db.createEffect` | `(body: () => void \| (() => void), sourceSlots?, options?: { lazy? }): TOIMDisposer` | no list: `createSourceTrackingEffect`, runs at once (`lazy` is ignored); a list: `createAndRunEffect`, or `createEffect` with `lazy`; `[]`: runs once, its cleanup on stop |
+| `db.flush()` | `(): void` | delivers every write since the last flush |
+| `db.dispose()` | `(): void` | drops the database: `OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot)`, so no later flush delivers, its effects stop and its release wheels are cancelled; a test builds one database and disposes it after |
+| `createOIMEntitySlotCollectionStoreAggregate` | `<TEntity, TColumnName?>(db, options?)` | `writeSlotContentByKey(key, entity): slot`, `getSlotByKey`, `holdSlotByKey`, `findSlotByKey`, `hasSlotContentByKey`, `getSlots`, `getSlotCount`, `getEntities()`, `getEntityCount()`, `writeInBatch(write)` |
+| `createOIMSingleSlotStoreAggregate` | `(db, { slotContentService, … })` | `writeSingleSlotContent(value)`, `getSingleSlot()`, `holdSingleSlot()`, `findSingleSlot()`, `hasSingleSlotContent()`, `clearSingleSlotContent()` |
+| `createOIMSlotCollectionIndexStoreAggregate` | `(collection, { keyOf } \| { columns }, plus the index factory options)` | `getEntitiesByKey(key)` tracked; `getSlotByKey(key)`: the bucket slot (`getBucketMemberSlots()`, `getBucketMemberSlotCount()`); on the collection's db |
+| a computed's store aggregate | `service.createStoreAggregate(service.createStoreSlot(db))`; a sorted list: `sortedService.createStoreAggregate(sortedService.createSortedStoreSlot(index.storeSlot))` | read `getSingleSlot().value` / `getSlotByKey(key).value`; the slot goes when nothing holds it and the next read derives it again |
 
-A body's returned cleanup runs before its next run and on `stop()`. Computed slots cannot be passed in `sourceSlots`
-(excluded by type); read them through `.value` in a body without a list. Everything in `@oimdb/core/oimdb` runs on `oimdb.db()`; it takes no `db`. `@oimdb/core/soimdb` is the same API with
-the database as the first argument, for tests, servers and libraries: `soimdb.entities<T>(db, options?)`,
-`soimdb.entity<T>(db)`, `soimdb.computed(db, derive, sourceSlots?)`, `soimdb.effect(db, body, sourceSlots?, { lazy? })`;
-`soimdb.index` and `soimdb.sorted` take no `db` and run on their collection's. Both entries import `@oimdb/core`.
+A body's returned cleanup runs before its next run and on the disposer. Computed slots cannot be passed in
+`sourceSlots` (excluded by type); read them through `.value` in a body without a list. `OIMEffectService.INSTANCE`
+is the layer under `db.createEffect`.
 
-In React:
-`useOIMSourceTrackingValue(() => cards.getEntityByKey(key), [cards, key])` re-renders on what the function read,
-under `<OIMDBProvider db={oimdb.db()}>`.
+In React: `useOIMSourceTrackingValue(() => cards.getSlotByKey(key).entity, [key])` re-renders on what the function
+read, under `<OIMDBProvider db={db}>`, at the next `db.flush()`.
 
 ## Contents
 
-- [The short API: `@oimdb/core/oimdb` and `@oimdb/core/soimdb`](#the-short-api-oimdbcoreoimdb-and-oimdbcoresoimdb)
+- [A database with schemas](#a-database-with-schemas)
 - [The domains](#the-domains)
 - [The doctrine](#the-doctrine) — the four doors, the injected seams, the idle windows, the collectors, forks
 - [The runtime: the channel slot](#the-runtime-the-channel-slot)
@@ -172,7 +198,7 @@ block and the one under [One derivation per key](#one-derivation-per-key). Block
 marked `ts signature` are listings of an API and are not compiled.
 
 ```ts setup
-import { OIMChannelService, OIMSlotContentChangeListenerService, OIMDB, OIMDefaults, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotMapStoreService, OIMSingleSlotStoreService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, createOIMSlotCollectionService, createOIMEntityContentService, createOIMSingleSlotService, createOIMSingleComputedService, createOIMUnusedSlotCollectorSlot, oimIsSlotEmpty, oimIsSlotReleased, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, OIMBucketCommands, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMThrowAtOnceErrorPolicy, type TOIMSlotStoreTree, OIMScalarKeyTreeWalk, OIMCompositeKeyTreeWalk } from '@oimdb/core';
+import { OIMChannelService, OIMSlotContentChangeListenerService, OIMDB, OIMDefaults, OIMEffectService, OIMPositionalArrayBucketContentService, OIMSetBucketContentService, OIMSlotMapStoreService, OIMSingleSlotStoreService, OIMSlotTreeStoreService, OIMUnusedSlotCollectorService, createOIMBucketMemoComputedService, createOIMComputedService, createOIMSortedComputedService, createOIMSortedCollectionSingleSlotStoreAggregate, createOIMInPlaceEntityWriter, createOIMReplacingEntityWriter, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, createOIMSlotCollectionService, createOIMEntityContentService, createOIMColumnGroup, createOIMSingleSlotService, createOIMSingleComputedService, createOIMUnusedSlotCollectorSlot, OIMSlotCollectionBucketService, oimGetBucketMemberSlotEntities, oimIsSlotEmpty, oimIsSlotReleased, oimPatchEntityColumn, oimPatchEntityColumns, oimPutEntityColumns, oimSameValueZeroGuard, OIMBucketCommands, OIMSlotEarliestReleasePolicy, OIMSlotAfterWriteReleasePolicy, OIMSlotAfterIdleReleasePolicy, OIMThrowAtOnceErrorPolicy, type TOIMSlotStoreTree, OIMScalarKeyTreeWalk, OIMCompositeKeyTreeWalk } from '@oimdb/core';
 import type {
     IOIMEntityWriter,
     TOIMEditable,
@@ -246,7 +272,7 @@ and holds only configuration and other services: its slot owner, its store servi
 service (`service.slotContentService`). `service.createStoreSlot(db)` makes an instance, a `TOIMStoreSlot`,
 which is NOT a slot (no owner, holds or effects): its `store` is what the store service built, its
 `channelSlot` is the db's channel, its `slotService` is the service that made it, and it carries the per-store
-state (content-change listeners, index key positions, the open batch and its queued changes, column readers).
+state (content-change listeners, index key positions, the open batch and its queued changes).
 Every slot filed in it points back to it through `slot.storeSlot`, which is why a slot door needs no store slot.
 Reads and the keyed write are called on the service (`cardService.getSlotByKey(cards, pk)`,
 `cardService.getSlots(cards)`, `cardService.writeSlotContentByKey(cards, pk, card)`, or through the store slot:
@@ -306,7 +332,7 @@ on the give-back of the last hold.
 
 `releaseSlotIfUnheld` is PUBLIC on `IOIMSlotOwner`. Public
 does not mean "release on demand" — `releaseSlotIfUnheld` is still a guard, and it
-returns without doing anything unless the slot is unheld, unreferenced, still
+returns without doing anything unless the slot is unheld, carries no column slots, still
 owned by the object asked, and out of grace. Terms, and who gives each back:
 
 | Term | Given back by |
@@ -350,13 +376,11 @@ interface IOIMSlotContentWriter<TSlot, TContent> {
 interface IOIMSlotContentService<TSlot> {
     isSlotEmpty(slot: TSlot): boolean;
     releaseSlotContent(slot: TSlot): void;
-    hasReference(slot: TSlot): boolean;
 }
 ```
 
 A content service with `createSlot` goes into `createOIMSlotCollectionService`, one with `createSingleSlot` into
-`createOIMSingleSlotService`; the entity and bucket content services have both. `hasReference` answers whether
-something outside `holdCount` and `effects` keeps the slot (a bucket's members). Every write door asserts the
+`createOIMSingleSlotService`; the entity and bucket content services have both. Every write door asserts the
 identity is still filed (`assertWritable`). `releaseSlotContent` is what the slot owner calls when it releases a
 slot nothing holds, and it throws on a slot that is still held.
 
@@ -374,8 +398,8 @@ interface IOIMSlotStamp<TSlot> { stamp(editableSlot: TOIMEditable<TSlot>): void;
 
 **What a kind of content answers is not a seam.** Mint, write, clear and release
 belong to the content service, which the collection service hands its owner as `slotContentService`.
-"Does this still hold something" no part declares — the owner asks `oimIsSlotEmpty(slot)`,
-`hasReference` and the release policy's `isSlotReleasable` separately.
+"Does this still hold something" no part declares — the owner asks `oimIsSlotEmpty(slot)`
+and the release policy's `isSlotReleasable` separately.
 
 **`IOIMSlotEmptinessPolicy`** decides what counts as empty, and the answer is written once
 per write into the EMPTY flag of `slot.slotFlags` — never recomputed at a read. The entity content
@@ -588,7 +612,7 @@ oimMintAfterWriteSlotReleaseWheel(collectorSlot): OIMSlotReleaseWheel   // and �
 
 The clock (`getNowMs`, default `Date.now`), the timer (`releaseTimer`, default an unref'd `setTimeout`)
 and the `errorPolicy` (default `OIMLogAndContinueErrorPolicy.INSTANCE`) are `OIMDB` options, shared by the
-channel and every release collector of that db. A release that throws inside a hand-called `flush` throws to
+channel, every release collector of that db and every `OIMSlotRefetchWheel` built on it. A release that throws inside a hand-called `flush` throws to
 that caller; one that throws on the collector's own timer tick has no caller and goes to the db's
 `errorPolicy`. So one error policy on the db routes every error through one place:
 
@@ -619,8 +643,9 @@ source — so the hold is the whole signal, and neither collector reads
 `slot.effects`.
 
 **The deadline is only consulted on a slot that is NOT empty.**
-The slot owner's `releaseSlotIfUnheld` checks `holdCount > 0`, then
-`oimIsSlotReleased(slot)`, then `slot.owner !== this`, then `hasReference(slot)`, and
+The slot owner's `releaseSlotIfUnheld` returns at once on a slot that is RELEASED or queued in an open
+batch, and on a slot that is not empty under a policy that does not release written slots; then it checks
+`holdCount > 0`, `slot.owner !== this` and `columnSlotStore !== undefined`, and
 only then — on a slot that is not empty — asks the policy's `isSlotReleasable`; an empty slot
 asks `isEmptySlotReleasable` instead, which every policy but
 `OIMSlotNeverReleasePolicy` answers `true`. So only `OIMSlotNeverReleasePolicy`
@@ -694,16 +719,18 @@ deadline only ever moves later — each policy adds a fixed window to a clock th
 does not go back — so the slice a slot already sits in is never later than its deadline.
 
 `releaseSlotIfUnheld(slot)` is the guard, and it releases only when all of
-`holdCount === 0`, `oimIsSlotReleased(slot)` is false, `slot.owner === this`,
-`hasReference(slot)` is false, and the policy's `isSlotReleasable` answers `true`
-(or the slot is empty). **A held slot stops at the first of those** and nothing
+`oimIsSlotReleased(slot)` is false (checked first), the slot is not queued in an open batch, the slot is empty
+or its policy releases written slots, `holdCount === 0`, `slot.owner === this`, the slot has no column slot
+store (`columnSlotStore === undefined`), and the policy's `isSlotReleasable`
+answers `true` (`isEmptySlotReleasable` for an empty slot). It is the one release door: a slot queued in an
+open batch is refused there and released after the batch closes. **A held slot stops at `holdCount > 0`** and nothing
 happens to it. On a slot that is not empty with time still owed, `isSlotReleasable`
 answers `false` and the policy files the slot into its queue at its own marker, so a
 filing can neither shorten nor extend a deadline. That is the path from `unholdSlot` and from a write, never from a
 sweep, which had already re-filed at step 4. Releasing hands the slot to the
 content service's `releaseSlotContent` (which gives back what the content held),
-marks the slot empty, calls the policy's `cancelSlotRelease(slot)`, unfiles the key
-through the store service's `remove`, and sets the RELEASED flag in `slot.slotFlags`. The `owner` is NOT cleared — the slot keeps
+calls the policy's `cancelSlotRelease(slot)`, unfiles the key through
+`slotFilingService.delete(store, slot)`, sets the RELEASED flag in `slot.slotFlags`, and marks the slot empty. The `owner` is NOT cleared — the slot keeps
 pointing at the object that let it go, which is what makes `slot.owner !== this`
 a usable guard afterwards.
 
@@ -722,20 +749,27 @@ opposite:
 
 ```ts signature
 oimMintAfterWriteSlotReleaseWheel(db.collectorSlot)   // and …AfterIdle…, …AfterUnhold…
-new OIMSlotRefetchWheel(options: TOIMSlotRefetchWheelOptions)   // { slotRefetchListener, getNowMs?, timer?, errorPolicy? }
+new OIMSlotRefetchWheel(db: OIMDB, options: TOIMSlotRefetchWheelOptions)   // { slotRefetchListener }; clock, timer, error policy from db.collectorSlot.slotWheelOptions
 OIMUnusedSlotCollectorService.INSTANCE
 createOIMUnusedSlotCollectorSlot(): TOIMUnusedSlotCollectorSlot
 ```
 
-**A wheel is the clock.** `OIMSlotWheel` extends `OIMFlushSchedulerService` and is its own scheduled slot:
+**A wheel is the clock.** `OIMSlotWheel` is its own scheduled slot (a `TOIMFlushSchedulerSlot`, driven by
+`OIMFlushSchedulerService` by composition, not inheritance):
 `flush()` sweeps what is due and re-arms the timer to the next deadline. `cancelAllSlots()` takes the timer
 down and drops every filing; the next filing arms it again. The release wheels take the clock (`getNowMs`)
 and the timer from the db, so a test drives them through `new OIMDB({ getNowMs, releaseTimer })`. The default
-timer is a `setTimeout` that calls `unref` where the platform has it, so an idle Node process is not held open.
+timer is a `setTimeout` that calls `unref` where the platform has it, so an idle Node process is not held open,
+and caps a delay at `2^31 − 1` ms (about 24.8 days), so a longer window still fires instead of overflowing.
 
 **A wheel files slots into time slices**, not one entry each. `oimSliceOfMs(ms)` is
 `Math.floor(ms / OIM_SLICE_LENGTH_MS)` and `OIM_SLICE_LENGTH_MS` is `1024`, so every slot due inside the
-same ~1s slice shares one array and one timer.
+same ~1s slice shares one array and one timer. A release wheel's sweep takes every slice up to and including
+the current one (`getSweptSliceNumberAt(now)` is `oimSliceOfMs(now)`), and within a slice it releases only
+the slots whose deadline has passed: a manual `flush()` releases a slot past its deadline even inside its
+slice. The timer arms for the end of the next filed slice, so on the timer alone a slot goes never before its
+deadline and at most one slice (1024 ms) after it. (`OIMSlotRefetchWheel` sweeps only ended slices,
+`oimSliceOfMs(now) − 1`.)
 
 **WHETHER A SLOT IS ON A RELEASE WHEEL IS A BIT ON THE SLOT, NOT A MAP.** Each of the three release
 wheels of a db owns one bit of `slot.slotFlags` (`releaseScheduledSlotFlag`, `4`, `8`, `16`), so a slot
@@ -743,9 +777,10 @@ can sit on all three at once, once on each. Filing pushes the slot onto its slic
 bit; cancelling clears the bit and leaves the entry, which the sweep skips when its slice comes due. A
 cancelled slot therefore keeps its slice named by `getNextSliceNumber` until that sweep.
 
-A slot re-filed during a sweep cannot land in a slice the same sweep is still walking: the sweep raises a
-floor for its duration, so a re-file — the wheel's own at step 4, or one a release makes — goes to the next
-slice and is looked at next time, not in a loop.
+A slot filed during a sweep into a slice the sweep is still walking — the wheel's own re-file at step 4 of a
+slot from the current slice not yet due, or one a release makes — is held aside and, when the sweep ends,
+filed into its OWN slice. The sweep never meets it twice, so it cannot loop, and the timer then arms for the
+end of that slice.
 
 **`OIMSlotRefetchWheel` is a wheel of slots due a refetch at an explicit time.** It computes no deadline,
 keeps no bit and no field on the slot: `scheduleSlotRefetchAt(slot, atMs)` files an entry into the slice
@@ -754,8 +789,8 @@ slots, drops slots nobody subscribes to, and calls `slotRefetchListener.onSlotsR
 sweep with every watched slot that came due; the array is reused and emptied after the call, so a listener
 does not keep it. Moving a refetch earlier is another `scheduleSlotRefetchAt`; the listener decides from
 its own data whether an entry is current, so an early or duplicate entry is skipped there. The wheel is
-created by whoever needs it, not by the db, and its clock, timer and error policy default to `Date.now`,
-an unref'd `setTimeout` and `OIMLogAndContinueErrorPolicy.INSTANCE`.
+created by whoever needs it, not by the db, but on a db: `new OIMSlotRefetchWheel(db, { slotRefetchListener })`
+takes the db's clock, timer and error policy (`db.collectorSlot.slotWheelOptions`), like the release wheels.
 
 **The unused-slot collector** has nothing to do with time. It is the one that makes
 `getSlotByKey(storeSlot, key)` safe: `OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(unusedSlotCollectorSlot, slot)`
@@ -773,7 +808,7 @@ The db's collector slot is the default, not the only one:
 ```ts
 const unusedSlotCollectorSlot = createOIMUnusedSlotCollectorSlot();
 OIMUnusedSlotCollectorService.INSTANCE.holdSlotUntilFlush(
-    unusedSlotCollectorSlot, rankService.computedCollectionService.getSlotByKey(ranks, 'c1'),
+    unusedSlotCollectorSlot, rankService.getSlotByKey(ranks, 'c1'),
 );                                  // held until this arena says otherwise
 db.flush();                         // the db's collector lets its own go; this one does not
 // … the derivation is still there, and still the same object …
@@ -874,26 +909,34 @@ from its own options, and every store slot created with `createStoreSlot(db)` ca
 `storeSlot.channelSlot`. A test that needs a second, independent channel makes a second `new OIMDB()`.
 
 ```ts signature
-new OIMDB(options?: TOIMDBOptions)
+new OIMDB<TSchemas>(options?: TOIMDBOptions<TSchemas>)
 
-type TOIMDBOptions = {
+type TOIMDBOptions<TSchemas> = {
     channelScheduler?: TOIMChannelScheduler;     // absent = you flush by hand
     errorPolicy?: IOIMErrorPolicy;              // absent = OIMLogAndContinueErrorPolicy.INSTANCE
     onBeforeFlush?: () => void;                 // start of the flush, before the frame; READ ONLY, a write is refused
     getNowMs?: () => number;                    // the release collectors' clock; absent = Date.now
     releaseTimer?: TOIMTimer;                   // the release collectors' timer; absent = an unref'd setTimeout
+    createSchemas?: (db: OIMDB) => TSchemas;    // called once, at the end of the constructor
 };
 
 db.clock               // TOIMChannelClock, the same object as db.defaultChannelSlot.clock
 db.collectorSlot       // TOIMCollectorSlot
 db.defaultChannelSlot  // TOIMChannelSlot
+db.schemas             // TSchemas: what createSchemas returned; undefined without it
 db.flush()             // OIMChannelService.INSTANCE.flush(db.defaultChannelSlot)
+db.createEffect(body, sourceSlots?, { lazy? })   // TOIMDisposer; see "A database with schemas"
+db.dispose()           // OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot): no later flush delivers
 
 interface IOIMErrorPolicy { onErrorCaught(error: unknown): void }
 OIMLogAndContinueErrorPolicy.INSTANCE                                       // console.error; the flush goes on
 new OIMLogAndContinueErrorPolicy({ onError?: (error: unknown) => void })   // console.error, then onError
 new OIMThrowAtOnceErrorPolicy()                                             // throws the first error out of the flush
 ```
+
+`OIMThrowAtOnceErrorPolicy` throws the first error out of `flush()`, but the end of a flush still runs in
+`finally` blocks — the unused-slot collector's flush, then the after-each-flush handlers — and a throw there
+replaces the error already on its way out: the caller sees the later one.
 
 **What the error policy covers** — every error with no synchronous caller to
 throw to: effect bodies and their cleanups, `onBeforeFlush`, after-each-frame and
@@ -946,7 +989,7 @@ Every door below is on `OIMChannelService.INSTANCE` and takes the channel slot f
 | Door | Signature |
 |---|---|
 | `flush(channelSlot)` | `void` — the only place anything is delivered; from the TAIL of a flush it returns having done nothing. `db.flush()` is this on the default channel |
-| `scheduleEffectRun(channelSlot, effect)` | `void` — puts the effect on this channel's queue for the next frame, once (the RUN_SCHEDULED bit of `effect.effectFlags` says whether it is there), sets the SOURCE_CHECK_OWED bit (`OIM_EFFECT_FLAG_SOURCE_CHECK_OWED`) and asks for a flush. Effects are made by `OIMEffectService.INSTANCE`, not here; `createEffect` calls this when the open batch already has writes and no frame is running, so an effect created inside a running frame is never queued |
+| `scheduleEffectRun(channelSlot, effect)` | `void` — only enqueues the effect on this channel's queue and asks for a flush. It sets no bit and does not dedupe: the caller first calls `OIMEffectService.INSTANCE.markEffectRunScheduled(effect, isSourceCheckOwed)`, which sets the RUN_SCHEDULED bit of `effect.effectFlags` (and SOURCE_CHECK_OWED, `OIM_EFFECT_FLAG_SOURCE_CHECK_OWED`, when asked) and answers `false` when the effect is already queued. Effects are made by `OIMEffectService.INSTANCE`, not here; `createEffect` calls this when the open batch already has writes and no frame is running, so an effect created inside a running frame is never queued |
 | `subscribeAfterEachFrame(channelSlot, handler)` | `TOIMDisposer` — after every frame, but still INSIDE the flush: a write from it is refused |
 | `subscribeOnceAfterFrame(channelSlot, handler)` | `TOIMDisposer` — the same phase, told **once**; see below |
 | `subscribeAfterEachFlush(channelSlot, handler)` | `TOIMDisposer` — told once the flush has FULLY ended: after the after-each-frame phase and after the unused-slot collector of the db is flushed. For what may live only one frame — `OIMBucketCommands` empties its render scripts here |
@@ -955,7 +998,7 @@ Every door below is on `OIMChannelService.INSTANCE` and takes the channel slot f
 | `write(channelSlot, slot)` | `void` — asks `assertNotFlushing`, then marks and queues |
 | `writeWithoutFlushCheck(channelSlot, slot)` | `void` — the same marking and queueing WITHOUT the guard, for a door that already refused. Who may call it is pinned by `tests/who-may-write-without-asking-the-channel.test.ts`; a caller not on that list fails the suite |
 | `dropChannelSlot(channelSlot)` | `void` — kill the channel whole; see below |
-| `isChangedInCurrentFrame(channelSlot, slot)` | `boolean` — whether the slot was written after the last frame ended, i.e. in the frame being collected now; compares `slot.changedAtRevision`/`changedAtEpoch` with the clock reading the last frame closed at. `OIMBucketCommands` keeps a bucket's render script across a flush only while this is true |
+| `isChangedInCurrentFrame(channelSlot, slot)` | `boolean` — whether the slot was written after the last frame ended, i.e. in the frame being collected now; compares `slot.changedAtRevision`/`changedAtEpoch` with the clock reading the last frame closed at. `write` uses it to queue a slot's effects once per frame, and a source-tracking effect to see that a source it just started reading already moved. (`OIMBucketCommands` does not use it: a script is stale when the frame opened after the script started, its own `isScriptStale`.) |
 
 The channel slot's own fields that a caller reads: `frame` (`TOIMChannelFrame`, `{ isRunning, openedAtRevision,
 openedAtEpoch, … }`; a frame carries no number, the clock reading it opened at is its boundary), `clock`
@@ -1020,8 +1063,9 @@ effectService.createEffect(db, () => {
 
 ### Batches: `openBatch` / `closeBatch` / `writeInBatch` on a collection
 
-There are no bulk writes. A load or a sync is a loop of single writes, and a collection
-service wraps it in a batch on its store slot:
+There are no bulk writes. A load or a sync is a loop of single writes, and a writable collection
+service (`OIMWritableSlotCollectionService`: an entity or a hand-made bucket collection) wraps it in a batch
+on its store slot. An index service and a computed service have no batch:
 
 ```ts
 cardService.writeInBatch(cards, () => {
@@ -1034,6 +1078,8 @@ cardService.writeInBatch(cards, () => {
 - **What the batch changes is who hears the writes, and when.** A content-change listener on the store slot (an
   index on the collection) hears every write of the batch in ONE call, `onManyContentsChanged`, when the
   outermost batch closes. Code inside the batch reads the index as it was before the batch.
+- A batch a listener opens on the same store slot while that delivery runs gets its own queues and is delivered
+  once, when it closes; it does not join the batch being delivered.
 - Effects are not batched by it: every write marks its slot on the channel as usual, and the frame delivers each
   identity once whatever the batch did. A `flush()` inside a batch is allowed; the index catches up when the
   batch closes.
@@ -1049,12 +1095,12 @@ method exists to skip — the check IS the cost, which is what the suffix of its
 
 ```ts
 // every subscriber disposed, the screen is going away
-OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot);
+db.dispose();   // OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot)
 // drop your own references; every slot, store and derivation goes with them
 ```
 
 - It empties the effect queue and the after-each-frame and after-each-flush handlers, cancels the scheduled
-  flush, sets the `dropped` flag, and returns. **Nothing walks a slot to ask who is subscribed to it** —
+  flush and the db's three release wheels (`cancelAllSlots`), sets the `dropped` flag, and returns. **Nothing walks a slot to ask who is subscribed to it** —
   that is the walk the name refuses.
 - **It does flush the unused-slot collector**, which is the channel's own debt
   and not a walk of your graph: every getter that minted an identity this frame
@@ -1123,7 +1169,7 @@ A `TOIMEffect` is a plain object with no methods; its behaviour lives in the sta
 `OIMEffectService.INSTANCE`, which takes the channel map (`db`) on every create and files the effect on its
 `defaultChannelSlot` (`effect.channelSlot`). `createEffect` schedules the new effect when
 the current frame already has writes; it still never receives writes made before it was created.
-For a detached function, `effectService.subscribeEffect(db, roots, computeds, body)` creates the
+For a detached function, `effectService.subscribeEffect(db, body, sourceSlots?, sourceComputeds?, sourceTrackingComputeds?)` creates the
 effect exactly as `createEffect` does and returns its `TOIMDisposer` — `disposers.push(…)` it,
 or return it from a React cleanup. `oimHoldSlots(slots)` takes one hold on each slot of a list,
 through its owner; to give back a list of holds taken around one write,
@@ -1163,7 +1209,7 @@ is cleared before it is called, so one that throws is not called again by the
 
 **A derivation that finds its sources as it reads:** `createOIMSourceTrackingComputedService<TKey, TValue>({ derive, … })` and
 `createOIMSingleSourceTrackingComputedService<TValue>({ derive, … })`. `derive: TOIMSourceTrackingComputedDerive<TValue, TSlot>` is
-`(computedSlot) => TValue`; there is no `createSources`, and `createComputedStoreSlot(db)` takes no
+`(computedSlot) => TValue`; there is no `createSources`, and `createStoreSlot(db)` takes no
 per-store `derive`. Every derive holds what it read and gives back what it no longer reads (new holds first). The slot
 (`TOIMSourceTrackingComputedSlot<TValue, TKey>` / `TOIMSourceTrackingComputedContentSlot<TValue>`, `sourceTracker` set) is read
 through `computed.value` (in `createSourceTrackingEffect` or another source-tracking derive) or through `createEffect`'s fifth list; `createEffect`'s `sourceComputeds` and
@@ -1198,13 +1244,15 @@ effectService.createSourceTrackingEffect(db, () => {
 
 - The body runs once at creation: that run is what finds the sources.
 - After every run the effect is subscribed to exactly what the run read: a branch not
-  taken is unsubscribed, a slot read twice is subscribed once.
+  taken is unsubscribed, a slot read twice is subscribed once. A run in the previous order costs one
+  comparison per read; once it diverges, each read is looked up among the run's sources so far — a scan
+  up to 16 distinct sources, a `Map` beyond.
 - A read through a service door that takes the slot as an argument
   (`slotContentService.…(slot)`) is not tracked: read through the slot.
 - A tracked read of `entity` makes the whole entity a source. `cardSlot.readEntity(columnGroup)` reads
   the same entity and makes only that group's columns a source: a write to another column does not wake
-  the run. Build the group once, outside the body (`columnSlotService.getColumnGroup(names)`); a group is
-  compared by identity.
+  the run. Build the group once, outside the body (`createOIMColumnGroup(names)`); a group is
+  compared by identity. `readEntity` needs no declaration: any group works there.
 - A column slot (`cardSlot.holdColumn(name)`, `cardSlot.holdColumnGroup(group)`) is a source of an
   effect with declared sources.
 - A run that reads the same sources in the same order compares each read with the one
@@ -1222,8 +1270,9 @@ column is the caller's call and it is a separate door, on the collection (or sin
 and `service.getColumn(slot, columnName)` mints and lets the db's unused-slot collector hold it until the end
 of the next flush. Every collection and single service has them (a single entity's doors take the slot its
 service hands back: `settingsService.getColumn(settingsService.getSingleSlot(settings), 'theme')`), and all go
-through the owner's column owner, which is stateless configuration built at construction; the column state —
-the column slots, the column groups, and which columns are referenced — lives on the store slot. Every
+through the owner's column owner, which is configuration built at construction: its column slot store and the
+declared column groups. The column slots themselves live on their carrier, in `slot.columnSlotStore`; nothing
+about columns lives on the store slot. Every
 service also has `getAnyColumn(slot)` / `holdAnyColumn(slot)`, a column slot that wakes on any column write to
 its carrier. An index store slot's buckets have the same doors on the index service, taking the bucket slot.
 `createEffect` returns the **effect**, not the column: a column holds no value; read `slot.entity[name]`.
@@ -1233,9 +1282,23 @@ its carrier. An index store slot's buckets have the same doors on the index serv
 `TOIMEntityColumnName<TEntity>`. `TOIMEntityColumnName<TEntity>` is the type that narrows a name to the
 entity's own columns, and `slotContentService.deleteEntityColumns` is typed on it.
 
-**A column group is one column slot for several columns.** `service.getColumnGroup(['rank', 'label'])`
-returns a `TOIMColumnGroup` — `{ key, columnNames }`, the names deduplicated and sorted, a fresh frozen object
-per call; get it once per view, not per entity. `service.holdColumnGroup(slot, columnGroup)` mints and holds
+**A column group is one column slot for several columns.** `createOIMColumnGroup(['rank', 'label'])`
+returns a `TOIMColumnGroup<TColumnName>` — `{ key, columnNames }`, the names deduplicated and sorted, a fresh
+frozen object per call; it throws on an empty list. A group's slot is filed only for a group DECLARED on the
+service with the `columnGroups` option (on `createOIMSlotCollectionService`, `createOIMSingleSlotService`,
+`createOIMEntitySlotCollectionStoreAggregate`, the computed and index factories); the group doors throw
+"… Name it in `columnGroups`" for any other, and with `columnNames` a group naming an undeclared column
+throws at construction.
+
+```ts
+const rendered = createOIMColumnGroup<keyof Card>(['rank', 'title']);
+const renderedCardService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<Card>(), columnGroups: [rendered] });
+const renderedCards = renderedCardService.createStoreSlot(db);
+const renderedCardSlot = renderedCardService.holdSlotByKey(renderedCards, 'c1');
+const groupSlot = renderedCardSlot.holdColumnGroup(rendered);
+```
+
+`service.holdColumnGroup(slot, columnGroup)` mints and holds
 the group's column slot on `slot`, and `service.unholdColumn(columnSlot)` gives it back.
 `service.getColumnGroupSlot(slot, columnGroup)` is the get door: it returns the filed slot or mints one the
 unused-slot collector takes back at the next flush unless something holds it, which is what a source-tracking
@@ -1246,9 +1309,14 @@ if it changes any of the group's columns and not at all if it changes only other
 — and `columnNames` on any factory's options — files the service's column slots by ordinal: every named column
 gets a number, a group gets one at its first slot, and an entity slot's column slots sit in an array by
 number instead of a `Map` per entity slot, which is cheaper to create and give back. `holdColumn` and
-`getColumnGroup` are typed on those names, and a slot for any other column throws. Without `columnNames` the
-store is the `columnSlotStoreService` option, defaulting to the shared map-driven
-a shared map-driven store, and any name is accepted.
+`columnGroups` are typed on those names, and a slot for any other column throws. Without `columnNames` the
+store is the `columnSlotStoreService` option, defaulting to a shared map-driven store, and any name is accepted.
+THE ENTITY SLOT CARRIES THE NAMES: `TOIMEntitySlot<TEntity, TKey, TColumnName>`, `TOIMEntityContentSlot<TEntity, TColumnName>`
+and `OIMEntitySlot<TEntity, TKey, TColumnName>` (`TColumnName extends TOIMEntityColumnName<TEntity>`, default every
+column); `slot.getColumn` / `slot.holdColumn` take `TColumnName`, and the aggregate passes
+it through. `createOIMEntitySlotCollectionStoreAggregate<TCard, 'title'>(db, { columnNames: ['title'] })` makes
+`slot.getColumn('rank')` a type error. With `TEntity` written explicitly TypeScript infers no other type argument,
+so spell the names in the type arguments: `<TCard>(db, { columnNames: ['title'] })` still accepts every column.
 
 ---
 
@@ -1258,10 +1326,10 @@ a shared map-driven store, and any name is accepted.
 new OIMDB(options?: TOIMDBOptions)   // see the runtime section for the option list
 ```
 
-It owns the shared `clock`, one `collectorSlot` and one `defaultChannelSlot`, all public, and
-holds `entityWriter`, `slotStamp`, `slotReleasePolicy` and `indexKeysService` as the
-defaults every factory reads — `undefined` when not named. **It builds no service**, and `flush()` is its
-only method: `OIMChannelService.INSTANCE.flush(db.defaultChannelSlot)`, which flushes the db's unused-slot
+It owns the shared `clock`, one `collectorSlot`, one `defaultChannelSlot` and `schemas`, all public. The
+defaults a factory falls back on are an `OIMDefaults`, not the db's. **It builds no service of its own**; the
+schemas are what the caller's `createSchemas` built. `db.createEffect` creates an effect on it, and `flush()` is
+`OIMChannelService.INSTANCE.flush(db.defaultChannelSlot)`, which flushes the db's unused-slot
 collector slot once the frame is delivered. `OIMDB` implements `IOIMChannelMap`
 (`{ readonly defaultChannelSlot }`), so every door typed `channelMap: IOIMChannelMap` takes the db.
 
@@ -1286,8 +1354,9 @@ once per collection type; the store slot is made separately:
 | `createOIMSingleSlotService({ slotContentService, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMWritableSingleSlotService` over any content service with `createSingleSlot` (entity or bucket) | `createStoreSlot(db)` |
 | `createOIMSlotCollectionIndexService({ entityService, columns? \| keyOf?, slotContentService?, bucketSlotStoreService?, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMSlotCollectionIndexService`, over the entity collection service whose store slots it will index (it takes a `Pick` of `getSlots`); `slotContentService` defaults to an `OIMPositionalArrayBucketContentService`, pass `new OIMSetBucketContentService()` for an unordered one. A scalar key is inferred from ONE inline column or from `keyOf`'s return; an array key (two or more columns, or an array-returning `keyOf`) needs `bucketSlotStoreService: new OIMSlotTreeStoreService(…)` | `createIndexStoreSlot(entityStoreSlot)` |
 | `createOIMSlotCollectionSortedArrayIndexService({ entityService, columns? \| keyOf?, sortColumns, … })` | `OIMSlotCollectionSortedArrayIndexService`: the index whose buckets are kept in the order of `sortColumns` (`readonly TOIMSortColumn<TEntity>[]`, required) through an `OIMSortedArrayBucketContentService`. See [Sorted at write](#sorted-at-write) | `createIndexStoreSlot(entityStoreSlot)` |
-| `createOIMComputedService({ createSources?, derive?, sameValueGuard?, initialValue?, slotReleasePolicy?, computedSlotStoreService?, columnSlotStoreService?, columnNames? })` | `OIMComputedService<TKey, TValue, TComputedStore>`; its reads are on `computedService.computedCollectionService`; `derive` and `createSources` may instead be given per store slot; `computedSlotStoreService` is REQUIRED for a non-Map store (a single: `OIMSingleSlotStoreService`); see [One derivation per key](#one-derivation-per-key) | `createComputedStoreSlot(db, derive?, createSources?)` |
+| `createOIMComputedService({ createSources?, derive?, sameValueGuard?, initialValue?, slotReleasePolicy?, computedSlotStoreService?, columnSlotStoreService?, columnNames? })` | `OIMComputedService<TKey, TValue, TComputedStore>`; its reads are on the service itself (it extends `OIMSlotCollectionService`); `derive` and `createSources` may instead be given per store slot; `computedSlotStoreService` is REQUIRED for a non-Map store (a single: `OIMSingleSlotStoreService`); see [One derivation per key](#one-derivation-per-key) | `createStoreSlot(db, derive?, createSources?)` |
 | `createOIMSortedComputedService({ indexService, sortColumns?, comparator?, slotReleasePolicy?, columnSlotStoreService?, computedSlotStoreService? })` | `OIMSortedComputedService` — per key, the entity slots of the index bucket under that key, sorted; see [Sorted lists](#sorted-lists) | `createSortedStoreSlot(indexStoreSlot)` |
+| `createOIMSortedCollectionSingleSlotStoreAggregate(entitySlotCollectionStoreAggregate, { sortColumns?, comparator? })` | an `OIMSingleSlotStoreAggregate` of a computed whose `value` is every entity slot of the collection, sorted; no index; see [A whole collection, sorted](#a-whole-collection-sorted) | — (it takes the collection's aggregate and runs on its channel slot) |
 | `createOIMBucketMemoComputedService({ bucketCollectionService, slotReleasePolicy?, columnSlotStoreService?, computedSlotStoreService? })` | `OIMBucketMemoComputedService` — per key, the bucket's slots as one array; see [The order of a bucket](#the-order-of-a-bucket-as-one-derivation-per-key) | `createBucketMemoStoreSlot(bucketStoreSlot)` |
 
 `entityWriter` and `slotReleasePolicy` on these doors default to those of the
@@ -1301,7 +1370,8 @@ options of `createOIMSlotCollectionService` / `createOIMSingleSlotService` (a ne
 store slots of one type, build the service once).
 `createOIMEntitySlotCollectionStoreAggregate<TEntity, TColumnName?>(db, options?)` is the same for a collection of
 entities: it builds the entity content service itself, takes its options (`entityWriter`, `slotEmptinessPolicy`) beside
-the collection's, keys by `TOIMStoreKey`, and checks `columnNames` against the entity's columns. A composite key needs
+the collection's, keys by `TOIMStoreKey`, checks `columnNames` against the entity's columns, and returns an
+`OIMEntitySlotCollectionStoreAggregate`: the writable aggregate plus `getEntities()` / `getEntityCount()`. A composite key needs
 `slotStoreService` and goes through `createOIMSlotCollectionStoreAggregate`.
 `createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, options)` does the same for an index over a collection
 aggregate, with the options of `createOIMSlotCollectionIndexService` minus `entityService` and with the default bucket
@@ -1315,6 +1385,7 @@ const aceSlot = deckStoreAggregate.writeSlotContentByKey('c1', { id: 'c1', title
 aceSlot.updateEntity({ rank: 14 });
 deckStoreAggregate.storeSlot;      // for hooks, indexes and computeds
 deckStoreAggregate.slotService;    // the service itself
+deckStoreAggregate.getEntities();  // [Ace], no index
 
 const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(deckStoreAggregate, { keyOf: (card) => card.deck });
 byDeckStoreAggregate.getEntitiesByKey('spades');   // [Ace]
@@ -1322,8 +1393,9 @@ byDeckStoreAggregate.getEntitiesByKey('spades');   // [Ace]
 
 | Aggregate | Methods (the service's, minus the store slot argument) |
 |---|---|
-| `OIMSlotCollectionStoreAggregate` | `findSlotByKey`, `hasSlotContentByKey`, `getSlotByKey`, `holdSlotByKey`, `getSlots`, `getSlotCount`, `openBatch`, `closeBatch`, `writeInBatch` |
-| `OIMWritableSlotCollectionStoreAggregate` | + `writeSlotContentByKey` |
+| `OIMSlotCollectionStoreAggregate` | `findSlotByKey`, `hasSlotContentByKey`, `getSlotByKey`, `holdSlotByKey`, `getSlots`, `getSlotCount` |
+| `OIMWritableSlotCollectionStoreAggregate` | + `writeSlotContentByKey`, `openBatch`, `closeBatch`, `writeInBatch` |
+| `OIMEntitySlotCollectionStoreAggregate` | + `getEntities`, `getEntityCount` (from `createOIMEntitySlotCollectionStoreAggregate`) |
 | `OIMSingleSlotStoreAggregate` | `findSingleSlot`, `hasSingleSlotContent`, `getSingleSlot`, `holdSingleSlot` |
 | `OIMWritableSingleSlotStoreAggregate` | + `writeSingleSlotContent`, `clearSingleSlotContent` |
 | `OIMSlotCollectionIndexStoreAggregate` | the collection methods + `getEntitiesByKey`, `getSlotsByKeys`, `holdSlotsByKeys`, `get/holdBucketColumnByKey`, `get/holdAnyBucketColumnByKey`, `disposeIndexStoreSlot` |
@@ -1417,9 +1489,9 @@ collectionService.createStoreSlot(db): TOIMStoreSlot<TStore, TOIMEntitySlot<TEnt
 ```
 
 **Each collection type has its own column owner.** It is stateless configuration built with the slot owner
-over `columnSlotStoreService` (or the ordinal store `columnNames` names); the column state — the column slots,
-the column groups, and which columns are referenced — lives on the store slot. The doors are on the
-collection's `columnSlotService` (`getColumn`, `holdColumn`, `unholdColumn`, `getColumnGroup`, `getColumnGroupSlot`, `holdColumnGroup`,
+over `columnSlotStoreService` (or the ordinal store `columnNames` names) and the declared `columnGroups`; the
+column slots live on their carrier (`slot.columnSlotStore`), not on the store slot. The doors are on the
+collection's `columnSlotService` (`getColumn`, `holdColumn`, `unholdColumn`, `getColumnGroupSlot`, `holdColumnGroup`,
 `getAnyColumn`, `holdAnyColumn`). The column owner has two strategies, chosen by the factory: write-driven
 column slots, woken by the marks a write makes (`OIMPushColumnSlotOwner`, entities and buckets), and
 derive-driven column slots, each a computed slot over its carrier (`OIMPullColumnSlotOwner`, computeds).
@@ -1455,29 +1527,51 @@ is not an option of any factory: it is `new OIMDefaults({ slotStamp })`, passed 
 | `slotService` | the store slot | the service that created it |
 
 A store slot is not a slot, so nothing holds, subscribes or wakes it: there is no
-`effectService.createEffect(db, [cards], …)` that hears the population. "Something in this population changed" is an
-index over the store slot and a subscription to its bucket — the bucket's door
+`effectService.createEffect(db, [cards], …)` that hears the population. "An entity joined or left" is the
+collection's list, `OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(storeSlot)`; "something in one part of the population
+changed" is an index over the store slot and a subscription to its bucket — the bucket's door
 is written when an entity slot joins or leaves it — or a content-change listener on the store slot
 (`OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames)`,
 removed by the same listener object). The slot owner is what `slot.owner` points at for every slot the type
 filed, in every one of its store slots; `slot.storeSlot` names which store slot.
 
-**THERE IS NO DOOR THAT HANDS BACK "THE ENTITY SLOTS THAT HOLD A VALUE".** A store slot
-keeps no bucket of its own. To read the whole population, walk `getSlots(storeSlot)` — every
-slot filed in that store slot, in store order — and skip the ones whose
-`oimIsSlotEmpty` says they hold nothing:
+**THE WHOLE POPULATION IS `OIMSlotCollectionBucketService.INSTANCE`.** Two doors, like `getSlotByKey` /
+`holdSlotByKey`: `getBucketSlot(storeSlot)` returns the collection's list of every slot that holds an
+entity, held by the unused-slot collector until the flush when nothing else holds it, so a later read
+builds it again; `holdBucketSlot(storeSlot)` returns the same list held until `bucketSlot.unholdSlot()`.
+Both return a `TOIMCollectionBucketSlot<TSlot>`, which is read-only: `getBucketMemberSlots`,
+`getBucketMemberSlotCount`, `hasBucketMemberSlot`, `holdSlot`, `unholdSlot`. While it lives it is kept in step on
+every emptiness transition; a collection nobody asks pays nothing. `holdBucketSlot` is `getBucketSlot` plus
+`holdSlot()`; both take a `TOIMSlotCollectionStoreSlot`. ORDER IS NOT A GUARANTEE: while the list is alive it
+is the order entities got data (cleared and refilled goes last); a list built afresh follows the order the
+slots were created in the collection, and a read with no data creates a slot. After a held entity is cleared
+and refilled, or a key read before its first write, the two differ. For a strict order use
+`createOIMSortedCollectionSingleSlotStoreAggregate` ([A whole collection, sorted](#a-whole-collection-sorted)). The list does
+NOT hold its members: an entity goes by its collection's release policy even while the list is read, and
+leaves the list when released. Subscribe to it to hear joins and leaves;
+`oimGetBucketMemberSlotEntities(bucketSlot.getBucketMemberSlots())` reads its entities. An
+`OIMEntitySlotCollectionStoreAggregate` (what `createOIMEntitySlotCollectionStoreAggregate` returns) has the
+same as `getEntities()` / `getEntityCount()`.
+
+**The list has column slots too**: `getBucketColumn(storeSlot, columnName)` / `holdBucketColumn(storeSlot, columnName)`
+and `getAnyBucketColumn(storeSlot)` / `holdAnyBucketColumn(storeSlot)` on `OIMSlotCollectionBucketService.INSTANCE`
+return a `TOIMColumnSlot` that wakes when a member's write changes that column (any column). They are registered
+when first asked for and released with the list, and the get / hold pair is the same as for the list.
 
 ```ts
+const everyCard = OIMSlotCollectionBucketService.INSTANCE.holdBucketSlot(cards);
+effectService.createEffect(db, () => { for (const card of oimGetBucketMemberSlotEntities(everyCard.getBucketMemberSlots())) paint(card); }, [everyCard]);   // joins and leaves
+everyCard.getBucketMemberSlotCount();                // how many cards hold an entity
 cardService.getSlotCount(cards);                     // how many ids are filed, empty ones included
 for (const filedSlot of cardService.getSlots(cards)) {
-    if (oimIsSlotEmpty(filedSlot)) continue;
+    if (oimIsSlotEmpty(filedSlot)) continue;         // getSlots walks every filed slot, empty ones included
     paint(filedSlot.entity);
 }
+everyCard.unholdSlot();
 ```
 
-To have that answer MAINTAINED and subscribable instead of walked, declare an
-index keyed on the entity's own id (`keyOf: (card: Card) => card.id`) and hold the key
-you want. An index's bucket is an injected lifetime — a
+For one part of the population, or a sorted view of the whole one (`sorted` / `createOIMSortedComputedService`
+take an index), declare an index. An index's bucket is an injected lifetime — a
 `slotReleasePolicy` — so it is the consumer who says how long the
 answer outlives its last reader.
 
@@ -1495,15 +1589,13 @@ itself, so it mints nothing: a miss answers `undefined` and leaves no slot behin
 ### The doors every service has
 
 **The read doors are the collection service's and take the store slot first; the write doors are the content
-service's.** Every collection service (entity, bucket, index, and a computed's `computedCollectionService`) has
+service's.** Every collection service (entity, bucket, index and computed) has
 the read doors below; a single slot service has `getSingleSlot` / `holdSingleSlot` / `findSingleSlot` /
 `hasSingleSlotContent` in their place.
 
 ```ts signature
-class OIMSlotCollectionService<TKey, TSlot, TStore, TSlotContentService, TColumnName, …> {
+abstract class OIMSlotCollectionService<TKey, TSlot, TStore, TSlotContentService, TColumnName, …> {
     readonly slotContentService: TSlotContentService;
-    createStoreSlot(channelMap: IOIMChannelMap): TOIMStoreSlot<TStore, TSlot, TPatch>;
-    createStoreSlotFrom(sourceStoreSlot: TOIMStoreSlot): TOIMStoreSlot<TStore, TSlot, TPatch>;
     findSlotByKey(storeSlot, key): TSlot | undefined;
     hasSlotContentByKey(storeSlot, key): boolean;
     getSlotByKey(storeSlot, key): TSlot;
@@ -1511,13 +1603,18 @@ class OIMSlotCollectionService<TKey, TSlot, TStore, TSlotContentService, TColumn
     getSlots(storeSlot): IterableIterator<TSlot>;
     getSlotCount(storeSlot): number;
     isSameKey(key, otherKey): boolean;
-    openBatch(storeSlot): void;
-    closeBatch(storeSlot): void;
-    writeInBatch<TResult>(storeSlot, write: () => TResult): TResult;
-    readonly columnSlotService: OIMColumnSlotService;   // getColumn / holdColumn / getAnyColumn / holdAnyColumn / getColumnGroup / getColumnGroupSlot / holdColumnGroup / unholdColumn
+    readonly columnSlotService: OIMColumnSlotService;   // getColumn / holdColumn / getAnyColumn / holdAnyColumn / getColumnGroupSlot / holdColumnGroup / unholdColumn
 }
+// the base builds no store slot in public; each subclass has its own door for it:
 // createOIMSlotCollectionService returns OIMWritableSlotCollectionService, which adds:
+//     createStoreSlot(channelMap: IOIMChannelMap): TOIMStoreSlot<TStore, TSlot, TPatch>;  createStoreAggregate(storeSlot)
 //     writeSlotContentByKey(storeSlot, key, content, changedSlots?): TSlot
+//     openBatch(storeSlot): void;  closeBatch(storeSlot): void
+//     writeInBatch<TResult>(storeSlot, write: () => TResult): TResult
+// an index service and a computed service have no openBatch / closeBatch / writeInBatch
+// an index service builds its store slots with createIndexStoreSlot(sourceStoreSlot) (+ createStoreAggregate) only
+// a computed service extends OIMSlotCollectionService directly (+ its own createStoreAggregate); its store slots
+//     come only from its own door: createStoreSlot / createSortedStoreSlot / createBucketMemoStoreSlot
 // createOIMSingleSlotService returns OIMWritableSingleSlotService, which adds:
 //     writeSingleSlotContent(storeSlot, content, changedSlots?): TSlot;  clearSingleSlotContent(storeSlot): void
 ```
@@ -1531,22 +1628,25 @@ class OIMSlotCollectionService<TKey, TSlot, TStore, TSlotContentService, TColumn
 | `holdSlotByKey(storeSlot, key)` | collection | `TSlot` — minted if missing, `holdCount` up by one | **yes** |
 | `hasSlotContentByKey(storeSlot, key)` | collection | `boolean` — **does this key have content right now**, not whether an identity is filed under it: a slot a read or a hold minted and nobody wrote answers `false`. It hands back no slot, which is why it can answer without minting, and it is not a read: the answer is about the past the moment it returns | no |
 | `isSameKey(key, otherKey)` | collection | `boolean` — whether two keys name one slot here, answered by the store service (SameValueZero for a Map store, part by part for a tree store) | no |
-| `writeSlotContentByKey(storeSlot, key, content, changed?)` | collection | `TSlot` — **total; always the identity it resolved or minted**. A hit writes the whole value through `slotContentService.writeSlotContent`, a miss mints and `insertSlotContent`s | **yes** |
+| `writeSlotContentByKey(storeSlot, key, content, changed?)` | collection | `TSlot` — **total; always the identity it resolved or minted**. A hit writes the whole value through `slotContentService.writeSlotContent`; a miss mints and files the slot (the collection service), then `insertSlotContent` fills it | **yes** |
 | `writeSlotContent(slot, content)` | content | `boolean` — on a slot you already hold; the boolean is about the CONTENT | no |
 | `clearSlotContent(slot)` | content | `void` — it takes the value, not the identity | no |
 | `markContentChanged(bucketSlot)` | bucket content | `void` — re-settle emptiness and re-ask the guard after a write you made another way; the entity counterpart is `markEntityChanged(slot, changedColumns?)` | no |
 | `slot.holdSlot()` / `slot.unholdSlot()` | `void` — the `IOIMSlotOwner` pair; `unholdSlot` on an unheld slot throws by name | no |
-| `slot.owner.releaseSlotIfUnheld(slot)` | `void` — run the release guard; it releases nothing unless the slot is unheld, unreferenced, still owned here and out of grace | no |
+| `slot.owner.releaseSlotIfUnheld(slot)` | `void` — run the release guard; it releases nothing unless the slot is unheld, carries no column slots, still owned here and out of grace | no |
 
 **`releaseSlotIfUnheld` is PUBLIC and it is still not a "release" door.** It is public because the release queue calls it through
 `slot.owner`, and it is a guard, not a command: on a held, referenced, foreign-
 owned or in-grace slot it returns having done nothing, and on an
 already-released one it returns silently rather than throwing.
 
-**`writeSlotContentByKey` does not file a key whose content is refused.** On a MISS it
-mints, writes inside a `try`, and on a throw runs the release guard on what it
-just minted before re-raising — so the caller's error is the only thing that
-leaves. The HIT path looks
+**`writeSlotContentByKey` does not keep a key whose content is refused.** ONE MINT PATH: every door creates
+a slot with `createSlot`, calls the `onSlotMinted` hook, and the collection / single service files it
+(`mintSlotByKey` / `mintSingleSlot`); a get or hold then settles its emptiness (and `getSlotByKey` holds it until
+the flush). On a MISS the write mints that way and calls the content service's `insertSlotContent`, which does
+NOT file the slot: inside a `try` it fills it, settles emptiness and writes the channel, and on a throw runs the
+release guard on the unheld, empty slot — which unfiles it — before re-raising, so the caller's error is the
+only thing that leaves. The HIT path looks
 the key up first and never mints, so a refused write on an existing key leaves
 that key exactly as it was.
 
@@ -1890,7 +1990,7 @@ createOIMSlotCollectionService({
 
 new OIMSetBucketContentService<TBucketMemberSlot>({ bucketCommands? })
 new OIMPositionalArrayBucketContentService<TBucketMemberSlot>({ bucketCommands?, bucketMemberSlotsArrayService? })
-new OIMSortedArrayBucketContentService<TBucketMemberSlot>({ compareBucketMemberSlots, bucketCommands?, bucketMemberSlotsArrayService? })
+new OIMSortedArrayBucketContentService<TBucketMemberSlot>({ compareBucketMemberSlots, bucketMemberSlotsArrayService? })   // no bucketCommands
 // bucketMemberSlotsArrayService: OIMBucketMemberSlotsArrayService (every mention, the default)
 //                                or new OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot>() (each slot once)
 ```
@@ -1924,7 +2024,6 @@ Every door below is the bucket content service's and takes the bucket slot:
 | `getBucketMemberSlots(bucketSlot)` | `Iterable<TBucketMemberSlot>` |
 | `getBucketMemberSlotCount(bucketSlot)` | `number` |
 | `hasBucketMemberSlot(bucketSlot, bucketMemberSlot)` | `boolean` — the content service's own membership test: one `Set.has` on a set bucket; on an array bucket its `bucketMemberSlotsArrayService.hasBucketMemberSlot` (a `Set.has` when unique, `indexOf` otherwise) |
-| `markBucketColumnsChanged(bucketSlot, patch, changedColumns)` | `void` — tell the bucket's column slots which member columns moved |
 | `markContentChanged(bucketSlot)` | `void` — re-settle emptiness and re-ask the release guard after a write made another way |
 | `fillBucketMemberSlots(bucketSlot, bucketMemberSlots)` | `void` — fills a bucket slot nobody was told about yet; it throws on one that was already announced, which `addBucketMemberSlots` / `writeSlotContent` are for |
 
@@ -2190,7 +2289,7 @@ handSlot.unholdSlot();
 One bucket, no key: the single-slot store files its one bucket slot as the store's `slot`. The bucket slot is a
 `TOIMBucketContentSlot<TSlots>` of the keyed bucket slot's shape (`key: undefined`), what an effect subscribes to and what a reader is handed,
 so the channel's write door still sees three slot shapes. Every door of the bucket content service takes it as
-it takes a keyed bucket slot, and `markBucketColumnsChanged(bucketSlot, patch, changedColumns)` is how the
+it takes a keyed bucket slot, and the util `oimMarkBucketColumnsChanged(bucketSlot, patch, changedColumns)` is how the
 caller that changed members says which of their columns moved, as the index does for a keyed bucket. Each
 door writes the bucket slot to the channel once.
 
@@ -2215,7 +2314,7 @@ createOIMSlotCollectionIndexService<TEntity, TSourceKey, TColumns?, TKey?, TSour
 class OIMSlotCollectionIndexService<…> extends OIMSlotCollectionService<…> {
     createIndexStoreSlot(sourceStoreSlot: TOIMStoreSlot<TSourceStore, TOIMEntitySlot<TEntity, TSourceKey>, Partial<TEntity>>): TOIMIndexStoreSlot<…>;
     disposeIndexStoreSlot(indexStoreSlot: TOIMIndexStoreSlot<…>): void;
-    getEntitiesByKey(indexStoreSlot, key): (TEntity | undefined)[];
+    getEntitiesByKey(indexStoreSlot, key): TEntity[];
     getSlotsByKeys(indexStoreSlot, keys): TBucketSlot[];
     holdSlotsByKeys(indexStoreSlot, keys): TBucketSlot[];
     getBucketColumnByKey / holdBucketColumnByKey(indexStoreSlot, key, columnName): TOIMColumnSlot;
@@ -2365,10 +2464,13 @@ needs the whole list each time: an export, an aggregate over the entities, a log
 It costs nothing until someone asks for one: a write is checked against it only after
 the index has been asked for the first any-column slot.
 
-**The content-change hook.** `OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames): void`
+**The content-change hook.** `OIMSlotContentChangeListenerService.INSTANCE.addContentChangeListener(storeSlot, listener, readColumnNames): TOIMSlotContentChangeListenerReadColumns`
 and `removeContentChangeListener(storeSlot, listener): boolean` file and unfile a listener on that one store
-slot, by the listener object. `addReadColumn` / `removeReadColumn` / `addReadAnyColumn` / `removeReadAnyColumn`
-declare reads without a listener of their own, which is how an index declares its bucket columns.
+slot, by the listener object. `addContentChangeListener` returns the listener's record,
+`{ declaredColumnNames, addedColumnNames, isAnyColumnAdded }`. `addListenerReadColumn(storeSlot, listener, columnName)`
+and `addListenerReadAnyColumn(storeSlot, listener)` add reads to that listener later, which is how an index declares
+its bucket columns; the counts behind them are private. `oimIsAnyAddedColumnRead(listenerReadColumns, changedColumns)`, a
+util, says whether a write's changed columns hit one of the added reads. Removing the listener gives back its declared and its added columns.
 **Which columns a listener reads** is declared when it is added: `readColumnNames` lists them, and
 `undefined` means every column. Removing the listener gives its columns back. An
 index store slot declares its key `columns` (all columns when the key is an opaque `keyOf`), and
@@ -2397,7 +2499,7 @@ This hook is the only seam an index uses; an index of your own is a listener.
 `getBucketColumnByKey(indexStoreSlot, key, columnName)`, `holdBucketColumnByKey(indexStoreSlot, key, columnName)`,
 `indexService.unholdColumn(columnSlot)`. It is a `TOIMColumnSlot` whose `carrierSlot` is the
 bucket slot, and it is written when a write changes that column on any member of the
-bucket (the index calls its bucket content service's `markBucketColumnsChanged(bucketSlot, patch, changedColumns)`,
+bucket (the index calls `oimMarkBucketColumnsChanged(bucketSlot, patch, changedColumns)`,
 as the caller does on a single bucket).
 The any-column doors `getAnyBucketColumnByKey(indexStoreSlot, key)` / `holdAnyBucketColumnByKey(indexStoreSlot, key)`
 return the same kind of slot, written when any column of any member changes. A give-back is
@@ -2424,7 +2526,7 @@ createOIMSortedComputedService<TKey, TEntity extends object, TSlots, TSourceKey,
 }): OIMSortedComputedService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TComputedStore>
 
 createSortedStoreSlot(indexStoreSlot: TOIMIndexStoreSlot<…>): TOIMStoreSlot<TComputedStore, TOIMSortedComputedSlot<TEntity, TKey>>
-readonly computedCollectionService: OIMSlotCollectionService<TKey, TOIMSortedComputedSlot<TEntity, TKey>, TComputedStore, …>
+// OIMSortedComputedService extends OIMSlotCollectionService<TKey, TOIMSortedComputedSlot<TEntity, TKey>, TComputedStore, …, TOIMComputedColumnSlot, OIMPullColumnSlotOwner>
 ```
 
 `slotReleasePolicy` decides whether a key's sorted list outlives its last hold. The
@@ -2435,7 +2537,7 @@ Pass the same policy to the index the list reads, or its bucket is rebuilt inste
 
 An `OIMSortedComputedService` takes no db: its store slots run on the channel slot of the index store slot
 they sort. One per index service. `createSortedStoreSlot(indexStoreSlot)` makes one sorted store slot over
-one index store slot, and the read doors of `computedCollectionService` take that store slot first:
+one index store slot, and the service's own read doors take that store slot first:
 `getSlotByKey`, `holdSlotByKey`, `findSlotByKey`, `getSlots`, `getSlotCount`, and the column doors; per key a
 computed slot whose value, read through `slot.value`, is that key's entity
 slots sorted. A hold is given back with `slot.unholdSlot()`.
@@ -2485,13 +2587,33 @@ const byRankInDeckService = createOIMSortedComputedService({
     sortColumns: [{ columnName: 'rank', direction: 'asc' }],
 });
 const byRankInDeck = byRankInDeckService.createSortedStoreSlot(decks);
-const spadesByRank = byRankInDeckService.computedCollectionService.holdSlotByKey(byRankInDeck, 'spades');
+const spadesByRank = byRankInDeckService.holdSlotByKey(byRankInDeck, 'spades');
 const sortedEffect = effectService.createEffect(db, () => {
     render(spadesByRank.value);
 }, [], [spadesByRank]);
 effectService.disposeEffect(sortedEffect);
 spadesByRank.unholdSlot();
 ```
+
+### A whole collection, sorted
+
+`createOIMSortedCollectionSingleSlotStoreAggregate(entitySlotCollectionStoreAggregate, { sortColumns?, comparator? })` sorts every
+entity of a collection with no index. The options are those of `createOIMSortedComputedService`; given both, `comparator`
+decides the order. It returns an `OIMSingleSlotStoreAggregate` of a computed: `getSingleSlot().value`
+is the collection's entity slots in order.
+
+```ts
+const byRank = createOIMSortedCollectionSingleSlotStoreAggregate(cardService.createStoreAggregate(cards), { sortColumns: [{ columnName: 'rank', direction: 'asc' }] });
+db.createEffect(() => render(byRank.getSingleSlot().value));
+```
+
+- It re-sorts when an entity arrives or leaves and on a write to a sort column; with a `comparator`, on a write to any
+  column. A write to another column does not wake its reader.
+- Its sources are the collection's list (`OIMSlotCollectionBucketService.INSTANCE.getBucketSlot`) and one list column
+  slot per sort column (`getBucketColumn`), or the list's any-column slot with a `comparator`.
+- While nobody reads it, the collection pays nothing: its listener goes with the list.
+- In a schema it sits next to the collection:
+  `createSchemas: (db) => { const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db); return { default: { cards, byRank: createOIMSortedCollectionSingleSlotStoreAggregate(cards, { sortColumns: [{ columnName: 'rank', direction: 'asc' }] }) } }; }`.
 
 ### Sorted at write
 
@@ -2579,7 +2701,7 @@ type TOIMComputedSources = {
 In a `createSources` result (of `createOIMComputedService`'s options, or of `createStoreSlot`) both `sourceSlots` and `sourceComputeds` are optional; a missing one means none.
 
 ```ts signature
-type TOIMComputedSlot<TValue = unknown, TKey = unknown> = TOIMIndexableSlot<TKey> & Readonly<TOIMComputedDerivation> & {
+type TOIMComputedSlot<TValue = unknown, TKey extends NonNullable<unknown> = NonNullable<unknown>> = TOIMIndexableSlot<TKey> & Readonly<TOIMComputedDerivation> & {
     readonly owner: IOIMSlotOwner;
     readonly value: TValue;
     readonly checkedAtRevision: number;
@@ -2600,7 +2722,8 @@ A computed is a SLOT, the plain data type `TOIMComputedSlot`. Its owner is the s
 and the value service serves the value. Every source list in this engine —
 `createEffect`'s third argument and `sourceComputeds` — is typed
 `readonly TOIMComputedSlot[]`; a source computed is a slot taken from its own
-service, through `computedCollectionService.getSlotByKey(storeSlot, key)` (`undefined` for a single). Inside
+service, through `computedService.getSlotByKey(storeSlot, key)`, or for a single computed
+(`createOIMSingleComputedService`) through the service's own `getSingleSlot(storeSlot)`. Inside
 `derive`, `computedSlot.value` is the previous value.
 
 A derivation is **asked, never woken**. A chain short-circuits on "did anything I
@@ -2616,11 +2739,10 @@ the next read or hold.
 ### One derivation per key
 
 ```ts signature
-class OIMComputedService<TKey, TValue, TComputedStore> {
+class OIMComputedService<TKey, TValue, TComputedStore> extends OIMSlotCollectionService<TKey, TOIMComputedSlot<TValue, TKey>,
+        TComputedStore, OIMComputedValueService<TKey, TValue>, Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner> {
     constructor(options: TOIMComputedServiceOptions<TKey, TValue, TComputedStore>);
-    readonly computedCollectionService: OIMSlotCollectionService<TKey, TOIMComputedSlot<TValue, TKey>, TComputedStore,
-        OIMComputedValueService<TKey, TValue>, Extract<keyof TValue, string>, TOIMComputedColumnSlot, OIMPullColumnSlotOwner>;
-    createComputedStoreSlot(channelMap: IOIMChannelMap, derive?, createSources?): TOIMComputedStoreSlot<TComputedStore, TValue, TKey>;
+    createStoreSlot(channelMap: IOIMChannelMap, derive?, createSources?): TOIMComputedStoreSlot<TComputedStore, TValue, TKey>;
 }
 
 createOIMComputedService<TKey, TValue, TComputedStore = Map<TKey, TOIMComputedSlot<TValue, TKey>>>({
@@ -2644,21 +2766,21 @@ It is not called when `derive` returns the object the slot already holds, and ne
 `createOIMSingleComputedService` takes it too.
 
 The factory takes no db: a computed service is configuration, and each store slot takes its channel slot at
-`createComputedStoreSlot(db, …)`.
+`createStoreSlot(db, …)`.
 
 **`derive` and `createSources` come from the store slot or from the service.** Each one a store
-slot is given (`createComputedStoreSlot(db, derive, createSources)`) is used for that store slot; each one it is
+slot is given (`createStoreSlot(db, derive, createSources)`) is used for that store slot; each one it is
 not given comes from the service's options. A store slot that would end up without one of the two throws by name at
-`createComputedStoreSlot`. So one service per value type can serve many derivations, each its own store slot.
+`createStoreSlot`. So one service per value type can serve many derivations, each its own store slot.
 
-Doors of a keyed computed store slot are the read doors of `computedCollectionService`, each taking it first:
+Doors of a keyed computed store slot are the computed service's own read doors, each taking it first:
 `getSlotByKey(storeSlot, key)`, `holdSlotByKey(storeSlot, key)`, `findSlotByKey(storeSlot, key)`,
 `getSlots(storeSlot)`, `getSlotCount(storeSlot)`, and the column doors; the value is
 `slot.value`, and a give-back is `slot.unholdSlot()`.
 
 **A single computed is its own service.** `createOIMSingleComputedService<TValue>({ … })` builds an
 `OIMSingleComputedService`, whose store slots each hold at most one computed slot, read through
-`computedSingleSlotService` (`getSingleSlot`, `holdSingleSlot`, `findSingleSlot`). Like a keyed one, a store slot
+the service itself (it extends `OIMSingleSlotService`) (`getSingleSlot`, `holdSingleSlot`, `findSingleSlot`). Like a keyed one, a store slot
 outlives every computed slot it mints and mints a fresh one on the next read or hold once the previous one is gone.
 
 ```ts
@@ -2666,12 +2788,12 @@ const topRankService = createOIMSingleComputedService<number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: -1,
 });
-const topRank = topRankService.createComputedStoreSlot(
+const topRank = topRankService.createStoreSlot(
     db,
     () => cardService.getSlotByKey(cards, 'c1').entity?.rank ?? -1,
     () => ({ sourceSlots: [cardService.getSlotByKey(cards, 'c1')] }),
 );
-const heldTopRank = topRankService.computedSingleSlotService.holdSingleSlot(topRank);   // the same slot while anything holds it
+const heldTopRank = topRankService.holdSingleSlot(topRank);   // the same slot while anything holds it
 heldTopRank.value;
 heldTopRank.unholdSlot();        // gone; the next holdSingleSlot(topRank) mints a new one
 ```
@@ -2701,11 +2823,11 @@ const rankService = createOIMComputedService<TOIMStoreKey, number>({
     sameValueGuard: oimSameValueZeroGuard,
     initialValue: -1,
 });
-const ranks = rankService.createComputedStoreSlot(db);
+const ranks = rankService.createStoreSlot(db);
 ```
 
 ```ts
-const rank = rankService.computedCollectionService.holdSlotByKey(ranks, 'c1');
+const rank = rankService.holdSlotByKey(ranks, 'c1');
 rank.value;
 rank.unholdSlot();
 ```
@@ -2713,8 +2835,8 @@ rank.unholdSlot();
 ### Computed columns
 
 A computed's value can be subscribed to by field. `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
-`getColumnGroup(names)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)`, `unholdColumn(columnSlot)`, and the
-any-column pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on `computedCollectionService`
+`getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)` (a group named in the factory's `columnGroups`),
+`unholdColumn(columnSlot)`, and the any-column pair `getAnyColumn(slot)` / `holdAnyColumn(slot)` are on the computed service itself
 (so on the sorted and memo services too), for keyed and single store slots alike; a single one passes
 `getSlotByKey(storeSlot, undefined)` as the slot. Column names are typed as the keys of the value.
 
@@ -2728,13 +2850,12 @@ Pinned by `computed/tests/what-a-computed-column-wakes-on.test.ts`.
 ```ts
 type Summary = { top: number; count: number };
 const summaryService = createOIMSingleComputedService<Summary>();
-const summary = summaryService.createComputedStoreSlot(
+const summary = summaryService.createStoreSlot(
     db,
     () => ({ top: slot.entity?.rank ?? -1, count: cardService.getSlotCount(cards) }),
     () => ({ sourceSlots: [slot] }),
 );
-const summarySingleSlotService = summaryService.computedSingleSlotService;
-const summaryTop = summarySingleSlotService.columnSlotService.holdColumn(summarySingleSlotService.getSingleSlot(summary), 'top');
+const summaryTop = summaryService.columnSlotService.holdColumn(summaryService.getSingleSlot(summary), 'top');
 const topEffect = effectService.createEffect(db, () => { paint(slot.entity); }, [], [summaryTop]);
 effectService.disposeEffect(topEffect);
 summaryTop.unholdSlot();
@@ -2755,7 +2876,7 @@ createBucketMemoStoreSlot(bucketStoreSlot: TOIMStoreSlot<TBucketStore, TOIMBucke
 
 It takes no db: a memo store slot runs on the channel slot of the bucket store slot it reads. The class is
 `new OIMBucketMemoComputedService(options)` (options type `TOIMBucketMemoComputedServiceOptions`), whose
-`computedCollectionService` reads the per-key derivations; `createBucketMemoStoreSlot(bucketStoreSlot)` makes
+The service's own read doors read the per-key derivations; `createBucketMemoStoreSlot(bucketStoreSlot)` makes
 one memo store slot over one bucket store slot.
 
 Subscribe to THIS, not to the bucket, when a consumer wants the list as an array
@@ -2774,7 +2895,7 @@ const orderService = createOIMBucketMemoComputedService({
     bucketCollectionService: orderedService,
 });
 const order = orderService.createBucketMemoStoreSlot(ordered);
-const deck = orderService.computedCollectionService.holdSlotByKey(order, 'spades');        // mints the bucket too, and holds it
+const deck = orderService.holdSlotByKey(order, 'spades');        // mints the bucket too, and holds it
 effectService.createEffect(db, () => render(deck.value), [], [deck]);
 ```
 
@@ -2783,14 +2904,15 @@ effectService.createEffect(db, () => render(deck.value), [], [deck]);
 ## Key stores
 
 ```ts signature
-interface IOIMSlotStoreService<TKey, TSlot extends TOIMKeyedSlot = TOIMKeyedSlot, TStore = unknown> {
-    createStore(): TStore;
+interface IOIMSlotStoreService<TKey extends NonNullable<unknown>, TSlot extends TOIMKeyedSlot<TKey> = TOIMKeyedSlot<TKey>, TStore = unknown>
+    extends IOIMSlotFilingService<TSlot, TStore> {
+    createStore(): TStore;                              // from IOIMSlotFilingService, with the next two
+    set(store: TStore, slot: TSlot): void;              // files the slot under slot.key
+    delete(store: TStore, slot: TSlot): void;           // unfiles it
     ownKey<TOwnedKey extends TKey>(key: TOwnedKey): TOwnedKey;
     isSameKey(key: TKey, otherKey: TKey): boolean;
     get(store: TStore, key: TKey): TSlot | undefined;
-    set(store: TStore, key: TKey, slot: TSlot): void;
-    remove(store: TStore, key: TKey): void;
-    getSlots(store: TStore): IterableIterator<TSlot>;
+    getSlots(store: TStore): IterableIterator<TSlot>;   // keyed stores only; a single slot store has neither
     getSlotCount(store: TStore): number;
 }
 ```
@@ -2801,7 +2923,7 @@ method taking that storage, not a getter. One store service instance can
 therefore serve every store slot of every service in a process.
 
 **`ownKey(key)` is the key a slot is minted with, and the store never touches a
-slot.** The content service asks it once, before the slot owner's `createSlot`, so the slot's `key` is
+slot.** The collection service asks it once, before the content service's `createSlot`, so the slot's `key` is
 written by its owner and no one else. The map-driven store answers the key itself;
 the tree-driven one answers a copy of the composite key, so a caller reusing the
 array it handed in cannot change the key of a slot already filed.
@@ -2815,7 +2937,7 @@ columns did not change) and otherwise asks its bucket store service.
 
 ```ts signature
 type TOIMSlotStoreTree<TSlot, TCompositeKeyPart> = {
-    readonly root: TOIMCompositeKeyNode<TSlot, TCompositeKeyPart>;
+    readonly rootCompositeKeyNode: TOIMCompositeKeyNode<TSlot, TCompositeKeyPart>;
     readonly slots: Set<TSlot>;
 };
 
@@ -2965,8 +3087,9 @@ interface IOIMSlotOwner {
     holdSlot(slot: TOIMSlot): void;
     unholdSlot(slot: TOIMSlot): void;
     releaseSlotIfUnheld(slot: TOIMSlot): void;
-    subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number): number;
-    unsubscribeFromSlot(slot: TOIMSlot, at: number, effect: TOIMEffect): boolean;
+    unsafeMutateSlot(slot: TOIMSlot, mutateSlot: (editableSlot: TOIMEditable<TOIMSlot>) => void): void;
+    subscribeToSlot(slot: TOIMSlot, effect: TOIMEffect, edge: number, columnGroup?: TOIMColumnGroup): number;
+    unsubscribeFromSlot(slot: TOIMSlot, positionInSlot: number, effect: TOIMEffect): boolean;
 }
 ```
 
@@ -2976,20 +3099,26 @@ At a deadline the release queue reads its MARKER off the slot, decides, and call
 | Door | What it is for |
 |---|---|
 | `holdSlot(slot)` | `holdCount++`. That is all — no handle, no `{ slot, release }` record. **Throws by name** on a released slot |
-| `unholdSlot(slot)` | `holdCount--`, then run `releaseSlotIfUnheld`. **It opens no window** — nothing is stamped here, so a slot whose deadline has passed goes at this call. **Throws by name** on a released slot, and when `holdCount` is already `0`: a second unhold against one hold would release a slot somebody else is reading |
-| `releaseSlotIfUnheld(slot)` | run the release guard. Releases only an unheld, unreferenced, still-owned, out-of-grace slot; **returns silently** on one already released |
+| `unholdSlot(slot)` | `holdCount--`; at `0` it calls the `protected onSlotUnheld(slot)` hook, whose base body runs `releaseSlotIfUnheld`. **The base opens no window** — nothing is stamped here, so a slot whose deadline has passed goes at this call. **Throws by name** on a released slot, and when `holdCount` is already `0`: a second unhold against one hold would release a slot somebody else is reading |
+| `releaseSlotIfUnheld(slot)` | run the release guard. Releases only an unheld, still-owned, out-of-grace slot that carries no column slots; **returns silently** on one already released |
 | `subscribeToSlot(slot, effect, edge)` | push the effect onto `slot.effects` and its `edge` (which of the effect's sources this slot is) onto `slot.effectEdges`, and hand back **the position**, which the effect remembers. **It takes a hold** through `holdSlot`, so a subscribed slot is a held one and nothing can subscribe without holding. **Throws by name** on a released slot: a subscriber filed on one would never be woken |
-| `unsubscribeFromSlot(slot, at, effect)` | swap the tail of both arrays into `at`, tell the moved effect its new position at its edge (one write, no search), and **if that emptied the list, `onSlotIdle(slot)` opens a fresh idle window**, then give the subscription's hold back through `unholdSlot`; hand back whether it unfiled. Unfiling by remembered position is why taking N subscribers off one identity is O(N) and not quadratic. **Throws by name** on a released slot |
+| `unsubscribeFromSlot(slot, at, effect)` | swap the tail of both arrays into `at`, tell the moved effect its new position at its edge (one write, no search), and **if that emptied the list, call the `protected onSlotLastUnsubscribed(slot)` hook**, then give the subscription's hold back through `unholdSlot`; hand back whether it unfiled. Unfiling by remembered position is why taking N subscribers off one identity is O(N) and not quadratic. **Throws by name** on a released slot |
 
-**`OIMSlotOwner`** is the base class and it is concrete: it implements all five.
-Its `releaseSlotIfUnheld` does nothing, its
+**`OIMSlotOwner`** is the ABSTRACT base class of the six doors of `IOIMSlotOwner`: `releaseSlotIfUnheld` is abstract,
+the other five are its own.
+Its constructor takes `(slotSubscriptionListener?: IOIMSlotSubscriptionListener)`, default
+`OIMNoSlotSubscriptionListener.INSTANCE`. Its protected hooks (not on `IOIMSlotOwner`): `onSlotFirstSubscribed(slot)` / `onSlotLastUnsubscribed(slot)`
+call that listener, and `protected onSlotUnheld(slot)` runs `releaseSlotIfUnheld(slot)`. Its
 `unsafeMutateSlot(slot, mutateSlot)` hands `mutateSlot` the slot as `TOIMEditable` with no
 guard at all (it exists so a library that adds its own release wheel can keep its own bit in
 `slot.slotFlags`; the engine owns bits `1`, `2`, `4`, `8`, `16` and `32`, so a library starts at `64`;
-it is on the owner so a subclass can hook every such mutation), and a `protected
-onSlotIdle` does nothing; a `protected assertNotReleased` is what every refusing
-door above calls. `OIMSlotOwnerService` overrides `onSlotIdle` and
-`releaseSlotIfUnheld`, asking its release policy and its content service; the clock is the slot's channel slot's.
+it is on the owner so a subclass can hook every such mutation), and a `protected assertNotReleased` is what every
+refusing door above calls. `OIMSlotOwnerService` implements `releaseSlotIfUnheld`, asking its release policy and its
+content service, and overrides two protected hooks: `onSlotLastUnsubscribed` asks the release policy's `onSlotIdle(slot)` (on a
+slot that is not empty) and then the listener, and `onSlotUnheld` asks the policy's `onSlotUnheld(slot)` and then runs
+the base release. The clock is the slot's channel slot's. It hands its subscription listener to its column slot owner
+as the second argument of `createColumnSlotOwner(columnSlotOwnerOptions, slotSubscriptionListener)`, so a column slot's first and last subscriber reach the same
+listener as the column slot itself; the column slot owner does not forward them to the carrier slot's owner.
 A single's slot is owned the same way: its owner is its collection type's slot owner, and that release policy
 applies to it.
 
@@ -3002,11 +3131,13 @@ them — an entity slot, a bucket slot, a computed slot. `OIMColumnSlotOwner` is
 `OIMPushColumnSlotOwner` (plain column slots woken by marks on a write; entity and bucket collections,
 keyed and single) and `OIMPullColumnSlotOwner` (each column slot a computed slot over its carrier;
 computed collections, keyed and single). The factory hands the strategy's factory to the slot owner as
-`createColumnSlotOwner`. Each collection type has its own column owner, and every column slot it mints names that
-owner as its `owner`. The owner holds only the column slot store service; the column state — the column
-groups and which columns are referenced — lives on the store slot. The collection exposes it only
+`createColumnSlotOwner(columnSlotOwnerOptions, slotSubscriptionListener)`; the strategies are built the same way,
+`createOIMPushColumnSlotOwner(options, slotSubscriptionListener?)` / `createOIMPullColumnSlotOwner(options, slotSubscriptionListener?)`
+or `new OIMPushColumnSlotOwner(options, slotSubscriptionListener?)` / `new OIMPullColumnSlotOwner(options, slotSubscriptionListener?)`. Each collection type has its own column owner, and every column slot it mints names that
+owner as its `owner`. The owner holds the column slot store service and the declared column groups, both
+fixed at construction; the column slots live on their carrier. The collection exposes them only
 through its column doors: `getColumn(slot, columnName)`, `holdColumn(slot, columnName)`,
-`unholdColumn(columnSlot)`, `getColumnGroup(names)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)` (on
+`unholdColumn(columnSlot)`, `getColumnGroupSlot(slot, group)`, `holdColumnGroup(slot, group)` (on
 a single the same doors, with the slot `getSingleSlot(storeSlot)` hands back; the computed ones take a computed slot
 and return a `TOIMComputedColumnSlot`), and `getAnyColumn(slot)` / `holdAnyColumn(slot)`.
 A column slot is released the moment its last effect is disposed and nothing holds it:
@@ -3108,6 +3239,7 @@ type TOIMSlot = {
     readonly columnSlotStore: unknown; // the column slots this slot carries; undefined while none
     readonly storeSlot: TOIMStoreSlot;  // the store slot it belongs to; a column slot's is its carrier's
     readonly owner: IOIMSlotOwner;     // never undefined, never cleared
+    data: unknown[] | undefined;       // the consumer's cache, writable, on every slot; the core never touches it
 };
 
 // A store slot is NOT a slot: nothing holds, subscribes or wakes it. It is the state of one
@@ -3117,13 +3249,14 @@ type TOIMStoreSlot<TStore = unknown, TSlot extends TOIMSlot = TOIMSlot, TPatch =
     readonly store: TStore;
     readonly channelSlot: TOIMChannelSlot;
     readonly contentChangeListeners: IOIMSlotContentChangeListener<TSlot, TPatch>[] | undefined;
-    readonly contentChangeListenerReadColumnNames: (readonly string[] | undefined)[] | undefined;
+    readonly contentChangeListenerReadColumns: TOIMSlotContentChangeListenerReadColumns[] | undefined;
+    readonly slotContentChangeListenerReadColumns: TOIMSlotContentChangeListenerReadColumns | undefined;   // what this store slot's own listener on its source reads (an index, the collection list)
     readonly indexKeysPositions: TOIMIndexKeysPositions | undefined;
     readonly sourceStoreSlot: TOIMStoreSlot | undefined;   // an index store slot's source
     readonly isDisposed: boolean;                          // an index store slot after disposeIndexStoreSlot
     readonly slotService: TSlotService;                    // the service that created the store slot
     readonly batchDepth: number;                           // openBatch / closeBatch nesting
-    // … column-reader counts, column groups, batch queues, bucket write queues: the services' own
+    // … column listener counts, batch queues, bucket write queues: the services' own
 };
 
 type TOIMSingleSlotStore<TSlot> = { slot: TSlot | undefined };
@@ -3135,29 +3268,29 @@ type TOIMIndexStoreSlot<TStore, TBucketSlot, TBucketPatch, TSourceSlot, TSourceP
         readonly indexKeysPosition: number;
         readonly contentChangeListener: IOIMSlotContentChangeListener<TSourceSlot, TSourcePatch>;
         readonly requestedKeys: readonly TKey[] | undefined;
-        readonly bucketColumnNames: Set<string>;
-        readonly isAnyBucketColumnRead: boolean;
         readonly isDisposed: boolean;
     };
 
-type TOIMComputedStoreSlot<TStore = unknown, TValue = unknown, TKey = unknown> =
-    TOIMStoreSlot<TStore, TOIMComputedSlot<TValue, TKey>> & {
-        readonly derive: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => TValue) | undefined;
-        readonly createSources: ((computedSlot: TOIMComputedSlot<TValue, TKey>) => Partial<TOIMComputedSources>) | undefined;
-    };
+type TOIMComputedStoreSlot<
+    TStore = unknown, TValue = unknown,
+    TComputedSlot extends TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined> = TOIMComputedContentSlot<TValue>,
+    TSlotService = unknown,
+> = TOIMStoreSlot<TStore, TComputedSlot, unknown, TSlotService> & {
+    readonly derive: ((computedSlot: TComputedSlot) => TValue) | undefined;
+    readonly createSources: ((computedSlot: TComputedSlot) => Partial<TOIMComputedSources>) | undefined;
+};
 
 type TOIMEditable<TSlot> = { -readonly [K in keyof TSlot]: TSlot[K] };
 
-type TOIMKeyedSlot<TKey = unknown> = TOIMSlot & { readonly key: TKey };
-type TOIMIndexableSlot<TKey = unknown> = TOIMKeyedSlot<TKey> & { readonly indexKeys: unknown[] | undefined };
+type TOIMKeyedSlot<TKey extends NonNullable<unknown> = NonNullable<unknown>> = TOIMSlot & { readonly key: TKey };
+type TOIMIndexableSlot<TKey extends NonNullable<unknown> = NonNullable<unknown>> = TOIMKeyedSlot<TKey> & { readonly indexKeys: unknown[] | undefined };
 
-type TOIMEntitySlot<TEntity extends object = object, TKey = unknown> = TOIMIndexableSlot<TKey> & {
+type TOIMEntitySlot<TEntity extends object = object, TKey extends NonNullable<unknown> = NonNullable<unknown>, TColumnName extends TOIMEntityColumnName<TEntity> = TOIMEntityColumnName<TEntity>> = TOIMIndexableSlot<TKey> & {
     readonly entity: TEntity | undefined;
-    readonly data: unknown[] | undefined;
 };
 
-// `data` belongs to the consumer: the core never reads or writes it, and clearing or
-// removing the slot (`slot.clearSlotContent()`) does not reset it. Each index keeps its
+// `data` (on TOIMSlot, so on every slot) belongs to the consumer: the core never reads or writes it, and clearing,
+// removing or releasing the slot does not reset it. Each index keeps its
 // last key for the entity slot in `indexKeys`, through the index's `IOIMIndexKeysService`.
 
 type TOIMColumnSlot = TOIMSlot & {
@@ -3233,7 +3366,7 @@ that matches what you are comparing; they are not interchangeable.
 
 ## Full export list
 
-**256 names, every export of `packages/core/src/index.ts`, grouped by topic.**
+**268 names, every export of `packages/core/src/index.ts`, grouped by topic.**
 
 *Deprecated, removed in 5.0* — `OIMSlotContentEntityService` → `OIMEntityContentService`, `createOIMSlotContentEntityService` → `createOIMEntityContentService`, `TOIMSlotContentEntityServiceOptions` → `TOIMEntityContentServiceOptions`, `OIMSlotContentBucketService` → `OIMBucketContentService`, `TOIMSlotContentBucketServiceOptions` → `TOIMBucketContentServiceOptions`, `OIMSlotContentSetBucketService` → `OIMSetBucketContentService`, `OIMSlotContentArrayBucketService` → `OIMArrayBucketContentService`, `TOIMSlotContentArrayBucketServiceOptions` → `TOIMArrayBucketContentServiceOptions`, `OIMSlotContentPositionalArrayBucketService` → `OIMPositionalArrayBucketContentService`, `OIMSlotContentSortedArrayBucketService` → `OIMSortedArrayBucketContentService`, `TOIMSlotContentSortedArrayBucketServiceOptions` → `TOIMSortedArrayBucketContentServiceOptions`, `OIMSlotContentComputedService` → `OIMComputedContentService`, `TOIMSlotContentComputedServiceOptions` → `TOIMComputedContentServiceOptions`, `OIMSlotContentSourceTrackingComputedService` → `OIMSourceTrackingComputedContentService`, `OIMSlotOwnerService` → `OIMSlotOwnerService`, `TOIMSlotOwnerServiceOptions` → `TOIMSlotOwnerServiceOptions`, `TOIMEntitySlotOwnerService` → `TOIMEntitySlotOwnerService`, `TOIMBucketSlotOwnerService` → `TOIMBucketSlotOwnerService`.
 
@@ -3259,11 +3392,12 @@ that matches what you are comparing; they are not interchangeable.
 `TOIMSlotContentServicePatch` · `OIMSlotContentChangeListenerService`
 
 *Content services* — `OIMEntityContentService` · `TOIMEntityContentServiceOptions` ·
-`createOIMEntityContentService` · `createOIMEntitySlotCollectionStoreAggregate` · `TOIMEntitySlotOwnerService` · `TOIMEntityContentSlot` · `OIMEntitySlot` · `OIMSlot` · `OIMBucketContentService` ·
+`createOIMEntityContentService` · `createOIMEntitySlotCollectionStoreAggregate` · `OIMEntitySlotCollectionStoreAggregate` · `OIMSlotCollectionBucketService` · `TOIMSlotCollectionStoreSlot` · `TOIMCollectionBucketSlot` · `OIMCollectionSetBucketContentService` · `oimGetBucketMemberSlotEntities` · `TOIMEntitySlotOwnerService` · `TOIMEntityContentSlot` · `OIMEntitySlot` · `OIMSlot` · `OIMBucketContentService` ·
 `OIMArrayBucketContentService` · `OIMPositionalArrayBucketContentService` · `OIMSetBucketContentService` ·
 `OIMSortedArrayBucketContentService` · `TOIMBucketContentServiceOptions` ·
 `TOIMArrayBucketContentServiceOptions` · `TOIMSortedArrayBucketContentServiceOptions` · `TOIMBucketSlotOwnerService` ·
 `TOIMBucketContentSlot` · `OIMComputedContentService` (**type only**) · `TOIMComputedContentServiceOptions` ·
+`OIMExplicitSourceComputedContentService` · `TOIMExplicitSourceComputedContentServiceOptions` ·
 `TOIMComputedContentSlot`
 
 *Index and computed store slots* — `createOIMSlotCollectionIndexService` · `createOIMSlotCollectionIndexStoreAggregate` · `TOIMSlotCollectionIndexServiceFactoryOptions` ·
@@ -3287,11 +3421,11 @@ read outside an effect (`useOIMValue` in `@oimdb/react`, `exoBinding` in `@oimdb
 on its `sourceComputeds` before `derive`, so the derive never reads a stale computed.
 
 *Slots and their owners* — `TOIMSlot` · `TOIMStoreSlot` · `TOIMSingleSlotStoreSlot` ·`IOIMStoreSlotListener` · `OIMNoStoreSlotListener` · `IOIMSlotSubscriptionListener` · `OIMNoSlotSubscriptionListener` ·`oimIsSlotEmpty` · `oimIsSlotReleased` · `TOIMEditable` · `TOIMKeyedSlot` · `TOIMIndexableSlot` ·
-`TOIMEntitySlot` · `TOIMColumnSlot` · `TOIMComputedColumnSlot` · `TOIMColumnGroup` · `TOIMColumnReaders` · `OIMColumnSlotOwner` ·
+`TOIMEntitySlot` · `TOIMColumnSlot` · `TOIMComputedColumnSlot` · `TOIMColumnGroup` · `createOIMColumnGroup` · `OIMColumnSlotOwner` ·
 `OIMPushColumnSlotOwner` · `OIMPullColumnSlotOwner` · `TOIMColumnSlotOwnerOptions` · `TOIMBucketSlot` ·
 `TOIMSameValueGuard` · `OIMSlotOwner` ·
 `IOIMSlotOwner` · `IOIMSlotEmptinessPolicy` ·
-`IOIMSlotStamp` · `oimHoldSlots` · `oimUnholdSlotsIfAlive` · `IOIMSlotContentChangeListener`
+`IOIMSlotStamp` · `oimHoldSlots` · `oimUnholdSlotsIfAlive` · `IOIMSlotContentChangeListener` · `TOIMSlotContentChangeListenerReadColumns` · `oimIsAnyAddedColumnRead` · `oimMarkBucketColumnsChanged`
 
 `oimIsSlotEmpty(slot): boolean` reads the EMPTY bit of `slot.slotFlags`.
 `oimIsSlotReleased(slot): boolean` reads its RELEASED bit.
@@ -3320,7 +3454,7 @@ on its `sourceComputeds` before `derive`, so the derive never reads a stale comp
 
 *Computed services* — `OIMComputedService` · `TOIMComputedServiceOptions` ·
 `createOIMComputedService` · `TOIMComputedStoreSlot` · `OIMSortedComputedService` · `TOIMSortedComputedServiceOptions` ·
-`createOIMSortedComputedService` · `OIMBucketMemoComputedService` · `TOIMBucketMemoComputedServiceOptions` ·
+`createOIMSortedComputedService` · `createOIMSortedCollectionSingleSlotStoreAggregate` · `OIMBucketMemoComputedService` · `TOIMBucketMemoComputedServiceOptions` ·
 `createOIMBucketMemoComputedService` · `OIMSingleComputedService` · `createOIMSingleComputedService` ·
 `TOIMComputedDerivationOptions` · `TOIMSortColumn` · `TOIMSortableColumnName` · `oimColumnsComparator`
 
@@ -3392,7 +3526,9 @@ on the current core — persist, exodra and browser have sections of their own b
 remaining package imports only names the core exports. Read a package's own
 source before generating code against it.
 
-`@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` (`useOIMDB()`) and nothing else: the effect
+`@oimdb/react` — `<OIMDBProvider db={db}>` carries the `OIMDB` (`useOIMDB()`) and nothing else. `useOIMDB()` is typed
+`OIMDB`; an app makes its typed hook once, `const useAppDB = useOIMDB.withTypes<ReturnType<typeof createAppDB>>();`,
+and a component reads `useAppDB().schemas.default.todos` without a cast (at run time it is `useOIMDB` itself). The effect
 service is stateless (`OIMEffectService.INSTANCE`) and every hook subscribes with
 `OIMEffectService.INSTANCE.subscribeEffect(db, …)`. A hook that resolves or takes a slot filed on another `OIMDB`
 throws, since nothing below would wake. Every hook that reads a collection by key takes the store slot alone and
@@ -3416,7 +3552,7 @@ computed store slot (plain, sorted, bucket memo) with the same by-key body as `u
 a key built inline settled by meaning.
 The computed SERVICE is the caller's, built once at module scope with `createOIMComputedService(options)` (no db).
 `useOIMComputedCollection(computedService, derive, createSources, deps): TOIMComputedStoreSlot` builds only a store
-slot per mount — `computedService.createComputedStoreSlot(db, derive, createSources)` in a `useMemo` on `deps`;
+slot per mount — `computedService.createStoreSlot(db, derive, createSources)` in a `useMemo` on `deps`;
 `derive` / `createSources` may be `undefined` when the service has them.
 `useOIMSingleComputedValue(computedService, derive, createSources, deps): TValue` is the same for a void-keyed
 service built with `createOIMSingleComputedService`, its slot read through the store slot's single slot service,
@@ -4070,7 +4206,7 @@ column, a bucket's slots and a derivation:
 ```ts
 import { exoBinding } from '@oimdb/exodra';
 
-const rank = rankService.computedCollectionService.holdSlotByKey(ranks, 'c1');
+const rank = rankService.holdSlotByKey(ranks, 'c1');
 
 exoBinding(db, { sourceSlots: [slot], derive: () => slot.entity });
 exoBinding(db, { sourceSlots: [todo], derive: () => Array.from(todo.getBucketMemberSlots()) });
@@ -4104,7 +4240,7 @@ identity holds it, and says so with `TOIMExoDisposable<TValue>` =
 import { exoBinding } from '@oimdb/exodra';
 
 const rankFor = (id: TOIMStoreKey) => {
-    const held = rankService.computedCollectionService.holdSlotByKey(ranks, id);
+    const held = rankService.holdSlotByKey(ranks, id);
     return Object.assign(
         exoBinding(db, { sourceComputeds: [held], derive: () => held.value }),
         { dispose: () => { held.unholdSlot(); } },

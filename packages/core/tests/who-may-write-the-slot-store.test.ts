@@ -61,7 +61,7 @@ const files: TFile[] = sourceFiles().map(path => ({
     code: codeOnly(readFileSync(path).toString('latin1')),
 }));
 
-const MUTATING_CALL = /(?:[sS]lotStoreService|[sS]lotFilingService)\s*\??\.\s*(set|remove|fileSlot|unfileSlot)\s*\(/g;
+const MUTATING_CALL = /(?:[sS]lotStoreService|[sS]lotFilingService)\s*\??\.\s*(set|delete)\s*\(/g;
 
 const READING_CALL = /[sS]lotStoreService\s*\??\.\s*(get|getSingleSlot|getSlots|getSlotCount|isSameKey)\s*\(/g;
 
@@ -85,8 +85,8 @@ const callsIn = (pattern: RegExp): string[] => {
 const SLOT_OWNER_SERVICE = 'slot/OIMSlotOwnerService.ts';
 
 const PINNED_WRITERS: readonly string[] = [
-    'column/OIMColumnSlotOwner.ts remove×1 set×1',
-    `${SLOT_OWNER_SERVICE} fileSlot×1 unfileSlot×1`,
+    'column/OIMColumnSlotOwner.ts delete×1 set×1',
+    `${SLOT_OWNER_SERVICE} delete×1 set×1`,
 ];
 
 const READING_SERVICES: readonly string[] = [

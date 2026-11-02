@@ -1,5 +1,4 @@
 import type { IOIMSourceTracker } from './interfaces/IOIMSourceTracker';
-import type { OIMComputedSlot } from './OIMComputedSlot';
 import type { TOIMSlot } from '../slot/types/TOIMSlot';
 import type { TOIMColumnGroup } from '../column/types/TOIMColumnGroup';
 import type { TOIMComputedContentSlot } from './types/TOIMComputedContentSlot';
@@ -26,17 +25,6 @@ export class OIMSourceTracker implements IOIMSourceTracker {
     private committedComputedRootSlots: (readonly TOIMSlot[])[] = [];
 
     private trackedComputedRootSlots: (readonly TOIMSlot[])[] = [];
-
-    public readSourceSlot<TSlot extends TOIMSlot>(slot: TSlot): TSlot {
-        this.slotSourceList.trackSource(slot);
-        return slot;
-    }
-
-    public readSourceComputedValue<TValue>(computedSlot: TOIMComputedContentSlot<TValue, OIMSourceTracker | undefined>): TValue {
-        const value = (computedSlot as unknown as OIMComputedSlot<TValue>).computedValueService.getValueForSlot(computedSlot);
-        this.trackSourceComputed(computedSlot);
-        return value;
-    }
 
     public trackSourceSlot(slot: TOIMSlot, columnGroup?: TOIMColumnGroup): void {
         this.slotSourceList.trackSource(slot, columnGroup);

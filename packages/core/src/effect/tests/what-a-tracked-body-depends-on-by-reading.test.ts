@@ -26,7 +26,7 @@ describe('what a tracked body depends on by reading', () => {
             derive: () => ace.entity?.title ?? '',
             initialValue: '',
         });
-        const title = titleService.computedSingleSlotService.holdSingleSlot(titleService.createComputedStoreSlot(db));
+        const title = titleService.holdSingleSlot(titleService.createStoreSlot(db));
         const seen: string[] = [];
         OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             seen.push(title.value);
@@ -43,13 +43,13 @@ describe('what a tracked body depends on by reading', () => {
             derive: () => ace.entity?.rank ?? 0,
             initialValue: 0,
         });
-        const rank = rankService.computedSingleSlotService.holdSingleSlot(rankService.createComputedStoreSlot(db));
+        const rank = rankService.holdSingleSlot(rankService.createStoreSlot(db));
         const doubledService = createOIMSingleComputedService<number>({
             createSources: () => ({ sourceComputeds: [rank] }),
             derive: () => rank.value * 2,
             initialValue: 0,
         });
-        const doubled = doubledService.computedSingleSlotService.holdSingleSlot(doubledService.createComputedStoreSlot(db));
+        const doubled = doubledService.holdSingleSlot(doubledService.createStoreSlot(db));
         const seen: number[] = [];
         const effect = OIMEffectService.INSTANCE.createSourceTrackingEffect(db, () => {
             seen.push(doubled.value);

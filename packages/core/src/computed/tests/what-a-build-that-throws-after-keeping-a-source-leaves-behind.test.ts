@@ -27,8 +27,8 @@ const createFixture =() => {
         derive: computedSlot => cardsService.getSlotByKey(cards, computedSlot.key).entity?.rank ?? -1,
         sameValueGuard: oimSameValueZeroGuard,
     });
-    const ranks = computedService.createComputedStoreSlot(db);
-    return { db, cardsService, cards, ranksService: computedService.computedCollectionService, ranks };
+    const ranks = computedService.createStoreSlot(db);
+    return { db, cardsService, cards, ranksService: computedService, ranks };
 };
 
 describe('what a build that throws leaves behind', () => {

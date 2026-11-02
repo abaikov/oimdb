@@ -8,10 +8,6 @@ import { OIM_SLOT_FLAG_QUEUED_IN_BATCH } from './constants/OIM_SLOT_FLAG_QUEUED_
 export class OIMSlotContentChangeDeliveryService {
     public static readonly INSTANCE = new OIMSlotContentChangeDeliveryService();
 
-    public isBatchOpen(storeSlot: TOIMStoreSlot): boolean {
-        return storeSlot.batchDepth > 0;
-    }
-
     public openBatch(storeSlot: TOIMStoreSlot): void {
         (storeSlot as TOIMEditable<TOIMStoreSlot>).batchDepth++;
     }
@@ -27,7 +23,20 @@ export class OIMSlotContentChangeDeliveryService {
         if (--editableStoreSlot.batchDepth > 0) return;
         const batchSlotChannelQueue = storeSlot.batchSlotChannelQueue;
         if (batchSlotChannelQueue === undefined || batchSlotChannelQueue.getEntryCount() === 0) return;
-        this.deliverBatch(storeSlot, batchSlotChannelQueue);
+        const batchPatchChannelQueue = storeSlot.batchPatchChannelQueue as OIMChannelQueue<unknown>;
+        const batchChangedColumnsChannelQueue = storeSlot.batchChangedColumnsChannelQueue as OIMChannelQueue<readonly string[] | undefined>;
+        editableStoreSlot.batchSlotChannelQueue = undefined;
+        editableStoreSlot.batchPatchChannelQueue = undefined;
+        editableStoreSlot.batchChangedColumnsChannelQueue = undefined;
+        try {
+            this.deliverBatch(storeSlot, batchSlotChannelQueue, batchPatchChannelQueue, batchChangedColumnsChannelQueue);
+        } finally {
+            if (editableStoreSlot.batchSlotChannelQueue === undefined) {
+                editableStoreSlot.batchSlotChannelQueue = batchSlotChannelQueue;
+                editableStoreSlot.batchPatchChannelQueue = batchPatchChannelQueue;
+                editableStoreSlot.batchChangedColumnsChannelQueue = batchChangedColumnsChannelQueue;
+            }
+        }
     }
 
     public enqueueContentChange<TSlot extends TOIMSlot, TPatch>(
@@ -41,9 +50,10 @@ export class OIMSlotContentChangeDeliveryService {
             .enqueueEntry(changedColumns === undefined ? undefined : changedColumns.slice());
     }
 
-    private deliverBatch(storeSlot: TOIMStoreSlot, batchSlotChannelQueue: OIMChannelQueue<TOIMSlot>): void {
-        const batchPatchChannelQueue = storeSlot.batchPatchChannelQueue as OIMChannelQueue<unknown>;
-        const batchChangedColumnsChannelQueue = storeSlot.batchChangedColumnsChannelQueue as OIMChannelQueue<readonly string[] | undefined>;
+    private deliverBatch(
+        storeSlot: TOIMStoreSlot, batchSlotChannelQueue: OIMChannelQueue<TOIMSlot>,
+        batchPatchChannelQueue: OIMChannelQueue<unknown>, batchChangedColumnsChannelQueue: OIMChannelQueue<readonly string[] | undefined>,
+    ): void {
         const listeners = storeSlot.contentChangeListeners as IOIMSlotContentChangeListener<TOIMSlot, unknown>[] | undefined;
         try {
             if (listeners === undefined) return;

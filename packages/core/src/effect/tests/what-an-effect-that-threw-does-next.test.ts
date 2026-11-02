@@ -15,7 +15,7 @@ const createFixture = () => {
     const failing = cardsService.writeSlotContentByKey(cards, 'failing', { id: 'failing', n: 0 });
     const other = cardsService.writeSlotContentByKey(cards, 'other', { id: 'other', n: 0 });
     const constantOfOtherComputedService = createOIMSingleComputedService<number>();
-    const constantOfOther = constantOfOtherComputedService.createComputedStoreSlot(
+    const constantOfOther = constantOfOtherComputedService.createStoreSlot(
         db,
         () => 0,
         () => ({ sourceSlots: [other] }),
@@ -27,7 +27,7 @@ const createFixture = () => {
     };
     return {
         db, effectService, updateCard, failing, constantOfOther,
-        constantOfOtherService: constantOfOtherComputedService.computedSingleSlotService,
+        constantOfOtherService: constantOfOtherComputedService,
     };
 };
 

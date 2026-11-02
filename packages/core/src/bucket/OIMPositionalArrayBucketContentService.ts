@@ -8,8 +8,8 @@ import type { TOIMArrayBucketContentServiceOptions } from './types/TOIMArrayBuck
 import { OIMArrayBucketContentService } from './OIMArrayBucketContentService';
 import { OIM_NOTHING_WAS_INSERTED } from './constants/OIM_NOTHING_WAS_INSERTED';
 import { oimAssertWholePosition } from './array/utils/oimAssertWholePosition';
-import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
 import { OIM_FROZEN_EMPTY_SLOTS } from '../slot/constants/OIM_FROZEN_EMPTY_SLOTS';
+import { oimUnholdSlotIfAlive } from '../slot/utils/oimUnholdSlotIfAlive';
 
 export class OIMPositionalArrayBucketContentService<
     TBucketMemberSlot extends TOIMSlot = TOIMSlot, TKey extends NonNullable<unknown> = TOIMStoreKey,
@@ -31,7 +31,7 @@ export class OIMPositionalArrayBucketContentService<
         if (landing === OIM_NOTHING_WAS_INSERTED) return;
         bucketMemberSlot.owner.holdSlot(bucketMemberSlot);
         this.bucketCommands.recordInsert(bucketSlot, landing, bucketMemberSlot, bucketSlotsArrayStore.bucketMemberSlots.length);
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
     }
 
     public removeBucketMemberSlotAt(
@@ -46,7 +46,7 @@ export class OIMPositionalArrayBucketContentService<
         const removedBucketMemberSlot = this.bucketMemberSlotsArrayService.removeBucketMemberSlotAt(bucketSlotsArrayStore, at);
         oimUnholdSlotIfAlive(removedBucketMemberSlot);
         this.bucketCommands.recordRemove(bucketSlot, at, 1, bucketSlotsArrayStore.bucketMemberSlots.length);
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
         return removedBucketMemberSlot;
     }
 
@@ -63,7 +63,7 @@ export class OIMPositionalArrayBucketContentService<
         const removedBucketMemberSlots = this.bucketMemberSlotsArrayService.removeBucketMemberSlotRange(bucketSlotsArrayStore, at, count);
         for (let i = 0; i < removedBucketMemberSlots.length; i++) oimUnholdSlotIfAlive(removedBucketMemberSlots[i]);
         this.bucketCommands.recordRemove(bucketSlot, at, removedBucketMemberSlots.length, bucketSlotsArrayStore.bucketMemberSlots.length);
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
         return removedBucketMemberSlots;
     }
 
@@ -80,7 +80,7 @@ export class OIMPositionalArrayBucketContentService<
         if (from < 0 || from >= bucketMemberSlotCount || to < 0 || to >= bucketMemberSlotCount || from === to) return undefined;
         if (!this.bucketMemberSlotsArrayService.moveBucketMemberSlotRange(bucketSlotsArrayStore, from, 1, to)) return undefined;
         this.bucketCommands.recordMove(bucketSlot, from, to, bucketMemberSlotCount);
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
         return bucketSlotsArrayStore.bucketMemberSlots[to];
     }
 
@@ -101,6 +101,6 @@ export class OIMPositionalArrayBucketContentService<
         const landing = to < 0 ? 0 : to > remaining ? remaining : to;
         if (!this.bucketMemberSlotsArrayService.moveBucketMemberSlotRange(bucketSlotsArrayStore, from, taking, landing)) return;
         this.bucketCommands.recordWholeList(bucketSlot);
-        this.markBucketSlotChanged(bucketSlot);
+        this.announceBucketSlotChanged(bucketSlot);
     }
 }

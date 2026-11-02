@@ -93,7 +93,7 @@ const firstTask = tasksService.holdSlotByKey(tasks, 't1');
 export const openTaskCountService = createOIMSingleComputedService<number>({
     sameValueGuard: oimSameValueZeroGuard,
 });
-export const openTaskCount = openTaskCountService.createComputedStoreSlot(
+export const openTaskCount = openTaskCountService.createStoreSlot(
     db,
     () => (firstTask.entity?.done === false ? 1 : 0),
     () => ({ sourceSlots: [firstTask] }),
@@ -198,9 +198,9 @@ Returns `this`.
 
 ### `oimDevRegistry.computed(name, computedService, computedStoreSlot)`
 
-Registers a single computed: a void-key `OIMComputedService` (`createOIMComputedService<void, TValue, TOIMSingleSlotStore<…>>({ computedSlotStoreService: OIMSingleSlotStoreService.INSTANCE as unknown as …, … })`) and the store slot from its `createComputedStoreSlot(db, derive, createSources)`. The report reads `computedCollectionService.getSlotByKey(computedStoreSlot, undefined)`, which mints the computed slot if none is live, and the value as `computedSlot.value`, which settles the derivation against its own clock, so the report shows what the graph answers at the moment it is taken. The store slot is held weakly, like a population's.
+Registers a single computed: a void-key `OIMComputedService` (`createOIMComputedService<void, TValue, TOIMSingleSlotStore<…>>({ computedSlotStoreService: OIMSingleSlotStoreService.INSTANCE as unknown as …, … })`) and the store slot from its `createStoreSlot(db, derive, createSources)`. The report reads `computedService.getSlotByKey(computedStoreSlot, undefined)`, which mints the computed slot if none is live, and the value as `computedSlot.value`, which settles the derivation against its own clock, so the report shows what the graph answers at the moment it is taken. The store slot is held weakly, like a population's.
 
-There is no "not computed yet" and no observable "stale". The sources are not reported either. They are `sourceSlots` and `sourceComputeds`, returned by `createSources` and carrying no names, so to see what a derivation depends on, read the `createComputedStoreSlot(...)` call in the source.
+There is no "not computed yet" and no observable "stale". The sources are not reported either. They are `sourceSlots` and `sourceComputeds`, returned by `createSources` and carrying no names, so to see what a derivation depends on, read the `createStoreSlot(...)` call in the source.
 
 Returns `this`.
 

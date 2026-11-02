@@ -1,24 +1,27 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 import { OIMDB } from '../../db/OIMDB';
 import { OIMChannelService } from '../../channel/OIMChannelService';
 import { OIMEffectService } from '../OIMEffectService';
-import { oimIsEffectRunScheduled } from '../utils/oimIsEffectRunScheduled';
+import { OIM_EFFECT_FLAG_RUN_SCHEDULED } from '../constants/OIM_EFFECT_FLAG_RUN_SCHEDULED';
+import type { TOIMEffect } from '../types/TOIMEffect';
 import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMEntitySlot } from '../../entity/types/TOIMEntitySlot';
 import { createOIMSingleComputedService } from '../../computed/createOIMSingleComputedService';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { readValueWithoutTracking } from '../../../tests/support/readValueWithoutTracking';
 import { entitySlotOf } from '../../../tests/support/entitySlotOf';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 type TRow = { isOn: boolean; text: string };
 
 const makeSlot = (key: string, row: TRow): TOIMEntitySlot<TRow, string> => {
-    const slot = createOIMEntitySlot<TRow, string>(key, new OIMSlotOwner(), testStoreSlot);
+    const slot = createOIMEntitySlot<TRow, string>(key, new TestSlotOwner(), testStoreSlot);
     entitySlotOf(slot).content = row;
     return slot;
 };
+
+const oimIsEffectRunScheduled = (effect: TOIMEffect): boolean => (effect.effectFlags & OIM_EFFECT_FLAG_RUN_SCHEDULED) !== 0;
 
 describe('an effect is never queued by its own subscription', () => {
     it('is not queued when created inside a running frame, and its body waits for a later write', () => {
@@ -107,12 +110,12 @@ describe('who asks an effect\'s sources before it runs', () => {
         const effectService = OIMEffectService.INSTANCE;
         const source = makeSlot('source', { isOn: false, text: 'abc' });
         const textLengthService = createOIMSingleComputedService<number>();
-        const textLength = textLengthService.createComputedStoreSlot(
+        const textLength = textLengthService.createStoreSlot(
             db,
             () => source.entity?.text.length ?? 0,
             () => ({ sourceSlots: [source] }),
         );
-        const textLengthSlot = textLengthService.computedSingleSlotService.getSingleSlot(textLength);
+        const textLengthSlot = textLengthService.getSingleSlot(textLength);
         let runs = 0;
         effectService.createEffect(db, () => { runs++; }, [], [textLengthSlot]);
         expect(readValueWithoutTracking(textLengthSlot)).toBe(3);

@@ -44,15 +44,15 @@ const createDerived = (
     sameValueGuard: (a: number, b: number) => boolean = oimSameValueZeroGuard,
 ) => {
     const computedService = createOIMSingleComputedService<number>({ sameValueGuard });
-    const derived = computedService.createComputedStoreSlot(
+    const derived = computedService.createStoreSlot(
         db,
         derive,
         () => ({ sourceSlots, sourceComputeds: sourceComputeds.map(source => source()) }),
     );
     const derivedService = {
-        getSingleSlot: (storeSlot: typeof derived) => computedService.computedSingleSlotService.getSingleSlot(storeSlot),
+        getSingleSlot: (storeSlot: typeof derived) => computedService.getSingleSlot(storeSlot),
         getSingleValue: (storeSlot: typeof derived) => {
-            const computedSlot = computedService.computedSingleSlotService.getSingleSlot(storeSlot);
+            const computedSlot = computedService.getSingleSlot(storeSlot);
             return readValueWithoutTracking(computedSlot);
         },
     };

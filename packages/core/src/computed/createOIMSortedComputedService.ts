@@ -15,7 +15,7 @@ import { oimResolveSlotStoreService } from '../store/utils/oimResolveSlotStoreSe
 
 export function createOIMSortedComputedService<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
-    TComputedStore = TOIMDefaultSlotStore<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>>,
+    TComputedStore = TOIMDefaultSlotStore<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity, TSourceKey>[], TKey>>,
 >(
     options: {
         defaults?: OIMDefaults | undefined;
@@ -24,7 +24,7 @@ export function createOIMSortedComputedService<
         comparator?: ((left: TEntity, right: TEntity) => number) | undefined;
         slotReleasePolicy?: IOIMSlotReleasePolicy | undefined;
         columnSlotStoreService?: IOIMSlotStoreService<string, TOIMComputedColumnSlot> | undefined;
-        computedSlotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity>[], TKey>, TComputedStore> | undefined;
+        computedSlotStoreService?: IOIMSlotStoreService<TKey, TOIMComputedSlot<readonly TOIMEntitySlot<TEntity, TSourceKey>[], TKey>, TComputedStore> | undefined;
     },
 ): OIMSortedComputedService<TKey, TEntity, TSlots, TSourceKey, TSourceStore, TComputedStore> {
     const defaults = options.defaults ?? OIMDefaults.INSTANCE;

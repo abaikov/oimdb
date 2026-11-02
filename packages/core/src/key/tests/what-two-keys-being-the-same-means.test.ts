@@ -1,4 +1,3 @@
-import { OIMSlotOwner } from '../../slot/OIMSlotOwner';
 
 import { oimSameSlotSequence } from '../../bucket/utils/oimSameSlotSequence';
 import { oimSameKeySequence } from '../utils/oimSameKeySequence';
@@ -6,11 +5,12 @@ import { createOIMEntitySlot } from '../../entity/utils/createOIMEntitySlot';
 import type { TOIMSlot } from '../../slot/types/TOIMSlot';
 import { createOIMStoreSlot } from '../../slot/utils/createOIMStoreSlot';
 import { OIMDB } from '../../db/OIMDB';
+import { TestSlotOwner } from '../../../tests/support/TestSlotOwner';
 
 const testStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
 
 const slot = (id: string): TOIMSlot =>
-    createOIMEntitySlot<{ id: string }, string>(id, new OIMSlotOwner(), testStoreSlot) as TOIMSlot;
+    createOIMEntitySlot<{ id: string }, string>(id, new TestSlotOwner(), testStoreSlot) as TOIMSlot;
 
 describe('a composite key is the same key when it names the same identities in the same order', () => {
     it('answers yes for a rebuilt list of the same identities', () => {

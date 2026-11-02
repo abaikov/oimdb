@@ -184,7 +184,7 @@ describe('an index order whose comparator reads another order', () => {
         const cardIndexOrders = cardIndexOrdersService.createSortedStoreSlot(cardIndex);
         const cardOrders = new Map<string, TOIMComputedSlot<readonly TOIMEntitySlot<TCard>[], string>>();
         for (const id of ['d1', 'd2', 'd3']) {
-            cardOrders.set(id, cardIndexOrdersService.computedCollectionService.holdSlotByKey(cardIndexOrders, id));
+            cardOrders.set(id, cardIndexOrdersService.holdSlotByKey(cardIndexOrders, id));
         }
         const sizeOf = (id: string): number => {
             const cardOrder = cardOrders.get(id);
@@ -207,7 +207,7 @@ describe('an index order whose comparator reads another order', () => {
             },
         });
         const deckIndexOrders = deckIndexOrdersService.createSortedStoreSlot(deckIndex);
-        const deckOrder = deckIndexOrdersService.computedCollectionService.holdSlotByKey(deckIndexOrders, 'all');
+        const deckOrder = deckIndexOrdersService.holdSlotByKey(deckIndexOrders, 'all');
 
         decksService.writeInBatch(decks, () => (['d1', 'd2', 'd3'].map((id, at) => ({ id, ord: at + 1 }))).map(entity => decksService.writeSlotContentByKey(decks, entity.id, entity)));
         cardsService.writeInBatch(cards, () => ([
