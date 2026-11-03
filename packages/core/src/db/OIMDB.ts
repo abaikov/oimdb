@@ -36,7 +36,8 @@ export class OIMDB<TSchemas = unknown> implements IOIMChannelMap {
             clock: this.clock,
             collectorSlot: this.collectorSlot,
             errorPolicy,
-            timer: channelScheduler === undefined ? undefined : createOIMChannelSchedulerTimer(channelScheduler),
+            timer: channelScheduler === undefined || channelScheduler === null
+                ? undefined : createOIMChannelSchedulerTimer(channelScheduler),
             onBeforeFlush: options?.onBeforeFlush,
         });
         this.schemas = options?.createSchemas?.(this) as TSchemas;

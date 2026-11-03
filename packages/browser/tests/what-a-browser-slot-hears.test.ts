@@ -201,4 +201,46 @@ describe('what a browser slot hears', () => {
         delete (document as { hasFocus?: unknown }).hasFocus;
         expect(hasFocus).toBeDefined();
     });
+    it('calls onBrowserEntityWritten after a write an event caused, and not after the first value', () => {
+        const db = new OIMDB();
+        const calls: (boolean | undefined)[] = [];
+        const onlineService = createOIMBrowserOnlineSingleSlotService({
+            onBrowserEntityWritten: () => { calls.push(onlineService.peekSingleSlot(online)?.entity?.isOnline); },
+        });
+        const online = onlineService.createStoreSlot(db);
+        const onlineSlot = onlineService.getSingleSlot(online);
+        const effect = effectService.createEffect(db, () => undefined, [onlineSlot]);
+        expect(calls).toEqual([]);
+
+        setOnline(false);
+        window.dispatchEvent(new Event('offline'));
+
+        expect(calls).toEqual([false]);
+        effectService.disposeEffect(effect);
+    });
+
+    it('calls onBrowserEntityWritten after the write that waited out a flush', () => {
+        const db = new OIMDB();
+        let calls = 0;
+        const onlineService = createOIMBrowserOnlineSingleSlotService({ onBrowserEntityWritten: () => { calls++; } });
+        const online = onlineService.createStoreSlot(db);
+        const onlineSlot = onlineService.getSingleSlot(online);
+        const seen: boolean[] = [];
+        const effect = effectService.createEffect(db, () => {
+            seen.push(onlineSlot.entity?.isOnline ?? true);
+            if (seen.length === 1) {
+                setOnline(false);
+                window.dispatchEvent(new Event('offline'));
+            }
+        }, [onlineSlot]);
+        setOnline(true);
+        window.dispatchEvent(new Event('offline'));
+        expect(calls).toBe(1);
+        setOnline(false);
+        db.flush();
+
+        expect(calls).toBe(2);
+        expect(onlineSlot.entity).toEqual({ isOnline: false });
+        effectService.disposeEffect(effect);
+    });
 });

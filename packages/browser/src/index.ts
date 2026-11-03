@@ -1,6 +1,7 @@
 export { OIMBrowserSlotSubscriptionListener } from './OIMBrowserSlotSubscriptionListener';
 export type { TOIMBrowserSingleSlotService } from './types/TOIMBrowserSingleSlotService';
 export type { TOIMBrowserSingleSlotServiceOptions } from './types/TOIMBrowserSingleSlotServiceOptions';
+export type { TOIMBrowserSlotSubscriptionListenerOptions } from './types/TOIMBrowserSlotSubscriptionListenerOptions';
 export { createOIMBrowserOnlineSingleSlotService } from './createOIMBrowserOnlineSingleSlotService';
 export { OIMBrowserOnlineSlotSubscriptionListener } from './OIMBrowserOnlineSlotSubscriptionListener';
 export type { TOIMBrowserOnlineEntity } from './types/TOIMBrowserOnlineEntity';

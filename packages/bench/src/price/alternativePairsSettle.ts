@@ -14,7 +14,7 @@ import type { TPricePair } from './TPricePair';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
 import { PriceSlotOwner } from './priceFixture';
 
-const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
+const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB({ channelScheduler: null }).defaultChannelSlot, undefined);
 
 /**
  * WHO GOES LOOKING — a computed walking its sources when it is READ, or a source
@@ -182,7 +182,7 @@ const computedLevelComputedService = (
 };
 
 const buildPullChain = (depth: number) => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const roots: TChainRoot[] = [];
     for (let i = 0; i < ROOTS; i++) roots.push(makeRoot());
 
@@ -266,7 +266,7 @@ const markDependents = (dependents: PushNode[] | undefined): void => {
 };
 
 const buildPushChain = (depth: number) => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const roots: TChainRoot[] = [];
     for (let i = 0; i < ROOTS; i++) roots.push(makeRoot());
 

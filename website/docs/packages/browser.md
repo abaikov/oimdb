@@ -14,6 +14,7 @@ browser listener exists only while something is subscribed.
 - Each factory returns an `OIMSingleSlotService`; build a store slot on your `db` and read the slot.
 - The browser listener is added at the first subscriber and removed at the last.
 - A write that would land during a flush is made right after it.
+- `onBrowserEntityWritten` commits what an event wrote; it runs synchronously, inside the event.
 
 </InShort>
 
@@ -50,3 +51,17 @@ In React, `useOIMSingleEntity(online)` from [`@oimdb/react`](/docs/packages/reac
 entity. `isOnline` means a network interface exists, not that the internet answers; without the Navigation API
 a `history.pushState` is seen only at the next `popstate` or `hashchange`. The package's
 [README](https://github.com/abaikov/oimdb/blob/master/packages/browser/README.md) has the details.
+
+## Committing what an event wrote
+
+A database with no `channelScheduler` delivers nothing until `db.flush()`, and a browser event is nobody's batch.
+`onBrowserEntityWritten` in the factory options commits what an event wrote: it is called after each write a
+browser event caused, never after the first value. It runs synchronously, inside the event's dispatch; a write
+that waited out a flush calls it right after that flush, from its after-flush handler. `focus()` and `blur()` called
+from your own code dispatch their events synchronously, so a `db.flush()` in it can run in the middle of the caller's
+turn; defer it (`queueMicrotask`) or hand it to your orchestrator when that matters.
+
+```ts
+const committedOnlineService = createOIMBrowserOnlineSingleSlotService({ onBrowserEntityWritten: () => { db.flush(); } });
+```
+

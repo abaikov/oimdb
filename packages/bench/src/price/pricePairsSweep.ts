@@ -188,7 +188,7 @@ const insertThenReadPair = (id: string, arm: string, replacing: boolean): TPrice
     build: () => {
         const rows = priceDataset.makeRows(priceDataset.batch);
         const readKey = rows[readBackAt].id;
-        const db = new OIMDB();
+        const db = new OIMDB({ channelScheduler: null });
         const entityWriter: IOIMEntityWriter = replacing
             ? createOIMReplacingEntityWriter()
             : createOIMInPlaceEntityWriter();

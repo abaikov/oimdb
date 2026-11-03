@@ -58,6 +58,19 @@ computed that reads the slot is enough.
 A write that would land during a flush is made right after that flush ends, because a channel refuses
 writes for the whole of a flush. An event that leaves the value as it was wakes nobody.
 
+## Committing what an event wrote
+
+A database with no `channelScheduler` delivers nothing until `db.flush()`, and a browser event is nobody's batch.
+`onBrowserEntityWritten` in the factory options commits what an event wrote: it is called after each write a
+browser event caused, never after the first value. It runs synchronously, inside the event's dispatch; a write
+that waited out a flush calls it right after that flush, from its after-flush handler. `focus()` and `blur()` called
+from your own code dispatch their events synchronously, so a `db.flush()` in it can run in the middle of the caller's
+turn; defer it (`queueMicrotask`) or hand it to your orchestrator when that matters.
+
+```ts
+const onlineService = createOIMBrowserOnlineSingleSlotService({ onBrowserEntityWritten: () => { db.flush(); } });
+```
+
 ## What each value means
 
 - **`isOnline`** is `navigator.onLine`: `true` means a network interface exists, not that the internet

@@ -90,7 +90,7 @@ const wideWorld = (
     count: number = priceDataset.batch,
 ): TWideWorld => {
     const rows = makeWideRows(count);
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const entityService = makeEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
@@ -866,12 +866,12 @@ export const alternativePairsWritePath: readonly TPricePair[] = [
         build: wanted => {
             const rows = makeWideRows(priceDataset.batch);
             const side = (makeEntityService: TMakeWideEntityService): TPriceSide => {
-                let db = new OIMDB();
+                let db = new OIMDB({ channelScheduler: null });
                 let entityService = makeEntityService();
                 let entityStoreSlot = entityService.createStoreSlot(db);
                 return {
                     reset: () => {
-                        db = new OIMDB();
+                        db = new OIMDB({ channelScheduler: null });
                         entityService = makeEntityService();
                         entityStoreSlot = entityService.createStoreSlot(db);
                     },

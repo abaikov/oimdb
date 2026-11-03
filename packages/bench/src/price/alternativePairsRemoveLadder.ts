@@ -103,7 +103,7 @@ const entityServiceDoor: TRemoveRung = (fixture, _rows, times) => {
 
 const removeRungSide = (rung: TRemoveRung): TPriceSide => {
     const rows = priceDataset.makeRows(priceDataset.batch);
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
     const fixture: TRemoveFixture = {
         db,

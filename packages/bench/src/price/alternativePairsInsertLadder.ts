@@ -41,7 +41,7 @@ const createEntityService = (): TPriceEntityService<TPriceDataRow> =>
     createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter }) });
 
 const createWorld = (): TWorld => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const entityService = createEntityService();
     return {
         db,

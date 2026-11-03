@@ -37,6 +37,7 @@ const sideOfSweeps = (entitiesPerSweep: number, runSweep: (entityCount: number) 
 const oursSide = (entitiesPerSweep: number, idleEntities: readonly TIdleEntity[]): TPriceSide => {
     const idleClock: TIdleClock = { nowMs: 1_000_000 };
     const db = new OIMDB({
+        channelScheduler: null,
         getNowMs: () => idleClock.nowMs,
         releaseTimer: (): TOIMDisposer => () => undefined,
     });

@@ -59,7 +59,7 @@ type TRowSlot = TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>;
 type TRowSlotEditable = TOIMEditable<TRowSlot>;
 
 const reportingEntityFixture = () => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>({ entityWriter: createOIMInPlaceEntityWriter() }), columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>() });
     return { entityService, entityStoreSlot: entityService.createStoreSlot(db) };
 };
@@ -201,7 +201,7 @@ export const pricePairsInsertGap: readonly TPricePair[] = [
             const rows = rowsOf();
             const slotContentService = new OIMSetBucketContentService<TRowSlot>();
             let joinedStore = new Map<string, TRowSlot>();
-            const db = new OIMDB();
+            const db = new OIMDB({ channelScheduler: null });
             let bucketSlot = holdSingleBucketSlot(db, slotContentService);
             let loneStore = new Map<string, TRowSlot>();
             return {

@@ -67,7 +67,7 @@ const orderPair: TPricePair = {
     build: () => {
         const rows = priceDataset.makeRows(priceDataset.batch);
         const held: TPriceDataRow[] = rows.map(row => ({ ...row }));
-        const db = new OIMDB();
+        const db = new OIMDB({ channelScheduler: null });
         const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
         const entityStoreSlot = entityService.createStoreSlot(db);
         const slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];

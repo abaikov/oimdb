@@ -156,7 +156,7 @@ const entityServiceDoor: TRung = (world, rows, times) => {
 };
 
 const rungSide = (rung: TRung, rows: readonly TPriceDataRow[]): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const entityService = createEntityService();
     const world: TWorld = {
         db,

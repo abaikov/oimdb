@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.0
+
+### Added
+
+- Factory option `onBrowserEntityWritten`; listener constructor takes `TOIMBrowserSlotSubscriptionListenerOptions`.
+
 ## 1.2.0
 
 ### Changed

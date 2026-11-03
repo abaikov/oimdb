@@ -930,7 +930,7 @@ from its own options, and every store slot created with `createStoreSlot(db)` ca
 new OIMDB<TSchemas>(options?: TOIMDBOptions<TSchemas>)
 
 type TOIMDBOptions<TSchemas> = {
-    channelScheduler?: TOIMChannelScheduler;     // absent = you flush by hand
+    channelScheduler?: TOIMChannelScheduler | null; // absent or null = you flush by hand
     errorPolicy?: IOIMErrorPolicy;              // absent = OIMLogAndContinueErrorPolicy.INSTANCE
     onBeforeFlush?: () => void;                 // start of the flush, before the frame; READ ONLY, a write is refused
     getNowMs?: () => number;                    // the release collectors' clock; absent = Date.now
@@ -4295,7 +4295,7 @@ subscriber (directly or through a computed that reads it) and removed when the l
 value is written at the first subscription, and a write that would land during a flush is made right after it.
 
 ```ts signature
-createOIMBrowserOnlineSingleSlotService(options?: { defaults?: OIMDefaults }): TOIMBrowserSingleSlotService<TOIMBrowserOnlineEntity>         // { isOnline }
+createOIMBrowserOnlineSingleSlotService(options?: { defaults?: OIMDefaults; onBrowserEntityWritten?: () => void }): TOIMBrowserSingleSlotService<TOIMBrowserOnlineEntity> // { isOnline }
 createOIMBrowserFocusSingleSlotService(options?): TOIMBrowserSingleSlotService<TOIMBrowserFocusEntity>          // { isFocused }: document.hasFocus()
 createOIMBrowserVisibilitySingleSlotService(options?): TOIMBrowserSingleSlotService<TOIMBrowserVisibilityEntity> // { isVisible }
 createOIMBrowserLocationSingleSlotService(options?): TOIMBrowserSingleSlotService<TOIMBrowserLocationEntity>    // { href, pathname, search, hash }
@@ -4306,7 +4306,14 @@ an effect over `[onlineSlot]`, or `useOIMSingleEntity(online)` in React. `isOnli
 `navigator.onLine` (a network interface exists, not a reachable internet); the location follows the
 Navigation API's `currententrychange` where it exists and `popstate` + `hashchange` otherwise, so without it a
 `history.pushState` is not seen until the next of those events. Without the API a sensor needs, the slot holds
-`true` (or an empty location). `OIMBrowserSlotSubscriptionListener` is the base class of the four listeners.
+`true` (or an empty location). `OIMBrowserSlotSubscriptionListener` is the base class of the four listeners, built with
+`TOIMBrowserSlotSubscriptionListenerOptions` (`{ entityContentService, onBrowserEntityWritten? }`).
+
+`onBrowserEntityWritten` in the factory options commits what an event wrote: it is called after each write a
+browser event caused, never after the first value. It runs synchronously, inside the event's dispatch; a write
+that waited out a flush calls it right after that flush, from its after-flush handler. `focus()` and `blur()` called
+from your own code dispatch their events synchronously, so a `db.flush()` in it can run in the middle of the caller's
+turn; defer it (`queueMicrotask`) or hand it to your orchestrator when that matters.
 
 ---
 

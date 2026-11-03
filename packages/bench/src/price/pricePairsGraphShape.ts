@@ -113,7 +113,7 @@ const trackedGraphEffectStrategy: TGraphEffectStrategy = {
 
 
 const oursStandingChain = (depth: number, writesPerFrame: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
@@ -174,7 +174,7 @@ const floorStandingChainSingleWrite = (depth: number): TPriceSide => {
 };
 
 const oursBuildAndDispose = (depth: number): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const rootEntityService = createRootEntityService();
     const rootSlot = createRootSlot(db, rootEntityService, { value: 1 });
@@ -213,7 +213,7 @@ const floorBuildAndDispose = (depth: number): TPriceSide => {
 };
 
 const oursReadsPerRun = (rootCount: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlots: TGraphRootSlot[] = [];
@@ -264,7 +264,7 @@ const floorReadsPerRun = (rootCount: number): TPriceSide => {
 };
 
 const oursInactiveBranchWrite = (graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const flagSlot = createRootSlot(db, rootEntityService, { value: 1 });
@@ -313,7 +313,7 @@ const floorInactiveBranchWrite = (): TPriceSide => {
 };
 
 const oursCoalescedWrites = (writesPerFrame: number, graphEffectStrategy: TGraphEffectStrategy): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
@@ -640,7 +640,7 @@ const WRITES_PER_SCROLL_FRAME: readonly number[] = [1, 4];
 const firstVisibleIndexOf = (scrollTopPx: number): number => Math.floor(scrollTopPx / ROW_HEIGHT_PX);
 
 const oursScrollWindow = (writesPerFrame: number): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
@@ -720,7 +720,7 @@ const scrollWindowPairs: readonly TPricePair[] = WRITES_PER_SCROLL_FRAME.map(wri
 }));
 
 const oursDeliveryWriteOnly = (): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
@@ -735,7 +735,7 @@ const oursDeliveryWriteOnly = (): TPriceSide => {
 };
 
 const oursDeliveryWriteAndFlushWithoutEffect = (): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0 });
@@ -753,7 +753,7 @@ const oursDeliveryWriteAndFlushWithoutEffect = (): TPriceSide => {
 };
 
 const oursDeliveryWriteAndEffectRunWithoutFlush = (): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const rootEntityService = createRootEntityService();
     const slotContentService = rootEntityService.slotContentService;
@@ -776,7 +776,7 @@ const oursDeliveryWriteAndEffectRunWithoutFlush = (): TPriceSide => {
 };
 
 const oursDeliveryWriteWithAnotherColumnHeld = (): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>();
     const slotContentService = rootEntityService.slotContentService;
     const rootSlot = createRootSlot(db, rootEntityService, { value: 0, note: 0 });
@@ -837,7 +837,7 @@ type TGraphTwoColumnRoot = { value: number; note: number };
 const DERIVED_COLLECTION_SIZE = 128;
 
 const oursDerivedCollection = (writtenColumn: 'value' | 'note'): TPriceSide => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const rootEntityService = createRootEntityService<TGraphTwoColumnRoot>();
     const slotContentService = rootEntityService.slotContentService;

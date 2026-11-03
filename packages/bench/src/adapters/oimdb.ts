@@ -1,5 +1,5 @@
 import { OIMCompositeKeyTreeWalk } from '../../../core/dist/index.js';
-import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMColumnGroup, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, insertOIMEntityWithCopy, isOIMSameValueZero} from '../../../core/dist/index.js';
+import { OIMDB, OIMEffectService, OIMSetBucketContentService, OIMSlotNeverReleasePolicy, OIMSlotTreeStoreService, createOIMColumnGroup, createOIMComputedService, createOIMSortedComputedService, createOIMInPlaceEntityWriter, createOIMEntityContentService, createOIMSlotCollectionService, createOIMSingleSlotService, createOIMSlotCollectionIndexService, createOIMSlotCollectionSortedArrayIndexService, insertOIMEntityWithCopy, isOIMSameValueZero } from '../../../core/dist/index.js';
 import type {
     IOIMSlotReleasePolicy,
     OIMPushColumnSlotOwner,
@@ -367,7 +367,7 @@ const bindViews = <TGroupOrder, TOrderedSlots>(
     bindings: readonly TViewBinding[],
     view: TViewConfig,
 ): TBinding => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
@@ -601,7 +601,7 @@ const createChurnMounts = (
 };
 
 const bindChurnStore = (churnConsumer: BenchConsumer): TChurnBinding => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
@@ -720,7 +720,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
     view: TViewConfig,
     plan: TPlan
 ): TReadBinding => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const entityService = createRowEntityService();
     const entityStoreSlot = entityService.createStoreSlot(db);
     /**
@@ -792,7 +792,7 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
  * from each.
  */
 const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const rowEntityService = createRowEntityService();
     const rowEntityStoreSlot = rowEntityService.createStoreSlot(db);
@@ -960,7 +960,7 @@ const bindRelationViews = (consumers: TConsumers): TRelationBinding => {
  * (createStoreSlot(db), holdSingleSlot, slotContentService.writeSlotContent); the slot is written through its slotContentService's `updateEntity` and `updateEntityColumn`.
  */
 const bindSingleStore = (participantName: string, consumers: TConsumers): TSingleBinding => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     /** The value the scripts write, and the one no step of either writes. */
     const entityService = createOIMSingleSlotService({ slotContentService: createOIMEntityContentService<{ value: string }>() });

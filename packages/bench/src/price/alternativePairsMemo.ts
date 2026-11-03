@@ -15,7 +15,7 @@ import type { TPricePair } from './TPricePair';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
 import { PriceSlotOwner } from './priceFixture';
 
-const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
+const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB({ channelScheduler: null }).defaultChannelSlot, undefined);
 
 /** A list under a derivation — the slot a write stamps, and the rows it walks. */
 type TListRoot = TOIMSlot & { rows: number[] };
@@ -74,7 +74,7 @@ const memoPair = (bodyName: string, body: TBody, readsPerWrite: number, caveat: 
     floor: 'body(list.rows) — the same body, called on every read, no node',
     caveat: `${caveat} ${SHARED_CAVEAT}`,
     build: () => {
-        const db = new OIMDB();
+        const db = new OIMDB({ channelScheduler: null });
         const channelSlot = db.defaultChannelSlot;
         const lists: TListRoot[] = [];
         for (let i = 0; i < LISTS; i++) lists.push(makeList(i));

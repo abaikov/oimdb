@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.11.0
+
+### Changed
+
+- `OIMDB` option `channelScheduler` accepts `null`: manual `db.flush()`, as when absent.
+
 ## 4.10.0
 
 ### Changed

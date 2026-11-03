@@ -5,5 +5,5 @@ import { OIMBrowserVisibilitySlotSubscriptionListener } from './OIMBrowserVisibi
 import { createOIMBrowserSingleSlotService } from './createOIMBrowserSingleSlotService';
 
 export function createOIMBrowserVisibilitySingleSlotService(options: TOIMBrowserSingleSlotServiceOptions = {}): TOIMBrowserSingleSlotService<TOIMBrowserVisibilityEntity> {
-    return createOIMBrowserSingleSlotService<TOIMBrowserVisibilityEntity>(entityContentService => new OIMBrowserVisibilitySlotSubscriptionListener(entityContentService), options);
+    return createOIMBrowserSingleSlotService<TOIMBrowserVisibilityEntity>(browserSlotSubscriptionListenerOptions => new OIMBrowserVisibilitySlotSubscriptionListener(browserSlotSubscriptionListenerOptions), options);
 }

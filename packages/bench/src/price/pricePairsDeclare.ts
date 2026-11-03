@@ -100,7 +100,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-db.vs-hand-written-frame-state',
         path: EPricePath.PerDeclaration,
-        ours: 'new OIMDB()',
+        ours: 'new OIMDB({ channelScheduler: null })',
         floor: 'the object a person keeps instead: a frame number and a queue',
         caveat:
             'NOT A LIKE-FOR-LIKE FLOOR. Nobody hand-writes a database; the nearest thing is the ' +
@@ -117,7 +117,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        for (let i = 0; i < times; i++) priceSink.ours = new OIMDB();
+                        for (let i = 0; i < times; i++) priceSink.ours = new OIMDB({ channelScheduler: null });
                     },
                 },
                 floor: {
@@ -135,7 +135,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-db.vs-the-same-object-graph-by-hand',
         path: EPricePath.PerDeclaration,
-        ours: 'new OIMDB()',
+        ours: 'new OIMDB({ channelScheduler: null })',
         floor:
             'the same twenty allocations written out — seven objects, three arrays, three sets and ' +
             'seven closures over them',
@@ -172,7 +172,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
                 ours: {
                     reset: () => undefined,
                     run: times => {
-                        for (let i = 0; i < times; i++) priceSink.ours = new OIMDB();
+                        for (let i = 0; i < times; i++) priceSink.ours = new OIMDB({ channelScheduler: null });
                     },
                 },
                 floor: {
@@ -199,7 +199,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'is `new-entity-service.vs-new-map`\'s and is not in this number. Direction: inflates ' +
             'our ratio; paid once per population.',
         build: () => {
-            const db = new OIMDB();
+            const db = new OIMDB({ channelScheduler: null });
             const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             return {
                 ours: {
@@ -286,7 +286,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
         build: () => {
             const rows = priceDataset.makeRows(DECLARED_OVER);
             const names = priceDataset.groupNames();
-            const db = new OIMDB();
+            const db = new OIMDB({ channelScheduler: null });
             const entityService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TPriceDataRow>() });
             const entityStoreSlot = entityService.createStoreSlot(db);
             entityService.writeInBatch(entityStoreSlot, () => (rows).map(entity => entityService.writeSlotContentByKey(entityStoreSlot, entity.id, entity)));

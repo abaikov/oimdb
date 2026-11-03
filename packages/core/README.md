@@ -125,11 +125,11 @@ What each consumer ships, bundled with esbuild (minified, tree-shaken, ESM).
 <!-- bundle-size:begin -->
 | Consumer | Minified | Minified + gzip |
 |---|---:|---:|
-| Everything `@oimdb/core` exports | 123502 B | 28386 B |
-| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53868 B | 13400 B |
-| The same, plus one effect and `db.flush()` | 53898 B | 13414 B |
-| The same, plus one index: `createOIMSlotCollectionIndexService` | 77129 B | 18613 B |
-| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68431 B | 16604 B |
+| Everything `@oimdb/core` exports | 123499 B | 28389 B |
+| One entity store slot: `OIMDB`, `createOIMSlotCollectionService`, `createOIMEntityContentService`, `writeSlotContentByKey`, `getSlotByKey` | 53865 B | 13405 B |
+| The same, plus one effect and `db.flush()` | 53895 B | 13419 B |
+| The same, plus one index: `createOIMSlotCollectionIndexService` | 77126 B | 18618 B |
+| An ordered bucket with commands: `OIMPositionalArrayBucketContentService`, `OIMBucketCommands` | 68428 B | 16609 B |
 <!-- bundle-size:end -->
 
 ---

@@ -67,7 +67,7 @@ const scheduledDb = new OIMDB({
 
 | `OIMDB` option | What it is |
 |---|---|
-| `channelScheduler` | What defers a flush. Absent means you flush by hand: nothing is ever delivered until you call `db.flush()`. |
+| `channelScheduler` | What defers a flush. Absent or `null` means you flush by hand: nothing is ever delivered until you call `db.flush()`. |
 | `errorPolicy` | What a throw from `onBeforeFlush`, an effect or a handler does. Absent means `OIMLogAndContinueErrorPolicy.INSTANCE`: `console.error`, then its `onError`, and the frame goes on. `OIMThrowAtOnceErrorPolicy` throws the first one out of `flush()` instead. |
 | `onBeforeFlush` | Called once at the start of a flush, immediately before the frame opens. It runs inside the flush, so a write from it is refused like any other. |
 

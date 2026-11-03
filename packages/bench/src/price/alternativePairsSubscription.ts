@@ -9,7 +9,7 @@ import type { TPricePair } from './TPricePair';
 import { createOIMStoreSlot } from '../../../core/src/slot/utils/createOIMStoreSlot';
 import { PriceSlotOwner } from './priceFixture';
 
-const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB().defaultChannelSlot, undefined);
+const priceStoreSlot = createOIMStoreSlot(undefined, new OIMDB({ channelScheduler: null }).defaultChannelSlot, undefined);
 
 /** How many subscribers a row mounts. The churn family's largest count. */
 const SUBSCRIBERS = 256;
@@ -54,7 +54,7 @@ type TLegacyRow = { id: string };
 const WATCHED_KEY = 'watched';
 
 const shippedWorld = () => {
-    const db = new OIMDB();
+    const db = new OIMDB({ channelScheduler: null });
     const effectService = OIMEffectService.INSTANCE;
     const slot = makeSlot();
     const woke = [0];

@@ -4,7 +4,7 @@ import type { TOIMTimer } from '../../schedule/types/TOIMTimer';
 import type { OIMDB } from '../OIMDB';
 
 export type TOIMDBOptions<TSchemas = unknown> = {
-    channelScheduler?: TOIMChannelScheduler | undefined;
+    channelScheduler?: TOIMChannelScheduler | null | undefined;
     errorPolicy?: IOIMErrorPolicy | undefined;
     onBeforeFlush?: (() => void) | undefined;
     getNowMs?: (() => number) | undefined;
