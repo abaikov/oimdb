@@ -314,7 +314,7 @@ prefix per type).
 `OIMReduxLinkedIndexesUpdater<TEntity>` keeps a bucket store slot in step with one array field of
 an entity, described by `TOIMReduxLinkedIndex<TEntity, TLinkedEntity>`. Its fields
 are `bucketService` and `bucketStoreSlot`, `linkedEntityService` and `linkedEntityStoreSlot`, and
-`fieldName`. Its constructor takes one **required** argument, `keyOf: (entity: TEntity) =>
+`fieldName`. Its constructor takes one **required** argument, `selectKey: (entity: TEntity) =>
 TOIMStoreKey`, and its two methods are `updateLinkedIndexesForEntities(linkedIndexes,
 updatedEntities)` and `removeLinkedIndexesByKeys(linkedIndexes, removedPks)`. Each writes a
 bucket with `bucketService.getSlotByKey(bucketStoreSlot, key).writeSlotContent(slots)`.
@@ -324,12 +324,12 @@ has the keys of a plain Redux record, which are always strings, even for a numer
 population. A bucket addressed by one of those is a string bucket beside the numeric
 bucket the engine filed the entities in, and a deck with a numeric id would get a second
 parallel bucket per Redux frame while its real one was never written. An entity carries its
-own key; `keyOf` turns it back into the value the bucket collection files by, so no key of this
-package's making crosses into the engine. It is the same `keyOf` that the child-reducer options
+own key; `selectKey` turns it back into the value the bucket collection files by, so no key of this
+package's making crosses into the engine. It is the same `selectKey` that the child-reducer options
 declare, defaulted to `.id`.
 
 The child-reducer extractors take the same arguments as the mappers, after the two states:
-`extractEntities(prevState, nextState, entityService, entityStoreSlot, keyOf)`,
+`extractEntities(prevState, nextState, entityService, entityStoreSlot, selectKey)`,
 `extractIndexState(prevState, nextState, keyedIndex)`,
 `extractGlobalIndexState(prevState, nextState, globalIndex)`.
 

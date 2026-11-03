@@ -75,7 +75,7 @@ const orderPair: TPricePair = {
         const indexService = createOIMSlotCollectionIndexService({
             entityService,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-            keyOf: (row: TPriceDataRow) => row.group,
+            selectKey: (row: TPriceDataRow) => row.group,
         });
         const indexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
         const sortedComputedService = createOIMSortedComputedService({

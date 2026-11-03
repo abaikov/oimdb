@@ -727,13 +727,13 @@ const bindReadViews = <TGroupOrder, TOrderedSlots>(
      * ONE GROUP, TWO INDEXES: everything filed under the group, and the subset on the
      * second axis. A composite predicate is a second index over the same collection,
      * and a row off the axis answers with a key nobody holds — which is filed nowhere.
-     * The price of the second index is one `keyOf` call and one key comparison per
+     * The price of the second index is one `selectKey` call and one key comparison per
      * write that changes `id` or `group`, paid inside this binding's writes.
      */
     const orderByGroup = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, GROUP_COLUMN, OIMSlotNeverReleasePolicy.INSTANCE);
     const orderByGroupOnAxis = groupOrderStrategy.createGroupOrders(entityService, entityStoreSlot, {
         columns: ['id', 'group'],
-        keyOf: row => (onSecondAxis(row.id) ? row.group : OFF_THE_SECOND_AXIS),
+        selectKey: row => (onSecondAxis(row.id) ? row.group : OFF_THE_SECOND_AXIS),
     });
     const windows = createWindowViews<TGroupOrder, TOrderedSlots>(db, view.window, (consumer, visible) => {
         deliverPage(consumer, visible, 0, view.window);
@@ -1106,7 +1106,7 @@ export const oimdbAdapter: TAdapter = oimdbAdapterWith({
         'OIMDB with the default entity writer, createOIMInPlaceEntityWriter(), and one createStoreSlot(db) as the instance; every load goes in through ' +
         'entityService.writeSlotContentByKey(entityStoreSlot, id, row) for each row inside entityService.writeInBatch; a label or note patch assigns slot.entity in ' +
         'place and calls slotContentService.markEntityChanged with that one column, a group or rank move is slotContentService.updateEntityColumn on the slot entityService.getSlotByKey returns; ' +
-        'a createOIMSlotCollectionIndexService with an OIMSetBucketContentService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf, and a ' +
+        'a createOIMSlotCollectionIndexService with an OIMSetBucketContentService over the group column, with indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from selectKey, and a ' +
         'createOIMSortedComputedService over that index service (rank then id, as sortColumns, so only a write that ' +
         'changes rank or id on a member re-sorts), read through createSortedStoreSlot(indexStoreSlot), keeps the order of a held group as a computed slot; the ' +
         'read views wake on that order too, one per index; the churn chain levels are slots of one ' +
@@ -1119,7 +1119,7 @@ export const oimdbAdapter: TAdapter = oimdbAdapterWith({
         'writeSlotContentByKey and its slotContentService\'s updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the ' +
         'library\'s own OIMEffectService effect over a slot, a column, a bucket or an index order, ' +
         'delivered at the frame flush; the GROUP FILING and the ORDER are the library\'s too, an OIMSlotCollectionIndexService ' +
-        'whose keyOf runs on each write, moves the row between its buckets itself and ' +
+        'whose selectKey runs on each write, moves the row between its buckets itself and ' +
         'an OIMSortedComputedService re-sorts a held group\'s order when a write touches the sorter\'s columns.',
 }, GROUP_ORDER_SORTED_AT_READ);
 
@@ -1128,7 +1128,7 @@ export const oimdbSortedIndexAdapter: TAdapter = oimdbAdapterWith({
     docs:
         'packages/core/dist (the built package, as a consumer gets it) — the same wiring as the oimdb row ' +
         'except for group order: a createOIMSlotCollectionSortedArrayIndexService over the group column with sortColumns ' +
-        'rank then id, and indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from keyOf and keeps every bucket in that order at ' +
+        'rank then id, and indexService.createIndexStoreSlot(entityStoreSlot) as its instance, files each write into its buckets from selectKey and keeps every bucket in that order at ' +
         'the write, so there is no createOIMSortedComputedService; a window or read view reads its page ' +
         'with indexService.slotContentService.getBucketMemberSlotCount and getBucketMemberSlotAt from its offset, and its order effect has the ' +
         'held bucket slot as a root slot, which the index writes when membership changes or a member\'s rank ' +
@@ -1139,6 +1139,6 @@ export const oimdbSortedIndexAdapter: TAdapter = oimdbAdapterWith({
         'writeSlotContentByKey and its slotContentService\'s updateEntityColumn and markEntityChanged, and read back as slot.entity — and the change signal is the ' +
         'library\'s own OIMEffectService effect over a slot, a column or a bucket, ' +
         'delivered at the frame flush; the GROUP FILING and the ORDER are the library\'s too, an OIMSlotCollectionSortedArrayIndexService ' +
-        'whose keyOf runs on each write, moves the row between its buckets itself and ' +
+        'whose selectKey runs on each write, moves the row between its buckets itself and ' +
         'keeps each bucket sorted by rank then id at the write.',
 }, GROUP_ORDER_SORTED_AT_WRITE);

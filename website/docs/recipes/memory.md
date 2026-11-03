@@ -42,7 +42,7 @@ const deckCards = deckCardService.createStoreSlot(db);
 const deckCardsByDeckService = createOIMSlotCollectionIndexService({
     defaults: screenDefaults,
     entityService: deckCardService,
-    keyOf: (card: Card) => card.deckId,
+    selectKey: (card: Card) => card.deckId,
 });
 const deckCardsByDeck = deckCardsByDeckService.createIndexStoreSlot(deckCards);
 

@@ -49,7 +49,7 @@ export class OIMSlotContentChangeListenerService {
     public addListenerReadColumn<TSlot extends TOIMSlot, TPatch>(
         storeSlot: TOIMStoreSlot<unknown, TSlot, TPatch>, listener: IOIMSlotContentChangeListener<TSlot, TPatch>, columnName: string,
     ): void {
-        const listenerReadColumns = this.listenerReadColumnsOf(storeSlot, listener);
+        const listenerReadColumns = this.peekListenerReadColumns(storeSlot, listener);
         const addedColumnNames = listenerReadColumns.addedColumnNames;
         if (addedColumnNames.has(columnName)) return;
         addedColumnNames.add(columnName);
@@ -59,7 +59,7 @@ export class OIMSlotContentChangeListenerService {
     public addListenerReadAnyColumn<TSlot extends TOIMSlot, TPatch>(
         storeSlot: TOIMStoreSlot<unknown, TSlot, TPatch>, listener: IOIMSlotContentChangeListener<TSlot, TPatch>,
     ): void {
-        const listenerReadColumns = this.listenerReadColumnsOf(storeSlot, listener);
+        const listenerReadColumns = this.peekListenerReadColumns(storeSlot, listener);
         if (listenerReadColumns.isAnyColumnAdded) return;
         listenerReadColumns.isAnyColumnAdded = true;
         this.addReadAnyColumn(storeSlot);
@@ -87,7 +87,7 @@ export class OIMSlotContentChangeListenerService {
         if (storeSlot.allColumnsListenerCount !== 0) (storeSlot as TOIMEditable<TOIMStoreSlot>).allColumnsListenerCount--;
     }
 
-    private listenerReadColumnsOf<TSlot extends TOIMSlot, TPatch>(
+    private peekListenerReadColumns<TSlot extends TOIMSlot, TPatch>(
         storeSlot: TOIMStoreSlot<unknown, TSlot, TPatch>, listener: IOIMSlotContentChangeListener<TSlot, TPatch>,
     ): TOIMSlotContentChangeListenerReadColumns {
         const at = (storeSlot.contentChangeListeners as IOIMSlotContentChangeListener<TSlot, TPatch>[]).indexOf(listener);

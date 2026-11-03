@@ -467,10 +467,10 @@ An entity at the wrong POSITION would still print under a caveat stated in terms
 
 `OIMIndex` listens to its source collection's content changes and re-files a row
 on every write; the arm is `sweep.grouped-column.index-in-place` and
-`…index-replacing`. The writer is swept on the index arm, where `keyOf` reads the
+`…index-replacing`. The writer is swept on the index arm, where `selectKey` reads the
 entity the writer produced.
 
-The shipped `OIMIndex` takes one `keyOf` returning one key, so there is no
+The shipped `OIMIndex` takes one `selectKey` returning one key, so there is no
 several-address source to price.
 
 Every manual arm reads `stored.group` before `updateEntity`, and the replacing

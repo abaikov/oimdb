@@ -78,7 +78,7 @@ key. The store service decides which: a single is built over
 
 | kind | single | collection |
 |---|---|---|
-| entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `peekSingleSlot` | `createOIMSlotCollectionService({ keyOf })`: `getSlotByKey`, `holdSlotByKey`, `peekSlotByKey` |
+| entity | `createOIMSingleSlotService()`: `getSingleSlot`, `holdSingleSlot`, `peekSingleSlot` | `createOIMSlotCollectionService({ selectKey })`: `getSlotByKey`, `holdSlotByKey`, `peekSlotByKey` |
 | bucket | `createOIMSingleSlotService()` | `createOIMSlotCollectionService()`, or an index |
 | computed | `createOIMSingleComputedService({ … })`, read through the service itself (`getSingleSlot`, `holdSingleSlot`) | `createOIMComputedService({ … })` |
 

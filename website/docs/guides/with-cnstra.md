@@ -66,7 +66,7 @@ its list instead of rebuilding it. The `OIMDB` itself is the cnstra global:
 const createTodoSchema = (db: OIMDB) => {
     const todos = createOIMEntitySlotCollectionStoreAggregate<TTodo>(db);
     const todosByDone = createOIMSlotCollectionIndexStoreAggregate(todos, {
-        keyOf: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
+        selectKey: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
         slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TTodo>, string>({
             bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }),
         }),

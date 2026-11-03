@@ -76,8 +76,8 @@ function buildWorld(withLinkedIndex: boolean) {
         decksService,
         decks,
         withLinkedIndex
-            ? { reducer: passThroughChildReducer, keyOf: deck => deck.id, linkedIndexes }
-            : { reducer: passThroughChildReducer, keyOf: deck => deck.id },
+            ? { reducer: passThroughChildReducer, selectKey: deck => deck.id, linkedIndexes }
+            : { reducer: passThroughChildReducer, selectKey: deck => deck.id },
     );
 
     const store: Store = createStore(

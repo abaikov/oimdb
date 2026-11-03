@@ -2,7 +2,7 @@ import type { TOIMEntitySlot, TOIMStoreKey } from '@oimdb/core';
 import type { TOIMReduxLinkedIndex } from '../types/TOIMReduxLinkedIndex';
 
 export class OIMReduxLinkedIndexesUpdater<TEntity extends object> {
-    public constructor(private readonly keyOf: (entity: TEntity) => TOIMStoreKey) {}
+    public constructor(private readonly selectKey: (entity: TEntity) => TOIMStoreKey) {}
 
     public updateLinkedIndexesForEntities<TLinkedEntity extends object, TBucketStore, TLinkedEntityStore>(
         linkedIndexes: ReadonlyArray<TOIMReduxLinkedIndex<TEntity, TLinkedEntity, TBucketStore, TLinkedEntityStore>>,
@@ -12,7 +12,7 @@ export class OIMReduxLinkedIndexesUpdater<TEntity extends object> {
 
         for (let i = 0; i < updatedEntities.length; i++) {
             const entity = updatedEntities[i];
-            const storeKey = this.keyOf(entity);
+            const storeKey = this.selectKey(entity);
 
             for (let j = 0; j < linkedIndexes.length; j++) {
                 const linkedIndex = linkedIndexes[j];
@@ -35,7 +35,7 @@ export class OIMReduxLinkedIndexesUpdater<TEntity extends object> {
 
     /**
      * Keys and not entities, because a removed entity is gone from the state the
-     * caller holds. They must come from the runtime's own slots or from `keyOf`,
+     * caller holds. They must come from the runtime's own slots or from `selectKey`,
      * never from a record's stringified key.
      */
     public removeLinkedIndexesByKeys<TLinkedEntity extends object, TBucketStore, TLinkedEntityStore>(

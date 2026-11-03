@@ -14,7 +14,7 @@ const createFixture = () => {
     const byDeckService = createOIMSlotCollectionIndexService<
         TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
         Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
-    >({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    >({ entityService: cardsService, selectKey: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', rank: 1, title: 't' });
     const rank = byDeckService.holdBucketColumnSlotByKey(byDeck, 'd', 'rank');

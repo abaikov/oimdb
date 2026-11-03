@@ -34,7 +34,7 @@ const searchResultService = createOIMSlotCollectionService({ slotContentService:
 const searchResults = searchResultService.createStoreSlot(db);
 const cardsByDeckService = createOIMSlotCollectionIndexService({
   entityService: cardService,
-  keyOf: (card: Card) => card.deckId,
+  selectKey: (card: Card) => card.deckId,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({
@@ -182,7 +182,7 @@ function Deck({ deckId }: { deckId: string }) {
 }
 ```
 
-**Why this way:** an index files each entity under `keyOf` by itself, and writes
+**Why this way:** an index files each entity under `selectKey` by itself, and writes
 the bucket slot when a member arrives or leaves, so the list re-renders on
 membership and each item on its own entity. For a group in a column order, own a
 derivation over the index instead, as in the next recipe.

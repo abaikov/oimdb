@@ -42,7 +42,7 @@ type TCard = { id: string; deck: string; title: string; rank: number };
 ```typescript setup
 const createCardSchema = (db: OIMDB) => {
     const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);
-    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });
+    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { selectKey: (card) => card.deck });
     return { cards, byDeck };
 };
 
@@ -153,8 +153,8 @@ deckCards.getSlotByKey('c2').updateEntity({ deck: 'hearts' });
 byDeck.getEntitiesByKey('spades');                          // [Ace]: the Two moved to 'hearts'
 ```
 
-`createOIMSlotCollectionIndexStoreAggregate(collection, { keyOf })` files every entity of the collection under the
-key `keyOf` returns, and moves it when that key changes; `{ columns: ['deck'] }` does the same from column values.
+`createOIMSlotCollectionIndexStoreAggregate(collection, { selectKey })` files every entity of the collection under the
+key `selectKey` returns, and moves it when that key changes; `{ columns: ['deck'] }` does the same from column values.
 
 | Call | What it does |
 |---|---|
@@ -190,7 +190,7 @@ service's sorted store slot:
 ```typescript
 const createRankSchema = (db: OIMDB) => {
     const rankCards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);
-    const rankByDeck = createOIMSlotCollectionIndexStoreAggregate(rankCards, { keyOf: (card) => card.deck });
+    const rankByDeck = createOIMSlotCollectionIndexStoreAggregate(rankCards, { selectKey: (card) => card.deck });
     const byRankService = createOIMSortedComputedService({ indexService: rankByDeck.slotService, sortColumns: [{ columnName: 'rank', direction: 'asc' }] });
     const byRank = byRankService.createStoreAggregate(byRankService.createSortedStoreSlot(rankByDeck.storeSlot));
     return { rankCards, byRank };

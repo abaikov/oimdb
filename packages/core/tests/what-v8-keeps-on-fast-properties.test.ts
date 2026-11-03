@@ -17,7 +17,7 @@ type TCard = { id: string; deck: string; rank: number; note?: string };
 
 const CARDS = 50;
 
-const slotOwnerServiceOf = (collectionService: object): object =>
+const peekEntitySlotOwnerService = (collectionService: object): object =>
     (collectionService as unknown as { slotOwnerService: object }).slotOwnerService;
 
 const exercise = (dbOptions: TOIMDBOptions) => {
@@ -27,7 +27,7 @@ const exercise = (dbOptions: TOIMDBOptions) => {
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => card.deck,
+        selectKey: (card: TCard) => card.deck,
         slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -95,9 +95,9 @@ describe.each(dbOptionsByPolicy)('what V8 keeps on fast properties, under %s', (
         const { db, cards, cardsService, byDeck, byDeckService, top, topService } = exercise(dbOptionsFor());
         for (const object of [
             topService.getSingleSlot(top), db.defaultChannelSlot, db, top,
-            slotOwnerServiceOf(topService), topService.slotContentService,
-            cards, cardsService, slotOwnerServiceOf(cardsService),
-            byDeck, byDeckService, byDeckService.slotContentService, slotOwnerServiceOf(byDeckService),
+            peekEntitySlotOwnerService(topService), topService.slotContentService,
+            cards, cardsService, peekEntitySlotOwnerService(cardsService),
+            byDeck, byDeckService, byDeckService.slotContentService, peekEntitySlotOwnerService(byDeckService),
         ]) {
             expect(hasFastProperties(object)).toBe(true);
         }

@@ -35,7 +35,7 @@ const makeIndex = (
     >({
         entityService: cardsService,
         slotContentService: new OIMSetBucketContentService<TCardRow, string>(),
-        keyOf: card => card.deck,
+        selectKey: card => card.deck,
     });
     return { byDeckService, byDeck: byDeckService.createIndexStoreSlot(cards) };
 };

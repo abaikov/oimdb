@@ -14,14 +14,14 @@ type TIndexDeliveries = {
     updateIndexKeysForSlots: (...args: unknown[]) => void;
 };
 
-function setUp(keyOf: (card: TCard) => string = card => card.deck) {
+function setUp(selectKey: (card: TCard) => string = card => card.deck) {
     const db = new OIMDB();
     const cardsService = createOIMSlotCollectionService({
         slotContentService: createOIMEntityContentService<TCard>(),
     });
     const cards = cardsService.createStoreSlot(db);
     const bucketService = new OIMPositionalArrayBucketContentService<TCardSlot, string>();
-    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf, slotContentService: bucketService });
+    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, selectKey, slotContentService: bucketService });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const spades = byDeckService.holdSlotByKey(byDeck, 'spades');
     const indexDeliveries = OIMSlotCollectionIndexService.prototype as unknown as TIndexDeliveries;
@@ -96,12 +96,12 @@ describe('writes inside a batch', () => {
 describe('a write an index throws on', () => {
     it('stays written: the throw reaches the caller and nothing is rolled back', () => {
         const { cardsService, cards } = setUp(card => {
-            if (card.title === 'bad') throw new Error('keyOf refused this card');
+            if (card.title === 'bad') throw new Error('selectKey refused this card');
             return card.deck;
         });
 
         expect(() => cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'bad' }))
-            .toThrow('keyOf refused this card');
+            .toThrow('selectKey refused this card');
 
         expect(cardsService.hasSlotContentByKey(cards, 'c1')).toBe(true);
     });

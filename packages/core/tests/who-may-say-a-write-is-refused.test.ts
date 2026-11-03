@@ -197,7 +197,7 @@ const cardEntityService = () => createOIMSlotCollectionService({ slotContentServ
 type TCardEntityService = ReturnType<typeof cardEntityService>;
 
 const cardIndexService = () => createOIMSlotCollectionIndexService({
-    entityService: cardEntityService(), keyOf: (card: TCard) => card.title,
+    entityService: cardEntityService(), selectKey: (card: TCard) => card.title,
 });
 type TCardIndexService = ReturnType<typeof cardIndexService>;
 type TCardStoreSlot = ReturnType<TCardEntityService['createStoreSlot']>;

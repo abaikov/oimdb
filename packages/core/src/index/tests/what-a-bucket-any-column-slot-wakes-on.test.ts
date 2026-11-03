@@ -30,7 +30,7 @@ function setUp() {
     >({
         entityService: cardsService,
         slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
-        keyOf: card => card.deck,
+        selectKey: card => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const updateTitleOf = (key: string, patch: Partial<TCard>): void => {

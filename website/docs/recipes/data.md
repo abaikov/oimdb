@@ -132,7 +132,7 @@ Reference: [Lifecycle](/docs/core/lifecycle),
 
 ## One-to-many: messages by chat
 
-Take: an index on the foreign key — `createOIMSlotCollectionIndexService({ entityService, keyOf })`,
+Take: an index on the foreign key — `createOIMSlotCollectionIndexService({ entityService, selectKey })`,
 then `createIndexStoreSlot(entityStoreSlot)` for the store slot it files.
 Do not keep an array of message ids on the chat entity: nothing would keep it in
 step with writes to messages.
@@ -140,7 +140,7 @@ step with writes to messages.
 ```ts
 const messagesByChatService = createOIMSlotCollectionIndexService({
     entityService: messageService,
-    keyOf: (message: Message) => message.chatId,
+    selectKey: (message: Message) => message.chatId,
 });
 const messagesByChat = messagesByChatService.createIndexStoreSlot(messages);
 
@@ -158,11 +158,11 @@ chatBucket.unholdSlot();
 ```
 
 Why this way: membership is a function of the entity, so every write can decide
-it: the index files the entity's slot under `keyOf(entity)` through the source's
+it: the index files the entity's slot under `selectKey(entity)` through the source's
 content-change hook, and moves it when the key changes. The bucket wakes on
 membership only — an edit to a message that stays in the chat does not wake it;
 each message is read or subscribed through its own slot. A key nobody minted a
-bucket for is not maintained at all: a write under it costs one `keyOf`, one
+bucket for is not maintained at all: a write under it costs one `selectKey`, one
 comparison and, when the key changed, one write of the entity's index-key cell. The buckets keep arrival
 order; for messages sorted by a column see [Lists](/docs/recipes/lists).
 
@@ -185,12 +185,12 @@ const membershipService = createOIMSlotCollectionService({ slotContentService: c
 const memberships = membershipService.createStoreSlot(db);
 const membershipsByUserService = createOIMSlotCollectionIndexService({
     entityService: membershipService,
-    keyOf: (membership: Membership) => membership.userId,
+    selectKey: (membership: Membership) => membership.userId,
 });
 const membershipsByUser = membershipsByUserService.createIndexStoreSlot(memberships);
 const membershipsByGroupService = createOIMSlotCollectionIndexService({
     entityService: membershipService,
-    keyOf: (membership: Membership) => membership.groupId,
+    selectKey: (membership: Membership) => membership.groupId,
 });
 const membershipsByGroup = membershipsByGroupService.createIndexStoreSlot(memberships);
 
@@ -227,7 +227,7 @@ Reference: [Indexes](/docs/core/oimindex).
 ## Key an entity by more than one field
 
 Take: an entity collection over `OIMSlotTreeStoreService`,
-handed `OIMScalarKeyTreeWalk.INSTANCE`, with `keyOf` returning the parts in
+handed `OIMScalarKeyTreeWalk.INSTANCE`, with `selectKey` returning the parts in
 order. Do not join the parts into one string: an encoding has to be injective, and
 a join on a separator is not.
 

@@ -13,7 +13,7 @@ const createConnectionSchema = (db: OIMDB) => ({
 
 const createCardSchema = (db: OIMDB, connectionSchema: ReturnType<typeof createConnectionSchema>) => {
     const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);
-    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });
+    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { selectKey: (card) => card.deck });
     const visibleSpadeCountService = createOIMSingleSourceTrackingComputedService<number>({
         derive: () => (connectionSchema.connections.getSlotByKey('self').entity?.isOnline === true
             ? byDeck.getSlotByKey('spades').getBucketMemberSlotCount() : 0),

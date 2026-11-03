@@ -39,7 +39,7 @@ export class OIMSlotCollectionIndexService<
 > {
     protected readonly bucketContentService: TBucketContentService;
 
-    private readonly keyOf: (entity: TEntity) => TKey;
+    private readonly selectKey: (entity: TEntity) => TKey;
 
     private readonly keyColumns: readonly string[] | undefined;
 
@@ -51,7 +51,7 @@ export class OIMSlotCollectionIndexService<
     public constructor(options: TOIMSlotCollectionIndexServiceOptions<TKey, TEntity, TBucketSlot, TStore, TBucketContentService, TSourceKey, TSourceStore>) {
         super(options);
         this.bucketContentService = options.slotContentService;
-        this.keyOf = options.keyOf;
+        this.selectKey = options.selectKey;
         this.keyColumns = options.columns;
         this.sourceSlotCollectionService = options.sourceSlotCollectionService;
         this.indexKeysService = options.indexKeysService;
@@ -249,7 +249,7 @@ export class OIMSlotCollectionIndexService<
         entitySlotsByMintedBucketSlot: Map<TBucketSlot, TOIMEntitySlot<TEntity, TSourceKey>[]>,
     ): void {
         for (const entitySlot of this.sourceSlotCollectionService.getSlots(indexStoreSlot.sourceStoreSlot)) {
-            const nextKey = this.nextKeyOf(entitySlot);
+            const nextKey = this.selectNextKey(entitySlot);
             if (nextKey === undefined) continue;
             const bucketSlot = this.peekSlotByKey(indexStoreSlot, nextKey);
             if (bucketSlot !== undefined) entitySlotsByMintedBucketSlot.get(bucketSlot)?.push(entitySlot);
@@ -262,9 +262,9 @@ export class OIMSlotCollectionIndexService<
         }
     }
 
-    private nextKeyOf(entitySlot: TOIMEntitySlot<TEntity, TSourceKey>): TKey | undefined {
+    private selectNextKey(entitySlot: TOIMEntitySlot<TEntity, TSourceKey>): TKey | undefined {
         const entity = (entitySlot as unknown as OIMEntitySlot<TEntity>).content;
-        return entity === undefined ? undefined : this.keyOf(entity);
+        return entity === undefined ? undefined : this.selectKey(entity);
     }
 
     private isKeyColumnChanged(changedColumns: readonly string[] | undefined): boolean {
@@ -386,7 +386,7 @@ export class OIMSlotCollectionIndexService<
         const prevKey = indexKeysService.get<TKey>(entitySlot, indexKeysPosition);
         let nextKey: TKey | undefined;
         try {
-            nextKey = isKeyColumnChanged ? this.nextKeyOf(entitySlot) : prevKey;
+            nextKey = isKeyColumnChanged ? this.selectNextKey(entitySlot) : prevKey;
         } catch (error) {
             indexKeysService.set(entitySlot, indexKeysPosition, undefined);
             throw error;
@@ -408,7 +408,7 @@ export class OIMSlotCollectionIndexService<
     ): TOIMEntitySlot<TEntity, TSourceKey>[] {
         const matchingEntitySlots: TOIMEntitySlot<TEntity, TSourceKey>[] = [];
         for (const entitySlot of this.sourceSlotCollectionService.getSlots(indexStoreSlot.sourceStoreSlot)) {
-            const nextKey = this.nextKeyOf(entitySlot);
+            const nextKey = this.selectNextKey(entitySlot);
             if (nextKey === undefined || !this.isSameKey(key, nextKey)) continue;
             matchingEntitySlots.push(entitySlot);
         }

@@ -28,23 +28,23 @@ export type TScenarioTable = {
     missing: readonly string[];
 };
 
-const keyOf = (row: TTableRow): number => row.measured.ratioToAnchor ?? row.measured.min;
+const selectKey = (row: TTableRow): number => row.measured.ratioToAnchor ?? row.measured.min;
 
 const toleranceOf = (row: TTableRow): number =>
     row.measured.drift + (row.record.batch.anchor?.drift ?? 0);
 
 const separated = (lower: TTableRow, upper: TTableRow): boolean => {
-    const low = keyOf(lower);
+    const low = selectKey(lower);
     if (low <= 0) return false;
     const sameBatch = lower.record.batch.id === upper.record.batch.id;
     const tolerance = sameBatch
         ? Math.max(lower.measured.drift, upper.measured.drift)
         : Math.max(toleranceOf(lower), toleranceOf(upper));
-    return (keyOf(upper) - low) / low > tolerance;
+    return (selectKey(upper) - low) / low > tolerance;
 };
 
 const placed = (rows: TTableRow[]): TTableRow[] => {
-    rows.sort((a, b) => keyOf(a) - keyOf(b));
+    rows.sort((a, b) => selectKey(a) - selectKey(b));
     return rows.map((row, index) => ({
         ...row,
         place:

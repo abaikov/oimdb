@@ -108,7 +108,7 @@ the slot — `slot.value`. Outside an effect body,
 ```ts
 import { OIMSingleSlotStoreService, type TOIMComputedSlot, type TOIMSingleSlotStore } from '@oimdb/core';
 
-const cardsByDeckService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deckId });
+const cardsByDeckService = createOIMSlotCollectionIndexService({ entityService: cardService, selectKey: (card: Card) => card.deckId });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const spades = cardsByDeckService.holdSlotByKey(cardsByDeck, 'spades');
 

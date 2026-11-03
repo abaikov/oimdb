@@ -19,7 +19,7 @@ const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollec
 >({
     entityService: cardsService,
     slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
-    keyOf: (card: TCard) => card.deck,
+    selectKey: (card: TCard) => card.deck,
 });
 
 describe('a bucket filled by a scan of the source after a hand mutation', () => {

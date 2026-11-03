@@ -44,10 +44,10 @@ const createFixture = (indexKeysService: IOIMIndexKeysService) => {
     const cardsService = createOIMSlotCollectionService({ defaults, slotContentService: createOIMEntityContentService<TCard>({ defaults }), slotStoreService: entitySlotStoreService });
     const cards = cardsService.createStoreSlot(db);
     const bucketSlotStoreService = new OIMSlotStoreServiceCountingGets<TBucket>();
-    const makeIndex = (keyOf: (card: TCard) => string) => {
+    const makeIndex = (selectKey: (card: TCard) => string) => {
         const service = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
-            keyOf,
+            selectKey,
             slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
             bucketSlotStoreService,
         });

@@ -64,15 +64,15 @@ content-change listener on that source collection. Every write delivers the
 written entity slot to it, and the index does this per slot:
 
 1. reads the key it last filed the slot under, from the slot's own `indexKeys` cell;
-2. computes `keyOf(entity)`;
+2. computes `selectKey(entity)`;
 3. if the two are equal, membership did not change, and no bucket is edited — only the
    bucket's any-column slot and bucket column slots are marked, only if somebody has
    asked for them (they wake on membership too, in step 4, since their value lists the members);
 4. if they differ, it writes the new key into the cell, removes the slot from the old
    bucket and adds it to the new one. A bucket that is not minted is skipped: a key
-   nobody asked for costs the `keyOf`, the comparison and the cell write, and nothing else.
+   nobody asked for costs the `selectKey`, the comparison and the cell write, and nothing else.
 
-The cost of a write is one `keyOf`, one cell read and at most two bucket edits. It does not
+The cost of a write is one `selectKey`, one cell read and at most two bucket edits. It does not
 depend on how many entities the collection holds or how many buckets the index has. A batch
 of writes is grouped by key first, so each bucket is edited once per batch.
 
@@ -144,7 +144,7 @@ const cards = cardService.createStoreSlot(db);
 
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const cardsByRankService = createOIMSortedComputedService({

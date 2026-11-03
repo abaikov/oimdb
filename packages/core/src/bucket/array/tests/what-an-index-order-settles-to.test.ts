@@ -41,7 +41,7 @@ function ordered(entities: readonly TRanked[]) {
     const cards = cardsService.createStoreSlot(db);
     const byAllService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (_card: TRanked): string => 'all',
+        selectKey: (_card: TRanked): string => 'all',
     });
     const byAll = byAllService.createIndexStoreSlot(cards);
     const ordersService = createOIMSortedComputedService({

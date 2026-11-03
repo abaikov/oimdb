@@ -70,10 +70,10 @@ describe('what an index store aggregate reads', () => {
         expect(byDeckStoreAggregate.getBucketColumnSlotByKey('spades', 'id')).toBe(idColumn);
     });
 
-    it('is built over a collection store aggregate in one call, with keyOf typed from the collection', () => {
+    it('is built over a collection store aggregate in one call, with selectKey typed from the collection', () => {
         const { db, cardStoreAggregate } = createFixture();
 
-        const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, { keyOf: (card) => card.deck });
+        const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(cardStoreAggregate, { selectKey: (card) => card.deck });
         cardStoreAggregate.writeSlotContentByKey('c4', { id: 'c4', deck: 'clubs' });
         db.flush();
 

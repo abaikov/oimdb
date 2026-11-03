@@ -45,7 +45,7 @@ const createCardSchema = (db: OIMDB, defaults: OIMDefaults) => {
         defaults,
         slotReleasePolicy: new OIMSlotAfterIdleReleasePolicy({ keepAfterIdleMs: 30_000 }),
     });
-    const cardsByDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });
+    const cardsByDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { selectKey: (card) => card.deck });
     return { cards, archivedCards, cardsByDeck };
 };
 

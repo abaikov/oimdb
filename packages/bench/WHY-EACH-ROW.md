@@ -1952,20 +1952,20 @@ index on `group`, a sorted order on `rank, id`, the entity watched through a
 `['rank', 'label']` column group (load average 7, two runs): preact 72–77, mark door alone
 107–115, + column-group subscription 90–96, + index 155–165, + both 137–143,
 `updateEntityByKey` + both 179–187 ns/step. The index costs ~45 ns per write of a column its
-`keyOf` never reads: `OIMIndex.updateIndexKeyForSlot` calls `keyOf`, compares, and calls
-`markBucketColumnsChanged`, because a `keyOf` function does not say which columns it reads.
+`selectKey` never reads: `OIMIndex.updateIndexKeyForSlot` calls `selectKey`, compares, and calls
+`markBucketColumnsChanged`, because a `selectKey` function does not say which columns it reads.
 
 Taking the index apart on the same probe (mark door + index + column-group subscription, load
-average 4–5, three runs): as is 136–158; `keyOf` and the key compare skipped when `group`
+average 4–5, three runs): as is 136–158; `selectKey` and the key compare skipped when `group`
 is not among the changed columns 129–141; the whole `updateIndexKeyForSlot` skipped
-114–117; no index at all 89–91 ns. So `keyOf` is ~8 ns, `markBucketColumnsChanged` (bucket
+114–117; no index at all 89–91 ns. So `selectKey` is ~8 ns, `markBucketColumnsChanged` (bucket
 lookup, assert, a lookup per changed column) ~20 ns, and the remaining ~25 ns is the
 content-change listener plumbing itself: the changed-names array, the three subframe arrays
 pushed and popped, the delivery call.
 
 After the index took `columns` (`{ columns: ['group'] }`, the key read again only when `group`
-is among the changed columns), same probe, load average 8, three runs: `keyOf` index 136–139,
-`columns` index 130–142, no index 88–94 ns. The ~8 ns `keyOf` share does not show above the
+is among the changed columns), same probe, load average 8, three runs: `selectKey` index 136–139,
+`columns` index 130–142, no index 88–94 ns. The ~8 ns `selectKey` share does not show above the
 noise; the ~45 ns that remain are `markBucketColumnsChanged` and the listener plumbing.
 
 Then `OIMIndex` keeps the names of the columns its bucket column slots were handed out for

@@ -16,7 +16,7 @@ describe('an index the root mints with nothing but a source and a key', () => {
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: card => card.deck,
+            selectKey: card => card.deck,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
@@ -36,7 +36,7 @@ describe('an index the root mints with nothing but a source and a key', () => {
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: card => card.deck,
+            selectKey: card => card.deck,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);

@@ -17,7 +17,7 @@ describe('a comparator that reads a different index order', () => {
         const others = othersService.createStoreSlot(db);
         const otherByGroupService = createOIMSlotCollectionIndexService({
             entityService: othersService,
-            keyOf: (card: TCard) => card.group,
+            selectKey: (card: TCard) => card.group,
         });
         const otherByGroup = otherByGroupService.createIndexStoreSlot(others);
         const otherByGroupOrdersService = createOIMSortedComputedService({
@@ -34,7 +34,7 @@ describe('a comparator that reads a different index order', () => {
         const cards = cardsService.createStoreSlot(db);
         const byGroupService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: (card: TCard) => card.group,
+            selectKey: (card: TCard) => card.group,
         });
         const byGroup = byGroupService.createIndexStoreSlot(cards);
         const byGroupOrdersService = createOIMSortedComputedService({

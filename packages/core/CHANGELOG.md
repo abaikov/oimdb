@@ -3,6 +3,12 @@
 All notable changes to `@oimdb/core` are recorded here. This file starts at 4.0.0; releases
 before it were not changelogged.
 
+## 4.10.0
+
+### Changed
+
+- Index option `keyOf` → `selectKey`.
+
 ## 4.9.0
 
 ### Added

@@ -5,9 +5,9 @@ export type TOIMIndexKeyOptions<
     TKey, TEntity extends object,
     TColumns extends readonly TOIMColumnName<TEntity>[] = readonly TOIMColumnName<TEntity>[],
 > = {
-    keyOf: (entity: TEntity) => TKey;
+    selectKey: (entity: TEntity) => TKey;
     columns?: TColumns;
 } | {
-    keyOf?: undefined;
+    selectKey?: undefined;
     columns: [TKey] extends [never] ? never : [TKey] extends [TOIMIndexKey<TEntity, TColumns>] ? TColumns : never;
 };

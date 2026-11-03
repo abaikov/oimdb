@@ -779,7 +779,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'OTHER WRITE ROW. It says a Map-keyed floor pays a hash our identity path does not, ' +
             'which flatters us. Here it is the reverse: the floor is handed `held[i]` by its index ' +
             'and never looks anything up, while ours is handed a ROW and must resolve its key — ' +
-            '`keyOf` and then the store lookup inside `writeContentByKey`, a `Map.get` over eight ' +
+            '`selectKey` and then the store lookup inside `writeContentByKey`, a `Map.get` over eight ' +
             'thousand string keys. That lookup is inside our number and outside the floor\'s, so this row overstates ' +
             'what the design costs a caller who already holds the identity. ' +
             '`upsert.whole-row-vs-map-get-and-five-stores` is the same measurement with the lookup ' +
@@ -846,7 +846,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
         floor: 'const stored = map.get(row.id); then copy five columns onto it',
         caveat:
             'THE ROW ABOVE, WITH THE LOOKUP PUT BACK ON THE FLOOR. `writeSlotContentByKey` is handed a ROW and not ' +
-            'an identity, so it calls `keyOf` and then `writeContentByKey` — a `Map.get` over eight ' +
+            'an identity, so it calls `selectKey` and then `writeContentByKey` — a `Map.get` over eight ' +
             'thousand string keys — before it can write anything. The floor of ' +
             '`upsert.whole-row-vs-five-stores` is handed `held[i]` by its loop index and never ' +
             'looks anything up, which makes that row the one write row in this suite where the ' +
@@ -1033,7 +1033,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             'THE INDEX IS AUTOMATIC AGAIN, SO THIS IS THE ORIGINAL QUESTION. The `OIMSlotCollectionIndexService` store slot hears its ' +
             'source collection through a content-change listener: `updateEntity` marks the row, the ' +
             'listener reads the key the row was last filed under from the row\'s own ' +
-            '`indexKeys` cell, compares it with `keyOf(entity)` and moves the slot with ' +
+            '`indexKeys` cell, compares it with `selectKey(entity)` and moves the slot with ' +
             '`removeBucketMemberSlotByKey` + `addBucketMemberSlotByKey`. The caller writes one ' +
             'column and nothing else. All sixty-four buckets are held before the clock, because ' +
             'an index files only into buckets that exist. A reading recorded under this id while ' +
@@ -1052,7 +1052,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const indexService = createOIMSlotCollectionIndexService({
                 entityService: fixture.entityService,
                 slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-                keyOf: (row: TPriceDataRow) => row.group,
+                selectKey: (row: TPriceDataRow) => row.group,
             });
             const names = priceDataset.groupNames();
             const indexStoreSlot = indexService.createIndexStoreSlot(fixture.entityStoreSlot);
@@ -1197,7 +1197,7 @@ export const pricePairsWrite: readonly TPricePair[] = [
             const indexService = createOIMSlotCollectionIndexService({
                 entityService,
                 slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-                keyOf: (row: TPriceDataRow) => row.group,
+                selectKey: (row: TPriceDataRow) => row.group,
             });
             let slots: TOIMEntitySlot<TPriceDataRow, TOIMStoreKey>[] = [];
             let map = new Map<string, TPriceDataRow>();

@@ -501,7 +501,7 @@ for (const bucket of Array.from(byDeckService.getSlots(byDeck))) bucket.clearSlo
 ## Where to next
 
 <DocCards>
-<DocCard to="/docs/core/oimindex" title="Indexes">Buckets filled from a source collection by `keyOf`, and sorted views over them.</DocCard>
+<DocCard to="/docs/core/oimindex" title="Indexes">Buckets filled from a source collection by `selectKey`, and sorted views over them.</DocCard>
 <DocCard to="/docs/core/index-shape" title="Why an index looks like this">Push for membership, pull for order.</DocCard>
 <DocCard to="/docs/core/writing" title="Writing">Why a `remove` leaves a bucket's slots standing.</DocCard>
 <DocCard to="/docs/core/reading-subscribing" title="Reading and subscribing">The "live" rule.</DocCard>

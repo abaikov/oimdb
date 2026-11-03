@@ -93,7 +93,7 @@ membership: a computed "cards of the red deck" either never sees a card inserted
 later or rescans every card on every frame.
 
 So **membership is a bucket, pushed**: an `OIMSlotCollectionIndexService` listens to its source collection,
-and each write costs one `keyOf`, one read of the key cached on the slot and at most
+and each write costs one `selectKey`, one read of the key cached on the slot and at most
 two bucket edits, whatever the size of the collection.
 
 And **order is a computed over the bucket**: a sort is needed once per read, not once

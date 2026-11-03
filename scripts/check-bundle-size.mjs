@@ -45,7 +45,7 @@ db.flush();`,
 const db = new OIMDB();
 const userService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService() });
 const users = userService.createStoreSlot(db);
-const byTeamService = createOIMSlotCollectionIndexService({ entityService: userService, keyOf: user => user.team });
+const byTeamService = createOIMSlotCollectionIndexService({ entityService: userService, selectKey: user => user.team });
 const byTeam = byTeamService.createIndexStoreSlot(users);
 userService.writeSlotContentByKey(users, 'u1', { id: 'u1', team: 't1' });
 export const effect = OIMEffectService.INSTANCE.createEffect(db, [byTeamService.getSlotByKey(byTeam, 't1')], [], () => {});

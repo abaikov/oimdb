@@ -79,7 +79,7 @@ describe('a patch names its columns only for someone who reads them', () => {
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({ defaults,
             entityService: cardsService,
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         byDeckService.createIndexStoreSlot(cards);

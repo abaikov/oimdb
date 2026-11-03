@@ -97,7 +97,7 @@ A single is the same content service with the key type `void`, built over
 |---|---|---|
 | `OIMSlotCollectionService` | `slot/OIMSlotCollectionService.ts` | abstract; public `slotContentService`, the keyed reads; the column doors, inherited from `OIMColumnSlotService`; a protected store-slot builder its subclasses expose |
 | `OIMSingleSlotService` | `slot/OIMSingleSlotService.ts` | the same for a single: the single reads and the column doors |
-| `OIMEntityContentService` | `entity/OIMEntityContentService.ts` | `keyOf`; every entity write door |
+| `OIMEntityContentService` | `entity/OIMEntityContentService.ts` | `selectKey`; every entity write door |
 | `OIMBucketContentService` | `bucket/OIMBucketContentService.ts` | abstract; the member writes and reads every bucket strategy has; protected `addSlot`, `removeSlot`, `removeSlots`, `reconcileSlots`, `drainSlots` each strategy implements |
 | `OIMSetBucketContentService` | `bucket/OIMSetBucketContentService.ts` | no positional doors |
 | `OIMPositionalArrayBucketContentService` | `bucket/OIMPositionalArrayBucketContentService.ts` | two positional reads (from `OIMArrayBucketContentService`) and five positional writes |

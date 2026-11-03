@@ -32,7 +32,7 @@ const childReducer = (state: TUsersState | undefined, action: Action): TUsersSta
 
 const childOptions: TOIMReduxCollectionReducerChildOptions<TUser, string, TUsersState> = {
     reducer: childReducer,
-    keyOf: e => e.id,
+    selectKey: e => e.id,
 };
 
 function buildDb() {
@@ -142,7 +142,7 @@ describe('a frame pending before a dispatch', () => {
                 users,
                 {
                     reducer: childReducer,
-                    keyOf: e => e.id,
+                    selectKey: e => e.id,
                     // A write does not re-file a row, so the sync-back that puts
                     // the user into the collection also states which department
                     // bucket it belongs to — the same call an application would

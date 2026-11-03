@@ -19,11 +19,11 @@ export type TOIMReduxCollectionReducerChildOptions<
         nextState: TState,
         entityService: TOIMReduxEntityCollectionService<TEntity, TStore>,
         entityStoreSlot: TOIMStoreSlot<TStore, TOIMEntitySlot<TEntity, TOIMStoreKey>, Partial<TEntity>>,
-        keyOf: (entity: TEntity) => TPk
+        selectKey: (entity: TEntity) => TPk
     ) => void;
 
     /** Defaults to reading `.id`. */
-    keyOf?: (entity: TEntity) => TPk;
+    selectKey?: (entity: TEntity) => TPk;
 
     linkedIndexes?: ReadonlyArray<TOIMReduxLinkedIndex<TEntity, object, TLinkedBucketStore, TLinkedEntityStore>>;
 };

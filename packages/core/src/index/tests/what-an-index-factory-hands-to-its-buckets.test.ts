@@ -20,7 +20,7 @@ describe('an index factory', () => {
         const cards = cardsService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
             slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TCard>, string>({
                 bucketCommands: new OIMBucketCommands({}),
             }),
@@ -47,7 +47,7 @@ describe('an index factory', () => {
         const createStore = jest.spyOn(bucketSlotStoreService, 'createStore');
         createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>, string>(),
             bucketSlotStoreService,
         }).createIndexStoreSlot(cards);

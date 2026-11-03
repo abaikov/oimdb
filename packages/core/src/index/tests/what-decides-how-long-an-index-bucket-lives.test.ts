@@ -29,7 +29,7 @@ const createFixture = (
     let keysRead = 0;
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => { keysRead++; return card.deck; },
+        selectKey: (card: TCard) => { keysRead++; return card.deck; },
         slotContentService: new OIMSetBucketContentService<TCardSlot>(),
         ...lifetime,
     });

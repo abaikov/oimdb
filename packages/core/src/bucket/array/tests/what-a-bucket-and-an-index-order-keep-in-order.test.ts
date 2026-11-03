@@ -77,7 +77,7 @@ function makeIndexOrder() {
     const cards = cardsService.createStoreSlot(db);
     const byGroupService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (_card: Card): string => 'group',
+        selectKey: (_card: Card): string => 'group',
     });
     const byGroup = byGroupService.createIndexStoreSlot(cards);
     const ordersService = createOIMSortedComputedService({

@@ -220,7 +220,7 @@ export class OIMPersistor<
             for (let i = 0; i < delayedPersistResourceFailures.length; i++) {
                 const persistResourceFailure = delayedPersistResourceFailures[i];
                 onPersistError(
-                    persistResourceFailure.error, this.persistErrorContextOf(persistResourceFailure.persistResource, 'persist'),
+                    persistResourceFailure.error, this.createPersistErrorContext(persistResourceFailure.persistResource, 'persist'),
                 );
             }
         }
@@ -269,7 +269,7 @@ export class OIMPersistor<
         }
         for (let i = 0; i < persistResources.length; i++) {
             persistResources[i].onPersistWriteCommitted();
-            this.forgetConsecutiveFailuresOf(persistResources[i]);
+            this.forgetPersistResourceFailures(persistResources[i]);
         }
     }
 
@@ -294,11 +294,11 @@ export class OIMPersistor<
     ): void {
         deliverOIMPersistErrors(this.onPersistError, persistResourceFailures.map(persistResourceFailure => ({
             error: persistResourceFailure.error,
-            persistErrorContext: this.persistErrorContextOf(persistResourceFailure.persistResource, persistOperation),
+            persistErrorContext: this.createPersistErrorContext(persistResourceFailure.persistResource, persistOperation),
         })));
     }
 
-    private forgetConsecutiveFailuresOf(persistResource: IOIMPersistResource<TPersistBackend, TWriteBatch>): void {
+    private forgetPersistResourceFailures(persistResource: IOIMPersistResource<TPersistBackend, TWriteBatch>): void {
         const consecutiveFailureCounts = this.consecutiveFailureCounts;
         if (consecutiveFailureCounts.size === 0 || !consecutiveFailureCounts.has(persistResource)) return;
         const wasQuarantined = this.isPersistResourceQuarantined(persistResource);
@@ -313,7 +313,7 @@ export class OIMPersistor<
     private notifyQuarantine(persistResourceFailure: TOIMPersistResourceFailure<TPersistBackend, TWriteBatch>): void {
         const onPersistError = this.onPersistError;
         if (onPersistError !== undefined) {
-            onPersistError(persistResourceFailure.error, this.persistErrorContextOf(persistResourceFailure.persistResource, 'quarantine'));
+            onPersistError(persistResourceFailure.error, this.createPersistErrorContext(persistResourceFailure.persistResource, 'quarantine'));
             return;
         }
         console.error(
@@ -327,7 +327,7 @@ export class OIMPersistor<
         );
     }
 
-    private persistErrorContextOf(
+    private createPersistErrorContext(
         persistResource: IOIMPersistResource<TPersistBackend, TWriteBatch>,
         persistOperation: TOIMPersistOperation,
     ): TOIMPersistErrorContext {

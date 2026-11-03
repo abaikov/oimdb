@@ -16,7 +16,7 @@ const createFixture = () => {
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => card.deck,
+        selectKey: (card: TCard) => card.deck,
         slotContentService: new OIMSetBucketContentService<TCardSlot>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);

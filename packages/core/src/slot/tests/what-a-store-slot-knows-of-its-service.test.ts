@@ -36,7 +36,7 @@ describe('a store slot', () => {
             slotContentService: createOIMEntityContentService<TCard, string>(),
         }).createStoreSlot(db);
         const byDeck = createOIMSlotCollectionIndexService({
-            entityService: cards.slotService, keyOf: (card: TCard) => card.deck,
+            entityService: cards.slotService, selectKey: (card: TCard) => card.deck,
         }).createIndexStoreSlot(cards);
         cards.slotService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades' });
 

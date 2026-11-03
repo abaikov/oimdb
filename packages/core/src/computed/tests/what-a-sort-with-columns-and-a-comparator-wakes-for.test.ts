@@ -9,7 +9,7 @@ const createFixture = (columns: readonly ('a' | 'b')[]) => {
     const db = new OIMDB();
     const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
     const cards = cardsService.createStoreSlot(db);
-    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
+    const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, selectKey: (card: TCard) => card.deck });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const sortedService = createOIMSortedComputedService({
         indexService: byDeckService,

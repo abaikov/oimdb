@@ -78,7 +78,7 @@ describe('what a collection list column hears', () => {
 
     it('stays quiet for a column it does not read even when an index on the same collection hears every column', () => {
         const { db, cards, rankRuns } = createFixture();
-        createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.title.length });
+        createOIMSlotCollectionIndexStoreAggregate(cards, { selectKey: (card) => card.title.length });
         db.flush();
         const runsBefore = rankRuns();
         cards.getSlotByKey('a').updateEntity({ title: 'Ace of spades' });

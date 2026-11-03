@@ -213,7 +213,7 @@ import { createOIMSlotCollectionIndexService } from '@oimdb/core';
 
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 ```
@@ -240,7 +240,7 @@ deckOne.unholdSlot();
 ```
 
 An index files the entities of one entity store slot into **buckets** by the key
-`keyOf` derives from each entity. Use it when an entity's place follows from
+`selectKey` derives from each entity. Use it when an entity's place follows from
 its own columns ("the cards of a deck"). Moving a card is then a write to
 the card. The index service is made once per entity collection type; its
 `createIndexStoreSlot(cards)` returns the index's bucket store slot for that one

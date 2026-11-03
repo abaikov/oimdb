@@ -20,7 +20,7 @@ export function createTodoFixture() {
     const todos = createOIMEntitySlotCollectionStoreAggregate<TTodo>(db);
     const todosByDoneContentService = new OIMPositionalArrayBucketContentService<TTodoSlot, string>({ bucketCommands: new OIMBucketCommands({}) });
     const todosByDone = createOIMSlotCollectionIndexStoreAggregate(todos, {
-        keyOf: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
+        selectKey: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
         slotContentService: todosByDoneContentService,
     });
     const filter = createOIMSingleSlotStoreAggregate(db, { slotContentService: createOIMEntityContentService<{ shown: 'done' | 'active' }>() });

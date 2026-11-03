@@ -54,7 +54,7 @@ function buildAdapter() {
     const adapter = new OIMReduxAdapter({ channelMap: db });
     const childOptions: TOIMReduxCollectionReducerChildOptions<TUser, string, TState> = {
         reducer: childReducer,
-        keyOf: e => e.id,
+        selectKey: e => e.id,
     };
     return {
         db,

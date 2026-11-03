@@ -565,7 +565,7 @@ bucket, and it never grows.
 A sorted list over an index: `createOIMSortedComputedService`.
 
 ```ts
-const faceService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => (card.rank > 10 ? 'face' : 'number') });
+const faceService = createOIMSlotCollectionIndexService({ entityService: cardService, selectKey: (card: Card) => (card.rank > 10 ? 'face' : 'number') });
 const byFace = faceService.createIndexStoreSlot(cards);
 const byRankService = createOIMSortedComputedService({
     indexService: faceService,

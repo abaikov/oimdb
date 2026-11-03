@@ -7,7 +7,7 @@ verdict: "narrow"
 models: "Two list views over the same group, one filtered by group alone and one by group AND a second attribute (status AND assignee); rows move between groups and only some of the moves are visible to the narrower view."
 measures: "How often the two-predicate view is woken by a group move of a row its second predicate already excludes, and the cost of four group moves through both views."
 favours:
-  - "Stores that can keep a second index keyed on both predicates, e.g. oimdb's second index service (a second `createGroupOrders`) whose `keyOf` folds the axis into the key (adapters/oimdb.ts:796-799, `keyOf` at :798) or LokiJS's `applyWhere` dynamic view (adapters/lokijs.ts:499, 526); such a view is never woken by an off-axis row, by construction."
+  - "Stores that can keep a second index keyed on both predicates, e.g. oimdb's second index service (a second `createGroupOrders`) whose `selectKey` folds the axis into the key (adapters/oimdb.ts:796-799, `selectKey` at :798) or LokiJS's `applyWhere` dynamic view (adapters/lokijs.ts:499, 526); such a view is never woken by an off-axis row, by construction."
   - "Because the second axis is derived from the id (`onSecondAxis`, dataset.ts:393-394), any store may file a row on it once at insert and never maintain it; designs with expensive index maintenance pay nothing for the second index here."
 biases:
   - "The second axis is immutable (dataset.ts:381-392; A1 NOT MET at scenarios.ts:4598-4607): no step changes it, so re-filing a row because the second predicate's field changed is never measured. Toward index-per-predicate designs, whose maintenance cost on that field is exactly what is skipped."

@@ -13,7 +13,7 @@ type TCardsService = ReturnType<typeof createOIMSlotCollectionService<OIMEntityC
 const createByDeckService = (cardsService: TCardsService) => createOIMSlotCollectionIndexService<
     TCard, TOIMStoreKey, readonly TOIMColumnName<TCard>[], string,
     Map<TOIMStoreKey, TOIMEntitySlot<TCard, TOIMStoreKey>>
->({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
+>({ entityService: cardsService, selectKey: (card: TCard) => card.deck });
 
 describe('an array-driven index', () => {
     it('answers a member by its arrival position and a position by its member', () => {

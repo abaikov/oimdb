@@ -19,7 +19,7 @@ type Task = { id: string; column: string; title: string; priority: number };
 
 const createTaskSchema = (db: OIMDB) => {
     const tasks = createOIMEntitySlotCollectionStoreAggregate<Task>(db);
-    const byColumn = createOIMSlotCollectionIndexStoreAggregate(tasks, { keyOf: (task) => task.column });
+    const byColumn = createOIMSlotCollectionIndexStoreAggregate(tasks, { selectKey: (task) => task.column });
     return { tasks, byColumn };
 };
 const db = new OIMDB({ createSchemas: (db) => ({ default: createTaskSchema(db) }) });

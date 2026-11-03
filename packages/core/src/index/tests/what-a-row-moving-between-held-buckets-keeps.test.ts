@@ -22,7 +22,7 @@ const createFixture = () => {
     >({ defaults,
         entityService: cardsService,
         slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
-        keyOf: (card: TCard) => card.deck,
+        selectKey: (card: TCard) => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     byDeckService.holdSlotByKey(byDeck, 'spades');

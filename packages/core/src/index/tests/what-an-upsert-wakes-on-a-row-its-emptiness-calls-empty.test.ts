@@ -160,7 +160,7 @@ describe.each(WRITERS)('what an upsert wakes on a row its emptiness calls empty 
         >({
             entityService: postsService,
             slotContentService: new OIMSetBucketContentService<TPostSlot, string>(),
-            keyOf: (post: TPost) => post.deck ?? 'none',
+            selectKey: (post: TPost) => post.deck ?? 'none',
         });
         const byDeck = byDeckService.createIndexStoreSlot(posts);
         const a = byDeckService.holdSlotByKey(byDeck, 'a');

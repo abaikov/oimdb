@@ -1,4 +1,4 @@
-export function createOIMColumnsKeyOf<TKey, TEntity extends object>(columns: readonly string[]): (entity: TEntity) => TKey {
+export function createOIMColumnsKeySelector<TKey, TEntity extends object>(columns: readonly string[]): (entity: TEntity) => TKey {
     if (columns.length === 1) {
         const column = columns[0];
         return entity => (entity as Record<string, unknown>)[column] as TKey;

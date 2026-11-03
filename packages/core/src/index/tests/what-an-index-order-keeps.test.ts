@@ -20,7 +20,7 @@ const createFixture = (sorter: TSorter) => {
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => card.deck,
+        selectKey: (card: TCard) => card.deck,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const ordersService = createOIMSortedComputedService({ indexService: byDeckService, ...sorter });

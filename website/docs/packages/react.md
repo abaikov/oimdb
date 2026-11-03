@@ -154,7 +154,7 @@ const byDeckService = createOIMSlotCollectionService({ slotContentService: new O
 const byDeck = byDeckService.createStoreSlot(db);
 const deckIndexService = createOIMSlotCollectionIndexService({
   entityService: cardService,
-  keyOf: (card: Card) => card.deckId,
+  selectKey: (card: Card) => card.deckId,
 });
 const deckIndex = deckIndexService.createIndexStoreSlot(cards);
 const byRankService = createOIMSortedComputedService({
@@ -613,7 +613,7 @@ At run time `useAppDB` is `useOIMDB`; only the type differs.
   "the cards in deck X" is reading a list that something else keeps current. The hook
   subscribes to the bucket, and what puts entity slots in it is your write,
   typically from the same place that received the server response, never from a
-  render. Or use an index (`createOIMSlotCollectionIndexService`), which files entity slots automatically from its `keyOf`.
+  render. Or use an index (`createOIMSlotCollectionIndexService`), which files entity slots automatically from its `selectKey`.
 - A bucket never sorts. Its order is what your application wrote. A list
   sorted by a column is `createOIMSortedComputedService({ indexService, sortColumns })`
   over an index service. See [Binding a derivation](#binding-a-derivation).

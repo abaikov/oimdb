@@ -293,7 +293,7 @@ const groupIndexOf = (fixture: ReturnType<typeof priceFixture>, names: readonly 
     const indexService = createOIMSlotCollectionIndexService({
         entityService: fixture.entityService,
         slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-        keyOf: (row: TPriceDataRow) => row.group,
+        selectKey: (row: TPriceDataRow) => row.group,
         columnSlotStoreService: new OIMSlotMapStoreService<TOIMColumnSlot>(),
     });
     const indexStoreSlot = indexService.createIndexStoreSlot(fixture.entityStoreSlot);
@@ -325,7 +325,7 @@ const groupedIndexPair = (id: string, arm: string, replacing: boolean): TPricePa
     caveat: joined(
         `THE ARM IS ${arm.toUpperCase()}. THE MOVE IS THE ENGINE'S: the index listens to the `,
         'collection\'s content changes, so `updateEntity` alone re-files the row — `updateIndexKeyForSlot` reads the ',
-        'previous key off the slot\'s index-key cell, runs `keyOf` on the new entity, writes the ',
+        'previous key off the slot\'s index-key cell, runs `selectKey` on the new entity, writes the ',
         'cell, and calls `peekSlotByKey` then `addBucketMemberSlot` for the new key and `peekSlotByKey` then `removeBucketMemberSlot` for the old, each a hash ',
         'of the address, a `Set` edit, a hold or an unhold and a channel mark queued to the change ',
         'close. A caller writes one call and cannot forget to move a row. [FIGURE STATED IN ',
@@ -538,7 +538,7 @@ const pollUnchangedPair = (
         'that the new one does not, where `putEntity` walks the stored row with a ' +
         '`hasOwnProperty` per column first. On the indexed arm ours also opens and closes a change window per row; ' +
         'the un-indexed arm takes the flat path and opens none. ' +
-        'THE HASH IS ON BOTH SIDES: ours calls `keyOf` and the store\'s `get`, the floor calls ' +
+        'THE HASH IS ON BOTH SIDES: ours calls `selectKey` and the store\'s `get`, the floor calls ' +
         '`byId.get`. THE FLUSH IS INSIDE OUR NUMBER and closes a batch that queued nothing. ' +
         `${indexed
             ? 'AN INDEX LISTENS AND IS NEVER REACHED. This arm carries one `OIMSlotCollectionIndexService` store slot over `group` ' +

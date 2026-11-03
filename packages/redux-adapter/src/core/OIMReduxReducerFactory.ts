@@ -77,16 +77,16 @@ export class OIMReduxReducerFactory {
         // AN ENTITY'S OWN KEY IS THE ONLY KEY THIS REDUCER MAY HAND TO AN INDEX:
         // a record's keys are strings, and `'1'` addresses a second bucket
         // beside the engine's `1` without throwing.
-        const keyOf: (entity: TEntity) => TPk =
-            reduxCollectionReducerChildOptions?.keyOf ??
+        const selectKey: (entity: TEntity) => TPk =
+            reduxCollectionReducerChildOptions?.selectKey ??
             ((entity: TEntity): TPk => {
                 const named = entity as unknown as Record<string, unknown>;
                 if ('id' in named) return named.id as TPk;
                 throw new Error(
-                    'Cannot determine primary key. Provide keyOf in child options'
+                    'Cannot determine primary key. Provide selectKey in child options'
                 );
             });
-        const linkedIndexesUpdater = new OIMReduxLinkedIndexesUpdater<TEntity>(keyOf);
+        const linkedIndexesUpdater = new OIMReduxLinkedIndexesUpdater<TEntity>(selectKey);
 
         const readWholeState = (): TState => {
             reducerEntry.updatedKeys.clear();
@@ -155,7 +155,7 @@ export class OIMReduxReducerFactory {
                         const removedPks = collectEntitiesByName<TEntity>(
                             oldReduxDefaultCollectionState.entities,
                             reduxEntityKeysDiff.removed
-                        ).map(keyOf);
+                        ).map(selectKey);
                         linkedIndexesUpdater.removeLinkedIndexesByKeys(
                             reduxCollectionReducerChildOptions.linkedIndexes,
                             removedPks
@@ -175,7 +175,7 @@ export class OIMReduxReducerFactory {
                             childState,
                             entityService,
                             entityStoreSlot,
-                            keyOf
+                            selectKey
                         );
                         return;
                     }
@@ -210,7 +210,7 @@ export class OIMReduxReducerFactory {
                     );
                     if (entitiesToUpsert.length > 0) {
                         entityService.writeInBatch(entityStoreSlot, () => {
-                            for (const entity of entitiesToUpsert) entityService.writeSlotContentByKey(entityStoreSlot, keyOf(entity), entity);
+                            for (const entity of entitiesToUpsert) entityService.writeSlotContentByKey(entityStoreSlot, selectKey(entity), entity);
                         });
                     }
 

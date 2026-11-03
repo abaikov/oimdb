@@ -8,7 +8,7 @@ import type { TOIMSlotCollectionIndexServiceFactoryOptions } from '../types/TOIM
 import { OIM_DEFAULT_INDEX_KEYS_SERVICE } from '../../db/constants/OIM_DEFAULT_INDEX_KEYS_SERVICE';
 import { OIM_DEFAULT_STORE_SLOT_LISTENER } from '../../db/constants/OIM_DEFAULT_STORE_SLOT_LISTENER';
 import { resolveOIMSlotOwnerServiceOptions } from '../../slot/utils/resolveOIMSlotOwnerServiceOptions';
-import { createOIMColumnsKeyOf } from './createOIMColumnsKeyOf';
+import { createOIMColumnsKeySelector } from './createOIMColumnsKeySelector';
 
 export function resolveOIMSlotCollectionIndexServiceOptions<
     TKey extends NonNullable<unknown>, TEntity extends object, TSlots, TSourceKey extends NonNullable<unknown>, TSourceStore,
@@ -16,7 +16,7 @@ export function resolveOIMSlotCollectionIndexServiceOptions<
 >(
     defaults: OIMDefaults,
     options: TOIMSlotCollectionIndexServiceFactoryOptions<TEntity, TSourceKey, TSourceStore> & {
-        keyOf?: ((entity: TEntity) => TKey) | undefined;
+        selectKey?: ((entity: TEntity) => TKey) | undefined;
         columns?: readonly string[] | undefined;
     },
     slotStoreService: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore>,
@@ -27,7 +27,7 @@ export function resolveOIMSlotCollectionIndexServiceOptions<
         slotStoreService,
         slotContentService,
         storeSlotListener: defaults.storeSlotListener ?? OIM_DEFAULT_STORE_SLOT_LISTENER.getValue(),
-        keyOf: options.keyOf ?? createOIMColumnsKeyOf<TKey, TEntity>(options.columns as readonly string[]),
+        selectKey: options.selectKey ?? createOIMColumnsKeySelector<TKey, TEntity>(options.columns as readonly string[]),
         columns: options.columns,
         sourceSlotCollectionService: options.entityService,
         indexKeysService: defaults.indexKeysService ?? OIM_DEFAULT_INDEX_KEYS_SERVICE.getValue(),

@@ -157,7 +157,7 @@ describe('what an index keyed by two columns files into buckets minted several a
     const createSetDrivenIndexService = (fixture: ReturnType<typeof createCards>) =>
         createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService<TOIMBucketSlotsSetStore<TOIMEntitySlot<TSuitedCard>>>(),
             entityService: fixture.cardsService,
-            keyOf: (card: TSuitedCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
+            selectKey: (card: TSuitedCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TSuitedCard>, readonly [string, string]>(),
         });
 
@@ -193,7 +193,7 @@ describe('what an index keyed by two columns files into buckets minted several a
 
     it('fills the buckets an array-driven composite index mints several at a time', () => {
         const { cards, cardsService } = createCards();
-        const byDeckAndSuitService = createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService(), entityService: cardsService, keyOf: (card: TSuitedCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'] });
+        const byDeckAndSuitService = createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService(), entityService: cardsService, selectKey: (card: TSuitedCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'] });
         const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
 
         const [redHearts, blueHearts] = byDeckAndSuitService.holdSlotsByKeys(byDeckAndSuit, [['red', 'hearts'], ['blue', 'hearts']]);

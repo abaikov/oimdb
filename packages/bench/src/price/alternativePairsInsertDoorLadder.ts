@@ -53,7 +53,7 @@ type TWorld = {
 
 type TRung = (world: TWorld, rows: readonly TPriceDataRow[], times: number) => void;
 
-const keyOf = (row: TPriceDataRow): string => row.id;
+const selectKey = (row: TPriceDataRow): string => row.id;
 
 const handMint = (world: TWorld, key: string): TRowSlot =>
     createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), world.probeInternals.slotOwnerService, world.entityStoreSlot);
@@ -112,7 +112,7 @@ const HAND_STEPS: TSteps = {
 const chainOf = (steps: TSteps): TRung => (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         if (storeService.get(world.store, key) !== undefined) continue;
         const slot = steps.mint(world, key);
         steps.assertWritable(world, slot);

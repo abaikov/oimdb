@@ -145,7 +145,7 @@ describe('what a slot watch runs on', () => {
         const { db, todos } = createFixture();
         const byDoneService = createOIMSlotCollectionIndexService({
             entityService: todos.slotService,
-            keyOf: (entity: TTodo): 'done' | 'open' => (entity.done ? 'done' : 'open'),
+            selectKey: (entity: TTodo): 'done' | 'open' => (entity.done ? 'done' : 'open'),
             slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TTodo>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }),
         });
         const byDone = byDoneService.createIndexStoreSlot(todos.storeSlot);

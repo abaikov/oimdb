@@ -37,7 +37,7 @@ describe('what a read of several keys scans', () => {
         db.flush();
         const byDeckAndSuitService = createOIMSlotCollectionIndexService({ bucketSlotStoreService: byDeckAndSuitBucketStoreService(),
             entityService: cardsService,
-            keyOf: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
+            selectKey: (card: TCard): readonly [string, string] => [card.deck, card.suit], columns: ['deck', 'suit'],
         });
         const byDeckAndSuit = byDeckAndSuitService.createIndexStoreSlot(cards);
         const getSlots = jest.spyOn(cardsService, 'getSlots');
@@ -57,7 +57,7 @@ describe('what a read of several keys scans', () => {
         const db = new OIMDB();
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard, string>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
+        const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, selectKey: (card: TCard) => card.deck });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.holdSlotByKey(byDeck, 'spades');
         const card = cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', suit: 's' });

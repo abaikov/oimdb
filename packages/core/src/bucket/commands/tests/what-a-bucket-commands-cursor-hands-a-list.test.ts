@@ -24,11 +24,11 @@ function createFixture(isRecorded: boolean) {
     db.flush();
     const byDoneService = isRecorded
         ? createOIMSlotCollectionIndexService({
-            entityService: todos.slotService, keyOf: (todo: TTodo): string => (todo.done ? 'done' : 'open'),
+            entityService: todos.slotService, selectKey: (todo: TTodo): string => (todo.done ? 'done' : 'open'),
             slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TTodo>>({ bucketCommands: new OIMBucketCommands({ maxCommandsPerSlot: undefined }) }),
         })
         : createOIMSlotCollectionIndexService({
-            entityService: todos.slotService, keyOf: (todo: TTodo): string => (todo.done ? 'done' : 'open'),
+            entityService: todos.slotService, selectKey: (todo: TTodo): string => (todo.done ? 'done' : 'open'),
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TTodo>>(),
         });
     const byDone = byDoneService.createIndexStoreSlot(todos.storeSlot);

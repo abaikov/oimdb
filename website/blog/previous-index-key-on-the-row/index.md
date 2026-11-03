@@ -48,7 +48,7 @@ Keeps the previous key on the slot. `OIMIndex.updateIndexKeyForSlot` reads it th
 ## Caveats
 
 - **The arm measured stored something else.** On 2026-08-20 the slot held the bucket, which carried its key. Today it holds the key itself in an array cell at the index's position — one array load more than the arm measured. Nothing has re-measured the shipped form, and the pair is no longer in `packages/bench/src/price/`.
-- **The measured case now has an earlier exit.** An index declared with `columns` returns before computing any key when none of the written columns is a key column (`isWriteUnread`), so the write in these rows would not reach the comparison at all on such an index. An index declared with `keyOf` alone still recomputes and compares, as measured.
+- **The measured case now has an earlier exit.** An index declared with `columns` returns before computing any key when none of the written columns is a key column (`isWriteUnread`), so the write in these rows would not reach the comparison at all on such an index. An index declared with `selectKey` alone still recomputes and compares, as measured.
 - The other rows in the same piece — `alt.reposition-one-vs-full-resort.*` and `alt.linear-scan-vs-set-diff.2` — price a sorted-bucket repair and a multi-address re-file that are not in the shipped engine, and are not covered here.
 
 ## Where it lives

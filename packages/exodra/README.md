@@ -66,7 +66,7 @@ const todoView = withOIMEffects(todoMachine, (effect) => {
     effect((c) => { c.text(Ports.TITLE, c.state.todo.entity?.title ?? ''); });
 });
 const todosByDone = createOIMSlotCollectionIndexStoreAggregate(todos, {
-    keyOf: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
+    selectKey: (todo: TTodo): 'done' | 'active' => (todo.done ? 'done' : 'active'),
     slotContentService: new OIMPositionalArrayBucketContentService<TTodoSlot, string>({ bucketCommands: new OIMBucketCommands({}) }),
 });
 const listView = withOIMBucketList(listMachine, {

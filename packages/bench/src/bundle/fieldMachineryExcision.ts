@@ -22,7 +22,7 @@ export const fieldMachineryExcision: readonly TBundleExcision[] = [
         rules: [
             {
                 kind: 'statement',
-                starts: /^[ \t]*(?:slotOwnerService|this\.slotOwnerServiceOf\(entitySlot\))\.columnSlotOwner\.markColumnsChanged\(/,
+                starts: /^[ \t]*(?:slotOwnerService|this\.peekEntitySlotOwnerService\(entitySlot\))\.columnSlotOwner\.markColumnsChanged\(/,
                 times: 2,
                 what: 'every entity write reporting the columns it changed, through markEntityChanged and through dispatchColumnsChanged',
             },

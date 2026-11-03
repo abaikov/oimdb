@@ -59,7 +59,7 @@ describe('what an index reads its key from', () => {
         >({
             entityService: cardsService,
             columns: ['deck'],
-            keyOf: card => {
+            selectKey: card => {
                 keyOfCalls++;
                 return card.deck;
             },
@@ -84,7 +84,7 @@ describe('what an index reads its key from', () => {
         >({
             entityService: cardsService,
             slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
-            keyOf: card => {
+            selectKey: card => {
                 keyOfCalls++;
                 return card.deck;
             },

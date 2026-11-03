@@ -38,9 +38,9 @@ export const delivering = (): IOIMEntityWriter =>
 
 /** A scalar-keyed population that reports into `db`. */
 export function entityServiceOf<TEntity extends object>(
-    keyOf: (entity: TEntity) => TOIMStoreKey
+    selectKey: (entity: TEntity) => TOIMStoreKey
 ): TEntityService<TEntity> {
-    return createEntityService<TEntity>(keyOf, delivering());
+    return createEntityService<TEntity>(selectKey, delivering());
 }
 
 /**
@@ -49,9 +49,9 @@ export function entityServiceOf<TEntity extends object>(
  * `mapOIMCollection`'s state and the linked-index diff both do.
  */
 export function replacingEntityServiceOf<TEntity extends object>(
-    keyOf: (entity: TEntity) => TOIMStoreKey
+    selectKey: (entity: TEntity) => TOIMStoreKey
 ): TEntityService<TEntity> {
-    return createEntityService<TEntity>(keyOf, createOIMReplacingEntityWriter());
+    return createEntityService<TEntity>(selectKey, createOIMReplacingEntityWriter());
 }
 
 /** A scalar-keyed bucket collection whose slots the caller writes. */

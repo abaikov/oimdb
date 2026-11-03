@@ -41,7 +41,7 @@ function createSetBucketService() {
 
 ## Group entities by a field
 
-Take: `createOIMSlotCollectionIndexService` with a `keyOf` that returns the field, and its
+Take: `createOIMSlotCollectionIndexService` with a `selectKey` that returns the field, and its
 `createIndexStoreSlot(cards)` for the index store slot. Its buckets keep arrival order and read by position;
 pass `slotContentService: new OIMSetBucketContentService()` when you need neither. Do not take a
 manual bucket collection here: it never looks at the entity, so it cannot follow a card that moves to another
@@ -50,7 +50,7 @@ deck.
 ```ts
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 
@@ -68,7 +68,7 @@ red.unholdSlot();
 ```
 
 Why this way: an index is pushed to. Every write to `cards` reaches it through
-the store slot's content-change listener, and per entity it does one `keyOf` and one read
+the store slot's content-change listener, and per entity it does one `selectKey` and one read
 of the key it filed the entity under before. Only when the two differ does it edit
 buckets, so the cost of a write does not depend on how many cards or decks exist. The
 bucket slot is written on membership changes only: a title edit on a red card wakes
@@ -92,7 +92,7 @@ including the ones where no sort column moved.
 ```ts
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 
@@ -168,7 +168,7 @@ Reference: [Reading the whole population](/docs/core/collections#reading-the-who
 
 ## A filtered list
 
-Take: an index whose `keyOf` returns the filter's value, and hold only the bucket
+Take: an index whose `selectKey` returns the filter's value, and hold only the bucket
 of the value you show. For several criteria, return one composite key. Do not write the
 filter as a computed that scans the store slot: a computed learns that something
 changed, never what, so it would rescan every card on every write.
@@ -176,7 +176,7 @@ changed, never what, so it would rescan every card on every write.
 ```ts
 const cardsByStatusService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => (card.archived ? 'archived' : 'active'),
+    selectKey: (card: Card) => (card.archived ? 'archived' : 'active'),
 });
 const cardsByStatus = cardsByStatusService.createIndexStoreSlot(cards);
 const active = cardsByStatusService.holdSlotByKey(cardsByStatus, 'active');
@@ -184,7 +184,7 @@ effectService.createAndRunEffect(db, () => render(cardsByStatusService.getEntiti
 
 const cardsByDeckAndStatusService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => `${card.deck}:${card.archived ? 'archived' : 'active'}`,
+    selectKey: (card: Card) => `${card.deck}:${card.archived ? 'archived' : 'active'}`,
 });
 const cardsByDeckAndStatus = cardsByDeckAndStatusService.createIndexStoreSlot(cards);
 const activeRedByRankService = createOIMSortedComputedService({
@@ -197,7 +197,7 @@ activeRed.value;
 ```
 
 Why this way: a key whose bucket was never minted is not maintained at all. An
-archived card costs one `keyOf`, one comparison and, when its key changed, one write
+archived card costs one `selectKey`, one comparison and, when its key changed, one write
 of its index-key cell; no bucket is touched because nobody asked for the archived
 bucket. Flipping `archived` on a card moves it out of the active bucket in O(1), since
 the card's slot remembers the key it was filed under. `getEntitiesByKey` copies the
@@ -403,7 +403,7 @@ effect's result has no slot, so nothing else in the graph can name it as a sourc
 ```ts
 const cardsByDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const cardsByDeck = cardsByDeckService.createIndexStoreSlot(cards);
 const deckReads = cardsByDeckService.slotContentService;
@@ -470,7 +470,7 @@ loop: each new bucket is filled by its own scan of the source store slot.
 ```ts
 const cardsByColumnService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
     slotReleasePolicy: OIMSlotAtUnholdReleasePolicy.INSTANCE,
 });
 const cardsByColumn = cardsByColumnService.createIndexStoreSlot(cards);

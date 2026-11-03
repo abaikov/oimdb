@@ -112,7 +112,7 @@ describe('who is told a slot gained its first subscriber and lost its last', () 
         const decks = deckService.createStoreSlot(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardService,
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
             slotSubscriptionListener: indexListener,
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);

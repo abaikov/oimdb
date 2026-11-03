@@ -19,11 +19,11 @@ describe('what a nested bucket list keeps', () => {
         const projects = createOIMEntitySlotCollectionStoreAggregate<TProject>(db);
         const tasks = createOIMEntitySlotCollectionStoreAggregate<TTask>(db);
         const projectsByArchived = createOIMSlotCollectionIndexStoreAggregate(projects, {
-            keyOf: (project: TProject): 'archived' | 'open' => (project.archived ? 'archived' : 'open'),
+            selectKey: (project: TProject): 'archived' | 'open' => (project.archived ? 'archived' : 'open'),
             slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TProject, string>, string>({ bucketCommands: new OIMBucketCommands({}) }),
         });
         const tasksByProject = createOIMSlotCollectionIndexStoreAggregate(tasks, {
-            keyOf: (task: TTask): string => task.projectId,
+            selectKey: (task: TTask): string => task.projectId,
             slotContentService: new OIMPositionalArrayBucketContentService<TOIMEntitySlot<TTask, string>, string>({ bucketCommands: new OIMBucketCommands({}) }),
         });
         const exodraPlugin = new OIMExodraPlugin({ db });

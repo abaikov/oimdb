@@ -43,7 +43,7 @@ function orderedByDeck(options?: TOIMDBOptions) {
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => card.deckId,
+        selectKey: (card: TCard) => card.deckId,
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);
     const ordersService = createOIMSortedComputedService({

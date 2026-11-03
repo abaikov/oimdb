@@ -11,8 +11,8 @@ const createFixture = () => {
     const cards = cardsService.createStoreSlot(db);
     const byTitleService = createOIMSlotCollectionIndexService({
         entityService: cardsService,
-        keyOf: (card: TCard) => {
-            if (card.title === 'bad') throw new Error('keyOf refused this row');
+        selectKey: (card: TCard) => {
+            if (card.title === 'bad') throw new Error('selectKey refused this row');
             return card.title;
         },
         slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
@@ -37,7 +37,7 @@ describe('what an index keeps when its key throws in the middle of a batch', () 
         expect(() => cardsService.writeInBatch(cards, () => ([
             { id: 'c1', deck: 'spades', title: 'bad' },
             { id: 'c2', deck: 'spades', title: 'good' },
-        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)))).toThrow('keyOf refused this row');
+        ]).map(entity => cardsService.writeSlotContentByKey(cards, entity.id, entity)))).toThrow('selectKey refused this row');
 
         expect(idsUnder(byTitleService, byTitle, 'good')).toEqual(['c2']);
     });
@@ -46,7 +46,7 @@ describe('what an index keeps when its key throws in the middle of a batch', () 
         const { cardsService, cards, byTitleService, byTitle } = createFixture();
         cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'spades', title: 'ok' });
 
-        expect(() => cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'clubs', title: 'bad' })).toThrow('keyOf refused this row');
+        expect(() => cardsService.writeSlotContentByKey(cards, 'c1', { id: 'c1', deck: 'clubs', title: 'bad' })).toThrow('selectKey refused this row');
 
         expect(idsUnder(byTitleService, byTitle, 'ok')).toEqual([]);
     });

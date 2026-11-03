@@ -61,7 +61,7 @@ const emptyWorld = (world: TWorld): void => {
     world.entityStoreSlot = world.entityService.createStoreSlot(world.db);
 };
 
-const keyOf = (row: TPriceDataRow): string => row.id;
+const selectKey = (row: TPriceDataRow): string => row.id;
 
 const mint = (world: TWorld, key: string): TRowSlot | undefined => {
     if (storeService.get(world.store, key) !== undefined) return undefined;
@@ -163,7 +163,7 @@ const slotIntoStore: TRung = (world, rows, times) => {
 const keyedSlotIntoStore: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         if (storeService.get(world.store, key) !== undefined) continue;
         const slot = createOIMEntitySlot<TPriceDataRow, TOIMStoreKey>(storeService.ownKey(key), slotOwner, world.entityStoreSlot as TOIMStoreSlot);
         (slot as unknown as { content: TPriceDataRow | undefined }).content = copyOIMSanitizedEntity(row) as TPriceDataRow;
@@ -175,7 +175,7 @@ const keyedSlotIntoStore: TRung = (world, rows, times) => {
 const writerAndChannel: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         const slot = mint(world, key);
         if (slot === undefined) continue;
         fill(world, slot, row);
@@ -188,7 +188,7 @@ const writerAndChannel: TRung = (world, rows, times) => {
 const withAssert: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         const slot = mint(world, key);
         if (slot === undefined) continue;
         assertWritable(world, slot);
@@ -202,7 +202,7 @@ const withAssert: TRung = (world, rows, times) => {
 const withEmptiness: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         const slot = mint(world, key);
         if (slot === undefined) continue;
         assertWritable(world, slot);
@@ -217,7 +217,7 @@ const withEmptiness: TRung = (world, rows, times) => {
 const withContentChanged: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         const slot = mint(world, key);
         if (slot === undefined) continue;
         assertWritable(world, slot);
@@ -233,7 +233,7 @@ const withContentChanged: TRung = (world, rows, times) => {
 const withReleaseCheck: TRung = (world, rows, times) => {
     for (let i = 0; i < times; i++) {
         const row = rows[i];
-        const key = keyOf(row);
+        const key = selectKey(row);
         const slot = mint(world, key);
         if (slot === undefined) continue;
         assertWritable(world, slot);
@@ -296,9 +296,9 @@ export const alternativePairsInsertLadder: readonly TPricePair[] = [
     ladderPair('4-identity-store', slotIntoStore, 'the store service: get, ownKey, set',
         probedSlotIntoMap, 'map.get(id), then map.set(id, slot)',
         'the store service in place of the bare Map for the probe and the filing (setByKey).'),
-    ladderPair('5-key-of', keyedSlotIntoStore, 'the key read through a keyOf function',
+    ladderPair('5-key-of', keyedSlotIntoStore, 'the key read through a selectKey function',
         slotIntoStore, 'the key read as row.id',
-        'a keyOf call, which writeSlotContentByKey does not make: its caller passes the key. The rungs above keep it, so they carry one call the door does not run.'),
+        'a selectKey call, which writeSlotContentByKey does not make: its caller passes the key. The rungs above keep it, so they carry one call the door does not run.'),
     ladderPair('6-writer-and-channel', writerAndChannel, 'the shipped writer fills the slot, then OIMChannelService.INSTANCE.writeWithoutFlushCheck(channelSlot, slot); db.flush() per pass',
         keyedSlotIntoStore, 'the copy assigned by hand, no channel',
         'what insertSlotContent runs to land the entity: the shipped writer\'s fillEntity and the channel write that stamps the slot.'),

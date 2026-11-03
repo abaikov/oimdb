@@ -12,7 +12,7 @@ export type TOIMSlotCollectionIndexServiceOptions<
 > = TOIMSlotCollectionServiceOptions<
     TKey, TBucketSlot, TStore, TBucketContentService, string, TOIMColumnSlot, OIMPushColumnSlotOwner
 > & {
-    keyOf: (entity: TEntity) => TKey;
+    selectKey: (entity: TEntity) => TKey;
     columns?: readonly string[] | undefined;
     sourceSlotCollectionService: Pick<OIMSlotCollectionService<TSourceKey, TOIMEntitySlot<TEntity, TSourceKey>, TSourceStore, unknown>, 'getSlots'>;
     indexKeysService: IOIMIndexKeysService;

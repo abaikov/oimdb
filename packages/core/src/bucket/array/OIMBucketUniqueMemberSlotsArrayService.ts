@@ -17,13 +17,13 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
     public override hasBucketMemberSlot(
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, bucketMemberSlot: TBucketMemberSlot,
     ): boolean {
-        return uniqueBucketMemberSlotsOf(bucketSlotsArrayStore).has(bucketMemberSlot);
+        return peekUniqueBucketMemberSlots(bucketSlotsArrayStore).has(bucketMemberSlot);
     }
 
     public override appendBucketMemberSlot(
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, bucketMemberSlot: TBucketMemberSlot,
     ): boolean {
-        const uniqueBucketMemberSlots = uniqueBucketMemberSlotsOf(bucketSlotsArrayStore);
+        const uniqueBucketMemberSlots = peekUniqueBucketMemberSlots(bucketSlotsArrayStore);
         if (uniqueBucketMemberSlots.has(bucketMemberSlot)) return false;
         uniqueBucketMemberSlots.add(bucketMemberSlot);
         return super.appendBucketMemberSlot(bucketSlotsArrayStore, bucketMemberSlot);
@@ -32,7 +32,7 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
     public override insertBucketMemberSlotAt(
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, at: number, bucketMemberSlot: TBucketMemberSlot,
     ): number {
-        const uniqueBucketMemberSlots = uniqueBucketMemberSlotsOf(bucketSlotsArrayStore);
+        const uniqueBucketMemberSlots = peekUniqueBucketMemberSlots(bucketSlotsArrayStore);
         if (uniqueBucketMemberSlots.has(bucketMemberSlot)) return OIM_NOTHING_WAS_INSERTED;
         uniqueBucketMemberSlots.add(bucketMemberSlot);
         return super.insertBucketMemberSlotAt(bucketSlotsArrayStore, at, bucketMemberSlot);
@@ -41,13 +41,13 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
     public override removeBucketMemberSlot(
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, bucketMemberSlot: TBucketMemberSlot,
     ): number {
-        if (!uniqueBucketMemberSlotsOf(bucketSlotsArrayStore).delete(bucketMemberSlot)) return OIM_NOTHING_WAS_REMOVED;
+        if (!peekUniqueBucketMemberSlots(bucketSlotsArrayStore).delete(bucketMemberSlot)) return OIM_NOTHING_WAS_REMOVED;
         return super.removeBucketMemberSlot(bucketSlotsArrayStore, bucketMemberSlot);
     }
 
     public override removeBucketMemberSlotAt(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, at: number): TBucketMemberSlot {
         const removedBucketMemberSlot = super.removeBucketMemberSlotAt(bucketSlotsArrayStore, at);
-        uniqueBucketMemberSlotsOf(bucketSlotsArrayStore).delete(removedBucketMemberSlot);
+        peekUniqueBucketMemberSlots(bucketSlotsArrayStore).delete(removedBucketMemberSlot);
         return removedBucketMemberSlot;
     }
 
@@ -55,7 +55,7 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
         bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>, at: number, count: number,
     ): TBucketMemberSlot[] {
         const removedBucketMemberSlots = super.removeBucketMemberSlotRange(bucketSlotsArrayStore, at, count);
-        const uniqueBucketMemberSlots = uniqueBucketMemberSlotsOf(bucketSlotsArrayStore);
+        const uniqueBucketMemberSlots = peekUniqueBucketMemberSlots(bucketSlotsArrayStore);
         for (let i = 0; i < removedBucketMemberSlots.length; i++) uniqueBucketMemberSlots.delete(removedBucketMemberSlots[i]);
         return removedBucketMemberSlots;
     }
@@ -66,7 +66,7 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
     ): void {
         const removedCountBefore = removedChannelQueue.getEntryCount();
         super.removeBucketMemberSlots(bucketSlotsArrayStore, bucketMemberSlots, removedChannelQueue, removedAtChannelQueue);
-        const uniqueBucketMemberSlots = uniqueBucketMemberSlotsOf(bucketSlotsArrayStore);
+        const uniqueBucketMemberSlots = peekUniqueBucketMemberSlots(bucketSlotsArrayStore);
         for (let i = removedCountBefore; i < removedChannelQueue.getEntryCount(); i++) {
             uniqueBucketMemberSlots.delete(removedChannelQueue.getEntryAt(i) as TBucketMemberSlot);
         }
@@ -82,11 +82,11 @@ export class OIMBucketUniqueMemberSlotsArrayService<TBucketMemberSlot extends TO
 
     public override clearBucketMemberSlots(bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>): void {
         super.clearBucketMemberSlots(bucketSlotsArrayStore);
-        uniqueBucketMemberSlotsOf(bucketSlotsArrayStore).clear();
+        peekUniqueBucketMemberSlots(bucketSlotsArrayStore).clear();
     }
 }
 
-function uniqueBucketMemberSlotsOf<TBucketMemberSlot extends TOIMSlot>(
+function peekUniqueBucketMemberSlots<TBucketMemberSlot extends TOIMSlot>(
     bucketSlotsArrayStore: TOIMBucketSlotsArrayStore<TBucketMemberSlot>,
 ): Set<TBucketMemberSlot> {
     return bucketSlotsArrayStore.uniqueBucketMemberSlots as Set<TBucketMemberSlot>;

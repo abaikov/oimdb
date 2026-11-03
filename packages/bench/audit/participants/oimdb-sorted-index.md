@@ -36,7 +36,7 @@ wirings:
     note: "bindReadViews (oimdb.ts:725-796) is called with the sorted-at-write strategy (1079-1081) and builds two sorted-array indexes through it (741-745): the group one with OIMSlotNeverReleasePolicy, the axis one with the default policy. scrollTo (781-783) writes the view's offset slot with updateEntityColumn (349-351); the next settle's flush re-runs the window effect, which re-reads the page from the bucket with getBucketMemberSlotAt from the new offset. The ordering of rows appended since the last read is settled on that read: the bucket keeps an unsorted tail and getBucketMemberSlotAt orders it through sortBucketMemberSlots, by binary insertion for at most eight appended members and by a full sort above that (packages/core/src/bucket/array/OIMBucketMemberSlotsArrayService.ts:8, 114-141; bucket/OIMSortedArrayBucketContentService.ts:35-40)."
   reads.byTwoAxes:
     verdict: "idiomatic"
-    note: "A second sorted-array index whose keyOf answers OFF_THE_SECOND_AXIS for rows off the axis (oimdb.ts:719, 742-745), the composite-predicate form; view B holds group A's bucket in it (755). The library files and orders both indexes on a write."
+    note: "A second sorted-array index whose selectKey answers OFF_THE_SECOND_AXIS for rows off the axis (oimdb.ts:719, 742-745), the composite-predicate form; view B holds group A's bucket in it (755). The library files and orders both indexes on a write."
   reads.bySwitch:
     verdict: "idiomatic"
     note: "switchGroup (oimdb.ts:785-787, 352-359) holds the new group's bucket slot, disposes view A's window effect, gives the old bucket back with unholdGroupOrder, writes offset 0 to the view's offset slot and creates a new window effect over the new bucket; view B's effect is untouched. The new key is held before the old is given back, so a switch to the group already shown keeps its bucket. Not run."
@@ -86,7 +86,7 @@ index repositions the row when a write changes `rank` or `id`.
 
 ## What the index does on a write
 
-- **Filing.** The index reads `keyOf` on a write that changes `group` and moves
+- **Filing.** The index reads `selectKey` on a write that changes `group` and moves
   the row between buckets; a new member is appended to the bucket's array
   (`OIMArrayBucketContentService.addSlot`, `bucket/OIMArrayBucketContentService.ts:26`,
   `OIMBucketMemberSlotsArrayService.appendBucketMemberSlot`, `bucket/array/OIMBucketMemberSlotsArrayService.ts:22-25`).

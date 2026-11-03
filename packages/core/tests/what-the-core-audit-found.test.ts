@@ -63,7 +63,7 @@ describe('what the core audit found', () => {
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard, TOIMStoreKey>, string>(),
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         byDeckService.disposeIndexStoreSlot(byDeck);
@@ -182,7 +182,7 @@ describe('what the core audit found', () => {
         const db = new OIMDB();
         const cardsService = createOIMSlotCollectionService({ slotContentService: createOIMEntityContentService<TCard>() });
         const cards = cardsService.createStoreSlot(db);
-        const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, keyOf: (card: TCard) => card.deck });
+        const byDeckService = createOIMSlotCollectionIndexService({ entityService: cardsService, selectKey: (card: TCard) => card.deck });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', deck: 'd', title: '', rank: 1 });
         const b = cardsService.writeSlotContentByKey(cards, 'b', { id: 'b', deck: 'd', title: '', rank: 2 });

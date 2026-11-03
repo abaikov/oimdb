@@ -121,7 +121,7 @@ If `flush()` runs from a `channelScheduler` callback, `OIMThrowAtOnceErrorPolicy
 has no synchronous caller to throw to, so the throw becomes an uncaught exception in
 whatever context the scheduler runs in.
 
-**Code that keeps derived state is outside the policy.** An index's `keyOf` and
+**Code that keeps derived state is outside the policy.** An index's `selectKey` and
 an emptiness check maintain what other reads depend on; letting the
 operation carry on past them would leave an index that disagrees with its source.
 A throw there is thrown at the call in either mode. **No write is rolled back:** the slot is filed
@@ -216,7 +216,7 @@ instance between bucket collections is allowed.
 ## Write-time refusals
 
 - **There is no `writeSlotContent` / `clearSlotContent` on an index.** An index files entities
-  automatically on write, using its `keyOf`; its `slotContentService` is typed to the reads only. If you need
+  automatically on write, using its `selectKey`; its `slotContentService` is typed to the reads only. If you need
   manual control over a bucket's slots, use a bucket collection (`createOIMSlotCollectionService`) instead.
 
 Handing a bucket the slots it already has is **not** a change and is not
@@ -249,7 +249,7 @@ holds, its slots and its effects.
 | Do other effects run if one throws? | By default yes — `OIMLogAndContinueErrorPolicy` logs it, calls `onError`, and goes on. |
 | Can I make it stop at the first error? | Yes — `OIMThrowAtOnceErrorPolicy`; effects not yet reached run at the next flush. |
 | Can the runtime get stuck mid-frame? | No — frame state is restored in a `finally`. |
-| A throwing `keyOf` or emptiness check? | Derived state: thrown at the call in either mode. |
+| A throwing `selectKey` or emptiness check? | Derived state: thrown at the call in either mode. |
 | Writing, or flushing, during a frame? | Throws at the call — a refusal, not a collected error. |
 | A throwing comparator? | Thrown out of the sorted computed's `getValueForSlot`; the bucket is untouched and the next read runs it again. |
 | Can I route errors somewhere of my own? | Yes — `onError` on the default policy, or your own `IOIMErrorPolicy`. |

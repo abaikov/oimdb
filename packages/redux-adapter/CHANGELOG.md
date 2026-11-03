@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.3.0
+
+### Changed
+
+- Child reducer option `keyOf` → `selectKey`; peer `@oimdb/core` `^4.10.0`.
+
 ## 3.2.0
 
 ### Changed

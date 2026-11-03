@@ -160,7 +160,7 @@ describe('what an entity collection reads in the order it was filled', () => {
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard & { deck: string }, TOIMStoreKey>, string>(),
-            keyOf: (card: TCard & { deck: string }) => card.deck,
+            selectKey: (card: TCard & { deck: string }) => card.deck,
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
         const ace = cardsService.writeSlotContentByKey(cards, 'a', { id: 'a', title: 'Ace', deck: 'x' });

@@ -51,7 +51,7 @@ describe('subscribing to an identity the engine did not mint', () => {
         const entities = entitiesService.createStoreSlot(db);
         const byQueueService = createOIMSlotCollectionIndexService({
             entityService: entitiesService,
-            keyOf: (entity: TEntity) => entity.queue,
+            selectKey: (entity: TEntity) => entity.queue,
         });
         const byQueue = byQueueService.createIndexStoreSlot(entities);
         const byQueueOrdersService = createOIMSortedComputedService({

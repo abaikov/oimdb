@@ -46,7 +46,7 @@
 > `cardService.writeSlotContentByKey(cards, key, entity)`, which mints the slot on a miss and writes the whole
 > value on a hit. Every other write is a method of the slot
 > (`slot.updateEntity(patch)`, `slot.writeSlotContent(entity)`,
-> `slot.clearSlotContent()`). There are NO bulk writes and no `keyOf`: the key is always the caller's. A load is a
+> `slot.clearSlotContent()`). There are NO bulk writes and no `selectKey`: the key is always the caller's. A load is a
 > loop of `writeSlotContentByKey` inside `cardService.writeInBatch(cards, () => { … })`, so an index on the
 > collection hears the whole loop in one call.
 > A single — one slot under no key — is an `OIMSingleSlotService`: `writeSingleSlotContent(storeSlot, value)`,
@@ -57,8 +57,8 @@
 > `createOIMSingleSlotService({ slotContentService })`. The content service decides what the slots hold:
 > `createOIMEntityContentService<TEntity>(…)` for entities, `new OIMSetBucketContentService()`,
 > `new OIMPositionalArrayBucketContentService()` or `new OIMSortedArrayBucketContentService({ … })` for
-> buckets. An index is `createOIMSlotCollectionIndexService({ entityService, keyOf | columns, slotContentService? })`;
-> its `keyOf` is the index's key of an entity, not the collection's. An array key needs a tree store:
+> buckets. An index is `createOIMSlotCollectionIndexService({ entityService, selectKey | columns, slotContentService? })`;
+> its `selectKey` is the index's key of an entity, not the collection's. An array key needs a tree store:
 > `slotStoreService` on the collection, `bucketSlotStoreService` on the index.
 > Position reads and writes (`getBucketMemberSlotAt`, `getBucketMemberSlotPosition`, `insertBucketMemberSlotAt`,
 > `removeBucketMemberSlotAt`, `removeBucketMemberSlotRange`, `moveBucketMemberSlotToPosition`,
@@ -101,7 +101,7 @@ const createConnectionSchema = (db: OIMDB) => ({
 
 const createCardSchema = (db: OIMDB, connectionSchema: ReturnType<typeof createConnectionSchema>) => {
     const cards = createOIMEntitySlotCollectionStoreAggregate<TCard>(db);                 // keyed by string | number
-    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { keyOf: (card) => card.deck });   // or { columns: ['deck'] }
+    const byDeck = createOIMSlotCollectionIndexStoreAggregate(cards, { selectKey: (card) => card.deck });   // or { columns: ['deck'] }
     const byRankService = createOIMSortedComputedService({ indexService: byDeck.slotService, sortColumns: [{ columnName: 'rank', direction: 'asc' }] });
     const byRank = byRankService.createStoreAggregate(byRankService.createSortedStoreSlot(byDeck.storeSlot));
     const visibleSpadeCountService = createOIMSingleSourceTrackingComputedService<number>({
@@ -150,7 +150,7 @@ stop(); stopNamed();
 | `db.dispose()` | `(): void` | drops the database: `OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelSlot)`, so no later flush delivers, its effects stop and its release wheels are cancelled |
 | `createOIMEntitySlotCollectionStoreAggregate` | `<TEntity, TColumnName?>(db, options?)` | `writeSlotContentByKey(key, entity): slot`, `getSlotByKey`, `holdSlotByKey`, `peekSlotByKey`, `hasSlotContentByKey`, `getSlots`, `getSlotCount`, `getEntities()`, `getEntityCount()`, `writeInBatch(write)` |
 | `createOIMSingleSlotStoreAggregate` | `(db, { slotContentService, … })` | `writeSingleSlotContent(value)`, `getSingleSlot()`, `holdSingleSlot()`, `peekSingleSlot()`, `hasSingleSlotContent()`, `clearSingleSlotContent()` |
-| `createOIMSlotCollectionIndexStoreAggregate` | `(collection, { keyOf } \| { columns }, plus the index factory options)` | `getEntitiesByKey(key)` tracked; `getSlotByKey(key)`: the bucket slot (`getBucketMemberSlots()`, `getBucketMemberSlotCount()`); on the collection's db |
+| `createOIMSlotCollectionIndexStoreAggregate` | `(collection, { selectKey } \| { columns }, plus the index factory options)` | `getEntitiesByKey(key)` tracked; `getSlotByKey(key)`: the bucket slot (`getBucketMemberSlots()`, `getBucketMemberSlotCount()`); on the collection's db |
 | a computed's store aggregate | `service.createStoreAggregate(service.createStoreSlot(db))`; a sorted list: `sortedService.createStoreAggregate(sortedService.createSortedStoreSlot(index.storeSlot))` | read `getSingleSlot().value` / `getSlotByKey(key).value`; the slot goes when nothing holds it and the next read derives it again |
 
 A body's returned cleanup runs before its next run and on the disposer. A computed — anything with
@@ -995,9 +995,9 @@ effects still pending with no frame requested asks for one — so a frame aborte
 a throw is followed by a frame at the next write, under either policy. **A throw in
 one release of a sweep leaves the rest of that slice on the release clock**; the
 next sweep takes them, and the clock is re-armed even when the sweep threw. Code
-that maintains DERIVED state — an index's `keyOf`, an emptiness check — is not
+that maintains DERIVED state — an index's `selectKey`, an emptiness check — is not
 under the policy: a throw there leaves the state consistent and is thrown in
-either mode. **An index whose `keyOf` throws on an entity files that entity slot under no
+either mode. **An index whose `selectKey` throws on an entity files that entity slot under no
 key** — it leaves the bucket its old key named — and finishes the rest of the write
 or batch before it rethrows the first error; the entity stays in its store slot, and
 the next write the index accepts files it again. A NEW entity refused by a single
@@ -1162,7 +1162,7 @@ db.dispose();   // OIMChannelService.INSTANCE.dropChannelSlot(db.defaultChannelS
 - **Each door asks once, then writes through `writeWithoutFlushCheck`.** A content service
   door opens with `assertWritable`, which asks the channel, and every write it
   makes after that asks nothing. The per-entity ask is NOT
-  removable and stays — user code runs inside a door (`index.keyOf`,
+  removable and stays — user code runs inside a door (`index.selectKey`,
   `slotEmptinessPolicy.isEmpty`, an `IOIMEntityWriter`) and can call
   `flush()`, so each entity is a new question. What went is the SECOND and THIRD ask
   of the same entity.
@@ -1418,8 +1418,8 @@ once per collection type; the store slot is made separately:
 | `createOIMEntityContentService<TEntity, TKey?, TColumnName?>({ entityWriter?, slotEmptinessPolicy? }?)` | `OIMEntityContentService<TEntity, TKey, TColumnName>`, the entity content service; it creates keyed and single entity slots alike | — |
 | `createOIMSlotCollectionService({ slotContentService, slotStoreService?, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMWritableSlotCollectionService` over any keyed content service (entity or bucket): the read doors, `writeSlotContentByKey`, the batch doors and `columnSlotService`. `slotStoreService` defaults to a Map store and is REQUIRED by type for an array key (`OIMSlotTreeStoreService`) | `createStoreSlot(db)` |
 | `createOIMSingleSlotService({ slotContentService, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMWritableSingleSlotService` over any content service with `createSingleSlot` (entity or bucket) | `createStoreSlot(db)` |
-| `createOIMSlotCollectionIndexService({ entityService, columns? \| keyOf?, slotContentService?, bucketSlotStoreService?, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMSlotCollectionIndexService`, over the entity collection service whose store slots it will index (it takes a `Pick` of `getSlots`); `slotContentService` defaults to an `OIMPositionalArrayBucketContentService`, pass `new OIMSetBucketContentService()` for an unordered one. A scalar key is inferred from ONE inline column or from `keyOf`'s return; an array key (two or more columns, or an array-returning `keyOf`) needs `bucketSlotStoreService: new OIMSlotTreeStoreService(…)` | `createIndexStoreSlot(entityStoreSlot)` |
-| `createOIMSlotCollectionSortedArrayIndexService({ entityService, columns? \| keyOf?, sortColumns, … })` | `OIMSlotCollectionSortedArrayIndexService`: the index whose buckets are kept in the order of `sortColumns` (`readonly TOIMSortColumn<TEntity>[]`, required) through an `OIMSortedArrayBucketContentService`. See [Sorted at write](#sorted-at-write) | `createIndexStoreSlot(entityStoreSlot)` |
+| `createOIMSlotCollectionIndexService({ entityService, columns? \| selectKey?, slotContentService?, bucketSlotStoreService?, slotReleasePolicy?, slotSubscriptionListener?, columnSlotStoreService? \| columnNames? })` | `OIMSlotCollectionIndexService`, over the entity collection service whose store slots it will index (it takes a `Pick` of `getSlots`); `slotContentService` defaults to an `OIMPositionalArrayBucketContentService`, pass `new OIMSetBucketContentService()` for an unordered one. A scalar key is inferred from ONE inline column or from `selectKey`'s return; an array key (two or more columns, or an array-returning `selectKey`) needs `bucketSlotStoreService: new OIMSlotTreeStoreService(…)` | `createIndexStoreSlot(entityStoreSlot)` |
+| `createOIMSlotCollectionSortedArrayIndexService({ entityService, columns? \| selectKey?, sortColumns, … })` | `OIMSlotCollectionSortedArrayIndexService`: the index whose buckets are kept in the order of `sortColumns` (`readonly TOIMSortColumn<TEntity>[]`, required) through an `OIMSortedArrayBucketContentService`. See [Sorted at write](#sorted-at-write) | `createIndexStoreSlot(entityStoreSlot)` |
 | `createOIMComputedService({ createSources?, derive?, sameValueGuard?, initialValue?, slotReleasePolicy?, slotStoreService?, columnSlotStoreService?, columnNames? })` | `OIMComputedService<TKey, TValue, TComputedStore>`; its reads are on the service itself (it extends `OIMSlotCollectionService`); `derive` and `createSources` may instead be given per store slot; `slotStoreService` is REQUIRED for a non-Map store (a single: `OIMSingleSlotStoreService`); see [One derivation per key](#one-derivation-per-key) | `createStoreSlot(db, derive?, createSources?)` |
 | `createOIMSortedComputedService({ indexService, sortColumns?, comparator?, slotReleasePolicy?, columnSlotStoreService?, slotStoreService? })` | `OIMSortedComputedService` — per key, the entity slots of the index bucket under that key, sorted; see [Sorted lists](#sorted-lists) | `createSortedStoreSlot(indexStoreSlot)` |
 | `createOIMSortedCollectionSingleSlotStoreAggregate(entitySlotCollectionStoreAggregate, { sortColumns?, comparator? })` | an `OIMSingleSlotStoreAggregate` of a computed whose `value` is every entity slot of the collection, sorted; no index; see [A whole collection, sorted](#a-whole-collection-sorted) | — (it takes the collection's aggregate and runs on its channel slot) |
@@ -1453,7 +1453,7 @@ deckStoreAggregate.storeSlot;      // for hooks, indexes and computeds
 deckStoreAggregate.slotService;    // the service itself
 deckStoreAggregate.getEntities();  // [Ace], no index
 
-const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(deckStoreAggregate, { keyOf: (card) => card.deck });
+const byDeckStoreAggregate = createOIMSlotCollectionIndexStoreAggregate(deckStoreAggregate, { selectKey: (card) => card.deck });
 byDeckStoreAggregate.getEntitiesByKey('spades');   // [Ace]
 ```
 
@@ -1757,7 +1757,7 @@ cardService.writeSlotContentByKey(cards, 'c1', { id: 'c1', title: 'Ace', rank: 1
 ## Writing
 
 The keyed write is on the collection; every other write is on its content service, `service.slotContentService`,
-and takes the slot alone. There is no `keyOf`: the caller names the key. There are no bulk writes: a load is a
+and takes the slot alone. There is no `selectKey`: the caller names the key. There are no bulk writes: a load is a
 loop of single writes inside `service.writeInBatch(storeSlot, () => { … })`.
 
 | Call | Signature |
@@ -2376,7 +2376,7 @@ slot (`holdSingleSlot(storeSlot)`) for as long as you write into it, or name `OI
 ```ts signature
 createOIMSlotCollectionIndexService<TEntity, TSourceKey, TColumns?, TKey?, TSourceStore?, TSlots?, TSlotContentService?>({
     entityService: Pick<OIMSlotCollectionService<TSourceKey, TOIMEntitySlot<TEntity, TSourceKey>, TSourceStore, unknown>, 'getSlots'>;
-    ...TOIMIndexKeyOptions<TKey, TEntity, TColumns>;          // { columns } | { keyOf } | { keyOf, columns }
+    ...TOIMIndexKeyOptions<TKey, TEntity, TColumns>;          // { columns } | { selectKey } | { selectKey, columns }
     slotContentService?: OIMBucketContentService<TOIMEntitySlot<TEntity>, TSlots>;  // default: array-driven, no commands
     bucketSlotStoreService?: IOIMSlotStoreService<TKey, TOIMBucketSlot<TSlots, TKey>, TStore>; // REQUIRED for an array TKey
     slotReleasePolicy?: IOIMSlotReleasePolicy;
@@ -2422,7 +2422,7 @@ maintained on every write.
 ```ts
 const byDeckService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.deck,
+    selectKey: (card: Card) => card.deck,
 });
 const byDeck = byDeckService.createIndexStoreSlot(cards);
 
@@ -2447,19 +2447,19 @@ const bySuit = bySuitService.createIndexStoreSlot(cards);
   the entity services know nothing about indexes. Call `createIndexStoreSlot` twice over one entity
   store slot and it files into both. `entityService` is used only for its `getSlots`, to fill a new bucket
   from the source.
-- **The key comes from `columns`, `keyOf`, or both** — the same pair as the sorter's
+- **The key comes from `columns`, `selectKey`, or both** — the same pair as the sorter's
   `sortColumns` / `comparator` (`TOIMIndexKeyOptions`). `{ columns: ['deck'] }`: the key is
   the value of that ONE column, typed by `TOIMIndexKey<TEntity, TColumns>` from the
-  column itself. `{ keyOf }`: any function, read again on every write, because a
-  function does not say which columns it reads. `{ keyOf, columns }`: the columns are the
-  ones `keyOf` reads. With `columns`, a patch or put whose changed columns include none of
+  column itself. `{ selectKey }`: any function, read again on every write, because a
+  function does not say which columns it reads. `{ selectKey, columns }`: the columns are the
+  ones `selectKey` reads. With `columns`, a patch or put whose changed columns include none of
   them keeps the entity's key and calls nothing; a write of the whole value (a fill, a
   clear, `markEntityChanged(slot)` with no names) always reads the key again.
 - **A key of several columns**: `createOIMSlotCollectionIndexService({ entityService, columns: ['deck', 'suit'],
   bucketSlotStoreService: new OIMSlotTreeStoreService(OIMScalarKeyTreeWalk.INSTANCE) })` makes the key
   the array of those values in order, typed as a tuple. Only that store knows the key is an array (its
   `isSameKey`), so a fresh array with the same parts moves nothing. `createOIMSlotCollectionIndexService` takes a scalar key
-  unless it is handed a `bucketSlotStoreService`: two columns or an array `keyOf` without one do not compile.
+  unless it is handed a `bucketSlotStoreService`: two columns or an array `selectKey` without one do not compile.
   `getSlotsByKeys` / `holdSlotsByKeys` fill array-keyed buckets one pass over the
   source per key (the cost of `getSlotByKey` each); only a scalar key gets one pass for all.
 - **Entity slots are filed on write**, using the index's key. Writes inside `writeInBatch` on the collection
@@ -2469,7 +2469,7 @@ const bySuit = bySuitService.createIndexStoreSlot(cards);
   slot doors `getAnyBucketColumnSlotByKey`, `holdAnyBucketColumnSlotByKey`,
   `getBucketColumnSlotByKey`, `holdBucketColumnSlotByKey`; on a bucket slot, `slotContentService.getBucketMemberSlots`,
   `getBucketMemberSlotCount`, `hasBucketMemberSlot`; and `unholdColumnSlot` (below).
-  `getEntitiesByKey` resolves the bucket with `getSlotByKey`, so a key with no bucket MINTS one — one `keyOf`
+  `getEntitiesByKey` resolves the bucket with `getSlotByKey`, so a key with no bucket MINTS one — one `selectKey`
   walk over the source — and an empty unheld bucket is released at the flush, so reading an empty key every
   frame walks every frame. Hold a key you read repeatedly.
 - **The channel** is the index store slot's `channelSlot`, the source store slot's — what a
@@ -2513,7 +2513,7 @@ members' entities. A write to a member of another bucket does not wake it. The b
 show the two doors.
 
 ```ts
-const deckIndexService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deck });
+const deckIndexService = createOIMSlotCollectionIndexService({ entityService: cardService, selectKey: (card: Card) => card.deck });
 const deckIndex = deckIndexService.createIndexStoreSlot(cards);
 const spadesBucket = deckIndexService.holdSlotByKey(deckIndex, 'spades');
 const spadesAnyColumn = deckIndexService.holdAnyBucketColumnSlotByKey(deckIndex, 'spades');
@@ -2547,7 +2547,7 @@ its bucket columns; the counts behind them are private. `isOIMAnyAddedColumnRead
 util, says whether a write's changed columns hit one of the added reads. Removing the listener gives back its declared and its added columns.
 **Which columns a listener reads** is declared when it is added: `readColumnNames` lists them, and
 `undefined` means every column. Removing the listener gives its columns back. An
-index store slot declares its key `columns` (all columns when the key is an opaque `keyOf`), and
+index store slot declares its key `columns` (all columns when the key is an opaque `selectKey`), and
 adds each column its bucket column slots watch, and all columns once a bucket any-column slot was
 asked for. Column slots on entities are not in it: a write finds them on the entity
 itself. A write whose changed columns no listener reads costs one `Map.has` per name:
@@ -2580,7 +2580,7 @@ return the same kind of slot, written when any column of any member changes. A g
 `slot.unholdSlot()`.
 
 ```ts
-const decksService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deck });
+const decksService = createOIMSlotCollectionIndexService({ entityService: cardService, selectKey: (card: Card) => card.deck });
 const decks = decksService.createIndexStoreSlot(cards);
 const rankOfSpades = decksService.holdBucketColumnSlotByKey(decks, 'spades', 'rank');
 effectService.disposeEffect(effectService.createEffect(db, () => {}, [rankOfSpades]));
@@ -2637,7 +2637,7 @@ slots sorted. A hold is given back with `slot.unholdSlot()`.
   ```ts
   const cardsInDeckService = createOIMSlotCollectionIndexService({
       entityService: cardService,
-      keyOf: (card: Card) => card.deck,
+      selectKey: (card: Card) => card.deck,
   });
   createOIMSortedComputedService({
       indexService: cardsInDeckService,
@@ -2654,7 +2654,7 @@ SECOND array of `createEffect`. A re-sort that yields the same sequence
 (`isOIMSameSlotSequence`) keeps the previous array, so its identity is stable.
 
 ```ts
-const decksService = createOIMSlotCollectionIndexService({ entityService: cardService, keyOf: (card: Card) => card.deck });
+const decksService = createOIMSlotCollectionIndexService({ entityService: cardService, selectKey: (card: Card) => card.deck });
 const decks = decksService.createIndexStoreSlot(cards);
 const byRankInDeckService = createOIMSortedComputedService({
     indexService: decksService,

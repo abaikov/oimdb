@@ -9,7 +9,7 @@ export default function IndexDiagram(): ReactNode {
       <div className={styles.flow}>
         <DiagramNode title="Entity collection" note={<><code>writeSlotContentByKey</code>, <code>updateEntity</code>, <code>clearSlotContent</code></>} />
         <DiagramArrow />
-        <DiagramNode tone="accent" title="Index" note={<><code>keyOf</code> or <code>columns</code> gives each entity its key; a write that moves the key refiles it</>} />
+        <DiagramNode tone="accent" title="Index" note={<><code>selectKey</code> or <code>columns</code> gives each entity its key; a write that moves the key refiles it</>} />
         <DiagramArrow />
         <div className={styles.flowColumn}>
           <DiagramNode tone="gold" title={<>bucket <code>'todo'</code></>} note="the entity slots with that key" />

@@ -41,7 +41,7 @@ declare const render: (card: Card | undefined) => void;
 
 | You have | Build | Why not the others |
 |---|---|---|
-| many entities of one type, each with its own key, and readers who must be woken | `createOIMSlotCollectionService({ keyOf })`, or the base layer by hand, then `createStoreSlot(db)` per collection | — |
+| many entities of one type, each with its own key, and readers who must be woken | `createOIMSlotCollectionService({ selectKey })`, or the base layer by hand, then `createStoreSlot(db)` per collection | — |
 | one record with no key — settings, a session | `createOIMSingleSlotService()`, its `createStoreSlot(db)` and an `writeSlotContentByKey` | a collection would make you invent a key and a store for one value — see [Standalone records](/docs/core/object) |
 | a value computed from entities | a computed — see [Computed and effects](/docs/core/computed-effects) | an entity is written by you; a computed is written only by its derive |
 | "which entities belong to group X" | an index or a bucket collection — see [Indexes](/docs/core/oimindex) and [Buckets](/docs/core/indexes) | a collection keeps no membership list of its own |
@@ -80,7 +80,7 @@ path branches on it:
 
 | Option of `createOIMEntityContentService` | Default when left out | What it decides |
 |---|---|---|
-| `keyOf` | required for a key; left out for a single | how a key comes out of an entity |
+| `selectKey` | required for a key; left out for a single | how a key comes out of an entity |
 | `slotStoreService` | a Map store; required for any other store, and for a single (`OIMSingleSlotStoreService.INSTANCE`) | how identities are filed in a store slot |
 | `entityWriter` | `defaults.entityWriter`, then the in-place writer | how a write lands on the stored object — see [The two writers](/docs/core/writing#the-two-writers) |
 | `columnSlotStoreService` | a shared map-driven store | where column slots live — see [Column slots](#column-slots) |
@@ -122,7 +122,7 @@ service: `OIMWritableSlotCollectionStoreAggregate` the read, batch and `writeSlo
 `OIMWritableSingleSlotStoreAggregate` the single's read methods, `writeSingleSlotContent` and
 `clearSingleSlotContent`, and `OIMSlotCollectionIndexStoreAggregate` (from an index service's
 `createStoreAggregate(indexStoreSlot)`, or in one call from
-`createOIMSlotCollectionIndexStoreAggregate(handStoreAggregate, { keyOf })`) the index reads as well. That factory takes the
+`createOIMSlotCollectionIndexStoreAggregate(handStoreAggregate, { selectKey })`) the index reads as well. That factory takes the
 options of `createOIMSlotCollectionIndexService` minus `entityService`, with the default bucket store; a sorted-array
 index or a custom bucket store goes through its service. A method that takes a slot, such as
 `updateEntity`, stays on its service. The one-call factories build a new service each time; for many
@@ -638,7 +638,7 @@ index keyed on the entity's own id:
 ```typescript
 const byIdService = createOIMSlotCollectionIndexService({
     entityService: cardService,
-    keyOf: (card: Card) => card.id,
+    selectKey: (card: Card) => card.id,
 });
 const byId = byIdService.createIndexStoreSlot(cards);
 

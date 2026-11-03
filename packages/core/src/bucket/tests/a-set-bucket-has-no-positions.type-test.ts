@@ -23,7 +23,7 @@ export function aSetBucketIsAskedForNoPosition(): void {
         TOIMBucketSlotsSetStore<TCardSlot>, OIMSetBucketContentService<TCardSlot, string>
     >({
         entityService: cardsService,
-        keyOf: (entity: TCard) => entity.deck,
+        selectKey: (entity: TCard) => entity.deck,
         slotContentService: new OIMSetBucketContentService<TCardSlot, string>(),
     });
     const byDeck = byDeckService.createIndexStoreSlot(cards);

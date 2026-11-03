@@ -271,7 +271,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             'files every row it can see into a bucket the moment the bucket is minted ' +
             '(`OIMSlotCollectionIndexService`\'s source-slot collection, through `collectBucketMemberSlotsForKey`), so a ' +
             '`holdSlotsByKeys` over all sixty-four groups is one walk of the thousand rows, one ' +
-            '`keyOf` per row, one index-key write per row and one hold per row. No figure recorded ' +
+            '`selectKey` per row, one index-key write per row and one hold per row. No figure recorded ' +
             'under the old id attaches to this one. ' +
             'THE INDEX SERVICE IS BUILT ONCE OUTSIDE THE CLOCK, so the type is not in this number: ' +
             '`new-index-service.vs-new-map-of-sets` prices `createOIMSlotCollectionIndexService` on its own. ' +
@@ -296,7 +296,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
             const indexService = createOIMSlotCollectionIndexService({
                 entityService,
                 slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-                keyOf: (row: TPriceDataRow) => row.group,
+                selectKey: (row: TPriceDataRow) => row.group,
             });
             const probeIndexStoreSlot = indexService.createIndexStoreSlot(entityStoreSlot);
             const probeBuckets = indexService.holdSlotsByKeys(probeIndexStoreSlot, names);
@@ -358,7 +358,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
     {
         id: 'new-index-service.vs-new-map-of-sets',
         path: EPricePath.PerDeclaration,
-        ours: 'createOIMSlotCollectionIndexService({ entityService, slotContentService: new OIMSetBucketContentService(), keyOf: row => row.group })',
+        ours: 'createOIMSlotCollectionIndexService({ entityService, slotContentService: new OIMSetBucketContentService(), selectKey: row => row.group })',
         floor: 'new Map() of Sets, empty',
         caveat:
             'THE INDEX TYPE ALONE: no store slot is made, so no listener is installed and no row is ' +
@@ -379,7 +379,7 @@ export const pricePairsDeclare: readonly TPricePair[] = [
                             priceSink.ours = createOIMSlotCollectionIndexService({
                                 entityService,
                                 slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TPriceDataRow>>(),
-                                keyOf: (row: TPriceDataRow) => row.group,
+                                selectKey: (row: TPriceDataRow) => row.group,
                             });
                         }
                     },

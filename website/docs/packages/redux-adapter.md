@@ -287,7 +287,7 @@ const roleReducer = adapter.createCollectionReducer<TUser, string, UsersState>(u
     }
     return state;
   },
-  keyOf: (entity) => entity.id,
+  selectKey: (entity) => entity.id,
 });
 ```
 
@@ -321,14 +321,14 @@ works.
 
 `OIMReduxLinkedIndexesUpdater<TEntity>` is exported for anyone driving that
 directly. Its constructor takes one **required** argument,
-`keyOf: (entity: TEntity) => TOIMStoreKey`, and its two methods are
+`selectKey: (entity: TEntity) => TOIMStoreKey`, and its two methods are
 `updateLinkedIndexesForEntities(linkedIndexes, updatedEntities)` and
 `removeLinkedIndexesByKeys(linkedIndexes, removedPks)`. A write that changes nothing in a bucket
 wakes nobody.
 
 The update method takes entities, not Redux record keys: those keys are strings even for a
-numerically keyed population, and `'1'` would name a different bucket than `1`. `keyOf` reads the
-real key off each entity; it is the same `keyOf` the child-reducer options declare, defaulted to `.id`.
+numerically keyed population, and `'1'` would name a different bucket than `1`. `selectKey` reads the
+real key off each entity; it is the same `selectKey` the child-reducer options declare, defaulted to `.id`.
 
 ### What each child option does
 
@@ -340,14 +340,14 @@ Redux keeps.
 
 | Reducer factory | Child options type | Fields |
 |---|---|---|
-| `createCollectionReducer` | `TOIMReduxCollectionReducerChildOptions` | `reducer`; `extractEntities?(prevState, nextState, entityService, entityStoreSlot, keyOf)`; `keyOf?` (default reads `.id`, and throws if the entity has none); `linkedIndexes?` |
+| `createCollectionReducer` | `TOIMReduxCollectionReducerChildOptions` | `reducer`; `extractEntities?(prevState, nextState, entityService, entityStoreSlot, selectKey)`; `selectKey?` (default reads `.id`, and throws if the entity has none); `linkedIndexes?` |
 | `createKeyedIndexReducer` | `TOIMReduxIndexReducerChildOptions` | `reducer`; `extractIndexState?(prevState, nextState, keyedIndex)` |
 | `createGlobalIndexReducer` | `TOIMReduxGlobalIndexReducerChildOptions` | `reducer`; `extractGlobalIndexState?(prevState, nextState, globalIndex)` |
 
 The default sync-backs, read off `OIMReduxReducerFactory`:
 
 - **Collection.** Diffs the live store slot against `nextState.entities`, calls
-  `entityService.writeSlotContentByKey(entityStoreSlot, keyOf(entity), entity)` for what was added or changed (by
+  `entityService.writeSlotContentByKey(entityStoreSlot, selectKey(entity), entity)` for what was added or changed (by
   reference), and `slot.clearSlotContent()` for every live entity slot whose key is no
   longer in `nextState.entities`, each inside `writeInBatch`. It runs only when the state has both `entities` and `ids`.
 - **Keyed index.** For every entry of `nextState.entities`, writes the bucket
@@ -397,7 +397,7 @@ const diff = diffOIMEntityKeys(before, after);
   that is what a plain record's keys are. Do not hand those strings to the engine
   as keys: for a numerically keyed population `'1'` names a different address
   than `1`. Turn them back into entities and read the key off the entity with
-  `keyOf`, which is what the adapter itself does.
+  `selectKey`, which is what the adapter itself does.
 
 ## Action and state types
 

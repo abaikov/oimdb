@@ -18,7 +18,7 @@ function setUp() {
     const cards = cardsService.createStoreSlot(db);
     const byDeckService = createOIMSlotCollectionIndexService({ defaults,
         entityService: cardsService,
-        keyOf: (card: TCard) => card.deck,
+        selectKey: (card: TCard) => card.deck,
         slotContentService: new OIMSetBucketContentService<TCardSlot>(),
     });
     return { db, cards, cardsService, byDeckService };

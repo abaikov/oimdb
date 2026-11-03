@@ -174,7 +174,7 @@ describe('an index order whose comparator reads another order', () => {
         const cards = cardsService.createStoreSlot(db);
         const cardIndexService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: (card: TCard) => card.deckId,
+            selectKey: (card: TCard) => card.deckId,
         });
         const cardIndex = cardIndexService.createIndexStoreSlot(cards);
         const cardIndexOrdersService = createOIMSortedComputedService({
@@ -195,7 +195,7 @@ describe('an index order whose comparator reads another order', () => {
         const decks = decksService.createStoreSlot(db);
         const deckIndexService = createOIMSlotCollectionIndexService({
             entityService: decksService,
-            keyOf: () => 'all',
+            selectKey: () => 'all',
         });
         const deckIndex = deckIndexService.createIndexStoreSlot(decks);
         const deckIndexOrdersService = createOIMSortedComputedService({
@@ -309,7 +309,7 @@ describe('what the index maintenance leaves in its bucket', () => {
         const { collectionService: cardsService, collection: cards, updateEntityByKey } = collectionOf<TCard>(db);
         const byDeckService = createOIMSlotCollectionIndexService({
             entityService: cardsService,
-            keyOf: (card: TCard) => card.deck,
+            selectKey: (card: TCard) => card.deck,
             slotContentService: new OIMSetBucketContentService<TOIMEntitySlot<TCard>>(),
         });
         const byDeck = byDeckService.createIndexStoreSlot(cards);
